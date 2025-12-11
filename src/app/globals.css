@@ -1,26 +1,157 @@
 @import "tailwindcss";
 
+/* Design System Variables - Based on DESIGN_GUIDE.md */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand Colors */
+  --color-primary: #FFEC1A;
+  --color-primary-hover: #FFE500;
+  --color-secondary: #1D5B63;
+  --color-secondary-hover: #174951;
+  --color-accent: #FFD700;
+
+  /* Neutral Colors */
+  --color-neutral-dark: #333333;
+  --color-neutral-medium: #777777;
+  --color-neutral-light: #F7F7F7;
+  --color-neutral-white: #FFFFFF;
+
+  /* Background Colors - Very light/diffused versions */
+  --color-bg-green-light: #F0F5F5;
+  --color-bg-yellow-light: #FFFDF0;
+
+  /* Status Colors */
+  --color-success: #25A563;
+  --color-warning: #FDBA2D;
+  --color-error: #E54545;
+
+  /* Background and Foreground */
+  --background: #FFFFFF;
+  --foreground: #333333;
 }
 
 @theme inline {
+  /* Colors */
+  --color-primary: #FFEC1A;
+  --color-primary-hover: #FFE500;
+  --color-secondary: #1D5B63;
+  --color-secondary-hover: #174951;
+  --color-accent: #FFD700;
+
+  --color-neutral-dark: #333333;
+  --color-neutral-medium: #777777;
+  --color-neutral-light: #F7F7F7;
+  --color-neutral-white: #FFFFFF;
+
+  --color-success: #25A563;
+  --color-warning: #FDBA2D;
+  --color-error: #E54545;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bg-green-light: #F0F5F5;
+  --color-bg-yellow-light: #FFFDF0;
+
+  /* Spacing Scale - 8px base unit */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* Border Radius */
+  --radius-small: 6px;
+  --radius-medium: 10px;
+  --radius-large: 16px;
+  --radius-pill: 999px;
+
+  /* Box Shadows */
+  --shadow-light: 0px 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-medium: 0px 4px 14px rgba(0, 0, 0, 0.10);
+
+  /* Typography Scale */
+  --font-size-h1: 2.3rem;
+  --font-size-h2: 1.9rem;
+  --font-size-h3: 1.5rem;
+  --font-size-body: 1rem;
+  --font-size-small: 0.875rem;
+  --font-size-micro: 0.75rem;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus styles for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
+}
+
+/* Two-Column Layout - Zocdoc Style */
+.profile-layout-container {
+  display: block; /* Single column on mobile */
+  width: 100%;
+}
+
+.profile-left-column {
+  width: 100%;
+}
+
+.profile-right-column {
+  width: 100%;
+}
+
+/* Desktop: Side-by-Side Layout */
+@media (min-width: 1024px) {
+  .profile-layout-container {
+    display: grid;
+    grid-template-columns: 1fr 400px; /* Left: flexible, Right: 400px fixed */
+    gap: 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  .profile-left-column {
+    grid-column: 1;
+    min-width: 0; /* Prevent grid blowout */
+  }
+
+  .profile-right-column {
+    grid-column: 2;
+    position: sticky;
+    top: 32px; /* Stick 32px from top when scrolling */
+    align-self: start;
+    max-height: calc(100vh - 64px); /* Leave space at top/bottom */
+    overflow-y: auto; /* Allow scrolling if calendar is tall */
+  }
+}
+
+/* Extra large screens: More space between columns */
+@media (min-width: 1440px) {
+  .profile-layout-container {
+    gap: 48px;
+    max-width: 1600px;
+  }
+}
+
+/* Hide scrollbar for quick nav */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

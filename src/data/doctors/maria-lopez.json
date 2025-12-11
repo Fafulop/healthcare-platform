@@ -1,0 +1,215 @@
+{
+  "slug": "maria-lopez",
+  "doctor_full_name": "Dr. María López Hernández",
+  "last_name": "López",
+  "primary_specialty": "Dermatologist",
+  "subspecialties": ["Cosmetic Dermatology", "Laser Treatments", "Anti-Aging"],
+  "cedula_profesional": "987654321",
+  "hero_image": "/images/doctors/sample/hero.jpg",
+  "location_summary": "Guadalajara, Jalisco",
+  "city": "Guadalajara",
+
+  "services_list": [
+    {
+      "service_name": "General Consultation",
+      "short_description": "Complete dermatological evaluation and personalized treatment plan",
+      "duration_minutes": 30,
+      "price": 40
+    },
+    {
+      "service_name": "Botox Treatment",
+      "short_description": "Facial wrinkle reduction with botulinum toxin injections",
+      "duration_minutes": 45,
+      "price": 120
+    },
+    {
+      "service_name": "Acne Treatment",
+      "short_description": "Comprehensive acne management including medication and procedural treatments",
+      "duration_minutes": 30,
+      "price": 50
+    },
+    {
+      "service_name": "Chemical Peel",
+      "short_description": "Skin renewal treatment for improved texture and tone",
+      "duration_minutes": 60,
+      "price": 80
+    },
+    {
+      "service_name": "Laser Hair Removal",
+      "short_description": "Permanent hair reduction using advanced laser technology",
+      "duration_minutes": 45,
+      "price": 60
+    }
+  ],
+
+  "conditions": [
+    "Acne and Acne Scars",
+    "Eczema and Atopic Dermatitis",
+    "Psoriasis",
+    "Rosacea",
+    "Melasma and Hyperpigmentation",
+    "Skin Cancer Screening",
+    "Hair Loss (Alopecia)",
+    "Nail Disorders",
+    "Age Spots and Sun Damage",
+    "Warts and Skin Lesions"
+  ],
+
+  "procedures": [
+    "Botox and Dermal Fillers",
+    "Chemical Peels",
+    "Microdermabrasion",
+    "Laser Skin Resurfacing",
+    "IPL Photofacial",
+    "Cryotherapy",
+    "Mole and Lesion Removal",
+    "Platelet-Rich Plasma (PRP) Therapy",
+    "Microneedling",
+    "Tattoo Removal"
+  ],
+
+  "next_available_date": "2025-12-15",
+  "appointment_modes": ["in_person", "teleconsult"],
+
+  "carousel_items": [
+    {
+      "type": "image",
+      "src": "/images/doctors/sample/clinic-1.jpg",
+      "alt": "Modern dermatology clinic reception area",
+      "caption": "Our welcoming reception area"
+    },
+    {
+      "type": "image",
+      "src": "/images/doctors/sample/clinic-2.jpg",
+      "alt": "Advanced laser treatment room",
+      "caption": "State-of-the-art treatment rooms"
+    },
+    {
+      "type": "image",
+      "src": "/images/doctors/sample/clinic-3.jpg",
+      "alt": "Comfortable waiting room with natural lighting",
+      "caption": "Comfortable waiting area"
+    },
+    {
+      "type": "image",
+      "src": "/images/doctors/sample/clinic-4.jpg",
+      "alt": "Professional consultation room",
+      "caption": "Private consultation rooms"
+    }
+  ],
+
+  "short_bio": "Dr. María López is a board-certified dermatologist with over 12 years of experience specializing in medical and cosmetic dermatology. She is passionate about helping patients achieve healthy, beautiful skin through evidence-based treatments and personalized care. Dr. López stays at the forefront of dermatological advances by regularly attending international conferences and incorporating the latest technologies into her practice.",
+
+  "long_bio": "After completing her medical degree at the Universidad de Guadalajara, Dr. López pursued specialized training in dermatology at the prestigious Hospital Civil de Guadalajara. She further refined her skills in cosmetic dermatology through advanced training programs in the United States and Europe. Dr. López is committed to providing comprehensive care that addresses both the medical and aesthetic concerns of her patients. She believes in educating patients about their skin conditions and working collaboratively to develop effective treatment plans. Outside of her practice, Dr. López volunteers at community health clinics providing dermatological care to underserved populations.",
+
+  "years_experience": 12,
+
+  "education_items": [
+    {
+      "institution": "Universidad de Guadalajara",
+      "program": "Doctor of Medicine (MD)",
+      "year": "2008",
+      "notes": "Graduated with honors"
+    },
+    {
+      "institution": "Hospital Civil de Guadalajara",
+      "program": "Dermatology Residency",
+      "year": "2012",
+      "notes": "Chief Resident 2011-2012"
+    },
+    {
+      "institution": "American Academy of Dermatology",
+      "program": "Cosmetic Dermatology Fellowship",
+      "year": "2013",
+      "notes": "Advanced training in laser and injectable treatments"
+    },
+    {
+      "institution": "International Society of Dermatology",
+      "program": "Continuing Medical Education",
+      "year": "2020",
+      "notes": "Certified in Advanced Laser Techniques"
+    }
+  ],
+
+  "certificate_images": [
+    {
+      "src": "/images/doctors/sample/certificate-1.jpg",
+      "alt": "Medical degree from Universidad de Guadalajara",
+      "issued_by": "Universidad de Guadalajara",
+      "year": "2008"
+    },
+    {
+      "src": "/images/doctors/sample/certificate-2.jpg",
+      "alt": "Dermatology specialty certification",
+      "issued_by": "Mexican Council of Dermatology",
+      "year": "2012"
+    },
+    {
+      "src": "/images/doctors/sample/certificate-3.jpg",
+      "alt": "Cosmetic dermatology fellowship certificate",
+      "issued_by": "American Academy of Dermatology",
+      "year": "2013"
+    },
+    {
+      "src": "/images/doctors/sample/certificate-4.jpg",
+      "alt": "Laser treatment certification",
+      "issued_by": "International Society of Dermatology",
+      "year": "2020"
+    }
+  ],
+
+  "clinic_info": {
+    "address": "Av. Américas 1500, Colonia Providencia, Guadalajara, Jalisco 44630, Mexico",
+    "phone": "+52 33 1234 5678",
+    "whatsapp": "+52 33 1234 5678",
+    "hours": {
+      "monday": "9:00 AM - 6:00 PM",
+      "tuesday": "9:00 AM - 6:00 PM",
+      "wednesday": "9:00 AM - 6:00 PM",
+      "thursday": "9:00 AM - 6:00 PM",
+      "friday": "9:00 AM - 5:00 PM",
+      "saturday": "9:00 AM - 1:00 PM",
+      "sunday": "Closed"
+    },
+    "geo": {
+      "lat": 20.6736,
+      "lng": -103.3954
+    }
+  },
+
+  "faqs": [
+    {
+      "question": "Do you accept insurance?",
+      "answer": "Yes, we accept most major insurance plans. Please contact our office with your insurance information to verify coverage before your appointment."
+    },
+    {
+      "question": "What should I bring to my first appointment?",
+      "answer": "Please bring a valid ID, your insurance card (if applicable), a list of current medications, and any relevant medical records or previous test results. Arrive 15 minutes early to complete paperwork."
+    },
+    {
+      "question": "Do you offer virtual consultations?",
+      "answer": "Yes, we offer teleconsultations for initial evaluations and follow-up appointments. Virtual visits are convenient and can address many dermatological concerns remotely."
+    },
+    {
+      "question": "How much does a consultation cost?",
+      "answer": "A general consultation is $40. This fee may be applied toward treatment if you proceed with services on the same day. We also offer package pricing for multiple treatments."
+    },
+    {
+      "question": "What is your cancellation policy?",
+      "answer": "We require at least 24 hours notice for cancellations or rescheduling. Late cancellations or no-shows may incur a fee."
+    },
+    {
+      "question": "Are cosmetic treatments safe?",
+      "answer": "All our cosmetic treatments are performed using FDA-approved products and techniques. Dr. López will discuss potential risks and benefits during your consultation and ensure you're a good candidate for any procedure."
+    },
+    {
+      "question": "How long do Botox results last?",
+      "answer": "Botox results typically last 3-4 months. Individual results may vary based on factors like metabolism, muscle activity, and the treated area. We recommend maintenance treatments to sustain optimal results."
+    }
+  ],
+
+  "social_links": {
+    "linkedin": "https://www.linkedin.com/in/marialopezdermatologist",
+    "twitter": "https://twitter.com/dramarialopez"
+  }
+}

@@ -1,63 +1,66 @@
-import Image from "next/image";
+import Link from 'next/link';
+import { Stethoscope } from 'lucide-react';
+import Button from '@/components/ui/Button';
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)]">
+      <main className="max-w-4xl px-6 py-16 text-center">
+        {/* Logo/Icon */}
+        <div className="flex justify-center mb-8">
+          <div className="w-20 h-20 bg-[var(--color-secondary)] rounded-full flex items-center justify-center">
+            <Stethoscope className="w-10 h-10 text-white" />
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Heading */}
+        <h1 className="text-5xl font-bold text-[var(--color-neutral-dark)] mb-6">
+          Doctor Profile Platform
+        </h1>
+
+        {/* Description */}
+        <p className="text-xl text-[var(--color-neutral-medium)] mb-8 max-w-2xl mx-auto">
+          A complete doctor profile page implementation following SEO best practices and modern design principles.
+        </p>
+
+        {/* Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 text-left">
+          <div className="bg-white p-6 rounded-[var(--radius-medium)] shadow-[var(--shadow-light)]">
+            <h3 className="font-semibold text-lg mb-2 text-[var(--color-secondary)]">SEO Optimized</h3>
+            <p className="text-[var(--color-neutral-medium)] text-sm">
+              Server-side rendering, structured data, and optimized meta tags for maximum search visibility.
+            </p>
+          </div>
+          <div className="bg-white p-6 rounded-[var(--radius-medium)] shadow-[var(--shadow-light)]">
+            <h3 className="font-semibold text-lg mb-2 text-[var(--color-secondary)]">Modern Design</h3>
+            <p className="text-[var(--color-neutral-medium)] text-sm">
+              Clean, professional interface inspired by Zocdoc and One Medical with accessibility in mind.
+            </p>
+          </div>
+          <div className="bg-white p-6 rounded-[var(--radius-medium)] shadow-[var(--shadow-light)]">
+            <h3 className="font-semibold text-lg mb-2 text-[var(--color-secondary)]">High Performance</h3>
+            <p className="text-[var(--color-neutral-medium)] text-sm">
+              Lazy loading, dynamic imports, and image optimization for fast load times and great UX.
+            </p>
+          </div>
+        </div>
+
+        {/* CTA Button */}
+        <Link href="/doctors/maria-lopez">
+          <Button variant="primary" size="lg">
+            View Sample Doctor Profile
+          </Button>
+        </Link>
+
+        {/* Documentation Links */}
+        <div className="mt-12 flex flex-wrap gap-4 justify-center">
+          <Link href="/SEO_GUIDE.md" className="text-[var(--color-secondary)] hover:underline font-medium">
+            SEO Guide
+          </Link>
+          <span className="text-[var(--color-neutral-medium)]">•</span>
+          <Link href="/DESIGN_GUIDE.md" className="text-[var(--color-secondary)] hover:underline font-medium">
+            Design Guide
+          </Link>
         </div>
       </main>
     </div>
