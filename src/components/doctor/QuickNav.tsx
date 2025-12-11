@@ -70,7 +70,7 @@ export default function QuickNav() {
   };
 
   return (
-    <div className="bg-white border-y border-[var(--color-neutral-light)] sticky top-0 z-50 shadow-sm">
+    <div className="bg-white border-y border-[var(--color-neutral-light)] sticky top-0 z-30 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-3 relative">
         {/* Left Arrow */}
         <button

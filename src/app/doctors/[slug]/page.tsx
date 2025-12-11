@@ -12,6 +12,7 @@ import CredentialsSection from '@/components/doctor/CredentialsSection';
 import ClinicLocationSection from '@/components/doctor/ClinicLocationSection';
 import FAQSection from '@/components/doctor/FAQSection';
 import QuickNav from '@/components/doctor/QuickNav';
+import StickyMobileCTA from '@/components/doctor/StickyMobileCTA';
 
 // Import client-side components via wrapper
 import { DynamicAppointmentCalendar, DynamicMediaCarousel } from '@/components/doctor/DynamicSections';
@@ -29,7 +30,7 @@ export default async function DoctorProfilePage({ params }: DoctorProfilePagePro
   }
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen pb-16 md:pb-0">
       {/* Two-Column Layout Container - Starts from top (Desktop) */}
       <div className="profile-layout-container">
         {/* LEFT COLUMN - Main Content (SEO Priority Order) */}
@@ -84,6 +85,9 @@ export default async function DoctorProfilePage({ params }: DoctorProfilePagePro
           />
         </aside>
       </div>
+
+      {/* Sticky Mobile CTA - Bottom action bar (Mobile Only) */}
+      <StickyMobileCTA />
     </main>
   );
 }

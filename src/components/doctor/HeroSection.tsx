@@ -1,7 +1,7 @@
 // Hero Section - Only H1 on page, SEO anchor
 import React from 'react';
 import Image from 'next/image';
-import { Phone, MapPin, MessageCircle } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import type { DoctorProfile } from '@/types/doctor';
@@ -67,21 +67,14 @@ export default function HeroSection({ doctor }: HeroSectionProps) {
               </p>
             )}
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-              <Button variant="primary" size="lg">
+            {/* CTA Buttons - Hidden on mobile (sticky bar at bottom instead) */}
+            <div className="hidden md:flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+              <Button variant="primary" size="lg" className="sm:min-w-[240px]">
                 Book Appointment
               </Button>
-              <Button variant="secondary" size="lg">
-                <Phone className="w-5 h-5 mr-2" />
-                Call Now
+              <Button variant="secondary" size="lg" className="sm:min-w-[240px]">
+                Manda mensaje al doctor
               </Button>
-              {doctor.clinic_info.whatsapp && (
-                <Button variant="tertiary" size="lg">
-                  <MessageCircle className="w-5 h-5 mr-2" />
-                  WhatsApp
-                </Button>
-              )}
             </div>
           </div>
         </div>
