@@ -70,10 +70,10 @@ export default function HeroSection({ doctor }: HeroSectionProps) {
             {/* CTA Buttons - Hidden on mobile (sticky bar at bottom instead) */}
             <div className="hidden md:flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
               <Button variant="primary" size="lg" className="sm:min-w-[240px]">
-                Book Appointment
+                Agendar Cita
               </Button>
               <Button variant="secondary" size="lg" className="sm:min-w-[240px]">
-                Manda mensaje al doctor
+                Enviar Mensaje
               </Button>
             </div>
           </div>

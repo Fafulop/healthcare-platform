@@ -33,7 +33,7 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
     <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
       <div className="max-w-5xl mx-auto px-4">
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
-          Clinic Gallery
+          Galería de la Clínica
         </h2>
 
         {/* Carousel Container */}
@@ -63,7 +63,7 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
                   <button
                     className="w-16 h-16 rounded-full bg-white flex items-center justify-center hover:bg-[var(--color-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-                    aria-label="Play video"
+                    aria-label="Reproducir video"
                   >
                     <Play className="w-8 h-8 text-[var(--color-secondary)]" />
                   </button>
@@ -77,14 +77,14 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
                 <button
                   onClick={goToPrevious}
                   className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white bg-opacity-90 hover:bg-opacity-100 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)]"
-                  aria-label="Previous image"
+                  aria-label="Imagen anterior"
                 >
                   <ChevronLeft className="w-6 h-6 text-[var(--color-secondary)]" />
                 </button>
                 <button
                   onClick={goToNext}
                   className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white bg-opacity-90 hover:bg-opacity-100 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)]"
-                  aria-label="Next image"
+                  aria-label="Siguiente imagen"
                 >
                   <ChevronRight className="w-6 h-6 text-[var(--color-secondary)]" />
                 </button>
@@ -113,7 +113,7 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
                       ? 'bg-[var(--color-primary)] w-8'
                       : 'bg-[var(--color-neutral-medium)]'
                   }`}
-                  aria-label={`Go to slide ${index + 1}`}
+                  aria-label={`Ir a la diapositiva ${index + 1}`}
                 />
               ))}
             </div>

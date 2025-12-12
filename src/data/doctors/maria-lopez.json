@@ -1,9 +1,9 @@
 {
   "slug": "maria-lopez",
-  "doctor_full_name": "Dr. María López Hernández",
+  "doctor_full_name": "Dra. María López Hernández",
   "last_name": "López",
-  "primary_specialty": "Dermatologist",
-  "subspecialties": ["Cosmetic Dermatology", "Laser Treatments", "Anti-Aging"],
+  "primary_specialty": "Dermatóloga",
+  "subspecialties": ["Dermatología Cosmética", "Tratamientos Láser", "Anti-Envejecimiento"],
   "cedula_profesional": "987654321",
   "hero_image": "/images/doctors/sample/hero.jpg",
   "location_summary": "Guadalajara, Jalisco",
@@ -11,61 +11,61 @@
 
   "services_list": [
     {
-      "service_name": "General Consultation",
-      "short_description": "Complete dermatological evaluation and personalized treatment plan",
+      "service_name": "Consulta General",
+      "short_description": "Evaluación dermatológica completa y plan de tratamiento personalizado",
       "duration_minutes": 30,
       "price": 40
     },
     {
-      "service_name": "Botox Treatment",
-      "short_description": "Facial wrinkle reduction with botulinum toxin injections",
+      "service_name": "Tratamiento con Botox",
+      "short_description": "Reducción de arrugas faciales con inyecciones de toxina botulínica",
       "duration_minutes": 45,
       "price": 120
     },
     {
-      "service_name": "Acne Treatment",
-      "short_description": "Comprehensive acne management including medication and procedural treatments",
+      "service_name": "Tratamiento para el Acné",
+      "short_description": "Manejo integral del acné incluyendo medicamentos y tratamientos procedimentales",
       "duration_minutes": 30,
       "price": 50
     },
     {
-      "service_name": "Chemical Peel",
-      "short_description": "Skin renewal treatment for improved texture and tone",
+      "service_name": "Peeling Químico",
+      "short_description": "Tratamiento de renovación cutánea para mejorar textura y tono de la piel",
       "duration_minutes": 60,
       "price": 80
     },
     {
-      "service_name": "Laser Hair Removal",
-      "short_description": "Permanent hair reduction using advanced laser technology",
+      "service_name": "Depilación Láser",
+      "short_description": "Reducción permanente del vello usando tecnología láser avanzada",
       "duration_minutes": 45,
       "price": 60
     }
   ],
 
   "conditions": [
-    "Acne and Acne Scars",
-    "Eczema and Atopic Dermatitis",
+    "Acné y Cicatrices de Acné",
+    "Eczema y Dermatitis Atópica",
     "Psoriasis",
-    "Rosacea",
-    "Melasma and Hyperpigmentation",
-    "Skin Cancer Screening",
-    "Hair Loss (Alopecia)",
-    "Nail Disorders",
-    "Age Spots and Sun Damage",
-    "Warts and Skin Lesions"
+    "Rosácea",
+    "Melasma e Hiperpigmentación",
+    "Detección de Cáncer de Piel",
+    "Caída del Cabello (Alopecia)",
+    "Trastornos de las Uñas",
+    "Manchas de la Edad y Daño Solar",
+    "Verrugas y Lesiones Cutáneas"
   ],
 
   "procedures": [
-    "Botox and Dermal Fillers",
-    "Chemical Peels",
-    "Microdermabrasion",
-    "Laser Skin Resurfacing",
-    "IPL Photofacial",
-    "Cryotherapy",
-    "Mole and Lesion Removal",
-    "Platelet-Rich Plasma (PRP) Therapy",
-    "Microneedling",
-    "Tattoo Removal"
+    "Botox y Rellenos Dérmicos",
+    "Peelings Químicos",
+    "Microdermoabrasión",
+    "Resurfacing Láser",
+    "Fotofacial IPL",
+    "Crioterapia",
+    "Eliminación de Lunares y Lesiones",
+    "Terapia con Plasma Rico en Plaquetas (PRP)",
+    "Microagujas (Microneedling)",
+    "Eliminación de Tatuajes"
   ],
 
   "next_available_date": "2025-12-15",
@@ -75,84 +75,84 @@
     {
       "type": "image",
       "src": "/images/doctors/sample/clinic-1.jpg",
-      "alt": "Modern dermatology clinic reception area",
-      "caption": "Our welcoming reception area"
+      "alt": "Área de recepción moderna de la clínica dermatológica",
+      "caption": "Nuestra acogedora área de recepción"
     },
     {
       "type": "image",
       "src": "/images/doctors/sample/clinic-2.jpg",
-      "alt": "Advanced laser treatment room",
-      "caption": "State-of-the-art treatment rooms"
+      "alt": "Sala de tratamiento láser avanzado",
+      "caption": "Salas de tratamiento de última generación"
     },
     {
       "type": "image",
       "src": "/images/doctors/sample/clinic-3.jpg",
-      "alt": "Comfortable waiting room with natural lighting",
-      "caption": "Comfortable waiting area"
+      "alt": "Sala de espera cómoda con iluminación natural",
+      "caption": "Área de espera confortable"
     },
     {
       "type": "image",
       "src": "/images/doctors/sample/clinic-4.jpg",
-      "alt": "Professional consultation room",
-      "caption": "Private consultation rooms"
+      "alt": "Consultorio profesional",
+      "caption": "Consultorios privados"
     }
   ],
 
-  "short_bio": "Dr. María López is a board-certified dermatologist with over 12 years of experience specializing in medical and cosmetic dermatology. She is passionate about helping patients achieve healthy, beautiful skin through evidence-based treatments and personalized care. Dr. López stays at the forefront of dermatological advances by regularly attending international conferences and incorporating the latest technologies into her practice.",
+  "short_bio": "La Dra. María López es una dermatóloga certificada con más de 12 años de experiencia especializada en dermatología médica y cosmética. Le apasiona ayudar a sus pacientes a lograr una piel saludable y hermosa mediante tratamientos basados en evidencia y atención personalizada. La Dra. López se mantiene a la vanguardia de los avances dermatológicos asistiendo regularmente a conferencias internacionales e incorporando las últimas tecnologías en su práctica.",
 
-  "long_bio": "After completing her medical degree at the Universidad de Guadalajara, Dr. López pursued specialized training in dermatology at the prestigious Hospital Civil de Guadalajara. She further refined her skills in cosmetic dermatology through advanced training programs in the United States and Europe. Dr. López is committed to providing comprehensive care that addresses both the medical and aesthetic concerns of her patients. She believes in educating patients about their skin conditions and working collaboratively to develop effective treatment plans. Outside of her practice, Dr. López volunteers at community health clinics providing dermatological care to underserved populations.",
+  "long_bio": "Después de completar su licenciatura en medicina en la Universidad de Guadalajara, la Dra. López realizó su especialización en dermatología en el prestigioso Hospital Civil de Guadalajara. Perfeccionó sus habilidades en dermatología cosmética a través de programas de formación avanzada en Estados Unidos y Europa. La Dra. López está comprometida en brindar atención integral que aborde tanto las preocupaciones médicas como estéticas de sus pacientes. Ella cree en educar a los pacientes sobre sus condiciones dermatológicas y trabajar de manera colaborativa para desarrollar planes de tratamiento efectivos. Fuera de su consulta, la Dra. López hace trabajo voluntario en clínicas de salud comunitarias brindando atención dermatológica a poblaciones desatendidas.",
 
   "years_experience": 12,
 
   "education_items": [
     {
       "institution": "Universidad de Guadalajara",
-      "program": "Doctor of Medicine (MD)",
+      "program": "Licenciatura en Medicina",
       "year": "2008",
-      "notes": "Graduated with honors"
+      "notes": "Graduada con honores"
     },
     {
       "institution": "Hospital Civil de Guadalajara",
-      "program": "Dermatology Residency",
+      "program": "Especialidad en Dermatología",
       "year": "2012",
-      "notes": "Chief Resident 2011-2012"
+      "notes": "Jefe de Residentes 2011-2012"
     },
     {
       "institution": "American Academy of Dermatology",
-      "program": "Cosmetic Dermatology Fellowship",
+      "program": "Fellowship en Dermatología Cosmética",
       "year": "2013",
-      "notes": "Advanced training in laser and injectable treatments"
+      "notes": "Entrenamiento avanzado en láser y tratamientos inyectables"
     },
     {
       "institution": "International Society of Dermatology",
-      "program": "Continuing Medical Education",
+      "program": "Educación Médica Continua",
       "year": "2020",
-      "notes": "Certified in Advanced Laser Techniques"
+      "notes": "Certificada en Técnicas Láser Avanzadas"
     }
   ],
 
   "certificate_images": [
     {
       "src": "/images/doctors/sample/certificate-1.jpg",
-      "alt": "Medical degree from Universidad de Guadalajara",
+      "alt": "Título de Medicina de la Universidad de Guadalajara",
       "issued_by": "Universidad de Guadalajara",
       "year": "2008"
     },
     {
       "src": "/images/doctors/sample/certificate-2.jpg",
-      "alt": "Dermatology specialty certification",
-      "issued_by": "Mexican Council of Dermatology",
+      "alt": "Certificación de especialidad en Dermatología",
+      "issued_by": "Consejo Mexicano de Dermatología",
       "year": "2012"
     },
     {
       "src": "/images/doctors/sample/certificate-3.jpg",
-      "alt": "Cosmetic dermatology fellowship certificate",
+      "alt": "Certificado de fellowship en dermatología cosmética",
       "issued_by": "American Academy of Dermatology",
       "year": "2013"
     },
     {
       "src": "/images/doctors/sample/certificate-4.jpg",
-      "alt": "Laser treatment certification",
+      "alt": "Certificación en tratamientos láser",
       "issued_by": "International Society of Dermatology",
       "year": "2020"
     }
@@ -179,32 +179,32 @@
 
   "faqs": [
     {
-      "question": "Do you accept insurance?",
-      "answer": "Yes, we accept most major insurance plans. Please contact our office with your insurance information to verify coverage before your appointment."
+      "question": "¿Aceptan seguros médicos?",
+      "answer": "Sí, aceptamos la mayoría de los planes de seguro principales. Por favor contacte a nuestro consultorio con su información de seguro para verificar cobertura antes de su cita."
     },
     {
-      "question": "What should I bring to my first appointment?",
-      "answer": "Please bring a valid ID, your insurance card (if applicable), a list of current medications, and any relevant medical records or previous test results. Arrive 15 minutes early to complete paperwork."
+      "question": "¿Qué debo llevar a mi primera cita?",
+      "answer": "Por favor traiga una identificación válida, su tarjeta de seguro (si aplica), una lista de medicamentos actuales, y cualquier expediente médico relevante o resultados de estudios previos. Llegue 15 minutos antes para completar el papeleo."
     },
     {
-      "question": "Do you offer virtual consultations?",
-      "answer": "Yes, we offer teleconsultations for initial evaluations and follow-up appointments. Virtual visits are convenient and can address many dermatological concerns remotely."
+      "question": "¿Ofrecen consultas virtuales?",
+      "answer": "Sí, ofrecemos teleconsultas para evaluaciones iniciales y citas de seguimiento. Las visitas virtuales son convenientes y pueden atender muchas preocupaciones dermatológicas de manera remota."
     },
     {
-      "question": "How much does a consultation cost?",
-      "answer": "A general consultation is $40. This fee may be applied toward treatment if you proceed with services on the same day. We also offer package pricing for multiple treatments."
+      "question": "¿Cuánto cuesta una consulta?",
+      "answer": "Una consulta general cuesta $40 USD. Esta tarifa puede aplicarse al tratamiento si procede con servicios el mismo día. También ofrecemos paquetes con precios especiales para múltiples tratamientos."
     },
     {
-      "question": "What is your cancellation policy?",
-      "answer": "We require at least 24 hours notice for cancellations or rescheduling. Late cancellations or no-shows may incur a fee."
+      "question": "¿Cuál es su política de cancelación?",
+      "answer": "Requerimos al menos 24 horas de aviso para cancelaciones o reprogramaciones. Las cancelaciones tardías o inasistencias pueden incurrir en un cargo."
     },
     {
-      "question": "Are cosmetic treatments safe?",
-      "answer": "All our cosmetic treatments are performed using FDA-approved products and techniques. Dr. López will discuss potential risks and benefits during your consultation and ensure you're a good candidate for any procedure."
+      "question": "¿Son seguros los tratamientos cosméticos?",
+      "answer": "Todos nuestros tratamientos cosméticos se realizan usando productos y técnicas aprobadas por la FDA. La Dra. López discutirá los riesgos y beneficios potenciales durante su consulta y se asegurará de que sea un buen candidato para cualquier procedimiento."
     },
     {
-      "question": "How long do Botox results last?",
-      "answer": "Botox results typically last 3-4 months. Individual results may vary based on factors like metabolism, muscle activity, and the treated area. We recommend maintenance treatments to sustain optimal results."
+      "question": "¿Cuánto duran los resultados del Botox?",
+      "answer": "Los resultados del Botox típicamente duran de 3 a 4 meses. Los resultados individuales pueden variar según factores como el metabolismo, la actividad muscular y el área tratada. Recomendamos tratamientos de mantenimiento para sostener resultados óptimos."
     }
   ],
 

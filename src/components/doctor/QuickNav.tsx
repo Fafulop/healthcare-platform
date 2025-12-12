@@ -4,14 +4,14 @@ import React, { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const sections = [
-  { id: 'services', label: 'Services' },
-  { id: 'gallery', label: 'Clinic Gallery' },
-  { id: 'conditions', label: 'Conditions Treated' },
-  { id: 'biography', label: 'About' },
-  { id: 'education', label: 'Education' },
-  { id: 'credentials', label: 'Certifications' },
-  { id: 'location', label: 'Location' },
-  { id: 'faq', label: 'FAQ' },
+  { id: 'services', label: 'Servicios' },
+  { id: 'gallery', label: 'Galería' },
+  { id: 'conditions', label: 'Tratamientos' },
+  { id: 'biography', label: 'Acerca de' },
+  { id: 'education', label: 'Educación' },
+  { id: 'credentials', label: 'Certificaciones' },
+  { id: 'location', label: 'Ubicación' },
+  { id: 'faq', label: 'Preguntas' },
 ];
 
 export default function QuickNav() {
@@ -76,7 +76,7 @@ export default function QuickNav() {
         <button
           onClick={() => scroll('left')}
           className="absolute left-1 top-1/2 -translate-y-1/2 z-10 w-6 h-6 md:w-8 md:h-8 bg-white rounded-full shadow-md hover:bg-[var(--color-neutral-light)] transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)] focus-visible:ring-offset-2"
-          aria-label="Scroll left"
+          aria-label="Desplazar a la izquierda"
         >
           <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-[var(--color-secondary)]" />
         </button>
@@ -110,7 +110,7 @@ export default function QuickNav() {
         <button
           onClick={() => scroll('right')}
           className="absolute right-1 top-1/2 -translate-y-1/2 z-10 w-6 h-6 md:w-8 md:h-8 bg-white rounded-full shadow-md hover:bg-[var(--color-neutral-light)] transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)] focus-visible:ring-offset-2"
-          aria-label="Scroll right"
+          aria-label="Desplazar a la derecha"
         >
           <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-[var(--color-secondary)]" />
         </button>

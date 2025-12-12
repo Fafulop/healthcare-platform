@@ -11,7 +11,7 @@ export const DynamicAppointmentCalendar = dynamic(
     ssr: false,
     loading: () => (
       <div className="py-16 text-center">
-        <p className="text-[var(--color-neutral-medium)]">Loading calendar...</p>
+        <p className="text-[var(--color-neutral-medium)]">Cargando calendario...</p>
       </div>
     ),
   }
@@ -24,7 +24,7 @@ const MediaCarouselBase = dynamic(
     ssr: false,
     loading: () => (
       <div className="py-16 text-center">
-        <p className="text-[var(--color-neutral-medium)]">Loading gallery...</p>
+        <p className="text-[var(--color-neutral-medium)]">Cargando galería...</p>
       </div>
     ),
   }

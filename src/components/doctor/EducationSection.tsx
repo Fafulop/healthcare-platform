@@ -17,7 +17,7 @@ export default function EducationSection({ educationItems, id }: EducationSectio
       <div className="max-w-5xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
-          Education & Training
+          Educación y Formación
         </h2>
 
         {/* Education List */}

@@ -18,7 +18,7 @@ export default function ConditionsSection({ conditions, procedures, id }: Condit
       <div className="max-w-7xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-10 text-center">
-          Conditions Treated & Procedures
+          Condiciones y Procedimientos
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
@@ -26,7 +26,7 @@ export default function ConditionsSection({ conditions, procedures, id }: Condit
           {conditions && conditions.length > 0 && (
             <div>
               <h3 className="text-[var(--font-size-h3)] font-semibold text-[var(--color-secondary)] mb-4">
-                Conditions Treated
+                Condiciones Tratadas
               </h3>
               <ul className="space-y-2">
                 {conditions.map((condition, index) => (
@@ -43,7 +43,7 @@ export default function ConditionsSection({ conditions, procedures, id }: Condit
           {procedures && procedures.length > 0 && (
             <div>
               <h3 className="text-[var(--font-size-h3)] font-semibold text-[var(--color-secondary)] mb-4">
-                Procedures Performed
+                Procedimientos Realizados
               </h3>
               <ul className="space-y-2">
                 {procedures.map((procedure, index) => (

@@ -19,14 +19,14 @@ export default function BiographySection({ doctorLastName, shortBio, longBio, ye
       <div className="max-w-4xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-6 text-center">
-          About Dr. {doctorLastName}
+          Acerca de la Dra. {doctorLastName}
         </h2>
 
         {/* Years of Experience Badge */}
         <div className="flex justify-center mb-6">
           <div className="inline-flex items-center gap-2 bg-[var(--color-secondary)] text-white px-6 py-3 rounded-[var(--radius-medium)]">
             <Award className="w-6 h-6" />
-            <span className="text-lg font-semibold">{yearsExperience}+ Years of Experience</span>
+            <span className="text-lg font-semibold">{yearsExperience}+ Años de Experiencia</span>
           </div>
         </div>
 
@@ -48,7 +48,7 @@ export default function BiographySection({ doctorLastName, shortBio, longBio, ye
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="text-[var(--color-secondary)] hover:text-[var(--color-secondary-hover)] font-semibold underline focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)] focus:ring-offset-2 rounded"
               >
-                {isExpanded ? 'Read Less' : 'Read More'}
+                {isExpanded ? 'Ver Menos' : 'Ver Más'}
               </button>
             </>
           )}

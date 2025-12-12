@@ -17,7 +17,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
       <div className="max-w-7xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
-          Services
+          Servicios
         </h2>
 
         {/* Services Grid */}
@@ -39,7 +39,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
                 {/* Duration */}
                 <div className="flex items-center gap-2 text-sm text-[var(--color-neutral-medium)]">
                   <Clock className="w-4 h-4" />
-                  <span>{service.duration_minutes} minutes</span>
+                  <span>{service.duration_minutes} minutos</span>
                 </div>
 
                 {/* Price */}
