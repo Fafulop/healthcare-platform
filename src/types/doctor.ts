@@ -34,6 +34,11 @@ export interface CarouselItem {
   alt: string;
   caption?: string;
   thumbnail?: string; // for video
+  // Video metadata for SEO
+  name?: string; // video title
+  description?: string; // video description
+  uploadDate?: string; // ISO date format
+  duration?: string; // ISO 8601 duration format (e.g., "PT1M30S" for 1 min 30 sec)
 }
 
 export interface GeoCoordinates {

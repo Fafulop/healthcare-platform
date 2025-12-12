@@ -1,6 +1,6 @@
 // Clinic Information & Map - Local SEO signal
 import React from 'react';
-import { MapPin, Phone, MessageCircle, Clock, ExternalLink } from 'lucide-react';
+import { MapPin, MessageCircle, Clock, ExternalLink } from 'lucide-react';
 import Card from '../ui/Card';
 import type { ClinicInfo } from '@/types/doctor';
 
@@ -52,20 +52,6 @@ export default function ClinicLocationSection({ clinicInfo, id }: ClinicLocation
                 </div>
               </div>
 
-              {/* Phone */}
-              <div className="flex items-start gap-3">
-                <Phone className="w-5 h-5 text-[var(--color-secondary)] flex-shrink-0 mt-1" />
-                <div>
-                  <p className="font-medium text-[var(--color-neutral-dark)]">Teléfono</p>
-                  <a
-                    href={`tel:${clinicInfo.phone}`}
-                    className="text-[var(--color-secondary)] hover:underline"
-                  >
-                    {clinicInfo.phone}
-                  </a>
-                </div>
-              </div>
-
               {/* WhatsApp */}
               {clinicInfo.whatsapp && (
                 <div className="flex items-start gap-3">
@@ -76,9 +62,9 @@ export default function ClinicLocationSection({ clinicInfo, id }: ClinicLocation
                       href={`https://wa.me/${clinicInfo.whatsapp.replace(/[^0-9]/g, '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[var(--color-secondary)] hover:underline"
+                      className="text-[var(--color-secondary)] hover:underline font-semibold"
                     >
-                      {clinicInfo.whatsapp}
+                      Envía mensaje al doctor
                     </a>
                   </div>
                 </div>

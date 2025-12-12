@@ -81,6 +81,26 @@ export function generateFAQSchema(doctor: DoctorProfile) {
 }
 
 /**
+ * Generate VideoObject schema.org JSON-LD for video carousel items
+ */
+export function generateVideoSchemas(doctor: DoctorProfile, baseUrl: string = 'https://example.com') {
+  if (!doctor.carousel_items || doctor.carousel_items.length === 0) return [];
+
+  const videoItems = doctor.carousel_items.filter(item => item.type === 'video_thumbnail');
+
+  return videoItems.map((video, index) => ({
+    '@context': 'https://schema.org',
+    '@type': 'VideoObject',
+    name: video.name || `${doctor.doctor_full_name} - Video ${index + 1}`,
+    description: video.description || video.caption || `Video de presentación del ${doctor.primary_specialty} ${doctor.doctor_full_name}`,
+    thumbnailUrl: video.thumbnail ? (video.thumbnail.startsWith('http') ? video.thumbnail : `${baseUrl}${video.thumbnail}`) : undefined,
+    contentUrl: video.src.startsWith('http') ? video.src : `${baseUrl}${video.src}`,
+    uploadDate: video.uploadDate || new Date().toISOString().split('T')[0],
+    ...(video.duration && { duration: video.duration }),
+  }));
+}
+
+/**
  * Generate all structured data schemas for a doctor profile
  */
 export function generateAllSchemas(doctor: DoctorProfile, baseUrl: string = 'https://example.com') {
@@ -92,6 +112,12 @@ export function generateAllSchemas(doctor: DoctorProfile, baseUrl: string = 'htt
   const faqSchema = generateFAQSchema(doctor);
   if (faqSchema) {
     schemas.push(faqSchema);
+  }
+
+  // Add video schemas
+  const videoSchemas = generateVideoSchemas(doctor, baseUrl);
+  if (videoSchemas.length > 0) {
+    schemas.push(...videoSchemas);
   }
 
   return schemas;

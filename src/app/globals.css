@@ -109,7 +109,7 @@ html {
 }
 
 .profile-right-column {
-  width: 100%;
+  display: none; /* Hidden on mobile to avoid duplicate content for SEO */
 }
 
 /* Desktop: Side-by-Side Layout */
@@ -129,6 +129,7 @@ html {
   }
 
   .profile-right-column {
+    display: block; /* Show on desktop */
     grid-column: 2;
     position: sticky;
     top: 32px; /* Stick 32px from top when scrolling */

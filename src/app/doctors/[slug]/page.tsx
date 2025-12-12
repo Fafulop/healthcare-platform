@@ -13,6 +13,7 @@ import ClinicLocationSection from '@/components/doctor/ClinicLocationSection';
 import FAQSection from '@/components/doctor/FAQSection';
 import QuickNav from '@/components/doctor/QuickNav';
 import StickyMobileCTA from '@/components/doctor/StickyMobileCTA';
+import SidebarContactInfo from '@/components/doctor/SidebarContactInfo';
 
 // Import client-side components via wrapper
 import { DynamicAppointmentCalendar, DynamicMediaCarousel } from '@/components/doctor/DynamicSections';
@@ -33,7 +34,7 @@ export default async function DoctorProfilePage({ params }: DoctorProfilePagePro
     <main className="min-h-screen pb-16 md:pb-0">
       {/* Two-Column Layout Container - Starts from top (Desktop) */}
       <div className="profile-layout-container">
-        {/* LEFT COLUMN - Main Content (SEO Priority Order) */}
+        {/* LEFT COLUMN - Main Content (Optimized SEO + UX Order) */}
         <div className="profile-left-column">
           {/* 1. Hero - Identity + primary SEO anchor */}
           <HeroSection doctor={doctor} />
@@ -41,11 +42,11 @@ export default async function DoctorProfilePage({ params }: DoctorProfilePagePro
           {/* Quick Navigation - Jump to sections */}
           <QuickNav />
 
-          {/* 2. Services - Primary conversion & keyword section */}
-          <ServicesSection id="services" services={doctor.services_list} />
-
-          {/* 3. Carousel - Trust-building media (client-side, lazy-loaded) */}
+          {/* 2. Video Carousel - Doctor intro videos (engagement + trust) */}
           <DynamicMediaCarousel id="gallery" items={doctor.carousel_items} />
+
+          {/* 3. Services - Primary conversion & keyword section */}
+          <ServicesSection id="services" services={doctor.services_list} />
 
           {/* 4. Conditions Treated - High-value SEO keywords */}
           <ConditionsSection
@@ -54,7 +55,7 @@ export default async function DoctorProfilePage({ params }: DoctorProfilePagePro
             procedures={doctor.procedures}
           />
 
-          {/* 5. Biography - E-E-A-T context */}
+          {/* 5. Biography - E-E-A-T context & credentials */}
           <BiographySection
             id="biography"
             doctorLastName={doctor.last_name}
@@ -63,14 +64,14 @@ export default async function DoctorProfilePage({ params }: DoctorProfilePagePro
             yearsExperience={doctor.years_experience}
           />
 
-          {/* 6. Education - E-E-A-T proof */}
+          {/* 6. Clinic Location - Local SEO signal */}
+          <ClinicLocationSection id="location" clinicInfo={doctor.clinic_info} />
+
+          {/* 7. Education - E-E-A-T proof */}
           <EducationSection id="education" educationItems={doctor.education_items} />
 
-          {/* 7. Credentials - Visual proof of qualifications */}
+          {/* 8. Credentials - Visual proof of qualifications */}
           <CredentialsSection id="credentials" certificates={doctor.certificate_images} />
-
-          {/* 8. Clinic Location - Local SEO signal */}
-          <ClinicLocationSection id="location" clinicInfo={doctor.clinic_info} />
 
           {/* 9. FAQ - Rich snippets opportunity */}
           <FAQSection id="faq" faqs={doctor.faqs} />
@@ -83,6 +84,9 @@ export default async function DoctorProfilePage({ params }: DoctorProfilePagePro
             nextAvailableDate={doctor.next_available_date}
             modes={doctor.appointment_modes}
           />
+
+          {/* Contact Information - Quick access (Desktop Only) */}
+          <SidebarContactInfo clinicInfo={doctor.clinic_info} />
         </aside>
       </div>
 

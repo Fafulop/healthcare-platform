@@ -12,16 +12,19 @@ interface MediaCarouselProps {
 
 export default function MediaCarousel({ items, id }: MediaCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   if (!items || items.length === 0) return null;
 
   const goToPrevious = () => {
+    setIsVideoPlaying(false);
     setCurrentIndex((prevIndex) =>
       prevIndex === 0 ? items.length - 1 : prevIndex - 1
     );
   };
 
   const goToNext = () => {
+    setIsVideoPlaying(false);
     setCurrentIndex((prevIndex) =>
       prevIndex === items.length - 1 ? 0 : prevIndex + 1
     );
@@ -33,7 +36,7 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
     <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
       <div className="max-w-5xl mx-auto px-4">
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
-          Galería de la Clínica
+          Conoce al Doctor
         </h2>
 
         {/* Carousel Container */}
@@ -50,24 +53,40 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
                 sizes="(max-width: 768px) 100vw, 896px"
               />
             ) : (
-              // Video thumbnail
+              // Video player
               <div className="relative w-full h-full">
-                <Image
-                  src={currentItem.thumbnail || currentItem.src}
-                  alt={currentItem.alt}
-                  fill
-                  className="object-cover"
-                  loading="lazy"
-                  sizes="(max-width: 768px) 100vw, 896px"
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-                  <button
-                    className="w-16 h-16 rounded-full bg-white flex items-center justify-center hover:bg-[var(--color-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-                    aria-label="Reproducir video"
+                {!isVideoPlaying ? (
+                  <>
+                    <Image
+                      src={currentItem.thumbnail || currentItem.src}
+                      alt={currentItem.alt}
+                      fill
+                      className="object-cover"
+                      loading="lazy"
+                      sizes="(max-width: 768px) 100vw, 896px"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                      <button
+                        onClick={() => setIsVideoPlaying(true)}
+                        className="w-16 h-16 rounded-full bg-white flex items-center justify-center hover:bg-[var(--color-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-white"
+                        aria-label="Reproducir video"
+                      >
+                        <Play className="w-8 h-8 text-[var(--color-secondary)]" />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <video
+                    src={currentItem.src}
+                    controls
+                    autoPlay
+                    preload="none"
+                    className="w-full h-full object-cover"
+                    onEnded={() => setIsVideoPlaying(false)}
                   >
-                    <Play className="w-8 h-8 text-[var(--color-secondary)]" />
-                  </button>
-                </div>
+                    Tu navegador no soporta videos HTML5.
+                  </video>
+                )}
               </div>
             )}
 

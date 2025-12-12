@@ -73,6 +73,28 @@
 
   "carousel_items": [
     {
+      "type": "video_thumbnail",
+      "src": "/videos/doctors/sample/intro.mp4",
+      "thumbnail": "/images/doctors/sample/video-thumb-1.jpg",
+      "alt": "Video de presentación de la Dra. María López",
+      "caption": "Conoce a la Dra. López y su enfoque en dermatología",
+      "name": "Presentación - Dra. María López Hernández",
+      "description": "La Dra. María López se presenta y explica su filosofía de atención dermatológica integral y personalizada.",
+      "uploadDate": "2024-01-15",
+      "duration": "PT45S"
+    },
+    {
+      "type": "video_thumbnail",
+      "src": "/videos/doctors/sample/clinic-tour.mp4",
+      "thumbnail": "/images/doctors/sample/video-thumb-2.jpg",
+      "alt": "Recorrido virtual por la clínica dermatológica",
+      "caption": "Recorre nuestras instalaciones modernas",
+      "name": "Tour Virtual - Clínica de Dermatología",
+      "description": "Conoce nuestras instalaciones equipadas con tecnología de última generación para tratamientos dermatológicos.",
+      "uploadDate": "2024-01-15",
+      "duration": "PT1M"
+    },
+    {
       "type": "image",
       "src": "/images/doctors/sample/clinic-1.jpg",
       "alt": "Área de recepción moderna de la clínica dermatológica",
@@ -83,18 +105,6 @@
       "src": "/images/doctors/sample/clinic-2.jpg",
       "alt": "Sala de tratamiento láser avanzado",
       "caption": "Salas de tratamiento de última generación"
-    },
-    {
-      "type": "image",
-      "src": "/images/doctors/sample/clinic-3.jpg",
-      "alt": "Sala de espera cómoda con iluminación natural",
-      "caption": "Área de espera confortable"
-    },
-    {
-      "type": "image",
-      "src": "/images/doctors/sample/clinic-4.jpg",
-      "alt": "Consultorio profesional",
-      "caption": "Consultorios privados"
     }
   ],
 
