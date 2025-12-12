@@ -13,7 +13,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
   if (!services || services.length === 0) return null;
 
   return (
-    <section id={id} className="py-16 bg-[var(--color-bg-green-light)]">
+    <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
       <div className="max-w-7xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">

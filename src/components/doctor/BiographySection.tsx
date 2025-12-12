@@ -15,7 +15,7 @@ export default function BiographySection({ doctorLastName, shortBio, longBio, ye
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <section id={id} className="py-16 bg-[var(--color-bg-green-light)]">
+    <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
       <div className="max-w-4xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-6 text-center">

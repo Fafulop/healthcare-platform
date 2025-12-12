@@ -12,7 +12,7 @@ interface HeroSectionProps {
 
 export default function HeroSection({ doctor }: HeroSectionProps) {
   return (
-    <section className="bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)] py-12 md:py-16">
+    <section id="inicio" className="bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)] py-12 md:py-16">
       <div className="px-4 lg:px-0">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8 lg:gap-6">
           {/* Doctor Photo - Priority loading for LCP */}

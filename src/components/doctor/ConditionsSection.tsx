@@ -14,7 +14,7 @@ export default function ConditionsSection({ conditions, procedures, id }: Condit
   }
 
   return (
-    <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
+    <section id={id} className="py-16 bg-[var(--color-bg-green-light)]">
       <div className="max-w-7xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-10 text-center">

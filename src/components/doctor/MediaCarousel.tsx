@@ -33,7 +33,7 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
   const currentItem = items[currentIndex];
 
   return (
-    <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
+    <section id={id} className="py-16 bg-[var(--color-bg-green-light)]">
       <div className="max-w-5xl mx-auto px-4">
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
           Conoce al Doctor
