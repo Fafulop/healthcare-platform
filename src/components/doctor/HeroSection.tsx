@@ -15,26 +15,35 @@ export default function HeroSection({ doctor }: HeroSectionProps) {
     <section id="inicio" className="bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)] py-12 md:py-16">
       <div className="px-4 lg:px-0">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8 lg:gap-6">
-          {/* Doctor Photo - Priority loading for LCP */}
+          {/* Doctor Photo - Priority loading for LCP - Option 1: Large Circle Hero Style */}
           <div className="flex-shrink-0">
-            <div className="relative w-44 h-44 md:w-52 md:h-52 border-2 border-[var(--color-secondary)] rounded-[var(--radius-large)] p-1">
-              <div className="relative w-full h-full">
-                <Image
-                  src={doctor.hero_image}
-                  alt={`${doctor.doctor_full_name} - ${doctor.primary_specialty}`}
-                  fill
-                  priority
-                  className="rounded-[var(--radius-large)] object-cover shadow-[var(--shadow-light)]"
-                  sizes="(max-width: 768px) 176px, 208px"
-                />
+            <div className="relative w-56 h-56 md:w-72 md:h-72">
+              {/* Gradient border ring */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[var(--color-primary)] via-[var(--color-secondary)] to-[var(--color-accent)] p-1 shadow-2xl">
+                {/* White inner ring */}
+                <div className="w-full h-full rounded-full bg-white p-2">
+                  {/* Photo container */}
+                  <div className="relative w-full h-full rounded-full overflow-hidden shadow-xl ring-4 ring-white/50">
+                    <Image
+                      src={doctor.hero_image}
+                      alt={`${doctor.doctor_full_name} - ${doctor.primary_specialty}`}
+                      fill
+                      priority
+                      className="object-cover"
+                      sizes="(max-width: 768px) 224px, 288px"
+                    />
+                  </div>
+                </div>
               </div>
+              {/* Subtle glow effect behind */}
+              <div className="absolute inset-0 rounded-full bg-[var(--color-secondary)] opacity-20 blur-2xl -z-10 scale-110"></div>
             </div>
           </div>
 
           {/* Doctor Information */}
           <div className="flex-1 text-center md:text-left">
             {/* H1 - Only H1 on entire page */}
-            <h1 className="text-[var(--font-size-h1)] font-bold text-[var(--color-neutral-dark)] mb-2">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[var(--color-neutral-dark)] mb-2 leading-tight">
               {doctor.doctor_full_name}
             </h1>
 
