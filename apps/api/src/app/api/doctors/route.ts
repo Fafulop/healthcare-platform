@@ -40,6 +40,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
+    console.log('Received doctor creation request:', {
+      slug: body.slug,
+      name: body.doctor_full_name,
+      services: body.services_list?.length || 0,
+      certificates: body.certificate_images?.length || 0,
+      carousel: body.carousel_items?.length || 0,
+    });
+
     // TODO: Add authentication check (admin only)
     // TODO: Add validation
 
@@ -126,10 +134,16 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating doctor:', error);
+
+    // Return detailed error message for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
     return NextResponse.json(
       {
         success: false,
         error: 'Failed to create doctor',
+        message: errorMessage,
+        details: error,
       },
       { status: 500 }
     );
