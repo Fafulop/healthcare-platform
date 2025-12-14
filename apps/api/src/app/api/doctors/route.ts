@@ -69,7 +69,54 @@ export async function POST(request: Request) {
         clinicGeoLng: body.clinic_info.geo?.lng,
         socialLinkedin: body.social_links?.linkedin,
         socialTwitter: body.social_links?.twitter,
-        // Relations will be added separately
+        // Create related services
+        services: {
+          create: (body.services_list || []).map((service: any) => ({
+            serviceName: service.service_name,
+            shortDescription: service.short_description,
+            durationMinutes: service.duration_minutes,
+            price: service.price,
+          })),
+        },
+        // Create related education items
+        educationItems: {
+          create: (body.education_items || []).map((edu: any) => ({
+            institution: edu.institution,
+            program: edu.program,
+            year: edu.year,
+            notes: edu.notes,
+          })),
+        },
+        // Create related certificates
+        certificates: {
+          create: (body.certificate_images || []).map((cert: any) => ({
+            src: cert.src,
+            alt: cert.alt,
+            issuedBy: cert.issued_by,
+            year: cert.year,
+          })),
+        },
+        // Create related carousel items
+        carouselItems: {
+          create: (body.carousel_items || []).map((item: any) => ({
+            type: item.type,
+            src: item.src,
+            thumbnail: item.thumbnail,
+            alt: item.alt,
+            caption: item.caption,
+            name: item.name,
+            description: item.description,
+            uploadDate: item.uploadDate,
+            duration: item.duration,
+          })),
+        },
+        // Create related FAQs
+        faqs: {
+          create: (body.faqs || []).map((faq: any) => ({
+            question: faq.question,
+            answer: faq.answer,
+          })),
+        },
       },
     });
 
