@@ -1,0 +1,136 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Doctor {
+  id                 String   @id @default(cuid())
+  slug               String   @unique
+  doctorFullName     String   @map("doctor_full_name")
+  lastName           String   @map("last_name")
+  primarySpecialty   String   @map("primary_specialty")
+  subspecialties     String[]
+  cedulaProfesional  String?  @map("cedula_profesional")
+  heroImage          String   @map("hero_image")
+  locationSummary    String   @map("location_summary")
+  city               String
+
+  // Biography
+  shortBio           String   @map("short_bio") @db.Text
+  longBio            String   @map("long_bio") @db.Text
+  yearsExperience    Int      @map("years_experience")
+
+  // Lists
+  conditions         String[]
+  procedures         String[]
+
+  // Appointment info
+  nextAvailableDate  DateTime? @map("next_available_date")
+  appointmentModes   String[]  @map("appointment_modes")
+
+  // Clinic info (stored as JSON)
+  clinicAddress      String    @map("clinic_address")
+  clinicPhone        String    @map("clinic_phone")
+  clinicWhatsapp     String?   @map("clinic_whatsapp")
+  clinicHours        Json      @map("clinic_hours")
+  clinicGeoLat       Float?    @map("clinic_geo_lat")
+  clinicGeoLng       Float?    @map("clinic_geo_lng")
+
+  // Social links (optional)
+  socialLinkedin     String?   @map("social_linkedin")
+  socialTwitter      String?   @map("social_twitter")
+
+  // Relations
+  services           Service[]
+  educationItems     Education[]
+  certificates       Certificate[]
+  carouselItems      CarouselItem[]
+  faqs               FAQ[]
+
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@map("doctors")
+}
+
+model Service {
+  id                 String   @id @default(cuid())
+  doctorId           String   @map("doctor_id")
+  serviceName        String   @map("service_name")
+  shortDescription   String   @map("short_description")
+  durationMinutes    Int      @map("duration_minutes")
+  price              Float?
+
+  doctor             Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("services")
+  @@index([doctorId])
+}
+
+model Education {
+  id                 String   @id @default(cuid())
+  doctorId           String   @map("doctor_id")
+  institution        String
+  program            String
+  year               String
+  notes              String?
+
+  doctor             Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("education")
+  @@index([doctorId])
+}
+
+model Certificate {
+  id                 String   @id @default(cuid())
+  doctorId           String   @map("doctor_id")
+  src                String
+  alt                String
+  issuedBy           String   @map("issued_by")
+  year               String
+
+  doctor             Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("certificates")
+  @@index([doctorId])
+}
+
+model CarouselItem {
+  id                 String   @id @default(cuid())
+  doctorId           String   @map("doctor_id")
+  type               String   // "image" or "video_thumbnail"
+  src                String
+  thumbnail          String?
+  alt                String
+  caption            String?
+
+  // Video-specific fields (optional)
+  name               String?
+  description        String?  @db.Text
+  uploadDate         String?  @map("upload_date")
+  duration           String?  // ISO 8601 duration format (e.g., "PT45S")
+
+  doctor             Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("carousel_items")
+  @@index([doctorId])
+}
+
+model FAQ {
+  id                 String   @id @default(cuid())
+  doctorId           String   @map("doctor_id")
+  question           String
+  answer             String   @db.Text
+
+  doctor             Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("faqs")
+  @@index([doctorId])
+}
