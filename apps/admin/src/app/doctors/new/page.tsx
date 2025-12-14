@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { UploadButton, UploadDropzone } from "@/utils/uploadthing";
 
 // Full 10-step wizard for creating doctor profiles
@@ -147,19 +148,31 @@ export default function NewDoctorWizard() {
         body: JSON.stringify(formData),
       });
 
-      const result = await response.json();
+      // Try to parse JSON response
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        console.error("Error parsing response:", parseError);
+        throw new Error(`Server responded with status ${response.status} but response was not JSON`);
+      }
 
       if (!response.ok) {
         console.error("API Error Response:", result);
-        throw new Error(result.error || result.message || "Failed to create doctor");
+        console.error("Response status:", response.status);
+        console.error("Response statusText:", response.statusText);
+        throw new Error(result.error || result.message || `Failed to create doctor (Status: ${response.status})`);
       }
 
       console.log("Doctor created successfully:", result);
       const doctorUrl = `http://localhost:3000/doctors/${result.data.slug}`;
       alert(`¡Doctor creado exitosamente!\n\nSlug: ${result.data.slug}\n\nVer perfil en:\n${doctorUrl}`);
 
-      // Open in new tab instead of redirecting
+      // Open profile in new tab
       window.open(doctorUrl, '_blank');
+
+      // Redirect to dashboard
+      router.push('/dashboard');
     } catch (error) {
       console.error("Error creating doctor:", error);
       alert(`Error al crear el doctor: ${error instanceof Error ? error.message : 'Unknown error'}\n\nVer consola para más detalles.`);
@@ -317,6 +330,19 @@ export default function NewDoctorWizard() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
+        {/* Back to Dashboard */}
+        <div className="mb-4">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Volver al Dashboard
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
