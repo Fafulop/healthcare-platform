@@ -1,11 +1,12 @@
 // Data Loading Utilities
-// Load doctor data from PostgreSQL database via Prisma
+// Load doctor data from Backend API
 
-import { prisma } from '@healthcare/database';
 import type { DoctorProfile } from '@healthcare/types';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+
 /**
- * Transform database doctor to DoctorProfile type
+ * Transform API response to DoctorProfile type
  */
 function transformDoctorToProfile(doctor: any): DoctorProfile {
   return {
@@ -32,7 +33,7 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
     procedures: doctor.procedures,
 
     // Appointment
-    next_available_date: doctor.nextAvailableDate?.toISOString() || undefined,
+    next_available_date: doctor.nextAvailableDate || undefined,
     appointment_modes: doctor.appointmentModes as ('in_person' | 'teleconsult')[],
 
     // Carousel
@@ -100,22 +101,25 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
  */
 export async function getDoctorBySlug(slug: string): Promise<DoctorProfile | null> {
   try {
-    const doctor = await prisma.doctor.findUnique({
-      where: { slug },
-      include: {
-        services: true,
-        educationItems: true,
-        certificates: true,
-        carouselItems: true,
-        faqs: true,
-      },
+    const response = await fetch(`${API_URL}/api/doctors/${slug}`, {
+      // Use cache for static generation, but revalidate periodically
+      next: { revalidate: 60 }, // Revalidate every 60 seconds
     });
 
-    if (!doctor) {
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const json = await response.json();
+
+    if (!json.success || !json.data) {
       return null;
     }
 
-    return transformDoctorToProfile(doctor);
+    return transformDoctorToProfile(json.data);
   } catch (error) {
     console.error(`Error loading doctor with slug "${slug}":`, error);
     return null;
@@ -127,13 +131,23 @@ export async function getDoctorBySlug(slug: string): Promise<DoctorProfile | nul
  */
 export async function getAllDoctorSlugs(): Promise<string[]> {
   try {
-    const doctors = await prisma.doctor.findMany({
-      select: { slug: true },
+    const response = await fetch(`${API_URL}/api/doctors`, {
+      next: { revalidate: 60 },
     });
 
-    return doctors.map((doctor) => doctor.slug);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const json = await response.json();
+
+    if (!json.success || !json.data) {
+      return [];
+    }
+
+    return json.data.map((doctor: any) => doctor.slug);
   } catch (error) {
-    console.error('Error reading doctors from database:', error);
+    console.error('Error reading doctors from API:', error);
     return [];
   }
 }
@@ -143,17 +157,21 @@ export async function getAllDoctorSlugs(): Promise<string[]> {
  */
 export async function getAllDoctors(): Promise<DoctorProfile[]> {
   try {
-    const doctors = await prisma.doctor.findMany({
-      include: {
-        services: true,
-        educationItems: true,
-        certificates: true,
-        carouselItems: true,
-        faqs: true,
-      },
+    const response = await fetch(`${API_URL}/api/doctors`, {
+      next: { revalidate: 60 },
     });
 
-    return doctors.map(transformDoctorToProfile);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const json = await response.json();
+
+    if (!json.success || !json.data) {
+      return [];
+    }
+
+    return json.data.map(transformDoctorToProfile);
   } catch (error) {
     console.error('Error loading all doctors:', error);
     return [];
