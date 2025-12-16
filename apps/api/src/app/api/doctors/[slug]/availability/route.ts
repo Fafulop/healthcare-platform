@@ -20,6 +20,9 @@ export async function GET(
       select: { id: true, doctorFullName: true },
     });
 
+    console.log(`🔍 Looking for doctor with slug: "${slug}"`);
+    console.log(`👨‍⚕️ Found doctor:`, doctor);
+
     if (!doctor) {
       return NextResponse.json(
         { success: false, error: 'Doctor not found' },
@@ -90,6 +93,18 @@ export async function GET(
         currentBookings: true,
       },
     });
+
+    console.log(`📅 Date filter:`, dateFilter);
+    console.log(`📍 Found ${slots.length} AVAILABLE slots for doctor ID: ${doctor.id}`);
+
+    // Debug: Check ALL slots for this doctor (any status)
+    const allSlotsCount = await prisma.appointmentSlot.count({
+      where: {
+        doctorId: doctor.id,
+        date: dateFilter,
+      },
+    });
+    console.log(`🔢 Total slots (all statuses) for this doctor in date range: ${allSlotsCount}`);
 
     // Group slots by date for easier frontend consumption
     const slotsByDate: Record<string, any[]> = {};

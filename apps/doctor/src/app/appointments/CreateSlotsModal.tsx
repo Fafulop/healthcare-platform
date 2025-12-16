@@ -164,6 +164,9 @@ export default function CreateSlotsModal({
 
       const data = await response.json();
 
+      console.log("✅ Slot creation response:", data);
+      console.log("📋 Payload sent:", payload);
+
       if (data.success) {
         alert(`Success! Created ${data.count} appointment slots.`);
         onSuccess();
