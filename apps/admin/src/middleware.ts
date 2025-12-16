@@ -24,10 +24,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check if user has ADMIN role
-  if (token.role !== "ADMIN") {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("error", "AccessDenied");
-    return NextResponse.redirect(loginUrl);
+  // If user has a session but no role or wrong role, sign them out
+  if (!token.role || token.role !== "ADMIN") {
+    console.log(`⚠️ User ${token.email} has invalid role: ${token.role}`);
+
+    // Redirect to signout to clear the invalid session
+    const signOutUrl = new URL("/api/auth/signout", request.url);
+    signOutUrl.searchParams.set("callbackUrl", "/login");
+    return NextResponse.redirect(signOutUrl);
   }
 
   return NextResponse.next();
