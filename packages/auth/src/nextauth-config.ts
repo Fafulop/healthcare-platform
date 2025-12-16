@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { prisma } from "@healthcare/database";
 
 export const authConfig = {
   providers: [
@@ -19,50 +18,29 @@ export const authConfig = {
 
   callbacks: {
     async signIn({ user, account, profile }) {
-      try {
-        // Check if user exists in database
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-        });
-
-        if (!existingUser) {
-          // First time login - create user with DOCTOR role by default
-          // Admins must be created manually in the database
-          await prisma.user.create({
-            data: {
-              email: user.email!,
-              name: user.name,
-              image: user.image,
-              role: "DOCTOR", // Default role for new users
-            },
-          });
-
-          console.log(`✅ New user created: ${user.email} (role: DOCTOR)`);
-        }
-
-        return true;
-      } catch (error) {
-        console.error("Error in signIn callback:", error);
-        return false;
-      }
+      // Allow all Google authentications
+      // Role verification happens via API calls after login
+      return true;
     },
 
-    async jwt({ token, user, account }) {
-      // On sign in, fetch user from database to get role
-      if (user) {
+    async jwt({ token, user, account, trigger }) {
+      // On sign in, fetch user info from API
+      if (user || trigger === "update") {
         try {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: user.email! },
-            select: {
-              id: true,
-              role: true,
-              doctorId: true,
-              name: true,
-              image: true,
-            },
+          // Call the API to get/create user and fetch role
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+          const response = await fetch(`${apiUrl}/api/auth/user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: user?.email || token.email,
+              name: user?.name || token.name,
+              image: user?.image || token.picture,
+            }),
           });
 
-          if (dbUser) {
+          if (response.ok) {
+            const dbUser = await response.json();
             token.userId = dbUser.id;
             token.role = dbUser.role;
             token.doctorId = dbUser.doctorId;
@@ -70,7 +48,8 @@ export const authConfig = {
             token.picture = dbUser.image;
           }
         } catch (error) {
-          console.error("Error in jwt callback:", error);
+          console.error("Error fetching user from API:", error);
+          // Continue with existing token if API fails
         }
       }
 
