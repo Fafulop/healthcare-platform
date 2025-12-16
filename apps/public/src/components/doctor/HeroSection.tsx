@@ -1,4 +1,5 @@
 // Hero Section - Only H1 on page, SEO anchor
+'use client';
 import React from 'react';
 import Image from 'next/image';
 import { MapPin } from 'lucide-react';
@@ -8,9 +9,10 @@ import type { DoctorProfile } from '@/types/doctor';
 
 interface HeroSectionProps {
   doctor: DoctorProfile;
+  onBookingClick?: () => void;
 }
 
-export default function HeroSection({ doctor }: HeroSectionProps) {
+export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps) {
   return (
     <section id="inicio" className="bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)] py-12 md:py-16">
       <div className="px-4 lg:px-0">
@@ -78,7 +80,7 @@ export default function HeroSection({ doctor }: HeroSectionProps) {
 
             {/* CTA Buttons - Hidden on mobile (sticky bar at bottom instead) */}
             <div className="hidden md:flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-              <Button variant="primary" size="lg" className="sm:min-w-[240px]">
+              <Button variant="primary" size="lg" className="sm:min-w-[240px]" onClick={onBookingClick}>
                 Agendar Cita
               </Button>
               <Button variant="secondary" size="lg" className="sm:min-w-[240px]">

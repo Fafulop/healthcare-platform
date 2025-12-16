@@ -17,9 +17,10 @@ interface Slot {
 
 interface BookingWidgetProps {
   doctorSlug: string;
+  isModal?: boolean;
 }
 
-export default function BookingWidget({ doctorSlug }: BookingWidgetProps) {
+export default function BookingWidget({ doctorSlug, isModal = false }: BookingWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
@@ -160,8 +161,15 @@ export default function BookingWidget({ doctorSlug }: BookingWidgetProps) {
 
   // Success screen
   if (bookingStep === "success") {
+    const containerStyle = isModal
+      ? { width: '100%', padding: '0' }
+      : {};
+
     return (
-      <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+      <div
+        className={isModal ? "" : "bg-white rounded-xl shadow-lg p-6 sticky top-6"}
+        style={containerStyle}
+      >
         <div className="text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-10 h-10 text-green-600" />
@@ -214,8 +222,15 @@ export default function BookingWidget({ doctorSlug }: BookingWidgetProps) {
     );
   }
 
+  const containerStyle = isModal
+    ? { width: '100%', padding: '0' }
+    : {};
+
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+    <div
+      className={isModal ? "" : "bg-white rounded-xl shadow-lg p-6 sticky top-6"}
+      style={containerStyle}
+    >
       <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
         <Calendar className="w-6 h-6 text-blue-600" />
         Book Appointment
