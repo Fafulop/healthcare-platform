@@ -171,23 +171,23 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
         style={containerStyle}
       >
         <div className="text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
             <CheckCircle className="w-10 h-10 text-green-600" />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h3>
-          <p className="text-gray-600 mb-4">Your appointment has been successfully booked.</p>
+          <h3 className="text-2xl font-bold text-[var(--color-secondary)] mb-2">¡Reserva Confirmada!</h3>
+          <p className="text-gray-600 mb-4">Tu cita ha sido agendada exitosamente.</p>
 
-          <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-green-800 mb-1">Confirmation Code</p>
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 mb-6 shadow-sm">
+            <p className="text-sm text-green-800 mb-1 font-medium">Código de Confirmación</p>
             <p className="text-2xl font-bold text-green-900 tracking-wider">{confirmationCode}</p>
           </div>
 
           {selectedSlot && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
-              <p className="text-sm text-gray-600 mb-2">Appointment Details:</p>
-              <div className="space-y-1 text-sm">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 mb-6 text-left border-2 border-blue-200">
+              <p className="text-sm font-semibold text-[var(--color-secondary)] mb-3">Detalles de la Cita:</p>
+              <div className="space-y-2 text-sm">
                 <p className="text-gray-900">
-                  <strong>Date:</strong> {new Date(selectedSlot.date).toLocaleDateString("en-US", {
+                  <strong>Fecha:</strong> {new Date(selectedSlot.date).toLocaleDateString("es-MX", {
                     weekday: "long",
                     year: "numeric",
                     month: "long",
@@ -195,27 +195,27 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
                   })}
                 </p>
                 <p className="text-gray-900">
-                  <strong>Time:</strong> {selectedSlot.startTime} - {selectedSlot.endTime}
+                  <strong>Hora:</strong> {selectedSlot.startTime} - {selectedSlot.endTime}
                 </p>
                 <p className="text-gray-900">
-                  <strong>Duration:</strong> {selectedSlot.duration} minutes
+                  <strong>Duración:</strong> {selectedSlot.duration} minutos
                 </p>
                 <p className="text-gray-900">
-                  <strong>Price:</strong> ${selectedSlot.finalPrice}
+                  <strong>Precio:</strong> ${selectedSlot.finalPrice}
                 </p>
               </div>
             </div>
           )}
 
           <p className="text-xs text-gray-500 mb-4">
-            You will receive a WhatsApp confirmation shortly.
+            Recibirás una confirmación por WhatsApp en breve.
           </p>
 
           <button
             onClick={resetBooking}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
+            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 rounded-lg transition-all shadow-md"
           >
-            Book Another Appointment
+            Agendar Otra Cita
           </button>
         </div>
       </div>
@@ -228,38 +228,49 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
 
   return (
     <div
-      className={isModal ? "" : "bg-white rounded-xl shadow-lg p-6 sticky top-6"}
+      className={isModal ? "" : "bg-white"}
       style={containerStyle}
     >
-      <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-        <Calendar className="w-6 h-6 text-blue-600" />
-        Book Appointment
-      </h3>
+      {/* Colorful Gradient Header */}
+      <div className="bg-gradient-to-br from-[var(--color-secondary)] via-[#1D5B63] to-[#195158] text-white px-2 py-1.5">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+            <Calendar className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold leading-tight">Reserva tu Cita</h3>
+            <p className="text-[10px] text-white/80 leading-tight">Selecciona fecha y hora</p>
+          </div>
+        </div>
+      </div>
 
-      {/* Form Step */}
-      {bookingStep === "form" && selectedSlot ? (
-        <div>
+      {/* Scrollable Content Area */}
+      <div className="px-2 py-2">
+        {/* Form Step */}
+        {bookingStep === "form" && selectedSlot ? (
+          <div>
           <button
             onClick={() => setBookingStep("calendar")}
-            className="text-sm text-blue-600 hover:text-blue-700 mb-4 flex items-center gap-1"
+            className="text-sm font-semibold text-[var(--color-secondary)] hover:text-[#195158] mb-4 flex items-center gap-1 bg-blue-50 px-3 py-2 rounded-lg transition-colors"
           >
-            ← Back to calendar
+            <ChevronLeft className="w-4 h-4" />
+            Volver al calendario
           </button>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-            <p className="text-sm font-semibold text-blue-900 mb-1">Selected Time:</p>
-            <p className="text-sm text-blue-800">
-              {new Date(selectedSlot.date).toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4 mb-4 shadow-sm">
+            <p className="text-xs font-medium text-[var(--color-secondary)] mb-1 opacity-80">Horario seleccionado:</p>
+            <p className="text-sm font-semibold text-[var(--color-neutral-dark)]">
+              {new Date(selectedSlot.date).toLocaleDateString("es-MX", {
+                weekday: "long",
+                month: "long",
                 day: "numeric",
-              })} at {selectedSlot.startTime}
+              })} • {selectedSlot.startTime}
             </p>
-            <p className="text-lg font-bold text-blue-900 mt-2">
+            <p className="text-xl font-bold text-[var(--color-secondary)] mt-2">
               ${selectedSlot.finalPrice}
               {selectedSlot.discount && (
-                <span className="text-sm text-green-600 ml-2">
-                  ({selectedSlot.discountType === "PERCENTAGE" ? `${selectedSlot.discount}%` : `$${selectedSlot.discount}`} off)
+                <span className="text-sm text-green-600 ml-2 font-semibold">
+                  ({selectedSlot.discountType === "PERCENTAGE" ? `-${selectedSlot.discount}%` : `-$${selectedSlot.discount}`})
                 </span>
               )}
             </p>
@@ -269,13 +280,13 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <User className="inline w-4 h-4 mr-1" />
-                Full Name *
+                Nombre Completo *
               </label>
               <input
                 type="text"
                 value={formData.patientName}
                 onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-                placeholder="John Doe"
+                placeholder="Juan Pérez"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
@@ -284,13 +295,13 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <Mail className="inline w-4 h-4 mr-1" />
-                Email *
+                Correo Electrónico *
               </label>
               <input
                 type="email"
                 value={formData.patientEmail}
                 onChange={(e) => setFormData({ ...formData, patientEmail: e.target.value })}
-                placeholder="john@example.com"
+                placeholder="juan@example.com"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
@@ -299,7 +310,7 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <Phone className="inline w-4 h-4 mr-1" />
-                Phone Number *
+                Número de Teléfono *
               </label>
               <input
                 type="tel"
@@ -314,7 +325,7 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <MessageSquare className="inline w-4 h-4 mr-1" />
-                WhatsApp (optional)
+                WhatsApp (opcional)
               </label>
               <input
                 type="tel"
@@ -323,17 +334,17 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
                 placeholder="+52 33 1234 5678"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">For appointment confirmation</p>
+              <p className="text-xs text-gray-500 mt-1">Para confirmación de cita</p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes (optional)
+                Notas (opcional)
               </label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Any special requirements or questions..."
+                placeholder="Algún requerimiento especial o pregunta..."
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
@@ -342,15 +353,15 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-gradient-to-r from-[var(--color-secondary)] to-[#195158] hover:from-[#195158] hover:to-[var(--color-secondary)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Booking...
+                  Reservando...
                 </>
               ) : (
-                "Confirm Booking"
+                "Confirmar Reserva"
               )}
             </button>
           </form>
@@ -359,39 +370,39 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
         // Calendar Step
         <div>
           {/* Month Navigation */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-1 bg-gradient-to-r from-blue-50 to-indigo-50 px-1.5 py-1 rounded-md">
             <button
               onClick={goToPrevMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-white rounded-md transition-colors"
               aria-label="Previous month"
             >
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
+              <ChevronLeft className="w-4 h-4 text-[var(--color-secondary)]" />
             </button>
-            <h4 className="font-semibold text-gray-900">
-              {currentMonth.toLocaleDateString("en-US", {
+            <h4 className="font-bold text-xs text-[var(--color-secondary)]">
+              {currentMonth.toLocaleDateString("es-MX", {
                 month: "long",
                 year: "numeric",
               })}
             </h4>
             <button
               onClick={goToNextMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-white rounded-md transition-colors"
               aria-label="Next month"
             >
-              <ChevronRight className="w-5 h-5 text-gray-600" />
+              <ChevronRight className="w-4 h-4 text-[var(--color-secondary)]" />
             </button>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
             </div>
           ) : (
             <>
               {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-1 mb-4">
-                {["S", "M", "T", "W", "T", "F", "S"].map((day, i) => (
-                  <div key={i} className="text-center text-xs font-semibold text-gray-600 py-1">
+              <div className="grid grid-cols-7 gap-0.5 mb-1.5">
+                {["D", "L", "M", "M", "J", "V", "S"].map((day, i) => (
+                  <div key={i} className="text-center text-[10px] font-semibold text-gray-600 py-0.5">
                     {day}
                   </div>
                 ))}
@@ -402,26 +413,32 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
                   }
 
                   const dateStr = new Date(year, month, day).toISOString().split("T")[0];
-                  const isAvailable = availableDates.includes(dateStr);
+                  const slotsCount = slotsByDate[dateStr]?.length || 0;
+                  const hasSlots = slotsCount > 0;
                   const isSelected = dateStr === selectedDate;
                   const isPast = dateStr < today;
 
                   return (
                     <button
                       key={day}
-                      onClick={() => isAvailable && !isPast && handleDateSelect(dateStr)}
-                      disabled={!isAvailable || isPast}
-                      className={`aspect-square rounded-lg text-sm font-medium transition-all ${
+                      onClick={() => hasSlots && !isPast && handleDateSelect(dateStr)}
+                      disabled={!hasSlots || isPast}
+                      className={`relative aspect-square rounded-md text-[11px] font-medium transition-all ${
                         isSelected
-                          ? "bg-blue-600 text-white"
-                          : isAvailable && !isPast
-                          ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                          ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-accent)] text-[var(--color-neutral-dark)] ring-1 ring-[var(--color-primary)] scale-105 shadow-md"
+                          : hasSlots && !isPast
+                          ? "bg-blue-50 text-blue-700 hover:bg-blue-100 ring-1 ring-[var(--color-primary)]"
                           : isPast
                           ? "text-gray-300 cursor-not-allowed"
                           : "text-gray-400 cursor-not-allowed"
                       }`}
                     >
-                      {day}
+                      <span>{day}</span>
+                      {hasSlots && !isSelected && !isPast && (
+                        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[var(--color-primary)] text-[var(--color-neutral-dark)] rounded-full text-[8px] font-bold flex items-center justify-center shadow-sm">
+                          {slotsCount}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -429,60 +446,47 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
 
               {/* Available Time Slots */}
               {selectedDate && (
-                <div className="border-t pt-4">
-                  <p className="text-sm font-semibold text-gray-700 mb-3">
-                    {new Date(selectedDate).toLocaleDateString("en-US", {
-                      weekday: "long",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </p>
-
+                <div className="border-t pt-1.5 mt-1.5">
                   {selectedSlots.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-4">
-                      No available slots for this date
+                    <p className="text-xs text-gray-500 text-center py-2">
+                      Sin horarios disponibles
                     </p>
                   ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {selectedSlots.map((slot) => (
-                        <button
-                          key={slot.id}
-                          onClick={() => handleSlotSelect(slot)}
-                          className="w-full text-left p-3 border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 rounded-lg transition-all"
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-semibold text-gray-900 flex items-center gap-2">
-                              <Clock className="w-4 h-4 text-blue-600" />
-                              {slot.startTime} - {slot.endTime}
-                            </span>
-                            <span className="font-bold text-blue-700 flex items-center gap-1">
-                              <DollarSign className="w-4 h-4" />
-                              {slot.finalPrice}
-                            </span>
-                          </div>
-                          {slot.discount && (
-                            <p className="text-xs text-green-600">
-                              {slot.discountType === "PERCENTAGE" ? `${slot.discount}% off` : `$${slot.discount} off`}
-                            </p>
-                          )}
-                          <p className="text-xs text-gray-500 mt-1">{slot.duration} minutes</p>
-                        </button>
-                      ))}
+                    <div>
+                      <p className="text-[10px] text-gray-600 mb-0.5 font-medium uppercase tracking-wide">Horarios:</p>
+                      <div className="grid grid-cols-3 gap-1">
+                        {selectedSlots.map((slot) => (
+                          <button
+                            key={slot.id}
+                            onClick={() => handleSlotSelect(slot)}
+                            className="flex flex-col items-center justify-center p-1 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border border-blue-200 hover:border-blue-400 rounded-md transition-all hover:scale-105"
+                          >
+                            <span className="text-[11px] font-bold text-gray-900 leading-tight">{slot.startTime}</span>
+                            <span className="text-[9px] text-blue-700 font-semibold leading-tight">${slot.finalPrice}</span>
+                            {slot.discount && (
+                              <span className="text-[8px] text-green-600 font-medium leading-tight">
+                                -{slot.discountType === "PERCENTAGE" ? `${slot.discount}%` : `$${slot.discount}`}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
               {availableDates.length === 0 && (
-                <div className="text-center py-8">
-                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">No available appointments this month</p>
+                <div className="text-center py-4">
+                  <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-1" />
+                  <p className="text-xs text-gray-500">No hay citas disponibles</p>
                 </div>
               )}
             </>
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

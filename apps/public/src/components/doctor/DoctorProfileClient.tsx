@@ -15,6 +15,7 @@ import FAQSection from "./FAQSection";
 import QuickNav from "./QuickNav";
 import StickyMobileCTA from "./StickyMobileCTA";
 import SidebarContactInfo from "./SidebarContactInfo";
+import SidebarCTA from "./SidebarCTA";
 import BookingModal from "./BookingModal";
 
 // Import client-side components via wrapper
@@ -80,11 +81,24 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
 
           {/* RIGHT COLUMN - Sticky Booking Sidebar (Desktop Only) */}
           <aside className="profile-right-column">
-            {/* Appointment Booking Widget - Real booking system */}
-            <DynamicBookingWidget doctorSlug={doctor.slug} />
+            <div className="flex flex-col h-screen">
+              {/* Appointment Booking Widget - Scrollable */}
+              <div className="flex-1 overflow-y-auto">
+                <DynamicBookingWidget doctorSlug={doctor.slug} />
+              </div>
 
-            {/* Contact Information - Quick access (Desktop Only) */}
-            <SidebarContactInfo clinicInfo={doctor.clinic_info} />
+              {/* Fixed Bottom Section - CTA Buttons & Contact */}
+              <div className="flex-shrink-0 bg-white border-t border-gray-200">
+                {/* CTA Buttons - Action buttons (Desktop Only) */}
+                <SidebarCTA
+                  onBookingClick={openBookingModal}
+                  whatsappNumber={doctor.clinic_info.whatsapp}
+                />
+
+                {/* Contact Information - Quick access (Desktop Only) */}
+                <SidebarContactInfo clinicInfo={doctor.clinic_info} />
+              </div>
+            </div>
           </aside>
         </div>
 

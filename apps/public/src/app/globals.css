@@ -117,32 +117,35 @@ html {
   .profile-layout-container {
     display: grid;
     grid-template-columns: 1fr 400px; /* Left: flexible, Right: 400px fixed */
-    gap: 32px;
+    gap: 16px;
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 16px;
+    padding: 0;
   }
 
   .profile-left-column {
     grid-column: 1;
     min-width: 0; /* Prevent grid blowout */
+    padding-left: 8px;
   }
 
   .profile-right-column {
     display: block; /* Show on desktop */
     grid-column: 2;
     position: sticky;
-    top: 32px; /* Stick 32px from top when scrolling */
+    top: 0;
     align-self: start;
-    max-height: calc(100vh - 64px); /* Leave space at top/bottom */
-    overflow-y: auto; /* Allow scrolling if calendar is tall */
+    max-height: 100vh;
+    overflow-y: visible;
+    padding: 0;
+    margin: 0;
   }
 }
 
 /* Extra large screens: More space between columns */
 @media (min-width: 1440px) {
   .profile-layout-container {
-    gap: 48px;
+    gap: 24px;
     max-width: 1600px;
   }
 }
