@@ -16,7 +16,7 @@ import StickyMobileCTA from '@/components/doctor/StickyMobileCTA';
 import SidebarContactInfo from '@/components/doctor/SidebarContactInfo';
 
 // Import client-side components via wrapper
-import { DynamicAppointmentCalendar, DynamicMediaCarousel } from '@/components/doctor/DynamicSections';
+import { DynamicAppointmentCalendar, DynamicMediaCarousel, DynamicBookingWidget } from '@/components/doctor/DynamicSections';
 
 interface DoctorProfilePageProps {
   params: Promise<{ slug: string }>;
@@ -79,11 +79,8 @@ export default async function DoctorProfilePage({ params }: DoctorProfilePagePro
 
         {/* RIGHT COLUMN - Sticky Booking Sidebar (Desktop Only) */}
         <aside className="profile-right-column">
-          {/* 4. Appointment Calendar - Conversion element (client-side) */}
-          <DynamicAppointmentCalendar
-            nextAvailableDate={doctor.next_available_date}
-            modes={doctor.appointment_modes}
-          />
+          {/* Appointment Booking Widget - Real booking system */}
+          <DynamicBookingWidget doctorSlug={doctor.slug} />
 
           {/* Contact Information - Quick access (Desktop Only) */}
           <SidebarContactInfo clinicInfo={doctor.clinic_info} />

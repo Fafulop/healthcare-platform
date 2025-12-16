@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
+import { Calendar } from "lucide-react";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession({
@@ -61,6 +62,14 @@ export default function DashboardPage() {
             className="block w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-lg text-center transition"
           >
             Ver Doctores
+          </Link>
+
+          <Link
+            href="/appointments"
+            className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            <Calendar className="w-5 h-5" />
+            Appointments Overview
           </Link>
 
           <Link

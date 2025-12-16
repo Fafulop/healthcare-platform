@@ -78,6 +78,8 @@ model Doctor {
   certificates       Certificate[]
   carouselItems      CarouselItem[]
   faqs               FAQ[]
+  appointmentSlots   AppointmentSlot[]
+  bookings           Booking[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -158,4 +160,88 @@ model FAQ {
 
   @@map("faqs")
   @@index([doctorId])
+}
+
+// Appointment Slot - Doctor's availability
+model AppointmentSlot {
+  id                 String      @id @default(cuid())
+  doctorId           String      @map("doctor_id")
+
+  // Date and Time
+  date               DateTime    // Date only (normalized to midnight UTC)
+  startTime          String      @map("start_time") // "09:00", "14:00"
+  endTime            String      @map("end_time")   // "10:00", "15:00"
+  duration           Int         // Minutes: 30 or 60
+
+  // Pricing
+  basePrice          Decimal     @map("base_price") @db.Decimal(10, 2)
+  discount           Decimal?    @db.Decimal(10, 2) // Can be null
+  discountType       String?     @map("discount_type") // "PERCENTAGE" | "FIXED"
+  finalPrice         Decimal     @map("final_price") @db.Decimal(10, 2)
+
+  // Availability
+  status             SlotStatus  @default(AVAILABLE)
+  maxBookings        Int         @default(1) @map("max_bookings")
+  currentBookings    Int         @default(0) @map("current_bookings")
+
+  // Relations
+  doctor             Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  bookings           Booking[]
+
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  @@map("appointment_slots")
+  @@index([doctorId, date, status])
+  @@index([date])
+  @@unique([doctorId, date, startTime]) // Prevent duplicate slots at same time
+}
+
+enum SlotStatus {
+  AVAILABLE
+  BOOKED
+  BLOCKED
+}
+
+// Booking/Appointment - Patient reservation
+model Booking {
+  id                 String        @id @default(cuid())
+  slotId             String        @map("slot_id")
+  doctorId           String        @map("doctor_id")
+
+  // Patient Information
+  patientName        String        @map("patient_name")
+  patientEmail       String        @map("patient_email")
+  patientPhone       String        @map("patient_phone")
+  patientWhatsapp    String?       @map("patient_whatsapp")
+
+  // Booking Details
+  status             BookingStatus @default(PENDING)
+  finalPrice         Decimal       @map("final_price") @db.Decimal(10, 2)
+  notes              String?       @db.Text
+
+  // Confirmation (future WhatsApp integration)
+  confirmationCode   String?       @unique @map("confirmation_code")
+  confirmedAt        DateTime?     @map("confirmed_at")
+  cancelledAt        DateTime?     @map("cancelled_at")
+
+  // Relations
+  slot               AppointmentSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  doctor             Doctor          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  @@map("bookings")
+  @@index([doctorId, status])
+  @@index([slotId])
+  @@index([patientEmail])
+}
+
+enum BookingStatus {
+  PENDING       // Just created, awaiting confirmation
+  CONFIRMED     // Confirmed (via WhatsApp in future)
+  CANCELLED     // Cancelled by patient or doctor
+  COMPLETED     // Appointment happened
+  NO_SHOW       // Patient didn't show up
 }

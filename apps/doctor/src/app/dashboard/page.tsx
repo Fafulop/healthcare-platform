@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
+import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2 } from "lucide-react";
 
 interface DoctorProfile {
   id: string;
@@ -40,7 +40,6 @@ export default function DoctorDashboardPage() {
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
-      // Fetch doctor by ID
       const response = await fetch(`http://localhost:3003/api/doctors`);
       const result = await response.json();
 
@@ -64,71 +63,123 @@ export default function DoctorDashboardPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-green-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-100">
-      <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
-        {/* User Info Header */}
-        <div className="text-center mb-8">
-          <div className="mb-4">
-            {session?.user?.image && (
-              <img
-                src={session.user.image}
-                alt={session.user.name || "User"}
-                className="w-16 h-16 rounded-full mx-auto border-2 border-blue-500"
-              />
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header Card */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
+          {/* Banner */}
+          <div className="h-32 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600"></div>
+
+          {/* Profile Header */}
+          <div className="px-8 pb-8">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between -mt-16 mb-6">
+              <div className="flex items-end space-x-4">
+                {session?.user?.image ? (
+                  <img
+                    src={session.user.image}
+                    alt={session.user.name || "User"}
+                    className="w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover bg-white"
+                  />
+                ) : (
+                  <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
+                    <User className="w-16 h-16 text-white" />
+                  </div>
+                )}
+                <div className="pb-2">
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {session?.user?.name || "Doctor Portal"}
+                  </h1>
+                  <p className="text-gray-600 flex items-center gap-2 mt-1">
+                    <User className="w-4 h-4" />
+                    {session?.user?.email}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 md:mt-0 md:pb-2">
+                <span className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 text-sm font-semibold rounded-full border-2 border-green-200">
+                  <Stethoscope className="w-4 h-4 mr-2" />
+                  {session?.user?.role}
+                </span>
+              </div>
+            </div>
+
+            {/* Welcome Message */}
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg p-4 mb-6">
+              <p className="text-green-900 font-medium">
+                Welcome back, {session?.user?.name?.split(' ')[0]}! 👋
+              </p>
+              <p className="text-green-700 text-sm mt-1">
+                Manage your profile and view your public page from here.
+              </p>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">
-            Doctor Portal
-          </h1>
-          <p className="text-sm text-gray-600 mb-1">
-            {session?.user?.name}
-          </p>
-          <p className="text-xs text-gray-500">
-            {session?.user?.email}
-          </p>
-          <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-            {session?.user?.role}
-          </span>
         </div>
 
         {/* Profile Section */}
         {doctorProfile ? (
-          <div className="mb-6 border-t border-gray-200 pt-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">Your Profile</h2>
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Stethoscope className="w-6 h-6 text-green-600" />
+                Your Medical Profile
+              </h2>
+            </div>
 
-            <div className="bg-gray-50 rounded-lg p-6 mb-4">
-              <div className="flex items-start gap-4">
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 mb-6 border border-green-100">
+              <div className="flex flex-col md:flex-row gap-6">
                 {doctorProfile.heroImage && (
                   <img
                     src={doctorProfile.heroImage}
                     alt={doctorProfile.doctorFullName}
-                    className="w-20 h-20 rounded-full object-cover"
+                    className="w-32 h-32 rounded-xl object-cover shadow-md border-2 border-white"
                   />
                 )}
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900">
-                    {doctorProfile.doctorFullName}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    {doctorProfile.primarySpecialty} • {doctorProfile.city}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900">
+                      {doctorProfile.doctorFullName}
+                    </h3>
+                    <div className="flex items-center gap-2 text-green-700 font-medium mt-1">
+                      <Stethoscope className="w-4 h-4" />
+                      {doctorProfile.primarySpecialty}
+                    </div>
+                  </div>
+
+                  <p className="text-gray-700 leading-relaxed">
                     {doctorProfile.shortBio}
                   </p>
-                  <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                    <span>{doctorProfile.yearsExperience} años de experiencia</span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <MapPin className="w-4 h-4 text-green-600" />
+                      <span className="text-sm">{doctorProfile.city}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Calendar className="w-4 h-4 text-green-600" />
+                      <span className="text-sm">{doctorProfile.yearsExperience} years experience</span>
+                    </div>
                     {doctorProfile.clinicPhone && (
-                      <span>📞 {doctorProfile.clinicPhone}</span>
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Phone className="w-4 h-4 text-green-600" />
+                        <span className="text-sm">{doctorProfile.clinicPhone}</span>
+                      </div>
+                    )}
+                    {doctorProfile.clinicWhatsapp && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Phone className="w-4 h-4 text-green-600" />
+                        <span className="text-sm">WhatsApp: {doctorProfile.clinicWhatsapp}</span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -139,45 +190,71 @@ export default function DoctorDashboardPage() {
               href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg text-center transition"
+              className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
             >
-              Ver Perfil Público
+              <ExternalLink className="w-5 h-5" />
+              View Public Profile
             </a>
           </div>
         ) : session?.user?.doctorId ? (
-          <div className="mb-6 border-t border-gray-200 pt-6">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-              <p className="text-yellow-800">
-                {error || "Loading profile..."}
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
+            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-6 text-center">
+              <div className="flex justify-center mb-3">
+                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-yellow-600 animate-spin" />
+                </div>
+              </div>
+              <p className="text-yellow-900 font-semibold text-lg">
+                {error || "Loading your profile..."}
+              </p>
+              <p className="text-yellow-700 text-sm mt-2">
+                Please wait while we fetch your information
               </p>
             </div>
           </div>
         ) : (
-          <div className="mb-6 border-t border-gray-200 pt-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-              <p className="text-blue-800 font-medium mb-2">
-                No profile linked
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+              <div className="flex justify-center mb-3">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+              <p className="text-blue-900 font-semibold text-lg mb-2">
+                No Profile Linked
               </p>
-              <p className="text-sm text-blue-600">
-                Contact an administrator to link your account to a doctor profile.
+              <p className="text-blue-700 text-sm">
+                Your account is not linked to a doctor profile yet. Please contact an administrator to link your account.
               </p>
             </div>
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="space-y-3">
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg text-center transition"
-          >
-            Cerrar Sesión
-          </button>
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <div className="space-y-3">
+            <a
+              href="/appointments"
+              className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <Calendar className="w-5 h-5" />
+              Manage Appointments
+            </a>
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="flex items-center justify-center gap-2 w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <LogOut className="w-5 h-5" />
+              Sign Out
+            </button>
+          </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <p className="text-sm text-gray-500 text-center">
-            Puerto: 3001 | Ambiente: Development
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500">
+            Doctor Portal • Port 3001 • Development Environment
           </p>
         </div>
       </div>
