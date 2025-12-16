@@ -1,15 +1,20 @@
+/* eslint-disable @next/next/no-before-interactive-script-outside-document */
+// @refresh reset
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { UploadButton, UploadDropzone } from "@/utils/uploadthing";
 
 // Full 10-step wizard for creating doctor profiles
 export default function NewDoctorWizard() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadKey, setUploadKey] = useState(0); // Key to reset upload components
 
   // Form data state
   const [formData, setFormData] = useState({
@@ -145,6 +150,7 @@ export default function NewDoctorWizard() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // ✅ Include cookies for authentication
         body: JSON.stringify(formData),
       });
 
@@ -469,28 +475,43 @@ export default function NewDoctorWizard() {
                 </label>
 
                 <UploadButton
+                  key={`hero-${uploadKey}`}
                   endpoint="doctorHeroImage"
                   onClientUploadComplete={(res) => {
-                    console.log("Hero image uploaded:", res[0].ufsUrl);
-                    updateField("hero_image", res[0].ufsUrl);
-                    alert("✅ Imagen subida exitosamente!");
+                    console.log("✅ Hero image upload complete!");
+                    console.log("Full response object:", res[0]);
+                    console.log("Available properties:", Object.keys(res[0] || {}));
+
+                    // Try multiple property names to find the URL
+                    const uploadedUrl = res[0]?.url || res[0]?.ufsUrl || res[0]?.fileUrl;
+                    console.log("Extracted URL:", uploadedUrl);
+
+                    if (uploadedUrl) {
+                      updateField("hero_image", uploadedUrl);
+                      console.log("✅ Updated hero_image field to:", uploadedUrl);
+                      setUploadKey(prev => prev + 1); // Reset upload button
+                      alert("✅ Imagen subida exitosamente!");
+                    } else {
+                      console.error("❌ No URL found in response!");
+                      alert("⚠️ Imagen subida pero URL no capturada. Ver consola.");
+                    }
                   }}
                   onUploadError={(error: Error) => {
                     console.error("Hero image upload error:", error);
                     alert(`❌ Error: ${error.message}`);
                   }}
-                  onUploadProgress={(progress) => {
-                    console.log(`Uploading hero image: ${progress}%`);
-                  }}
                   onBeforeUploadBegin={(files) => {
                     console.log("Starting hero image upload...");
                     return files;
+                  }}
+                  onUploadProgress={(progress) => {
+                    console.log(`Uploading hero image: ${progress}%`);
                   }}
                 />
 
                 {formData.hero_image && formData.hero_image !== "/images/doctors/sample/doctor-placeholder.svg" && (
                   <div className="mt-4">
-                    <p className="text-sm text-gray-600 mb-2">Vista previa:</p>
+                    <p className="text-sm text-green-600 mb-2">✅ Imagen subida exitosamente</p>
                     <img
                       src={formData.hero_image}
                       alt="Preview"
@@ -806,14 +827,21 @@ export default function NewDoctorWizard() {
               <UploadDropzone
                 endpoint="doctorCertificates"
                 onClientUploadComplete={(res) => {
-                  console.log("Certificates uploaded:", res.length, "files");
-                  const newCerts = res.map((file) => ({
-                    src: file.ufsUrl,
-                    alt: file.name,
-                    issued_by: "",
-                    year: "",
-                  }));
-                  console.log("New certificates:", newCerts);
+                  console.log("✅ Certificates uploaded:", res.length, "files");
+                  console.log("First file properties:", Object.keys(res[0] || {}));
+
+                  const newCerts = res.map((file) => {
+                    const fileUrl = file.url || file.ufsUrl || file.fileUrl;
+                    console.log("Certificate file URL:", fileUrl);
+                    return {
+                      src: fileUrl,
+                      alt: file.name,
+                      issued_by: "",
+                      year: "",
+                    };
+                  });
+
+                  console.log("New certificates with URLs:", newCerts);
                   setFormData((prev) => ({
                     ...prev,
                     certificate_images: [...prev.certificate_images, ...newCerts],
@@ -1047,14 +1075,21 @@ export default function NewDoctorWizard() {
                 <UploadDropzone
                   endpoint="clinicPhotos"
                   onClientUploadComplete={(res) => {
-                    console.log("Clinic photos uploaded:", res.length, "files");
-                    const newPhotos = res.map((file) => ({
-                      type: "image" as const,
-                      src: file.ufsUrl,
-                      alt: file.name,
-                      caption: "",
-                    }));
-                    console.log("New photos:", newPhotos);
+                    console.log("✅ Clinic photos uploaded:", res.length, "files");
+                    console.log("First photo properties:", Object.keys(res[0] || {}));
+
+                    const newPhotos = res.map((file) => {
+                      const fileUrl = file.url || file.ufsUrl || file.fileUrl;
+                      console.log("Photo URL:", fileUrl);
+                      return {
+                        type: "image" as const,
+                        src: fileUrl,
+                        alt: file.name,
+                        caption: "",
+                      };
+                    });
+
+                    console.log("New photos with URLs:", newPhotos);
                     setFormData((prev) => ({
                       ...prev,
                       carousel_items: [...prev.carousel_items, ...newPhotos],
@@ -1089,14 +1124,21 @@ export default function NewDoctorWizard() {
                 <UploadDropzone
                   endpoint="doctorVideos"
                   onClientUploadComplete={(res) => {
-                    console.log("Videos uploaded:", res.length, "files");
-                    const newVideos = res.map((file) => ({
-                      type: "video" as const,
-                      src: file.ufsUrl,
-                      alt: file.name,
-                      caption: "",
-                    }));
-                    console.log("New videos:", newVideos);
+                    console.log("✅ Videos uploaded:", res.length, "files");
+                    console.log("First video properties:", Object.keys(res[0] || {}));
+
+                    const newVideos = res.map((file) => {
+                      const fileUrl = file.url || file.ufsUrl || file.fileUrl;
+                      console.log("Video URL:", fileUrl);
+                      return {
+                        type: "video" as const,
+                        src: fileUrl,
+                        alt: file.name,
+                        caption: "",
+                      };
+                    });
+
+                    console.log("New videos with URLs:", newVideos);
                     setFormData((prev) => ({
                       ...prev,
                       carousel_items: [...prev.carousel_items, ...newVideos],
