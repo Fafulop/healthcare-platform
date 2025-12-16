@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 export const authConfig = {
@@ -17,13 +17,13 @@ export const authConfig = {
   ],
 
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account, profile }: any) {
       // Allow all Google authentications
       // Role verification happens via API calls after login
       return true;
     },
 
-    async jwt({ token, user, account, trigger }) {
+    async jwt({ token, user, account, trigger }: any) {
       // On sign in, fetch user info from API
       if (user || trigger === "update") {
         try {
@@ -56,7 +56,7 @@ export const authConfig = {
       return token;
     },
 
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       // Attach user info to session
       if (session.user) {
         session.user.id = token.userId as string;
