@@ -519,7 +519,7 @@ export default function AppointmentsPage() {
                           : isToday
                           ? "bg-green-100 text-green-700 font-semibold"
                           : hasSlots
-                          ? "bg-emerald-50 text-gray-900 hover:bg-emerald-100"
+                          ? "bg-green-200 text-green-900 font-medium hover:bg-green-300"
                           : "text-gray-600 hover:bg-gray-100"
                       }`}
                     >
