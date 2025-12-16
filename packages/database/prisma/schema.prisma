@@ -10,6 +10,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// User authentication model for staff (doctors + admins)
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?  // Google profile picture
+  role      Role     @default(DOCTOR)
+
+  // Optional: Link to doctor profile if user is a doctor
+  doctorId  String?  @unique @map("doctor_id")
+  doctor    Doctor?  @relation(fields: [doctorId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+// Role enum for staff members
+enum Role {
+  ADMIN
+  DOCTOR
+}
+
 model Doctor {
   id                 String   @id @default(cuid())
   slug               String   @unique
@@ -48,6 +72,7 @@ model Doctor {
   socialTwitter      String?   @map("social_twitter")
 
   // Relations
+  user               User?     // 1:1 relation - optional (can have doctors without user accounts)
   services           Service[]
   educationItems     Education[]
   certificates       Certificate[]

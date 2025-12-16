@@ -10,6 +10,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@healthcare/auth": "workspace:*",
+    "@healthcare/database": "workspace:*",
     "@healthcare/types": "workspace:*",
     "@uploadthing/react": "^7.3.3",
     "lucide-react": "^0.560.0",

@@ -5,15 +5,27 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting database seed...');
 
-  // Delete existing data
+  // Delete existing data (in correct order due to foreign keys)
   await prisma.fAQ.deleteMany();
   await prisma.carouselItem.deleteMany();
   await prisma.certificate.deleteMany();
   await prisma.education.deleteMany();
   await prisma.service.deleteMany();
+  await prisma.user.deleteMany(); // Delete users before doctors
   await prisma.doctor.deleteMany();
 
   console.log('✅ Cleaned existing data');
+
+  // Create admin user
+  const adminUser = await prisma.user.create({
+    data: {
+      email: 'lopez.fafutis@gmail.com',
+      name: 'Platform Admin',
+      role: 'ADMIN',
+    },
+  });
+
+  console.log('✅ Created admin user:', adminUser.email);
 
   // Create Maria Lopez doctor profile
   const mariaLopez = await prisma.doctor.create({
@@ -257,7 +269,27 @@ async function main() {
 
   console.log('✅ Created doctor profile: María López');
   console.log(`   - ${mariaLopez.slug}`);
-  console.log('✅ Database seeding completed successfully!');
+
+  // Create doctor user linked to María López profile
+  // Using a different test email (you can change this to another Gmail for testing)
+  const doctorUser = await prisma.user.create({
+    data: {
+      email: 'doctor.test@gmail.com', // Change to a real Gmail if you want to test doctor portal
+      name: 'Dra. María López Hernández',
+      role: 'DOCTOR',
+      doctorId: mariaLopez.id, // Link to doctor profile
+    },
+  });
+
+  console.log('✅ Created doctor user:', doctorUser.email);
+  console.log(`   - Linked to doctor profile: ${mariaLopez.slug}`);
+  console.log('   ⚠️  To test doctor portal, change doctor email to a real Gmail');
+
+  console.log('\n🎉 Database seeding completed successfully!');
+  console.log('\n📝 Summary:');
+  console.log('   - Admin user: lopez.fafutis@gmail.com (ADMIN role)');
+  console.log('   - Doctor user: doctor.test@gmail.com (DOCTOR role)');
+  console.log('\n💡 Note: Each email can only have one role (ADMIN or DOCTOR)');
 }
 
 main()

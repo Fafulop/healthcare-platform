@@ -1,0 +1,21 @@
+{
+  "name": "@healthcare/auth",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/nextauth-config.ts",
+    "./middleware": "./src/middleware.ts",
+    "./types": "./src/types.ts"
+  },
+  "dependencies": {
+    "next-auth": "^5.0.0-beta.25",
+    "@healthcare/database": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^20.19.27"
+  }
+}
