@@ -44,7 +44,7 @@ export default function UsersManagementPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("${API_URL}/api/users");
+      const response = await fetch(`${API_URL}/api/users`);
       const result = await response.json();
 
       if (result.success) {
@@ -62,7 +62,7 @@ export default function UsersManagementPage() {
 
   const fetchDoctors = async () => {
     try {
-      const response = await fetch("${API_URL}/api/doctors");
+      const response = await fetch(`${API_URL}/api/doctors`);
       const result = await response.json();
 
       if (result.success) {

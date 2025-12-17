@@ -61,7 +61,7 @@ export default function AdminAppointmentsPage() {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const response = await fetch("${API_URL}/api/appointments/bookings");
+      const response = await fetch(`${API_URL}/api/appointments/bookings`);
       const data = await response.json();
 
       if (data.success) {
