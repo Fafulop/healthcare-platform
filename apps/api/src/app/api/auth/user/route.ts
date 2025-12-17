@@ -28,12 +28,21 @@ export async function POST(request: Request) {
 
     // Create user if doesn't exist
     if (!user) {
+      // Define admin emails (can be moved to environment variable later)
+      const adminEmails = [
+        "lopez.fafutis@gmail.com",
+        // Add more admin emails here as needed
+      ];
+
+      // Determine role based on email
+      const role = adminEmails.includes(email) ? "ADMIN" : "DOCTOR";
+
       user = await prisma.user.create({
         data: {
           email,
           name,
           image,
-          role: "DOCTOR", // Default role for new users
+          role,
         },
         select: {
           id: true,
@@ -45,7 +54,7 @@ export async function POST(request: Request) {
         },
       });
 
-      console.log(`✅ New user created: ${email} (role: DOCTOR)`);
+      console.log(`✅ New user created: ${email} (role: ${role})`);
     }
 
     return NextResponse.json(user);
