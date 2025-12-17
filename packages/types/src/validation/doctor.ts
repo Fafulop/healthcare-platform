@@ -34,7 +34,7 @@ export const createDoctorSchema = z.object({
     address: z.string().min(5).max(300),
     phone: z.string().min(8).max(20),
     whatsapp: z.string().min(8).max(20).optional(),
-    hours: z.record(z.any()).optional().default({}),
+    hours: z.record(z.string(), z.any()).optional().default({}),
     geo: z.object({
       lat: z.number().min(-90).max(90),
       lng: z.number().min(-180).max(180),
