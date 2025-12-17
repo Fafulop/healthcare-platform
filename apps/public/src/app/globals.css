@@ -117,7 +117,7 @@ html {
   .profile-layout-container {
     display: grid;
     grid-template-columns: 1fr 400px; /* Left: flexible, Right: 400px fixed */
-    gap: 16px;
+    gap: 0;
     max-width: 1400px;
     margin: 0 auto;
     padding: 0;
@@ -145,7 +145,7 @@ html {
 /* Extra large screens: More space between columns */
 @media (min-width: 1440px) {
   .profile-layout-container {
-    gap: 24px;
+    gap: 0;
     max-width: 1600px;
   }
 }
