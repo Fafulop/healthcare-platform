@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+// API URL from environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+const PUBLIC_URL = process.env.NEXT_PUBLIC_PUBLIC_URL || 'http://localhost:3000';
+
 interface Doctor {
   id: string;
   slug: string;
@@ -24,7 +28,7 @@ export default function DoctorsListPage() {
 
   const fetchDoctors = async () => {
     try {
-      const response = await fetch("http://localhost:3003/api/doctors");
+      const response = await fetch(`${API_URL}/api/doctors`);
       const result = await response.json();
 
       if (result.success) {
@@ -168,7 +172,7 @@ export default function DoctorsListPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <a
-                          href={`http://localhost:3000/doctors/${doctor.slug}`}
+                          href={`${PUBLIC_URL}/doctors/${doctor.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-900 mr-4"

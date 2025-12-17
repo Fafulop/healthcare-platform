@@ -7,6 +7,9 @@ import { Calendar, Clock, DollarSign, Plus, Edit, Trash2, Lock, Unlock, Loader2,
 import CreateSlotsModal from "./CreateSlotsModal";
 import Link from "next/link";
 
+// API URL from environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
 interface AppointmentSlot {
   id: string;
   date: string;
@@ -78,7 +81,7 @@ export default function AppointmentsPage() {
       const endDate = new Date(year, month + 1, 0).toISOString();
 
       const response = await fetch(
-        `http://localhost:3003/api/appointments/slots?doctorId=${doctorId}&startDate=${startDate}&endDate=${endDate}`
+        `${API_URL}/api/appointments/slots?doctorId=${doctorId}&startDate=${startDate}&endDate=${endDate}`
       );
       const data = await response.json();
 
@@ -97,7 +100,7 @@ export default function AppointmentsPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:3003/api/appointments/bookings?doctorId=${doctorId}`
+        `${API_URL}/api/appointments/bookings?doctorId=${doctorId}`
       );
       const data = await response.json();
 
@@ -114,7 +117,7 @@ export default function AppointmentsPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:3003/api/appointments/slots/${slotId}`,
+        `${API_URL}/api/appointments/slots/${slotId}`,
         { method: "DELETE" }
       );
       const data = await response.json();
@@ -137,7 +140,7 @@ export default function AppointmentsPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:3003/api/appointments/slots/${slotId}`,
+        `${API_URL}/api/appointments/slots/${slotId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -174,7 +177,7 @@ export default function AppointmentsPage() {
 
     try {
       const response = await fetch(
-        "http://localhost:3003/api/appointments/slots/bulk",
+        "${API_URL}/api/appointments/slots/bulk",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

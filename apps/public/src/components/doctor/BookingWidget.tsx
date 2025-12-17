@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCircle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 
+// API URL from environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
 interface Slot {
   id: string;
   date: string;
@@ -53,7 +56,7 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
       const monthStr = `${year}-${month.toString().padStart(2, "0")}`;
 
       const response = await fetch(
-        `http://localhost:3003/api/doctors/${doctorSlug}/availability?month=${monthStr}`
+        `${API_URL}/api/doctors/${doctorSlug}/availability?month=${monthStr}`
       );
       const data = await response.json();
 
@@ -87,7 +90,7 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("http://localhost:3003/api/appointments/bookings", {
+      const response = await fetch("${API_URL}/api/appointments/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

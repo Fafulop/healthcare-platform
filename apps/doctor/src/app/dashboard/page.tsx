@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2 } from "lucide-react";
 
+// API URL from environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+const PUBLIC_URL = process.env.NEXT_PUBLIC_PUBLIC_URL || 'http://localhost:3000';
+
 interface DoctorProfile {
   id: string;
   slug: string;
@@ -40,7 +44,7 @@ export default function DoctorDashboardPage() {
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
-      const response = await fetch(`http://localhost:3003/api/doctors`);
+      const response = await fetch(`${API_URL}/api/doctors`);
       const result = await response.json();
 
       if (result.success) {

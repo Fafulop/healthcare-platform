@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { X, Calendar, Clock, DollarSign, Percent, Info, Loader2 } from "lucide-react";
 
+// API URL from environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
 interface CreateSlotsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -156,7 +159,7 @@ export default function CreateSlotsModal({
         payload.daysOfWeek = daysOfWeek;
       }
 
-      const response = await fetch("http://localhost:3003/api/appointments/slots", {
+      const response = await fetch("${API_URL}/api/appointments/slots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

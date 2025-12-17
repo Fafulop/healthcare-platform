@@ -8,6 +8,10 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { UploadButton, UploadDropzone } from "@/utils/uploadthing";
 
+// API URL from environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+const PUBLIC_URL = process.env.NEXT_PUBLIC_PUBLIC_URL || 'http://localhost:3000';
+
 // Full 10-step wizard for creating doctor profiles
 export default function NewDoctorWizard() {
   const router = useRouter();
@@ -145,7 +149,7 @@ export default function NewDoctorWizard() {
       console.log("Carousel Items:", formData.carousel_items.length, formData.carousel_items);
       console.log("Full formData:", formData);
 
-      const response = await fetch("http://localhost:3003/api/doctors", {
+      const response = await fetch(`${API_URL}/api/doctors`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -171,7 +175,7 @@ export default function NewDoctorWizard() {
       }
 
       console.log("Doctor created successfully:", result);
-      const doctorUrl = `http://localhost:3000/doctors/${result.data.slug}`;
+      const doctorUrl = `${PUBLIC_URL}/doctors/${result.data.slug}`;
       alert(`¡Doctor creado exitosamente!\n\nSlug: ${result.data.slug}\n\nVer perfil en:\n${doctorUrl}`);
 
       // Open profile in new tab

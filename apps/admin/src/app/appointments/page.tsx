@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Calendar, Filter, User, Clock, DollarSign, Search, Download, Loader2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
+// API URL from environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
 interface Booking {
   id: string;
   patientName: string;
@@ -58,7 +61,7 @@ export default function AdminAppointmentsPage() {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:3003/api/appointments/bookings");
+      const response = await fetch("${API_URL}/api/appointments/bookings");
       const data = await response.json();
 
       if (data.success) {
@@ -107,7 +110,7 @@ export default function AdminAppointmentsPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:3003/api/appointments/bookings/${bookingId}`,
+        `${API_URL}/api/appointments/bookings/${bookingId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

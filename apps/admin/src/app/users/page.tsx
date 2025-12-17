@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+// API URL from environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
 interface Doctor {
   id: string;
   slug: string;
@@ -41,7 +44,7 @@ export default function UsersManagementPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("http://localhost:3003/api/users");
+      const response = await fetch("${API_URL}/api/users");
       const result = await response.json();
 
       if (result.success) {
@@ -59,7 +62,7 @@ export default function UsersManagementPage() {
 
   const fetchDoctors = async () => {
     try {
-      const response = await fetch("http://localhost:3003/api/doctors");
+      const response = await fetch("${API_URL}/api/doctors");
       const result = await response.json();
 
       if (result.success) {
@@ -83,7 +86,7 @@ export default function UsersManagementPage() {
 
     setUpdating(true);
     try {
-      const response = await fetch(`http://localhost:3003/api/users/${userId}`, {
+      const response = await fetch(`${API_URL}/api/users/${userId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -115,7 +118,7 @@ export default function UsersManagementPage() {
 
     setUpdating(true);
     try {
-      const response = await fetch(`http://localhost:3003/api/users/${selectedUser.id}`, {
+      const response = await fetch(`${API_URL}/api/users/${selectedUser.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
