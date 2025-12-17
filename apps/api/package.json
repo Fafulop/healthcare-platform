@@ -14,6 +14,7 @@
     "@healthcare/database": "workspace:*",
     "@healthcare/types": "workspace:*",
     "next": "16.0.10",
+    "next-auth": "^5.0.0-beta.25",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "zod": "^4.2.0"
