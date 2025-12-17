@@ -482,8 +482,8 @@ export default function NewDoctorWizard() {
                     console.log("Full response object:", res[0]);
                     console.log("Available properties:", Object.keys(res[0] || {}));
 
-                    // Try multiple property names to find the URL
-                    const uploadedUrl = res[0]?.url || res[0]?.ufsUrl || res[0]?.fileUrl;
+                    // UploadThing response has 'url' property
+                    const uploadedUrl = res[0]?.url;
                     console.log("Extracted URL:", uploadedUrl);
 
                     if (uploadedUrl) {
@@ -831,7 +831,7 @@ export default function NewDoctorWizard() {
                   console.log("First file properties:", Object.keys(res[0] || {}));
 
                   const newCerts = res.map((file) => {
-                    const fileUrl = file.url || file.ufsUrl || file.fileUrl;
+                    const fileUrl = file.url;
                     console.log("Certificate file URL:", fileUrl);
                     return {
                       src: fileUrl,
@@ -1079,7 +1079,7 @@ export default function NewDoctorWizard() {
                     console.log("First photo properties:", Object.keys(res[0] || {}));
 
                     const newPhotos = res.map((file) => {
-                      const fileUrl = file.url || file.ufsUrl || file.fileUrl;
+                      const fileUrl = file.url;
                       console.log("Photo URL:", fileUrl);
                       return {
                         type: "image" as const,
@@ -1128,7 +1128,7 @@ export default function NewDoctorWizard() {
                     console.log("First video properties:", Object.keys(res[0] || {}));
 
                     const newVideos = res.map((file) => {
-                      const fileUrl = file.url || file.ufsUrl || file.fileUrl;
+                      const fileUrl = file.url;
                       console.log("Video URL:", fileUrl);
                       return {
                         type: "video" as const,
