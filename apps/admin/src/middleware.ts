@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@healthcare/auth";
 
 export async function middleware(request: NextRequest) {
   console.log(`[ADMIN MIDDLEWARE] Path: ${request.nextUrl.pathname}`);
-
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
-
-  console.log(`[ADMIN MIDDLEWARE] Token:`, token ? `email=${token.email}, role=${token.role}` : 'null');
 
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isAuthPage = request.nextUrl.pathname.startsWith("/api/auth");
@@ -22,17 +15,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect to login if no token
-  if (!token) {
-    console.log(`[ADMIN MIDDLEWARE] No token, redirecting to login`);
+  const session = await auth();
+  console.log(`[ADMIN MIDDLEWARE] Session:`, session?.user ? `email=${session.user.email}, role=${session.user.role}` : 'null');
+
+  // Redirect to login if no session
+  if (!session || !session.user) {
+    console.log(`[ADMIN MIDDLEWARE] No session, redirecting to login`);
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
 
   // Check if user has ADMIN role
   // If user has a session but no role or wrong role, sign them out
-  if (!token.role || token.role !== "ADMIN") {
-    console.log(`⚠️ [ADMIN MIDDLEWARE] User ${token.email} has invalid role: ${token.role} - redirecting to signout`);
+  if (!session.user.role || session.user.role !== "ADMIN") {
+    console.log(`⚠️ [ADMIN MIDDLEWARE] User ${session.user.email} has invalid role: ${session.user.role} - redirecting to signout`);
 
     // Redirect to signout to clear the invalid session
     const signOutUrl = new URL("/api/auth/signout", request.url);
@@ -40,7 +36,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(signOutUrl);
   }
 
-  console.log(`[ADMIN MIDDLEWARE] Access granted to ${token.email}`);
+  console.log(`[ADMIN MIDDLEWARE] Access granted to ${session.user.email}`);
   return NextResponse.next();
 }
 
