@@ -90,7 +90,7 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("${API_URL}/api/appointments/bookings", {
+      const response = await fetch(`${API_URL}/api/appointments/bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
