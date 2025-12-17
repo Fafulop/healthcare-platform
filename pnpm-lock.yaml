@@ -212,14 +212,13 @@ importers:
         version: 5.9.3
 
   packages/auth:
-    dependencies:
-      next-auth:
-        specifier: ^5.0.0-beta.25
-        version: 5.0.0-beta.30(next@16.0.10(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
     devDependencies:
       '@types/node':
         specifier: ^20.19.27
         version: 20.19.27
+      next-auth:
+        specifier: ^5.0.0-beta.25
+        version: 5.0.0-beta.30(next@16.0.10(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
