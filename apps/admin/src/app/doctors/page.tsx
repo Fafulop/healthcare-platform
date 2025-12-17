@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -19,6 +20,7 @@ interface Doctor {
 }
 
 export default function DoctorsListPage() {
+  const router = useRouter();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -182,7 +184,7 @@ export default function DoctorsListPage() {
                         </a>
                         <button
                           className="text-gray-600 hover:text-gray-900"
-                          onClick={() => alert("Función de editar próximamente")}
+                          onClick={() => router.push(`/doctors/${doctor.slug}/edit`)}
                         >
                           Editar
                         </button>

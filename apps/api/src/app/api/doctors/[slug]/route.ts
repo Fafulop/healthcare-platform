@@ -53,11 +53,181 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  // TODO: Implement update logic
-  return NextResponse.json(
-    { success: false, error: 'Not implemented yet' },
-    { status: 501 }
-  );
+  try {
+    const { slug } = await params;
+
+    // ✅ AUTHENTICATION CHECK - Admin only
+    const { requireAdminAuth } = await import('@/lib/auth');
+
+    try {
+      await requireAdminAuth(request);
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized',
+          message: error instanceof Error ? error.message : 'Admin access required to update doctors',
+        },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+
+    // ✅ SEO PROTECTION: Prevent slug changes
+    if (body.slug && body.slug !== slug) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Cannot change slug',
+          message: 'El slug no se puede modificar por razones de SEO. Cree un nuevo doctor si necesita una URL diferente.',
+        },
+        { status: 400 }
+      );
+    }
+
+    console.log('Received doctor update request:', {
+      slug,
+      name: body.doctor_full_name,
+      services: body.services_list?.length || 0,
+      certificates: body.certificate_images?.length || 0,
+      carousel: body.carousel_items?.length || 0,
+    });
+
+    // Check if doctor exists
+    const existingDoctor = await prisma.doctor.findUnique({
+      where: { slug },
+    });
+
+    if (!existingDoctor) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Doctor with slug "${slug}" not found`,
+        },
+        { status: 404 }
+      );
+    }
+
+    // Update doctor with transaction to ensure data consistency
+    const doctor = await prisma.$transaction(async (tx) => {
+      // Delete existing related records
+      await tx.service.deleteMany({ where: { doctorId: existingDoctor.id } });
+      await tx.education.deleteMany({ where: { doctorId: existingDoctor.id } });
+      await tx.certificate.deleteMany({ where: { doctorId: existingDoctor.id } });
+      await tx.carouselItem.deleteMany({ where: { doctorId: existingDoctor.id } });
+      await tx.fAQ.deleteMany({ where: { doctorId: existingDoctor.id } });
+
+      // Update doctor with new data
+      return await tx.doctor.update({
+        where: { slug },
+        data: {
+          slug: slug, // Keep original slug (SEO protection)
+          doctorFullName: body.doctor_full_name,
+          lastName: body.last_name,
+          primarySpecialty: body.primary_specialty,
+          subspecialties: body.subspecialties || [],
+          cedulaProfesional: body.cedula_profesional,
+          heroImage: body.hero_image,
+          locationSummary: body.location_summary,
+          city: body.city,
+          shortBio: body.short_bio,
+          longBio: body.long_bio || '',
+          yearsExperience: body.years_experience,
+          conditions: body.conditions || [],
+          procedures: body.procedures || [],
+          nextAvailableDate: body.next_available_date ? new Date(body.next_available_date) : null,
+          appointmentModes: body.appointment_modes || [],
+          clinicAddress: body.clinic_info.address,
+          clinicPhone: body.clinic_info.phone,
+          clinicWhatsapp: body.clinic_info.whatsapp,
+          clinicHours: body.clinic_info.hours || {},
+          clinicGeoLat: body.clinic_info.geo?.lat,
+          clinicGeoLng: body.clinic_info.geo?.lng,
+          socialLinkedin: body.social_links?.linkedin,
+          socialTwitter: body.social_links?.twitter,
+          // Create new related services
+          services: {
+            create: (body.services_list || []).map((service: any) => ({
+              serviceName: service.service_name,
+              shortDescription: service.short_description,
+              durationMinutes: service.duration_minutes,
+              price: service.price,
+            })),
+          },
+          // Create new education items
+          educationItems: {
+            create: (body.education_items || []).map((edu: any) => ({
+              institution: edu.institution,
+              program: edu.program,
+              year: edu.year,
+              notes: edu.notes || "",
+            })),
+          },
+          // Create new certificates
+          certificates: {
+            create: (body.certificate_images || []).map((cert: any) => ({
+              src: cert.src,
+              alt: cert.alt,
+              issuedBy: cert.issued_by,
+              year: cert.year,
+            })),
+          },
+          // Create new carousel items
+          carouselItems: {
+            create: (body.carousel_items || []).map((item: any) => ({
+              type: item.type,
+              src: item.src,
+              thumbnail: item.thumbnail,
+              alt: item.alt,
+              caption: item.caption,
+              name: item.name,
+              description: item.description,
+              uploadDate: item.uploadDate,
+              duration: item.duration,
+            })),
+          },
+          // Create new FAQs
+          faqs: {
+            create: (body.faqs || []).map((faq: any) => ({
+              question: faq.question,
+              answer: faq.answer,
+            })),
+          },
+        },
+        include: {
+          services: true,
+          educationItems: true,
+          certificates: true,
+          carouselItems: true,
+          faqs: true,
+        },
+      });
+    });
+
+    console.log('✅ Doctor updated successfully:', slug);
+
+    return NextResponse.json({
+      success: true,
+      data: doctor,
+      message: 'Doctor profile updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating doctor:', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to update doctor',
+        message: errorMessage,
+        details: error,
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(
