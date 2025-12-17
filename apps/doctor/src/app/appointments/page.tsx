@@ -177,7 +177,7 @@ export default function AppointmentsPage() {
 
     try {
       const response = await fetch(
-        "${API_URL}/api/appointments/slots/bulk",
+        `${API_URL}/api/appointments/slots/bulk`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

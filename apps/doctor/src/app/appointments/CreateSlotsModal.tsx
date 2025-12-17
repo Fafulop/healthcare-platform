@@ -159,7 +159,7 @@ export default function CreateSlotsModal({
         payload.daysOfWeek = daysOfWeek;
       }
 
-      const response = await fetch("${API_URL}/api/appointments/slots", {
+      const response = await fetch(`${API_URL}/api/appointments/slots`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
