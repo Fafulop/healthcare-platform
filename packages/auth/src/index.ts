@@ -6,4 +6,3 @@ export {
   requireStaff,
   requireDoctorOwnership,
 } from "./middleware";
-export type * from "./types";
