@@ -14,9 +14,9 @@ interface HeroSectionProps {
 
 export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps) {
   return (
-    <section id="inicio" className="bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)] py-12 md:py-16">
+    <section id="inicio" className="bg-gradient-to-b from-[#FFF5C2] to-[#D0E7E9] py-12 md:py-16">
       <div className="px-4 lg:px-0">
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 lg:gap-6">
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 lg:gap-6 max-w-5xl lg:mx-auto">
           {/* Doctor Photo - Priority loading for LCP - Option 1: Large Circle Hero Style */}
           <div className="flex-shrink-0">
             <div className="relative w-56 h-56 md:w-72 md:h-72">
