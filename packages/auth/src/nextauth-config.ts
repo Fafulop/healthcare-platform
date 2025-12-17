@@ -25,11 +25,15 @@ export const authConfig: NextAuthConfig = {
     },
 
     async jwt({ token, user, account, trigger }: any) {
+      console.log('[JWT CALLBACK] Called with:', { hasUser: !!user, trigger, email: user?.email || token.email });
+
       // On sign in, fetch user info from API
       if (user || trigger === "update") {
         try {
           // Call the API to get/create user and fetch role
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+          console.log('[JWT CALLBACK] Fetching user from API:', apiUrl);
+
           const response = await fetch(`${apiUrl}/api/auth/user`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -42,18 +46,22 @@ export const authConfig: NextAuthConfig = {
 
           if (response.ok) {
             const dbUser = await response.json();
+            console.log('[JWT CALLBACK] User from API:', { email: dbUser.email, role: dbUser.role });
             token.userId = dbUser.id;
             token.role = dbUser.role;
             token.doctorId = dbUser.doctorId;
             token.name = dbUser.name;
             token.picture = dbUser.image;
+          } else {
+            console.error('[JWT CALLBACK] API response not OK:', response.status);
           }
         } catch (error) {
-          console.error("Error fetching user from API:", error);
+          console.error("[JWT CALLBACK] Error fetching user from API:", error);
           // Continue with existing token if API fails
         }
       }
 
+      console.log('[JWT CALLBACK] Returning token with role:', token.role);
       return token;
     },
 
@@ -79,7 +87,19 @@ export const authConfig: NextAuthConfig = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
-  debug: process.env.NODE_ENV === 'development',
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+      },
+    },
+  },
+
+  debug: true,
 };
 
 // Export the auth function for NextAuth v5
