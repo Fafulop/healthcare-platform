@@ -104,7 +104,7 @@ export function generateVideoSchemas(doctor: DoctorProfile, baseUrl: string = 'h
  * Generate all structured data schemas for a doctor profile
  */
 export function generateAllSchemas(doctor: DoctorProfile, baseUrl: string = 'https://example.com') {
-  const schemas = [
+  const schemas: any[] = [
     generatePhysicianSchema(doctor, baseUrl),
     generateMedicalBusinessSchema(doctor, baseUrl),
   ];
