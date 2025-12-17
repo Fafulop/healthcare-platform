@@ -1,10 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Stethoscope, AlertCircle } from "lucide-react";
 
-export default function DoctorLoginPage() {
+function LoginContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
@@ -116,5 +117,20 @@ export default function DoctorLoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DoctorLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+        <div className="text-center">
+          <Stethoscope className="w-12 h-12 text-green-600 animate-pulse mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
