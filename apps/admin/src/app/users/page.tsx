@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
@@ -44,7 +45,7 @@ export default function UsersManagementPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/users`);
+      const response = await authFetch(`${API_URL}/api/users`);
       const result = await response.json();
 
       if (result.success) {
@@ -86,11 +87,8 @@ export default function UsersManagementPage() {
 
     setUpdating(true);
     try {
-      const response = await fetch(`${API_URL}/api/users/${userId}`, {
+      const response = await authFetch(`${API_URL}/api/users/${userId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ doctorId: null }),
       });
 
@@ -118,11 +116,8 @@ export default function UsersManagementPage() {
 
     setUpdating(true);
     try {
-      const response = await fetch(`${API_URL}/api/users/${selectedUser.id}`, {
+      const response = await authFetch(`${API_URL}/api/users/${selectedUser.id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ doctorId: selectedDoctorId }),
       });
 

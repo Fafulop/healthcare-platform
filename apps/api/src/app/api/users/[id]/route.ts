@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { requireAdmin } from '@healthcare/auth';
+import { requireAdminAuth } from '@/lib/auth';
 
 export async function GET(
   request: Request,
@@ -57,26 +57,19 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check for admin access
-    const origin = request.headers.get('origin');
-    const isLocalDev = process.env.NODE_ENV === 'development';
-    const isFromAdminApp = origin === 'http://localhost:3002';
-
-    // Skip auth check for admin app in local development
-    if (!isLocalDev || !isFromAdminApp) {
-      try {
-        await requireAdmin();
-      } catch (error) {
-        console.error('Authentication failed:', error);
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Unauthorized',
-            message: 'Admin access required to update users',
-          },
-          { status: 401 }
-        );
-      }
+    // Validate admin authentication via token
+    try {
+      await requireAdminAuth(request);
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized',
+          message: error instanceof Error ? error.message : 'Admin access required to update users',
+        },
+        { status: 401 }
+      );
     }
 
     const { id } = await params;
