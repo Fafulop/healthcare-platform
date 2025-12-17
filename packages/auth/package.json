@@ -7,8 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./config": "./src/nextauth-config.ts",
-    "./middleware": "./src/middleware.ts",
-    "./types": "./src/types.ts"
+    "./middleware": "./src/middleware.ts"
   },
   "peerDependencies": {
     "next-auth": "^5.0.0-beta.25"
