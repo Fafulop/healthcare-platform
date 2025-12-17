@@ -30,7 +30,7 @@ export const ourFileRouter = {
   // Certificate images uploader (diplomas, certifications)
   doctorCertificates: f({
     image: {
-      maxFileSize: "10MB",
+      maxFileSize: "16MB",
       maxFileCount: 20
     }
   })
