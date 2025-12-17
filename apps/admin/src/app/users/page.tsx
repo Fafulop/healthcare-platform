@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 // API URL from environment variable
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
 interface Doctor {
   id: string;

@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { requireAdmin } from '@healthcare/auth';
+import { requireAdminAuth } from '@/lib/auth';
 import { createDoctorSchema } from '@healthcare/types';
 
 export async function GET() {
@@ -41,27 +41,19 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     // ✅ AUTHENTICATION CHECK - Admin only
-    // For cross-app requests in development, check origin instead
-    const origin = request.headers.get('origin');
-    const isLocalDev = process.env.NODE_ENV === 'development';
-    const isFromAdminApp = origin === 'http://localhost:3002';
-
-    // Skip auth check for admin app in local development
-    // TODO: Implement proper token-based auth for production
-    if (!isLocalDev || !isFromAdminApp) {
-      try {
-        await requireAdmin();
-      } catch (error) {
-        console.error('Authentication failed:', error);
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Unauthorized',
-            message: 'Admin access required to create doctors',
-          },
-          { status: 401 }
-        );
-      }
+    // Validate JWT token from Authorization header
+    try {
+      await requireAdminAuth(request);
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized',
+          message: error instanceof Error ? error.message : 'Admin access required to create doctors',
+        },
+        { status: 401 }
+      );
     }
 
     const body = await request.json();

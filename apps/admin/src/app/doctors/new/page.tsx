@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { UploadButton, UploadDropzone } from "@/utils/uploadthing";
+import { authFetch } from "@/lib/auth-fetch";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
@@ -149,12 +150,8 @@ export default function NewDoctorWizard() {
       console.log("Carousel Items:", formData.carousel_items.length, formData.carousel_items);
       console.log("Full formData:", formData);
 
-      const response = await fetch(`${API_URL}/api/doctors`, {
+      const response = await authFetch(`${API_URL}/api/doctors`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // ✅ Include cookies for authentication
         body: JSON.stringify(formData),
       });
 
