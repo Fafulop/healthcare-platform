@@ -46,9 +46,9 @@ export default function Home() {
         </div>
 
         {/* CTA Button */}
-        <Link href="/doctors/maria-lopez">
+        <Link href="/doctores/maria-lopez">
           <Button variant="primary" size="lg">
-            View Sample Doctor Profile
+            Ver Perfil de Ejemplo
           </Button>
         </Link>
 

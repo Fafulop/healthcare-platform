@@ -13,7 +13,7 @@ export function generatePhysicianSchema(doctor: DoctorProfile, baseUrl: string =
     name: doctor.doctor_full_name,
     description: doctor.short_bio,
     medicalSpecialty: doctor.primary_specialty,
-    url: `${baseUrl}/doctors/${doctor.slug}`,
+    url: `${baseUrl}/doctores/${doctor.slug}`,
     image: doctor.hero_image.startsWith('http') ? doctor.hero_image : `${baseUrl}${doctor.hero_image}`,
     address: {
       '@type': 'PostalAddress',
@@ -48,7 +48,7 @@ export function generateMedicalBusinessSchema(doctor: DoctorProfile, baseUrl: st
       longitude: doctor.clinic_info.geo.lng,
     },
     telephone: doctor.clinic_info.phone,
-    url: `${baseUrl}/doctors/${doctor.slug}`,
+    url: `${baseUrl}/doctores/${doctor.slug}`,
     ...(doctor.clinic_info.hours && {
       openingHoursSpecification: Object.entries(doctor.clinic_info.hours).map(([day, hours]) => ({
         '@type': 'OpeningHoursSpecification',

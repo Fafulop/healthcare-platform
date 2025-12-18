@@ -16,7 +16,7 @@ export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 
   const description = `Dr. ${doctor.last_name}, ${doctor.primary_specialty} in ${doctor.city}. ${doctor.short_bio.substring(0, 100)}... | Book appointments, view services, credentials, and clinic location.`;
 
   // Canonical URL
-  const canonicalUrl = `${baseUrl}/doctors/${doctor.slug}`;
+  const canonicalUrl = `${baseUrl}/doctores/${doctor.slug}`;
 
   // OpenGraph image
   const ogImage = doctor.hero_image.startsWith('http')
