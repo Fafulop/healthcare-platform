@@ -12,7 +12,7 @@ interface BlogLayoutClientProps {
     address: string;
     phone: string;
     whatsapp?: string;
-    hours: any;
+    hours?: any;
     geo: {
       lat: number;
       lng: number;
