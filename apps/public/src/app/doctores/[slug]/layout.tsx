@@ -62,7 +62,10 @@ export default async function DoctorLayout({ children, params }: DoctorLayoutPro
         fetchPriority="high"
       />
 
-      {children}
+      {/* Pass doctor data to children via context-like pattern */}
+      <div className="doctor-layout-wrapper">
+        {children}
+      </div>
     </>
   );
 }

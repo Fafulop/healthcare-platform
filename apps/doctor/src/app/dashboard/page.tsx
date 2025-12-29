@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2 } from "lucide-react";
+import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText } from "lucide-react";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -238,6 +238,13 @@ export default function DoctorDashboardPage() {
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
+            <a
+              href="/dashboard/blog"
+              className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <FileText className="w-5 h-5" />
+              My Blog
+            </a>
             <a
               href="/appointments"
               className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"

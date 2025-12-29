@@ -1,0 +1,343 @@
+"use client";
+
+import { useSession, signOut } from "next-auth/react";
+import { redirect, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { FileText, Plus, Edit, Trash2, Eye, Loader2, AlertCircle, Calendar, BarChart } from "lucide-react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+
+interface Article {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  thumbnail: string | null;
+  status: 'DRAFT' | 'PUBLISHED';
+  publishedAt: string | null;
+  views: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export default function BlogManagementPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/login");
+    },
+  });
+
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFT'>('ALL');
+
+  useEffect(() => {
+    if (session) {
+      fetchArticles();
+    }
+  }, [session]);
+
+  const getAuthHeaders = async () => {
+    if (!session?.user?.email) {
+      throw new Error('No active session');
+    }
+
+    const authPayload = {
+      email: session.user.email,
+      role: session.user.role,
+      timestamp: Date.now(),
+    };
+
+    const token = btoa(JSON.stringify(authPayload));
+
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  };
+
+  const fetchArticles = async () => {
+    try {
+      setLoading(true);
+      const headers = await getAuthHeaders();
+
+      const response = await fetch(`${API_URL}/api/articles`, {
+        headers,
+        credentials: 'include',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setArticles(result.data);
+        setError(null);
+      } else {
+        setError(result.error || 'Failed to load articles');
+      }
+    } catch (err) {
+      console.error('Error fetching articles:', err);
+      setError('Error loading articles');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) {
+      return;
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+
+      const response = await fetch(`${API_URL}/api/articles/${id}`, {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Remove from local state
+        setArticles(articles.filter(a => a.id !== id));
+      } else {
+        alert(`Failed to delete article: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Error deleting article:', err);
+      alert('Error deleting article');
+    }
+  };
+
+  const filteredArticles = articles.filter(article => {
+    if (filter === 'ALL') return true;
+    return article.status === filter;
+  });
+
+  const stats = {
+    total: articles.length,
+    published: articles.filter(a => a.status === 'PUBLISHED').length,
+    drafts: articles.filter(a => a.status === 'DRAFT').length,
+    totalViews: articles.reduce((sum, a) => sum + a.views, 0),
+  };
+
+  if (status === "loading" || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-green-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading articles...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">My Blog</h1>
+              <p className="text-gray-600">Manage your articles and blog posts</p>
+            </div>
+            <button
+              onClick={() => router.push('/dashboard/blog/new')}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-colors shadow-lg"
+            >
+              <Plus className="w-5 h-5" />
+              New Article
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Total Articles</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              </div>
+              <FileText className="w-10 h-10 text-green-600 opacity-20" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Published</p>
+                <p className="text-2xl font-bold text-green-600">{stats.published}</p>
+              </div>
+              <Eye className="w-10 h-10 text-green-600 opacity-20" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Drafts</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.drafts}</p>
+              </div>
+              <Edit className="w-10 h-10 text-orange-600 opacity-20" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Total Views</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.totalViews}</p>
+              </div>
+              <BarChart className="w-10 h-10 text-blue-600 opacity-20" />
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="border-b border-gray-200">
+            <div className="flex">
+              {(['ALL', 'PUBLISHED', 'DRAFT'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setFilter(tab)}
+                  className={`px-6 py-3 font-medium transition-colors ${
+                    filter === tab
+                      ? 'text-green-600 border-b-2 border-green-600'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {tab === 'ALL' ? 'All' : tab === 'PUBLISHED' ? 'Published' : 'Drafts'}
+                  <span className="ml-2 text-sm text-gray-500">
+                    ({tab === 'ALL' ? stats.total : tab === 'PUBLISHED' ? stats.published : stats.drafts})
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-red-900">Error</p>
+              <p className="text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Articles Table */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {filteredArticles.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-600 text-lg mb-2">No articles yet</p>
+              <p className="text-gray-500 mb-4">
+                {filter === 'ALL'
+                  ? 'Start writing your first blog post!'
+                  : `No ${filter.toLowerCase()} articles`}
+              </p>
+              <button
+                onClick={() => router.push('/dashboard/blog/new')}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Create Article
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Title
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Views
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredArticles.map((article) => (
+                    <tr key={article.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {article.thumbnail && (
+                            <img
+                              src={article.thumbnail}
+                              alt=""
+                              className="w-12 h-12 rounded object-cover"
+                            />
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-900">{article.title}</p>
+                            <p className="text-sm text-gray-500 line-clamp-1">{article.excerpt}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {article.status === 'PUBLISHED' ? (
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Published
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                            Draft
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {article.publishedAt
+                          ? new Date(article.publishedAt).toLocaleDateString()
+                          : new Date(article.updatedAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {article.views}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => router.push(`/dashboard/blog/${article.id}/edit`)}
+                            className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded transition-colors"
+                            title="Edit"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(article.id, article.title)}
+                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

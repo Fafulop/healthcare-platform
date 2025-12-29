@@ -80,11 +80,55 @@ model Doctor {
   faqs               FAQ[]
   appointmentSlots   AppointmentSlot[]
   bookings           Booking[]
+  articles           Article[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
   @@map("doctors")
+}
+
+// Article model for doctor blog posts
+model Article {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+
+  // Content
+  title           String
+  excerpt         String        @db.VarChar(200)  // Short summary
+  content         String        @db.Text          // Full article (HTML)
+  thumbnail       String?                         // Featured image URL
+
+  // Author (Doctor)
+  doctorId        String        @map("doctor_id")
+  doctor          Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  // Publishing
+  status          ArticleStatus @default(DRAFT)
+  publishedAt     DateTime?     @map("published_at") // Null if draft
+
+  // SEO
+  metaDescription String?       @db.VarChar(160) @map("meta_description")
+  keywords        String[]      // Array of keywords
+
+  // Analytics (Future)
+  views           Int           @default(0)
+
+  // Timestamps
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Indexes for performance
+  @@index([doctorId, status])
+  @@index([slug])
+  @@index([publishedAt])
+  @@map("articles")
+}
+
+// Article status enum
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
 }
 
 model Service {

@@ -2,6 +2,7 @@
 // Based on SEO_GUIDE.md schema templates
 
 import type { DoctorProfile } from '@/types/doctor';
+import type { Article } from '@/lib/data';
 
 /**
  * Generate Physician schema.org JSON-LD
@@ -121,6 +122,41 @@ export function generateAllSchemas(doctor: DoctorProfile, baseUrl: string = 'htt
   }
 
   return schemas;
+}
+
+/**
+ * Generate BlogPosting schema.org JSON-LD for individual articles
+ */
+export function generateBlogPostingSchema(article: Article, baseUrl: string = 'https://example.com') {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: article.title,
+    description: article.metaDescription || article.excerpt,
+    image: article.thumbnail ? (article.thumbnail.startsWith('http') ? article.thumbnail : `${baseUrl}${article.thumbnail}`) : article.doctor.heroImage,
+    datePublished: article.publishedAt,
+    dateModified: article.publishedAt,
+    author: {
+      '@type': 'Person',
+      name: article.doctor.doctorFullName,
+      jobTitle: article.doctor.primarySpecialty,
+      url: `${baseUrl}/doctores/${article.doctor.slug}`,
+      image: article.doctor.heroImage,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'HealthCare Platform',
+      logo: {
+        '@type': 'ImageObject',
+        url: `${baseUrl}/logo.png`,
+      },
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `${baseUrl}/doctores/${article.doctor.slug}/blog/${article.slug}`,
+    },
+    keywords: article.keywords.join(', '),
+  };
 }
 
 /**

@@ -103,3 +103,35 @@ export async function requireStaffAuth(request: Request) {
 
   return user;
 }
+
+/**
+ * Get authenticated doctor's profile
+ * Requires user to be a DOCTOR and have a linked doctor profile
+ */
+export async function getAuthenticatedDoctor(request: Request) {
+  const user = await requireDoctorAuth(request);
+
+  // Get the doctor profile linked to this user
+  const doctor = await prisma.user.findUnique({
+    where: { id: user.userId },
+    include: {
+      doctor: {
+        select: {
+          id: true,
+          slug: true,
+          doctorFullName: true,
+          primarySpecialty: true,
+        },
+      },
+    },
+  });
+
+  if (!doctor?.doctor) {
+    throw new Error('Doctor profile not found for this user');
+  }
+
+  return {
+    user,
+    doctor: doctor.doctor,
+  };
+}

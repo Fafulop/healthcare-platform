@@ -177,3 +177,95 @@ export async function getAllDoctors(): Promise<DoctorProfile[]> {
     return [];
   }
 }
+
+// ========================================
+// ARTICLE DATA FUNCTIONS
+// ========================================
+
+export interface Article {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  thumbnail: string | null;
+  publishedAt: string;
+  views: number;
+  metaDescription: string | null;
+  keywords: string[];
+  doctor: {
+    slug: string;
+    doctorFullName: string;
+    primarySpecialty: string;
+    heroImage: string;
+    city: string;
+  };
+}
+
+export interface ArticleListItem {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  thumbnail: string | null;
+  publishedAt: string;
+  views: number;
+}
+
+/**
+ * Get all published articles for a doctor
+ */
+export async function getArticlesByDoctorSlug(doctorSlug: string): Promise<ArticleListItem[]> {
+  try {
+    const response = await fetch(`${API_URL}/api/doctors/${doctorSlug}/articles`, {
+      next: { revalidate: 60 },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return [];
+      }
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const json = await response.json();
+
+    if (!json.success || !json.data) {
+      return [];
+    }
+
+    return json.data;
+  } catch (error) {
+    console.error(`Error loading articles for doctor "${doctorSlug}":`, error);
+    return [];
+  }
+}
+
+/**
+ * Get a single published article by doctor slug and article slug
+ */
+export async function getArticle(doctorSlug: string, articleSlug: string): Promise<Article | null> {
+  try {
+    const response = await fetch(`${API_URL}/api/doctors/${doctorSlug}/articles/${articleSlug}`, {
+      next: { revalidate: 60 },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const json = await response.json();
+
+    if (!json.success || !json.data) {
+      return null;
+    }
+
+    return json.data;
+  } catch (error) {
+    console.error(`Error loading article "${articleSlug}" for doctor "${doctorSlug}":`, error);
+    return null;
+  }
+}

@@ -2,7 +2,8 @@
 'use client';
 import React from 'react';
 import Image from 'next/image';
-import { MapPin } from 'lucide-react';
+import Link from 'next/link';
+import { MapPin, FileText } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import type { DoctorProfile } from '@/types/doctor';
@@ -86,6 +87,12 @@ export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps
               <Button variant="secondary" size="lg" className="sm:min-w-[240px]">
                 Enviar Mensaje
               </Button>
+              <Link href={`/doctores/${doctor.slug}/blog`}>
+                <Button variant="tertiary" size="lg" className="sm:min-w-[240px] flex items-center justify-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Blog del Doctor
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

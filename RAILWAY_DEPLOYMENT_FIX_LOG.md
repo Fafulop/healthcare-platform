@@ -376,7 +376,7 @@ GOOGLE_CLIENT_ID=<your-google-client-id>
 GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 NEXT_PUBLIC_API_URL=https://healthcareapi-production-fb70.up.railway.app
 NEXTAUTH_URL=https://healthcaredoctor-production.up.railway.app
-NEXTAUTH_SECRET=<your-secret>
+NEXTAUTH_SECRET=<your-nextauth-secret>
 DATABASE_URL=<provided-by-railway-postgres>
 NEXT_PUBLIC_PUBLIC_URL=https://healthcarepublic-production.up.railway.app
 ```
