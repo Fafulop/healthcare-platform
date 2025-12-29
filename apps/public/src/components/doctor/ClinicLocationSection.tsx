@@ -94,14 +94,18 @@ export default function ClinicLocationSection({ clinicInfo, id }: ClinicLocation
 
             {clinicInfo.hours ? (
               <div className="space-y-3">
-                {Object.entries(clinicInfo.hours).map(([day, hours]) => (
-                  <div key={day} className="flex justify-between">
-                    <span className="font-medium text-[var(--color-neutral-dark)]">
-                      {translateDay(day)}
-                    </span>
-                    <span className="text-[var(--color-neutral-medium)]">{hours}</span>
-                  </div>
-                ))}
+                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                  const hours = clinicInfo.hours[day as keyof typeof clinicInfo.hours];
+                  if (!hours) return null;
+                  return (
+                    <div key={day} className="flex justify-between">
+                      <span className="font-medium text-[var(--color-neutral-dark)]">
+                        {translateDay(day)}
+                      </span>
+                      <span className="text-[var(--color-neutral-medium)]">{hours}</span>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-[var(--color-neutral-medium)]">
