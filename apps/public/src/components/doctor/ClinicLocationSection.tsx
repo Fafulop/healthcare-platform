@@ -95,6 +95,7 @@ export default function ClinicLocationSection({ clinicInfo, id }: ClinicLocation
             {clinicInfo.hours ? (
               <div className="space-y-3">
                 {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                  if (!clinicInfo.hours) return null;
                   const hours = clinicInfo.hours[day as keyof typeof clinicInfo.hours];
                   if (!hours) return null;
                   return (
