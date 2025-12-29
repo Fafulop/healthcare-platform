@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FileText, Plus, Edit, Trash2, Eye, Loader2, AlertCircle, Calendar, BarChart } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Eye, Loader2, AlertCircle, Calendar, BarChart, ArrowLeft } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
@@ -35,10 +35,12 @@ export default function BlogManagementPage() {
   const [filter, setFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFT'>('ALL');
 
   useEffect(() => {
-    if (session) {
+    if (session && status === 'authenticated') {
       fetchArticles();
     }
-  }, [session]);
+    // Only run once when authenticated
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const getAuthHeaders = async () => {
     if (!session?.user?.email) {
@@ -139,6 +141,15 @@ export default function BlogManagementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
       <div className="max-w-6xl mx-auto">
+        {/* Back to Dashboard Link */}
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Dashboard
+        </button>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center">
