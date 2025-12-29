@@ -982,6 +982,90 @@ export default function NewDoctorWizard() {
                 />
               </div>
 
+              {/* Google Maps Coordinates */}
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                  Coordenadas de Google Maps
+                </h3>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800 mb-2">
+                    📍 Las coordenadas permiten que el enlace "Ver en Google Maps" lleve directamente a la ubicación exacta de la clínica.
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    Si no las agregas, el enlace buscará por dirección (menos preciso).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Latitud
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={formData.clinic_info.geo.lat}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          clinic_info: {
+                            ...prev.clinic_info,
+                            geo: { ...prev.clinic_info.geo, lat: parseFloat(e.target.value) || 0 }
+                          }
+                        }));
+                      }}
+                      placeholder="20.6737777"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Longitud
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={formData.clinic_info.geo.lng}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          clinic_info: {
+                            ...prev.clinic_info,
+                            geo: { ...prev.clinic_info.geo, lng: parseFloat(e.target.value) || 0 }
+                          }
+                        }));
+                      }}
+                      placeholder="-103.3723871"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const searchQuery = encodeURIComponent(formData.clinic_info.address || 'Guadalajara, Mexico');
+                    window.open(`https://www.google.com/maps/search/${searchQuery}`, '_blank');
+                  }}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm"
+                >
+                  🗺️ Buscar Dirección en Google Maps
+                </button>
+
+                <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-700 font-semibold mb-1">¿Cómo obtener las coordenadas?</p>
+                  <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
+                    <li>Haz clic en "Buscar Dirección en Google Maps"</li>
+                    <li>Encuentra la ubicación exacta en el mapa</li>
+                    <li>Haz clic derecho en el pin rojo</li>
+                    <li>Copia los números que aparecen arriba (ej: 20.6737777, -103.3723871)</li>
+                    <li>Pega el primer número en Latitud y el segundo en Longitud</li>
+                  </ol>
+                </div>
+              </div>
+
               {/* Office Hours */}
               <div className="border-t pt-6 mt-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">

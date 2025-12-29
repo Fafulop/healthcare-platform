@@ -10,8 +10,10 @@ interface ClinicLocationSectionProps {
 }
 
 export default function ClinicLocationSection({ clinicInfo, id }: ClinicLocationSectionProps) {
-  // Generate Google Maps URL
-  const googleMapsUrl = `https://www.google.com/maps?q=${clinicInfo.geo.lat},${clinicInfo.geo.lng}`;
+  // Generate Google Maps URL - Use coordinates if available, otherwise use address
+  const googleMapsUrl = (clinicInfo.geo.lat !== 0 && clinicInfo.geo.lng !== 0)
+    ? `https://www.google.com/maps?q=${clinicInfo.geo.lat},${clinicInfo.geo.lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clinicInfo.address)}`;
 
   // Translate day names to Spanish
   const translateDay = (day: string): string => {
