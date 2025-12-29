@@ -3,8 +3,9 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getDoctorBySlug, getArticlesByDoctorSlug } from '@/lib/data';
 import Link from 'next/link';
-import { Calendar, Eye, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import BlogLayoutClient from '@/components/blog/BlogLayoutClient';
+import { ArticleCard } from '@/components/blog/ArticleCard';
 
 interface BlogListingPageProps {
   params: Promise<{ slug: string }>;
@@ -100,43 +101,16 @@ export default async function BlogListingPage({ params }: BlogListingPageProps) 
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {articles.map((article) => (
-              <Link
+              <ArticleCard
                 key={article.id}
-                href={`/doctores/${slug}/blog/${article.slug}`}
-                className="group bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                {article.thumbnail && (
-                  <div className="aspect-video overflow-hidden bg-gray-100">
-                    <img
-                      src={article.thumbnail}
-                      alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                )}
-                <div className="p-6">
-                  <h2 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-green-600 transition-colors">
-                    {article.title}
-                  </h2>
-                  <p className="text-gray-600 mb-4 line-clamp-3">
-                    {article.excerpt}
-                  </p>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {new Date(article.publishedAt).toLocaleDateString('es-MX', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-4 h-4" />
-                      {article.views} vistas
-                    </span>
-                  </div>
-                </div>
-              </Link>
+                slug={article.slug}
+                title={article.title}
+                excerpt={article.excerpt}
+                thumbnail={article.thumbnail}
+                publishedAt={article.publishedAt}
+                views={article.views}
+                doctorSlug={slug}
+              />
             ))}
           </div>
         )}
