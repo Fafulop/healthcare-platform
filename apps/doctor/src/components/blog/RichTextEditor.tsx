@@ -1,7 +1,7 @@
 "use client";
 
 import { useEditor, EditorContent } from '@tiptap/react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
@@ -30,6 +30,8 @@ export default function RichTextEditor({
   onChange,
   placeholder = 'Start writing your article...',
 }: RichTextEditorProps) {
+  const isInitialLoad = useRef(true);
+
   const editor = useEditor(
     {
       extensions: [
@@ -61,17 +63,18 @@ export default function RichTextEditor({
     [] // Only create editor once
   );
 
-  // Update editor content when content prop changes (e.g., when loading saved article)
-  // Use a ref to track if we're updating to prevent infinite loops
+  // Update editor content ONLY when content prop changes from external source (e.g., loading saved article)
   useEffect(() => {
-    if (editor && content && content !== editor.getHTML()) {
-      const currentContent = editor.getHTML();
-      // Only update if content is significantly different (not just whitespace)
-      if (content.trim() !== currentContent.trim()) {
-        editor.commands.setContent(content, { emitUpdate: false }); // Don't trigger onUpdate to prevent infinite loop
+    if (!editor || !content) return;
+
+    // On initial load, if content is provided and different from current, update it
+    if (isInitialLoad.current && content.trim() !== '') {
+      if (editor.getHTML() !== content) {
+        editor.commands.setContent(content, { emitUpdate: false });
       }
+      isInitialLoad.current = false;
     }
-  }, [content, editor]);
+  }, [editor, content]);
 
   if (!editor) {
     return null;
