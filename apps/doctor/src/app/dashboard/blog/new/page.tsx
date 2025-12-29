@@ -62,12 +62,12 @@ export default function NewArticlePage() {
 
   const handleSubmit = async (publishNow: boolean) => {
     // Validation
-    if (!formData.title.trim()) {
+    if (!formData.title?.trim()) {
       setError('Title is required');
       return;
     }
 
-    if (!formData.slug.trim()) {
+    if (!formData.slug?.trim()) {
       setError('Slug is required');
       return;
     }
@@ -77,12 +77,12 @@ export default function NewArticlePage() {
       return;
     }
 
-    if (!formData.content.trim()) {
+    if (!formData.content?.trim()) {
       setError('Content is required');
       return;
     }
 
-    if (!formData.excerpt.trim()) {
+    if (!formData.excerpt?.trim()) {
       setError('Excerpt is required');
       return;
     }

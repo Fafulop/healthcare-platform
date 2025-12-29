@@ -129,12 +129,12 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
     if (!id) return;
 
     // Validation
-    if (!formData.title.trim()) {
+    if (!formData.title?.trim()) {
       setError('Title is required');
       return;
     }
 
-    if (!formData.slug.trim()) {
+    if (!formData.slug?.trim()) {
       setError('Slug is required');
       return;
     }
@@ -144,12 +144,12 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
       return;
     }
 
-    if (!formData.content.trim()) {
+    if (!formData.content?.trim()) {
       setError('Content is required');
       return;
     }
 
-    if (!formData.excerpt.trim()) {
+    if (!formData.excerpt?.trim()) {
       setError('Excerpt is required');
       return;
     }
