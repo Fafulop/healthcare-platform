@@ -29,36 +29,36 @@ export default function RichTextEditor({
   onChange,
   placeholder = 'Start writing your article...',
 }: RichTextEditorProps) {
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        // Disable link from StarterKit to avoid duplicate
-        // (we'll add it separately with custom config)
-      }),
-      Image.configure({
-        inline: true,
-        allowBase64: true,
-      }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: 'text-green-600 underline hover:text-green-700',
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit,
+        Image.configure({
+          inline: true,
+          allowBase64: true,
+        }),
+        Link.configure({
+          openOnClick: false,
+          HTMLAttributes: {
+            class: 'text-green-600 underline hover:text-green-700',
+          },
+        }),
+        Placeholder.configure({
+          placeholder,
+        }),
+      ],
+      content,
+      onUpdate: ({ editor }) => {
+        onChange(editor.getHTML());
+      },
+      editorProps: {
+        attributes: {
+          class: 'prose max-w-none focus:outline-none min-h-[300px] px-4 py-3',
         },
-      }),
-      Placeholder.configure({
-        placeholder,
-      }),
-    ],
-    content,
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
-    },
-    editorProps: {
-      attributes: {
-        class: 'prose max-w-none focus:outline-none min-h-[300px] px-4 py-3',
       },
     },
-  });
+    [] // Only create editor once
+  );
 
   if (!editor) {
     return null;
