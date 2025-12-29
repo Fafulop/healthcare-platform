@@ -68,7 +68,7 @@ export default function RichTextEditor({
       const currentContent = editor.getHTML();
       // Only update if content is significantly different (not just whitespace)
       if (content.trim() !== currentContent.trim()) {
-        editor.commands.setContent(content, false); // false = don't trigger onUpdate
+        editor.commands.setContent(content, { emitUpdate: false }); // Don't trigger onUpdate to prevent infinite loop
       }
     }
   }, [content, editor]);
