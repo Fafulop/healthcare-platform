@@ -31,7 +31,10 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        // Disable link from StarterKit to avoid duplicate
+        // (we'll add it separately with custom config)
+      }),
       Image.configure({
         inline: true,
         allowBase64: true,

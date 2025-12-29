@@ -111,7 +111,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
           excerpt: foundArticle.excerpt,
           thumbnail: foundArticle.thumbnail || '',
           metaDescription: foundArticle.metaDescription || '',
-          keywords: foundArticle.keywords.join(', '),
+          keywords: foundArticle.keywords ? foundArticle.keywords.join(', ') : '',
           status: foundArticle.status,
         });
       } else {
