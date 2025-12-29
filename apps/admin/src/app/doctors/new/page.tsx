@@ -982,10 +982,158 @@ export default function NewDoctorWizard() {
                 />
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  ℹ️ Horarios de atención: Los horarios predeterminados son Lun-Vie 9:00 AM - 6:00 PM. Esto se puede personalizar después.
-                </p>
+              {/* Office Hours */}
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                  Horario de Atención
+                </h3>
+                <div className="space-y-3">
+                  {/* Monday */}
+                  <div className="grid grid-cols-3 gap-3 items-center">
+                    <label className="text-sm font-medium text-gray-700">Lunes</label>
+                    <input
+                      type="text"
+                      value={formData.clinic_info.hours.monday}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          clinic_info: {
+                            ...prev.clinic_info,
+                            hours: { ...prev.clinic_info.hours, monday: e.target.value }
+                          }
+                        }));
+                      }}
+                      placeholder="9:00 AM - 6:00 PM"
+                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  {/* Tuesday */}
+                  <div className="grid grid-cols-3 gap-3 items-center">
+                    <label className="text-sm font-medium text-gray-700">Martes</label>
+                    <input
+                      type="text"
+                      value={formData.clinic_info.hours.tuesday}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          clinic_info: {
+                            ...prev.clinic_info,
+                            hours: { ...prev.clinic_info.hours, tuesday: e.target.value }
+                          }
+                        }));
+                      }}
+                      placeholder="9:00 AM - 6:00 PM"
+                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  {/* Wednesday */}
+                  <div className="grid grid-cols-3 gap-3 items-center">
+                    <label className="text-sm font-medium text-gray-700">Miércoles</label>
+                    <input
+                      type="text"
+                      value={formData.clinic_info.hours.wednesday}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          clinic_info: {
+                            ...prev.clinic_info,
+                            hours: { ...prev.clinic_info.hours, wednesday: e.target.value }
+                          }
+                        }));
+                      }}
+                      placeholder="9:00 AM - 6:00 PM"
+                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  {/* Thursday */}
+                  <div className="grid grid-cols-3 gap-3 items-center">
+                    <label className="text-sm font-medium text-gray-700">Jueves</label>
+                    <input
+                      type="text"
+                      value={formData.clinic_info.hours.thursday}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          clinic_info: {
+                            ...prev.clinic_info,
+                            hours: { ...prev.clinic_info.hours, thursday: e.target.value }
+                          }
+                        }));
+                      }}
+                      placeholder="9:00 AM - 6:00 PM"
+                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  {/* Friday */}
+                  <div className="grid grid-cols-3 gap-3 items-center">
+                    <label className="text-sm font-medium text-gray-700">Viernes</label>
+                    <input
+                      type="text"
+                      value={formData.clinic_info.hours.friday}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          clinic_info: {
+                            ...prev.clinic_info,
+                            hours: { ...prev.clinic_info.hours, friday: e.target.value }
+                          }
+                        }));
+                      }}
+                      placeholder="9:00 AM - 5:00 PM"
+                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  {/* Saturday */}
+                  <div className="grid grid-cols-3 gap-3 items-center">
+                    <label className="text-sm font-medium text-gray-700">Sábado</label>
+                    <input
+                      type="text"
+                      value={formData.clinic_info.hours.saturday}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          clinic_info: {
+                            ...prev.clinic_info,
+                            hours: { ...prev.clinic_info.hours, saturday: e.target.value }
+                          }
+                        }));
+                      }}
+                      placeholder="Closed"
+                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  {/* Sunday */}
+                  <div className="grid grid-cols-3 gap-3 items-center">
+                    <label className="text-sm font-medium text-gray-700">Domingo</label>
+                    <input
+                      type="text"
+                      value={formData.clinic_info.hours.sunday}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          clinic_info: {
+                            ...prev.clinic_info,
+                            hours: { ...prev.clinic_info.hours, sunday: e.target.value }
+                          }
+                        }));
+                      }}
+                      placeholder="Closed"
+                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600">
+                    💡 Tip: Use "Cerrado" o "Closed" para días sin atención
+                  </p>
+                </div>
               </div>
             </div>
           )}
