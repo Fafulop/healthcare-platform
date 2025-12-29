@@ -1,3 +1,4 @@
+// GET /api/articles/[id] - Get single article with full details (doctor only, own articles)
 // PUT /api/articles/[id] - Update article (doctor only, own articles)
 // DELETE /api/articles/[id] - Delete article (doctor only, own articles)
 // PATCH /api/articles/[id]/publish - Publish/unpublish article
@@ -5,6 +6,63 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    // Authenticate and get doctor profile
+    const { doctor } = await getAuthenticatedDoctor(request);
+
+    // Get article with ALL fields
+    const article = await prisma.article.findUnique({
+      where: { id },
+    });
+
+    if (!article) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Article not found',
+        },
+        { status: 404 }
+      );
+    }
+
+    // Check ownership
+    if (article.doctorId !== doctor.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized',
+          message: 'You can only view your own articles',
+        },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: article,
+    });
+  } catch (error) {
+    console.error('Error fetching article:', error);
+
+    const message = error instanceof Error ? error.message : 'Failed to fetch article';
+    const status = message.includes('access required') || message.includes('not found') ? 401 : 500;
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: message,
+      },
+      { status }
+    );
+  }
+}
 
 export async function PUT(
   request: Request,

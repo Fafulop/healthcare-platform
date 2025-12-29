@@ -62,9 +62,14 @@ export default function RichTextEditor({
   );
 
   // Update editor content when content prop changes (e.g., when loading saved article)
+  // Use a ref to track if we're updating to prevent infinite loops
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
+    if (editor && content && content !== editor.getHTML()) {
+      const currentContent = editor.getHTML();
+      // Only update if content is significantly different (not just whitespace)
+      if (content.trim() !== currentContent.trim()) {
+        editor.commands.setContent(content, false); // false = don't trigger onUpdate
+      }
     }
   }, [content, editor]);
 

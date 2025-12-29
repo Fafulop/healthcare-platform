@@ -88,7 +88,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
       setLoading(true);
       const headers = await getAuthHeaders();
 
-      const response = await fetch(`${API_URL}/api/articles`, {
+      const response = await fetch(`${API_URL}/api/articles/${id}`, {
         headers,
         credentials: 'include',
       });
@@ -96,23 +96,16 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
       const result = await response.json();
 
       if (result.success) {
-        const foundArticle = result.data.find((a: Article) => a.id === id);
-
-        if (!foundArticle) {
-          setError('Article not found');
-          return;
-        }
-
-        setArticle(foundArticle);
+        setArticle(result.data);
         setFormData({
-          title: foundArticle.title,
-          slug: foundArticle.slug,
-          content: foundArticle.content,
-          excerpt: foundArticle.excerpt,
-          thumbnail: foundArticle.thumbnail || '',
-          metaDescription: foundArticle.metaDescription || '',
-          keywords: foundArticle.keywords ? foundArticle.keywords.join(', ') : '',
-          status: foundArticle.status,
+          title: result.data.title,
+          slug: result.data.slug,
+          content: result.data.content,
+          excerpt: result.data.excerpt,
+          thumbnail: result.data.thumbnail || '',
+          metaDescription: result.data.metaDescription || '',
+          keywords: result.data.keywords ? result.data.keywords.join(', ') : '',
+          status: result.data.status,
         });
       } else {
         setError(result.error || 'Failed to load article');
