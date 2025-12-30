@@ -36,20 +36,23 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, children }: B
             {children}
           </div>
 
-          {/* RIGHT COLUMN - Sticky Sidebar (Desktop Only) */}
+          {/* RIGHT COLUMN - Sticky Booking Sidebar (Desktop Only) */}
           <aside className="profile-right-column">
-            <div className="flex flex-col h-screen">
-              {/* Booking Widget */}
+            <div className="flex flex-col h-screen bg-white">
+              {/* Appointment Booking Widget - Scrollable */}
               <div className="flex-1 overflow-y-auto">
                 <DynamicBookingWidget doctorSlug={doctorSlug} onDayClick={openBookingModal} />
               </div>
 
-              {/* Fixed Bottom Section */}
+              {/* Fixed Bottom Section - CTA Buttons & Contact */}
               <div className="flex-shrink-0 bg-white border-t border-gray-200">
+                {/* CTA Buttons - Action buttons (Desktop Only) */}
                 <SidebarCTA
                   onBookingClick={openBookingModal}
                   whatsappNumber={clinicInfo.whatsapp}
                 />
+
+                {/* Contact Information - Quick access (Desktop Only) */}
                 <SidebarContactInfo clinicInfo={clinicInfo} />
               </div>
             </div>
