@@ -211,7 +211,7 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
           )}
 
           <p className="text-xs text-gray-500 mb-4">
-            Recibirás una confirmación por WhatsApp en breve.
+            Recibirás una confirmación por SMS en breve.
           </p>
 
           <button

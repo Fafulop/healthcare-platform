@@ -3,6 +3,11 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import {
+  sendPatientSMS,
+  sendDoctorSMS,
+  isSMSConfigured,
+} from '@/lib/sms';
 
 // Helper to generate confirmation code
 function generateConfirmationCode(): string {
@@ -114,6 +119,34 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    // Send SMS notifications (async, non-blocking)
+    if (isSMSConfigured() && bookingWithSlot) {
+      const smsDetails = {
+        patientName,
+        patientPhone: patientPhone,
+        doctorName: bookingWithSlot.doctor.doctorFullName,
+        doctorPhone: bookingWithSlot.doctor.clinicPhone || undefined,
+        date: bookingWithSlot.slot.date.toISOString(),
+        startTime: bookingWithSlot.slot.startTime,
+        endTime: bookingWithSlot.slot.endTime,
+        duration: bookingWithSlot.slot.duration,
+        finalPrice: bookingWithSlot.finalPrice,
+        confirmationCode,
+        clinicAddress: bookingWithSlot.doctor.clinicAddress || undefined,
+        specialty: bookingWithSlot.doctor.primarySpecialty || undefined,
+      };
+
+      // Send to patient (don't await - let it run in background)
+      sendPatientSMS(smsDetails).catch((error) =>
+        console.error('SMS patient notification failed:', error)
+      );
+
+      // Send to doctor (don't await - let it run in background)
+      sendDoctorSMS(smsDetails).catch((error) =>
+        console.error('SMS doctor notification failed:', error)
+      );
+    }
 
     return NextResponse.json(
       {
