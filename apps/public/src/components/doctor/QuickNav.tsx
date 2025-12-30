@@ -8,6 +8,7 @@ const sections = [
   { id: 'gallery', label: 'Galería' },
   { id: 'services', label: 'Servicios' },
   { id: 'conditions', label: 'Tratamientos' },
+  { id: 'reviews', label: 'Opiniones' },
   { id: 'biography', label: 'Acerca de' },
   { id: 'location', label: 'Ubicación' },
   { id: 'education', label: 'Educación' },

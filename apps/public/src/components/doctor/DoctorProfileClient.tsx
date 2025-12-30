@@ -58,7 +58,15 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
               procedures={doctor.procedures}
             />
 
-            {/* 5. Biography - E-E-A-T context & credentials */}
+            {/* 5. Reviews - Patient testimonials & ratings (SEO + trust signal) */}
+            <ReviewsSection
+              id="reviews"
+              reviews={doctor.reviews || []}
+              reviewStats={doctor.reviewStats || { averageRating: 0, reviewCount: 0 }}
+              doctorName={doctor.doctor_full_name}
+            />
+
+            {/* 6. Biography - E-E-A-T context & credentials */}
             <BiographySection
               id="biography"
               doctorLastName={doctor.last_name}
@@ -67,22 +75,14 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
               yearsExperience={doctor.years_experience}
             />
 
-            {/* 6. Clinic Location - Local SEO signal */}
+            {/* 7. Clinic Location - Local SEO signal */}
             <ClinicLocationSection id="location" clinicInfo={doctor.clinic_info} />
 
-            {/* 7. Education - E-E-A-T proof */}
+            {/* 8. Education - E-E-A-T proof */}
             <EducationSection id="education" educationItems={doctor.education_items} />
 
-            {/* 8. Credentials - Visual proof of qualifications */}
+            {/* 9. Credentials - Visual proof of qualifications */}
             <CredentialsSection id="credentials" certificates={doctor.certificate_images} />
-
-            {/* 9. Reviews - Patient testimonials & ratings (SEO + trust signal) */}
-            <ReviewsSection
-              id="reviews"
-              reviews={doctor.reviews || []}
-              reviewStats={doctor.reviewStats || { averageRating: 0, reviewCount: 0 }}
-              doctorName={doctor.doctor_full_name}
-            />
 
             {/* 10. FAQ - Rich snippets opportunity */}
             <FAQSection id="faq" faqs={doctor.faqs} />

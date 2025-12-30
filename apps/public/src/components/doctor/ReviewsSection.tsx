@@ -1,4 +1,7 @@
 // Reviews Section - Patient testimonials and ratings
+'use client';
+
+import { useState } from 'react';
 import { Star } from 'lucide-react';
 import type { Review, ReviewStats } from '@/types/doctor';
 
@@ -15,6 +18,8 @@ export default function ReviewsSection({
   reviewStats,
   doctorName,
 }: ReviewsSectionProps) {
+  const [visibleCount, setVisibleCount] = useState(3);
+
   // Don't render if no reviews
   if (!reviews || reviews.length === 0) {
     return null;
@@ -47,67 +52,90 @@ export default function ReviewsSection({
     });
   };
 
+  // Get reviews to display
+  const visibleReviews = reviews.slice(0, visibleCount);
+  const hasMoreReviews = visibleCount < reviews.length;
+
+  // Load more reviews (3 at a time)
+  const loadMoreReviews = () => {
+    setVisibleCount((prev) => Math.min(prev + 3, reviews.length));
+  };
+
   return (
     <section
       id={id}
-      className="max-w-4xl mx-auto px-4 py-12 md:py-16"
+      className="py-16 bg-[var(--color-bg-yellow-light)]"
       aria-labelledby="reviews-heading"
     >
-      {/* Section Header */}
-      <div className="mb-8">
-        <h2
-          id="reviews-heading"
-          className="text-3xl md:text-4xl font-bold text-gray-900 mb-2"
-        >
-          Opiniones de Pacientes
-        </h2>
-        <div className="flex items-center gap-3">
-          {renderStars(Math.round(reviewStats.averageRating))}
-          <span className="text-lg font-semibold text-gray-900">
-            {reviewStats.averageRating.toFixed(1)}
-          </span>
-          <span className="text-gray-600">
-            ({reviewStats.reviewCount}{' '}
-            {reviewStats.reviewCount === 1 ? 'opinión' : 'opiniones'})
-          </span>
-        </div>
-      </div>
-
-      {/* Reviews Grid */}
-      <div className="grid gap-6">
-        {reviews.map((review) => (
-          <article
-            key={review.id}
-            className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow"
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Section Header */}
+        <div className="mb-8">
+          <h2
+            id="reviews-heading"
+            className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-2 text-center"
           >
-            {/* Review Header */}
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <p className="font-semibold text-gray-900">
-                  {review.patientName || 'Paciente Anónimo'}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {formatDate(review.createdAt)}
-                </p>
+            Opiniones de Pacientes
+          </h2>
+          <div className="flex items-center justify-center gap-3">
+            {renderStars(Math.round(reviewStats.averageRating))}
+            <span className="text-lg font-semibold text-gray-900">
+              {reviewStats.averageRating.toFixed(1)}
+            </span>
+            <span className="text-gray-600">
+              ({reviewStats.reviewCount}{' '}
+              {reviewStats.reviewCount === 1 ? 'opinión' : 'opiniones'})
+            </span>
+          </div>
+        </div>
+
+        {/* Reviews Grid */}
+        <div className="grid gap-6">
+          {visibleReviews.map((review) => (
+            <article
+              key={review.id}
+              className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow"
+            >
+              {/* Review Header */}
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="font-semibold text-gray-900">
+                    {review.patientName || 'Paciente Anónimo'}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {formatDate(review.createdAt)}
+                  </p>
+                </div>
+                {renderStars(review.rating)}
               </div>
-              {renderStars(review.rating)}
-            </div>
 
-            {/* Review Content */}
-            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-              {review.comment}
-            </p>
-          </article>
-        ))}
-      </div>
+              {/* Review Content */}
+              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {review.comment}
+              </p>
+            </article>
+          ))}
+        </div>
 
-      {/* SEO-friendly summary (hidden visually) */}
-      <div className="sr-only" aria-hidden="true">
-        <p>
-          {doctorName} tiene {reviewStats.reviewCount} opiniones de pacientes
-          con una calificación promedio de{' '}
-          {reviewStats.averageRating.toFixed(1)} de 5 estrellas.
-        </p>
+        {/* Load More Button */}
+        {hasMoreReviews && (
+          <div className="mt-8 text-center">
+            <button
+              onClick={loadMoreReviews}
+              className="px-6 py-3 bg-[var(--color-secondary)] text-white font-medium rounded-full hover:bg-[var(--color-secondary)]/90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)] focus-visible:ring-offset-2"
+            >
+              Ver más opiniones ({reviews.length - visibleCount} restantes)
+            </button>
+          </div>
+        )}
+
+        {/* SEO-friendly summary (hidden visually) */}
+        <div className="sr-only" aria-hidden="true">
+          <p>
+            {doctorName} tiene {reviewStats.reviewCount} opiniones de pacientes
+            con una calificación promedio de{' '}
+            {reviewStats.averageRating.toFixed(1)} de 5 estrellas.
+          </p>
+        </div>
       </div>
     </section>
   );
