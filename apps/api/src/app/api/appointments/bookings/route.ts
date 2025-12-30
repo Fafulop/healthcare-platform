@@ -131,7 +131,7 @@ export async function POST(request: Request) {
         startTime: bookingWithSlot.slot.startTime,
         endTime: bookingWithSlot.slot.endTime,
         duration: bookingWithSlot.slot.duration,
-        finalPrice: bookingWithSlot.finalPrice,
+        finalPrice: Number(bookingWithSlot.finalPrice),
         confirmationCode,
         clinicAddress: bookingWithSlot.doctor.clinicAddress || undefined,
         specialty: bookingWithSlot.doctor.primarySpecialty || undefined,
