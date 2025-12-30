@@ -58,6 +58,19 @@ export interface ClinicInfo {
   geo: GeoCoordinates;
 }
 
+export interface Review {
+  id: string;
+  patientName: string | null;
+  rating: number; // 1-5
+  comment: string;
+  createdAt: Date;
+}
+
+export interface ReviewStats {
+  averageRating: number;
+  reviewCount: number;
+}
+
 export interface DoctorProfile {
   // Basic Information
   slug: string;
@@ -109,4 +122,8 @@ export interface DoctorProfile {
     researchgate?: string;
     twitter?: string;
   };
+
+  // Reviews
+  reviews?: Review[];
+  reviewStats?: ReviewStats;
 }

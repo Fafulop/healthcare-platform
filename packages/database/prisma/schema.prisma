@@ -81,6 +81,7 @@ model Doctor {
   appointmentSlots   AppointmentSlot[]
   bookings           Booking[]
   articles           Article[]
+  reviews            Review[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -264,14 +265,19 @@ model Booking {
   finalPrice         Decimal       @map("final_price") @db.Decimal(10, 2)
   notes              String?       @db.Text
 
-  // Confirmation (future WhatsApp integration)
+  // Confirmation
   confirmationCode   String?       @unique @map("confirmation_code")
   confirmedAt        DateTime?     @map("confirmed_at")
   cancelledAt        DateTime?     @map("cancelled_at")
 
+  // Review System
+  reviewToken        String?       @unique @map("review_token")
+  reviewTokenUsed    Boolean       @default(false) @map("review_token_used")
+
   // Relations
   slot               AppointmentSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
   doctor             Doctor          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  review             Review?
 
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
@@ -280,6 +286,7 @@ model Booking {
   @@index([doctorId, status])
   @@index([slotId])
   @@index([patientEmail])
+  @@index([reviewToken])
 }
 
 enum BookingStatus {
@@ -288,4 +295,30 @@ enum BookingStatus {
   CANCELLED     // Cancelled by patient or doctor
   COMPLETED     // Appointment happened
   NO_SHOW       // Patient didn't show up
+}
+
+// Review - Patient reviews for doctors
+model Review {
+  id                 String    @id @default(cuid())
+  doctorId           String    @map("doctor_id")
+  bookingId          String?   @unique @map("booking_id") // Optional link to booking
+
+  // Review Content
+  patientName        String?   @map("patient_name") // Optional, can be anonymous
+  rating             Int       // 1-5 stars
+  comment            String    @db.Text
+
+  // Moderation
+  approved           Boolean   @default(true) // Auto-approved for MVP
+
+  // Relations
+  doctor             Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  booking            Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@map("reviews")
+  @@index([doctorId, approved])
+  @@index([bookingId])
 }

@@ -11,6 +11,7 @@ import BiographySection from "./BiographySection";
 import EducationSection from "./EducationSection";
 import CredentialsSection from "./CredentialsSection";
 import ClinicLocationSection from "./ClinicLocationSection";
+import ReviewsSection from "./ReviewsSection";
 import FAQSection from "./FAQSection";
 import QuickNav from "./QuickNav";
 import StickyMobileCTA from "./StickyMobileCTA";
@@ -75,7 +76,15 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
             {/* 8. Credentials - Visual proof of qualifications */}
             <CredentialsSection id="credentials" certificates={doctor.certificate_images} />
 
-            {/* 9. FAQ - Rich snippets opportunity */}
+            {/* 9. Reviews - Patient testimonials & ratings (SEO + trust signal) */}
+            <ReviewsSection
+              id="reviews"
+              reviews={doctor.reviews || []}
+              reviewStats={doctor.reviewStats || { averageRating: 0, reviewCount: 0 }}
+              doctorName={doctor.doctor_full_name}
+            />
+
+            {/* 10. FAQ - Rich snippets opportunity */}
             <FAQSection id="faq" faqs={doctor.faqs} />
           </div>
 

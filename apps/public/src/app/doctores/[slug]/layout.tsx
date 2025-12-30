@@ -39,12 +39,20 @@ export default async function DoctorLayout({ children, params }: DoctorLayoutPro
 
   // Generate structured data schemas
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://example.com';
-  const schemas = generateAllSchemas(doctor, baseUrl);
+  const schemas = generateAllSchemas(doctor, baseUrl, doctor.reviewStats);
+
+  // Add individual review schemas
+  const { generateReviewSchemas } = await import('@/lib/structured-data');
+  const reviewSchemas = doctor.reviews && doctor.reviews.length > 0
+    ? generateReviewSchemas(doctor.reviews, doctor.doctor_full_name)
+    : [];
+
+  const allSchemas = [...schemas, ...reviewSchemas];
 
   return (
     <>
       {/* Inject JSON-LD structured data */}
-      {schemas.map((schema, index) => (
+      {allSchemas.map((schema, index) => (
         <Script
           key={index}
           id={`schema-${index}`}

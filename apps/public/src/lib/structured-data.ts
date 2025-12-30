@@ -5,10 +5,29 @@ import type { DoctorProfile } from '@/types/doctor';
 import type { Article } from '@/lib/data';
 
 /**
+ * Generate AggregateRating schema for doctor reviews
+ */
+export function generateAggregateRatingSchema(reviewStats: { averageRating: number; reviewCount: number }) {
+  if (reviewStats.reviewCount === 0) return null;
+
+  return {
+    '@type': 'AggregateRating',
+    ratingValue: reviewStats.averageRating.toFixed(1),
+    bestRating: '5',
+    worstRating: '1',
+    ratingCount: reviewStats.reviewCount.toString(),
+  };
+}
+
+/**
  * Generate Physician schema.org JSON-LD
  */
-export function generatePhysicianSchema(doctor: DoctorProfile, baseUrl: string = 'https://example.com') {
-  return {
+export function generatePhysicianSchema(
+  doctor: DoctorProfile,
+  baseUrl: string = 'https://example.com',
+  reviewStats?: { averageRating: number; reviewCount: number }
+) {
+  const schema: any = {
     '@context': 'https://schema.org',
     '@type': 'Physician',
     name: doctor.doctor_full_name,
@@ -26,6 +45,16 @@ export function generatePhysicianSchema(doctor: DoctorProfile, baseUrl: string =
       sameAs: Object.values(doctor.social_links).filter(Boolean),
     }),
   };
+
+  // Add aggregate rating if reviews exist
+  if (reviewStats && reviewStats.reviewCount > 0) {
+    const aggregateRating = generateAggregateRatingSchema(reviewStats);
+    if (aggregateRating) {
+      schema.aggregateRating = aggregateRating;
+    }
+  }
+
+  return schema;
 }
 
 /**
@@ -82,6 +111,41 @@ export function generateFAQSchema(doctor: DoctorProfile) {
 }
 
 /**
+ * Generate individual Review schemas
+ */
+export function generateReviewSchemas(
+  reviews: Array<{
+    id: string;
+    patientName: string | null;
+    rating: number;
+    comment: string;
+    createdAt: Date;
+  }>,
+  doctorName: string
+) {
+  return reviews.map((review) => ({
+    '@context': 'https://schema.org',
+    '@type': 'Review',
+    author: {
+      '@type': 'Person',
+      name: review.patientName || 'Paciente Anónimo',
+    },
+    datePublished: new Date(review.createdAt).toISOString().split('T')[0],
+    reviewBody: review.comment,
+    reviewRating: {
+      '@type': 'Rating',
+      ratingValue: review.rating.toString(),
+      bestRating: '5',
+      worstRating: '1',
+    },
+    itemReviewed: {
+      '@type': 'Physician',
+      name: doctorName,
+    },
+  }));
+}
+
+/**
  * Generate VideoObject schema.org JSON-LD for video carousel items
  */
 export function generateVideoSchemas(doctor: DoctorProfile, baseUrl: string = 'https://example.com') {
@@ -104,9 +168,13 @@ export function generateVideoSchemas(doctor: DoctorProfile, baseUrl: string = 'h
 /**
  * Generate all structured data schemas for a doctor profile
  */
-export function generateAllSchemas(doctor: DoctorProfile, baseUrl: string = 'https://example.com') {
+export function generateAllSchemas(
+  doctor: DoctorProfile,
+  baseUrl: string = 'https://example.com',
+  reviewStats?: { averageRating: number; reviewCount: number }
+) {
   const schemas: any[] = [
-    generatePhysicianSchema(doctor, baseUrl),
+    generatePhysicianSchema(doctor, baseUrl, reviewStats),
     generateMedicalBusinessSchema(doctor, baseUrl),
   ];
 
@@ -163,8 +231,12 @@ export function generateBlogPostingSchema(article: Article, baseUrl: string = 'h
  * Generate script tags for JSON-LD schemas
  * Usage: Place in page <head> or use Next.js Script component
  */
-export function generateSchemaScriptTags(doctor: DoctorProfile, baseUrl: string = 'https://example.com'): string {
-  const schemas = generateAllSchemas(doctor, baseUrl);
+export function generateSchemaScriptTags(
+  doctor: DoctorProfile,
+  baseUrl: string = 'https://example.com',
+  reviewStats?: { averageRating: number; reviewCount: number }
+): string {
+  const schemas = generateAllSchemas(doctor, baseUrl, reviewStats);
 
   return schemas
     .map(

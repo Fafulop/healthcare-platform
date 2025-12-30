@@ -20,6 +20,18 @@ export async function GET(
         certificates: true,
         carouselItems: true,
         faqs: true,
+        reviews: {
+          where: { approved: true },
+          select: {
+            id: true,
+            patientName: true,
+            rating: true,
+            comment: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50, // Limit to most recent 50 reviews
+        },
       },
     });
 
@@ -33,9 +45,21 @@ export async function GET(
       );
     }
 
+    // Calculate aggregate rating stats
+    const reviewCount = doctor.reviews.length;
+    const averageRating = reviewCount > 0
+      ? doctor.reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount
+      : 0;
+
     return NextResponse.json({
       success: true,
-      data: doctor,
+      data: {
+        ...doctor,
+        reviewStats: {
+          averageRating: Number(averageRating.toFixed(1)),
+          reviewCount,
+        },
+      },
     });
   } catch (error) {
     console.error('Error fetching doctor:', error);

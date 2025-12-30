@@ -93,6 +93,10 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
       linkedin: doctor.socialLinkedin || undefined,
       twitter: doctor.socialTwitter || undefined,
     },
+
+    // Reviews (added from API)
+    reviews: doctor.reviews || [],
+    reviewStats: doctor.reviewStats || { averageRating: 0, reviewCount: 0 },
   };
 }
 

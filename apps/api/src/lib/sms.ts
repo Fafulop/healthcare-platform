@@ -27,6 +27,7 @@ export interface BookingDetails {
   confirmationCode: string;
   clinicAddress?: string;
   specialty?: string;
+  reviewToken?: string;
 }
 
 /**
@@ -64,6 +65,12 @@ export async function sendPatientSMS(details: BookingDetails): Promise<boolean> 
     day: 'numeric',
   });
 
+  // Build review link if token is provided
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const reviewLink = details.reviewToken
+    ? `\n\nDespues de tu cita, dejanos tu opinion:\n${baseUrl}/review/${details.reviewToken}`
+    : '';
+
   // SMS has 160 character limit per segment, keep it concise
   const message = `¡Hola ${details.patientName}!
 
@@ -75,7 +82,7 @@ Precio: $${details.finalPrice}
 
 Codigo: ${details.confirmationCode}
 
-Por favor llega 10 min antes.`;
+Por favor llega 10 min antes.${reviewLink}`;
 
   try {
     const formattedPhone = formatPhoneNumber(details.patientPhone);

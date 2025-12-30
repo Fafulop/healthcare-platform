@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import crypto from 'crypto';
 import {
   sendPatientSMS,
   sendDoctorSMS,
@@ -17,6 +18,11 @@ function generateConfirmationCode(): string {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
+}
+
+// Helper to generate unique review token
+function generateReviewToken(): string {
+  return crypto.randomBytes(32).toString('hex');
 }
 
 // POST - Create a booking
@@ -74,8 +80,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate confirmation code
+    // Generate confirmation code and review token
     const confirmationCode = generateConfirmationCode();
+    const reviewToken = generateReviewToken();
 
     // Create booking and update slot in a transaction
     const [booking, updatedSlot] = await prisma.$transaction([
@@ -90,6 +97,7 @@ export async function POST(request: Request) {
           notes,
           finalPrice: slot.finalPrice,
           confirmationCode,
+          reviewToken,
           status: 'PENDING',
         },
       }),
@@ -135,6 +143,7 @@ export async function POST(request: Request) {
         confirmationCode,
         clinicAddress: bookingWithSlot.doctor.clinicAddress || undefined,
         specialty: bookingWithSlot.doctor.primarySpecialty || undefined,
+        reviewToken,
       };
 
       // Send to patient (don't await - let it run in background)
