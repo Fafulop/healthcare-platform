@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, FileText } from 'lucide-react';
+import { MapPin, FileText, Award, Star } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import type { DoctorProfile } from '@/types/doctor';
@@ -53,9 +53,44 @@ export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps
           {/* Doctor Information */}
           <div className="flex-1 text-center md:text-left">
             {/* H1 - Only H1 on entire page */}
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[var(--color-neutral-dark)] mb-2 leading-tight">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[var(--color-neutral-dark)] mb-3 leading-tight">
               {doctor.doctor_full_name}
             </h1>
+
+            {/* Years of Experience Badge - E-E-A-T Signal for SEO */}
+            <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+              <Award className="w-5 h-5 text-yellow-600" />
+              <span className="text-base font-semibold text-[var(--color-neutral-dark)]">
+                {doctor.years_experience}+ Años de Experiencia
+              </span>
+            </div>
+
+            {/* Review Rating - Trust Signal + Rich Snippet Eligibility */}
+            {doctor.reviewStats && doctor.reviewStats.reviewCount > 0 && (
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
+                {/* Star Rating Display */}
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`w-5 h-5 ${
+                        star <= Math.round(doctor.reviewStats!.averageRating)
+                          ? 'fill-yellow-400 text-yellow-400'
+                          : 'text-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+                {/* Rating Number */}
+                <span className="font-semibold text-gray-900">
+                  {doctor.reviewStats.averageRating.toFixed(1)}
+                </span>
+                {/* Review Count */}
+                <span className="text-gray-600">
+                  ({doctor.reviewStats.reviewCount} {doctor.reviewStats.reviewCount === 1 ? 'opinión' : 'opiniones'})
+                </span>
+              </div>
+            )}
 
             {/* H2 - Primary specialty and location */}
             <h2 className="text-[var(--font-size-h2)] text-[var(--color-secondary)] mb-4">
