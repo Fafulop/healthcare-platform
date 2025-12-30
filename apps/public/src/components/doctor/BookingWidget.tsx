@@ -21,9 +21,10 @@ interface Slot {
 interface BookingWidgetProps {
   doctorSlug: string;
   isModal?: boolean;
+  onDayClick?: () => void;
 }
 
-export default function BookingWidget({ doctorSlug, isModal = false }: BookingWidgetProps) {
+export default function BookingWidget({ doctorSlug, isModal = false, onDayClick }: BookingWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
@@ -72,6 +73,13 @@ export default function BookingWidget({ doctorSlug, isModal = false }: BookingWi
   };
 
   const handleDateSelect = (dateStr: string) => {
+    // If onDayClick is provided (sidebar mode), open modal instead of inline selection
+    if (onDayClick) {
+      onDayClick();
+      return;
+    }
+
+    // Normal flow for modal or when no onDayClick is provided
     setSelectedDate(dateStr);
     setSelectedSlot(null);
     setBookingStep("calendar");

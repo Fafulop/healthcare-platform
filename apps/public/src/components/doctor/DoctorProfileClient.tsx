@@ -20,7 +20,7 @@ import SidebarCTA from "./SidebarCTA";
 import BookingModal from "./BookingModal";
 
 // Import client-side components via wrapper
-import { DynamicMediaCarousel } from "./DynamicSections";
+import { DynamicMediaCarousel, DynamicBookingWidget } from "./DynamicSections";
 
 interface DoctorProfileClientProps {
   doctor: DoctorProfile;
@@ -90,11 +90,19 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
 
           {/* RIGHT COLUMN - Sticky Booking Sidebar (Desktop Only) */}
           <aside className="profile-right-column">
-            <div className="flex flex-col justify-end h-screen bg-white">
-              {/* CTA Button & Contact - Fixed at bottom */}
-              <div className="flex-shrink-0 border-t border-gray-200">
-                {/* CTA Button - Opens booking modal (Desktop Only) */}
-                <SidebarCTA onBookingClick={openBookingModal} />
+            <div className="flex flex-col h-screen">
+              {/* Appointment Booking Widget - Scrollable */}
+              <div className="flex-1 overflow-y-auto">
+                <DynamicBookingWidget doctorSlug={doctor.slug} onDayClick={openBookingModal} />
+              </div>
+
+              {/* Fixed Bottom Section - CTA Buttons & Contact */}
+              <div className="flex-shrink-0 bg-white border-t border-gray-200">
+                {/* CTA Buttons - Action buttons (Desktop Only) */}
+                <SidebarCTA
+                  onBookingClick={openBookingModal}
+                  whatsappNumber={doctor.clinic_info.whatsapp}
+                />
 
                 {/* Contact Information - Quick access (Desktop Only) */}
                 <SidebarContactInfo clinicInfo={doctor.clinic_info} />

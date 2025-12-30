@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DynamicBookingWidget } from "@/components/doctor/DynamicSections";
 import SidebarContactInfo from "@/components/doctor/SidebarContactInfo";
 import SidebarCTA from "@/components/doctor/SidebarCTA";
 import BookingModal from "@/components/doctor/BookingModal";
@@ -37,13 +38,18 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, children }: B
 
           {/* RIGHT COLUMN - Sticky Sidebar (Desktop Only) */}
           <aside className="profile-right-column">
-            <div className="flex flex-col justify-end h-screen bg-white">
-              {/* CTA Button & Contact - Fixed at bottom */}
-              <div className="flex-shrink-0 border-t border-gray-200">
-                {/* CTA Button - Opens booking modal */}
-                <SidebarCTA onBookingClick={openBookingModal} />
+            <div className="flex flex-col h-screen">
+              {/* Booking Widget */}
+              <div className="flex-1 overflow-y-auto">
+                <DynamicBookingWidget doctorSlug={doctorSlug} onDayClick={openBookingModal} />
+              </div>
 
-                {/* Contact Information */}
+              {/* Fixed Bottom Section */}
+              <div className="flex-shrink-0 bg-white border-t border-gray-200">
+                <SidebarCTA
+                  onBookingClick={openBookingModal}
+                  whatsappNumber={clinicInfo.whatsapp}
+                />
                 <SidebarContactInfo clinicInfo={clinicInfo} />
               </div>
             </div>
