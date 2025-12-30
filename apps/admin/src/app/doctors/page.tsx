@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import ColorPaletteSelector from "@/components/ColorPaletteSelector";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
@@ -16,6 +17,7 @@ interface Doctor {
   primarySpecialty: string;
   city: string;
   heroImage: string;
+  colorPalette: string;
   createdAt: string;
 }
 
@@ -24,6 +26,9 @@ export default function DoctorsListPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [paletteModalOpen, setPaletteModalOpen] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [updatingPalette, setUpdatingPalette] = useState(false);
 
   useEffect(() => {
     fetchDoctors();
@@ -44,6 +49,123 @@ export default function DoctorsListPage() {
       setError("Error de conexión con el servidor");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenPaletteModal = (doctor: Doctor) => {
+    setSelectedDoctor(doctor);
+    setPaletteModalOpen(true);
+  };
+
+  const handleClosePaletteModal = () => {
+    setPaletteModalOpen(false);
+    setSelectedDoctor(null);
+  };
+
+  const handleUpdatePalette = async (paletteId: string) => {
+    if (!selectedDoctor) return;
+
+    setUpdatingPalette(true);
+    try {
+      // First, fetch the full doctor data
+      const fetchResponse = await authFetch(`${API_URL}/api/doctors/${selectedDoctor.slug}`);
+      const fetchResult = await fetchResponse.json();
+
+      if (!fetchResult.success) {
+        throw new Error("Failed to fetch doctor data");
+      }
+
+      const doctor = fetchResult.data;
+
+      // Transform and update with new palette
+      const updateData = {
+        doctor_full_name: doctor.doctorFullName,
+        last_name: doctor.lastName,
+        slug: doctor.slug,
+        primary_specialty: doctor.primarySpecialty,
+        subspecialties: doctor.subspecialties || [],
+        cedula_profesional: doctor.cedulaProfesional || "",
+        hero_image: doctor.heroImage,
+        location_summary: doctor.locationSummary,
+        city: doctor.city,
+        services_list: (doctor.services || []).map((s: any) => ({
+          service_name: s.serviceName,
+          short_description: s.shortDescription,
+          duration_minutes: s.durationMinutes,
+          price: s.price,
+        })),
+        conditions: doctor.conditions || [],
+        procedures: doctor.procedures || [],
+        short_bio: doctor.shortBio,
+        long_bio: doctor.longBio || "",
+        years_experience: doctor.yearsExperience,
+        education_items: (doctor.educationItems || []).map((e: any) => ({
+          institution: e.institution,
+          program: e.program,
+          year: e.year,
+          notes: e.notes || "",
+        })),
+        certificate_images: (doctor.certificates || []).map((c: any) => ({
+          src: c.src,
+          alt: c.alt,
+          issued_by: c.issuedBy,
+          year: c.year,
+        })),
+        clinic_info: {
+          address: doctor.clinicAddress,
+          phone: doctor.clinicPhone,
+          whatsapp: doctor.clinicWhatsapp || "",
+          hours: doctor.clinicHours || {},
+          geo: {
+            lat: doctor.clinicGeoLat || 0,
+            lng: doctor.clinicGeoLng || 0,
+          },
+        },
+        faqs: (doctor.faqs || []).map((f: any) => ({
+          question: f.question,
+          answer: f.answer,
+        })),
+        carousel_items: (doctor.carouselItems || []).map((item: any) => ({
+          type: item.type,
+          src: item.src,
+          alt: item.alt,
+          caption: item.caption || "",
+        })),
+        appointment_modes: doctor.appointmentModes || [],
+        next_available_date: doctor.nextAvailableDate
+          ? new Date(doctor.nextAvailableDate).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0],
+        social_links: {
+          linkedin: doctor.socialLinkedin,
+          twitter: doctor.socialTwitter,
+        },
+        color_palette: paletteId, // NEW PALETTE
+      };
+
+      const response = await authFetch(`${API_URL}/api/doctors/${selectedDoctor.slug}`, {
+        method: "PUT",
+        body: JSON.stringify(updateData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Update the local state
+        setDoctors((prev) =>
+          prev.map((d) =>
+            d.slug === selectedDoctor.slug ? { ...d, colorPalette: paletteId } : d
+          )
+        );
+        alert(`✅ Paleta actualizada a "${paletteId}" exitosamente!`);
+        handleClosePaletteModal();
+      } else {
+        throw new Error(result.error || "Failed to update palette");
+      }
+    } catch (err) {
+      console.error("Error updating palette:", err);
+      alert(`❌ Error al actualizar la paleta: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setUpdatingPalette(false);
     }
   };
 
@@ -135,6 +257,9 @@ export default function DoctorsListPage() {
                       Ciudad
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Paleta
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Fecha Creación
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -169,6 +294,15 @@ export default function DoctorsListPage() {
                         <div className="text-sm text-gray-900">{doctor.city}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleOpenPaletteModal(doctor)}
+                          className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition"
+                        >
+                          <div className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: '#F59E0B' }} />
+                          {doctor.colorPalette || 'warm'}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {new Date(doctor.createdAt).toLocaleDateString('es-MX')}
                         </div>
@@ -196,6 +330,48 @@ export default function DoctorsListPage() {
             </div>
           )}
         </div>
+
+        {/* Palette Modal */}
+        {paletteModalOpen && selectedDoctor && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      Cambiar Paleta de Colores
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {selectedDoctor.doctorFullName} - {selectedDoctor.primarySpecialty}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleClosePaletteModal}
+                    disabled={updatingPalette}
+                    className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {updatingPalette ? (
+                  <div className="py-12 text-center">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+                    <p className="text-gray-600">Actualizando paleta...</p>
+                  </div>
+                ) : (
+                  <ColorPaletteSelector
+                    currentPaletteId={selectedDoctor.colorPalette || 'warm'}
+                    onSelect={handleUpdatePalette}
+                    isModal={true}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

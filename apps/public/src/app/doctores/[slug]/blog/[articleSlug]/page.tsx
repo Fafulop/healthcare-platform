@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Calendar, Eye, ArrowLeft } from 'lucide-react';
 import BlogLayoutClient from '@/components/blog/BlogLayoutClient';
 import { ArticleContent } from '@/components/blog/ArticleContent';
+import ColorPaletteProvider from '@/components/ui/ColorPaletteProvider';
 
 interface ArticlePageProps {
   params: Promise<{ slug: string; articleSlug: string }>;
@@ -86,7 +87,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   const blogPostingSchema = generateBlogPostingSchema(article, baseUrl);
 
   return (
-    <>
+    <ColorPaletteProvider paletteId={doctor.color_palette}>
       {/* Inject BlogPosting structured data */}
       <Script
         id="blog-posting-schema"
@@ -178,7 +179,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </article>
           </div>
       </BlogLayoutClient>
-    </>
+    </ColorPaletteProvider>
   );
 }
 

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import BlogLayoutClient from '@/components/blog/BlogLayoutClient';
 import { ArticleCard } from '@/components/blog/ArticleCard';
+import ColorPaletteProvider from '@/components/ui/ColorPaletteProvider';
 
 interface BlogListingPageProps {
   params: Promise<{ slug: string }>;
@@ -69,7 +70,8 @@ export default async function BlogListingPage({ params }: BlogListingPageProps) 
   }
 
   return (
-    <BlogLayoutClient doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info}>
+    <ColorPaletteProvider paletteId={doctor.color_palette}>
+      <BlogLayoutClient doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info}>
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Back to Profile */}
         <Link
@@ -116,6 +118,7 @@ export default async function BlogListingPage({ params }: BlogListingPageProps) 
         )}
       </div>
     </BlogLayoutClient>
+    </ColorPaletteProvider>
   );
 }
 

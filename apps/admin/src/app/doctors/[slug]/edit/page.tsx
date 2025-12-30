@@ -8,6 +8,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { UploadButton, UploadDropzone } from "@/utils/uploadthing";
 import { authFetch } from "@/lib/auth-fetch";
+import ColorPaletteSelector from "@/components/ColorPaletteSelector";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
@@ -108,6 +109,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
     appointment_modes: ["in_person", "teleconsult"],
     next_available_date: new Date().toISOString().split("T")[0],
     social_links: {},
+    color_palette: "warm",
   });
 
   // Fetch existing doctor data on mount
@@ -206,6 +208,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
           linkedin: doctor.socialLinkedin,
           twitter: doctor.socialTwitter,
         },
+        color_palette: doctor.colorPalette || "warm",
       });
 
       setIsLoading(false);
@@ -584,6 +587,19 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
                   placeholder="1234567"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Paleta de Colores
+                </label>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <ColorPaletteSelector
+                    currentPaletteId={formData.color_palette}
+                    onSelect={(paletteId) => updateField("color_palette", paletteId)}
+                    isModal={false}
+                  />
+                </div>
               </div>
 
               <div>

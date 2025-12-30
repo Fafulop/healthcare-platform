@@ -2,6 +2,7 @@
 import { notFound } from 'next/navigation';
 import { getDoctorBySlug, getAllDoctorSlugs } from '@/lib/data';
 import DoctorProfileClient from '@/components/doctor/DoctorProfileClient';
+import ColorPaletteProvider from '@/components/ui/ColorPaletteProvider';
 
 interface DoctorProfilePageProps {
   params: Promise<{ slug: string }>;
@@ -15,7 +16,11 @@ export default async function DoctorProfilePage({ params }: DoctorProfilePagePro
     notFound();
   }
 
-  return <DoctorProfileClient doctor={doctor} />;
+  return (
+    <ColorPaletteProvider paletteId={doctor.color_palette}>
+      <DoctorProfileClient doctor={doctor} />
+    </ColorPaletteProvider>
+  );
 }
 
 // Generate static params for all doctor slugs

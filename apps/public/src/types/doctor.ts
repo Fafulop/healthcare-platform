@@ -123,6 +123,9 @@ export interface DoctorProfile {
     twitter?: string;
   };
 
+  // Color Palette (for personalized branding)
+  color_palette?: string; // ID of the color palette (warm, blue, green, etc.)
+
   // Reviews
   reviews?: Review[];
   reviewStats?: ReviewStats;

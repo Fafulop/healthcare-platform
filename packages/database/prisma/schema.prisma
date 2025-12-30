@@ -71,6 +71,9 @@ model Doctor {
   socialLinkedin     String?   @map("social_linkedin")
   socialTwitter      String?   @map("social_twitter")
 
+  // Color palette for personalized branding
+  colorPalette       String    @default("warm") @map("color_palette")
+
   // Relations
   user               User?     // 1:1 relation - optional (can have doctors without user accounts)
   services           Service[]

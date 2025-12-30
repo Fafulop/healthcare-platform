@@ -171,6 +171,7 @@ export async function PUT(
           clinicGeoLng: body.clinic_info.geo?.lng,
           socialLinkedin: body.social_links?.linkedin,
           socialTwitter: body.social_links?.twitter,
+          colorPalette: body.color_palette || 'warm',
           // Create new related services
           services: {
             create: (body.services_list || []).map((service: any) => ({

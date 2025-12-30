@@ -97,6 +97,9 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
     // Reviews (added from API)
     reviews: doctor.reviews || [],
     reviewStats: doctor.reviewStats || { averageRating: 0, reviewCount: 0 },
+
+    // Color Palette (for personalized branding)
+    color_palette: doctor.colorPalette || 'warm',
   };
 }
 
