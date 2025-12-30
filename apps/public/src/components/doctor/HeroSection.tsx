@@ -14,6 +14,13 @@ interface HeroSectionProps {
 }
 
 export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps) {
+  const handleWhatsAppClick = () => {
+    if (doctor.clinic_info.whatsapp) {
+      const cleanNumber = doctor.clinic_info.whatsapp.replace(/[^0-9]/g, '');
+      window.open(`https://wa.me/${cleanNumber}`, '_blank');
+    }
+  };
+
   return (
     <section id="inicio" className="bg-gradient-to-b from-[#FFF5C2] to-[#D0E7E9] py-12 md:py-16">
       <div className="px-4 lg:px-0">
@@ -84,7 +91,7 @@ export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps
               <Button variant="primary" size="lg" className="sm:min-w-[240px]" onClick={onBookingClick}>
                 Agendar Cita
               </Button>
-              <Button variant="secondary" size="lg" className="sm:min-w-[240px]">
+              <Button variant="secondary" size="lg" className="sm:min-w-[240px]" onClick={handleWhatsAppClick}>
                 Enviar Mensaje
               </Button>
               <Link href={`/doctores/${doctor.slug}/blog`}>
