@@ -243,7 +243,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
       style={containerStyle}
     >
       {/* Colorful Gradient Header */}
-      <div className="bg-gradient-to-br from-[var(--color-secondary)] via-[#1D5B63] to-[#195158] text-white px-2 py-1.5">
+      <div className="bg-gradient-to-br from-[var(--color-secondary)] via-[var(--color-secondary-dark)] to-[var(--color-secondary-dark)] text-white px-2 py-1.5">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm flex-shrink-0">
             <Calendar className="w-4 h-4 text-white" />
@@ -364,7 +364,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-[var(--color-secondary)] to-[#195158] hover:from-[#195158] hover:to-[var(--color-secondary)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
+              className="w-full bg-gradient-to-r from-[var(--color-secondary)] to-[var(--color-secondary-dark)] hover:from-[var(--color-secondary-dark)] hover:to-[var(--color-secondary)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
             >
               {isSubmitting ? (
                 <>
