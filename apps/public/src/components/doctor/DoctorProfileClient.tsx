@@ -112,7 +112,10 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
         </div>
 
         {/* Sticky Mobile CTA - Bottom action bar (Mobile Only) */}
-        <StickyMobileCTA onBookingClick={openBookingModal} />
+        <StickyMobileCTA
+          whatsappNumber={doctor.clinic_info.whatsapp}
+          onBookingClick={openBookingModal}
+        />
       </main>
 
       {/* Booking Modal */}

@@ -1,0 +1,38 @@
+// Hero Action Buttons - Client component for interactivity
+'use client';
+
+import Link from 'next/link';
+import { FileText } from 'lucide-react';
+import Button from '../ui/Button';
+
+interface HeroButtonsProps {
+  doctorSlug: string;
+  whatsappNumber?: string | null;
+  onBookingClick?: () => void;
+}
+
+export default function HeroButtons({ doctorSlug, whatsappNumber, onBookingClick }: HeroButtonsProps) {
+  const handleWhatsAppClick = () => {
+    if (whatsappNumber) {
+      const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '');
+      window.open(`https://wa.me/${cleanNumber}`, '_blank');
+    }
+  };
+
+  return (
+    <div className="hidden md:flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+      <Button variant="primary" size="lg" className="sm:min-w-[240px]" onClick={onBookingClick}>
+        Agendar Cita
+      </Button>
+      <Button variant="secondary" size="lg" className="sm:min-w-[240px]" onClick={handleWhatsAppClick}>
+        Enviar Mensaje
+      </Button>
+      <Link href={`/doctores/${doctorSlug}/blog`}>
+        <Button variant="tertiary" size="lg" className="sm:min-w-[240px] flex items-center justify-center gap-2">
+          <FileText className="w-5 h-5" />
+          Blog del Doctor
+        </Button>
+      </Link>
+    </div>
+  );
+}

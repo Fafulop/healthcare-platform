@@ -1,11 +1,10 @@
 // Hero Section - Only H1 on page, SEO anchor
-'use client';
+// SERVER COMPONENT - Renders immediately for optimal LCP
 import React from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { MapPin, FileText, Award, Star } from 'lucide-react';
-import Button from '../ui/Button';
+import { MapPin, Award, Star } from 'lucide-react';
 import Badge from '../ui/Badge';
+import HeroButtons from './HeroButtons';
 import type { DoctorProfile } from '@/types/doctor';
 
 interface HeroSectionProps {
@@ -14,12 +13,6 @@ interface HeroSectionProps {
 }
 
 export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps) {
-  const handleWhatsAppClick = () => {
-    if (doctor.clinic_info.whatsapp) {
-      const cleanNumber = doctor.clinic_info.whatsapp.replace(/[^0-9]/g, '');
-      window.open(`https://wa.me/${cleanNumber}`, '_blank');
-    }
-  };
 
   return (
     <section id="inicio" className="bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)] py-12 md:py-16">
@@ -122,21 +115,12 @@ export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps
               </p>
             )}
 
-            {/* CTA Buttons - Hidden on mobile (sticky bar at bottom instead) */}
-            <div className="hidden md:flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-              <Button variant="primary" size="lg" className="sm:min-w-[240px]" onClick={onBookingClick}>
-                Agendar Cita
-              </Button>
-              <Button variant="secondary" size="lg" className="sm:min-w-[240px]" onClick={handleWhatsAppClick}>
-                Enviar Mensaje
-              </Button>
-              <Link href={`/doctores/${doctor.slug}/blog`}>
-                <Button variant="tertiary" size="lg" className="sm:min-w-[240px] flex items-center justify-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Blog del Doctor
-                </Button>
-              </Link>
-            </div>
+            {/* CTA Buttons - Client component for interactivity */}
+            <HeroButtons
+              doctorSlug={doctor.slug}
+              whatsappNumber={doctor.clinic_info.whatsapp}
+              onBookingClick={onBookingClick}
+            />
           </div>
         </div>
       </div>
