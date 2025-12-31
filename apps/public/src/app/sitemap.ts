@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next'
-import { getAllDoctorSlugs } from '@/lib/data'
+import { getAllDoctorSlugs, getArticlesByDoctorSlug } from '@/lib/data'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
@@ -14,6 +14,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: 'weekly',
     priority: 0.8,
   }))
+
+  // Create sitemap entries for all blog listing pages
+  const blogListingPages: MetadataRoute.Sitemap = doctorSlugs.map((slug) => ({
+    url: `${baseUrl}/doctores/${slug}/blog`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly',
+    priority: 0.7,
+  }))
+
+  // Fetch all blog articles for all doctors
+  const articlePages: MetadataRoute.Sitemap = []
+  for (const slug of doctorSlugs) {
+    try {
+      const articles = await getArticlesByDoctorSlug(slug)
+      articles.forEach((article) => {
+        articlePages.push({
+          url: `${baseUrl}/doctores/${slug}/blog/${article.slug}`,
+          lastModified: article.publishedAt ? new Date(article.publishedAt) : new Date(),
+          changeFrequency: 'monthly',
+          priority: 0.7,
+        })
+      })
+    } catch (error) {
+      console.error(`Error fetching articles for ${slug}:`, error)
+    }
+  }
 
   // Static pages
   const staticPages: MetadataRoute.Sitemap = [
@@ -31,7 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]
 
-  return [...staticPages, ...doctorPages]
+  return [...staticPages, ...doctorPages, ...blogListingPages, ...articlePages]
 }
 
 // Revalidate sitemap every hour

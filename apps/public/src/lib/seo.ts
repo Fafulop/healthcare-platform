@@ -39,7 +39,7 @@ export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 
       title,
       description,
       url: canonicalUrl,
-      siteName: 'Doctor Profiles',
+      siteName: 'TuSalud.pro - Encuentra tu Doctor',
       images: [
         {
           url: ogImage,
@@ -48,7 +48,7 @@ export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 
           alt: `${doctor.doctor_full_name} - ${doctor.primary_specialty}`,
         },
       ],
-      locale: 'en_US',
+      locale: 'es_MX',
       type: 'profile',
     },
     twitter: {
