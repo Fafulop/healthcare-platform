@@ -14,6 +14,21 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
+        {/* Preconnect to critical origins - reduces LCP by establishing connections early */}
+        <link rel="preconnect" href="https://healthcareapi-production-fb70.up.railway.app" />
+        <link rel="preconnect" href="https://utfs.io" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+
+        {/* Preload critical font - improves FCP */}
+        <link
+          rel="preload"
+          href="https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hiA.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"

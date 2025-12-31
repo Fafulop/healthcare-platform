@@ -39,6 +39,7 @@ export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps
                       alt={`${doctor.doctor_full_name} - ${doctor.primary_specialty}`}
                       fill
                       priority
+                      fetchPriority="high"
                       className="object-cover"
                       sizes="(max-width: 768px) 224px, 288px"
                     />
