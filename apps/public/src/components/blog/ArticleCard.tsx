@@ -39,7 +39,7 @@ export function ArticleCard({
             />
           </div>
         ) : (
-          <div className="w-full h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+          <div className="w-full h-48 bg-blue-100 flex items-center justify-center">
             <svg
               className="w-16 h-16 text-blue-300"
               fill="none"

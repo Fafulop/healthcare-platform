@@ -15,32 +15,27 @@ interface HeroSectionProps {
 export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps) {
 
   return (
-    <section id="inicio" className="bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)] py-12 md:py-16">
+    <section id="inicio" className="bg-[var(--color-bg-yellow-light)] py-12 md:py-16">
       <div className="px-4 lg:px-0">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8 lg:gap-6 max-w-5xl lg:mx-auto">
-          {/* Doctor Photo - Priority loading for LCP - Option 1: Large Circle Hero Style */}
+          {/* Doctor Photo - Priority loading for LCP - Simple border style */}
           <div className="flex-shrink-0">
             <div className="relative w-56 h-56 md:w-72 md:h-72">
-              {/* Gradient border ring */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[var(--color-primary)] via-[var(--color-secondary)] to-[var(--color-accent)] p-1 shadow-2xl">
-                {/* White inner ring */}
-                <div className="w-full h-full rounded-full bg-white p-2">
-                  {/* Photo container */}
-                  <div className="relative w-full h-full rounded-full overflow-hidden shadow-xl ring-4 ring-white/50">
-                    <Image
-                      src={doctor.hero_image}
-                      alt={`${doctor.doctor_full_name} - ${doctor.primary_specialty}`}
-                      fill
-                      priority
-                      fetchPriority="high"
-                      className="object-cover"
-                      sizes="(max-width: 768px) 224px, 288px"
-                    />
-                  </div>
+              {/* Simple border ring */}
+              <div className="absolute inset-0 rounded-full border-4 border-[var(--color-primary)] shadow-xl">
+                {/* Photo container */}
+                <div className="relative w-full h-full rounded-full overflow-hidden">
+                  <Image
+                    src={doctor.hero_image}
+                    alt={`${doctor.doctor_full_name} - ${doctor.primary_specialty}`}
+                    fill
+                    priority
+                    fetchPriority="high"
+                    className="object-cover"
+                    sizes="(max-width: 768px) 224px, 288px"
+                  />
                 </div>
               </div>
-              {/* Subtle glow effect behind */}
-              <div className="absolute inset-0 rounded-full bg-[var(--color-secondary)] opacity-20 blur-2xl -z-10 scale-110"></div>
             </div>
           </div>
 

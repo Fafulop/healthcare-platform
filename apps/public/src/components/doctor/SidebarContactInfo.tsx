@@ -20,7 +20,7 @@ export default function SidebarContactInfo({ clinicInfo }: SidebarContactInfoPro
           href={googleMapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-start gap-4 p-4 rounded-lg hover:bg-[var(--color-neutral-light)] transition-colors bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100"
+          className="flex items-start gap-4 p-4 rounded-lg hover:bg-[var(--color-neutral-light)] transition-colors bg-blue-50 border border-blue-200"
         >
           <div className="flex-shrink-0 w-12 h-12 bg-[var(--color-secondary)] bg-opacity-20 rounded-full flex items-center justify-center">
             <Navigation className="w-6 h-6 text-[var(--color-secondary)]" />

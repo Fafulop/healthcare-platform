@@ -4,7 +4,7 @@ import Button from '@/components/ui/Button';
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)]">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg-yellow-light)]">
       <main className="max-w-4xl px-6 py-16 text-center">
         {/* Logo/Icon */}
         <div className="flex justify-center mb-8">

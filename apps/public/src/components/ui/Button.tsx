@@ -30,8 +30,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       lg: 'px-8 py-4 text-lg',
     };
 
-    // Pill shape (rounded-full)
-    const shapeStyles = 'rounded-[var(--radius-pill)]';
+    // Moderate radius (10px) - Notion + Unobravo style
+    const shapeStyles = 'rounded-[10px]';
 
     const combinedStyles = `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${shapeStyles} ${className}`;
 

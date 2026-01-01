@@ -13,7 +13,7 @@ export default async function DoctorsPage() {
   const doctors = await getAllDoctors();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFF5C2] to-[#D0E7E9]">
+    <div className="min-h-screen bg-[var(--color-bg-yellow-light)]">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -79,7 +79,7 @@ function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
       className="block bg-white rounded-[var(--radius-medium)] shadow-[var(--shadow-light)] hover:shadow-[var(--shadow-medium)] transition-shadow overflow-hidden group"
     >
       {/* Doctor Image */}
-      <div className="relative h-64 bg-gradient-to-br from-[var(--color-primary)] via-[var(--color-secondary)] to-[var(--color-accent)] p-1">
+      <div className="relative h-64 border-4 border-[var(--color-primary)]">
         <div className="relative w-full h-full bg-white rounded-t-[var(--radius-medium)] overflow-hidden">
           <Image
             src={doctor.hero_image}

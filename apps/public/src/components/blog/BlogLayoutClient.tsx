@@ -29,7 +29,7 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, children }: B
 
   return (
     <>
-      <main className="min-h-screen pb-16 md:pb-0 bg-gradient-to-b from-[var(--color-bg-yellow-light)] to-[var(--color-bg-green-light)]">
+      <main className="min-h-screen pb-16 md:pb-0 bg-[var(--color-bg-yellow-light)]">
         <div className="profile-layout-container">
           {/* LEFT COLUMN - Content from children */}
           <div className="profile-left-column">

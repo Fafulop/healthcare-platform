@@ -182,19 +182,19 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
         style={containerStyle}
       >
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
             <CheckCircle className="w-10 h-10 text-green-600" />
           </div>
           <h3 className="text-2xl font-bold text-[var(--color-secondary)] mb-2">¡Reserva Confirmada!</h3>
           <p className="text-gray-600 mb-4">Tu cita ha sido agendada exitosamente.</p>
 
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 mb-6 shadow-sm">
+          <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 mb-6 shadow-sm">
             <p className="text-sm text-green-800 mb-1 font-medium">Código de Confirmación</p>
             <p className="text-2xl font-bold text-green-900 tracking-wider">{confirmationCode}</p>
           </div>
 
           {selectedSlot && (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 mb-6 text-left border-2 border-blue-200">
+            <div className="bg-blue-50 rounded-xl p-4 mb-6 text-left border-2 border-blue-200">
               <p className="text-sm font-semibold text-[var(--color-secondary)] mb-3">Detalles de la Cita:</p>
               <div className="space-y-2 text-sm">
                 <p className="text-gray-900">
@@ -224,7 +224,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
 
           <button
             onClick={resetBooking}
-            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 rounded-lg transition-all shadow-md"
+            className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-semibold py-3 rounded-lg transition-all shadow-md"
           >
             Agendar Otra Cita
           </button>
@@ -243,7 +243,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
       style={containerStyle}
     >
       {/* Colorful Gradient Header */}
-      <div className="bg-gradient-to-br from-[var(--color-secondary)] via-[var(--color-secondary-dark)] to-[var(--color-secondary-dark)] text-white px-2 py-1.5">
+      <div className="bg-[var(--color-secondary)] text-white px-2 py-1.5">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm flex-shrink-0">
             <Calendar className="w-4 h-4 text-white" />
@@ -268,7 +268,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
             Volver al calendario
           </button>
 
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4 mb-4 shadow-sm">
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4 shadow-sm">
             <p className="text-xs font-medium text-[var(--color-secondary)] mb-1 opacity-80">Horario seleccionado:</p>
             <p className="text-sm font-semibold text-[var(--color-neutral-dark)]">
               {new Date(selectedSlot.date).toLocaleDateString("es-MX", {
@@ -364,7 +364,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-[var(--color-secondary)] to-[var(--color-secondary-dark)] hover:from-[var(--color-secondary-dark)] hover:to-[var(--color-secondary)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
+              className="w-full bg-[var(--color-secondary)] hover:bg-[var(--color-secondary-hover)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
             >
               {isSubmitting ? (
                 <>
@@ -381,7 +381,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
         // Calendar Step
         <div>
           {/* Month Navigation */}
-          <div className="flex items-center justify-between mb-1 bg-gradient-to-r from-blue-50 to-indigo-50 px-1.5 py-1 rounded-md">
+          <div className="flex items-center justify-between mb-1 bg-blue-50 px-1.5 py-1 rounded-md">
             <button
               onClick={goToPrevMonth}
               className="p-1 hover:bg-white rounded-md transition-colors"
@@ -436,7 +436,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
                       disabled={!hasSlots || isPast}
                       className={`relative aspect-square rounded-md text-[11px] font-medium transition-all ${
                         isSelected
-                          ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-accent)] text-[var(--color-neutral-dark)] ring-1 ring-[var(--color-primary)] scale-105 shadow-md"
+                          ? "bg-[var(--color-primary)] text-[var(--color-neutral-dark)] ring-1 ring-[var(--color-primary)] scale-105 shadow-md"
                           : hasSlots && !isPast
                           ? "bg-blue-50 text-blue-700 hover:bg-blue-100 ring-1 ring-[var(--color-primary)]"
                           : isPast
@@ -470,7 +470,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
                           <button
                             key={slot.id}
                             onClick={() => handleSlotSelect(slot)}
-                            className="flex flex-col items-center justify-center p-1 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border border-blue-200 hover:border-blue-400 rounded-md transition-all hover:scale-105"
+                            className="flex flex-col items-center justify-center p-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:border-blue-400 rounded-md transition-all hover:scale-105"
                           >
                             <span className="text-[11px] font-bold text-gray-900 leading-tight">{slot.startTime}</span>
                             <span className="text-[9px] text-blue-700 font-semibold leading-tight">${slot.finalPrice}</span>
