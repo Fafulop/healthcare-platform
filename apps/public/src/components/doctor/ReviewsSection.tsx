@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { Star } from 'lucide-react';
+import BlobDecoration from '../ui/BlobDecoration';
 import type { Review, ReviewStats } from '@/types/doctor';
 
 interface ReviewsSectionProps {
@@ -64,10 +65,14 @@ export default function ReviewsSection({
   return (
     <section
       id={id}
-      className="py-16 bg-[var(--color-bg-yellow-light)]"
+      className="relative py-16 bg-[var(--color-bg-yellow-light)] overflow-hidden"
       aria-labelledby="reviews-heading"
     >
-      <div className="max-w-4xl mx-auto px-4">
+      {/* Organic blobs for visual interest */}
+      <BlobDecoration variant="blob2" color="gradient-purple" position="top-left" size="lg" opacity={28} blur={false} />
+      <BlobDecoration variant="blob4" color="primary" position="bottom-right" size="md" opacity={20} blur={false} />
+
+      <div className="relative max-w-4xl mx-auto px-4">
         {/* Section Header */}
         <div className="mb-8">
           <h2

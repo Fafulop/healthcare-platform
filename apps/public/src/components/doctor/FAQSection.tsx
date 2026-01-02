@@ -2,6 +2,7 @@
 'use client';
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import BlobDecoration from '../ui/BlobDecoration';
 import type { FAQ } from '@/types/doctor';
 
 interface FAQSectionProps {
@@ -19,8 +20,12 @@ export default function FAQSection({ faqs, id }: FAQSectionProps) {
   };
 
   return (
-    <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
-      <div className="max-w-4xl mx-auto px-4">
+    <section id={id} className="relative py-16 bg-[var(--color-bg-yellow-light)] overflow-hidden">
+      {/* Organic blobs for visual interest */}
+      <BlobDecoration variant="blob3" color="gradient-blue" position="top-right" size="lg" opacity={26} blur={false} />
+      <BlobDecoration variant="blob1" color="accent" position="bottom-left" size="md" opacity={22} blur={false} />
+
+      <div className="relative max-w-4xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
           Preguntas Frecuentes
