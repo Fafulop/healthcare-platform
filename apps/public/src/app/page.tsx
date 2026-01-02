@@ -1,11 +1,17 @@
 import Link from 'next/link';
 import { Stethoscope } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import BlobDecoration from '@/components/ui/BlobDecoration';
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg-yellow-light)]">
-      <main className="max-w-4xl px-6 py-16 text-center">
+    <div className="relative flex min-h-screen items-center justify-center bg-[var(--color-bg-yellow-light)] overflow-hidden">
+      {/* Visible organic blobs */}
+      <BlobDecoration variant="blob2" color="gradient-blue" position="top-left" size="xl" opacity={40} blur={false} />
+      <BlobDecoration variant="blob4" color="gradient-purple" position="bottom-right" size="xl" opacity={35} blur={false} />
+      <BlobDecoration variant="blob1" color="accent" position="center" size="lg" opacity={20} blur={false} />
+
+      <main className="relative max-w-4xl px-6 py-16 text-center">
         {/* Logo/Icon */}
         <div className="flex justify-center mb-8">
           <div className="w-20 h-20 bg-[var(--color-secondary)] rounded-full flex items-center justify-center">

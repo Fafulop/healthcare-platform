@@ -5,6 +5,7 @@ import { DynamicBookingWidget } from "@/components/doctor/DynamicSections";
 import SidebarContactInfo from "@/components/doctor/SidebarContactInfo";
 import SidebarCTA from "@/components/doctor/SidebarCTA";
 import BookingModal from "@/components/doctor/BookingModal";
+import BlobDecoration from "@/components/ui/BlobDecoration";
 
 interface BlogLayoutClientProps {
   doctorSlug: string;
@@ -29,8 +30,13 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, children }: B
 
   return (
     <>
-      <main className="min-h-screen pb-16 md:pb-0 bg-[var(--color-bg-yellow-light)]">
-        <div className="profile-layout-container">
+      <main className="relative min-h-screen pb-16 md:pb-0 bg-[var(--color-bg-yellow-light)] overflow-hidden">
+        {/* Visible organic blobs */}
+        <BlobDecoration variant="blob3" color="gradient-purple" position="top-right" size="xl" opacity={33} blur={false} />
+        <BlobDecoration variant="blob1" color="gradient-blue" position="bottom-left" size="xl" opacity={36} blur={false} />
+        <BlobDecoration variant="blob2" color="accent" position="bottom-right" size="lg" opacity={25} blur={false} className="hidden md:block" />
+
+        <div className="relative profile-layout-container">
           {/* LEFT COLUMN - Content from children */}
           <div className="profile-left-column">
             {children}

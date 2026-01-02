@@ -2,7 +2,8 @@
 import React from 'react';
 import { MapPin, Clock, ExternalLink } from 'lucide-react';
 import Card from '../ui/Card';
-import type { ClinicInfo } from '@/types/doctor';
+import BlobDecoration from '../ui/BlobDecoration';
+import type { ClinicInfo} from '@/types/doctor';
 
 interface ClinicLocationSectionProps {
   clinicInfo: ClinicInfo;

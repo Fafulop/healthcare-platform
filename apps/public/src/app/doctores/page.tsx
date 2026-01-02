@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { MapPin, Stethoscope } from 'lucide-react';
 import { getAllDoctors } from '@/lib/data';
+import BlobDecoration from '@/components/ui/BlobDecoration';
 import type { DoctorProfile } from '@/types/doctor';
 
 export const metadata = {
@@ -13,9 +14,14 @@ export default async function DoctorsPage() {
   const doctors = await getAllDoctors();
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg-yellow-light)]">
+    <div className="relative min-h-screen bg-[var(--color-bg-yellow-light)] overflow-hidden">
+      {/* Visible organic blobs throughout page */}
+      <BlobDecoration variant="blob1" color="gradient-blue" position="top-right" size="xl" opacity={38} blur={false} />
+      <BlobDecoration variant="blob3" color="gradient-purple" position="bottom-left" size="xl" opacity={32} blur={false} />
+      <BlobDecoration variant="blob4" color="secondary" position="center" size="lg" opacity={22} blur={false} className="hidden lg:block" />
+
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="relative bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <Link href="/" className="inline-flex items-center gap-2 text-[var(--color-secondary)] hover:opacity-80">
             <Stethoscope className="w-6 h-6" />

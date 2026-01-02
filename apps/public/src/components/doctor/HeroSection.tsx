@@ -4,6 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import { MapPin, Award, Star } from 'lucide-react';
 import Badge from '../ui/Badge';
+import BlobDecoration from '../ui/BlobDecoration';
 import HeroButtons from './HeroButtons';
 import type { DoctorProfile } from '@/types/doctor';
 
@@ -15,8 +16,13 @@ interface HeroSectionProps {
 export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps) {
 
   return (
-    <section id="inicio" className="bg-[var(--color-bg-yellow-light)] py-12 md:py-16">
-      <div className="px-4 lg:px-0">
+    <section id="inicio" className="relative overflow-hidden bg-[var(--color-bg-yellow-light)] py-12 md:py-16">
+      {/* Visible organic blobs */}
+      <BlobDecoration variant="blob1" color="gradient-blue" position="top-right" size="xl" opacity={35} blur={false} />
+      <BlobDecoration variant="blob3" color="gradient-purple" position="bottom-left" size="lg" opacity={30} blur={false} />
+      <BlobDecoration variant="blob2" color="primary" position="top-left" size="md" opacity={25} blur={false} className="hidden md:block" />
+
+      <div className="relative px-4 lg:px-0">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8 lg:gap-6 max-w-5xl lg:mx-auto">
           {/* Doctor Photo - Priority loading for LCP - Simple border style */}
           <div className="flex-shrink-0">
