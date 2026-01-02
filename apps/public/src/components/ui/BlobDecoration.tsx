@@ -37,15 +37,15 @@ export default function BlobDecoration({
     xl: 'w-[800px] h-[800px]',
   };
 
-  // Color fills - support gradients
+  // Color fills - support gradients using CSS variables
   const getColorFill = () => {
     switch (color) {
       case 'gradient-blue':
         return (
           <defs>
             <linearGradient id={`gradient-blue-${variant}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{ stopColor: '#3B82F6', stopOpacity: 1 }} />
-              <stop offset="100%" style={{ stopColor: '#1E3A8A', stopOpacity: 1 }} />
+              <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={1} />
+              <stop offset="100%" stopColor="var(--color-secondary)" stopOpacity={1} />
             </linearGradient>
           </defs>
         );
@@ -53,8 +53,8 @@ export default function BlobDecoration({
         return (
           <defs>
             <linearGradient id={`gradient-purple-${variant}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{ stopColor: '#8B5CF6', stopOpacity: 1 }} />
-              <stop offset="100%" style={{ stopColor: '#3B82F6', stopOpacity: 1 }} />
+              <stop offset="0%" stopColor="var(--color-secondary)" stopOpacity={1} />
+              <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={1} />
             </linearGradient>
           </defs>
         );
