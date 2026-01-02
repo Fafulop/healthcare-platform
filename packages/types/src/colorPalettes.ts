@@ -88,6 +88,48 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
       error: '#EF4444',
     },
   },
+
+  sunshine: {
+    id: 'sunshine',
+    name: 'Cálido Amarillo',
+    description: 'Amarillo cálido suave con acentos dorados - Energía positiva',
+    type: 'single',
+    colors: {
+      primary: '#F59E0B',           // Warm amber/gold
+      primaryLight: '#FEF3C7',      // Very light yellow
+      primaryDark: '#D97706',       // Deep amber
+      secondary: '#CA8A04',         // Rich gold
+      secondaryLight: '#FCD34D',    // Light gold
+      secondaryDark: '#92400E',     // Dark brown-gold
+      accent: '#0891B2',            // Teal accent for contrast
+      bgYellowLight: '#FFFBEB',     // Creamy light yellow
+      bgGreenLight: '#FEF9C3',      // Pale yellow tint
+      success: '#10B981',
+      warning: '#F59E0B',
+      error: '#EF4444',
+    },
+  },
+
+  rose: {
+    id: 'rose',
+    name: 'Rosa Suave',
+    description: 'Rosa suave profesional con tonos mauve - Calidez y confianza',
+    type: 'single',
+    colors: {
+      primary: '#EC4899',           // Soft rose pink
+      primaryLight: '#FCE7F3',      // Very light pink
+      primaryDark: '#DB2777',       // Deep pink
+      secondary: '#BE185D',         // Dark rose
+      secondaryLight: '#F472B6',    // Light pink
+      secondaryDark: '#831843',     // Deep burgundy
+      accent: '#D97706',            // Gold accent for warmth
+      bgYellowLight: '#FFF5F7',     // Blush white
+      bgGreenLight: '#FDF2F8',      // Pale pink tint
+      success: '#10B981',
+      warning: '#F59E0B',
+      error: '#EF4444',
+    },
+  },
 };
 
 // Helper function to get palette by ID
