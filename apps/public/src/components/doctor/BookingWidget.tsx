@@ -21,12 +21,13 @@ interface Slot {
 interface BookingWidgetProps {
   doctorSlug: string;
   isModal?: boolean;
-  onDayClick?: () => void;
+  onDayClick?: (dateStr: string) => void;
+  initialDate?: string | null;
 }
 
-export default function BookingWidget({ doctorSlug, isModal = false, onDayClick }: BookingWidgetProps) {
+export default function BookingWidget({ doctorSlug, isModal = false, onDayClick, initialDate = null }: BookingWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialDate);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [slotsByDate, setSlotsByDate] = useState<Record<string, Slot[]>>({});
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -48,6 +49,13 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
   useEffect(() => {
     fetchAvailability();
   }, [currentMonth, doctorSlug]);
+
+  // Set selected date when initialDate is provided (e.g., from sidebar click)
+  useEffect(() => {
+    if (initialDate) {
+      setSelectedDate(initialDate);
+    }
+  }, [initialDate]);
 
   const fetchAvailability = async () => {
     setLoading(true);
@@ -73,9 +81,9 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick 
   };
 
   const handleDateSelect = (dateStr: string) => {
-    // If onDayClick is provided (sidebar mode), open modal instead of inline selection
+    // If onDayClick is provided (sidebar mode), pass the date and open modal
     if (onDayClick) {
-      onDayClick();
+      onDayClick(dateStr);
       return;
     }
 

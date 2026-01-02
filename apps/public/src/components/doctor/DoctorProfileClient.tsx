@@ -28,9 +28,19 @@ interface DoctorProfileClientProps {
 
 export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const openBookingModal = () => setIsBookingModalOpen(true);
-  const closeBookingModal = () => setIsBookingModalOpen(false);
+  const openBookingModal = (dateStr?: string) => {
+    if (dateStr) {
+      setSelectedDate(dateStr);
+    }
+    setIsBookingModalOpen(true);
+  };
+
+  const closeBookingModal = () => {
+    setIsBookingModalOpen(false);
+    setSelectedDate(null); // Reset selected date when modal closes
+  };
 
   return (
     <>
@@ -123,6 +133,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
         isOpen={isBookingModalOpen}
         onClose={closeBookingModal}
         doctorSlug={doctor.slug}
+        initialDate={selectedDate}
       />
     </>
   );
