@@ -98,6 +98,8 @@ model Doctor {
   productAttributes  ProductAttribute[]
   products           Product[]
   ledgerEntries      LedgerEntry[]
+  quotations         Quotation[]         @relation("DoctorQuotations")
+  sales              Sale[]              @relation("DoctorSales")
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -434,7 +436,9 @@ model Client {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  doctor          Doctor   @relation("DoctorClients", fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor          Doctor      @relation("DoctorClients", fields: [doctorId], references: [id], onDelete: Cascade)
+  quotations      Quotation[] @relation("ClientQuotations")
+  sales           Sale[]      @relation("ClientSales")
 
   @@unique([doctorId, businessName])
   @@index([doctorId, status])
@@ -572,6 +576,8 @@ model Product {
 
   doctor          Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   components      ProductComponent[]
+  quotationItems  QuotationItem[]    @relation("QuotationItemProduct")
+  saleItems       SaleItem[]         @relation("SaleItemProduct")
 
   @@unique([doctorId, name])
   @@index([doctorId, status])
@@ -708,5 +714,216 @@ model LedgerFacturaXml {
   @@index([ledgerEntryId])
   @@index([uuid])
   @@map("ledger_facturas_xml")
+  @@schema("practice_management")
+}
+
+// -----------------------------------------------------------------------------
+// 7. SALES - QUOTATIONS (COTIZACIONES)
+// -----------------------------------------------------------------------------
+
+model Quotation {
+  id                 Int              @id @default(autoincrement())
+  doctorId           String           @map("doctor_id")
+  clientId           Int              @map("client_id")
+
+  // Quote Information
+  quotationNumber    String           @unique @map("quotation_number") @db.VarChar(50)
+  issueDate          DateTime         @map("issue_date") @db.Date
+  validUntil         DateTime         @map("valid_until") @db.Date
+
+  // Status
+  status             QuotationStatus  @default(DRAFT)
+
+  // Pricing
+  subtotal           Decimal          @db.Decimal(12, 2)
+  taxRate            Decimal?         @default(0.16) @map("tax_rate") @db.Decimal(5, 4) // 0.16 = 16% IVA
+  tax                Decimal?         @db.Decimal(12, 2)
+  total              Decimal          @db.Decimal(12, 2)
+
+  // Additional Info
+  notes              String?          @db.Text
+  termsAndConditions String?          @map("terms_and_conditions") @db.Text
+
+  // Timestamps
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  doctor             Doctor           @relation("DoctorQuotations", fields: [doctorId], references: [id], onDelete: Cascade)
+  client             Client           @relation("ClientQuotations", fields: [clientId], references: [id], onDelete: Restrict)
+  items              QuotationItem[]
+  sales              Sale[]           @relation("QuotationSales")
+
+  @@index([doctorId, status])
+  @@index([doctorId, clientId])
+  @@index([quotationNumber])
+  @@index([issueDate])
+  @@map("quotations")
+  @@schema("practice_management")
+}
+
+model QuotationItem {
+  id            Int        @id @default(autoincrement())
+  quotationId   Int        @map("quotation_id")
+
+  // Item can be a product or custom service
+  productId     Int?       @map("product_id")
+  itemType      String     @default("product") @map("item_type") @db.VarChar(20) // "product" or "service"
+
+  // Item Details (stored to preserve quote even if product changes)
+  description   String     @db.VarChar(500)
+  sku           String?    @db.VarChar(100)
+
+  // Pricing
+  quantity      Decimal    @db.Decimal(10, 4)
+  unit          String?    @db.VarChar(50) // "pza", "kg", "servicio"
+  unitPrice     Decimal    @map("unit_price") @db.Decimal(10, 2)
+  subtotal      Decimal    @db.Decimal(12, 2)
+
+  // Discount (per-item)
+  discountRate  Decimal?   @default(0) @map("discount_rate") @db.Decimal(5, 4) // 0.10 = 10%
+
+  // Tax (per-item)
+  taxRate       Decimal?   @default(0.16) @map("tax_rate") @db.Decimal(5, 4) // 0.16 = 16%
+  taxAmount     Decimal?   @default(0) @map("tax_amount") @db.Decimal(12, 2)
+
+  // Display Order
+  order         Int        @default(0)
+
+  // Timestamps
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  quotation     Quotation  @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product       Product?   @relation("QuotationItemProduct", fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([quotationId])
+  @@index([productId])
+  @@map("quotation_items")
+  @@schema("practice_management")
+}
+
+enum QuotationStatus {
+  DRAFT      // Borrador
+  SENT       // Enviada
+  APPROVED   // Aprobada
+  REJECTED   // Rechazada
+  EXPIRED    // Vencida
+  CANCELLED  // Cancelada
+
+  @@schema("practice_management")
+}
+
+// -----------------------------------------------------------------------------
+// 8. SALES - VENTAS EN FIRME (FIRM SALES)
+// -----------------------------------------------------------------------------
+
+model Sale {
+  id                 Int              @id @default(autoincrement())
+  doctorId           String           @map("doctor_id")
+  clientId           Int              @map("client_id")
+  quotationId        Int?             @map("quotation_id") // Optional: links to original quotation
+
+  // Sale Information
+  saleNumber         String           @unique @map("sale_number") @db.VarChar(50) // VTA-2026-001
+  saleDate           DateTime         @map("sale_date") @db.Date
+  deliveryDate       DateTime?        @map("delivery_date") @db.Date
+
+  // Status
+  status             SaleStatus       @default(PENDING)
+
+  // Pricing
+  subtotal           Decimal          @db.Decimal(12, 2)
+  taxRate            Decimal?         @default(0.16) @map("tax_rate") @db.Decimal(5, 4) // 0.16 = 16% IVA
+  tax                Decimal?         @db.Decimal(12, 2)
+  total              Decimal          @db.Decimal(12, 2)
+
+  // Payment tracking
+  amountPaid         Decimal?         @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  paymentStatus      PaymentStatus    @default(PENDING) @map("payment_status")
+
+  // Additional Info
+  notes              String?          @db.Text
+  termsAndConditions String?          @map("terms_and_conditions") @db.Text
+
+  // Timestamps
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  doctor             Doctor           @relation("DoctorSales", fields: [doctorId], references: [id], onDelete: Cascade)
+  client             Client           @relation("ClientSales", fields: [clientId], references: [id], onDelete: Restrict)
+  quotation          Quotation?       @relation("QuotationSales", fields: [quotationId], references: [id], onDelete: SetNull)
+  items              SaleItem[]
+
+  @@index([doctorId, status])
+  @@index([doctorId, clientId])
+  @@index([doctorId, paymentStatus])
+  @@index([saleNumber])
+  @@index([saleDate])
+  @@index([quotationId])
+  @@map("sales")
+  @@schema("practice_management")
+}
+
+model SaleItem {
+  id            Int        @id @default(autoincrement())
+  saleId        Int        @map("sale_id")
+
+  // Item can be a product or custom service
+  productId     Int?       @map("product_id")
+  itemType      String     @default("product") @map("item_type") @db.VarChar(20) // "product" or "service"
+
+  // Item Details (stored to preserve sale even if product changes)
+  description   String     @db.VarChar(500)
+  sku           String?    @db.VarChar(100)
+
+  // Pricing
+  quantity      Decimal    @db.Decimal(10, 4)
+  unit          String?    @db.VarChar(50) // "pza", "kg", "servicio"
+  unitPrice     Decimal    @map("unit_price") @db.Decimal(10, 2)
+  subtotal      Decimal    @db.Decimal(12, 2)
+
+  // Discount (per-item)
+  discountRate  Decimal?   @default(0) @map("discount_rate") @db.Decimal(5, 4) // 0.10 = 10%
+
+  // Tax (per-item)
+  taxRate       Decimal?   @default(0.16) @map("tax_rate") @db.Decimal(5, 4) // 0.16 = 16%
+  taxAmount     Decimal?   @default(0) @map("tax_amount") @db.Decimal(12, 2)
+
+  // Display Order
+  order         Int        @default(0)
+
+  // Timestamps
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  sale          Sale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product       Product?   @relation("SaleItemProduct", fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
+  @@index([productId])
+  @@map("sale_items")
+  @@schema("practice_management")
+}
+
+enum SaleStatus {
+  PENDING      // Pendiente
+  CONFIRMED    // Confirmada
+  PROCESSING   // En proceso
+  SHIPPED      // Enviada
+  DELIVERED    // Entregada
+  CANCELLED    // Cancelada
+
+  @@schema("practice_management")
+}
+
+enum PaymentStatus {
+  PENDING      // Pendiente
+  PARTIAL      // Pago parcial
+  PAID         // Pagada
+
   @@schema("practice_management")
 }

@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, Users, Building2, ArrowLeft } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, Users, Building2, ArrowLeft, FileText, ShoppingCart } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -150,13 +150,29 @@ export default function ClientsPage() {
                 Manage your client relationships and contact information
               </p>
             </div>
-            <Link
-              href="/dashboard/practice/clients/new"
-              className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              New Client
-            </Link>
+            <div className="flex gap-3">
+              <Link
+                href="/dashboard/practice/cotizaciones"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <FileText className="w-5 h-5" />
+                Cotizaciones
+              </Link>
+              <Link
+                href="/dashboard/practice/ventas"
+                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                Ventas
+              </Link>
+              <Link
+                href="/dashboard/practice/clients/new"
+                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <Plus className="w-5 h-5" />
+                New Client
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -270,6 +286,13 @@ export default function ClientsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
+                          <Link
+                            href={`/dashboard/practice/cotizaciones/new?clientId=${client.id}`}
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            title="Create quotation for this client"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </Link>
                           <Link
                             href={`/dashboard/practice/clients/${client.id}/edit`}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
