@@ -16,10 +16,10 @@ async function main() {
 
   console.log('✅ Cleaned existing data');
 
-  // Create admin user
+  // Create admin user (using a different email for admin)
   const adminUser = await prisma.user.create({
     data: {
-      email: 'lopez.fafutis@gmail.com',
+      email: 'admin@example.com',
       name: 'Platform Admin',
       role: 'ADMIN',
     },
@@ -271,25 +271,24 @@ async function main() {
   console.log(`   - ${mariaLopez.slug}`);
 
   // Create doctor user linked to María López profile
-  // Using a different test email (you can change this to another Gmail for testing)
+  // Using your real Gmail for testing doctor portal
   const doctorUser = await prisma.user.create({
     data: {
-      email: 'doctor.test@gmail.com', // Change to a real Gmail if you want to test doctor portal
-      name: 'Dra. María López Hernández',
-      role: 'DOCTOR',
+      email: 'lopez.fafutis@gmail.com', // Your real Gmail
+      name: 'Gerardo López',
+      role: 'DOCTOR', // DOCTOR role for doctor portal access
       doctorId: mariaLopez.id, // Link to doctor profile
     },
   });
 
   console.log('✅ Created doctor user:', doctorUser.email);
   console.log(`   - Linked to doctor profile: ${mariaLopez.slug}`);
-  console.log('   ⚠️  To test doctor portal, change doctor email to a real Gmail');
 
   console.log('\n🎉 Database seeding completed successfully!');
   console.log('\n📝 Summary:');
-  console.log('   - Admin user: lopez.fafutis@gmail.com (ADMIN role)');
-  console.log('   - Doctor user: doctor.test@gmail.com (DOCTOR role)');
-  console.log('\n💡 Note: Each email can only have one role (ADMIN or DOCTOR)');
+  console.log('   - Admin user: admin@example.com (ADMIN role)');
+  console.log('   - Doctor user: lopez.fafutis@gmail.com (DOCTOR role)');
+  console.log('\n💡 Note: lopez.fafutis@gmail.com can now access the Doctor Portal!');
 }
 
 main()

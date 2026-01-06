@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText } from "lucide-react";
+import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText, Briefcase, Users, Truck, FolderTree } from "lucide-react";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -259,6 +259,37 @@ export default function DoctorDashboardPage() {
               <LogOut className="w-5 h-5" />
               Sign Out
             </button>
+          </div>
+        </div>
+
+        {/* Practice Management Section */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Briefcase className="w-5 h-5 text-purple-600" />
+            Practice Management
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <a
+              href="/dashboard/practice/areas"
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <FolderTree className="w-5 h-5" />
+              Areas
+            </a>
+            <a
+              href="/dashboard/practice/clients"
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <Users className="w-5 h-5" />
+              Clients
+            </a>
+            <a
+              href="/dashboard/practice/proveedores"
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <Truck className="w-5 h-5" />
+              Suppliers
+            </a>
           </div>
         </div>
 

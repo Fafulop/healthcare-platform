@@ -1,0 +1,548 @@
+"use client";
+
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface Subarea {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+interface Area {
+  id: number;
+  name: string;
+  description: string | null;
+  subareas: Subarea[];
+}
+
+export default function AreasPage() {
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/login");
+    },
+  });
+
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedAreas, setExpandedAreas] = useState<Set<number>>(new Set());
+
+  // Modal states
+  const [showAreaModal, setShowAreaModal] = useState(false);
+  const [showSubareaModal, setShowSubareaModal] = useState(false);
+  const [editingArea, setEditingArea] = useState<Area | null>(null);
+  const [editingSubarea, setEditingSubarea] = useState<{ area: Area; subarea: Subarea } | null>(null);
+  const [selectedAreaForSubarea, setSelectedAreaForSubarea] = useState<Area | null>(null);
+
+  // Form states
+  const [areaName, setAreaName] = useState("");
+  const [areaDescription, setAreaDescription] = useState("");
+  const [subareaName, setSubareaName] = useState("");
+  const [subareaDescription, setSubareaDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAreas();
+  }, [session]);
+
+  const fetchAreas = async () => {
+    if (!session?.user?.email) return;
+
+    try {
+      // Generate auth token
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const response = await fetch(`${API_URL}/api/practice-management/areas`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch areas');
+      }
+
+      const result = await response.json();
+      setAreas(result.data || []);
+    } catch (err) {
+      console.error('Error fetching areas:', err);
+      setError('Failed to load areas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleArea = (areaId: number) => {
+    const newExpanded = new Set(expandedAreas);
+    if (newExpanded.has(areaId)) {
+      newExpanded.delete(areaId);
+    } else {
+      newExpanded.add(areaId);
+    }
+    setExpandedAreas(newExpanded);
+  };
+
+  const openAreaModal = (area?: Area) => {
+    setEditingArea(area || null);
+    setAreaName(area?.name || "");
+    setAreaDescription(area?.description || "");
+    setShowAreaModal(true);
+    setError(null);
+  };
+
+  const openSubareaModal = (area: Area, subarea?: Subarea) => {
+    setSelectedAreaForSubarea(area);
+    setEditingSubarea(subarea ? { area, subarea } : null);
+    setSubareaName(subarea?.name || "");
+    setSubareaDescription(subarea?.description || "");
+    setShowSubareaModal(true);
+    setError(null);
+  };
+
+  const closeModals = () => {
+    setShowAreaModal(false);
+    setShowSubareaModal(false);
+    setEditingArea(null);
+    setEditingSubarea(null);
+    setSelectedAreaForSubarea(null);
+    setAreaName("");
+    setAreaDescription("");
+    setSubareaName("");
+    setSubareaDescription("");
+    setError(null);
+  };
+
+  const handleSaveArea = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.user?.email) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const url = editingArea
+        ? `${API_URL}/api/practice-management/areas/${editingArea.id}`
+        : `${API_URL}/api/practice-management/areas`;
+
+      const response = await fetch(url, {
+        method: editingArea ? 'PUT' : 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: areaName,
+          description: areaDescription || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save area');
+      }
+
+      await fetchAreas();
+      closeModals();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveSubarea = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.user?.email || !selectedAreaForSubarea) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const url = editingSubarea
+        ? `${API_URL}/api/practice-management/areas/${selectedAreaForSubarea.id}/subareas/${editingSubarea.subarea.id}`
+        : `${API_URL}/api/practice-management/areas/${selectedAreaForSubarea.id}/subareas`;
+
+      const response = await fetch(url, {
+        method: editingSubarea ? 'PUT' : 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: subareaName,
+          description: subareaDescription || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save subarea');
+      }
+
+      await fetchAreas();
+      // Auto-expand the area after adding subarea
+      setExpandedAreas(new Set([...expandedAreas, selectedAreaForSubarea.id]));
+      closeModals();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteArea = async (area: Area) => {
+    if (!session?.user?.email) return;
+    if (!confirm(`Are you sure you want to delete "${area.name}"? This will also delete all subareas.`)) return;
+
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const response = await fetch(`${API_URL}/api/practice-management/areas/${area.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete area');
+      }
+
+      await fetchAreas();
+    } catch (err) {
+      console.error('Error deleting area:', err);
+      alert('Failed to delete area');
+    }
+  };
+
+  const handleDeleteSubarea = async (area: Area, subarea: Subarea) => {
+    if (!session?.user?.email) return;
+    if (!confirm(`Are you sure you want to delete "${subarea.name}"?`)) return;
+
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const response = await fetch(
+        `${API_URL}/api/practice-management/areas/${area.id}/subareas/${subarea.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete subarea');
+      }
+
+      await fetchAreas();
+    } catch (err) {
+      console.error('Error deleting subarea:', err);
+      alert('Failed to delete subarea');
+    }
+  };
+
+  if (status === "loading" || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Link>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <FolderTree className="w-8 h-8 text-green-600" />
+                Areas & Subareas
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Organize your practice management with hierarchical categories
+              </p>
+            </div>
+            <button
+              onClick={() => openAreaModal()}
+              className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <Plus className="w-5 h-5" />
+              New Area
+            </button>
+          </div>
+        </div>
+
+        {/* Areas List */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          {areas.length === 0 ? (
+            <div className="text-center py-12">
+              <FolderTree className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">No areas yet</p>
+              <p className="text-gray-400 text-sm mt-2">
+                Create your first area to start organizing your practice
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {areas.map((area) => (
+                <div key={area.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Area Header */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <button
+                        onClick={() => toggleArea(area.id)}
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        {expandedAreas.has(area.id) ? (
+                          <ChevronDown className="w-5 h-5" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5" />
+                        )}
+                      </button>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{area.name}</h3>
+                        {area.description && (
+                          <p className="text-sm text-gray-600 mt-1">{area.description}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          {area.subareas.length} subarea{area.subareas.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openSubareaModal(area)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Add subarea"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openAreaModal(area)}
+                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Edit area"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteArea(area)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete area"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Subareas */}
+                  {expandedAreas.has(area.id) && area.subareas.length > 0 && (
+                    <div className="bg-white p-4 pl-12 space-y-2">
+                      {area.subareas.map((subarea) => (
+                        <div
+                          key={subarea.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{subarea.name}</p>
+                            {subarea.description && (
+                              <p className="text-sm text-gray-600 mt-1">{subarea.description}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openSubareaModal(area, subarea)}
+                              className="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+                              title="Edit subarea"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSubarea(area, subarea)}
+                              className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                              title="Delete subarea"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Area Modal */}
+        {showAreaModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {editingArea ? 'Edit Area' : 'New Area'}
+                </h2>
+              </div>
+              <form onSubmit={handleSaveArea} className="p-6 space-y-4">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    {error}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Area Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={areaName}
+                    onChange={(e) => setAreaName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="e.g., Ventas, Gastos, Proyectos"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    value={areaDescription}
+                    onChange={(e) => setAreaDescription(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows={3}
+                    placeholder="Describe this area..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeModals}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Subarea Modal */}
+        {showSubareaModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {editingSubarea ? 'Edit Subarea' : 'New Subarea'}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Under: {selectedAreaForSubarea?.name}
+                </p>
+              </div>
+              <form onSubmit={handleSaveSubarea} className="p-6 space-y-4">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    {error}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Subarea Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={subareaName}
+                    onChange={(e) => setSubareaName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="e.g., Online, Tienda Física"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    value={subareaDescription}
+                    onChange={(e) => setSubareaDescription(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows={3}
+                    placeholder="Describe this subarea..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeModals}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
