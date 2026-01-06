@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText, Briefcase, Users, Truck, FolderTree } from "lucide-react";
+import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText, Briefcase, Users, Truck, FolderTree, Package } from "lucide-react";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -268,7 +268,7 @@ export default function DoctorDashboardPage() {
             <Briefcase className="w-5 h-5 text-purple-600" />
             Practice Management
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <a
               href="/dashboard/practice/areas"
               className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
@@ -289,6 +289,13 @@ export default function DoctorDashboardPage() {
             >
               <Truck className="w-5 h-5" />
               Suppliers
+            </a>
+            <a
+              href="/dashboard/practice/products"
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <Package className="w-5 h-5" />
+              Products
             </a>
           </div>
         </div>
