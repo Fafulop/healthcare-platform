@@ -277,7 +277,7 @@ export default function DoctorDashboardPage() {
               Areas
             </a>
             <a
-              href="/dashboard/practice/clients"
+              href="/dashboard/practice/ventas"
               className="flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <Users className="w-5 h-5" />

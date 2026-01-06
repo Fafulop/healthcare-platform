@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, FileText, ArrowLeft, Eye } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, FileText, ArrowLeft, Eye, Users, ShoppingCart } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -122,6 +122,37 @@ export default function CotizacionesPage() {
     }
   };
 
+  const handleConvertToSale = async (quotation: Quotation) => {
+    if (!session?.user?.email) return;
+    if (!confirm(`¿Convertir la cotización "${quotation.quotationNumber}" en una venta?`)) return;
+
+    setLoading(true);
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const response = await fetch(`${API_URL}/api/practice-management/ventas/from-quotation/${quotation.id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Error al convertir cotización a venta');
+
+      const result = await response.json();
+      alert(`¡Venta creada exitosamente! Folio: ${result.data.saleNumber}`);
+
+      // Redirect to the new sale page
+      window.location.href = `/dashboard/practice/ventas/${result.data.id}`;
+    } catch (err) {
+      console.error('Error al convertir cotización:', err);
+      alert('Error al convertir la cotización a venta');
+      setLoading(false);
+    }
+  };
+
   const filteredQuotations = quotations.filter(quotation =>
     quotation.quotationNumber.toLowerCase().includes(search.toLowerCase()) ||
     quotation.client.businessName.toLowerCase().includes(search.toLowerCase())
@@ -178,13 +209,29 @@ export default function CotizacionesPage() {
                 Gestiona las cotizaciones para tus clientes
               </p>
             </div>
-            <Link
-              href="/dashboard/practice/cotizaciones/new"
-              className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              Nueva Cotización
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/dashboard/practice/clients"
+                className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <Users className="w-5 h-5" />
+                Clientes
+              </Link>
+              <Link
+                href="/dashboard/practice/ventas"
+                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                Ventas
+              </Link>
+              <Link
+                href="/dashboard/practice/cotizaciones/new"
+                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <Plus className="w-5 h-5" />
+                Nueva Cotización
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -319,6 +366,13 @@ export default function CotizacionesPage() {
                             >
                               <Edit2 className="w-4 h-4" />
                             </Link>
+                            <button
+                              onClick={() => handleConvertToSale(quotation)}
+                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="Convertir a venta"
+                            >
+                              <ShoppingCart className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => handleDelete(quotation)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"

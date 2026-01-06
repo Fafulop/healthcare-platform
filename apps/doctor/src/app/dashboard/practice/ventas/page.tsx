@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, ShoppingCart, ArrowLeft, Eye, FileText } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, ShoppingCart, ArrowLeft, Eye, FileText, Users } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -162,11 +162,11 @@ export default function VentasPage() {
         {/* Header */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
           <Link
-            href="/dashboard/practice/clients"
+            href="/dashboard"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Volver a Clientes
+            Volver al Dashboard
           </Link>
 
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -181,11 +181,18 @@ export default function VentasPage() {
             </div>
             <div className="flex gap-2">
               <Link
-                href="/dashboard/practice/ventas/from-quotation"
+                href="/dashboard/practice/clients"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors font-semibold"
+              >
+                <Users className="w-5 h-5" />
+                Clientes
+              </Link>
+              <Link
+                href="/dashboard/practice/cotizaciones"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
               >
                 <FileText className="w-5 h-5" />
-                Desde Cotización
+                Cotizaciones
               </Link>
               <Link
                 href="/dashboard/practice/ventas/new"
