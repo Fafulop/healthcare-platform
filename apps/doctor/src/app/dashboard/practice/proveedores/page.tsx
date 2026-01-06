@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, Truck, ArrowLeft } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, Truck, ArrowLeft, Package } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -71,7 +71,7 @@ export default function ProveedoresPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch suppliers');
+        throw new Error('Error al cargar proveedores');
       }
 
       const result = await response.json();
@@ -86,7 +86,7 @@ export default function ProveedoresPage() {
 
   const handleDelete = async (proveedor: Proveedor) => {
     if (!session?.user?.email) return;
-    if (!confirm(`Are you sure you want to delete "${proveedor.businessName}"?`)) return;
+    if (!confirm(`¿Estás seguro de eliminar "${proveedor.businessName}"?`)) return;
 
     try {
       const token = btoa(JSON.stringify({
@@ -103,13 +103,13 @@ export default function ProveedoresPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete supplier');
+        throw new Error('Error al eliminar proveedor');
       }
 
       await fetchProveedores();
     } catch (err) {
-      console.error('Error deleting supplier:', err);
-      alert('Failed to delete supplier');
+      console.error('Error al eliminar proveedor:', err);
+      alert('Error al eliminar proveedor');
     }
   };
 
@@ -138,25 +138,34 @@ export default function ProveedoresPage() {
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
+            Volver al Dashboard
           </Link>
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                 <Truck className="w-8 h-8 text-green-600" />
-                Suppliers
+                Proveedores
               </h1>
               <p className="text-gray-600 mt-2">
-                Manage your supplier relationships and vendor information
+                Gestiona tus relaciones con proveedores
               </p>
             </div>
-            <Link
-              href="/dashboard/practice/proveedores/new"
-              className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              New Supplier
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/dashboard/practice/compras"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+              >
+                <Package className="w-5 h-5" />
+                Compras
+              </Link>
+              <Link
+                href="/dashboard/practice/proveedores/new"
+                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <Plus className="w-5 h-5" />
+                Nuevo Proveedor
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -167,7 +176,7 @@ export default function ProveedoresPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search suppliers by name, contact, email, or city..."
+                placeholder="Buscar proveedores por nombre, contacto, correo o ciudad..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -179,9 +188,9 @@ export default function ProveedoresPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
             >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
+              <option value="all">Todos los Estados</option>
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
             </select>
           </div>
         </div>
@@ -199,10 +208,10 @@ export default function ProveedoresPage() {
             <div className="text-center py-12">
               <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-lg">
-                {search || statusFilter !== 'all' ? 'No suppliers match your filters' : 'No suppliers yet'}
+                {search || statusFilter !== 'all' ? 'Ningún proveedor coincide con los filtros' : 'Aún no hay proveedores'}
               </p>
               <p className="text-gray-400 text-sm mt-2">
-                {!search && statusFilter === 'all' && 'Create your first supplier to start managing vendors'}
+                {!search && statusFilter === 'all' && 'Crea tu primer proveedor para comenzar a gestionar vendedores'}
               </p>
             </div>
           ) : (
@@ -211,25 +220,25 @@ export default function ProveedoresPage() {
                 <thead className="bg-gradient-to-r from-green-50 to-emerald-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Business
+                      Empresa
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Contact
+                      Contacto
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Email
+                      Correo
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Phone
+                      Teléfono
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Location
+                      Ubicación
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Status
+                      Estado
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Actions
+                      Acciones
                     </th>
                   </tr>
                 </thead>
@@ -265,7 +274,7 @@ export default function ProveedoresPage() {
                             ? 'bg-green-100 text-green-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {proveedor.status === 'active' ? 'Active' : 'Inactive'}
+                          {proveedor.status === 'active' ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -273,14 +282,14 @@ export default function ProveedoresPage() {
                           <Link
                             href={`/dashboard/practice/proveedores/${proveedor.id}/edit`}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit supplier"
+                            title="Editar proveedor"
                           >
                             <Edit2 className="w-4 h-4" />
                           </Link>
                           <button
                             onClick={() => handleDelete(proveedor)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete supplier"
+                            title="Eliminar proveedor"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -297,7 +306,7 @@ export default function ProveedoresPage() {
         {/* Summary */}
         {filteredProveedores.length > 0 && (
           <div className="mt-4 text-center text-sm text-gray-600">
-            Showing {filteredProveedores.length} of {proveedores.length} supplier{proveedores.length !== 1 ? 's' : ''}
+            Mostrando {filteredProveedores.length} de {proveedores.length} proveedor{proveedores.length !== 1 ? 'es' : ''}
           </div>
         )}
       </div>
