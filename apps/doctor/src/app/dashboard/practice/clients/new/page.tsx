@@ -68,7 +68,7 @@ export default function NewClientPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create client');
+        throw new Error(errorData.error || 'Error al crear cliente');
       }
 
       router.push('/dashboard/practice/clients');
@@ -97,10 +97,10 @@ export default function NewClientPage() {
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Clients
+            Volver a Clientes
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">New Client</h1>
-          <p className="text-gray-600 mt-2">Add a new client to your practice</p>
+          <h1 className="text-3xl font-bold text-gray-900">Nuevo Cliente</h1>
+          <p className="text-gray-600 mt-2">Agrega un nuevo cliente a tu práctica</p>
         </div>
 
         {/* Form */}
@@ -113,11 +113,11 @@ export default function NewClientPage() {
 
           {/* Basic Information */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Información Básica</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Business Name *
+                  Nombre de la Empresa *
                 </label>
                 <input
                   type="text"
@@ -125,14 +125,14 @@ export default function NewClientPage() {
                   value={formData.businessName}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., ACME Corporation"
+                  placeholder="Ej: ACME Corporation"
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Name
+                  Nombre del Contacto
                 </label>
                 <input
                   type="text"
@@ -161,7 +161,7 @@ export default function NewClientPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
+                  Correo Electrónico
                 </label>
                 <input
                   type="email"
@@ -175,7 +175,7 @@ export default function NewClientPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone
+                  Teléfono
                 </label>
                 <input
                   type="tel"
@@ -189,7 +189,7 @@ export default function NewClientPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Industry
+                  Industria
                 </label>
                 <input
                   type="text"
@@ -203,7 +203,7 @@ export default function NewClientPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
+                  Estado
                 </label>
                 <select
                   name="status"
@@ -211,8 +211,8 @@ export default function NewClientPage() {
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="active">Activo</option>
+                  <option value="inactive">Inactivo</option>
                 </select>
               </div>
             </div>
@@ -220,11 +220,11 @@ export default function NewClientPage() {
 
           {/* Address Information */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Address</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Dirección</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Street Address
+                  Calle
                 </label>
                 <input
                   type="text"
@@ -238,7 +238,7 @@ export default function NewClientPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  City
+                  Ciudad
                 </label>
                 <input
                   type="text"
@@ -252,7 +252,7 @@ export default function NewClientPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  State
+                  Estado/Provincia
                 </label>
                 <input
                   type="text"
@@ -266,7 +266,7 @@ export default function NewClientPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Postal Code
+                  Código Postal
                 </label>
                 <input
                   type="text"
@@ -280,7 +280,7 @@ export default function NewClientPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Country
+                  País
                 </label>
                 <input
                   type="text"
@@ -296,10 +296,10 @@ export default function NewClientPage() {
 
           {/* Additional Information */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Additional Information</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Información Adicional</h2>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Notes
+                Notas
               </label>
               <textarea
                 name="notes"
@@ -318,7 +318,7 @@ export default function NewClientPage() {
               href="/dashboard/practice/clients"
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-center"
             >
-              Cancel
+              Cancelar
             </Link>
             <button
               type="submit"
@@ -328,12 +328,12 @@ export default function NewClientPage() {
               {submitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Creating...
+                  Creando...
                 </>
               ) : (
                 <>
                   <Save className="w-5 h-5" />
-                  Create Client
+                  Crear Cliente
                 </>
               )}
             </button>
