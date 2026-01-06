@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Edit2, Trash2, Loader2, FileText, ArrowLeft, Eye, Users, ShoppingCart } from "lucide-react";
+import InlineStatusSelect, { StatusOption } from "@/components/practice/InlineStatusSelect";
+import Toast, { ToastType } from "@/components/ui/Toast";
+import { validateQuotationTransition, QuotationStatus } from "@/lib/practice/statusTransitions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -58,6 +61,8 @@ export default function CotizacionesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ message: string; type: ToastType } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -150,6 +155,86 @@ export default function CotizacionesPage() {
       console.error('Error al convertir cotización:', err);
       alert('Error al convertir la cotización a venta');
       setLoading(false);
+    }
+  };
+
+  const handleQuotationStatusChange = async (quotationId: number, oldStatus: string, newStatus: string) => {
+    if (!session?.user?.email) return;
+
+    // Validate transition
+    const validation = validateQuotationTransition(oldStatus as QuotationStatus, newStatus as QuotationStatus);
+
+    if (!validation.allowed) {
+      setToastMessage({ message: validation.errorMessage || 'Transición no permitida', type: 'error' });
+      return;
+    }
+
+    // Show confirmation if required
+    if (validation.requiresConfirmation && validation.confirmationMessage) {
+      if (!confirm(validation.confirmationMessage)) {
+        return;
+      }
+    }
+
+    // Optimistic update
+    setQuotations(prev => prev.map(q =>
+      q.id === quotationId ? { ...q, status: newStatus } : q
+    ));
+    setUpdatingId(quotationId);
+
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      // Fetch current quotation
+      const fetchResponse = await fetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!fetchResponse.ok) {
+        throw new Error('Error al obtener cotización');
+      }
+
+      const currentData = await fetchResponse.json();
+
+      // Update with new status
+      const updateResponse = await fetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...currentData.data,
+          status: newStatus
+        })
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error('Error al actualizar estado');
+      }
+
+      // Refresh list
+      await fetchQuotations();
+      setToastMessage({ message: 'Estado actualizado exitosamente', type: 'success' });
+    } catch (error: any) {
+      // Revert on error
+      setQuotations(prev => prev.map(q =>
+        q.id === quotationId ? { ...q, status: oldStatus } : q
+      ));
+
+      const errorMessage = error.message.includes('permisos')
+        ? 'No tienes permisos para cambiar el estado'
+        : error.message.includes('conectar')
+        ? 'No se pudo conectar. Verifica tu conexión.'
+        : 'Error al actualizar estado. Intenta de nuevo.';
+
+      setToastMessage({ message: errorMessage, type: 'error' });
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -346,9 +431,17 @@ export default function CotizacionesPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${config.color}`}>
-                            {config.icon} {config.label}
-                          </span>
+                          <InlineStatusSelect
+                            currentStatus={quotation.status}
+                            statuses={Object.entries(statusConfig).map(([value, conf]) => ({
+                              value,
+                              label: conf.label,
+                              color: conf.color,
+                              icon: conf.icon
+                            }))}
+                            onStatusChange={(newStatus) => handleQuotationStatusChange(quotation.id, quotation.status, newStatus)}
+                            disabled={updatingId === quotation.id}
+                          />
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
@@ -398,6 +491,15 @@ export default function CotizacionesPage() {
           </div>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <Toast
+          message={toastMessage.message}
+          type={toastMessage.type}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
     </div>
   );
 }
