@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText, Briefcase, Users, Truck, FolderTree, Package, ShoppingCart, ShoppingBag } from "lucide-react";
+import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText, Briefcase, FolderTree, Package, ShoppingCart, ShoppingBag, DollarSign } from "lucide-react";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -277,20 +277,6 @@ export default function DoctorDashboardPage() {
               Áreas
             </a>
             <a
-              href="/dashboard/practice/clients"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Users className="w-5 h-5" />
-              Clientes
-            </a>
-            <a
-              href="/dashboard/practice/proveedores"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Truck className="w-5 h-5" />
-              Proveedores
-            </a>
-            <a
               href="/dashboard/practice/products"
               className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
             >
@@ -298,11 +284,11 @@ export default function DoctorDashboardPage() {
               Productos
             </a>
             <a
-              href="/dashboard/practice/cotizaciones"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              href="/dashboard/practice/flujo-de-dinero"
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
             >
-              <FileText className="w-5 h-5" />
-              Cotizaciones
+              <DollarSign className="w-5 h-5" />
+              Flujo de Dinero
             </a>
             <a
               href="/dashboard/practice/ventas"
