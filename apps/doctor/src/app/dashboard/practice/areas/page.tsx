@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -317,6 +317,13 @@ export default function AreasPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard/practice/flujo-de-dinero"
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <DollarSign className="w-5 h-5" />
+                Flujo de Dinero
+              </Link>
               <button
                 onClick={() => openAreaModal('INGRESO')}
                 className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
