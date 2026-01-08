@@ -11,6 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 interface Area {
   id: number;
   name: string;
+  type: 'INGRESO' | 'EGRESO';
   subareas: Subarea[];
 }
 
@@ -164,6 +165,8 @@ export default function NewFlujoDeDineroPage() {
     if (name === 'entryType') {
       setFormData(prev => ({
         ...prev,
+        area: '',
+        subarea: '',
         transactionType: 'N/A',
         clientId: '',
         supplierId: '',
@@ -285,7 +288,12 @@ export default function NewFlujoDeDineroPage() {
     }
   };
 
-  const selectedArea = areas.find(a => a.name === formData.area);
+  // Filter areas based on entry type
+  const filteredAreas = areas.filter(a =>
+    formData.entryType === 'ingreso' ? a.type === 'INGRESO' : a.type === 'EGRESO'
+  );
+
+  const selectedArea = filteredAreas.find(a => a.name === formData.area);
   const availableSubareas = selectedArea?.subareas || [];
 
   if (status === "loading" || loadingAreas) {
@@ -579,7 +587,7 @@ export default function NewFlujoDeDineroPage() {
                   required
                 >
                   <option value="">Seleccione un área</option>
-                  {areas.map(area => (
+                  {filteredAreas.map(area => (
                     <option key={area.id} value={area.name}>
                       {area.name}
                     </option>

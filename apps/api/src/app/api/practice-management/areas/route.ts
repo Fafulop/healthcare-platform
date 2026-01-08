@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const { doctor } = await getAuthenticatedDoctor(request);
     const body = await request.json();
 
-    const { name, description } = body;
+    const { name, description, type } = body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -53,12 +53,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (type && type !== 'INGRESO' && type !== 'EGRESO') {
+      return NextResponse.json(
+        { error: 'Type must be either INGRESO or EGRESO' },
+        { status: 400 }
+      );
+    }
+
     // Create area
     const area = await prisma.area.create({
       data: {
         doctorId: doctor.id,
         name: name.trim(),
-        description: description?.trim() || null
+        description: description?.trim() || null,
+        type: type || 'INGRESO'
       },
       include: { subareas: true }
     });

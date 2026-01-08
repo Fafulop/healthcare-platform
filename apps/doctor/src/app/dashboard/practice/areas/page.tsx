@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -18,6 +18,7 @@ interface Area {
   id: number;
   name: string;
   description: string | null;
+  type: 'INGRESO' | 'EGRESO';
   subareas: Subarea[];
 }
 
@@ -43,6 +44,7 @@ export default function AreasPage() {
   // Form states
   const [areaName, setAreaName] = useState("");
   const [areaDescription, setAreaDescription] = useState("");
+  const [areaType, setAreaType] = useState<'INGRESO' | 'EGRESO'>('INGRESO');
   const [subareaName, setSubareaName] = useState("");
   const [subareaDescription, setSubareaDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -93,10 +95,11 @@ export default function AreasPage() {
     setExpandedAreas(newExpanded);
   };
 
-  const openAreaModal = (area?: Area) => {
+  const openAreaModal = (type: 'INGRESO' | 'EGRESO', area?: Area) => {
     setEditingArea(area || null);
     setAreaName(area?.name || "");
     setAreaDescription(area?.description || "");
+    setAreaType(area?.type || type);
     setShowAreaModal(true);
     setError(null);
   };
@@ -118,6 +121,7 @@ export default function AreasPage() {
     setSelectedAreaForSubarea(null);
     setAreaName("");
     setAreaDescription("");
+    setAreaType('INGRESO');
     setSubareaName("");
     setSubareaDescription("");
     setError(null);
@@ -141,22 +145,30 @@ export default function AreasPage() {
         ? `${API_URL}/api/practice-management/areas/${editingArea.id}`
         : `${API_URL}/api/practice-management/areas`;
 
+      const payload = {
+        name: areaName,
+        description: areaDescription || null,
+        type: areaType
+      };
+
+      console.log('Saving area with payload:', payload);
+
       const response = await fetch(url, {
         method: editingArea ? 'PUT' : 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          name: areaName,
-          description: areaDescription || null
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to save area');
       }
+
+      const result = await response.json();
+      console.log('Area saved successfully:', result);
 
       await fetchAreas();
       closeModals();
@@ -304,29 +316,46 @@ export default function AreasPage() {
                 Organize your practice management with hierarchical categories
               </p>
             </div>
-            <button
-              onClick={() => openAreaModal()}
-              className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              New Area
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => openAreaModal('INGRESO')}
+                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <Plus className="w-5 h-5" />
+                Nueva Área Ingresos
+              </button>
+              <button
+                onClick={() => openAreaModal('EGRESO')}
+                className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <Plus className="w-5 h-5" />
+                Nueva Área Egresos
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Areas List */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          {areas.length === 0 ? (
-            <div className="text-center py-12">
-              <FolderTree className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">No areas yet</p>
-              <p className="text-gray-400 text-sm mt-2">
-                Create your first area to start organizing your practice
-              </p>
+        <div className="space-y-6">
+          {/* INGRESOS Section */}
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <TrendingUp className="w-6 h-6" />
+                ÁREAS DE INGRESOS
+              </h2>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {areas.map((area) => (
+            <div className="p-6">
+              {areas.filter(a => a.type === 'INGRESO').length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No hay áreas de ingresos</p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    Crea tu primera área de ingresos
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {areas.filter(a => a.type === 'INGRESO').map((area) => (
                 <div key={area.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   {/* Area Header */}
                   <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 flex items-center justify-between">
@@ -360,7 +389,7 @@ export default function AreasPage() {
                         <Plus className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => openAreaModal(area)}
+                        onClick={() => openAreaModal(area.type, area)}
                         className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                         title="Edit area"
                       >
@@ -414,16 +443,136 @@ export default function AreasPage() {
               ))}
             </div>
           )}
+            </div>
+          </div>
+
+          {/* EGRESOS Section */}
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-red-600 to-rose-600 px-6 py-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <TrendingDown className="w-6 h-6" />
+                ÁREAS DE EGRESOS
+              </h2>
+            </div>
+            <div className="p-6">
+              {areas.filter(a => a.type === 'EGRESO').length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No hay áreas de egresos</p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    Crea tu primera área de egresos
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {areas.filter(a => a.type === 'EGRESO').map((area) => (
+                <div key={area.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Area Header */}
+                  <div className="bg-gradient-to-r from-red-50 to-rose-50 p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <button
+                        onClick={() => toggleArea(area.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        {expandedAreas.has(area.id) ? (
+                          <ChevronDown className="w-5 h-5" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5" />
+                        )}
+                      </button>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{area.name}</h3>
+                        {area.description && (
+                          <p className="text-sm text-gray-600 mt-1">{area.description}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          {area.subareas.length} subarea{area.subareas.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openSubareaModal(area)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Add subarea"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openAreaModal(area.type, area)}
+                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Edit area"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteArea(area)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete area"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Subareas */}
+                  {expandedAreas.has(area.id) && area.subareas.length > 0 && (
+                    <div className="bg-white p-4 pl-12 space-y-2">
+                      {area.subareas.map((subarea) => (
+                        <div
+                          key={subarea.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{subarea.name}</p>
+                            {subarea.description && (
+                              <p className="text-sm text-gray-600 mt-1">{subarea.description}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openSubareaModal(area, subarea)}
+                              className="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+                              title="Edit subarea"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSubarea(area, subarea)}
+                              className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                              title="Delete subarea"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+            </div>
+          </div>
         </div>
 
         {/* Area Modal */}
         {showAreaModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-              <div className="p-6 border-b border-gray-200">
+              <div className={`p-6 border-b border-gray-200 ${areaType === 'INGRESO' ? 'bg-green-50' : 'bg-red-50'}`}>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {editingArea ? 'Edit Area' : 'New Area'}
+                  {editingArea ? 'Editar Área' : `Nueva Área ${areaType === 'INGRESO' ? 'Ingresos' : 'Egresos'}`}
                 </h2>
+                <div className="mt-2">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                    areaType === 'INGRESO'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {areaType === 'INGRESO' ? '💰 INGRESO' : '💸 EGRESO'}
+                  </span>
+                </div>
               </div>
               <form onSubmit={handleSaveArea} className="p-6 space-y-4">
                 {error && (
@@ -431,6 +580,9 @@ export default function AreasPage() {
                     {error}
                   </div>
                 )}
+                {/* Hidden field to preserve type */}
+                <input type="hidden" value={areaType} />
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Area Name *

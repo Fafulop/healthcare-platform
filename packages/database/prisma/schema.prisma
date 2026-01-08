@@ -371,6 +371,7 @@ model Area {
   doctorId    String    @map("doctor_id")
   name        String    @db.VarChar(255)
   description String?   @db.Text
+  type        String    @default("INGRESO") @db.VarChar(10) // "INGRESO" or "EGRESO"
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
@@ -379,6 +380,7 @@ model Area {
 
   @@unique([doctorId, name])
   @@index([doctorId])
+  @@index([doctorId, type])
   @@map("areas")
   @@schema("practice_management")
 }

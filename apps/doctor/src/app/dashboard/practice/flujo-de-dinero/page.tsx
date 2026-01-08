@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, ArrowLeft, TrendingUp, TrendingDown, DollarSign, Calendar, Filter } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, ArrowLeft, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -77,6 +77,7 @@ export default function FlujoDeDineroPage() {
     projectedBalance: 0
   });
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'movimientos' | 'estado-resultados'>('movimientos');
   const [searchTerm, setSearchTerm] = useState('');
   const [entryTypeFilter, setEntryTypeFilter] = useState('all');
   const [porRealizarFilter, setPorRealizarFilter] = useState<string>('all');
@@ -159,9 +160,27 @@ export default function FlujoDeDineroPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) throw new Error('Error al eliminar movimiento');
-      fetchEntries();
-      fetchBalance();
+      // Try to parse response
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        // If JSON parsing fails, check if deletion was successful by status code
+        if (response.ok || response.status === 204) {
+          fetchEntries();
+          fetchBalance();
+          return;
+        }
+        throw new Error('Error al eliminar movimiento');
+      }
+
+      // Check if deletion was successful
+      if (response.ok || result.success) {
+        fetchEntries();
+        fetchBalance();
+      } else {
+        throw new Error(result.error || 'Error al eliminar movimiento');
+      }
     } catch (err) {
       console.error('Error al eliminar movimiento:', err);
       alert('Error al eliminar movimiento');
@@ -182,6 +201,72 @@ export default function FlujoDeDineroPage() {
       day: 'numeric'
     });
   };
+
+  const cleanConcept = (concept: string) => {
+    // Remove auto-generated prefixes from linked sales/purchases
+    // Pattern: "Venta VTA-2026-006 - Cliente: Name" or "Compra CMP-2026-006 - Proveedor: Name"
+    const ventaPattern = /^Venta VTA-\d{4}-\d{3} - Cliente: (.+)$/;
+    const compraPattern = /^Compra CMP-\d{4}-\d{3} - Proveedor: (.+)$/;
+
+    const ventaMatch = concept.match(ventaPattern);
+    if (ventaMatch) {
+      return ventaMatch[1]; // Return just the client name
+    }
+
+    const compraMatch = concept.match(compraPattern);
+    if (compraMatch) {
+      return compraMatch[1]; // Return just the supplier name
+    }
+
+    // Return original concept if no pattern matches (user input)
+    return concept;
+  };
+
+  // Process entries for Estado de Resultados
+  const processEstadoResultados = () => {
+    const result = {
+      ingresos: {} as Record<string, Record<string, number>>,
+      egresos: {} as Record<string, Record<string, number>>,
+      cuentasPorCobrar: 0,
+      cuentasPorPagar: 0,
+    };
+
+    entries.forEach(entry => {
+      const amount = parseFloat(entry.amount);
+      const amountPaid = parseFloat(entry.amountPaid || '0');
+      const saldo = amount - amountPaid;
+
+      if (entry.entryType === 'ingreso') {
+        // Group by area and subarea for ingresos
+        if (!result.ingresos[entry.area]) {
+          result.ingresos[entry.area] = {};
+        }
+        if (!result.ingresos[entry.area][entry.subarea]) {
+          result.ingresos[entry.area][entry.subarea] = 0;
+        }
+        result.ingresos[entry.area][entry.subarea] += amountPaid;
+
+        // Add saldo to cuentas por cobrar
+        result.cuentasPorCobrar += saldo;
+      } else if (entry.entryType === 'egreso') {
+        // Group by area and subarea for egresos
+        if (!result.egresos[entry.area]) {
+          result.egresos[entry.area] = {};
+        }
+        if (!result.egresos[entry.area][entry.subarea]) {
+          result.egresos[entry.area][entry.subarea] = 0;
+        }
+        result.egresos[entry.area][entry.subarea] += amountPaid;
+
+        // Add saldo to cuentas por pagar
+        result.cuentasPorPagar += saldo;
+      }
+    });
+
+    return result;
+  };
+
+  const estadoResultados = processEstadoResultados();
 
   const filteredEntries = entries.filter(entry => {
     if (searchTerm) {
@@ -222,18 +307,58 @@ export default function FlujoDeDineroPage() {
               <h1 className="text-3xl font-bold text-gray-900">Flujo de Dinero</h1>
               <p className="text-gray-600 mt-1">Gestiona tus ingresos y egresos</p>
             </div>
-            <Link
-              href="/dashboard/practice/flujo-de-dinero/new"
-              className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              Nuevo Movimiento
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard/practice/areas"
+                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <FolderTree className="w-5 h-5" />
+                Áreas
+              </Link>
+              <Link
+                href="/dashboard/practice/flujo-de-dinero/new"
+                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <Plus className="w-5 h-5" />
+                Nuevo Movimiento
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* Balance Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Tabs */}
+        <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+          <div className="border-b border-gray-200">
+            <div className="flex">
+              <button
+                onClick={() => setActiveTab('movimientos')}
+                className={`px-6 py-4 font-semibold transition-colors ${
+                  activeTab === 'movimientos'
+                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Movimientos
+              </button>
+              <button
+                onClick={() => setActiveTab('estado-resultados')}
+                className={`px-6 py-4 font-semibold transition-colors ${
+                  activeTab === 'estado-resultados'
+                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Estado de Resultados
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Movimientos Tab Content */}
+        {activeTab === 'movimientos' && (
+          <>
+            {/* Balance Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-lg p-6 border-t-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
@@ -266,23 +391,6 @@ export default function FlujoDeDineroPage() {
               </div>
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                 <TrendingDown className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6 border-t-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pendientes</p>
-                <p className="text-xl font-bold text-gray-900">
-                  {formatCurrency(balance.pendingIngresos - balance.pendingEgresos)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Balance proyectado: {formatCurrency(balance.projectedBalance)}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-purple-600" />
               </div>
             </div>
           </div>
@@ -377,9 +485,6 @@ export default function FlujoDeDineroPage() {
                     Fecha
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                    ID Interno
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Concepto
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
@@ -417,7 +522,7 @@ export default function FlujoDeDineroPage() {
               <tbody className="divide-y divide-gray-200">
                 {filteredEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
                       <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                       <p className="text-lg font-medium">No hay movimientos registrados</p>
                       <p className="text-sm mt-1">Crea tu primer movimiento para comenzar</p>
@@ -429,14 +534,9 @@ export default function FlujoDeDineroPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(entry.transactionDate)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-mono font-medium text-gray-900">
-                          {entry.internalId}
-                        </span>
-                      </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-xs truncate" title={entry.concept}>
-                          {entry.concept}
+                        <div className="text-sm text-gray-900 max-w-xs truncate" title={cleanConcept(entry.concept)}>
+                          {cleanConcept(entry.concept)}
                         </div>
                         {entry.bankAccount && (
                           <div className="text-xs text-gray-500 mt-1">
@@ -603,6 +703,222 @@ export default function FlujoDeDineroPage() {
             </div>
           )}
         </div>
+          </>
+        )}
+
+        {/* Estado de Resultados Tab Content */}
+        {activeTab === 'estado-resultados' && (
+          <div className="space-y-6">
+            {/* INGRESOS Section */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <TrendingUp className="w-6 h-6" />
+                  INGRESOS
+                </h2>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {Object.keys(estadoResultados.ingresos).length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">No hay ingresos registrados</p>
+                ) : (
+                  Object.entries(estadoResultados.ingresos).map(([area, subareas]) => {
+                    const areaTotal = Object.values(subareas).reduce((sum, val) => sum + val, 0);
+                    return (
+                      <div key={area} className="border-l-4 border-green-500 pl-4">
+                        <h3 className="font-bold text-lg text-gray-900 mb-3">{area}</h3>
+                        <div className="space-y-2 ml-4">
+                          {Object.entries(subareas).map(([subarea, amount]) => (
+                            <div key={subarea} className="flex justify-between items-center py-2 border-b border-gray-100">
+                              <span className="text-gray-700">└── {subarea}</span>
+                              <span className="font-semibold text-green-700">{formatCurrency(amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 pt-3 border-t-2 border-green-200 flex justify-between items-center">
+                          <span className="font-bold text-gray-900">Total {area}</span>
+                          <span className="font-bold text-green-700 text-lg">{formatCurrency(areaTotal)}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+
+                {/* Cuentas por Cobrar */}
+                {estadoResultados.cuentasPorCobrar > 0 && (
+                  <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-bold text-amber-900 flex items-center gap-2">
+                          💵 Cuentas por Cobrar
+                        </h3>
+                        <p className="text-xs text-amber-700 mt-1">Monto pendiente de recibir</p>
+                      </div>
+                      <span className="font-bold text-amber-700 text-xl">{formatCurrency(estadoResultados.cuentasPorCobrar)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Total Ingresos */}
+                <div className="bg-green-100 border-2 border-green-500 p-4 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-green-900 text-lg">TOTAL INGRESOS</span>
+                    <span className="font-bold text-green-700 text-2xl">
+                      {formatCurrency(
+                        Object.values(estadoResultados.ingresos)
+                          .flatMap(subareas => Object.values(subareas))
+                          .reduce((sum, val) => sum + val, 0) + estadoResultados.cuentasPorCobrar
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* EGRESOS Section */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-red-600 to-rose-600 px-6 py-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <TrendingDown className="w-6 h-6" />
+                  EGRESOS
+                </h2>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {Object.keys(estadoResultados.egresos).length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">No hay egresos registrados</p>
+                ) : (
+                  Object.entries(estadoResultados.egresos).map(([area, subareas]) => {
+                    const areaTotal = Object.values(subareas).reduce((sum, val) => sum + val, 0);
+                    return (
+                      <div key={area} className="border-l-4 border-red-500 pl-4">
+                        <h3 className="font-bold text-lg text-gray-900 mb-3">{area}</h3>
+                        <div className="space-y-2 ml-4">
+                          {Object.entries(subareas).map(([subarea, amount]) => (
+                            <div key={subarea} className="flex justify-between items-center py-2 border-b border-gray-100">
+                              <span className="text-gray-700">└── {subarea}</span>
+                              <span className="font-semibold text-red-700">{formatCurrency(amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 pt-3 border-t-2 border-red-200 flex justify-between items-center">
+                          <span className="font-bold text-gray-900">Total {area}</span>
+                          <span className="font-bold text-red-700 text-lg">{formatCurrency(areaTotal)}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+
+                {/* Cuentas por Pagar */}
+                {estadoResultados.cuentasPorPagar > 0 && (
+                  <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-lg">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-bold text-orange-900 flex items-center gap-2">
+                          💳 Cuentas por Pagar
+                        </h3>
+                        <p className="text-xs text-orange-700 mt-1">Monto pendiente de pagar</p>
+                      </div>
+                      <span className="font-bold text-orange-700 text-xl">{formatCurrency(estadoResultados.cuentasPorPagar)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Total Egresos */}
+                <div className="bg-red-100 border-2 border-red-500 p-4 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-red-900 text-lg">TOTAL EGRESOS</span>
+                    <span className="font-bold text-red-700 text-2xl">
+                      {formatCurrency(
+                        Object.values(estadoResultados.egresos)
+                          .flatMap(subareas => Object.values(subareas))
+                          .reduce((sum, val) => sum + val, 0) + estadoResultados.cuentasPorPagar
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Balance General */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <DollarSign className="w-6 h-6" />
+                  BALANCE GENERAL
+                </h2>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="flex justify-between items-center py-3 border-b border-gray-200">
+                  <span className="text-gray-700">Total Ingresos Realizados</span>
+                  <span className="font-bold text-green-700 text-lg">
+                    {formatCurrency(
+                      Object.values(estadoResultados.ingresos)
+                        .flatMap(subareas => Object.values(subareas))
+                        .reduce((sum, val) => sum + val, 0)
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-3 border-b border-gray-200">
+                  <span className="text-gray-700">Total Egresos Realizados</span>
+                  <span className="font-bold text-red-700 text-lg">
+                    {formatCurrency(
+                      Object.values(estadoResultados.egresos)
+                        .flatMap(subareas => Object.values(subareas))
+                        .reduce((sum, val) => sum + val, 0)
+                    )}
+                  </span>
+                </div>
+
+                <div className="bg-blue-50 border-2 border-blue-500 p-4 rounded-lg mt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-blue-900 text-lg">Balance Neto</span>
+                    <span className="font-bold text-blue-700 text-2xl">
+                      {formatCurrency(
+                        Object.values(estadoResultados.ingresos)
+                          .flatMap(subareas => Object.values(subareas))
+                          .reduce((sum, val) => sum + val, 0) -
+                        Object.values(estadoResultados.egresos)
+                          .flatMap(subareas => Object.values(subareas))
+                          .reduce((sum, val) => sum + val, 0)
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-700 mt-2 text-center">Ingresos Realizados - Egresos Realizados</p>
+                </div>
+
+                {(estadoResultados.cuentasPorCobrar > 0 || estadoResultados.cuentasPorPagar > 0) && (
+                  <div className="bg-purple-50 border-2 border-purple-400 p-4 rounded-lg mt-4">
+                    <h3 className="font-bold text-purple-900 mb-3">Flujo Pendiente</h3>
+                    <div className="space-y-2">
+                      {estadoResultados.cuentasPorCobrar > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-700">Por Cobrar:</span>
+                          <span className="font-semibold text-amber-700">{formatCurrency(estadoResultados.cuentasPorCobrar)}</span>
+                        </div>
+                      )}
+                      {estadoResultados.cuentasPorPagar > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-700">Por Pagar:</span>
+                          <span className="font-semibold text-orange-700">{formatCurrency(estadoResultados.cuentasPorPagar)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 border-t border-purple-300">
+                        <span className="font-bold text-purple-900">Diferencia:</span>
+                        <span className="font-bold text-purple-700">
+                          {formatCurrency(estadoResultados.cuentasPorCobrar - estadoResultados.cuentasPorPagar)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -76,12 +76,19 @@ export async function PUT(
       );
     }
 
-    const { name, description } = body;
+    const { name, description, type } = body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json(
         { error: 'Area name is required' },
+        { status: 400 }
+      );
+    }
+
+    if (type && type !== 'INGRESO' && type !== 'EGRESO') {
+      return NextResponse.json(
+        { error: 'Type must be either INGRESO or EGRESO' },
         { status: 400 }
       );
     }
@@ -106,7 +113,8 @@ export async function PUT(
       where: { id: areaId },
       data: {
         name: name.trim(),
-        description: description?.trim() || null
+        description: description?.trim() || null,
+        ...(type && { type })
       },
       include: { subareas: true }
     });
