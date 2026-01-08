@@ -309,6 +309,95 @@ export async function PUT(
   }
 }
 
+// PATCH /api/practice-management/ledger/:id
+// Partial update for inline editing (area/subarea only)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const resolvedParams = await params;
+    const entryId = parseInt(resolvedParams.id);
+    const body = await request.json();
+
+    if (isNaN(entryId)) {
+      return NextResponse.json(
+        { error: 'ID de entrada inválido' },
+        { status: 400 }
+      );
+    }
+
+    const { area, subarea } = body;
+
+    // Validation
+    if (area !== undefined && (!area || typeof area !== 'string' || area.trim().length === 0)) {
+      return NextResponse.json(
+        { error: 'El área es requerida' },
+        { status: 400 }
+      );
+    }
+
+    // Verify ownership
+    const existingEntry = await prisma.ledgerEntry.findFirst({
+      where: {
+        id: entryId,
+        doctorId: doctor.id
+      }
+    });
+
+    if (!existingEntry) {
+      return NextResponse.json(
+        { error: 'Entrada no encontrada' },
+        { status: 404 }
+      );
+    }
+
+    // Build update data object - only update provided fields
+    const updateData: any = {};
+    if (area !== undefined) updateData.area = area.trim();
+    if (subarea !== undefined) updateData.subarea = subarea ? subarea.trim() : '';
+
+    // Update only the specified fields
+    const updatedEntry = await prisma.ledgerEntry.update({
+      where: { id: entryId },
+      data: updateData,
+      include: {
+        client: {
+          select: {
+            id: true,
+            businessName: true,
+            contactName: true
+          }
+        },
+        supplier: {
+          select: {
+            id: true,
+            businessName: true,
+            contactName: true
+          }
+        }
+      }
+    });
+
+    return NextResponse.json({ data: updatedEntry });
+  } catch (error: any) {
+    console.error('Error updating ledger entry:', error);
+
+    if (error.message.includes('Doctor') || error.message.includes('access required')) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Error al actualizar entrada' },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE /api/practice-management/ledger/:id
 // Delete a ledger entry (cascades to attachments and invoices)
 export async function DELETE(

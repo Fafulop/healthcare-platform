@@ -8,6 +8,20 @@ import { Plus, Search, Edit2, Trash2, Loader2, ArrowLeft, TrendingUp, TrendingDo
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
+interface Subarea {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+interface Area {
+  id: number;
+  name: string;
+  description: string | null;
+  type: 'INGRESO' | 'EGRESO';
+  subareas: Subarea[];
+}
+
 interface LedgerEntry {
   id: number;
   amount: string;
@@ -68,6 +82,7 @@ export default function FlujoDeDineroPage() {
   });
 
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [balance, setBalance] = useState<Balance>({
     totalIngresos: 0,
     totalEgresos: 0,
@@ -84,10 +99,19 @@ export default function FlujoDeDineroPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Inline editing state
+  const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
+  const [editingAreaData, setEditingAreaData] = useState<{
+    area: string;
+    subarea: string;
+  }>({ area: '', subarea: '' });
+  const [updatingArea, setUpdatingArea] = useState(false);
+
   useEffect(() => {
     if (session?.user?.email) {
       fetchEntries();
       fetchBalance();
+      fetchAreas();
     }
   }, [session, entryTypeFilter, porRealizarFilter, startDate, endDate]);
 
@@ -142,6 +166,28 @@ export default function FlujoDeDineroPage() {
       console.error('Error al cargar movimientos:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAreas = async () => {
+    if (!session?.user?.email) return;
+
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const response = await fetch(`${API_URL}/api/practice-management/areas`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Error al cargar áreas');
+      const result = await response.json();
+      setAreas(result.data || []);
+    } catch (err) {
+      console.error('Error al cargar áreas:', err);
     }
   };
 
@@ -220,6 +266,69 @@ export default function FlujoDeDineroPage() {
 
     // Return original concept if no pattern matches (user input)
     return concept;
+  };
+
+  // Inline editing helper functions
+  const getAvailableAreasForEntry = (entry: LedgerEntry) => {
+    return areas.filter(a =>
+      entry.entryType === 'ingreso' ? a.type === 'INGRESO' : a.type === 'EGRESO'
+    );
+  };
+
+  const handleStartEditArea = (entry: LedgerEntry) => {
+    setEditingAreaId(entry.id);
+    setEditingAreaData({
+      area: entry.area,
+      subarea: entry.subarea
+    });
+  };
+
+  const handleSaveArea = async (entryId: number) => {
+    if (!session?.user?.email || !editingAreaData.area) return;
+
+    setUpdatingArea(true);
+
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const response = await fetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          area: editingAreaData.area,
+          subarea: editingAreaData.subarea || ''
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar área');
+      }
+
+      // Update local state
+      setEntries(prevEntries =>
+        prevEntries.map(e =>
+          e.id === entryId
+            ? { ...e, area: editingAreaData.area, subarea: editingAreaData.subarea }
+            : e
+        )
+      );
+
+      // Reset editing state
+      setEditingAreaId(null);
+      setEditingAreaData({ area: '', subarea: '' });
+    } catch (err) {
+      console.error('Error updating area:', err);
+      alert('Error al actualizar el área');
+    } finally {
+      setUpdatingArea(false);
+    }
   };
 
   // Process entries for Estado de Resultados
@@ -544,9 +653,96 @@ export default function FlujoDeDineroPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        <div>{entry.area}</div>
-                        <div className="text-xs text-gray-500">{entry.subarea}</div>
+                      <td className="px-6 py-4 text-sm">
+                        {editingAreaId === entry.id ? (
+                          // EDIT MODE - Show dropdowns
+                          <div className="space-y-2 min-w-[200px]">
+                            {/* Area Dropdown */}
+                            <select
+                              value={editingAreaData.area}
+                              onChange={(e) => {
+                                setEditingAreaData({
+                                  area: e.target.value,
+                                  subarea: '' // Reset subarea when area changes
+                                });
+                              }}
+                              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                              disabled={updatingArea}
+                            >
+                              <option value="">Seleccionar área...</option>
+                              {getAvailableAreasForEntry(entry).map(area => (
+                                <option key={area.id} value={area.name}>
+                                  {area.name}
+                                </option>
+                              ))}
+                            </select>
+
+                            {/* Subarea Dropdown */}
+                            {editingAreaData.area && (() => {
+                              const selectedArea = getAvailableAreasForEntry(entry).find(
+                                a => a.name === editingAreaData.area
+                              );
+                              return selectedArea && selectedArea.subareas.length > 0 ? (
+                                <select
+                                  value={editingAreaData.subarea}
+                                  onChange={(e) => setEditingAreaData(prev => ({
+                                    ...prev,
+                                    subarea: e.target.value
+                                  }))}
+                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  disabled={updatingArea}
+                                >
+                                  <option value="">Seleccionar subárea...</option>
+                                  {selectedArea.subareas.map(subarea => (
+                                    <option key={subarea.id} value={subarea.name}>
+                                      {subarea.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <div className="text-xs text-gray-400 italic">
+                                  No hay subáreas disponibles
+                                </div>
+                              );
+                            })()}
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleSaveArea(entry.id)}
+                                disabled={updatingArea || !editingAreaData.area}
+                                className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {updatingArea ? 'Guardando...' : 'Guardar'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingAreaId(null);
+                                  setEditingAreaData({ area: '', subarea: '' });
+                                }}
+                                disabled={updatingArea}
+                                className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 transition-colors"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          // VIEW MODE - Show current values with edit trigger
+                          <div
+                            className="text-gray-600 cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 transition-colors group"
+                            onClick={() => handleStartEditArea(entry)}
+                            title="Click para editar área y subárea"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-sm">{entry.area}</div>
+                                <div className="text-xs text-gray-500">{entry.subarea}</div>
+                              </div>
+                              <Edit2 className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
