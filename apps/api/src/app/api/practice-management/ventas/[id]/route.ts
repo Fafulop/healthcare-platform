@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 
+// Helper function to auto-calculate payment status based on amount paid
+function calculatePaymentStatus(amountPaid: number, total: number): 'PENDING' | 'PARTIAL' | 'PAID' {
+  if (amountPaid === 0) {
+    return 'PENDING';
+  } else if (amountPaid >= total) {
+    return 'PAID';
+  } else {
+    return 'PARTIAL';
+  }
+}
+
 // GET /api/practice-management/ventas/:id
 // Obtener venta específica
 export async function GET(
@@ -169,7 +180,10 @@ export async function PUT(
         saleDate: saleDate ? new Date(saleDate) : existingSale.saleDate,
         deliveryDate: deliveryDate ? new Date(deliveryDate) : existingSale.deliveryDate,
         status: status || existingSale.status,
-        paymentStatus: paymentStatus || existingSale.paymentStatus,
+        paymentStatus: calculatePaymentStatus(
+          amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingSale.amountPaid?.toString() || '0'),
+          total
+        ),
         amountPaid: amountPaid !== undefined ? parseFloat(amountPaid) : existingSale.amountPaid,
         subtotal,
         taxRate: taxRateValue,
@@ -192,6 +206,26 @@ export async function PUT(
         }
       }
     });
+
+    // SYNC: Update linked ledger entry if it exists
+    const linkedLedgerEntry = await prisma.ledgerEntry.findFirst({
+      where: {
+        saleId: saleId,
+        doctorId: doctor.id
+      }
+    });
+
+    if (linkedLedgerEntry) {
+      const finalAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingSale.amountPaid?.toString() || '0');
+      await prisma.ledgerEntry.update({
+        where: { id: linkedLedgerEntry.id },
+        data: {
+          amount: total,
+          paymentStatus: calculatePaymentStatus(finalAmountPaid, total),
+          amountPaid: finalAmountPaid
+        }
+      });
+    }
 
     return NextResponse.json({ data: sale });
   } catch (error: any) {

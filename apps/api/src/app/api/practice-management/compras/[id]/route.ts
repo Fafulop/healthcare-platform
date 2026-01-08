@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 
+// Helper function to auto-calculate payment status based on amount paid
+function calculatePaymentStatus(amountPaid: number, total: number): 'PENDING' | 'PARTIAL' | 'PAID' {
+  if (amountPaid === 0) {
+    return 'PENDING';
+  } else if (amountPaid >= total) {
+    return 'PAID';
+  } else {
+    return 'PARTIAL';
+  }
+}
+
 // GET /api/practice-management/compras/:id
 // Obtener compra específica
 export async function GET(
@@ -169,7 +180,10 @@ export async function PUT(
         purchaseDate: purchaseDate ? new Date(purchaseDate) : existingPurchase.purchaseDate,
         deliveryDate: deliveryDate ? new Date(deliveryDate) : existingPurchase.deliveryDate,
         status: status || existingPurchase.status,
-        paymentStatus: paymentStatus || existingPurchase.paymentStatus,
+        paymentStatus: calculatePaymentStatus(
+          amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingPurchase.amountPaid?.toString() || '0'),
+          total
+        ),
         amountPaid: amountPaid !== undefined ? parseFloat(amountPaid) : existingPurchase.amountPaid,
         subtotal,
         taxRate: taxRateValue,
@@ -192,6 +206,26 @@ export async function PUT(
         }
       }
     });
+
+    // SYNC: Update linked ledger entry if it exists
+    const linkedLedgerEntry = await prisma.ledgerEntry.findFirst({
+      where: {
+        purchaseId: purchaseId,
+        doctorId: doctor.id
+      }
+    });
+
+    if (linkedLedgerEntry) {
+      const finalAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingPurchase.amountPaid?.toString() || '0');
+      await prisma.ledgerEntry.update({
+        where: { id: linkedLedgerEntry.id },
+        data: {
+          amount: total,
+          paymentStatus: calculatePaymentStatus(finalAmountPaid, total),
+          amountPaid: finalAmountPaid
+        }
+      });
+    }
 
     return NextResponse.json({ data: purchase });
   } catch (error: any) {

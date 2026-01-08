@@ -2,6 +2,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 
+// Helper function to auto-calculate payment status based on amount paid
+function calculatePaymentStatus(amountPaid: number, total: number): 'PENDING' | 'PARTIAL' | 'PAID' {
+  if (amountPaid === 0) {
+    return 'PENDING';
+  } else if (amountPaid >= total) {
+    return 'PAID';
+  } else {
+    return 'PARTIAL';
+  }
+}
+
+// Helper function to generate ledger internal ID
+async function generateLedgerInternalId(doctorId: string, entryType: string): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = entryType === 'ingreso' ? `ING-${year}-` : `EGR-${year}-`;
+
+  const lastEntry = await prisma.ledgerEntry.findFirst({
+    where: {
+      doctorId,
+      internalId: { startsWith: prefix }
+    },
+    orderBy: { internalId: 'desc' }
+  });
+
+  let nextNumber = 1;
+  if (lastEntry) {
+    const parts = lastEntry.internalId.split('-');
+    const lastNumber = parseInt(parts[2]);
+    if (!isNaN(lastNumber)) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+}
+
 // GET /api/practice-management/compras
 // Obtener todas las compras del doctor con filtros opcionales
 export async function GET(request: NextRequest) {
@@ -218,7 +254,7 @@ export async function POST(request: NextRequest) {
         purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
         status: status || 'PENDING',
-        paymentStatus: paymentStatus || 'PENDING',
+        paymentStatus: calculatePaymentStatus(amountPaid ? parseFloat(amountPaid) : 0, total),
         amountPaid: amountPaid ? parseFloat(amountPaid) : 0,
         subtotal,
         taxRate: taxRateValue,
@@ -239,6 +275,28 @@ export async function POST(request: NextRequest) {
           },
           orderBy: { order: 'asc' }
         }
+      }
+    });
+
+    // AUTO-CREATE LEDGER ENTRY for the purchase
+    const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'egreso');
+    await prisma.ledgerEntry.create({
+      data: {
+        doctorId: doctor.id,
+        amount: total,
+        concept: `Compra ${purchaseNumber} - Proveedor: ${supplier.businessName}`,
+        entryType: 'egreso',
+        transactionDate: purchaseDate ? new Date(purchaseDate) : new Date(),
+        area: 'Compras',
+        subarea: 'Compras Generales',
+        porRealizar: false,
+        internalId: ledgerInternalId,
+        transactionType: 'COMPRA',
+        purchaseId: purchase.id,
+        supplierId: parseInt(supplierId),
+        paymentStatus: calculatePaymentStatus(amountPaid ? parseFloat(amountPaid) : 0, total),
+        amountPaid: amountPaid ? parseFloat(amountPaid) : 0,
+        formaDePago: 'transferencia'
       }
     });
 

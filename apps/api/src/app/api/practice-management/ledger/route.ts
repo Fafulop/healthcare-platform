@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 
+// Helper function to auto-calculate payment status based on amount paid
+function calculatePaymentStatus(amountPaid: number, total: number): 'PENDING' | 'PARTIAL' | 'PAID' {
+  if (amountPaid === 0) {
+    return 'PENDING';
+  } else if (amountPaid >= total) {
+    return 'PAID';
+  } else {
+    return 'PARTIAL';
+  }
+}
+
 // Helper function to generate internal ID
 async function generateInternalId(doctorId: string, entryType: string): Promise<string> {
   const year = new Date().getFullYear();
@@ -22,6 +33,50 @@ async function generateInternalId(doctorId: string, entryType: string): Promise<
     if (!isNaN(lastNumber)) {
       nextNumber = lastNumber + 1;
     }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+}
+
+// Helper function to generate sale number
+async function generateSaleNumber(doctorId: string): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `VTA-${year}-`;
+
+  const lastSale = await prisma.sale.findFirst({
+    where: {
+      doctorId,
+      saleNumber: { startsWith: prefix }
+    },
+    orderBy: { saleNumber: 'desc' }
+  });
+
+  let nextNumber = 1;
+  if (lastSale) {
+    const lastNumber = parseInt(lastSale.saleNumber.split('-')[2]);
+    nextNumber = lastNumber + 1;
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+}
+
+// Helper function to generate purchase number
+async function generatePurchaseNumber(doctorId: string): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `CMP-${year}-`;
+
+  const lastPurchase = await prisma.purchase.findFirst({
+    where: {
+      doctorId,
+      purchaseNumber: { startsWith: prefix }
+    },
+    orderBy: { purchaseNumber: 'desc' }
+  });
+
+  let nextNumber = 1;
+  if (lastPurchase) {
+    const lastNumber = parseInt(lastPurchase.purchaseNumber.split('-')[2]);
+    nextNumber = lastNumber + 1;
   }
 
   return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
@@ -94,7 +149,35 @@ export async function GET(request: NextRequest) {
       include: {
         attachments: true,
         facturas: true,
-        facturasXml: true
+        facturasXml: true,
+        client: {
+          select: {
+            id: true,
+            businessName: true,
+            contactName: true
+          }
+        },
+        supplier: {
+          select: {
+            id: true,
+            businessName: true,
+            contactName: true
+          }
+        },
+        sale: {
+          select: {
+            id: true,
+            saleNumber: true,
+            total: true
+          }
+        },
+        purchase: {
+          select: {
+            id: true,
+            purchaseNumber: true,
+            total: true
+          }
+        }
       },
       orderBy: { transactionDate: 'desc' }
     });
@@ -135,7 +218,12 @@ export async function POST(request: NextRequest) {
       transactionDate,
       area,
       subarea,
-      porRealizar
+      porRealizar,
+      transactionType,
+      clientId,
+      supplierId,
+      paymentStatus,
+      amountPaid
     } = body;
 
     // Validation - required fields
@@ -153,14 +241,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!concept || typeof concept !== 'string' || concept.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'El concepto es requerido' },
-        { status: 400 }
-      );
-    }
-
-    if (concept.length > 500) {
+    // Concept is optional, but if provided, must be a string and not exceed 500 chars
+    if (concept && typeof concept === 'string' && concept.length > 500) {
       return NextResponse.json(
         { error: 'El concepto no puede exceder 500 caracteres' },
         { status: 400 }
@@ -195,6 +277,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate transaction type and related fields
+    const txType = transactionType || 'N/A';
+    if (!['N/A', 'COMPRA', 'VENTA'].includes(txType)) {
+      return NextResponse.json(
+        { error: 'Tipo de transacción inválido' },
+        { status: 400 }
+      );
+    }
+
+    // If VENTA, require clientId and paymentStatus
+    if (txType === 'VENTA') {
+      if (!clientId) {
+        return NextResponse.json(
+          { error: 'El cliente es requerido para ventas' },
+          { status: 400 }
+        );
+      }
+      if (!paymentStatus || !['PENDING', 'PARTIAL', 'PAID'].includes(paymentStatus)) {
+        return NextResponse.json(
+          { error: 'Estado de pago requerido y debe ser PENDING, PARTIAL o PAID' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // If COMPRA, require supplierId and paymentStatus
+    if (txType === 'COMPRA') {
+      if (!supplierId) {
+        return NextResponse.json(
+          { error: 'El proveedor es requerido para compras' },
+          { status: 400 }
+        );
+      }
+      if (!paymentStatus || !['PENDING', 'PARTIAL', 'PAID'].includes(paymentStatus)) {
+        return NextResponse.json(
+          { error: 'Estado de pago requerido y debe ser PENDING, PARTIAL, PAID' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Validate formaDePago if provided
     if (formaDePago && !['efectivo', 'transferencia', 'tarjeta', 'cheque', 'deposito'].includes(formaDePago)) {
       return NextResponse.json(
@@ -225,12 +348,91 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let saleId: number | null = null;
+    let purchaseId: number | null = null;
+
+    // SCENARIO B: Create Sale if transactionType is VENTA
+    if (txType === 'VENTA') {
+      const saleNumber = await generateSaleNumber(doctor.id);
+
+      const sale = await prisma.sale.create({
+        data: {
+          doctorId: doctor.id,
+          clientId: parseInt(clientId),
+          saleNumber,
+          saleDate: new Date(transactionDate),
+          status: 'CONFIRMED',
+          paymentStatus: paymentStatus,
+          amountPaid: amountPaid ? parseFloat(amountPaid) : (paymentStatus === 'PAID' ? amount : 0),
+          subtotal: amount / 1.16, // Assuming 16% tax
+          taxRate: 0.16,
+          tax: amount - (amount / 1.16),
+          total: amount,
+          notes: concept?.trim() || null,
+          items: {
+            create: [{
+              itemType: 'service',
+              description: concept?.trim() || 'Servicio desde Flujo de Dinero',
+              quantity: 1,
+              unit: 'servicio',
+              unitPrice: amount / 1.16,
+              discountRate: 0,
+              taxRate: 0.16,
+              taxAmount: amount - (amount / 1.16),
+              subtotal: amount / 1.16,
+              order: 0
+            }]
+          }
+        }
+      });
+
+      saleId = sale.id;
+    }
+
+    // SCENARIO C: Create Purchase if transactionType is COMPRA
+    if (txType === 'COMPRA') {
+      const purchaseNumber = await generatePurchaseNumber(doctor.id);
+
+      const purchase = await prisma.purchase.create({
+        data: {
+          doctorId: doctor.id,
+          supplierId: parseInt(supplierId),
+          purchaseNumber,
+          purchaseDate: new Date(transactionDate),
+          status: 'CONFIRMED',
+          paymentStatus: paymentStatus,
+          amountPaid: amountPaid ? parseFloat(amountPaid) : (paymentStatus === 'PAID' ? amount : 0),
+          subtotal: amount / 1.16, // Assuming 16% tax
+          taxRate: 0.16,
+          tax: amount - (amount / 1.16),
+          total: amount,
+          notes: concept?.trim() || null,
+          items: {
+            create: [{
+              itemType: 'service',
+              description: concept?.trim() || 'Servicio desde Flujo de Dinero',
+              quantity: 1,
+              unit: 'servicio',
+              unitPrice: amount / 1.16,
+              discountRate: 0,
+              taxRate: 0.16,
+              taxAmount: amount - (amount / 1.16),
+              subtotal: amount / 1.16,
+              order: 0
+            }]
+          }
+        }
+      });
+
+      purchaseId = purchase.id;
+    }
+
     // Create ledger entry
     const entry = await prisma.ledgerEntry.create({
       data: {
         doctorId: doctor.id,
         amount: amount,
-        concept: concept.trim(),
+        concept: concept?.trim() || '',
         bankAccount: bankAccount?.trim() || null,
         formaDePago: formaDePago || 'efectivo',
         internalId: finalInternalId,
@@ -239,12 +441,23 @@ export async function POST(request: NextRequest) {
         transactionDate: new Date(transactionDate),
         area: area.trim(),
         subarea: subarea.trim(),
-        porRealizar: porRealizar || false
+        porRealizar: porRealizar || false,
+        transactionType: txType,
+        saleId: saleId,
+        purchaseId: purchaseId,
+        clientId: clientId ? parseInt(clientId) : null,
+        supplierId: supplierId ? parseInt(supplierId) : null,
+        paymentStatus: calculatePaymentStatus(amountPaid ? parseFloat(amountPaid) : 0, amount),
+        amountPaid: amountPaid ? parseFloat(amountPaid) : 0
       },
       include: {
         attachments: true,
         facturas: true,
-        facturasXml: true
+        facturasXml: true,
+        client: true,
+        supplier: true,
+        sale: true,
+        purchase: true
       }
     });
 
@@ -268,7 +481,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      { error: 'Error interno del servidor', details: error.message },
       { status: 500 }
     );
   }

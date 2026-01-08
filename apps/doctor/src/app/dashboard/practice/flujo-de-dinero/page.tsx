@@ -23,6 +23,31 @@ interface LedgerEntry {
   attachments: any[];
   facturas: any[];
   facturasXml: any[];
+  transactionType?: string;
+  clientId?: number;
+  supplierId?: number;
+  paymentStatus?: string;
+  amountPaid?: string;
+  client?: {
+    id: number;
+    businessName: string;
+    contactName: string | null;
+  };
+  supplier?: {
+    id: number;
+    businessName: string;
+    contactName: string | null;
+  };
+  sale?: {
+    id: number;
+    saleNumber: string;
+    total: string;
+  };
+  purchase?: {
+    id: number;
+    purchaseNumber: string;
+    total: string;
+  };
 }
 
 interface Balance {
@@ -363,8 +388,23 @@ export default function FlujoDeDineroPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Tipo
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Tipo Transacción
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Cliente/Proveedor
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Estado Pago
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
-                    Monto
+                    Total
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Pagado
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Saldo
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Estado
@@ -377,7 +417,7 @@ export default function FlujoDeDineroPage() {
               <tbody className="divide-y divide-gray-200">
                 {filteredEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={13} className="px-6 py-12 text-center text-gray-500">
                       <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                       <p className="text-lg font-medium">No hay movimientos registrados</p>
                       <p className="text-sm mt-1">Crea tu primer movimiento para comenzar</p>
@@ -427,10 +467,90 @@ export default function FlujoDeDineroPage() {
                           )}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {entry.transactionType === 'VENTA' && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Venta
+                          </span>
+                        )}
+                        {entry.transactionType === 'COMPRA' && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            Compra
+                          </span>
+                        )}
+                        {(!entry.transactionType || entry.transactionType === 'N/A') && (
+                          <span className="text-xs text-gray-400">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {entry.client && (
+                          <div className="max-w-xs truncate" title={entry.client.businessName}>
+                            {entry.client.businessName}
+                          </div>
+                        )}
+                        {entry.supplier && (
+                          <div className="max-w-xs truncate" title={entry.supplier.businessName}>
+                            {entry.supplier.businessName}
+                          </div>
+                        )}
+                        {!entry.client && !entry.supplier && (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {entry.paymentStatus === 'PAID' && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Pagado
+                          </span>
+                        )}
+                        {entry.paymentStatus === 'PARTIAL' && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Parcial
+                          </span>
+                        )}
+                        {entry.paymentStatus === 'PENDING' && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                            Pendiente
+                          </span>
+                        )}
+                        {!entry.paymentStatus && (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      {/* Total */}
                       <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold ${
                         entry.entryType === 'ingreso' ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {entry.entryType === 'ingreso' ? '+' : '-'} {formatCurrency(entry.amount)}
+                      </td>
+                      {/* Pagado - only for VENTA/COMPRA */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                        {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') ? (
+                          <span className="font-medium text-blue-600">
+                            {formatCurrency(entry.amountPaid || '0')}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      {/* Saldo - only for VENTA/COMPRA */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                        {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') ? (
+                          (() => {
+                            const total = parseFloat(entry.amount);
+                            const paid = parseFloat(entry.amountPaid || '0');
+                            const balance = total - paid;
+                            return (
+                              <span className={`font-semibold ${
+                                balance === 0 ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {formatCurrency(balance.toString())}
+                              </span>
+                            );
+                          })()
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

@@ -25,6 +25,31 @@ interface LedgerEntry {
   attachments: Attachment[];
   facturas: Factura[];
   facturasXml: FacturaXml[];
+  transactionType?: string;
+  clientId?: number;
+  supplierId?: number;
+  paymentStatus?: string;
+  amountPaid?: string;
+  client?: {
+    id: number;
+    businessName: string;
+    contactName: string | null;
+  };
+  supplier?: {
+    id: number;
+    businessName: string;
+    contactName: string | null;
+  };
+  sale?: {
+    id: number;
+    saleNumber: string;
+    total: string;
+  };
+  purchase?: {
+    id: number;
+    purchaseNumber: string;
+    total: string;
+  };
 }
 
 interface Attachment {
@@ -392,6 +417,163 @@ export default function FlujoDeDineroDetailPage() {
             <p className="text-gray-900 bg-gray-50 rounded-lg p-4">{entry.concept}</p>
           </div>
         </div>
+
+        {/* Transaction Information */}
+        {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Información de Transacción</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Transaction Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Tipo de Transacción</label>
+                {entry.transactionType === 'VENTA' && (
+                  <div>
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-100 text-blue-800">
+                      Venta
+                    </span>
+                    {entry.sale && (
+                      <div className="mt-2">
+                        <Link
+                          href={`/dashboard/practice/ventas/${entry.sale.id}`}
+                          className="text-blue-600 hover:text-blue-700 text-sm font-medium hover:underline"
+                        >
+                          Ver venta {entry.sale.saleNumber} →
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {entry.transactionType === 'COMPRA' && (
+                  <div>
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-purple-100 text-purple-800">
+                      Compra
+                    </span>
+                    {entry.purchase && (
+                      <div className="mt-2">
+                        <Link
+                          href={`/dashboard/practice/compras/${entry.purchase.id}`}
+                          className="text-purple-600 hover:text-purple-700 text-sm font-medium hover:underline"
+                        >
+                          Ver compra {entry.purchase.purchaseNumber} →
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Client or Supplier */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">
+                  {entry.transactionType === 'VENTA' ? 'Cliente' : 'Proveedor'}
+                </label>
+                {entry.client && (
+                  <div>
+                    <p className="text-gray-900 font-medium">{entry.client.businessName}</p>
+                    {entry.client.contactName && (
+                      <p className="text-sm text-gray-600 mt-1">{entry.client.contactName}</p>
+                    )}
+                    <Link
+                      href={`/dashboard/practice/clients/${entry.client.id}`}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium hover:underline mt-2 inline-block"
+                    >
+                      Ver perfil del cliente →
+                    </Link>
+                  </div>
+                )}
+                {entry.supplier && (
+                  <div>
+                    <p className="text-gray-900 font-medium">{entry.supplier.businessName}</p>
+                    {entry.supplier.contactName && (
+                      <p className="text-sm text-gray-600 mt-1">{entry.supplier.contactName}</p>
+                    )}
+                    <Link
+                      href={`/dashboard/practice/suppliers/${entry.supplier.id}`}
+                      className="text-purple-600 hover:text-purple-700 text-sm font-medium hover:underline mt-2 inline-block"
+                    >
+                      Ver perfil del proveedor →
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Status */}
+              {entry.paymentStatus && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Estado de Pago</label>
+                  {entry.paymentStatus === 'PAID' && (
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-green-100 text-green-800">
+                      Pagado
+                    </span>
+                  )}
+                  {entry.paymentStatus === 'PARTIAL' && (
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-yellow-100 text-yellow-800">
+                      Pago Parcial
+                    </span>
+                  )}
+                  {entry.paymentStatus === 'PENDING' && (
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-100 text-orange-800">
+                      Pendiente
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Total from Sale/Purchase */}
+              {(entry.sale || entry.purchase) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">
+                    Total de {entry.transactionType === 'VENTA' ? 'Venta' : 'Compra'}
+                  </label>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {formatCurrency(entry.sale?.total || entry.purchase?.total || '0')}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Payment Breakdown */}
+            {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
+              <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Información de Pago</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Total:</span>
+                    <span className="text-lg font-bold text-gray-900">
+                      {formatCurrency(entry.amount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Monto Pagado:</span>
+                    <span className="text-lg font-semibold text-blue-600">
+                      {formatCurrency(entry.amountPaid || '0')}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-blue-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700">Saldo Pendiente:</span>
+                      <span className={`text-xl font-bold ${
+                        (parseFloat(entry.amount) - parseFloat(entry.amountPaid || '0')) === 0
+                          ? 'text-green-600'
+                          : 'text-red-600'
+                      }`}>
+                        {formatCurrency((parseFloat(entry.amount) - parseFloat(entry.amountPaid || '0')).toString())}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-700">
+                <strong>Nota:</strong> Este movimiento está vinculado a un registro de {entry.transactionType === 'VENTA' ? 'venta' : 'compra'}.
+                Los cambios en el estado de pago o detalles deben realizarse desde el módulo de {entry.transactionType === 'VENTA' ? 'Ventas' : 'Compras'}.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* File Uploads Section */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">

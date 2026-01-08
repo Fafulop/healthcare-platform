@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 
+// Helper function to auto-calculate payment status based on amount paid
+function calculatePaymentStatus(amountPaid: number, total: number): 'PENDING' | 'PARTIAL' | 'PAID' {
+  if (amountPaid === 0) {
+    return 'PENDING';
+  } else if (amountPaid >= total) {
+    return 'PAID';
+  } else {
+    return 'PARTIAL';
+  }
+}
+
 // GET /api/practice-management/ledger/:id
 // Get a single ledger entry by ID
 export async function GET(
@@ -28,7 +39,35 @@ export async function GET(
       include: {
         attachments: true,
         facturas: true,
-        facturasXml: true
+        facturasXml: true,
+        client: {
+          select: {
+            id: true,
+            businessName: true,
+            contactName: true
+          }
+        },
+        supplier: {
+          select: {
+            id: true,
+            businessName: true,
+            contactName: true
+          }
+        },
+        sale: {
+          select: {
+            id: true,
+            saleNumber: true,
+            total: true
+          }
+        },
+        purchase: {
+          select: {
+            id: true,
+            purchaseNumber: true,
+            total: true
+          }
+        }
       }
     });
 
@@ -87,7 +126,9 @@ export async function PUT(
       transactionDate,
       area,
       subarea,
-      porRealizar
+      porRealizar,
+      paymentStatus,
+      amountPaid
     } = body;
 
     // Validation - required fields
@@ -202,7 +243,12 @@ export async function PUT(
         transactionDate: new Date(transactionDate),
         area: area.trim(),
         subarea: subarea.trim(),
-        porRealizar: porRealizar !== undefined ? porRealizar : existingEntry.porRealizar
+        porRealizar: porRealizar !== undefined ? porRealizar : existingEntry.porRealizar,
+        paymentStatus: calculatePaymentStatus(
+          amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingEntry.amountPaid?.toString() || '0'),
+          amount
+        ),
+        amountPaid: amountPaid !== undefined ? parseFloat(amountPaid) : existingEntry.amountPaid
       },
       include: {
         attachments: true,
@@ -210,6 +256,32 @@ export async function PUT(
         facturasXml: true
       }
     });
+
+    // SYNC: Update linked sale if it exists
+    if (existingEntry.saleId) {
+      const finalAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingEntry.amountPaid?.toString() || '0');
+      await prisma.sale.update({
+        where: { id: existingEntry.saleId },
+        data: {
+          total: amount,
+          paymentStatus: calculatePaymentStatus(finalAmountPaid, amount),
+          amountPaid: finalAmountPaid
+        }
+      });
+    }
+
+    // SYNC: Update linked purchase if it exists
+    if (existingEntry.purchaseId) {
+      const finalAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingEntry.amountPaid?.toString() || '0');
+      await prisma.purchase.update({
+        where: { id: existingEntry.purchaseId },
+        data: {
+          total: amount,
+          paymentStatus: calculatePaymentStatus(finalAmountPaid, amount),
+          amountPaid: finalAmountPaid
+        }
+      });
+    }
 
     return NextResponse.json({ data: entry });
   } catch (error: any) {
@@ -255,7 +327,7 @@ export async function DELETE(
       );
     }
 
-    // Verify ownership
+    // Verify ownership and get related data
     const existingEntry = await prisma.ledgerEntry.findFirst({
       where: {
         id: entryId,
@@ -268,6 +340,19 @@ export async function DELETE(
         { error: 'Entrada no encontrada' },
         { status: 404 }
       );
+    }
+
+    // If this ledger entry has associated sale/purchase, delete them first
+    if (existingEntry.saleId) {
+      await prisma.sale.delete({
+        where: { id: existingEntry.saleId }
+      });
+    }
+
+    if (existingEntry.purchaseId) {
+      await prisma.purchase.delete({
+        where: { id: existingEntry.purchaseId }
+      });
     }
 
     // Delete ledger entry (cascades to attachments, facturas, facturasXml)

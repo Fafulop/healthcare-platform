@@ -19,6 +19,18 @@ interface Subarea {
   name: string;
 }
 
+interface Client {
+  id: number;
+  businessName: string;
+  contactName: string | null;
+}
+
+interface Supplier {
+  id: number;
+  businessName: string;
+  contactName: string | null;
+}
+
 export default function NewFlujoDeDineroPage() {
   const { data: session, status } = useSession({
     required: true,
@@ -31,7 +43,11 @@ export default function NewFlujoDeDineroPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loadingAreas, setLoadingAreas] = useState(true);
+  const [loadingClients, setLoadingClients] = useState(true);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
 
   const [formData, setFormData] = useState({
     entryType: "ingreso" as "ingreso" | "egreso",
@@ -43,12 +59,19 @@ export default function NewFlujoDeDineroPage() {
     bankAccount: "",
     formaDePago: "efectivo",
     bankMovementId: "",
-    porRealizar: false
+    porRealizar: false,
+    transactionType: "N/A" as "N/A" | "COMPRA" | "VENTA",
+    clientId: "",
+    supplierId: "",
+    paymentStatus: "PENDING" as "PENDING" | "PARTIAL" | "PAID",
+    amountPaid: "0"
   });
 
   useEffect(() => {
     if (session?.user?.email) {
       fetchAreas();
+      fetchClients();
+      fetchSuppliers();
     }
   }, [session]);
 
@@ -76,6 +99,54 @@ export default function NewFlujoDeDineroPage() {
     }
   };
 
+  const fetchClients = async () => {
+    if (!session?.user?.email) return;
+
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const response = await fetch(`${API_URL}/api/practice-management/clients`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Error al cargar clientes');
+      const result = await response.json();
+      setClients(result.data || []);
+    } catch (err) {
+      console.error('Error al cargar clientes:', err);
+    } finally {
+      setLoadingClients(false);
+    }
+  };
+
+  const fetchSuppliers = async () => {
+    if (!session?.user?.email) return;
+
+    try {
+      const token = btoa(JSON.stringify({
+        email: session.user.email,
+        role: session.user.role,
+        timestamp: Date.now()
+      }));
+
+      const response = await fetch(`${API_URL}/api/practice-management/proveedores`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Error al cargar proveedores');
+      const result = await response.json();
+      setSuppliers(result.data || []);
+    } catch (err) {
+      console.error('Error al cargar proveedores:', err);
+    } finally {
+      setLoadingSuppliers(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
 
@@ -87,6 +158,56 @@ export default function NewFlujoDeDineroPage() {
     // Reset subarea when area changes
     if (name === 'area') {
       setFormData(prev => ({ ...prev, subarea: '' }));
+    }
+
+    // Reset transactionType when entryType changes to prevent invalid combinations
+    if (name === 'entryType') {
+      setFormData(prev => ({
+        ...prev,
+        transactionType: 'N/A',
+        clientId: '',
+        supplierId: '',
+        paymentStatus: 'PENDING',
+        amountPaid: '0'
+      }));
+    }
+
+    // Reset client/supplier when transactionType changes
+    if (name === 'transactionType') {
+      setFormData(prev => ({
+        ...prev,
+        clientId: '',
+        supplierId: '',
+        paymentStatus: 'PENDING',
+        amountPaid: '0'
+      }));
+    }
+
+    // Auto-set amountPaid based on paymentStatus
+    if (name === 'paymentStatus') {
+      setFormData(prev => {
+        const newData = { ...prev, paymentStatus: value as 'PENDING' | 'PARTIAL' | 'PAID' };
+
+        if (value === 'PENDING') {
+          newData.amountPaid = '0';
+        } else if (value === 'PAID') {
+          newData.amountPaid = prev.amount || '0';
+        }
+        // For PARTIAL, keep the current amountPaid value
+
+        return newData;
+      });
+    }
+
+    // When amount changes and status is PAID, update amountPaid to match
+    if (name === 'amount') {
+      setFormData(prev => {
+        const newData = { ...prev, amount: value };
+        if (prev.paymentStatus === 'PAID') {
+          newData.amountPaid = value || '0';
+        }
+        return newData;
+      });
     }
   };
 
@@ -100,14 +221,32 @@ export default function NewFlujoDeDineroPage() {
       return;
     }
 
-    if (!formData.concept.trim()) {
-      setError('El concepto es requerido');
-      return;
-    }
-
     if (!formData.area || !formData.subarea) {
       setError('Seleccione un área y subárea');
       return;
+    }
+
+    // Validate transaction type fields
+    if (formData.transactionType === 'VENTA') {
+      if (!formData.clientId) {
+        setError('Debe seleccionar un cliente para ventas');
+        return;
+      }
+      if (!formData.paymentStatus) {
+        setError('Debe seleccionar un estado de pago para ventas');
+        return;
+      }
+    }
+
+    if (formData.transactionType === 'COMPRA') {
+      if (!formData.supplierId) {
+        setError('Debe seleccionar un proveedor para compras');
+        return;
+      }
+      if (!formData.paymentStatus) {
+        setError('Debe seleccionar un estado de pago para compras');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -128,7 +267,8 @@ export default function NewFlujoDeDineroPage() {
         },
         body: JSON.stringify({
           ...formData,
-          amount: parseFloat(formData.amount)
+          amount: parseFloat(formData.amount),
+          amountPaid: formData.amountPaid ? parseFloat(formData.amountPaid) : 0
         })
       });
 
@@ -269,7 +409,7 @@ export default function NewFlujoDeDineroPage() {
             {/* Concept */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Concepto *
+                Concepto
               </label>
               <textarea
                 name="concept"
@@ -278,13 +418,152 @@ export default function NewFlujoDeDineroPage() {
                 rows={3}
                 maxLength={500}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Descripción del movimiento..."
-                required
+                placeholder="Descripción del movimiento (opcional)..."
               />
               <p className="text-xs text-gray-500 mt-1">
                 {formData.concept.length}/500 caracteres
               </p>
             </div>
+
+            {/* Transaction Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Transacción *
+              </label>
+              <select
+                name="transactionType"
+                value={formData.transactionType}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                required
+              >
+                <option value="N/A">N/A (No aplica)</option>
+                {formData.entryType === 'egreso' && (
+                  <option value="COMPRA">Compra</option>
+                )}
+                {formData.entryType === 'ingreso' && (
+                  <option value="VENTA">Venta</option>
+                )}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.entryType === 'ingreso'
+                  ? 'Para ingresos: seleccione N/A o Venta'
+                  : 'Para egresos: seleccione N/A o Compra'
+                }
+              </p>
+            </div>
+
+            {/* Conditional Cliente field - shows only when VENTA */}
+            {formData.transactionType === 'VENTA' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cliente *
+                </label>
+                <select
+                  name="clientId"
+                  value={formData.clientId}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                  disabled={loadingClients}
+                >
+                  <option value="">Seleccione un cliente</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id}>
+                      {client.businessName}
+                      {client.contactName ? ` - ${client.contactName}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {loadingClients && (
+                  <p className="text-xs text-gray-500 mt-1">Cargando clientes...</p>
+                )}
+              </div>
+            )}
+
+            {/* Conditional Proveedor field - shows only when COMPRA */}
+            {formData.transactionType === 'COMPRA' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Proveedor *
+                </label>
+                <select
+                  name="supplierId"
+                  value={formData.supplierId}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                  disabled={loadingSuppliers}
+                >
+                  <option value="">Seleccione un proveedor</option>
+                  {suppliers.map(supplier => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.businessName}
+                      {supplier.contactName ? ` - ${supplier.contactName}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {loadingSuppliers && (
+                  <p className="text-xs text-gray-500 mt-1">Cargando proveedores...</p>
+                )}
+              </div>
+            )}
+
+            {/* Conditional Estado de Pago field - shows when COMPRA or VENTA */}
+            {(formData.transactionType === 'COMPRA' || formData.transactionType === 'VENTA') && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Estado de Pago *
+                    </label>
+                    <select
+                      name="paymentStatus"
+                      value={formData.paymentStatus}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="PENDING">Pendiente</option>
+                      <option value="PARTIAL">Pago Parcial</option>
+                      <option value="PAID">Pagado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Monto Pagado {formData.paymentStatus === 'PAID' && '(Auto)'}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        name="amountPaid"
+                        value={formData.amountPaid}
+                        onChange={handleChange}
+                        step="0.01"
+                        min="0"
+                        max={formData.amount ? parseFloat(formData.amount) : undefined}
+                        disabled={formData.paymentStatus === 'PENDING' || formData.paymentStatus === 'PAID'}
+                        className={`w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                          formData.paymentStatus === 'PENDING' || formData.paymentStatus === 'PAID'
+                            ? 'bg-gray-100 cursor-not-allowed text-gray-500'
+                            : ''
+                        }`}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.paymentStatus === 'PENDING' && '⚠️ Pendiente: Monto pagado es $0'}
+                      {formData.paymentStatus === 'PAID' && formData.amount && `✓ Pagado: Igualado al total ($${parseFloat(formData.amount).toFixed(2)})`}
+                      {formData.paymentStatus === 'PARTIAL' && formData.amount && `Ingrese el monto pagado (Total: $${parseFloat(formData.amount).toFixed(2)})`}
+                      {!formData.amount && 'Ingrese el monto total primero'}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Area and Subarea */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -379,21 +658,6 @@ export default function NewFlujoDeDineroPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 placeholder="Ej: REF123456"
               />
-            </div>
-
-            {/* Por Realizar */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="porRealizar"
-                name="porRealizar"
-                checked={formData.porRealizar}
-                onChange={handleChange}
-                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-              />
-              <label htmlFor="porRealizar" className="ml-2 block text-sm text-gray-700">
-                Marcar como <strong>Por Realizar</strong> (transacción pendiente que no afecta el balance actual)
-              </label>
             </div>
 
             {/* Action Buttons */}

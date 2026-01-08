@@ -73,6 +73,26 @@ export default function NewVentaPage() {
   // Items state
   const [items, setItems] = useState<SaleItem[]>([]);
 
+  // Auto-set amountPaid based on paymentStatus
+  useEffect(() => {
+    const total = calculateTotal();
+
+    if (paymentStatus === 'PENDING') {
+      setAmountPaid(0);
+    } else if (paymentStatus === 'PAID') {
+      setAmountPaid(total);
+    }
+    // For PARTIAL, keep current amountPaid value
+  }, [paymentStatus]);
+
+  // Update amountPaid when total changes if status is PAID
+  useEffect(() => {
+    if (paymentStatus === 'PAID') {
+      const total = calculateTotal();
+      setAmountPaid(total);
+    }
+  }, [items]); // items change triggers total recalculation
+
   // Modal state
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
@@ -490,18 +510,33 @@ export default function NewVentaPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Monto pagado
+                    Monto pagado {paymentStatus === 'PAID' && '(Auto)'}
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={amountPaid}
-                    onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="0.00"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Total: ${total.toFixed(2)}</p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      max={total}
+                      value={amountPaid}
+                      onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
+                      disabled={paymentStatus === 'PENDING' || paymentStatus === 'PAID'}
+                      className={`w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                        paymentStatus === 'PENDING' || paymentStatus === 'PAID'
+                          ? 'bg-gray-100 cursor-not-allowed text-gray-500'
+                          : ''
+                      }`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {paymentStatus === 'PENDING' && '⚠️ Pendiente: Monto pagado es $0'}
+                    {paymentStatus === 'PAID' && `✓ Pagado: Igualado al total ($${total.toFixed(2)})`}
+                    {paymentStatus === 'PARTIAL' && `Ingrese el monto pagado (Total: $${total.toFixed(2)})`}
+                  </p>
                 </div>
               </div>
 

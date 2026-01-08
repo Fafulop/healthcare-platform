@@ -32,6 +32,30 @@ interface LedgerEntry {
   area: string;
   subarea: string;
   porRealizar: boolean;
+  transactionType?: string;
+  clientId?: number;
+  supplierId?: number;
+  paymentStatus?: string;
+  client?: {
+    id: number;
+    businessName: string;
+    contactName: string | null;
+  };
+  supplier?: {
+    id: number;
+    businessName: string;
+    contactName: string | null;
+  };
+  sale?: {
+    id: number;
+    saleNumber: string;
+    total: string;
+  };
+  purchase?: {
+    id: number;
+    purchaseNumber: string;
+    total: string;
+  };
 }
 
 export default function EditFlujoDeDineroPage() {
@@ -364,6 +388,69 @@ export default function EditFlujoDeDineroPage() {
                 {formData.concept.length}/500 caracteres
               </p>
             </div>
+
+            {/* Transaction Information (Read-only) */}
+            {entry && (entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-blue-900 mb-3">Información de Transacción (Solo lectura)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-blue-700 mb-1">
+                      Tipo de Transacción
+                    </label>
+                    <div className="text-sm text-blue-900">
+                      {entry.transactionType === 'VENTA' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Venta {entry.sale && `- ${entry.sale.saleNumber}`}
+                        </span>
+                      )}
+                      {entry.transactionType === 'COMPRA' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          Compra {entry.purchase && `- ${entry.purchase.purchaseNumber}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-blue-700 mb-1">
+                      {entry.transactionType === 'VENTA' ? 'Cliente' : 'Proveedor'}
+                    </label>
+                    <div className="text-sm text-blue-900 font-medium">
+                      {entry.client && entry.client.businessName}
+                      {entry.supplier && entry.supplier.businessName}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-blue-700 mb-1">
+                      Estado de Pago
+                    </label>
+                    <div className="text-sm text-blue-900">
+                      {entry.paymentStatus === 'PAID' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Pagado
+                        </span>
+                      )}
+                      {entry.paymentStatus === 'PARTIAL' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Parcial
+                        </span>
+                      )}
+                      {entry.paymentStatus === 'PENDING' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                          Pendiente
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-blue-600 mt-3">
+                  Esta información no puede ser modificada porque está vinculada a un registro de {entry.transactionType === 'VENTA' ? 'venta' : 'compra'}.
+                  Para cambiarla, edite el registro correspondiente en {entry.transactionType === 'VENTA' ? 'Ventas' : 'Compras'}.
+                </p>
+              </div>
+            )}
 
             {/* Area and Subarea */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

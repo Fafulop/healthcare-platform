@@ -437,9 +437,10 @@ model Client {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  doctor          Doctor      @relation("DoctorClients", fields: [doctorId], references: [id], onDelete: Cascade)
-  quotations      Quotation[] @relation("ClientQuotations")
-  sales           Sale[]      @relation("ClientSales")
+  doctor          Doctor        @relation("DoctorClients", fields: [doctorId], references: [id], onDelete: Cascade)
+  quotations      Quotation[]   @relation("ClientQuotations")
+  sales           Sale[]        @relation("ClientSales")
+  ledgerEntries   LedgerEntry[] @relation("ClientLedgerEntries")
 
   @@unique([doctorId, businessName])
   @@index([doctorId, status])
@@ -486,8 +487,9 @@ model Proveedor {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  doctor          Doctor   @relation("DoctorProveedores", fields: [doctorId], references: [id], onDelete: Cascade)
-  purchases       Purchase[] @relation("ProveedorPurchases")
+  doctor          Doctor        @relation("DoctorProveedores", fields: [doctorId], references: [id], onDelete: Cascade)
+  purchases       Purchase[]    @relation("ProveedorPurchases")
+  ledgerEntries   LedgerEntry[] @relation("ProveedorLedgerEntries")
 
   @@unique([doctorId, businessName])
   @@index([doctorId, status])
@@ -627,6 +629,15 @@ model LedgerEntry {
   subarea         String             @db.VarChar(255)
   porRealizar     Boolean            @default(false) @map("por_realizar")
 
+  // Integration with Sales/Purchases
+  transactionType String?            @default("N/A") @map("transaction_type") @db.VarChar(20) // "N/A", "COMPRA", "VENTA"
+  saleId          Int?               @map("sale_id")
+  purchaseId      Int?               @map("purchase_id")
+  clientId        Int?               @map("client_id")
+  supplierId      Int?               @map("supplier_id")
+  paymentStatus   String?            @map("payment_status") @db.VarChar(20) // "PENDING", "PARTIAL", "PAID"
+  amountPaid      Decimal?           @default(0) @map("amount_paid") @db.Decimal(12, 2) // Amount already paid
+
   // File attachment (single primary file)
   fileUrl         String?            @map("file_url") @db.Text
   fileName        String?            @map("file_name") @db.VarChar(255)
@@ -638,6 +649,10 @@ model LedgerEntry {
   updatedAt       DateTime           @updatedAt @map("updated_at")
 
   doctor          Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  sale            Sale?              @relation("SaleLedgerEntries", fields: [saleId], references: [id], onDelete: SetNull)
+  purchase        Purchase?          @relation("PurchaseLedgerEntries", fields: [purchaseId], references: [id], onDelete: SetNull)
+  client          Client?            @relation("ClientLedgerEntries", fields: [clientId], references: [id], onDelete: SetNull)
+  supplier        Proveedor?         @relation("ProveedorLedgerEntries", fields: [supplierId], references: [id], onDelete: SetNull)
   attachments     LedgerAttachment[]
   facturas        LedgerFactura[]
   facturasXml     LedgerFacturaXml[]
@@ -860,6 +875,7 @@ model Sale {
   client             Client           @relation("ClientSales", fields: [clientId], references: [id], onDelete: Restrict)
   quotation          Quotation?       @relation("QuotationSales", fields: [quotationId], references: [id], onDelete: SetNull)
   items              SaleItem[]
+  ledgerEntries      LedgerEntry[]    @relation("SaleLedgerEntries")
 
   @@index([doctorId, status])
   @@index([doctorId, clientId])
@@ -954,6 +970,7 @@ model Purchase {
   supplier           Proveedor        @relation("ProveedorPurchases", fields: [supplierId], references: [id], onDelete: Restrict)
   quotation          Quotation?       @relation("QuotationPurchases", fields: [quotationId], references: [id], onDelete: SetNull)
   items              PurchaseItem[]
+  ledgerEntries      LedgerEntry[]    @relation("PurchaseLedgerEntries")
 
   @@index([doctorId, status])
   @@index([doctorId, supplierId])
