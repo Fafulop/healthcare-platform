@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText, Briefcase, Package, ShoppingCart, ShoppingBag, DollarSign } from "lucide-react";
+import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText, Briefcase, Package, ShoppingCart, ShoppingBag, DollarSign, Heart, Users, ClipboardList } from "lucide-react";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -259,6 +259,35 @@ export default function DoctorDashboardPage() {
               <LogOut className="w-5 h-5" />
               Sign Out
             </button>
+          </div>
+        </div>
+
+        {/* Medical Records Section */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Heart className="w-5 h-5 text-red-600" />
+            Medical Records (EMR)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <a
+              href="/dashboard/medical-records"
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <Users className="w-5 h-5" />
+              Expedientes de Pacientes
+            </a>
+            <a
+              href="/dashboard/medical-records"
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <ClipboardList className="w-5 h-5" />
+              Nueva Consulta
+            </a>
+          </div>
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-blue-800">
+              <span className="font-semibold">Fase 1 Completa:</span> Gestión de pacientes y consultas básicas
+            </p>
           </div>
         </div>
 
