@@ -13,6 +13,7 @@
     "@healthcare/auth": "workspace:*",
     "@healthcare/database": "workspace:*",
     "@healthcare/types": "workspace:*",
+    "@react-pdf/renderer": "^4.3.2",
     "@tiptap/extension-image": "^3.14.0",
     "@tiptap/extension-link": "^3.14.0",
     "@tiptap/extension-placeholder": "^3.14.0",

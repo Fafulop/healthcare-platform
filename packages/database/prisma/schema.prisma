@@ -1120,6 +1120,7 @@ model Patient {
   encounters           ClinicalEncounter[]
   medicalHistory       PatientMedicalHistory[]
   media                PatientMedia[]
+  prescriptions        Prescription[]
   auditLogs            PatientAuditLog[]
 
   @@unique([doctorId, internalId])
@@ -1207,6 +1208,7 @@ model ClinicalEncounter {
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   versions        EncounterVersion[]
   media           PatientMedia[]
+  prescriptions   Prescription[]
 
   @@index([patientId, encounterDate])
   @@index([doctorId, encounterDate])
@@ -1286,6 +1288,87 @@ model PatientMedia {
   @@index([doctorId, mediaType])
   @@index([encounterId])
   @@map("patient_media")
+  @@schema("medical_records")
+}
+
+// -----------------------------------------------------------------------------
+// PHASE 4: PRESCRIPTIONS
+// -----------------------------------------------------------------------------
+
+/// Prescription Record
+/// First-class prescription entity with PDF generation
+model Prescription {
+  id              String   @id @default(cuid())
+  patientId       String   @map("patient_id")
+  doctorId        String   @map("doctor_id")
+  encounterId     String?  @map("encounter_id")  // Optional link to encounter
+
+  // Prescription metadata
+  prescriptionDate DateTime @map("prescription_date")
+  status          String   @default("draft") @db.VarChar(20)  // draft, issued, cancelled, expired
+
+  // Doctor details (copied at time of issuance for legal integrity)
+  doctorFullName  String   @map("doctor_full_name") @db.VarChar(255)
+  doctorLicense   String   @map("doctor_license") @db.VarChar(100)
+  doctorSignature String?  @map("doctor_signature") @db.Text  // URL to signature image
+
+  // Clinical context
+  diagnosis       String?  @db.Text
+  clinicalNotes   String?  @map("clinical_notes") @db.Text
+
+  // PDF
+  pdfUrl          String?  @map("pdf_url") @db.Text
+  pdfGeneratedAt  DateTime? @map("pdf_generated_at")
+
+  // Versioning (for drafts)
+  versionNumber   Int      @default(1) @map("version_number")
+
+  // Audit
+  issuedBy        String?  @map("issued_by")  // userId who issued
+  issuedAt        DateTime? @map("issued_at")
+  cancelledAt     DateTime? @map("cancelled_at")
+  cancellationReason String? @map("cancellation_reason") @db.Text
+  expiresAt       DateTime? @map("expires_at")
+
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter       ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  medications     PrescriptionMedication[]
+
+  @@index([patientId, prescriptionDate])
+  @@index([doctorId, status])
+  @@index([doctorId, prescriptionDate])
+  @@map("prescriptions")
+  @@schema("medical_records")
+}
+
+/// Prescription Medications
+/// Individual medication items within a prescription
+model PrescriptionMedication {
+  id              Int      @id @default(autoincrement())
+  prescriptionId  String   @map("prescription_id")
+
+  // Medication details
+  drugName        String   @map("drug_name") @db.VarChar(255)
+  presentation    String?  @db.VarChar(100)  // "tablet", "syrup", "injection"
+  dosage          String   @db.VarChar(100)  // "500mg", "10ml"
+  frequency       String   @db.VarChar(100)  // "Every 8 hours", "Twice daily"
+  duration        String?  @db.VarChar(100)  // "7 days", "2 weeks"
+  quantity        String?  @db.VarChar(50)   // "21 tablets", "1 bottle"
+  instructions    String   @db.Text          // "Take with food"
+  warnings        String?  @db.Text          // "Do not drive"
+
+  // Display order
+  order           Int      @default(0)
+
+  prescription    Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId, order])
+  @@map("prescription_medications")
   @@schema("medical_records")
 }
 

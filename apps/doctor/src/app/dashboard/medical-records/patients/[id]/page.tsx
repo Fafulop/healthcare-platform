@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, Plus, Calendar, FileText, User, AlertCircle, Clock, Image } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Calendar, FileText, User, AlertCircle, Clock, Image, Pill } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterCard, type Encounter } from '@/components/medical-records/EncounterCard';
 
@@ -184,6 +184,13 @@ export default function PatientProfilePage() {
             >
               <Image className="w-4 h-4" />
               Galería
+            </Link>
+            <Link
+              href={`/dashboard/medical-records/patients/${patient.id}/prescriptions`}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Pill className="w-4 h-4" />
+              Prescripciones
             </Link>
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/edit`}
