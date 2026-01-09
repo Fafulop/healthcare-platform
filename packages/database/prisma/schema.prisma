@@ -1119,6 +1119,7 @@ model Patient {
   doctor               Doctor                 @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   encounters           ClinicalEncounter[]
   medicalHistory       PatientMedicalHistory[]
+  media                PatientMedia[]
   auditLogs            PatientAuditLog[]
 
   @@unique([doctorId, internalId])
@@ -1205,6 +1206,7 @@ model ClinicalEncounter {
   // Relations
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   versions        EncounterVersion[]
+  media           PatientMedia[]
 
   @@index([patientId, encounterDate])
   @@index([doctorId, encounterDate])
@@ -1237,6 +1239,53 @@ model EncounterVersion {
   @@unique([encounterId, versionNumber])
   @@index([encounterId, createdAt])
   @@map("encounter_versions")
+  @@schema("medical_records")
+}
+
+// -----------------------------------------------------------------------------
+// PHASE 3: MEDIA MANAGEMENT
+// -----------------------------------------------------------------------------
+
+/// Patient Media Assets
+/// Images, videos, audio linked to encounters or patient profile
+model PatientMedia {
+  id              String   @id @default(cuid())
+  patientId       String   @map("patient_id")
+  doctorId        String   @map("doctor_id")
+  encounterId     String?  @map("encounter_id")  // Optional link to specific encounter
+
+  // Media metadata
+  mediaType       String   @map("media_type") @db.VarChar(20)  // image, video, audio
+  fileName        String   @map("file_name") @db.VarChar(255)
+  fileUrl         String   @map("file_url") @db.Text
+  fileSize        Int?     @map("file_size")
+  mimeType        String?  @map("mime_type") @db.VarChar(100)
+
+  // Thumbnail (for videos)
+  thumbnailUrl    String?  @map("thumbnail_url") @db.Text
+
+  // Clinical context
+  category        String?  @db.VarChar(100)  // "wound", "x-ray", "dermatology", "lab-result"
+  bodyArea        String?  @map("body_area") @db.VarChar(100)
+  captureDate     DateTime @map("capture_date")
+  description     String?  @db.Text
+  doctorNotes     String?  @map("doctor_notes") @db.Text
+
+  // Privacy
+  visibility      String   @default("internal") @db.VarChar(20)  // internal, exportable
+
+  // Timestamps
+  uploadedBy      String   @map("uploaded_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter       ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, captureDate])
+  @@index([doctorId, mediaType])
+  @@index([encounterId])
+  @@map("patient_media")
   @@schema("medical_records")
 }
 

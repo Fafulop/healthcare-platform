@@ -24,42 +24,69 @@ export async function GET(
       );
     }
 
-    // Get complete timeline - encounters for now (media and prescriptions in Phase 3 & 4)
-    const encounters = await prisma.clinicalEncounter.findMany({
-      where: { patientId, doctorId },
-      orderBy: { encounterDate: 'desc' },
-      select: {
-        id: true,
-        encounterDate: true,
-        encounterType: true,
-        chiefComplaint: true,
-        status: true,
-        subjective: true,
-        objective: true,
-        assessment: true,
-        plan: true,
-        clinicalNotes: true,
-        vitalsBloodPressure: true,
-        vitalsHeartRate: true,
-        vitalsTemperature: true,
-        vitalsWeight: true,
-        vitalsHeight: true,
-        vitalsOxygenSat: true,
-        location: true,
-        followUpDate: true,
-        createdAt: true,
-        updatedAt: true,
-        completedAt: true,
-        amendedAt: true,
-      }
-    });
+    // Get complete timeline - encounters and media (prescriptions in Phase 4)
+    const [encounters, media] = await Promise.all([
+      prisma.clinicalEncounter.findMany({
+        where: { patientId, doctorId },
+        orderBy: { encounterDate: 'desc' },
+        select: {
+          id: true,
+          encounterDate: true,
+          encounterType: true,
+          chiefComplaint: true,
+          status: true,
+          subjective: true,
+          objective: true,
+          assessment: true,
+          plan: true,
+          clinicalNotes: true,
+          vitalsBloodPressure: true,
+          vitalsHeartRate: true,
+          vitalsTemperature: true,
+          vitalsWeight: true,
+          vitalsHeight: true,
+          vitalsOxygenSat: true,
+          location: true,
+          followUpDate: true,
+          createdAt: true,
+          updatedAt: true,
+          completedAt: true,
+          amendedAt: true,
+        }
+      }),
+      prisma.patientMedia.findMany({
+        where: { patientId, doctorId },
+        orderBy: { captureDate: 'desc' },
+        select: {
+          id: true,
+          mediaType: true,
+          fileName: true,
+          fileUrl: true,
+          thumbnailUrl: true,
+          category: true,
+          bodyArea: true,
+          captureDate: true,
+          description: true,
+          doctorNotes: true,
+          encounterId: true,
+          createdAt: true,
+        }
+      })
+    ]);
 
     // Build unified timeline
-    const timeline = encounters.map(e => ({
-      type: 'encounter',
-      date: e.encounterDate,
-      data: e
-    }));
+    const timeline = [
+      ...encounters.map(e => ({
+        type: 'encounter',
+        date: e.encounterDate,
+        data: e
+      })),
+      ...media.map(m => ({
+        type: 'media',
+        date: m.captureDate,
+        data: m
+      }))
+    ];
 
     // Sort by date (most recent first)
     timeline.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
