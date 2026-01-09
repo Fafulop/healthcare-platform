@@ -1204,11 +1204,39 @@ model ClinicalEncounter {
 
   // Relations
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  versions        EncounterVersion[]
 
   @@index([patientId, encounterDate])
   @@index([doctorId, encounterDate])
   @@index([doctorId, status])
   @@map("clinical_encounters")
+  @@schema("medical_records")
+}
+
+// -----------------------------------------------------------------------------
+// PHASE 2: ENCOUNTER VERSIONING
+// -----------------------------------------------------------------------------
+
+/// Encounter Version History
+/// Preserves previous versions when encounter is edited
+model EncounterVersion {
+  id              Int      @id @default(autoincrement())
+  encounterId     String   @map("encounter_id")
+  versionNumber   Int      @map("version_number")
+
+  // Snapshot of encounter at this version
+  encounterData   Json     @map("encounter_data")  // Full JSON snapshot
+
+  // Audit
+  createdBy       String   @map("created_by")
+  changeReason    String?  @map("change_reason") @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  encounter       ClinicalEncounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+
+  @@unique([encounterId, versionNumber])
+  @@index([encounterId, createdAt])
+  @@map("encounter_versions")
   @@schema("medical_records")
 }
 
