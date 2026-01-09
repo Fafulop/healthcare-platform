@@ -9,7 +9,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "practice_management"]
+  schemas  = ["public", "practice_management", "medical_records"]
 }
 
 // User authentication model for staff (doctors + admins)
@@ -101,6 +101,9 @@ model Doctor {
   quotations         Quotation[]         @relation("DoctorQuotations")
   sales              Sale[]              @relation("DoctorSales")
   purchases          Purchase[]          @relation("DoctorPurchases")
+
+  // Medical Records Relations (EMR)
+  patients           Patient[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -1054,4 +1057,194 @@ enum PaymentStatus {
   PAID         // Pagada
 
   @@schema("practice_management")
+}
+
+// ============================================================================
+// MEDICAL RECORDS DOMAIN (EMR)
+// ============================================================================
+
+// -----------------------------------------------------------------------------
+// PHASE 1: PATIENT PROFILES + BASIC ENCOUNTERS
+// -----------------------------------------------------------------------------
+
+/// Patient Master Record
+/// This is the long-lived identity and baseline medical information
+model Patient {
+  id          String   @id @default(cuid())
+  doctorId    String   @map("doctor_id")
+
+  // Identification
+  internalId  String   @map("internal_id") @db.VarChar(50)  // Doctor's own patient ID
+  firstName   String   @map("first_name") @db.VarChar(100)
+  lastName    String   @map("last_name") @db.VarChar(100)
+  dateOfBirth DateTime @map("date_of_birth") @db.Date
+  sex         String   @db.VarChar(20)  // "male", "female", "other"
+
+  // Contact Information (optional)
+  email       String?  @db.VarChar(255)
+  phone       String?  @db.VarChar(50)
+  address     String?  @db.Text
+  city        String?  @db.VarChar(100)
+  state       String?  @db.VarChar(100)
+  postalCode  String?  @map("postal_code") @db.VarChar(20)
+
+  // Emergency Contact (optional)
+  emergencyContactName  String? @map("emergency_contact_name") @db.VarChar(200)
+  emergencyContactPhone String? @map("emergency_contact_phone") @db.VarChar(50)
+  emergencyContactRelation String? @map("emergency_contact_relation") @db.VarChar(100)
+
+  // Administrative
+  firstVisitDate DateTime?  @map("first_visit_date") @db.Date
+  lastVisitDate  DateTime?  @map("last_visit_date") @db.Date
+  status         String     @default("active") @db.VarChar(20)  // active, inactive, archived
+  tags           String[]   // ["diabetic", "post-op", "chronic"]
+
+  // Medical Baseline (versioned through PatientMedicalHistory)
+  currentAllergies      String?  @map("current_allergies") @db.Text
+  currentChronicConditions String? @map("current_chronic_conditions") @db.Text
+  currentMedications    String?  @map("current_medications") @db.Text
+  bloodType             String?  @map("blood_type") @db.VarChar(10)
+
+  // Notes (non-visit-specific)
+  generalNotes  String?  @map("general_notes") @db.Text
+
+  // Profile photo (optional)
+  photoUrl      String?  @map("photo_url") @db.Text
+
+  // Timestamps
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  doctor               Doctor                 @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  encounters           ClinicalEncounter[]
+  medicalHistory       PatientMedicalHistory[]
+  auditLogs            PatientAuditLog[]
+
+  @@unique([doctorId, internalId])
+  @@index([doctorId, status])
+  @@index([doctorId, firstName, lastName])
+  @@index([doctorId, lastVisitDate])
+  @@map("patients")
+  @@schema("medical_records")
+}
+
+/// Versioned Medical History
+/// Tracks changes to patient's baseline medical information
+model PatientMedicalHistory {
+  id          Int      @id @default(autoincrement())
+  patientId   String   @map("patient_id")
+  doctorId    String   @map("doctor_id")
+
+  // What changed
+  fieldName   String   @map("field_name") @db.VarChar(100)  // "allergies", "chronic_conditions", etc.
+  oldValue    String?  @map("old_value") @db.Text
+  newValue    String?  @map("new_value") @db.Text
+
+  // Who and when
+  changedBy   String   @map("changed_by")  // userId who made the change
+  changeReason String? @map("change_reason") @db.Text
+  changedAt   DateTime @default(now()) @map("changed_at")
+
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, changedAt])
+  @@index([doctorId, changedAt])
+  @@map("patient_medical_history")
+  @@schema("medical_records")
+}
+
+/// Clinical Encounter (Visit)
+/// Each visit is a sealed clinical event with structured notes
+model ClinicalEncounter {
+  id              String   @id @default(cuid())
+  patientId       String   @map("patient_id")
+  doctorId        String   @map("doctor_id")
+
+  // Encounter metadata
+  encounterDate   DateTime @map("encounter_date")
+  encounterType   String   @map("encounter_type") @db.VarChar(50)  // consultation, follow-up, emergency, telemedicine
+  chiefComplaint  String   @map("chief_complaint") @db.Text  // Reason for visit
+  location        String?  @db.VarChar(100)  // clinic name or "online"
+
+  // Status
+  status          String   @default("draft") @db.VarChar(20)  // draft, completed, amended
+
+  // PHASE 1: Simple notes (will be replaced by structured SOAP in Phase 2)
+  clinicalNotes   String?  @map("clinical_notes") @db.Text
+
+  // PHASE 2: Structured SOAP notes (added in Phase 2)
+  subjective      String?  @db.Text  // Patient-reported symptoms
+  objective       String?  @db.Text  // Physical examination findings
+  assessment      String?  @db.Text  // Diagnoses and clinical impressions
+  plan            String?  @db.Text  // Treatment plan and follow-up
+
+  // Vitals (Phase 2)
+  vitalsBloodPressure String? @map("vitals_blood_pressure") @db.VarChar(20)
+  vitalsHeartRate     Int?    @map("vitals_heart_rate")
+  vitalsTemperature   Decimal? @map("vitals_temperature") @db.Decimal(4, 1)
+  vitalsWeight        Decimal? @map("vitals_weight") @db.Decimal(5, 2)
+  vitalsHeight        Decimal? @map("vitals_height") @db.Decimal(5, 2)
+  vitalsOxygenSat     Int?    @map("vitals_oxygen_sat")
+  vitalsOther         String? @map("vitals_other") @db.Text
+
+  // Follow-up
+  followUpDate    DateTime? @map("follow_up_date") @db.Date
+  followUpNotes   String?   @map("follow_up_notes") @db.Text
+
+  // Audit
+  createdBy       String    @map("created_by")  // userId who created
+  completedAt     DateTime? @map("completed_at")
+  amendedAt       DateTime? @map("amended_at")
+  amendmentReason String?   @map("amendment_reason") @db.Text
+
+  // Timestamps
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, encounterDate])
+  @@index([doctorId, encounterDate])
+  @@index([doctorId, status])
+  @@map("clinical_encounters")
+  @@schema("medical_records")
+}
+
+// -----------------------------------------------------------------------------
+// AUDIT & COMPLIANCE
+// -----------------------------------------------------------------------------
+
+/// Patient Audit Log
+/// Tracks all access and modifications to patient records
+model PatientAuditLog {
+  id              Int      @id @default(autoincrement())
+  patientId       String   @map("patient_id")
+  doctorId        String   @map("doctor_id")
+
+  // Action details
+  action          String   @db.VarChar(100)  // "view_profile", "create_encounter", "edit_encounter", "issue_prescription"
+  resourceType    String   @map("resource_type") @db.VarChar(50)  // "patient", "encounter", "prescription"
+  resourceId      String?  @map("resource_id")  // ID of the resource acted upon
+
+  // Changes (optional)
+  changes         Json?    // JSON of what changed
+
+  // User context
+  userId          String   @map("user_id")
+  userRole        String   @map("user_role") @db.VarChar(50)
+  ipAddress       String?  @map("ip_address") @db.VarChar(45)
+  userAgent       String?  @map("user_agent") @db.Text
+
+  // Timestamp
+  timestamp       DateTime @default(now())
+
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, timestamp])
+  @@index([doctorId, timestamp])
+  @@index([userId, timestamp])
+  @@map("patient_audit_logs")
+  @@schema("medical_records")
 }
