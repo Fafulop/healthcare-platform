@@ -53,6 +53,46 @@ export const ourFileRouter = {
       console.log("XML factura uploaded:", file.url);
       return { uploadedBy: "doctor" };
     }),
+
+  // ============================================================================
+  // MEDICAL RECORDS MEDIA
+  // ============================================================================
+
+  // Medical images (patient photos, wounds, X-rays, lab results, etc.)
+  medicalImages: f({
+    image: {
+      maxFileSize: "10MB",
+      maxFileCount: 10
+    }
+  })
+    .onUploadComplete(async ({ file }) => {
+      console.log("Medical image uploaded:", file.url);
+      return { uploadedBy: "doctor", mediaType: "image" };
+    }),
+
+  // Medical videos (procedures, examinations, etc.)
+  medicalVideos: f({
+    video: {
+      maxFileSize: "100MB",
+      maxFileCount: 5
+    }
+  })
+    .onUploadComplete(async ({ file }) => {
+      console.log("Medical video uploaded:", file.url);
+      return { uploadedBy: "doctor", mediaType: "video" };
+    }),
+
+  // Medical audio (voice notes, recordings, etc.)
+  medicalAudio: f({
+    audio: {
+      maxFileSize: "20MB",
+      maxFileCount: 10
+    }
+  })
+    .onUploadComplete(async ({ file }) => {
+      console.log("Medical audio uploaded:", file.url);
+      return { uploadedBy: "doctor", mediaType: "audio" };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

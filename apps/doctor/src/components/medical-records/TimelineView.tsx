@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Activity, Thermometer } from 'lucide-react';
+import { FileText, Activity, Image as ImageIcon, Video, Mic } from 'lucide-react';
 import Link from 'next/link';
 
 interface TimelineEncounter {
@@ -22,10 +22,24 @@ interface TimelineEncounter {
   location?: string;
 }
 
+interface TimelineMedia {
+  id: string;
+  mediaType: 'image' | 'video' | 'audio';
+  fileName: string;
+  fileUrl: string;
+  thumbnailUrl?: string | null;
+  category?: string | null;
+  bodyArea?: string | null;
+  captureDate: string;
+  description?: string | null;
+  doctorNotes?: string | null;
+  encounterId?: string | null;
+}
+
 interface TimelineItem {
-  type: 'encounter';
+  type: 'encounter' | 'media';
   date: string;
-  data: TimelineEncounter;
+  data: TimelineEncounter | TimelineMedia;
 }
 
 interface TimelineViewProps {
@@ -83,12 +97,14 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
   return (
     <div className="space-y-8">
       {timeline.map((item, index) => {
-        const encounter = item.data;
-        const hasSOAPNotes = !!(encounter.subjective || encounter.objective || encounter.assessment || encounter.plan);
-        const hasVitals = !!(encounter.vitalsBloodPressure || encounter.vitalsHeartRate || encounter.vitalsTemperature);
+        // Render encounter items
+        if (item.type === 'encounter') {
+          const encounter = item.data as TimelineEncounter;
+          const hasSOAPNotes = !!(encounter.subjective || encounter.objective || encounter.assessment || encounter.plan);
+          const hasVitals = !!(encounter.vitalsBloodPressure || encounter.vitalsHeartRate || encounter.vitalsTemperature);
 
-        return (
-          <div key={encounter.id} className="relative">
+          return (
+            <div key={encounter.id} className="relative">
             {/* Timeline connector line */}
             {index !== timeline.length - 1 && (
               <div className="absolute left-6 top-16 bottom-0 w-0.5 bg-gray-200 -mb-8"></div>
@@ -210,7 +226,124 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
               </Link>
             </div>
           </div>
-        );
+          );
+        }
+
+        // Render media items
+        if (item.type === 'media') {
+          const media = item.data as TimelineMedia;
+          const MediaIconComponent = media.mediaType === 'image' ? ImageIcon :
+                                      media.mediaType === 'video' ? Video :
+                                      Mic;
+
+          return (
+            <div key={media.id} className="relative">
+              {/* Timeline connector line */}
+              {index !== timeline.length - 1 && (
+                <div className="absolute left-6 top-16 bottom-0 w-0.5 bg-gray-200 -mb-8"></div>
+              )}
+
+              {/* Timeline dot */}
+              <div className="absolute left-4 top-4 w-4 h-4 rounded-full bg-purple-500 border-4 border-white shadow"></div>
+
+              {/* Timeline card */}
+              <div className="ml-14">
+                <Link href={`/dashboard/medical-records/patients/${patientId}/media`}>
+                  <div className="bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 cursor-pointer">
+                    {/* Header */}
+                    <div className="p-4 border-b border-gray-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <MediaIconComponent className="w-5 h-5 text-purple-600" />
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {media.description || media.fileName}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm text-gray-600">
+                            <span>{formatDate(media.captureDate)}</span>
+                            <span>•</span>
+                            <span className="capitalize">{media.mediaType}</span>
+                            {media.category && (
+                              <>
+                                <span>•</span>
+                                <span className="capitalize">{media.category}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {media.bodyArea && (
+                          <span className="px-3 py-1 text-xs font-medium rounded-full border bg-gray-100 text-gray-800 border-gray-200">
+                            {media.bodyArea}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Media Preview */}
+                    <div className="p-4">
+                      <div className="flex gap-4">
+                        {/* Thumbnail */}
+                        <div className="flex-shrink-0">
+                          {media.mediaType === 'image' && (
+                            <img
+                              src={media.fileUrl}
+                              alt={media.description || media.fileName}
+                              className="w-32 h-32 object-cover rounded-md"
+                            />
+                          )}
+                          {media.mediaType === 'video' && (
+                            <div className="w-32 h-32 bg-gray-100 rounded-md flex items-center justify-center relative">
+                              {media.thumbnailUrl ? (
+                                <img
+                                  src={media.thumbnailUrl}
+                                  alt={media.description || media.fileName}
+                                  className="w-full h-full object-cover rounded-md"
+                                />
+                              ) : (
+                                <Video className="w-12 h-12 text-gray-400" />
+                              )}
+                              <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center rounded-md">
+                                <div className="w-8 h-8 bg-white bg-opacity-90 rounded-full flex items-center justify-center">
+                                  <div className="w-0 h-0 border-t-6 border-t-transparent border-l-8 border-l-gray-800 border-b-6 border-b-transparent ml-1"></div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {media.mediaType === 'audio' && (
+                            <div className="w-32 h-32 bg-purple-50 rounded-md flex items-center justify-center">
+                              <Mic className="w-12 h-12 text-purple-500" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Description */}
+                        <div className="flex-1 min-w-0">
+                          {media.doctorNotes ? (
+                            <p className="text-sm text-gray-700 line-clamp-3">{media.doctorNotes}</p>
+                          ) : media.description ? (
+                            <p className="text-sm text-gray-700 line-clamp-3">{media.description}</p>
+                          ) : (
+                            <p className="text-sm text-gray-400 italic">Sin descripción</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+                      <span className="text-xs text-purple-600 hover:text-purple-800 font-medium">
+                        Ver galería completa →
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          );
+        }
+
+        return null;
       })}
     </div>
   );
