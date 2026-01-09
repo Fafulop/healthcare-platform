@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Edit, Plus, Calendar, FileText, User, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { EncounterCard, type Encounter } from '@/components/medical-records/EncounterCard';
 
 interface Patient {
   id: string;
@@ -32,15 +33,6 @@ interface Patient {
   generalNotes?: string;
   photoUrl?: string;
   encounters: Encounter[];
-}
-
-interface Encounter {
-  id: string;
-  encounterDate: string;
-  encounterType: string;
-  chiefComplaint: string;
-  status: string;
-  createdAt: string;
 }
 
 export default function PatientProfilePage() {
@@ -312,30 +304,11 @@ export default function PatientProfilePage() {
             {patient.encounters && patient.encounters.length > 0 ? (
               <div className="space-y-3">
                 {patient.encounters.map(encounter => (
-                  <Link
+                  <EncounterCard
                     key={encounter.id}
-                    href={`/dashboard/medical-records/patients/${patient.id}/encounters/${encounter.id}`}
-                    className="block p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{encounter.chiefComplaint}</p>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {encounter.encounterType} • {formatDate(encounter.encounterDate)}
-                        </p>
-                      </div>
-                      <span className={`px-2 py-1 text-xs rounded ${
-                        encounter.status === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : encounter.status === 'draft'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {encounter.status === 'completed' ? 'Completada' :
-                         encounter.status === 'draft' ? 'Borrador' : encounter.status}
-                      </span>
-                    </div>
-                  </Link>
+                    encounter={encounter}
+                    patientId={patient.id}
+                  />
                 ))}
               </div>
             ) : (

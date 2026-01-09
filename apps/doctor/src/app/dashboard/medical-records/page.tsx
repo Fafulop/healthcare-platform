@@ -1,22 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Users, ArrowLeft } from 'lucide-react';
+import { Plus, Users, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-
-interface Patient {
-  id: string;
-  internalId: string;
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
-  sex: string;
-  phone?: string;
-  email?: string;
-  lastVisitDate?: string;
-  tags: string[];
-  photoUrl?: string;
-}
+import { PatientCard, type Patient } from '@/components/medical-records/PatientCard';
+import { PatientSearchBar } from '@/components/medical-records/PatientSearchBar';
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -65,25 +53,6 @@ export default function PatientsPage() {
     fetchPatients();
   };
 
-  const calculateAge = (dateOfBirth: string): number => {
-    const today = new Date();
-    const birth = new Date(dateOfBirth);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('es-MX', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
   return (
     <div className="p-6">
       {/* Back to Dashboard Link */}
@@ -113,37 +82,13 @@ export default function PatientsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <form onSubmit={handleSearch} className="flex gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o ID..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="active">Activos</option>
-            <option value="inactive">Inactivos</option>
-            <option value="archived">Archivados</option>
-          </select>
-
-          <button
-            type="submit"
-            className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-md transition-colors"
-          >
-            Buscar
-          </button>
-        </form>
-      </div>
+      <PatientSearchBar
+        search={search}
+        statusFilter={statusFilter}
+        onSearchChange={setSearch}
+        onStatusChange={setStatusFilter}
+        onSubmit={handleSearch}
+      />
 
       {/* Error Message */}
       {error && (
@@ -161,72 +106,7 @@ export default function PatientsPage() {
       ) : patients.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {patients.map((patient) => (
-            <Link
-              key={patient.id}
-              href={`/dashboard/medical-records/patients/${patient.id}`}
-            >
-              <div className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-4 cursor-pointer">
-                <div className="flex items-start gap-4">
-                  {/* Photo */}
-                  <div className="flex-shrink-0">
-                    {patient.photoUrl ? (
-                      <img
-                        src={patient.photoUrl}
-                        alt={`${patient.firstName} ${patient.lastName}`}
-                        className="w-16 h-16 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
-                        <Users className="w-8 h-8 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 truncate">
-                      {patient.firstName} {patient.lastName}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      ID: {patient.internalId} • {calculateAge(patient.dateOfBirth)} años • {patient.sex}
-                    </p>
-
-                    {/* Contact */}
-                    {patient.phone && (
-                      <p className="text-sm text-gray-600 mt-1 truncate">
-                        📱 {patient.phone}
-                      </p>
-                    )}
-
-                    {/* Last Visit */}
-                    {patient.lastVisitDate && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        Última visita: {formatDate(patient.lastVisitDate)}
-                      </p>
-                    )}
-
-                    {/* Tags */}
-                    {patient.tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {patient.tags.slice(0, 3).map(tag => (
-                          <span
-                            key={tag}
-                            className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                        {patient.tags.length > 3 && (
-                          <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                            +{patient.tags.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Link>
+            <PatientCard key={patient.id} patient={patient} />
           ))}
         </div>
       ) : (
