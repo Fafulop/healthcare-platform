@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Plus, Timeline } from 'lucide-react';
+import { ArrowLeft, Plus, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { TimelineView } from '@/components/medical-records/TimelineView';
 
@@ -104,7 +104,7 @@ export default function PatientTimelinePage() {
 
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <Timeline className="w-8 h-8 text-blue-600" />
+            <Clock className="w-8 h-8 text-blue-600" />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
                 Línea de Tiempo Clínica

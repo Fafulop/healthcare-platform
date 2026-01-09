@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, Plus, Calendar, FileText, User, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Calendar, FileText, User, AlertCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterCard, type Encounter } from '@/components/medical-records/EncounterCard';
 
@@ -171,6 +171,13 @@ export default function PatientProfilePage() {
 
           {/* Actions */}
           <div className="flex gap-2">
+            <Link
+              href={`/dashboard/medical-records/patients/${patient.id}/timeline`}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Clock className="w-4 h-4" />
+              Línea de Tiempo
+            </Link>
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/edit`}
               className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
