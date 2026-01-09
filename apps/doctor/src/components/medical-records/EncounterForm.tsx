@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Save } from 'lucide-react';
 import Link from 'next/link';
+import { VitalsInput, type VitalsData } from './VitalsInput';
+import { SOAPNoteEditor, type SOAPNoteData } from './SOAPNoteEditor';
 
 export interface EncounterFormData {
   encounterDate: string;
@@ -10,6 +12,17 @@ export interface EncounterFormData {
   chiefComplaint: string;
   location?: string;
   clinicalNotes?: string;
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+  vitalsBloodPressure?: string;
+  vitalsHeartRate?: number;
+  vitalsTemperature?: number;
+  vitalsWeight?: number;
+  vitalsHeight?: number;
+  vitalsOxygenSat?: number;
+  vitalsOther?: string;
   followUpDate?: string;
   followUpNotes?: string;
   status: string;
@@ -34,15 +47,29 @@ export function EncounterForm({
 }: EncounterFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [useSOAP, setUseSOAP] = useState(
+    !!(initialData.subjective || initialData.objective || initialData.assessment || initialData.plan)
+  );
 
   const defaultCancelHref = cancelHref || `/dashboard/medical-records/patients/${patientId}`;
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<EncounterFormData>({
     encounterDate: initialData.encounterDate ? initialData.encounterDate.split('T')[0] : new Date().toISOString().split('T')[0],
     encounterType: initialData.encounterType || 'consultation',
     chiefComplaint: initialData.chiefComplaint || '',
     location: initialData.location || '',
     clinicalNotes: initialData.clinicalNotes || '',
+    subjective: initialData.subjective || '',
+    objective: initialData.objective || '',
+    assessment: initialData.assessment || '',
+    plan: initialData.plan || '',
+    vitalsBloodPressure: initialData.vitalsBloodPressure || '',
+    vitalsHeartRate: initialData.vitalsHeartRate,
+    vitalsTemperature: initialData.vitalsTemperature,
+    vitalsWeight: initialData.vitalsWeight,
+    vitalsHeight: initialData.vitalsHeight,
+    vitalsOxygenSat: initialData.vitalsOxygenSat,
+    vitalsOther: initialData.vitalsOther || '',
     followUpDate: initialData.followUpDate ? initialData.followUpDate.split('T')[0] : '',
     followUpNotes: initialData.followUpNotes || '',
     status: initialData.status || 'draft',
@@ -52,6 +79,20 @@ export function EncounterForm({
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
+    });
+  };
+
+  const handleVitalsChange = (vitals: VitalsData) => {
+    setFormData({
+      ...formData,
+      ...vitals
+    });
+  };
+
+  const handleSOAPChange = (soapNotes: SOAPNoteData) => {
+    setFormData({
+      ...formData,
+      ...soapNotes
     });
   };
 
@@ -161,25 +202,61 @@ export function EncounterForm({
           </div>
         </div>
 
-        {/* Clinical Notes */}
+        {/* Vitals Section */}
+        <VitalsInput
+          vitals={{
+            vitalsBloodPressure: formData.vitalsBloodPressure,
+            vitalsHeartRate: formData.vitalsHeartRate,
+            vitalsTemperature: formData.vitalsTemperature,
+            vitalsWeight: formData.vitalsWeight,
+            vitalsHeight: formData.vitalsHeight,
+            vitalsOxygenSat: formData.vitalsOxygenSat,
+            vitalsOther: formData.vitalsOther,
+          }}
+          onChange={handleVitalsChange}
+        />
+
+        {/* Clinical Notes - Toggle between simple and SOAP */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Notas Clínicas</h2>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notas de la Consulta
-            </label>
-            <textarea
-              name="clinicalNotes"
-              value={formData.clinicalNotes}
-              onChange={handleChange}
-              rows={8}
-              placeholder="Descripción de la consulta, hallazgos, tratamiento, etc."
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              En la Fase 2 se implementarán notas estructuradas SOAP (Subjetivo, Objetivo, Evaluación, Plan)
-            </p>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Documentación Clínica</h2>
+            <button
+              type="button"
+              onClick={() => setUseSOAP(!useSOAP)}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              {useSOAP ? '← Usar notas simples' : 'Usar notas SOAP →'}
+            </button>
           </div>
+
+          {useSOAP ? (
+            <SOAPNoteEditor
+              soapNotes={{
+                subjective: formData.subjective,
+                objective: formData.objective,
+                assessment: formData.assessment,
+                plan: formData.plan,
+              }}
+              onChange={handleSOAPChange}
+            />
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Notas Clínicas
+              </label>
+              <textarea
+                name="clinicalNotes"
+                value={formData.clinicalNotes}
+                onChange={handleChange}
+                rows={8}
+                placeholder="Descripción de la consulta, hallazgos, tratamiento, etc."
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                💡 Considere usar <button type="button" onClick={() => setUseSOAP(true)} className="text-blue-600 hover:underline">notas estructuradas SOAP</button> para mejor organización
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Follow-up */}

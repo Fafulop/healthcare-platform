@@ -83,6 +83,21 @@ export async function PUT(
       );
     }
 
+    // Create version snapshot before updating
+    const versionCount = await prisma.encounterVersion.count({
+      where: { encounterId }
+    });
+
+    await prisma.encounterVersion.create({
+      data: {
+        encounterId,
+        versionNumber: versionCount + 1,
+        encounterData: existingEncounter as any,
+        createdBy: userId,
+        changeReason: body.amendmentReason || 'Updated encounter',
+      }
+    });
+
     // Update encounter
     const encounter = await prisma.clinicalEncounter.update({
       where: { id: encounterId },
