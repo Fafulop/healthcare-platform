@@ -3,11 +3,28 @@
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { User, Stethoscope, MapPin, Calendar, Phone, ExternalLink, LogOut, Loader2, FileText, Briefcase, Package, ShoppingCart, ShoppingBag, DollarSign, Heart, Users, ClipboardList } from "lucide-react";
+import {
+  User,
+  Stethoscope,
+  Calendar,
+  ExternalLink,
+  LogOut,
+  Loader2,
+  FileText,
+  Briefcase,
+  Package,
+  ShoppingCart,
+  ShoppingBag,
+  DollarSign,
+  Users,
+  ClipboardList,
+  Heart,
+  BarChart3
+} from "lucide-react";
+import Link from "next/link";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-const PUBLIC_URL = process.env.NEXT_PUBLIC_PUBLIC_URL || 'http://localhost:3000';
 
 interface DoctorProfile {
   id: string;
@@ -22,6 +39,74 @@ interface DoctorProfile {
   clinicWhatsapp: string;
 }
 
+interface NavItemProps {
+  icon: React.ElementType;
+  label: string;
+  href: string;
+  active?: boolean;
+}
+
+function NavItem({ icon: Icon, label, href, active = false }: NavItemProps) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+        active
+          ? 'bg-blue-50 text-blue-700'
+          : 'text-gray-700 hover:bg-gray-100'
+      }`}
+    >
+      <Icon className="w-5 h-5" />
+      <span className="text-sm font-medium">{label}</span>
+    </Link>
+  );
+}
+
+interface NavGroupProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function NavGroup({ title, children }: NavGroupProps) {
+  return (
+    <div className="mb-6">
+      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
+        {title}
+      </h3>
+      <div className="space-y-1">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+interface StatCardProps {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  iconColor: string;
+  iconBg: string;
+}
+
+function StatCard({ icon: Icon, label, value, iconColor, iconBg }: StatCardProps) {
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-600 mb-1">{label}</p>
+          <p className="text-2xl font-bold text-gray-900">{value}</p>
+        </div>
+        <div
+          className="w-12 h-12 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: iconBg }}
+        >
+          <Icon className="w-6 h-6" style={{ color: iconColor }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DoctorDashboardPage() {
   const { data: session, status } = useSession({
     required: true,
@@ -32,7 +117,6 @@ export default function DoctorDashboardPage() {
 
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (session?.user?.doctorId) {
@@ -51,15 +135,10 @@ export default function DoctorDashboardPage() {
         const doctor = result.data.find((d: any) => d.id === doctorId);
         if (doctor) {
           setDoctorProfile(doctor);
-        } else {
-          setError("Profile not found");
         }
-      } else {
-        setError("Failed to load profile");
       }
     } catch (err) {
       console.error("Error fetching doctor profile:", err);
-      setError("Error loading profile");
     } finally {
       setLoading(false);
     }
@@ -67,275 +146,239 @@ export default function DoctorDashboardPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loader2 className="inline-block h-12 w-12 animate-spin text-green-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading your dashboard...</p>
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">
+            Loading your dashboard...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header Card */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
-          {/* Banner */}
-          <div className="h-32 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600"></div>
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+        {/* Logo/Brand */}
+        <div className="p-6 border-b border-gray-200">
+          <h1 className="text-xl font-bold text-gray-900">Doctor Portal</h1>
+          <p className="text-sm text-gray-500 mt-1">Medical Platform</p>
+        </div>
 
-          {/* Profile Header */}
-          <div className="px-8 pb-8">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between -mt-16 mb-6">
-              <div className="flex items-end space-x-4">
-                {session?.user?.image ? (
-                  <img
-                    src={session.user.image}
-                    alt={session.user.name || "User"}
-                    className="w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover bg-white"
-                  />
-                ) : (
-                  <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
-                    <User className="w-16 h-16 text-white" />
-                  </div>
-                )}
-                <div className="pb-2">
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    {session?.user?.name || "Doctor Portal"}
-                  </h1>
-                  <p className="text-gray-600 flex items-center gap-2 mt-1">
-                    <User className="w-4 h-4" />
-                    {session?.user?.email}
-                  </p>
-                </div>
+        {/* User Info */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            {session?.user?.image ? (
+              <img
+                src={session.user.image}
+                alt={session.user.name || "User"}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <User className="w-5 h-5 text-blue-600" />
               </div>
-
-              <div className="mt-4 md:mt-0 md:pb-2">
-                <span className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 text-sm font-semibold rounded-full border-2 border-green-200">
-                  <Stethoscope className="w-4 h-4 mr-2" />
-                  {session?.user?.role}
-                </span>
-              </div>
-            </div>
-
-            {/* Welcome Message */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg p-4 mb-6">
-              <p className="text-green-900 font-medium">
-                Welcome back, {session?.user?.name?.split(' ')[0]}! 👋
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {session?.user?.name || "Doctor"}
               </p>
-              <p className="text-green-700 text-sm mt-1">
-                Manage your profile and view your public page from here.
-              </p>
+              {doctorProfile ? (
+                <p className="text-xs text-gray-500 truncate">
+                  {doctorProfile.primarySpecialty}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 truncate">
+                  {session?.user?.email}
+                </p>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Profile Section */}
-        {doctorProfile ? (
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Stethoscope className="w-6 h-6 text-green-600" />
-                Your Medical Profile
-              </h2>
-            </div>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-4">
+          <NavGroup title="Profile & Public">
+            <NavItem icon={FileText} label="My Blog" href="/dashboard/blog" />
+            <NavItem icon={Calendar} label="Appointments" href="/appointments" />
+            {doctorProfile && (
+              <a
+                href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
+              >
+                <ExternalLink className="w-5 h-5" />
+                <span className="text-sm font-medium">Public Profile</span>
+              </a>
+            )}
+          </NavGroup>
 
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 mb-6 border border-green-100">
-              <div className="flex flex-col md:flex-row gap-6">
-                {doctorProfile.heroImage && (
-                  <img
-                    src={doctorProfile.heroImage}
-                    alt={doctorProfile.doctorFullName}
-                    className="w-32 h-32 rounded-xl object-cover shadow-md border-2 border-white"
-                  />
-                )}
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      {doctorProfile.doctorFullName}
-                    </h3>
-                    <div className="flex items-center gap-2 text-green-700 font-medium mt-1">
-                      <Stethoscope className="w-4 h-4" />
-                      {doctorProfile.primarySpecialty}
-                    </div>
-                  </div>
+          <NavGroup title="Medical Records">
+            <NavItem
+              icon={Users}
+              label="Patient Records"
+              href="/dashboard/medical-records"
+              active={true}
+            />
+            <NavItem
+              icon={ClipboardList}
+              label="New Encounter"
+              href="/dashboard/medical-records"
+            />
+            <NavItem
+              icon={BarChart3}
+              label="Reports"
+              href="/dashboard/medical-records"
+            />
+          </NavGroup>
 
-                  <p className="text-gray-700 leading-relaxed">
-                    {doctorProfile.shortBio}
-                  </p>
+          <NavGroup title="Practice Management">
+            <NavItem
+              icon={Package}
+              label="Products"
+              href="/dashboard/practice/products"
+            />
+            <NavItem
+              icon={DollarSign}
+              label="Cash Flow"
+              href="/dashboard/practice/flujo-de-dinero"
+            />
+            <NavItem
+              icon={ShoppingCart}
+              label="Sales"
+              href="/dashboard/practice/ventas"
+            />
+            <NavItem
+              icon={ShoppingBag}
+              label="Purchases"
+              href="/dashboard/practice/compras"
+            />
+          </NavGroup>
+        </nav>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <MapPin className="w-4 h-4 text-green-600" />
-                      <span className="text-sm">{doctorProfile.city}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Calendar className="w-4 h-4 text-green-600" />
-                      <span className="text-sm">{doctorProfile.yearsExperience} years experience</span>
-                    </div>
-                    {doctorProfile.clinicPhone && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Phone className="w-4 h-4 text-green-600" />
-                        <span className="text-sm">{doctorProfile.clinicPhone}</span>
-                      </div>
-                    )}
-                    {doctorProfile.clinicWhatsapp && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Phone className="w-4 h-4 text-green-600" />
-                        <span className="text-sm">WhatsApp: {doctorProfile.clinicWhatsapp}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <a
-              href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-            >
-              <ExternalLink className="w-5 h-5" />
-              View Public Profile
-            </a>
-          </div>
-        ) : session?.user?.doctorId ? (
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
-            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-6 text-center">
-              <div className="flex justify-center mb-3">
-                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <Loader2 className="w-6 h-6 text-yellow-600 animate-spin" />
-                </div>
-              </div>
-              <p className="text-yellow-900 font-semibold text-lg">
-                {error || "Loading your profile..."}
-              </p>
-              <p className="text-yellow-700 text-sm mt-2">
-                Please wait while we fetch your information
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
-              <div className="flex justify-center mb-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
-              <p className="text-blue-900 font-semibold text-lg mb-2">
-                No Profile Linked
-              </p>
-              <p className="text-blue-700 text-sm">
-                Your account is not linked to a doctor profile yet. Please contact an administrator to link your account.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <a
-              href="/dashboard/blog"
-              className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <FileText className="w-5 h-5" />
-              My Blog
-            </a>
-            <a
-              href="/appointments"
-              className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Calendar className="w-5 h-5" />
-              Manage Appointments
-            </a>
-            <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="flex items-center justify-center gap-2 w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <LogOut className="w-5 h-5" />
-              Sign Out
-            </button>
-          </div>
+        {/* Sign Out */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100 w-full"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="text-sm font-medium">Sign Out</span>
+          </button>
         </div>
+      </aside>
 
-        {/* Medical Records Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Heart className="w-5 h-5 text-red-600" />
-            Medical Records (EMR)
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <a
-              href="/dashboard/medical-records"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Users className="w-5 h-5" />
-              Expedientes de Pacientes
-            </a>
-            <a
-              href="/dashboard/medical-records"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <ClipboardList className="w-5 h-5" />
-              Nueva Consulta
-            </a>
-          </div>
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
-              <span className="font-semibold">Fase 1 Completa:</span> Gestión de pacientes y consultas básicas
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {session?.user?.name?.split(' ')[0] || 'Doctor'}!
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Here's what's happening with your practice today
             </p>
           </div>
-        </div>
 
-        {/* Practice Management Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-purple-600" />
-            Practice Management
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <a
-              href="/dashboard/practice/products"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Package className="w-5 h-5" />
-              Productos
-            </a>
-            <a
-              href="/dashboard/practice/flujo-de-dinero"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <DollarSign className="w-5 h-5" />
-              Flujo de Dinero
-            </a>
-            <a
-              href="/dashboard/practice/ventas"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              Ventas
-            </a>
-            <a
-              href="/dashboard/practice/compras"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <ShoppingBag className="w-5 h-5" />
-              Compras
-            </a>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <StatCard
+              icon={Users}
+              label="Total Patients"
+              value="—"
+              iconColor="#2563eb"
+              iconBg="#dbeafe"
+            />
+            <StatCard
+              icon={Calendar}
+              label="Appointments Today"
+              iconColor="#10b981"
+              iconBg="#d1fae5"
+              value="—"
+            />
+            <StatCard
+              icon={ClipboardList}
+              label="Pending Encounters"
+              value="—"
+              iconColor="#f59e0b"
+              iconBg="#fef3c7"
+            />
+            <StatCard
+              icon={DollarSign}
+              label="Revenue This Month"
+              value="—"
+              iconColor="#8b5cf6"
+              iconBg="#ede9fe"
+            />
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg shadow mb-6">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Link
+                  href="/dashboard/medical-records/patients/new"
+                  className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">New Patient</p>
+                    <p className="text-sm text-gray-600">Add patient record</p>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/dashboard/medical-records"
+                  className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">New Encounter</p>
+                    <p className="text-sm text-gray-600">Create consultation</p>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/appointments"
+                  className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Schedule</p>
+                    <p className="text-sm text-gray-600">Manage appointments</p>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity Placeholder */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+            </div>
+            <div className="p-6">
+              <div className="text-center py-8 text-gray-500">
+                <Heart className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>No recent activity to display</p>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-500">
-            Doctor Portal • Port 3001 • Development Environment
-          </p>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
