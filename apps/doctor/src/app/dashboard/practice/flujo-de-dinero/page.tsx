@@ -4,9 +4,16 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, ArrowLeft, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree } from "lucide-react";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Subarea {
   id: number;
@@ -83,6 +90,7 @@ export default function FlujoDeDineroPage() {
 
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [balance, setBalance] = useState<Balance>({
     totalIngresos: 0,
     totalEgresos: 0,
@@ -109,11 +117,30 @@ export default function FlujoDeDineroPage() {
 
   useEffect(() => {
     if (session?.user?.email) {
+      if (session.user?.doctorId) {
+        fetchDoctorProfile(session.user.doctorId);
+      }
       fetchEntries();
       fetchBalance();
       fetchAreas();
     }
   }, [session, entryTypeFilter, porRealizarFilter, startDate, endDate]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchBalance = async () => {
     if (!session?.user?.email) return;
@@ -390,9 +417,9 @@ export default function FlujoDeDineroPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loader2 className="inline-block h-12 w-12 animate-spin text-green-600" />
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
           <p className="mt-4 text-gray-600 font-medium">Cargando flujo de dinero...</p>
         </div>
       </div>
@@ -400,75 +427,71 @@ export default function FlujoDeDineroPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center text-green-600 hover:text-green-700 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver al Dashboard
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Flujo de Dinero</h1>
-              <p className="text-gray-600 mt-1">Gestiona tus ingresos y egresos</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/dashboard/practice/areas"
-                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <FolderTree className="w-5 h-5" />
-                Áreas
-              </Link>
-              <Link
-                href="/dashboard/practice/flujo-de-dinero/new"
-                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <Plus className="w-5 h-5" />
-                Nuevo Movimiento
-              </Link>
-            </div>
-          </div>
-        </div>
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
 
-        {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-          <div className="border-b border-gray-200">
-            <div className="flex">
-              <button
-                onClick={() => setActiveTab('movimientos')}
-                className={`px-6 py-4 font-semibold transition-colors ${
-                  activeTab === 'movimientos'
-                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Movimientos
-              </button>
-              <button
-                onClick={() => setActiveTab('estado-resultados')}
-                className={`px-6 py-4 font-semibold transition-colors ${
-                  activeTab === 'estado-resultados'
-                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Estado de Resultados
-              </button>
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Flujo de Dinero</h1>
+                <p className="text-gray-600 mt-1">Gestiona tus ingresos y egresos</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/dashboard/practice/areas"
+                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2 rounded-md transition-colors"
+                >
+                  <FolderTree className="w-5 h-5" />
+                  Áreas
+                </Link>
+                <Link
+                  href="/dashboard/practice/flujo-de-dinero/new"
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Nuevo Movimiento
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* Tabs */}
+          <div className="bg-white rounded-lg shadow mb-6 overflow-hidden">
+            <div className="border-b border-gray-200">
+              <div className="flex">
+                <button
+                  onClick={() => setActiveTab('movimientos')}
+                  className={`px-6 py-4 font-semibold transition-colors ${
+                    activeTab === 'movimientos'
+                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  Movimientos
+                </button>
+                <button
+                  onClick={() => setActiveTab('estado-resultados')}
+                  className={`px-6 py-4 font-semibold transition-colors ${
+                    activeTab === 'estado-resultados'
+                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  Estado de Resultados
+                </button>
+              </div>
+            </div>
+          </div>
 
         {/* Movimientos Tab Content */}
         {activeTab === 'movimientos' && (
           <>
             {/* Balance Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-lg p-6 border-t-4 border-blue-500">
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Balance Actual</p>
@@ -480,19 +503,19 @@ export default function FlujoDeDineroPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border-t-4 border-green-500">
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Ingresos</p>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(balance.totalIngresos)}</p>
+                <p className="text-2xl font-bold text-blue-600">{formatCurrency(balance.totalIngresos)}</p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border-t-4 border-red-500">
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-red-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Egresos</p>
@@ -505,8 +528,8 @@ export default function FlujoDeDineroPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Filter className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-900">Filtros</h3>
@@ -522,7 +545,7 @@ export default function FlujoDeDineroPage() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Concepto o ID..."
                 />
               </div>
@@ -535,7 +558,7 @@ export default function FlujoDeDineroPage() {
               <select
                 value={entryTypeFilter}
                 onChange={(e) => setEntryTypeFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">Todos</option>
                 <option value="ingreso">Ingresos</option>
@@ -550,7 +573,7 @@ export default function FlujoDeDineroPage() {
               <select
                 value={porRealizarFilter}
                 onChange={(e) => setPorRealizarFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">Todos</option>
                 <option value="false">Realizados</option>
@@ -566,7 +589,7 @@ export default function FlujoDeDineroPage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
@@ -578,52 +601,52 @@ export default function FlujoDeDineroPage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
         </div>
 
-        {/* Entries Table */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-green-50 to-emerald-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+          {/* Entries Table */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fecha
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Concepto
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Área
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tipo
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tipo Transacción
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Cliente/Proveedor
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado Pago
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Pagado
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Saldo
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
@@ -666,7 +689,7 @@ export default function FlujoDeDineroPage() {
                                   subarea: '' // Reset subarea when area changes
                                 });
                               }}
-                              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                               disabled={updatingArea}
                             >
                               <option value="">Seleccionar área...</option>
@@ -689,7 +712,7 @@ export default function FlujoDeDineroPage() {
                                     ...prev,
                                     subarea: e.target.value
                                   }))}
-                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   disabled={updatingArea}
                                 >
                                   <option value="">Seleccionar subárea...</option>
@@ -711,7 +734,7 @@ export default function FlujoDeDineroPage() {
                               <button
                                 onClick={() => handleSaveArea(entry.id)}
                                 disabled={updatingArea || !editingAreaData.area}
-                                className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                               >
                                 {updatingArea ? 'Guardando...' : 'Guardar'}
                               </button>
@@ -747,7 +770,7 @@ export default function FlujoDeDineroPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
                           entry.entryType === 'ingreso'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
                           {entry.entryType === 'ingreso' ? (
@@ -795,7 +818,7 @@ export default function FlujoDeDineroPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         {entry.paymentStatus === 'PAID' && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             Pagado
                           </span>
                         )}
@@ -815,7 +838,7 @@ export default function FlujoDeDineroPage() {
                       </td>
                       {/* Total */}
                       <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold ${
-                        entry.entryType === 'ingreso' ? 'text-green-600' : 'text-red-600'
+                        entry.entryType === 'ingreso' ? 'text-blue-600' : 'text-red-600'
                       }`}>
                         {entry.entryType === 'ingreso' ? '+' : '-'} {formatCurrency(entry.amount)}
                       </td>
@@ -838,7 +861,7 @@ export default function FlujoDeDineroPage() {
                             const balance = total - paid;
                             return (
                               <span className={`font-semibold ${
-                                balance === 0 ? 'text-green-600' : 'text-red-600'
+                                balance === 0 ? 'text-blue-600' : 'text-red-600'
                               }`}>
                                 {formatCurrency(balance.toString())}
                               </span>
@@ -891,7 +914,7 @@ export default function FlujoDeDineroPage() {
                 </span>
                 <button
                   onClick={fetchEntries}
-                  className="text-green-600 hover:text-green-700 font-medium"
+                  className="text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Actualizar
                 </button>
@@ -902,12 +925,12 @@ export default function FlujoDeDineroPage() {
           </>
         )}
 
-        {/* Estado de Resultados Tab Content */}
-        {activeTab === 'estado-resultados' && (
-          <div className="space-y-6">
-            {/* INGRESOS Section */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
+          {/* Estado de Resultados Tab Content */}
+          {activeTab === 'estado-resultados' && (
+            <div className="space-y-6">
+              {/* INGRESOS Section */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="bg-blue-600 px-6 py-4">
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
                   <TrendingUp className="w-6 h-6" />
                   INGRESOS
@@ -921,19 +944,19 @@ export default function FlujoDeDineroPage() {
                   Object.entries(estadoResultados.ingresos).map(([area, subareas]) => {
                     const areaTotal = Object.values(subareas).reduce((sum, val) => sum + val, 0);
                     return (
-                      <div key={area} className="border-l-4 border-green-500 pl-4">
+                      <div key={area} className="border-l-4 border-blue-500 pl-4">
                         <h3 className="font-bold text-lg text-gray-900 mb-3">{area}</h3>
                         <div className="space-y-2 ml-4">
                           {Object.entries(subareas).map(([subarea, amount]) => (
                             <div key={subarea} className="flex justify-between items-center py-2 border-b border-gray-100">
                               <span className="text-gray-700">└── {subarea}</span>
-                              <span className="font-semibold text-green-700">{formatCurrency(amount)}</span>
+                              <span className="font-semibold text-blue-700">{formatCurrency(amount)}</span>
                             </div>
                           ))}
                         </div>
-                        <div className="mt-3 pt-3 border-t-2 border-green-200 flex justify-between items-center">
+                        <div className="mt-3 pt-3 border-t-2 border-blue-200 flex justify-between items-center">
                           <span className="font-bold text-gray-900">Total {area}</span>
-                          <span className="font-bold text-green-700 text-lg">{formatCurrency(areaTotal)}</span>
+                          <span className="font-bold text-blue-700 text-lg">{formatCurrency(areaTotal)}</span>
                         </div>
                       </div>
                     );
@@ -956,10 +979,10 @@ export default function FlujoDeDineroPage() {
                 )}
 
                 {/* Total Ingresos */}
-                <div className="bg-green-100 border-2 border-green-500 p-4 rounded-lg">
+                <div className="bg-blue-100 border-2 border-blue-500 p-4 rounded-lg">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-green-900 text-lg">TOTAL INGRESOS</span>
-                    <span className="font-bold text-green-700 text-2xl">
+                    <span className="font-bold text-blue-900 text-lg">TOTAL INGRESOS</span>
+                    <span className="font-bold text-blue-700 text-2xl">
                       {formatCurrency(
                         Object.values(estadoResultados.ingresos)
                           .flatMap(subareas => Object.values(subareas))
@@ -971,9 +994,9 @@ export default function FlujoDeDineroPage() {
               </div>
             </div>
 
-            {/* EGRESOS Section */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-red-600 to-rose-600 px-6 py-4">
+              {/* EGRESOS Section */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="bg-red-600 px-6 py-4">
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
                   <TrendingDown className="w-6 h-6" />
                   EGRESOS
@@ -1037,9 +1060,9 @@ export default function FlujoDeDineroPage() {
               </div>
             </div>
 
-            {/* Balance General */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+              {/* Balance General */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="bg-blue-600 px-6 py-4">
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
                   <DollarSign className="w-6 h-6" />
                   BALANCE GENERAL
@@ -1049,7 +1072,7 @@ export default function FlujoDeDineroPage() {
               <div className="p-6 space-y-4">
                 <div className="flex justify-between items-center py-3 border-b border-gray-200">
                   <span className="text-gray-700">Total Ingresos Realizados</span>
-                  <span className="font-bold text-green-700 text-lg">
+                  <span className="font-bold text-blue-700 text-lg">
                     {formatCurrency(
                       Object.values(estadoResultados.ingresos)
                         .flatMap(subareas => Object.values(subareas))
@@ -1112,10 +1135,11 @@ export default function FlujoDeDineroPage() {
                   </div>
                 )}
               </div>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

@@ -4,9 +4,16 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, Package, ArrowLeft, DollarSign } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, Package, DollarSign } from "lucide-react";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Product {
   id: number;
@@ -31,14 +38,34 @@ export default function ProductsPage() {
   });
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
     fetchProducts();
   }, [session, statusFilter]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchProducts = async () => {
     if (!session?.user?.email) return;
@@ -113,87 +140,83 @@ export default function ProductsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading products...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
-          </Link>
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <Package className="w-8 h-8 text-green-600" />
-                Products
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Manage your product catalog with automated cost calculation
-              </p>
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Products</h1>
+                <p className="text-gray-600 mt-1">
+                  Manage your product catalog with automated cost calculation
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Link
+                  href="/dashboard/practice/master-data"
+                  className="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-4 py-2 rounded-md transition-colors"
+                >
+                  Master Data
+                </Link>
+                <Link
+                  href="/dashboard/practice/products/new"
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  New Product
+                </Link>
+              </div>
             </div>
-            <div className="flex gap-3">
-              <Link
-                href="/dashboard/practice/master-data"
-                className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+          </div>
+
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow p-4 mb-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search products by name, SKU, or category..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                Master Data
-              </Link>
-              <Link
-                href="/dashboard/practice/products/new"
-                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <Plus className="w-5 h-5" />
-                New Product
-              </Link>
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="discontinued">Discontinued</option>
+              </select>
             </div>
           </div>
-        </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search products by name, SKU, or category..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              {error}
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="discontinued">Discontinued</option>
-            </select>
-          </div>
-        </div>
+          )}
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
-
-        {/* Products List */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          {/* Products List */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
           {filteredProducts.length === 0 ? (
             <div className="text-center py-12">
               <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -207,27 +230,27 @@ export default function ProductsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-green-50 to-emerald-50">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Product
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Category
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Price
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Cost
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Stock
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -264,7 +287,7 @@ export default function ProductsPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-gray-900">${totalCost.toFixed(2)}</div>
-                          <div className={`text-xs ${parseFloat(margin) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          <div className={`text-xs ${parseFloat(margin) > 0 ? 'text-blue-600' : 'text-red-600'}`}>
                             {margin}% margin
                           </div>
                         </td>
@@ -274,7 +297,7 @@ export default function ProductsPage() {
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
                             product.status === 'active'
-                              ? 'bg-green-100 text-green-800'
+                              ? 'bg-blue-100 text-blue-800'
                               : product.status === 'inactive'
                               ? 'bg-gray-100 text-gray-800'
                               : 'bg-orange-100 text-orange-800'
@@ -309,13 +332,14 @@ export default function ProductsPage() {
           )}
         </div>
 
-        {/* Summary */}
-        {filteredProducts.length > 0 && (
-          <div className="mt-4 text-center text-sm text-gray-600">
-            Showing {filteredProducts.length} of {products.length} product{products.length !== 1 ? 's' : ''}
-          </div>
-        )}
-      </div>
+          {/* Summary */}
+          {filteredProducts.length > 0 && (
+            <div className="mt-4 text-center text-sm text-gray-600">
+              Showing {filteredProducts.length} of {products.length} product{products.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

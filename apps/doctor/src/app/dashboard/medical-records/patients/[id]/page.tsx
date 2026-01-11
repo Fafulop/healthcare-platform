@@ -2,9 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, Plus, Calendar, FileText, User, AlertCircle, Clock, Image, Pill } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import { ArrowLeft, Edit, Plus, Calendar, FileText, User, AlertCircle, Clock, Image, Pill, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import Sidebar from '@/components/layout/Sidebar';
 import { EncounterCard, type Encounter } from '@/components/medical-records/EncounterCard';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Patient {
   id: string;
@@ -39,14 +50,43 @@ export default function PatientProfilePage() {
   const params = useParams();
   const router = useRouter();
   const patientId = params.id as string;
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/login");
+    },
+  });
 
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
+  }, [session]);
+
+  useEffect(() => {
     fetchPatient();
   }, [patientId]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchPatient = async () => {
     setLoading(true);
@@ -92,12 +132,12 @@ export default function PatientProfilePage() {
     });
   };
 
-  if (loading) {
+  if (status === "loading" || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando paciente...</p>
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Cargando paciente...</p>
         </div>
       </div>
     );
@@ -105,29 +145,38 @@ export default function PatientProfilePage() {
 
   if (error || !patient) {
     return (
-      <div className="p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error || 'Paciente no encontrado'}</p>
-          <Link
-            href="/dashboard/medical-records"
-            className="text-red-600 hover:text-red-800 mt-2 inline-block"
-          >
-            Volver a la lista
-          </Link>
-        </div>
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar doctorProfile={doctorProfile} />
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-6">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-800">{error || 'Paciente no encontrado'}</p>
+              <Link
+                href="/dashboard/medical-records"
+                className="text-red-600 hover:text-red-800 mt-2 inline-block"
+              >
+                Volver a la lista
+              </Link>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <Link
-          href="/dashboard/medical-records"
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-        >
-          <ArrowLeft className="w-5 h-5" />
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-6">
+            <Link
+              href="/dashboard/medical-records"
+              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+            >
+              <ArrowLeft className="w-5 h-5" />
           Volver a Pacientes
         </Link>
 
@@ -391,6 +440,8 @@ export default function PatientProfilePage() {
           </div>
         </div>
       </div>
+        </div>
+      </main>
     </div>
   );
 }

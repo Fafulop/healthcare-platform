@@ -4,12 +4,19 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, ShoppingCart, ArrowLeft, Eye, FileText, Users } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, ShoppingCart, Eye, FileText, Users } from "lucide-react";
 import InlineStatusSelect, { StatusOption } from "@/components/practice/InlineStatusSelect";
 import Toast, { ToastType } from "@/components/ui/Toast";
 import { validateSaleTransition, SaleStatus } from "@/lib/practice/statusTransitions";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Client {
   id: number;
@@ -44,14 +51,14 @@ const statusConfig = {
   CONFIRMED: { label: 'Confirmada', color: 'bg-blue-100 text-blue-800', icon: '✓' },
   PROCESSING: { label: 'En Proceso', color: 'bg-purple-100 text-purple-800', icon: '⚙️' },
   SHIPPED: { label: 'Enviada', color: 'bg-indigo-100 text-indigo-800', icon: '📦' },
-  DELIVERED: { label: 'Entregada', color: 'bg-green-100 text-green-800', icon: '✅' },
+  DELIVERED: { label: 'Entregada', color: 'bg-blue-100 text-blue-800', icon: '✅' },
   CANCELLED: { label: 'Cancelada', color: 'bg-gray-100 text-gray-800', icon: '🚫' }
 };
 
 const paymentStatusConfig = {
   PENDING: { label: 'Pendiente', color: 'bg-red-100 text-red-800', icon: '💵' },
   PARTIAL: { label: 'Parcial', color: 'bg-orange-100 text-orange-800', icon: '💰' },
-  PAID: { label: 'Pagada', color: 'bg-green-100 text-green-800', icon: '✅' }
+  PAID: { label: 'Pagada', color: 'bg-blue-100 text-blue-800', icon: '✅' }
 };
 
 export default function VentasPage() {
@@ -63,6 +70,7 @@ export default function VentasPage() {
   });
 
   const [sales, setSales] = useState<Sale[]>([]);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -73,6 +81,9 @@ export default function VentasPage() {
   useEffect(() => {
     if (session?.user?.email) {
       fetchSales();
+      if (session.user?.doctorId) {
+        fetchDoctorProfile(session.user.doctorId);
+      }
     }
   }, [session, statusFilter, paymentFilter]);
 
@@ -102,6 +113,22 @@ export default function VentasPage() {
       console.error('Error al cargar ventas:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
     }
   };
 
@@ -235,79 +262,74 @@ export default function VentasPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Cargando ventas...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver al Dashboard
-          </Link>
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <ShoppingCart className="w-8 h-8 text-green-600" />
-                Ventas en Firme
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Gestiona tus ventas confirmadas
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Link
-                href="/dashboard/practice/clients"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors font-semibold"
-              >
-                <Users className="w-5 h-5" />
-                Clientes
-              </Link>
-              <Link
-                href="/dashboard/practice/cotizaciones"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-              >
-                <FileText className="w-5 h-5" />
-                Cotizaciones
-              </Link>
-              <Link
-                href="/dashboard/practice/ventas/new"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors font-semibold"
-              >
-                <Plus className="w-5 h-5" />
-                Nueva Venta
-              </Link>
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Ventas en Firme</h1>
+                <p className="text-gray-600 mt-1">
+                  Gestiona tus ventas confirmadas
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Link
+                  href="/dashboard/practice/clients"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors font-semibold"
+                >
+                  <Users className="w-5 h-5" />
+                  Clientes
+                </Link>
+                <Link
+                  href="/dashboard/practice/cotizaciones"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors font-semibold"
+                >
+                  <FileText className="w-5 h-5" />
+                  Cotizaciones
+                </Link>
+                <Link
+                  href="/dashboard/practice/ventas/new"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-semibold"
+                >
+                  <Plus className="w-5 h-5" />
+                  Nueva Venta
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="text-sm text-gray-600 mb-1">Total Ventas</div>
-            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalSales)}</div>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-sm text-gray-600 mb-1">Total Ventas</div>
+              <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalSales)}</div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-sm text-gray-600 mb-1">Total Cobrado</div>
+              <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalPaid)}</div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-sm text-gray-600 mb-1">Total Pendiente</div>
+              <div className="text-2xl font-bold text-red-600">{formatCurrency(totalPending)}</div>
+            </div>
           </div>
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="text-sm text-gray-600 mb-1">Total Cobrado</div>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="text-sm text-gray-600 mb-1">Total Pendiente</div>
-            <div className="text-2xl font-bold text-red-600">{formatCurrency(totalPending)}</div>
-          </div>
-        </div>
 
-        {/* Filters and Search */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          {/* Filters and Search */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -316,14 +338,14 @@ export default function VentasPage() {
                 placeholder="Buscar por número o cliente..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Todos los estados</option>
               <option value="PENDING">Pendiente</option>
@@ -337,7 +359,7 @@ export default function VentasPage() {
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Todos los pagos</option>
               <option value="PENDING">Pendiente</option>
@@ -347,40 +369,40 @@ export default function VentasPage() {
           </div>
         </div>
 
-        {/* Sales Table */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            {filteredSales.length === 0 ? (
-              <div className="text-center py-12">
-                <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No hay ventas registradas
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Comienza creando tu primera venta
-                </p>
-                <Link
-                  href="/dashboard/practice/ventas/new"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Nueva Venta
-                </Link>
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Folio</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Cliente</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Fecha</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Entrega</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Estado Pago</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Estado</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Acciones</th>
-                  </tr>
-                </thead>
+          {/* Sales Table */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              {filteredSales.length === 0 ? (
+                <div className="text-center py-12">
+                  <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    No hay ventas registradas
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Comienza creando tu primera venta
+                  </p>
+                  <Link
+                    href="/dashboard/practice/ventas/new"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Nueva Venta
+                  </Link>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Folio</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrega</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Pago</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                  </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredSales.map((sale) => {
                     const statusConf = statusConfig[sale.status as keyof typeof statusConfig] || statusConfig.PENDING;
@@ -411,7 +433,7 @@ export default function VentasPage() {
                         <td className="px-6 py-4 text-right">
                           <div className="font-semibold text-gray-900">{formatCurrency(sale.total)}</div>
                           {parseFloat(sale.amountPaid) > 0 && (
-                            <div className="text-xs text-green-600">
+                            <div className="text-xs text-blue-600">
                               Pagado: {formatCurrency(sale.amountPaid)}
                             </div>
                           )}
@@ -445,7 +467,7 @@ export default function VentasPage() {
                             </Link>
                             <Link
                               href={`/dashboard/practice/ventas/${sale.id}/edit`}
-                              className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                               title="Editar"
                             >
                               <Edit2 className="w-4 h-4" />
@@ -463,17 +485,18 @@ export default function VentasPage() {
                     );
                   })}
                 </tbody>
-              </table>
-            )}
+                </table>
+              )}
+            </div>
           </div>
-        </div>
 
-        {filteredSales.length > 0 && (
-          <div className="mt-4 text-center text-sm text-gray-600">
-            Mostrando {filteredSales.length} venta{filteredSales.length !== 1 ? 's' : ''}
-          </div>
-        )}
-      </div>
+          {filteredSales.length > 0 && (
+            <div className="mt-4 text-center text-sm text-gray-600">
+              Mostrando {filteredSales.length} venta{filteredSales.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
+      </main>
 
       {/* Toast Notification */}
       {toastMessage && (

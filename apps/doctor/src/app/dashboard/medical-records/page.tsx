@@ -1,21 +1,59 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, ArrowLeft } from 'lucide-react';
+import { Plus, Users, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import Sidebar from '@/components/layout/Sidebar';
 import { PatientCard, type Patient } from '@/components/medical-records/PatientCard';
 import { PatientSearchBar } from '@/components/medical-records/PatientSearchBar';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
+
 export default function PatientsPage() {
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/login");
+    },
+  });
+
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
     fetchPatients();
-  }, [statusFilter]);
+  }, [statusFilter, session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchPatients = async () => {
     setLoading(true);
@@ -53,78 +91,84 @@ export default function PatientsPage() {
     fetchPatients();
   };
 
-  return (
-    <div className="p-6">
-      {/* Back to Dashboard Link */}
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        Volver al Dashboard
-      </Link>
-
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Expedientes Médicos</h1>
-          <p className="text-gray-600 mt-1">
-            Gestiona los expedientes de tus pacientes
-          </p>
+  if (status === "loading" || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading medical records...</p>
         </div>
-        <Link
-          href="/dashboard/medical-records/patients/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Nuevo Paciente
-        </Link>
       </div>
+    );
+  }
 
-      {/* Filters */}
-      <PatientSearchBar
-        search={search}
-        statusFilter={statusFilter}
-        onSearchChange={setSearch}
-        onStatusChange={setStatusFilter}
-        onSubmit={handleSearch}
-      />
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
 
-      {/* Error Message */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-800">{error}</p>
-        </div>
-      )}
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Medical Records</h1>
+                <p className="text-gray-600 mt-1">
+                  Manage your patient records
+                </p>
+              </div>
+              <Link
+                href="/dashboard/medical-records/patients/new"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center gap-2 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                New Patient
+              </Link>
+            </div>
+          </div>
 
-      {/* Patient List */}
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando pacientes...</p>
+          {/* Filters */}
+          <PatientSearchBar
+            search={search}
+            statusFilter={statusFilter}
+            onSearchChange={setSearch}
+            onStatusChange={setStatusFilter}
+            onSubmit={handleSearch}
+          />
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-800">{error}</p>
+            </div>
+          )}
+
+          {/* Patient List */}
+          {patients.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {patients.map((patient) => (
+                <PatientCard key={patient.id} patient={patient} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white rounded-lg shadow">
+              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg mb-2">No patients found</p>
+              <p className="text-gray-400 text-sm mb-4">
+                Start by adding your first patient
+              </p>
+              <Link
+                href="/dashboard/medical-records/patients/new"
+                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                New Patient
+              </Link>
+            </div>
+          )}
         </div>
-      ) : patients.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {patients.map((patient) => (
-            <PatientCard key={patient.id} patient={patient} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
-          <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg mb-2">No se encontraron pacientes</p>
-          <p className="text-gray-400 text-sm mb-4">
-            Comienza agregando tu primer paciente
-          </p>
-          <Link
-            href="/dashboard/medical-records/patients/new"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Nuevo Paciente
-          </Link>
-        </div>
-      )}
+      </main>
     </div>
   );
 }

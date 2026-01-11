@@ -10,6 +10,12 @@ import Sidebar from "@/components/layout/Sidebar";
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
+
 interface AppointmentSlot {
   id: string;
   date: string;
@@ -53,6 +59,7 @@ export default function AppointmentsPage() {
 
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -64,10 +71,27 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     if (doctorId) {
+      fetchDoctorProfile(doctorId);
       fetchSlots();
       fetchBookings();
     }
   }, [doctorId, selectedDate]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchSlots = async () => {
     if (!doctorId) return;
@@ -299,7 +323,7 @@ export default function AppointmentsPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={null} />
+      <Sidebar doctorProfile={doctorProfile} />
 
       <main className="flex-1 overflow-y-auto">
         <div className="p-6">

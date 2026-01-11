@@ -4,9 +4,16 @@ import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X } from "lucide-react";
+import Sidebar from "@/components/layout/Sidebar";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Supplier {
   id: number;
@@ -56,6 +63,7 @@ export default function NewCompraPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Data loading
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingSuppliers, setLoadingClients] = useState(true);
@@ -107,6 +115,9 @@ export default function NewCompraPage() {
 
   useEffect(() => {
     if (session?.user?.email) {
+      if (session.user?.doctorId) {
+        fetchDoctorProfile(session.user.doctorId);
+      }
       fetchSuppliers();
       fetchProducts();
     }
@@ -122,6 +133,22 @@ export default function NewCompraPage() {
       }
     }
   }, [searchParams, suppliers]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchSuppliers = async () => {
     if (!session?.user?.email) return;
@@ -387,17 +414,23 @@ export default function NewCompraPage() {
 
   if (status === "loading" || loadingSuppliers || loadingProducts) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <Link
             href="/dashboard/practice/compras"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -416,7 +449,7 @@ export default function NewCompraPage() {
           {/* Left Column - Client & Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Client Selection */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Proveedor</h2>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
@@ -568,14 +601,14 @@ export default function NewCompraPage() {
             </div>
 
             {/* Items Section */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos y Servicios</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <button
                   type="button"
                   onClick={() => setShowProductModal(true)}
-                  className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                   Agregar Producto
@@ -730,7 +763,7 @@ export default function NewCompraPage() {
 
           {/* Right Column - Summary (Sticky) */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+            <div className="bg-white rounded-lg shadow-lg p-6 sticky top-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen</h3>
 
               <div className="space-y-3">
@@ -810,7 +843,7 @@ export default function NewCompraPage() {
         {/* Product Selection Modal */}
         {showProductModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
               <div className="p-6 border-b flex justify-between items-center">
                 <h3 className="text-xl font-semibold text-gray-900">Seleccionar Producto</h3>
                 <button
@@ -867,7 +900,7 @@ export default function NewCompraPage() {
         {/* Custom Item Modal */}
         {showCustomItemModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
               <div className="p-6 border-b flex justify-between items-center">
                 <h3 className="text-xl font-semibold text-gray-900">
                   {customItemType === 'product' ? 'Producto Personalizado' : 'Servicio Personalizado'}
@@ -957,7 +990,7 @@ export default function NewCompraPage() {
                   <button
                     onClick={addCustomItemToQuote}
                     disabled={!customDescription || customPrice <= 0}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Agregar
                   </button>
@@ -966,7 +999,8 @@ export default function NewCompraPage() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
