@@ -3,9 +3,9 @@
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Calendar, Clock, DollarSign, Plus, Edit, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, ArrowLeft, User, Phone, Mail, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import CreateSlotsModal from "./CreateSlotsModal";
-import Link from "next/link";
+import Sidebar from "@/components/layout/Sidebar";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -221,7 +221,7 @@ export default function AppointmentsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "CONFIRMED":
-        return "bg-green-100 text-green-700 border-green-200";
+        return "bg-blue-100 text-blue-700 border-blue-200";
       case "PENDING":
         return "bg-yellow-100 text-yellow-700 border-yellow-200";
       case "CANCELLED":
@@ -277,9 +277,9 @@ export default function AppointmentsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loader2 className="inline-block h-12 w-12 animate-spin text-green-600" />
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
           <p className="mt-4 text-gray-600 font-medium">Loading appointments...</p>
         </div>
       </div>
@@ -288,8 +288,8 @@ export default function AppointmentsPage() {
 
   if (!doctorId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white rounded-lg shadow p-8 max-w-md">
           <p className="text-red-600 font-semibold">No doctor profile linked to your account.</p>
           <p className="text-gray-600 text-sm mt-2">Please contact an administrator.</p>
         </div>
@@ -298,66 +298,59 @@ export default function AppointmentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 font-medium mb-3 transition-colors"
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={null} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Appointment Management</h1>
+                <p className="text-gray-600 mt-1">Create and manage your availability</p>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
               >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Dashboard
-              </Link>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <Calendar className="w-8 h-8 text-green-600" />
-                Appointment Management
-              </h1>
-              <p className="text-gray-600 mt-1">Create and manage your availability</p>
+                <Plus className="w-5 h-5" />
+                Create Slots
+              </button>
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              Create Slots
-            </button>
+
+            {/* View Toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode("calendar")}
+                className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                  viewMode === "calendar"
+                    ? "bg-blue-50 text-blue-700"
+                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                Calendar View
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                  viewMode === "list"
+                    ? "bg-blue-50 text-blue-700"
+                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                List View
+              </button>
+            </div>
           </div>
 
-          {/* View Toggle */}
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={() => setViewMode("calendar")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                viewMode === "calendar"
-                  ? "bg-green-100 text-green-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              Calendar View
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                viewMode === "list"
-                  ? "bg-green-100 text-green-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              List View
-            </button>
-          </div>
-        </div>
-
-        {/* Booked Appointments Card */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <User className="w-6 h-6 text-green-600" />
-              Booked Appointments
-            </h2>
+          {/* Booked Appointments Card */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-600" />
+                Booked Appointments
+              </h2>
             <span className="text-sm font-medium text-gray-600">
               {bookings.length} total
             </span>
@@ -452,7 +445,7 @@ export default function AppointmentsPage() {
         {viewMode === "calendar" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Calendar */}
-            <div className="lg:col-span-2 bg-white rounded-xl shadow-lg p-6">
+            <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-gray-900">
                   {selectedDate.toLocaleDateString("en-US", {
@@ -518,17 +511,17 @@ export default function AppointmentsPage() {
                       onClick={() => setSelectedDate(new Date(year, month, day))}
                       className={`aspect-square p-2 rounded-lg text-center transition-all ${
                         isSelected
-                          ? "bg-green-600 text-white font-bold"
+                          ? "bg-blue-600 text-white font-bold"
                           : isToday
-                          ? "bg-green-100 text-green-700 font-semibold"
+                          ? "bg-blue-100 text-blue-700 font-semibold"
                           : hasSlots
-                          ? "bg-green-200 text-green-900 font-medium hover:bg-green-300"
+                          ? "bg-blue-200 text-blue-900 font-medium hover:bg-blue-300"
                           : "text-gray-600 hover:bg-gray-100"
                       }`}
                     >
                       <div className="text-sm">{day}</div>
                       {hasSlots && !isSelected && (
-                        <div className="w-1 h-1 bg-green-600 rounded-full mx-auto mt-1" />
+                        <div className="w-1 h-1 bg-blue-600 rounded-full mx-auto mt-1" />
                       )}
                     </button>
                   );
@@ -537,7 +530,7 @@ export default function AppointmentsPage() {
             </div>
 
             {/* Slots for Selected Date */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h3 className="font-bold text-gray-900 mb-4">
                 {selectedDate.toLocaleDateString("en-US", {
                   weekday: "long",
@@ -561,7 +554,7 @@ export default function AppointmentsPage() {
                           ? "bg-blue-50 border-blue-200"
                           : slot.status === "BLOCKED"
                           ? "bg-gray-100 border-gray-300"
-                          : "bg-green-50 border-green-200"
+                          : "bg-blue-50 border-blue-200"
                       }`}
                     >
                       <div className="flex items-start justify-between mb-2">
@@ -574,7 +567,7 @@ export default function AppointmentsPage() {
                         <span
                           className={`text-xs px-2 py-1 rounded-full font-medium ${
                             slot.status === "AVAILABLE"
-                              ? "bg-green-100 text-green-700"
+                              ? "bg-blue-100 text-blue-700"
                               : slot.status === "BOOKED"
                               ? "bg-blue-100 text-blue-700"
                               : "bg-gray-200 text-gray-700"
@@ -588,7 +581,7 @@ export default function AppointmentsPage() {
                         <DollarSign className="w-4 h-4" />
                         <span className="font-medium">${slot.finalPrice}</span>
                         {slot.discount && (
-                          <span className="text-xs text-green-600">
+                          <span className="text-xs text-blue-600">
                             ({slot.discountType === "PERCENTAGE" ? `${slot.discount}%` : `$${slot.discount}`} off)
                           </span>
                         )}
@@ -625,13 +618,13 @@ export default function AppointmentsPage() {
 
         {/* List View */}
         {viewMode === "list" && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">All Slots</h2>
 
               {/* Bulk Actions Toolbar */}
               {selectedSlots.size > 0 && (
-                <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+                <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
                   <span className="text-sm font-medium text-gray-700">
                     {selectedSlots.size} selected
                   </span>
@@ -674,7 +667,7 @@ export default function AppointmentsPage() {
                 <p>No appointment slots created yet</p>
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="mt-4 text-green-600 hover:text-green-700 font-medium"
+                  className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Create your first slots
                 </button>
@@ -691,7 +684,7 @@ export default function AppointmentsPage() {
                           title={selectedSlots.size === slots.length ? "Deselect All" : "Select All"}
                         >
                           {selectedSlots.size === slots.length ? (
-                            <CheckSquare className="w-5 h-5 text-green-600" />
+                            <CheckSquare className="w-5 h-5 text-blue-600" />
                           ) : (
                             <Square className="w-5 h-5 text-gray-400" />
                           )}
@@ -715,7 +708,7 @@ export default function AppointmentsPage() {
                             className="p-1 hover:bg-gray-100 rounded"
                           >
                             {selectedSlots.has(slot.id) ? (
-                              <CheckSquare className="w-5 h-5 text-green-600" />
+                              <CheckSquare className="w-5 h-5 text-blue-600" />
                             ) : (
                               <Square className="w-5 h-5 text-gray-400" />
                             )}
@@ -731,7 +724,7 @@ export default function AppointmentsPage() {
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-medium ${
                               slot.status === "AVAILABLE"
-                                ? "bg-green-100 text-green-700"
+                                ? "bg-blue-100 text-blue-700"
                                 : slot.status === "BOOKED"
                                 ? "bg-blue-100 text-blue-700"
                                 : "bg-gray-200 text-gray-700"
@@ -773,18 +766,19 @@ export default function AppointmentsPage() {
             )}
           </div>
         )}
-      </div>
 
-      {/* Create Slots Modal */}
-      <CreateSlotsModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        doctorId={doctorId!}
-        onSuccess={() => {
-          fetchSlots();
-          fetchBookings();
-        }}
-      />
+        {/* Create Slots Modal */}
+        <CreateSlotsModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          doctorId={doctorId!}
+          onSuccess={() => {
+            fetchSlots();
+            fetchBookings();
+          }}
+        />
+        </div>
+      </main>
     </div>
   );
 }

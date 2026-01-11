@@ -2,9 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, FileText, Send, Ban, Trash2, Download } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import { ArrowLeft, Edit, FileText, Send, Ban, Trash2, Download, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList, type Medication } from '@/components/medical-records/MedicationList';
+import Sidebar from '@/components/layout/Sidebar';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface PrescriptionDetails {
   id: string;
@@ -38,12 +49,42 @@ export default function ViewPrescriptionPage() {
   const patientId = params.id as string;
   const prescriptionId = params.prescriptionId as string;
 
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/login");
+    },
+  });
+
   const [prescription, setPrescription] = useState<PrescriptionDetails | null>(null);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
+
+  useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
+  }, [session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   useEffect(() => {
     fetchPrescription();
@@ -200,12 +241,12 @@ export default function ViewPrescriptionPage() {
     return colorMap[status] || 'bg-gray-100 text-gray-800';
   };
 
-  if (loading) {
+  if (status === "loading" || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando prescripción...</p>
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
         </div>
       </div>
     );
@@ -222,7 +263,11 @@ export default function ViewPrescriptionPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -443,6 +488,8 @@ export default function ViewPrescriptionPage() {
           </div>
         </div>
       )}
+        </div>
+      </main>
     </div>
   );
 }

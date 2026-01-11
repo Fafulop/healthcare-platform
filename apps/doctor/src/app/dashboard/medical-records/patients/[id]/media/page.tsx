@@ -3,10 +3,21 @@
 import { useState, useEffect } from 'react';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
 import { ArrowLeft, Plus, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MediaGallery } from '@/components/medical-records/MediaGallery';
 import { MediaViewer } from '@/components/medical-records/MediaViewer';
+import Sidebar from '@/components/layout/Sidebar';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Media {
   id: string;
@@ -32,10 +43,41 @@ interface Patient {
 export default function MediaGalleryPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/login");
+    },
+  });
+
   const [media, setMedia] = useState<Media[]>([]);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
+  }, [session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -84,10 +126,13 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
     fetchData();
   };
 
-  if (isLoading) {
+  if (status === "loading" || isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -101,7 +146,11 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div className="p-6">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -163,6 +212,8 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
           onUpdate={handleMediaUpdate}
         />
       )}
+        </div>
+      </main>
     </div>
   );
 }

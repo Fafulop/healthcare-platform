@@ -2,9 +2,20 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MediaUploader } from '@/components/medical-records/MediaUploader';
+import Sidebar from '@/components/layout/Sidebar';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Patient {
   id: string;
@@ -16,7 +27,38 @@ interface Patient {
 export default function MediaUploadPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/login");
+    },
+  });
+
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
+
+  useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
+  }, [session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   useEffect(() => {
     fetchPatient();
@@ -45,16 +87,23 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
     router.push(`/dashboard/medical-records/patients/${resolvedParams.id}/media`);
   };
 
-  if (!patient) {
+  if (status === "loading" || !patient) {
     return (
-      <div className="p-6">
-        <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -79,6 +128,8 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
         onUploadComplete={handleUploadComplete}
         onCancel={handleCancel}
       />
+        </div>
+      </main>
     </div>
   );
 }

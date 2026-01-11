@@ -2,8 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Clock, User } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import { ArrowLeft, Clock, User, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import Sidebar from '@/components/layout/Sidebar';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Version {
   id: number;
@@ -19,10 +30,40 @@ export default function EncounterVersionsPage() {
   const patientId = params.id as string;
   const encounterId = params.encounterId as string;
 
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/login");
+    },
+  });
+
   const [versions, setVersions] = useState<Version[]>([]);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);
+
+  useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
+  }, [session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   useEffect(() => {
     fetchVersions();
@@ -58,12 +99,12 @@ export default function EncounterVersionsPage() {
     });
   };
 
-  if (loading) {
+  if (status === "loading" || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando historial de versiones...</p>
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
         </div>
       </div>
     );
@@ -86,7 +127,11 @@ export default function EncounterVersionsPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -307,6 +352,8 @@ export default function EncounterVersionsPage() {
           </div>
         </div>
       )}
+        </div>
+      </main>
     </div>
   );
 }

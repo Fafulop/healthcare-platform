@@ -1,9 +1,10 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FileText, Plus, Edit, Trash2, Eye, Loader2, AlertCircle, Calendar, BarChart, ArrowLeft } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Eye, Loader2, AlertCircle, BarChart } from "lucide-react";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
@@ -129,9 +130,9 @@ export default function BlogManagementPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loader2 className="inline-block h-12 w-12 animate-spin text-green-600" />
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
           <p className="mt-4 text-gray-600 font-medium">Loading articles...</p>
         </div>
       </div>
@@ -139,33 +140,27 @@ export default function BlogManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Back to Dashboard Link */}
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </button>
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={null} />
 
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">My Blog</h1>
-              <p className="text-gray-600">Manage your articles and blog posts</p>
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">My Blog</h1>
+                <p className="text-gray-600 mt-1">Manage your articles and blog posts</p>
+              </div>
+              <button
+                onClick={() => router.push('/dashboard/blog/new')}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center gap-2 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                New Article
+              </button>
             </div>
-            <button
-              onClick={() => router.push('/dashboard/blog/new')}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-colors shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              New Article
-            </button>
           </div>
-        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -175,7 +170,7 @@ export default function BlogManagementPage() {
                 <p className="text-sm text-gray-600 mb-1">Total Articles</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
-              <FileText className="w-10 h-10 text-green-600 opacity-20" />
+              <FileText className="w-10 h-10 text-blue-600 opacity-20" />
             </div>
           </div>
 
@@ -183,9 +178,9 @@ export default function BlogManagementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Published</p>
-                <p className="text-2xl font-bold text-green-600">{stats.published}</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.published}</p>
               </div>
-              <Eye className="w-10 h-10 text-green-600 opacity-20" />
+              <Eye className="w-10 h-10 text-blue-600 opacity-20" />
             </div>
           </div>
 
@@ -220,7 +215,7 @@ export default function BlogManagementPage() {
                   onClick={() => setFilter(tab)}
                   className={`px-6 py-3 font-medium transition-colors ${
                     filter === tab
-                      ? 'text-green-600 border-b-2 border-green-600'
+                      ? 'text-blue-600 border-b-2 border-blue-600'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
@@ -258,7 +253,7 @@ export default function BlogManagementPage() {
               </p>
               <button
                 onClick={() => router.push('/dashboard/blog/new')}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold inline-flex items-center gap-2"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold inline-flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 Create Article
@@ -327,7 +322,7 @@ export default function BlogManagementPage() {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => router.push(`/dashboard/blog/${article.id}/edit`)}
-                            className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded transition-colors"
+                            className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
                             title="Edit"
                           >
                             <Edit className="w-4 h-4" />
@@ -348,7 +343,8 @@ export default function BlogManagementPage() {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
