@@ -5,8 +5,15 @@ import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Edit2, Trash2, Loader2, Users, Building2, ArrowLeft, FileText, ShoppingCart } from "lucide-react";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Client {
   id: number;
@@ -36,6 +43,7 @@ export default function ClientsPage() {
     },
   });
 
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -43,8 +51,27 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
     fetchClients();
   }, [session, statusFilter]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchClients = async () => {
     if (!session?.user?.email) return;
@@ -122,17 +149,23 @@ export default function ClientsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
@@ -142,8 +175,8 @@ export default function ClientsPage() {
           </Link>
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <Users className="w-8 h-8 text-green-600" />
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                <Users className="w-8 h-8 text-blue-600" />
                 Clientes
               </h1>
               <p className="text-gray-600 mt-2">
@@ -167,7 +200,7 @@ export default function ClientsPage() {
               </Link>
               <Link
                 href="/dashboard/practice/clients/new"
-                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
               >
                 <Plus className="w-5 h-5" />
                 Nuevo Cliente
@@ -177,7 +210,7 @@ export default function ClientsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -186,14 +219,14 @@ export default function ClientsPage() {
                 placeholder="Buscar clientes por nombre, contacto, correo o ciudad..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Todos los Estados</option>
               <option value="active">Activo</option>
@@ -210,7 +243,7 @@ export default function ClientsPage() {
         )}
 
         {/* Clients List */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-hidden">
           {filteredClients.length === 0 ? (
             <div className="text-center py-12">
               <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -224,7 +257,7 @@ export default function ClientsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-green-50 to-emerald-50">
+                <thead className="bg-blue-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       Empresa
@@ -323,7 +356,8 @@ export default function ClientsPage() {
             Mostrando {filteredClients.length} de {clients.length} cliente{clients.length !== 1 ? 's' : ''}
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

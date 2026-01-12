@@ -5,8 +5,15 @@ import { redirect, useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, Edit2 } from "lucide-react";
 import Link from "next/link";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface AttributeValue {
   id: number;
@@ -56,6 +63,7 @@ export default function EditProductPage() {
   const params = useParams();
   const productId = params.id as string;
 
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,10 +90,29 @@ export default function EditProductPage() {
 
   useEffect(() => {
     if (session?.user?.email) {
+      if (session?.user?.doctorId) {
+        fetchDoctorProfile(session.user.doctorId);
+      }
       fetchProduct();
       fetchAvailableValues();
     }
   }, [session, productId]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchProduct = async () => {
     if (!session?.user?.email) return;
@@ -342,20 +369,23 @@ export default function EditProductPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
           <Link
             href="/dashboard/practice/products"
-            className="text-green-600 hover:text-green-700"
+            className="text-blue-600 hover:text-blue-700"
           >
             Back to Products
           </Link>
@@ -370,10 +400,13 @@ export default function EditProductPage() {
   const activeComponents = components.filter(c => !c.isDeleted);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href="/dashboard/practice/products"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -381,8 +414,8 @@ export default function EditProductPage() {
             <ArrowLeft className="w-4 h-4" />
             Back to Products
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Package className="w-8 h-8 text-green-600" />
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <Package className="w-8 h-8 text-blue-600" />
             Edit Product
           </h1>
           <p className="text-gray-600 mt-2">Update product information and bill of materials</p>
@@ -393,7 +426,7 @@ export default function EditProductPage() {
             {/* Left Column - Product Info */}
             <div className="lg:col-span-2 space-y-6">
               {/* Basic Info */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
@@ -410,7 +443,7 @@ export default function EditProductPage() {
                       name="name"
                       value={formData.name}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="e.g., Sweet Bread"
                       required
                     />
@@ -424,7 +457,7 @@ export default function EditProductPage() {
                       name="sku"
                       value={formData.sku}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="e.g., PD-001"
                     />
                   </div>
@@ -437,7 +470,7 @@ export default function EditProductPage() {
                       name="category"
                       value={formData.category}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="e.g., Bakery, Electronics"
                     />
                   </div>
@@ -451,7 +484,7 @@ export default function EditProductPage() {
                       name="price"
                       value={formData.price}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="150.00"
                     />
                   </div>
@@ -464,7 +497,7 @@ export default function EditProductPage() {
                       name="unit"
                       value={formData.unit}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="pcs, kg, liter"
                     />
                   </div>
@@ -477,7 +510,7 @@ export default function EditProductPage() {
                       name="stockQuantity"
                       value={formData.stockQuantity}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="0"
                     />
                   </div>
@@ -489,7 +522,7 @@ export default function EditProductPage() {
                       name="status"
                       value={formData.status}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
@@ -504,7 +537,7 @@ export default function EditProductPage() {
                       name="description"
                       value={formData.description}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={3}
                       placeholder="Product description..."
                     />
@@ -513,7 +546,7 @@ export default function EditProductPage() {
               </div>
 
               {/* Bill of Materials */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Bill of Materials (BOM)</h2>
 
                 {/* Add Component */}
@@ -523,7 +556,7 @@ export default function EditProductPage() {
                       <select
                         value={selectedValueId}
                         onChange={(e) => setSelectedValueId(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">Select a component...</option>
                         {availableValues.map(val => (
@@ -541,13 +574,13 @@ export default function EditProductPage() {
                         step="0.0001"
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
-                        className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Qty"
                       />
                       <button
                         type="button"
                         onClick={addComponent}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
                         Add
@@ -634,7 +667,7 @@ export default function EditProductPage() {
             {/* Right Column - Summary */}
             <div className="space-y-6">
               {/* Cost Summary */}
-              <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+              <div className="bg-white rounded-lg shadow p-6 sticky top-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Summary</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
@@ -647,11 +680,11 @@ export default function EditProductPage() {
                   </div>
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                     <span className="text-gray-600">Selling Price</span>
-                    <span className="font-semibold text-lg text-green-600">${price.toFixed(2)}</span>
+                    <span className="font-semibold text-lg text-blue-600">${price.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Profit Margin</span>
-                    <span className={`font-semibold text-lg ${parseFloat(margin) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className={`font-semibold text-lg ${parseFloat(margin) > 0 ? 'text-blue-600' : 'text-red-600'}`}>
                       {margin}%
                     </span>
                   </div>
@@ -661,7 +694,7 @@ export default function EditProductPage() {
                 <div className="mt-6 space-y-2">
                   <button
                     type="submit"
-                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 font-semibold"
+                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 font-semibold"
                     disabled={submitting}
                   >
                     {submitting ? (
@@ -687,7 +720,8 @@ export default function EditProductPage() {
             </div>
           </div>
         </form>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

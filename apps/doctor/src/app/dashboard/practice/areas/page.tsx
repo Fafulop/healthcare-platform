@@ -5,8 +5,15 @@ import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import Link from "next/link";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Subarea {
   id: number;
@@ -30,6 +37,7 @@ export default function AreasPage() {
     },
   });
 
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedAreas, setExpandedAreas] = useState<Set<number>>(new Set());
@@ -51,8 +59,27 @@ export default function AreasPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
     fetchAreas();
   }, [session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchAreas = async () => {
     if (!session?.user?.email) return;
@@ -288,17 +315,23 @@ export default function AreasPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
@@ -308,8 +341,8 @@ export default function AreasPage() {
           </Link>
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <FolderTree className="w-8 h-8 text-green-600" />
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                <FolderTree className="w-8 h-8 text-blue-600" />
                 Areas & Subareas
               </h1>
               <p className="text-gray-600 mt-2">
@@ -326,7 +359,7 @@ export default function AreasPage() {
               </Link>
               <button
                 onClick={() => openAreaModal('INGRESO')}
-                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
               >
                 <Plus className="w-5 h-5" />
                 Nueva Área Ingresos
@@ -345,8 +378,8 @@ export default function AreasPage() {
         {/* Areas List */}
         <div className="space-y-6">
           {/* INGRESOS Section */}
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-blue-600 px-6 py-4">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <TrendingUp className="w-6 h-6" />
                 ÁREAS DE INGRESOS
@@ -365,11 +398,11 @@ export default function AreasPage() {
                   {areas.filter(a => a.type === 'INGRESO').map((area) => (
                 <div key={area.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   {/* Area Header */}
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 flex items-center justify-between">
+                  <div className="bg-blue-50 p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1">
                       <button
                         onClick={() => toggleArea(area.id)}
-                        className="text-green-600 hover:text-green-700"
+                        className="text-blue-600 hover:text-blue-700"
                       >
                         {expandedAreas.has(area.id) ? (
                           <ChevronDown className="w-5 h-5" />
@@ -454,7 +487,7 @@ export default function AreasPage() {
           </div>
 
           {/* EGRESOS Section */}
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="bg-gradient-to-r from-red-600 to-rose-600 px-6 py-4">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <TrendingDown className="w-6 h-6" />
@@ -566,15 +599,15 @@ export default function AreasPage() {
         {/* Area Modal */}
         {showAreaModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-              <div className={`p-6 border-b border-gray-200 ${areaType === 'INGRESO' ? 'bg-green-50' : 'bg-red-50'}`}>
+            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
+              <div className={`p-6 border-b border-gray-200 ${areaType === 'INGRESO' ? 'bg-blue-50' : 'bg-red-50'}`}>
                 <h2 className="text-2xl font-bold text-gray-900">
                   {editingArea ? 'Editar Área' : `Nueva Área ${areaType === 'INGRESO' ? 'Ingresos' : 'Egresos'}`}
                 </h2>
                 <div className="mt-2">
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
                     areaType === 'INGRESO'
-                      ? 'bg-green-100 text-green-800'
+                      ? 'bg-blue-100 text-blue-800'
                       : 'bg-red-100 text-red-800'
                   }`}>
                     {areaType === 'INGRESO' ? '💰 INGRESO' : '💸 EGRESO'}
@@ -598,7 +631,7 @@ export default function AreasPage() {
                     type="text"
                     value={areaName}
                     onChange={(e) => setAreaName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Ventas, Gastos, Proyectos"
                     required
                   />
@@ -610,7 +643,7 @@ export default function AreasPage() {
                   <textarea
                     value={areaDescription}
                     onChange={(e) => setAreaDescription(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="Describe this area..."
                   />
@@ -626,7 +659,7 @@ export default function AreasPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     disabled={submitting}
                   >
                     {submitting ? 'Saving...' : 'Save'}
@@ -640,7 +673,7 @@ export default function AreasPage() {
         {/* Subarea Modal */}
         {showSubareaModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-900">
                   {editingSubarea ? 'Edit Subarea' : 'New Subarea'}
@@ -663,7 +696,7 @@ export default function AreasPage() {
                     type="text"
                     value={subareaName}
                     onChange={(e) => setSubareaName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Online, Tienda Física"
                     required
                   />
@@ -675,7 +708,7 @@ export default function AreasPage() {
                   <textarea
                     value={subareaDescription}
                     onChange={(e) => setSubareaDescription(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="Describe this subarea..."
                   />
@@ -691,7 +724,7 @@ export default function AreasPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     disabled={submitting}
                   >
                     {submitting ? 'Saving...' : 'Save'}
@@ -701,7 +734,8 @@ export default function AreasPage() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

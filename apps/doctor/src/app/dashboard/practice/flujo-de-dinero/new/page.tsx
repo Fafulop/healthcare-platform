@@ -5,8 +5,15 @@ import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import Link from "next/link";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Area {
   id: number;
@@ -41,6 +48,7 @@ export default function NewFlujoDeDineroPage() {
   });
 
   const router = useRouter();
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -70,11 +78,30 @@ export default function NewFlujoDeDineroPage() {
 
   useEffect(() => {
     if (session?.user?.email) {
+      if (session?.user?.doctorId) {
+        fetchDoctorProfile(session.user.doctorId);
+      }
       fetchAreas();
       fetchClients();
       fetchSuppliers();
     }
   }, [session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchAreas = async () => {
     if (!session?.user?.email) return;
@@ -298,17 +325,23 @@ export default function NewFlujoDeDineroPage() {
 
   if (status === "loading" || loadingAreas) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href="/dashboard/practice/flujo-de-dinero"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -329,7 +362,7 @@ export default function NewFlujoDeDineroPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
+          <div className="bg-white rounded-lg shadow p-6 space-y-6">
             {/* Entry Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -338,7 +371,7 @@ export default function NewFlujoDeDineroPage() {
               <div className="flex gap-4">
                 <label className={`flex-1 flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
                   formData.entryType === 'ingreso'
-                    ? 'border-green-500 bg-green-50'
+                    ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}>
                   <input
@@ -349,8 +382,8 @@ export default function NewFlujoDeDineroPage() {
                     onChange={handleChange}
                     className="sr-only"
                   />
-                  <TrendingUp className={`w-5 h-5 ${formData.entryType === 'ingreso' ? 'text-green-600' : 'text-gray-400'}`} />
-                  <span className={`font-medium ${formData.entryType === 'ingreso' ? 'text-green-900' : 'text-gray-600'}`}>
+                  <TrendingUp className={`w-5 h-5 ${formData.entryType === 'ingreso' ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <span className={`font-medium ${formData.entryType === 'ingreso' ? 'text-blue-900' : 'text-gray-600'}`}>
                     Ingreso
                   </span>
                 </label>
@@ -392,7 +425,7 @@ export default function NewFlujoDeDineroPage() {
                     onChange={handleChange}
                     step="0.01"
                     min="0"
-                    className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="0.00"
                     required
                   />
@@ -408,7 +441,7 @@ export default function NewFlujoDeDineroPage() {
                   name="transactionDate"
                   value={formData.transactionDate}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -425,7 +458,7 @@ export default function NewFlujoDeDineroPage() {
                 onChange={handleChange}
                 rows={3}
                 maxLength={500}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Descripción del movimiento (opcional)..."
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -442,7 +475,7 @@ export default function NewFlujoDeDineroPage() {
                 name="transactionType"
                 value={formData.transactionType}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
                 <option value="N/A">N/A (No aplica)</option>
@@ -471,7 +504,7 @@ export default function NewFlujoDeDineroPage() {
                   name="clientId"
                   value={formData.clientId}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                   disabled={loadingClients}
                 >
@@ -499,7 +532,7 @@ export default function NewFlujoDeDineroPage() {
                   name="supplierId"
                   value={formData.supplierId}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                   disabled={loadingSuppliers}
                 >
@@ -529,7 +562,7 @@ export default function NewFlujoDeDineroPage() {
                       name="paymentStatus"
                       value={formData.paymentStatus}
                       onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     >
                       <option value="PENDING">Pendiente</option>
@@ -554,7 +587,7 @@ export default function NewFlujoDeDineroPage() {
                         min="0"
                         max={formData.amount ? parseFloat(formData.amount) : undefined}
                         disabled={formData.paymentStatus === 'PENDING' || formData.paymentStatus === 'PAID'}
-                        className={`w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                        className={`w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                           formData.paymentStatus === 'PENDING' || formData.paymentStatus === 'PAID'
                             ? 'bg-gray-100 cursor-not-allowed text-gray-500'
                             : ''
@@ -583,7 +616,7 @@ export default function NewFlujoDeDineroPage() {
                   name="area"
                   value={formData.area}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
                   <option value="">Seleccione un área</option>
@@ -603,7 +636,7 @@ export default function NewFlujoDeDineroPage() {
                   name="subarea"
                   value={formData.subarea}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={!formData.area}
                   required
                 >
@@ -628,7 +661,7 @@ export default function NewFlujoDeDineroPage() {
                   name="bankAccount"
                   value={formData.bankAccount}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Ej: BBVA Empresarial"
                 />
               </div>
@@ -641,7 +674,7 @@ export default function NewFlujoDeDineroPage() {
                   name="formaDePago"
                   value={formData.formaDePago}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
                   <option value="efectivo">Efectivo</option>
@@ -663,7 +696,7 @@ export default function NewFlujoDeDineroPage() {
                 name="bankMovementId"
                 value={formData.bankMovementId}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Ej: REF123456"
               />
             </div>
@@ -679,7 +712,7 @@ export default function NewFlujoDeDineroPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <>
@@ -696,7 +729,8 @@ export default function NewFlujoDeDineroPage() {
             </div>
           </div>
         </form>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

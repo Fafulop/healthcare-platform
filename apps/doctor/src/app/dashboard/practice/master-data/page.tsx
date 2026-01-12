@@ -5,8 +5,15 @@ import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Edit2, Trash2, Loader2, Database, ChevronDown, ChevronRight, ArrowLeft, DollarSign } from "lucide-react";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface AttributeValue {
   id: number;
@@ -35,6 +42,7 @@ export default function MasterDataPage() {
     },
   });
 
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedAttributes, setExpandedAttributes] = useState<Set<number>>(new Set());
@@ -57,8 +65,27 @@ export default function MasterDataPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
     fetchAttributes();
   }, [session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchAttributes = async () => {
     if (!session?.user?.email) return;
@@ -274,17 +301,23 @@ export default function MasterDataPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-5xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
@@ -294,8 +327,8 @@ export default function MasterDataPage() {
           </Link>
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <Database className="w-8 h-8 text-green-600" />
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                <Database className="w-8 h-8 text-blue-600" />
                 Master Data
               </h1>
               <p className="text-gray-600 mt-2">
@@ -304,7 +337,7 @@ export default function MasterDataPage() {
             </div>
             <button
               onClick={() => openAttributeModal()}
-              className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <Plus className="w-5 h-5" />
               New Category
@@ -313,7 +346,7 @@ export default function MasterDataPage() {
         </div>
 
         {/* Attributes List */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="bg-white rounded-lg shadow p-6">
           {attributes.length === 0 ? (
             <div className="text-center py-12">
               <Database className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -327,11 +360,11 @@ export default function MasterDataPage() {
               {attributes.map((attribute) => (
                 <div key={attribute.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   {/* Attribute Header */}
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 flex items-center justify-between">
+                  <div className="bg-blue-50 p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1">
                       <button
                         onClick={() => toggleAttribute(attribute.id)}
-                        className="text-green-600 hover:text-green-700"
+                        className="text-blue-600 hover:text-blue-700"
                       >
                         {expandedAttributes.has(attribute.id) ? (
                           <ChevronDown className="w-5 h-5" />
@@ -450,7 +483,7 @@ export default function MasterDataPage() {
                     type="text"
                     value={attributeName}
                     onChange={(e) => setAttributeName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Raw Materials, Packaging"
                     required
                   />
@@ -462,7 +495,7 @@ export default function MasterDataPage() {
                   <textarea
                     value={attributeDescription}
                     onChange={(e) => setAttributeDescription(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="Describe this category..."
                   />
@@ -478,7 +511,7 @@ export default function MasterDataPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     disabled={submitting}
                   >
                     {submitting ? 'Saving...' : 'Save'}
@@ -515,7 +548,7 @@ export default function MasterDataPage() {
                     type="text"
                     value={valueName}
                     onChange={(e) => setValueName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Flour (50kg), Small Box"
                     required
                   />
@@ -528,7 +561,7 @@ export default function MasterDataPage() {
                     type="text"
                     value={valueDescription}
                     onChange={(e) => setValueDescription(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Additional details..."
                   />
                 </div>
@@ -542,7 +575,7 @@ export default function MasterDataPage() {
                       step="0.01"
                       value={valueCost}
                       onChange={(e) => setValueCost(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="500.00"
                     />
                   </div>
@@ -554,7 +587,7 @@ export default function MasterDataPage() {
                       type="text"
                       value={valueUnit}
                       onChange={(e) => setValueUnit(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="kg, pcs, liter"
                     />
                   </div>
@@ -570,7 +603,7 @@ export default function MasterDataPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     disabled={submitting}
                   >
                     {submitting ? 'Saving...' : 'Save'}
@@ -580,7 +613,8 @@ export default function MasterDataPage() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

@@ -5,8 +5,15 @@ import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, FileText, X } from "lucide-react";
 import Link from "next/link";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 interface Client {
   id: number;
@@ -52,6 +59,7 @@ export default function NewCotizacionPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,10 +93,29 @@ export default function NewCotizacionPage() {
 
   useEffect(() => {
     if (session?.user?.email) {
+      if (session?.user?.doctorId) {
+        fetchDoctorProfile(session.user.doctorId);
+      }
       fetchClients();
       fetchProducts();
     }
   }, [session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   // Pre-select client from URL parameter
   useEffect(() => {
@@ -373,17 +400,23 @@ export default function NewCotizacionPage() {
 
   if (status === "loading" || loadingClients || loadingProducts) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href="/dashboard/practice/cotizaciones"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -392,7 +425,7 @@ export default function NewCotizacionPage() {
             Volver a Cotizaciones
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <FileText className="w-8 h-8 text-green-600" />
+            <FileText className="w-8 h-8 text-blue-600" />
             Nueva Cotización
           </h1>
           <p className="text-gray-600 mt-2">Crea una cotización profesional para tu cliente</p>
@@ -402,7 +435,7 @@ export default function NewCotizacionPage() {
           {/* Left Column - Client & Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Client Selection */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Cliente</h2>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
@@ -417,7 +450,7 @@ export default function NewCotizacionPage() {
                 <select
                   value={selectedClientId || ''}
                   onChange={(e) => setSelectedClientId(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
                   <option value="">Seleccionar cliente...</option>
@@ -430,9 +463,9 @@ export default function NewCotizacionPage() {
               </div>
 
               {selectedClient && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-start gap-2">
-                    <span className="text-green-600 text-xl">✓</span>
+                    <span className="text-blue-600 text-xl">✓</span>
                     <div className="flex-1">
                       <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
                       {selectedClient.contactName && (
@@ -461,7 +494,7 @@ export default function NewCotizacionPage() {
                     type="date"
                     value={issueDate}
                     onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -473,7 +506,7 @@ export default function NewCotizacionPage() {
                     type="date"
                     value={validUntil}
                     onChange={(e) => setValidUntil(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                   <p className="text-xs text-gray-500 mt-1">(30 días por defecto)</p>
@@ -487,7 +520,7 @@ export default function NewCotizacionPage() {
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                   placeholder="Añade notas sobre esta cotización..."
                 />
@@ -500,7 +533,7 @@ export default function NewCotizacionPage() {
                 <textarea
                   value={termsAndConditions}
                   onChange={(e) => setTermsAndConditions(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                   placeholder="Ej: Pago 50% anticipo, 50% contra entrega..."
                 />
@@ -508,14 +541,14 @@ export default function NewCotizacionPage() {
             </div>
 
             {/* Items Section */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos y Servicios</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <button
                   type="button"
                   onClick={() => setShowProductModal(true)}
-                  className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                   Agregar Producto
@@ -671,7 +704,7 @@ export default function NewCotizacionPage() {
 
           {/* Right Column - Summary (Sticky) */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+            <div className="bg-white rounded-lg shadow p-6 sticky top-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen</h3>
 
               <div className="space-y-3">
@@ -692,7 +725,7 @@ export default function NewCotizacionPage() {
 
                 <div className="flex justify-between items-center pt-2">
                   <span className="text-gray-900 font-bold text-lg">TOTAL</span>
-                  <span className="font-bold text-green-600 text-xl">${total.toFixed(2)}</span>
+                  <span className="font-bold text-blue-600 text-xl">${total.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -715,7 +748,7 @@ export default function NewCotizacionPage() {
                 <button
                   onClick={() => handleSubmit('SENT')}
                   disabled={submitting || !selectedClientId || items.length === 0}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
+                  className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
                   title={!selectedClientId ? 'Selecciona un cliente' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
                 >
                   {submitting ? (
@@ -758,7 +791,7 @@ export default function NewCotizacionPage() {
                   placeholder="Buscar producto..."
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
               </div>
@@ -774,7 +807,7 @@ export default function NewCotizacionPage() {
                       <div
                         key={product.id}
                         onClick={() => addProductToQuote(product)}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-green-50 hover:border-green-500 cursor-pointer transition-all"
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 hover:border-blue-500 cursor-pointer transition-all"
                       >
                         <div className="font-semibold text-gray-900">{product.name}</div>
                         {product.sku && (
@@ -784,7 +817,7 @@ export default function NewCotizacionPage() {
                           <div className="text-sm text-gray-600 mt-1">{product.description}</div>
                         )}
                         <div className="flex items-center justify-between mt-2">
-                          <span className="text-lg font-bold text-green-600">
+                          <span className="text-lg font-bold text-blue-600">
                             ${parseFloat(product.price || '0').toFixed(2)} {product.unit && `/ ${product.unit}`}
                           </span>
                           {product.stockQuantity !== null && (
@@ -929,7 +962,8 @@ export default function NewCotizacionPage() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

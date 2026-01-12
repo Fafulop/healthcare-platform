@@ -2,11 +2,18 @@
 
 import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import Link from "next/link";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  primarySpecialty: string;
+}
 
 export default function NewProveedorPage() {
   const { data: session, status } = useSession({
@@ -19,6 +26,7 @@ export default function NewProveedorPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
 
   const [formData, setFormData] = useState({
     businessName: "",
@@ -35,6 +43,28 @@ export default function NewProveedorPage() {
     notes: "",
     status: "active"
   });
+
+  useEffect(() => {
+    if (session?.user?.email && session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
+  }, [session]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData(prev => ({
@@ -81,30 +111,36 @@ export default function NewProveedorPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Cargando...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <Link
-            href="/dashboard/practice/proveedores"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver a Proveedors
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Nuevo Proveedor</h1>
-          <p className="text-gray-600 mt-2">Agrega un nuevo proveedor a tu práctica</p>
-        </div>
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6">
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <Link
+              href="/dashboard/practice/proveedores"
+              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Volver a Proveedores
+            </Link>
+            <h1 className="text-2xl font-bold text-gray-900">Nuevo Proveedor</h1>
+            <p className="text-gray-600 mt-1">Agrega un nuevo proveedor a tu práctica</p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
               {error}
@@ -124,7 +160,7 @@ export default function NewProveedorPage() {
                   name="businessName"
                   value={formData.businessName}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Ej: ACME Corporation"
                   required
                 />
@@ -139,7 +175,7 @@ export default function NewProveedorPage() {
                   name="contactName"
                   value={formData.contactName}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., Juan Pérez"
                 />
               </div>
@@ -153,7 +189,7 @@ export default function NewProveedorPage() {
                   name="rfc"
                   value={formData.rfc}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., ACM001122XXX"
                   maxLength={13}
                 />
@@ -168,7 +204,7 @@ export default function NewProveedorPage() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., contacto@acme.com"
                 />
               </div>
@@ -182,7 +218,7 @@ export default function NewProveedorPage() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., +52 55 1234 5678"
                 />
               </div>
@@ -196,7 +232,7 @@ export default function NewProveedorPage() {
                   name="industry"
                   value={formData.industry}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., Technology, Manufacturing"
                 />
               </div>
@@ -209,7 +245,7 @@ export default function NewProveedorPage() {
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="active">Activo</option>
                   <option value="inactive">Inactivo</option>
@@ -231,7 +267,7 @@ export default function NewProveedorPage() {
                   name="street"
                   value={formData.street}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., Av. Reforma 123, Piso 12"
                 />
               </div>
@@ -245,7 +281,7 @@ export default function NewProveedorPage() {
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., Ciudad de México"
                 />
               </div>
@@ -259,7 +295,7 @@ export default function NewProveedorPage() {
                   name="state"
                   value={formData.state}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., CDMX"
                 />
               </div>
@@ -273,7 +309,7 @@ export default function NewProveedorPage() {
                   name="postalCode"
                   value={formData.postalCode}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., 06600"
                 />
               </div>
@@ -287,7 +323,7 @@ export default function NewProveedorPage() {
                   name="country"
                   value={formData.country}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., México"
                 />
               </div>
@@ -305,7 +341,7 @@ export default function NewProveedorPage() {
                 name="notes"
                 value={formData.notes}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={4}
                 placeholder="Add any additional notes about this client..."
               />
@@ -313,22 +349,22 @@ export default function NewProveedorPage() {
           </div>
 
           {/* Submit Buttons */}
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-4 pt-4 border-t border-gray-200">
             <Link
               href="/dashboard/practice/proveedores"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-center"
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-center transition-colors"
             >
               Cancelar
             </Link>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
               disabled={submitting}
             >
               {submitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Creando...
+                  Guardando...
                 </>
               ) : (
                 <>
@@ -338,8 +374,9 @@ export default function NewProveedorPage() {
               )}
             </button>
           </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      </main>
     </div>
   );
 }

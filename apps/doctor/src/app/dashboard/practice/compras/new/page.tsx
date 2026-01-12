@@ -391,7 +391,7 @@ export default function NewCompraPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al crear venta');
+        throw new Error(errorData.error || 'Error al crear compra');
       }
 
       router.push('/dashboard/practice/compras');
@@ -417,7 +417,7 @@ export default function NewCompraPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -430,26 +430,23 @@ export default function NewCompraPage() {
       <main className="flex-1 overflow-y-auto">
         <div className="p-6 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href="/dashboard/practice/compras"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Volver a Ventas
+            Volver a Compras
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Package className="w-8 h-8 text-green-600" />
-            Nueva Compra
-          </h1>
-          <p className="text-gray-600 mt-2">Registra una nueva venta en firme</p>
+          <h1 className="text-2xl font-bold text-gray-900">Nueva Compra</h1>
+          <p className="text-gray-600 mt-1">Registra una nueva compra</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Client & Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Client Selection */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Proveedor</h2>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
@@ -464,7 +461,7 @@ export default function NewCompraPage() {
                 <select
                   value={selectedSupplierId || ''}
                   onChange={(e) => setSelectedSupplierId(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
                   <option value="">Seleccionar proveedor...</option>
@@ -477,9 +474,9 @@ export default function NewCompraPage() {
               </div>
 
               {selectedSupplier && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-start gap-2">
-                    <span className="text-green-600 text-xl">✓</span>
+                    <span className="text-blue-600 text-xl">✓</span>
                     <div className="flex-1">
                       <div className="font-semibold text-gray-900">{selectedSupplier.businessName}</div>
                       {selectedSupplier.contactName && (
@@ -502,13 +499,13 @@ export default function NewCompraPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha de venta *
+                    Fecha de compra *
                   </label>
                   <input
                     type="date"
                     value={purchaseDate}
                     onChange={(e) => setPurchaseDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -520,7 +517,7 @@ export default function NewCompraPage() {
                     type="date"
                     value={deliveryDate}
                     onChange={(e) => setDeliveryDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-500 mt-1">(Opcional)</p>
                 </div>
@@ -534,7 +531,7 @@ export default function NewCompraPage() {
                   <select
                     value={paymentStatus}
                     onChange={(e) => setPaymentStatus(e.target.value as 'PENDING' | 'PARTIAL' | 'PAID')}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="PENDING">Pendiente</option>
                     <option value="PARTIAL">Pago Parcial</option>
@@ -557,7 +554,7 @@ export default function NewCompraPage() {
                       value={amountPaid}
                       onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
                       disabled={paymentStatus === 'PENDING' || paymentStatus === 'PAID'}
-                      className={`w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                      className={`w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                         paymentStatus === 'PENDING' || paymentStatus === 'PAID'
                           ? 'bg-gray-100 cursor-not-allowed text-gray-500'
                           : ''
@@ -580,9 +577,9 @@ export default function NewCompraPage() {
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
-                  placeholder="Añade notas sobre esta venta..."
+                  placeholder="Añade notas sobre esta compra..."
                 />
               </div>
 
@@ -593,7 +590,7 @@ export default function NewCompraPage() {
                 <textarea
                   value={termsAndConditions}
                   onChange={(e) => setTermsAndConditions(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                   placeholder="Ej: Pago 50% anticipo, 50% contra entrega..."
                 />
@@ -601,14 +598,14 @@ export default function NewCompraPage() {
             </div>
 
             {/* Items Section */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos y Servicios</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <button
                   type="button"
                   onClick={() => setShowProductModal(true)}
-                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-md transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                   Agregar Producto
@@ -620,7 +617,7 @@ export default function NewCompraPage() {
                     setCustomUnit('pza');
                     setShowCustomItemModal(true);
                   }}
-                  className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-md transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                   Producto Personalizado
@@ -632,7 +629,7 @@ export default function NewCompraPage() {
                     setCustomUnit('servicio');
                     setShowCustomItemModal(true);
                   }}
-                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-md transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                   Servicio Personalizado
@@ -648,16 +645,16 @@ export default function NewCompraPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Descripción</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cant.</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Unidad</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">P. Unit.</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Desc. %</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">IVA %</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Subtotal</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Acción</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cant.</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unidad</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P. Unit.</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Desc. %</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IVA %</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -763,7 +760,7 @@ export default function NewCompraPage() {
 
           {/* Right Column - Summary (Sticky) */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg p-6 sticky top-6">
+            <div className="bg-white rounded-lg shadow p-6 sticky top-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen</h3>
 
               <div className="space-y-3">
@@ -784,14 +781,14 @@ export default function NewCompraPage() {
 
                 <div className="flex justify-between items-center pt-2">
                   <span className="text-gray-900 font-bold text-lg">TOTAL</span>
-                  <span className="font-bold text-green-600 text-xl">${total.toFixed(2)}</span>
+                  <span className="font-bold text-blue-600 text-xl">${total.toFixed(2)}</span>
                 </div>
 
                 {amountPaid > 0 && (
                   <>
                     <div className="flex justify-between items-center pt-2 border-t">
                       <span className="text-gray-600">Monto Pagado</span>
-                      <span className="font-semibold text-green-600">${amountPaid.toFixed(2)}</span>
+                      <span className="font-semibold text-blue-600">${amountPaid.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Saldo Pendiente</span>
@@ -801,11 +798,11 @@ export default function NewCompraPage() {
                 )}
               </div>
 
-              <div className="mt-6 space-y-2">
+              <div className="mt-6 space-y-3">
                 <button
                   onClick={() => handleSubmit('PENDING')}
                   disabled={submitting || !selectedSupplierId || items.length === 0}
-                  className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                  className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title={!selectedSupplierId ? 'Selecciona un proveedor' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
                 >
                   {submitting ? (
@@ -820,18 +817,18 @@ export default function NewCompraPage() {
                 <button
                   onClick={() => handleSubmit('CONFIRMED')}
                   disabled={submitting || !selectedSupplierId || items.length === 0}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
+                  className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
                   title={!selectedSupplierId ? 'Selecciona un proveedor' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
                 >
                   {submitting ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Generando...
+                      Guardando...
                     </>
                   ) : (
                     <>
                       <Save className="w-5 h-5" />
-                      Confirmar Venta
+                      Confirmar Compra
                     </>
                   )}
                 </button>
@@ -843,12 +840,12 @@ export default function NewCompraPage() {
         {/* Product Selection Modal */}
         {showProductModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-              <div className="p-6 border-b flex justify-between items-center">
+            <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
+              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                 <h3 className="text-xl font-semibold text-gray-900">Seleccionar Producto</h3>
                 <button
                   onClick={() => setShowProductModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -860,7 +857,7 @@ export default function NewCompraPage() {
                   placeholder="Buscar producto por nombre o SKU..."
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   autoFocus
                 />
 
@@ -869,7 +866,7 @@ export default function NewCompraPage() {
                     <button
                       key={product.id}
                       onClick={() => addProductToQuote(product)}
-                      className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors"
+                      className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
                     >
                       <div className="font-medium text-gray-900">{product.name}</div>
                       {product.sku && (
@@ -879,7 +876,7 @@ export default function NewCompraPage() {
                         <span className="text-sm text-gray-600">
                           {product.stockQuantity !== null ? `Stock: ${product.stockQuantity} ${product.unit || 'unidades'}` : 'Sin stock registrado'}
                         </span>
-                        <span className="font-semibold text-green-600">
+                        <span className="font-semibold text-blue-600">
                           ${parseFloat(product.price || '0').toFixed(2)}
                         </span>
                       </div>
@@ -900,14 +897,14 @@ export default function NewCompraPage() {
         {/* Custom Item Modal */}
         {showCustomItemModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
-              <div className="p-6 border-b flex justify-between items-center">
+            <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
+              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                 <h3 className="text-xl font-semibold text-gray-900">
                   {customItemType === 'product' ? 'Producto Personalizado' : 'Servicio Personalizado'}
                 </h3>
                 <button
                   onClick={() => setShowCustomItemModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -922,7 +919,7 @@ export default function NewCompraPage() {
                     type="text"
                     value={customDescription}
                     onChange={(e) => setCustomDescription(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Nombre del producto o servicio"
                     autoFocus
                   />
@@ -939,7 +936,7 @@ export default function NewCompraPage() {
                       step="0.01"
                       value={customQuantity}
                       onChange={(e) => setCustomQuantity(parseFloat(e.target.value) || 1)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
 
@@ -950,7 +947,7 @@ export default function NewCompraPage() {
                     <select
                       value={customUnit}
                       onChange={(e) => setCustomUnit(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="pza">Pieza</option>
                       <option value="kg">Kilogramo</option>
@@ -975,7 +972,7 @@ export default function NewCompraPage() {
                     step="0.01"
                     value={customPrice}
                     onChange={(e) => setCustomPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="0.00"
                   />
                 </div>
@@ -983,14 +980,14 @@ export default function NewCompraPage() {
                 <div className="flex gap-2 pt-4">
                   <button
                     onClick={() => setShowCustomItemModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={addCustomItemToQuote}
                     disabled={!customDescription || customPrice <= 0}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Agregar
                   </button>
