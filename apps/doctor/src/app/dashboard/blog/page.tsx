@@ -5,6 +5,7 @@ import { redirect, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FileText, Plus, Edit, Trash2, Eye, Loader2, AlertCircle, BarChart } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
@@ -53,34 +54,11 @@ export default function BlogManagementPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  const getAuthHeaders = async () => {
-    if (!session?.user?.email) {
-      throw new Error('No active session');
-    }
-
-    const authPayload = {
-      email: session.user.email,
-      role: session.user.role,
-      timestamp: Date.now(),
-    };
-
-    const token = btoa(JSON.stringify(authPayload));
-
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  };
-
   const fetchArticles = async () => {
     try {
       setLoading(true);
-      const headers = await getAuthHeaders();
 
-      const response = await fetch(`${API_URL}/api/articles`, {
-        headers,
-        credentials: 'include',
-      });
+      const response = await authFetch(`${API_URL}/api/articles`);
 
       const result = await response.json();
 
@@ -120,12 +98,8 @@ export default function BlogManagementPage() {
     }
 
     try {
-      const headers = await getAuthHeaders();
-
-      const response = await fetch(`${API_URL}/api/articles/${id}`, {
+      const response = await authFetch(`${API_URL}/api/articles/${id}`, {
         method: 'DELETE',
-        headers,
-        credentials: 'include',
       });
 
       const result = await response.json();

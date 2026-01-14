@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Send, Loader2, AlertCircle, AlertTriangle } from "luci
 import Sidebar from "@/components/layout/Sidebar";
 import RichTextEditor from "@/components/blog/RichTextEditor";
 import { isValidSlug } from "@/lib/slug-generator";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
@@ -86,43 +87,21 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const getAuthHeaders = async () => {
-    if (!session?.user?.email) {
-      throw new Error('No active session');
-    }
-
-    const authPayload = {
-      email: session.user.email,
-      role: session.user.role,
-      timestamp: Date.now(),
-    };
-
-    const token = btoa(JSON.stringify(authPayload));
-
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  };
-
   // Fetch article data
   useEffect(() => {
-    if (session && id) {
+    if (id) {
       fetchArticle();
     }
-  }, [session, id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const fetchArticle = async () => {
     if (!id) return;
 
     try {
       setLoading(true);
-      const headers = await getAuthHeaders();
 
-      const response = await fetch(`${API_URL}/api/articles/${id}`, {
-        headers,
-        credentials: 'include',
-      });
+      const response = await authFetch(`${API_URL}/api/articles/${id}`);
 
       const result = await response.json();
 
@@ -193,12 +172,8 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
     setSaving(true);
 
     try {
-      const headers = await getAuthHeaders();
-
-      const response = await fetch(`${API_URL}/api/articles/${id}`, {
+      const response = await authFetch(`${API_URL}/api/articles/${id}`, {
         method: 'PUT',
-        headers,
-        credentials: 'include',
         body: JSON.stringify({
           title: formData.title,
           slug: formData.slug,
@@ -288,7 +263,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
           {article?.status === 'PUBLISHED' && (
             <p className="text-sm text-green-600 mt-1">This article is currently published</p>
           )}
-        </div>
+          </div>
 
         {/* SEO Warning for Slug Changes */}
         {slugChanged && article?.status === 'PUBLISHED' && (
@@ -495,6 +470,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
               </button>
             </div>
           </div>
+        </div>
         </div>
       </main>
     </div>

@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Send, Loader2, AlertCircle } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import RichTextEditor from "@/components/blog/RichTextEditor";
 import { generateSlug, isValidSlug } from "@/lib/slug-generator";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
@@ -72,25 +73,6 @@ export default function NewArticlePage() {
     }
   };
 
-  const getAuthHeaders = async () => {
-    if (!session?.user?.email) {
-      throw new Error('No active session');
-    }
-
-    const authPayload = {
-      email: session.user.email,
-      role: session.user.role,
-      timestamp: Date.now(),
-    };
-
-    const token = btoa(JSON.stringify(authPayload));
-
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  };
-
   const handleSubmit = async (publishNow: boolean) => {
     // Validation
     if (!formData.title?.trim()) {
@@ -127,12 +109,8 @@ export default function NewArticlePage() {
     setLoading(true);
 
     try {
-      const headers = await getAuthHeaders();
-
-      const response = await fetch(`${API_URL}/api/articles`, {
+      const response = await authFetch(`${API_URL}/api/articles`, {
         method: 'POST',
-        headers,
-        credentials: 'include',
         body: JSON.stringify({
           title: formData.title,
           slug: formData.slug,
