@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import CreateSlotsModal from "./CreateSlotsModal";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -104,7 +105,7 @@ export default function AppointmentsPage() {
       const startDate = new Date(year, month, 1).toISOString();
       const endDate = new Date(year, month + 1, 0).toISOString();
 
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/appointments/slots?doctorId=${doctorId}&startDate=${startDate}&endDate=${endDate}`
       );
       const data = await response.json();
@@ -123,7 +124,7 @@ export default function AppointmentsPage() {
     if (!doctorId) return;
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/appointments/bookings?doctorId=${doctorId}`
       );
       const data = await response.json();
@@ -140,7 +141,7 @@ export default function AppointmentsPage() {
     if (!confirm("Are you sure you want to delete this slot?")) return;
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/appointments/slots/${slotId}`,
         { method: "DELETE" }
       );
@@ -163,11 +164,10 @@ export default function AppointmentsPage() {
     const newStatus = currentStatus === "BLOCKED" ? "AVAILABLE" : "BLOCKED";
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/appointments/slots/${slotId}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: newStatus }),
         }
       );
@@ -200,11 +200,10 @@ export default function AppointmentsPage() {
     }
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/appointments/slots/bulk`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ slotIds, action }),
         }
       );

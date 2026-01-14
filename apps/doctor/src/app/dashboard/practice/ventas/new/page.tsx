@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -121,7 +122,8 @@ export default function NewVentaPage() {
       fetchClients();
       fetchProducts();
     }
-  }, [session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const clientIdParam = searchParams.get('clientId');
@@ -151,18 +153,8 @@ export default function NewVentaPage() {
   };
 
   const fetchClients = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/clients?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar clientes');
       const result = await response.json();
@@ -175,18 +167,8 @@ export default function NewVentaPage() {
   };
 
   const fetchProducts = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/products?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/products?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar productos');
       const result = await response.json();
@@ -350,12 +332,6 @@ export default function NewVentaPage() {
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const requestBody = {
         clientId: selectedClientId,
         saleDate,
@@ -380,12 +356,8 @@ export default function NewVentaPage() {
         taxRate: 0.16
       };
 
-      const response = await fetch(`${API_URL}/api/practice-management/ventas`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/ventas`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(requestBody)
       });
 

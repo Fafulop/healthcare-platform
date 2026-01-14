@@ -28,11 +28,18 @@ export async function POST(request: Request) {
 
     // Create user if doesn't exist
     if (!user) {
-      // Define admin emails (can be moved to environment variable later)
-      const adminEmails = [
-        "lopez.fafutis@gmail.com",
-        // Add more admin emails here as needed
-      ];
+      // Get admin emails from environment variable
+      const adminEmailsEnv = process.env.ADMIN_EMAILS || '';
+      const adminEmails = adminEmailsEnv
+        .split(',')
+        .map(e => e.trim())
+        .filter(Boolean);
+
+      // Log warning if no admin emails configured
+      if (adminEmails.length === 0) {
+        console.warn('⚠️ WARNING: No admin emails configured in ADMIN_EMAILS environment variable!');
+        console.warn('⚠️ All new users will be created as DOCTOR role by default.');
+      }
 
       // Determine role based on email
       const role = adminEmails.includes(email) ? "ADMIN" : "DOCTOR";

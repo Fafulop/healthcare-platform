@@ -5,6 +5,7 @@ import { redirect, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Edit2, Loader2, ShoppingCart, Download, FileText } from "lucide-react";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -91,27 +92,18 @@ export default function ViewSalePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session?.user?.email && saleId) {
+    if (saleId) {
       fetchSale();
     }
-  }, [session, saleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saleId]);
 
   const fetchSale = async () => {
-    if (!session?.user?.email) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/ventas/${saleId}`);
 
       if (!response.ok) throw new Error('Error al cargar la venta');
 

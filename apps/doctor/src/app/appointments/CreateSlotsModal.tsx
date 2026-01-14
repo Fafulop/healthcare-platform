@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Calendar, Clock, DollarSign, Percent, Info, Loader2 } from "lucide-react";
+import { authFetch } from "@/lib/auth-fetch";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -159,9 +160,8 @@ export default function CreateSlotsModal({
         payload.daysOfWeek = daysOfWeek;
       }
 
-      const response = await fetch(`${API_URL}/api/appointments/slots`, {
+      const response = await authFetch(`${API_URL}/api/appointments/slots`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 

@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -48,7 +49,8 @@ export default function NewClientPage() {
     if (session?.user?.email && session?.user?.doctorId) {
       fetchDoctorProfile(session.user.doctorId);
     }
-  }, [session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -75,24 +77,13 @@ export default function NewClientPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.email) return;
 
     setSubmitting(true);
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/clients`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/clients`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(formData)
       });
 

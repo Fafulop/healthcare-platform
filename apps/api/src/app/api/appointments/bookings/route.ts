@@ -9,6 +9,7 @@ import {
   sendDoctorSMS,
   isSMSConfigured,
 } from '@/lib/sms';
+import { validateAuthToken } from '@/lib/auth';
 
 // Helper to generate confirmation code
 function generateConfirmationCode(): string {
@@ -181,8 +182,11 @@ export async function POST(request: Request) {
 // GET - Get bookings (filtered by doctor or email)
 export async function GET(request: Request) {
   try {
+    // Authenticate user
+    const { email, role, userId, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
+
     const { searchParams } = new URL(request.url);
-    const doctorId = searchParams.get('doctorId');
+    const requestedDoctorId = searchParams.get('doctorId');
     const patientEmail = searchParams.get('patientEmail');
     const status = searchParams.get('status');
     const startDate = searchParams.get('startDate');
@@ -190,8 +194,34 @@ export async function GET(request: Request) {
 
     const where: any = {};
 
-    if (doctorId) {
-      where.doctorId = doctorId;
+    // Authorization scoping: doctors can only see their own bookings
+    if (role === 'ADMIN') {
+      // Admins can filter by doctorId if provided, otherwise see all
+      if (requestedDoctorId) {
+        where.doctorId = requestedDoctorId;
+      }
+    } else if (role === 'DOCTOR') {
+      // Doctors can ONLY see their own bookings
+      if (!authenticatedDoctorId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Doctor profile not found for this user',
+          },
+          { status: 403 }
+        );
+      }
+
+      // Force scope to authenticated doctor's ID only
+      where.doctorId = authenticatedDoctorId;
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized - only doctors and admins can view bookings',
+        },
+        { status: 403 }
+      );
     }
 
     if (patientEmail) {
@@ -238,6 +268,24 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Error fetching bookings:', error);
+
+    // Handle authentication errors
+    if (error instanceof Error) {
+      if (
+        error.message.includes('authorization') ||
+        error.message.includes('token') ||
+        error.message.includes('authentication')
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: error.message,
+          },
+          { status: 401 }
+        );
+      }
+    }
+
     return NextResponse.json(
       {
         success: false,

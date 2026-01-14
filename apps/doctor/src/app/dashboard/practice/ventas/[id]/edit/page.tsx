@@ -5,6 +5,7 @@ import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -100,21 +101,15 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
       fetchProducts();
       fetchSale();
     }
-  }, [session, saleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saleId]);
 
   const fetchSale = async () => {
-    if (!session?.user?.email || !saleId) return;
+    if (!saleId) return;
 
     setLoadingSale(true);
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
       });
 
       if (!response.ok) throw new Error('Error al cargar venta');
@@ -155,17 +150,9 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   };
 
   const fetchClients = async () => {
-    if (!session?.user?.email) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/clients?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/clients?status=active`, {
       });
 
       if (!response.ok) throw new Error('Error al cargar clientes');
@@ -179,17 +166,9 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   };
 
   const fetchProducts = async () => {
-    if (!session?.user?.email) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/products?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/products?status=active`, {
       });
 
       if (!response.ok) throw new Error('Error al cargar productos');
@@ -338,7 +317,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   };
 
   const handleSubmit = async (saveStatus: 'PENDING' | 'CONFIRMED') => {
-    if (!session?.user?.email || !saleId) return;
+    if (!saleId) return;
 
     if (!selectedClientId) {
       alert('Debe seleccionar un cliente');
@@ -384,12 +363,8 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
         taxRate: 0.16
       };
 
-      const response = await fetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(requestBody)
       });
 

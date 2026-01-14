@@ -5,6 +5,7 @@ import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -62,10 +63,11 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
   }, [params]);
 
   useEffect(() => {
-    if (clientId && session?.user?.email) {
+    if (clientId) {
       fetchClient();
     }
-  }, [clientId, session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   const fetchClient = async () => {
     if (!session?.user?.email || !clientId) return;
@@ -74,17 +76,7 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/clients/${clientId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/clients/${clientId}`);
 
       if (!response.ok) {
         throw new Error('Error al obtener cliente');
@@ -131,18 +123,8 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/clients/${clientId}`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/clients/${clientId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(formData)
       });
 

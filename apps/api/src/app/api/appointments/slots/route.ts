@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { requireAdmin } from '@healthcare/auth';
+import { validateAuthToken } from '@/lib/auth';
 
 // Helper function to calculate final price
 function calculateFinalPrice(
@@ -148,8 +148,8 @@ export async function GET(request: Request) {
 // POST - Create appointment slots
 export async function POST(request: Request) {
   try {
-    // TODO: Add authentication check for doctor or admin
-    // For now, allow creation in development
+    // Authenticate user
+    const { email, role, userId, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
 
     const body = await request.json();
     const {
@@ -177,6 +177,37 @@ export async function POST(request: Request) {
           error: 'Missing required fields',
         },
         { status: 400 }
+      );
+    }
+
+    // Authorization: Doctors can only create slots for themselves, admins can create for anyone
+    if (role === 'DOCTOR') {
+      if (!authenticatedDoctorId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Doctor profile not found for this user',
+          },
+          { status: 403 }
+        );
+      }
+
+      if (doctorId !== authenticatedDoctorId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Unauthorized - you can only create appointment slots for yourself',
+          },
+          { status: 403 }
+        );
+      }
+    } else if (role !== 'ADMIN') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized - only doctors and admins can create appointment slots',
+        },
+        { status: 403 }
       );
     }
 
@@ -328,6 +359,24 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error('Error creating appointment slots:', error);
+
+    // Handle authentication errors
+    if (error instanceof Error) {
+      if (
+        error.message.includes('authorization') ||
+        error.message.includes('token') ||
+        error.message.includes('authentication')
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: error.message,
+          },
+          { status: 401 }
+        );
+      }
+    }
+
     return NextResponse.json(
       {
         success: false,

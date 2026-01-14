@@ -9,6 +9,7 @@ import InlineStatusSelect, { StatusOption } from "@/components/practice/InlineSt
 import Toast, { ToastType } from "@/components/ui/Toast";
 import { validateSaleTransition, SaleStatus } from "@/lib/practice/statusTransitions";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -85,26 +86,17 @@ export default function VentasPage() {
         fetchDoctorProfile(session.user.doctorId);
       }
     }
-  }, [session, statusFilter, paymentFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, paymentFilter]);
 
   const fetchSales = async () => {
-    if (!session?.user?.email) return;
-
     setLoading(true);
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (paymentFilter !== 'all') params.append('paymentStatus', paymentFilter);
 
-      const response = await fetch(`${API_URL}/api/practice-management/ventas?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/ventas?${params}`);
 
       if (!response.ok) throw new Error('Error al cargar ventas');
       const result = await response.json();
@@ -136,15 +128,8 @@ export default function VentasPage() {
     if (!confirm('¿Estás seguro de eliminar esta venta?')) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session?.user?.email,
-        role: session?.user?.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ventas/${id}`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/ventas/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (!response.ok) throw new Error('Error al eliminar venta');
@@ -180,16 +165,8 @@ export default function VentasPage() {
     setUpdatingId(saleId);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       // Fetch current sale
-      const fetchResponse = await fetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const fetchResponse = await authFetch(`${API_URL}/api/practice-management/ventas/${saleId}`);
 
       if (!fetchResponse.ok) {
         throw new Error('Error al obtener venta');
@@ -198,12 +175,8 @@ export default function VentasPage() {
       const currentData = await fetchResponse.json();
 
       // Update with new status
-      const updateResponse = await fetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
+      const updateResponse = await authFetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           ...currentData.data,
           status: newStatus

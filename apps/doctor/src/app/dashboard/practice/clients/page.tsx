@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Edit2, Trash2, Loader2, Users, Building2, ArrowLeft, FileText, ShoppingCart } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -55,7 +56,8 @@ export default function ClientsPage() {
       fetchDoctorProfile(session.user.doctorId);
     }
     fetchClients();
-  }, [session, statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -74,28 +76,16 @@ export default function ClientsPage() {
   };
 
   const fetchClients = async () => {
-    if (!session?.user?.email) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const params = new URLSearchParams();
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
       }
 
-      const response = await fetch(`${API_URL}/api/practice-management/clients?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/clients?${params}`);
 
       if (!response.ok) {
         throw new Error('Error al cargar clientes');
@@ -112,21 +102,11 @@ export default function ClientsPage() {
   };
 
   const handleDelete = async (client: Client) => {
-    if (!session?.user?.email) return;
     if (!confirm(`¿Estás seguro de que quieres eliminar "${client.businessName}"?`)) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/clients/${client.id}`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/clients/${client.id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
       });
 
       if (!response.ok) {
