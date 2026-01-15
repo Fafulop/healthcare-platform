@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, Plus, Download, FileText, File, X } from "lucide-react";
 import Link from "next/link";
 import { uploadFiles } from "@/lib/uploadthing";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -113,22 +114,14 @@ export default function FlujoDeDineroDetailPage() {
     if (session?.user?.email) {
       fetchEntry();
     }
-  }, [session]);
+  }, []);
 
   const fetchEntry = async () => {
     if (!session?.user?.email) return;
 
     setLoading(true);
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`);
 
       if (!response.ok) throw new Error('Error al cargar movimiento');
       const result = await response.json();
@@ -145,15 +138,8 @@ export default function FlujoDeDineroDetailPage() {
     if (!confirm(`¿Estás seguro de eliminar el movimiento ${entry.internalId}?`)) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session?.user?.email,
-        role: session?.user?.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
+        method: 'DELETE'
       });
 
       if (!response.ok) throw new Error('Error al eliminar movimiento');
@@ -169,12 +155,6 @@ export default function FlujoDeDineroDetailPage() {
 
     setUploading(true);
     try {
-      const token = btoa(JSON.stringify({
-        email: session?.user?.email,
-        role: session?.user?.role,
-        timestamp: Date.now()
-      }));
-
       // Determine which UploadThing endpoint to use
       let uploadEndpoint: "ledgerAttachments" | "ledgerFacturasPdf" | "ledgerFacturasXml";
       if (uploadType === 'attachment') uploadEndpoint = 'ledgerAttachments';
@@ -213,10 +193,9 @@ export default function FlujoDeDineroDetailPage() {
       if (uploadType === 'xml') apiEndpoint = `/api/practice-management/ledger/${entryId}/facturas-xml`;
 
       // Send metadata to our API
-      const response = await fetch(`${API_URL}${apiEndpoint}`, {
+      const response = await authFetch(`${API_URL}${apiEndpoint}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(metadata)

@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package } from "lucide-react";
 import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -72,7 +73,8 @@ export default function NewProductPage() {
       fetchDoctorProfile(session.user.doctorId);
     }
     fetchAvailableValues();
-  }, [session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -91,18 +93,8 @@ export default function NewProductPage() {
   };
 
   const fetchAvailableValues = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/product-attributes`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/product-attributes`);
 
       if (!response.ok) throw new Error('Failed to fetch master data');
 
@@ -175,30 +167,19 @@ export default function NewProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.email) return;
 
     setSubmitting(true);
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       // Create product
       const productData = {
         ...formData,
         cost: calculateTotalCost().toString() // Set calculated cost
       };
 
-      const productResponse = await fetch(`${API_URL}/api/practice-management/products`, {
+      const productResponse = await authFetch(`${API_URL}/api/practice-management/products`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(productData)
       });
 
@@ -212,12 +193,8 @@ export default function NewProductPage() {
 
       // Add components
       for (const component of components) {
-        await fetch(`${API_URL}/api/practice-management/products/${productId}/components`, {
+        await authFetch(`${API_URL}/api/practice-management/products/${productId}/components`, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
           body: JSON.stringify({
             attributeValueId: component.attributeValueId,
             quantity: component.quantity

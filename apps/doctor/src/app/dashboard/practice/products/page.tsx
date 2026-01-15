@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Edit2, Trash2, Loader2, Package, DollarSign } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -49,7 +50,8 @@ export default function ProductsPage() {
       fetchDoctorProfile(session.user.doctorId);
     }
     fetchProducts();
-  }, [session, statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -68,26 +70,16 @@ export default function ProductsPage() {
   };
 
   const fetchProducts = async () => {
-    if (!session?.user?.email) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const params = new URLSearchParams();
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
       }
 
-      const response = await fetch(`${API_URL}/api/practice-management/products?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/products?${params}`);
 
       if (!response.ok) throw new Error('Failed to fetch products');
 
@@ -102,19 +94,11 @@ export default function ProductsPage() {
   };
 
   const handleDelete = async (product: Product) => {
-    if (!session?.user?.email) return;
-    if (!confirm(`Delete "${product.businessName}"?`)) return;
+    if (!confirm(`Delete "${product.name}"?`)) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/products/${product.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/products/${product.id}`, {
+        method: 'DELETE'
       });
 
       if (!response.ok) throw new Error('Failed to delete product');

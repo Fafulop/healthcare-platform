@@ -9,6 +9,7 @@ import InlineStatusSelect, { StatusOption } from "@/components/practice/InlineSt
 import Toast, { ToastType } from "@/components/ui/Toast";
 import { validateQuotationTransition, QuotationStatus } from "@/lib/practice/statusTransitions";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -78,7 +79,8 @@ export default function CotizacionesPage() {
       fetchDoctorProfile(session.user.doctorId);
     }
     fetchQuotations();
-  }, [session, statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -97,26 +99,16 @@ export default function CotizacionesPage() {
   };
 
   const fetchQuotations = async () => {
-    if (!session?.user?.email) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const params = new URLSearchParams();
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
       }
 
-      const response = await fetch(`${API_URL}/api/practice-management/cotizaciones?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/cotizaciones?${params}`);
 
       if (!response.ok) throw new Error('Error al obtener cotizaciones');
 
@@ -131,19 +123,11 @@ export default function CotizacionesPage() {
   };
 
   const handleDelete = async (quotation: Quotation) => {
-    if (!session?.user?.email) return;
     if (!confirm(`¿Eliminar la cotización "${quotation.quotationNumber}"?`)) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/cotizaciones/${quotation.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotation.id}`, {
+        method: 'DELETE'
       });
 
       if (!response.ok) throw new Error('Error al eliminar cotización');
@@ -155,20 +139,12 @@ export default function CotizacionesPage() {
   };
 
   const handleConvertToSale = async (quotation: Quotation) => {
-    if (!session?.user?.email) return;
     if (!confirm(`¿Convertir la cotización "${quotation.quotationNumber}" en una venta?`)) return;
 
     setLoading(true);
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ventas/from-quotation/${quotation.id}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/ventas/from-quotation/${quotation.id}`, {
+        method: 'POST'
       });
 
       if (!response.ok) throw new Error('Error al convertir cotización a venta');
@@ -186,8 +162,6 @@ export default function CotizacionesPage() {
   };
 
   const handleQuotationStatusChange = async (quotationId: number, oldStatus: string, newStatus: string) => {
-    if (!session?.user?.email) return;
-
     // Validate transition
     const validation = validateQuotationTransition(oldStatus as QuotationStatus, newStatus as QuotationStatus);
 
@@ -210,16 +184,8 @@ export default function CotizacionesPage() {
     setUpdatingId(quotationId);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       // Fetch current quotation
-      const fetchResponse = await fetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const fetchResponse = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`);
 
       if (!fetchResponse.ok) {
         throw new Error('Error al obtener cotización');
@@ -228,12 +194,8 @@ export default function CotizacionesPage() {
       const currentData = await fetchResponse.json();
 
       // Update with new status
-      const updateResponse = await fetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
+      const updateResponse = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           ...currentData.data,
           status: newStatus

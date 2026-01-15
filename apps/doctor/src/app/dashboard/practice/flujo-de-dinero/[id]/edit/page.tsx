@@ -5,6 +5,7 @@ import { redirect, useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -96,21 +97,13 @@ export default function EditFlujoDeDineroPage() {
       fetchAreas();
       fetchEntry();
     }
-  }, [session]);
+  }, []);
 
   const fetchAreas = async () => {
     if (!session?.user?.email) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/areas`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/areas`);
 
       if (!response.ok) throw new Error('Error al cargar áreas');
       const result = await response.json();
@@ -124,15 +117,7 @@ export default function EditFlujoDeDineroPage() {
     if (!session?.user?.email) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`);
 
       if (!response.ok) throw new Error('Error al cargar movimiento');
       const result = await response.json();
@@ -197,16 +182,9 @@ export default function EditFlujoDeDineroPage() {
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

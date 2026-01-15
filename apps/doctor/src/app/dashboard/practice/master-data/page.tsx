@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Edit2, Trash2, Loader2, Database, ChevronDown, ChevronRight, ArrowLeft, DollarSign } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -69,7 +70,7 @@ export default function MasterDataPage() {
       fetchDoctorProfile(session.user.doctorId);
     }
     fetchAttributes();
-  }, [session]);
+  }, []);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -91,15 +92,7 @@ export default function MasterDataPage() {
     if (!session?.user?.email) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/product-attributes`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/product-attributes`);
 
       if (!response.ok) throw new Error('Failed to fetch attributes');
 
@@ -165,20 +158,13 @@ export default function MasterDataPage() {
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const url = editingAttribute
         ? `${API_URL}/api/practice-management/product-attributes/${editingAttribute.id}`
         : `${API_URL}/api/practice-management/product-attributes`;
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: editingAttribute ? 'PUT' : 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -209,20 +195,13 @@ export default function MasterDataPage() {
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const url = editingValue
         ? `${API_URL}/api/practice-management/product-attributes/${selectedAttributeForValue.id}/values/${editingValue.value.id}`
         : `${API_URL}/api/practice-management/product-attributes/${selectedAttributeForValue.id}/values`;
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: editingValue ? 'PUT' : 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -253,15 +232,8 @@ export default function MasterDataPage() {
     if (!confirm(`Delete "${attribute.name}"? This will delete all its values.`)) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/product-attributes/${attribute.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/product-attributes/${attribute.id}`, {
+        method: 'DELETE'
       });
 
       if (!response.ok) throw new Error('Failed to delete attribute');
@@ -277,17 +249,10 @@ export default function MasterDataPage() {
     if (!confirm(`Delete "${value.value}"?`)) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/practice-management/product-attributes/${attribute.id}/values/${value.id}`,
         {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+          method: 'DELETE'
         }
       );
 

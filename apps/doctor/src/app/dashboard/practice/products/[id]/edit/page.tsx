@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, Edit2 } from "lucide-react";
 import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -89,14 +90,13 @@ export default function EditProductPage() {
   const [editingQuantity, setEditingQuantity] = useState("");
 
   useEffect(() => {
-    if (session?.user?.email) {
-      if (session?.user?.doctorId) {
-        fetchDoctorProfile(session.user.doctorId);
-      }
-      fetchProduct();
-      fetchAvailableValues();
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
     }
-  }, [session, productId]);
+    fetchProduct();
+    fetchAvailableValues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId]);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -115,18 +115,8 @@ export default function EditProductPage() {
   };
 
   const fetchProduct = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/products/${productId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/products/${productId}`);
 
       if (!response.ok) throw new Error('Failed to fetch product');
 
@@ -165,18 +155,8 @@ export default function EditProductPage() {
   };
 
   const fetchAvailableValues = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/product-attributes`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/product-attributes`);
 
       if (!response.ok) throw new Error('Failed to fetch master data');
 
@@ -288,30 +268,19 @@ export default function EditProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.email) return;
 
     setSubmitting(true);
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       // Update product
       const productData = {
         ...formData,
         cost: calculateTotalCost().toString()
       };
 
-      const productResponse = await fetch(`${API_URL}/api/practice-management/products/${productId}`, {
+      const productResponse = await authFetch(`${API_URL}/api/practice-management/products/${productId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(productData)
       });
 
@@ -324,18 +293,13 @@ export default function EditProductPage() {
       for (const component of components) {
         if (component.isDeleted && component.id) {
           // Delete component
-          await fetch(`${API_URL}/api/practice-management/products/${productId}/components/${component.id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+          await authFetch(`${API_URL}/api/practice-management/products/${productId}/components/${component.id}`, {
+            method: 'DELETE'
           });
         } else if (component.isNew) {
           // Add new component
-          await fetch(`${API_URL}/api/practice-management/products/${productId}/components`, {
+          await authFetch(`${API_URL}/api/practice-management/products/${productId}/components`, {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
               attributeValueId: component.attributeValueId,
               quantity: component.quantity
@@ -345,12 +309,8 @@ export default function EditProductPage() {
           // Update existing component if quantity changed
           const originalComp = product?.components.find((c: any) => c.id === component.id);
           if (originalComp && parseFloat(originalComp.quantity) !== component.quantity) {
-            await fetch(`${API_URL}/api/practice-management/products/${productId}/components/${component.id}`, {
+            await authFetch(`${API_URL}/api/practice-management/products/${productId}/components/${component.id}`, {
               method: 'PUT',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              },
               body: JSON.stringify({
                 quantity: component.quantity
               })

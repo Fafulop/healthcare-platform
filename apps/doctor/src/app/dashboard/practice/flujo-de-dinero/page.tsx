@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -124,7 +125,7 @@ export default function FlujoDeDineroPage() {
       fetchBalance();
       fetchAreas();
     }
-  }, [session, entryTypeFilter, porRealizarFilter, startDate, endDate]);
+  }, [entryTypeFilter, porRealizarFilter, startDate, endDate]);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -146,15 +147,7 @@ export default function FlujoDeDineroPage() {
     if (!session?.user?.email) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ledger/balance`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger/balance`);
 
       if (!response.ok) throw new Error('Error al cargar balance');
       const result = await response.json();
@@ -169,12 +162,6 @@ export default function FlujoDeDineroPage() {
 
     setLoading(true);
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const params = new URLSearchParams();
       if (entryTypeFilter !== 'all') params.append('entryType', entryTypeFilter);
       if (porRealizarFilter !== 'all') params.append('porRealizar', porRealizarFilter);
@@ -182,9 +169,7 @@ export default function FlujoDeDineroPage() {
       if (endDate) params.append('endDate', endDate);
       if (searchTerm) params.append('search', searchTerm);
 
-      const response = await fetch(`${API_URL}/api/practice-management/ledger?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger?${params}`);
 
       if (!response.ok) throw new Error('Error al cargar movimientos');
       const result = await response.json();
@@ -200,15 +185,7 @@ export default function FlujoDeDineroPage() {
     if (!session?.user?.email) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/areas`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/areas`);
 
       if (!response.ok) throw new Error('Error al cargar áreas');
       const result = await response.json();
@@ -222,15 +199,8 @@ export default function FlujoDeDineroPage() {
     if (!confirm(`¿Estás seguro de eliminar el movimiento ${internalId}?`)) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session?.user?.email,
-        role: session?.user?.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ledger/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${id}`, {
+        method: 'DELETE'
       });
 
       // Try to parse response
@@ -316,16 +286,9 @@ export default function FlujoDeDineroPage() {
     setUpdatingArea(true);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

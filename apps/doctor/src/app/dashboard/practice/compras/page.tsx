@@ -9,6 +9,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import InlineStatusSelect, { StatusOption } from "@/components/practice/InlineStatusSelect";
 import Toast, { ToastType } from "@/components/ui/Toast";
 import { validatePurchaseTransition, PurchaseStatus } from "@/lib/practice/statusTransitions";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -73,32 +74,21 @@ export default function ComprasPage() {
   const [toastMessage, setToastMessage] = useState<{ message: string; type: ToastType } | null>(null);
 
   useEffect(() => {
-    if (session?.user?.email) {
-      fetchPurchases();
-      if (session.user?.doctorId) {
-        fetchDoctorProfile(session.user.doctorId);
-      }
+    fetchPurchases();
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
     }
-  }, [session, statusFilter, paymentFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, paymentFilter]);
 
   const fetchPurchases = async () => {
-    if (!session?.user?.email) return;
-
     setLoading(true);
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (paymentFilter !== 'all') params.append('paymentStatus', paymentFilter);
 
-      const response = await fetch(`${API_URL}/api/practice-management/compras?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/compras?${params}`);
 
       if (!response.ok) throw new Error('Error al cargar compras');
       const result = await response.json();
@@ -130,15 +120,8 @@ export default function ComprasPage() {
     if (!confirm('¿Estás seguro de eliminar esta compra?')) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session?.user?.email,
-        role: session?.user?.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/compras/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/compras/${id}`, {
+        method: 'DELETE'
       });
 
       if (!response.ok) throw new Error('Error al eliminar compra');
@@ -150,8 +133,6 @@ export default function ComprasPage() {
   };
 
   const handlePurchaseStatusChange = async (purchaseId: number, oldStatus: string, newStatus: string) => {
-    if (!session?.user?.email) return;
-
     // Validate transition
     const validation = validatePurchaseTransition(oldStatus as PurchaseStatus, newStatus as PurchaseStatus);
 
@@ -174,16 +155,8 @@ export default function ComprasPage() {
     setUpdatingId(purchaseId);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       // Fetch current purchase
-      const fetchResponse = await fetch(`${API_URL}/api/practice-management/compras/${purchaseId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const fetchResponse = await authFetch(`${API_URL}/api/practice-management/compras/${purchaseId}`);
 
       if (!fetchResponse.ok) {
         throw new Error('Error al obtener compra');
@@ -192,12 +165,8 @@ export default function ComprasPage() {
       const currentData = await fetchResponse.json();
 
       // Update with new status
-      const updateResponse = await fetch(`${API_URL}/api/practice-management/compras/${purchaseId}`, {
+      const updateResponse = await authFetch(`${API_URL}/api/practice-management/compras/${purchaseId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           ...currentData.data,
           status: newStatus

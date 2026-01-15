@@ -5,6 +5,7 @@ import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, FileText, X } from "lucide-react";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -93,27 +94,20 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
   }, [params]);
 
   useEffect(() => {
-    if (session?.user?.email && quotationId) {
+    if (quotationId) {
       fetchClients();
       fetchProducts();
       fetchQuotation();
     }
-  }, [session, quotationId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotationId]);
 
   const fetchQuotation = async () => {
-    if (!session?.user?.email || !quotationId) return;
+    if (!quotationId) return;
 
     setLoadingQuotation(true);
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`);
 
       if (!response.ok) throw new Error('Error al cargar cotización');
       const result = await response.json();
@@ -151,18 +145,8 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
   };
 
   const fetchClients = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/clients?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar clientes');
       const result = await response.json();
@@ -175,18 +159,8 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
   };
 
   const fetchProducts = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/products?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/products?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar productos');
       const result = await response.json();
@@ -335,7 +309,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
   };
 
   const handleSubmit = async (saveStatus: 'DRAFT' | 'SENT') => {
-    if (!session?.user?.email || !quotationId) return;
+    if (!quotationId) return;
 
     if (!selectedClientId) {
       alert('Debe seleccionar un cliente');
@@ -351,12 +325,6 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const requestBody = {
         clientId: selectedClientId,
         issueDate,
@@ -379,12 +347,8 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
         taxRate: 0.16
       };
 
-      const response = await fetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(requestBody)
       });
 

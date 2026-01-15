@@ -5,6 +5,7 @@ import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X } from "lucide-react";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -95,27 +96,20 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
   }, [params]);
 
   useEffect(() => {
-    if (session?.user?.email && purchaseId) {
+    if (purchaseId) {
       fetchSuppliers();
       fetchProducts();
       fetchPurchase();
     }
-  }, [session, purchaseId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseId]);
 
   const fetchPurchase = async () => {
-    if (!session?.user?.email || !purchaseId) return;
+    if (!purchaseId) return;
 
     setLoadingSale(true);
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/compras/${purchaseId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/compras/${purchaseId}`);
 
       if (!response.ok) throw new Error('Error al cargar venta');
       const result = await response.json();
@@ -155,18 +149,8 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
   };
 
   const fetchSuppliers = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/proveedores?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/proveedores?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar proveedores');
       const result = await response.json();
@@ -179,18 +163,8 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
   };
 
   const fetchProducts = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/products?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/products?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar productos');
       const result = await response.json();
@@ -338,7 +312,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
   };
 
   const handleSubmit = async (saveStatus: 'PENDING' | 'CONFIRMED') => {
-    if (!session?.user?.email || !purchaseId) return;
+    if (!purchaseId) return;
 
     if (!selectedSupplierId) {
       alert('Debe seleccionar un proveedor');
@@ -354,12 +328,6 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const requestBody = {
         supplierId: selectedSupplierId,
         purchaseDate,
@@ -384,12 +352,8 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
         taxRate: 0.16
       };
 
-      const response = await fetch(`${API_URL}/api/practice-management/compras/${purchaseId}`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/compras/${purchaseId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(requestBody)
       });
 

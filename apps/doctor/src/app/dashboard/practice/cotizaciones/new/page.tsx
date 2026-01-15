@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, FileText, X } from "lucide-react";
 import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -92,14 +93,13 @@ export default function NewCotizacionPage() {
   const [customPrice, setCustomPrice] = useState(0);
 
   useEffect(() => {
-    if (session?.user?.email) {
-      if (session?.user?.doctorId) {
-        fetchDoctorProfile(session.user.doctorId);
-      }
-      fetchClients();
-      fetchProducts();
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
     }
-  }, [session]);
+    fetchClients();
+    fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -138,18 +138,8 @@ export default function NewCotizacionPage() {
   }, [issueDate]);
 
   const fetchClients = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/clients?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar clientes');
       const result = await response.json();
@@ -162,18 +152,8 @@ export default function NewCotizacionPage() {
   };
 
   const fetchProducts = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/products?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/products?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar productos');
       const result = await response.json();
@@ -322,8 +302,6 @@ export default function NewCotizacionPage() {
   };
 
   const handleSubmit = async (saveStatus: 'DRAFT' | 'SENT') => {
-    if (!session?.user?.email) return;
-
     if (!selectedClientId) {
       alert('Debe seleccionar un cliente');
       return;
@@ -338,12 +316,6 @@ export default function NewCotizacionPage() {
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const requestBody = {
         clientId: selectedClientId,
         issueDate,
@@ -366,12 +338,8 @@ export default function NewCotizacionPage() {
         taxRate: 0.16 // Keep a default for backward compatibility
       };
 
-      const response = await fetch(`${API_URL}/api/practice-management/cotizaciones`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/cotizaciones`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(requestBody)
       });
 

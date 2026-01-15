@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -63,7 +64,7 @@ export default function AreasPage() {
       fetchDoctorProfile(session.user.doctorId);
     }
     fetchAreas();
-  }, [session]);
+  }, []);
 
   const fetchDoctorProfile = async (doctorId: string) => {
     try {
@@ -85,18 +86,7 @@ export default function AreasPage() {
     if (!session?.user?.email) return;
 
     try {
-      // Generate auth token
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/areas`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/areas`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch areas');
@@ -162,12 +152,6 @@ export default function AreasPage() {
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const url = editingArea
         ? `${API_URL}/api/practice-management/areas/${editingArea.id}`
         : `${API_URL}/api/practice-management/areas`;
@@ -180,10 +164,9 @@ export default function AreasPage() {
 
       console.log('Saving area with payload:', payload);
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: editingArea ? 'PUT' : 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
@@ -214,20 +197,13 @@ export default function AreasPage() {
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const url = editingSubarea
         ? `${API_URL}/api/practice-management/areas/${selectedAreaForSubarea.id}/subareas/${editingSubarea.subarea.id}`
         : `${API_URL}/api/practice-management/areas/${selectedAreaForSubarea.id}/subareas`;
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: editingSubarea ? 'PUT' : 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -257,17 +233,8 @@ export default function AreasPage() {
     if (!confirm(`Are you sure you want to delete "${area.name}"? This will also delete all subareas.`)) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/areas/${area.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await authFetch(`${API_URL}/api/practice-management/areas/${area.id}`, {
+        method: 'DELETE'
       });
 
       if (!response.ok) {
@@ -286,19 +253,10 @@ export default function AreasPage() {
     if (!confirm(`Are you sure you want to delete "${subarea.name}"?`)) return;
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/practice-management/areas/${area.id}/subareas/${subarea.id}`,
         {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          method: 'DELETE'
         }
       );
 

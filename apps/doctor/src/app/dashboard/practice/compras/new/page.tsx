@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -114,14 +115,13 @@ export default function NewCompraPage() {
   const [customPrice, setCustomPrice] = useState(0);
 
   useEffect(() => {
-    if (session?.user?.email) {
-      if (session.user?.doctorId) {
-        fetchDoctorProfile(session.user.doctorId);
-      }
-      fetchSuppliers();
-      fetchProducts();
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
     }
-  }, [session]);
+    fetchSuppliers();
+    fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const supplierIdParam = searchParams.get('supplierId');
@@ -151,18 +151,8 @@ export default function NewCompraPage() {
   };
 
   const fetchSuppliers = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/proveedores?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/proveedores?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar proveedores');
       const result = await response.json();
@@ -175,18 +165,8 @@ export default function NewCompraPage() {
   };
 
   const fetchProducts = async () => {
-    if (!session?.user?.email) return;
-
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/products?status=active`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/products?status=active`);
 
       if (!response.ok) throw new Error('Error al cargar productos');
       const result = await response.json();
@@ -334,8 +314,6 @@ export default function NewCompraPage() {
   };
 
   const handleSubmit = async (saveStatus: 'PENDING' | 'CONFIRMED') => {
-    if (!session?.user?.email) return;
-
     if (!selectedSupplierId) {
       alert('Debe seleccionar un proveedor');
       return;
@@ -350,12 +328,6 @@ export default function NewCompraPage() {
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
       const requestBody = {
         supplierId: selectedSupplierId,
         purchaseDate,
@@ -380,12 +352,8 @@ export default function NewCompraPage() {
         taxRate: 0.16
       };
 
-      const response = await fetch(`${API_URL}/api/practice-management/compras`, {
+      const response = await authFetch(`${API_URL}/api/practice-management/compras`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(requestBody)
       });
 

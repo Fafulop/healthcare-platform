@@ -5,6 +5,7 @@ import { redirect, useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Edit2, Trash2, Loader2, FileText, Download, ShoppingCart } from "lucide-react";
+import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -78,27 +79,18 @@ export default function ViewQuotationPage() {
   const [converting, setConverting] = useState(false);
 
   useEffect(() => {
-    if (session?.user?.email && quotationId) {
+    if (quotationId) {
       fetchQuotation();
     }
-  }, [session, quotationId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotationId]);
 
   const fetchQuotation = async () => {
-    if (!session?.user?.email) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`);
 
       if (!response.ok) throw new Error('Error al cargar la cotización');
 
@@ -129,22 +121,15 @@ export default function ViewQuotationPage() {
   };
 
   const handleConvertToSale = async () => {
-    if (!session?.user?.email || !quotation) return;
+    if (!quotation) return;
 
     if (!confirm(`¿Convertir la cotización ${quotation.quotationNumber} en una venta?`)) return;
 
     setConverting(true);
 
     try {
-      const token = btoa(JSON.stringify({
-        email: session.user.email,
-        role: session.user.role,
-        timestamp: Date.now()
-      }));
-
-      const response = await fetch(`${API_URL}/api/practice-management/ventas/from-quotation/${quotation.id}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`${API_URL}/api/practice-management/ventas/from-quotation/${quotation.id}`, {
+        method: 'POST'
       });
 
       if (!response.ok) throw new Error('Error al convertir cotización');
