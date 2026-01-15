@@ -6,8 +6,16 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  doctorFullName: string;
+  primarySpecialty: string;
+}
 
 interface Supplier {
   id: number;
@@ -55,6 +63,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
 
   // Data loading
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -96,6 +105,9 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
   }, [params]);
 
   useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
     if (purchaseId) {
       fetchSuppliers();
       fetchProducts();
@@ -103,6 +115,22 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [purchaseId]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchPurchase = async () => {
     if (!purchaseId) return;
@@ -383,17 +411,23 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
 
   if (status === "loading" || loadingSuppliers || loadingProducts || loadingPurchase) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Cargando...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href={`/dashboard/practice/compras/${purchaseId}`}
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -401,8 +435,8 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
             <ArrowLeft className="w-4 h-4" />
             Volver a la Venta
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Package className="w-8 h-8 text-green-600" />
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <Package className="w-8 h-8 text-blue-600" />
             Editar Compra
           </h1>
           <p className="text-gray-600 mt-2">Modifica la información de la venta</p>
@@ -412,7 +446,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
           {/* Left Column - Client & Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Client Selection */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Proveedor</h2>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
@@ -427,7 +461,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                 <select
                   value={selectedSupplierId || ''}
                   onChange={(e) => setSelectedSupplierId(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
                   <option value="">Seleccionar proveedor...</option>
@@ -440,9 +474,9 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
               </div>
 
               {selectedSupplier && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-start gap-2">
-                    <span className="text-green-600 text-xl">✓</span>
+                    <span className="text-blue-600 text-xl">✓</span>
                     <div className="flex-1">
                       <div className="font-semibold text-gray-900">{selectedSupplier.businessName}</div>
                       {selectedSupplier.contactName && (
@@ -471,7 +505,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                     type="date"
                     value={purchaseDate}
                     onChange={(e) => setPurchaseDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -483,7 +517,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                     type="date"
                     value={deliveryDate}
                     onChange={(e) => setDeliveryDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-500 mt-1">(Opcional)</p>
                 </div>
@@ -497,7 +531,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                   <select
                     value={paymentStatus}
                     onChange={(e) => setPaymentStatus(e.target.value as 'PENDING' | 'PARTIAL' | 'PAID')}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="PENDING">Pendiente</option>
                     <option value="PARTIAL">Pago Parcial</option>
@@ -514,7 +548,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                     step="0.01"
                     value={amountPaid}
                     onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -526,7 +560,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                   placeholder="Añade notas sobre esta venta..."
                 />
@@ -539,7 +573,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                 <textarea
                   value={termsAndConditions}
                   onChange={(e) => setTermsAndConditions(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                   placeholder="Ej: Garantía de 30 días, devoluciones aceptadas..."
                 />
@@ -547,14 +581,14 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
             </div>
 
             {/* Items Section */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos y Servicios</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <button
                   type="button"
                   onClick={() => setShowProductModal(true)}
-                  className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                   Agregar Producto
@@ -709,7 +743,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
 
           {/* Right Column - Summary (Sticky) */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+            <div className="bg-white rounded-lg shadow p-6 sticky top-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen</h3>
 
               <div className="space-y-3">
@@ -730,18 +764,18 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
 
                 <div className="flex justify-between items-center pt-2 pb-3 border-b">
                   <span className="text-gray-900 font-bold text-lg">TOTAL</span>
-                  <span className="font-bold text-green-600 text-xl">${total.toFixed(2)}</span>
+                  <span className="font-bold text-blue-600 text-xl">${total.toFixed(2)}</span>
                 </div>
 
                 {amountPaid > 0 && (
                   <>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Pagado</span>
-                      <span className="font-semibold text-green-600">${amountPaid.toFixed(2)}</span>
+                      <span className="font-semibold text-blue-600">${amountPaid.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center pt-2">
                       <span className="text-gray-900 font-bold">Saldo</span>
-                      <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-blue-600'}`}>
                         ${balance.toFixed(2)}
                       </span>
                     </div>
@@ -768,7 +802,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                 <button
                   onClick={() => handleSubmit('CONFIRMED')}
                   disabled={submitting || !selectedSupplierId || items.length === 0}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
                   title={!selectedSupplierId ? 'Selecciona un proveedor' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
                 >
                   {submitting ? (
@@ -791,7 +825,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
         {/* Product Selection Modal - Same as cotizaciones */}
         {showProductModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
               <div className="p-6 border-b flex justify-between items-center">
                 <h3 className="text-xl font-bold text-gray-900">Seleccionar Producto</h3>
                 <button
@@ -811,7 +845,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                   placeholder="Buscar producto..."
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
               </div>
@@ -827,7 +861,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                       <div
                         key={product.id}
                         onClick={() => addProductToQuote(product)}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-green-50 hover:border-green-500 cursor-pointer transition-all"
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 hover:border-blue-500 cursor-pointer transition-all"
                       >
                         <div className="font-semibold text-gray-900">{product.name}</div>
                         {product.sku && (
@@ -837,7 +871,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                           <div className="text-sm text-gray-600 mt-1">{product.description}</div>
                         )}
                         <div className="flex items-center justify-between mt-2">
-                          <span className="text-lg font-bold text-green-600">
+                          <span className="text-lg font-bold text-blue-600">
                             ${parseFloat(product.price || '0').toFixed(2)} {product.unit && `/ ${product.unit}`}
                           </span>
                           {product.stockQuantity !== null && (
@@ -858,7 +892,7 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
         {/* Custom Item Modal - Same as cotizaciones */}
         {showCustomItemModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
               <div className={`p-6 border-b flex justify-between items-center ${
                 customItemType === 'product' ? 'bg-purple-50' : 'bg-blue-50'
               }`}>
@@ -982,7 +1016,8 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

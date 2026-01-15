@@ -210,9 +210,9 @@ export default function CreateSlotsModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8">
+      <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full my-8">
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+        <div className="bg-blue-600 px-6 py-4 rounded-t-lg flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             <Calendar className="w-6 h-6" />
             Create Appointment Slots
@@ -237,7 +237,7 @@ export default function CreateSlotsModal({
                 onClick={() => setMode("single")}
                 className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
                   mode === "single"
-                    ? "bg-green-100 text-green-700 border-2 border-green-500"
+                    ? "bg-blue-100 text-blue-700 border-2 border-blue-500"
                     : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200"
                 }`}
               >
@@ -248,7 +248,7 @@ export default function CreateSlotsModal({
                 onClick={() => setMode("recurring")}
                 className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
                   mode === "recurring"
-                    ? "bg-green-100 text-green-700 border-2 border-green-500"
+                    ? "bg-blue-100 text-blue-700 border-2 border-blue-500"
                     : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200"
                 }`}
               >
@@ -269,7 +269,7 @@ export default function CreateSlotsModal({
                   value={singleDate}
                   onChange={(e) => setSingleDate(e.target.value)}
                   min={new Date().toISOString().split("T")[0]}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -285,7 +285,7 @@ export default function CreateSlotsModal({
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       min={new Date().toISOString().split("T")[0]}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
                   </div>
@@ -298,7 +298,7 @@ export default function CreateSlotsModal({
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       min={startDate || new Date().toISOString().split("T")[0]}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
                   </div>
@@ -316,7 +316,7 @@ export default function CreateSlotsModal({
                         onClick={() => toggleDay(index)}
                         className={`px-4 py-2 rounded-lg font-medium transition-all ${
                           daysOfWeek.includes(index)
-                            ? "bg-green-600 text-white"
+                            ? "bg-blue-600 text-white"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                       >
@@ -345,7 +345,7 @@ export default function CreateSlotsModal({
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -357,7 +357,7 @@ export default function CreateSlotsModal({
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -373,7 +373,7 @@ export default function CreateSlotsModal({
                   onClick={() => setDuration(30)}
                   className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
                     duration === 30
-                      ? "bg-green-600 text-white"
+                      ? "bg-blue-600 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -384,7 +384,7 @@ export default function CreateSlotsModal({
                   onClick={() => setDuration(60)}
                   className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
                     duration === 60
-                      ? "bg-green-600 text-white"
+                      ? "bg-blue-600 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -400,7 +400,7 @@ export default function CreateSlotsModal({
                   type="checkbox"
                   checked={hasBreak}
                   onChange={(e) => setHasBreak(e.target.checked)}
-                  className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm font-medium text-gray-700">
                   Add break time (optional)
@@ -417,7 +417,7 @@ export default function CreateSlotsModal({
                       type="time"
                       value={breakStart}
                       onChange={(e) => setBreakStart(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -428,7 +428,7 @@ export default function CreateSlotsModal({
                       type="time"
                       value={breakEnd}
                       onChange={(e) => setBreakEnd(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -454,7 +454,7 @@ export default function CreateSlotsModal({
                 min="0"
                 step="0.01"
                 placeholder="50.00"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
             </div>
@@ -465,7 +465,7 @@ export default function CreateSlotsModal({
                   type="checkbox"
                   checked={hasDiscount}
                   onChange={(e) => setHasDiscount(e.target.checked)}
-                  className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm font-medium text-gray-700">
                   Add discount (optional)
@@ -480,7 +480,7 @@ export default function CreateSlotsModal({
                       onClick={() => setDiscountType("PERCENTAGE")}
                       className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${
                         discountType === "PERCENTAGE"
-                          ? "bg-green-600 text-white"
+                          ? "bg-blue-600 text-white"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
@@ -492,7 +492,7 @@ export default function CreateSlotsModal({
                       onClick={() => setDiscountType("FIXED")}
                       className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${
                         discountType === "FIXED"
-                          ? "bg-green-600 text-white"
+                          ? "bg-blue-600 text-white"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
@@ -513,7 +513,7 @@ export default function CreateSlotsModal({
                       max={discountType === "PERCENTAGE" ? "100" : undefined}
                       step={discountType === "PERCENTAGE" ? "1" : "0.01"}
                       placeholder={discountType === "PERCENTAGE" ? "10" : "5.00"}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
 
@@ -522,7 +522,7 @@ export default function CreateSlotsModal({
                       <p className="text-sm text-green-800">
                         <strong>Final Price:</strong> ${finalPrice.toFixed(2)}
                         {discountType === "PERCENTAGE" && discount && (
-                          <span className="ml-2 text-green-600">
+                          <span className="ml-2 text-blue-600">
                             ({discount}% off)
                           </span>
                         )}
@@ -565,7 +565,7 @@ export default function CreateSlotsModal({
             <button
               type="submit"
               disabled={isSubmitting || previewSlots === 0}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>

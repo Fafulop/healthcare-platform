@@ -6,8 +6,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Edit2, Loader2, ShoppingCart, Download, FileText } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+
+interface DoctorProfile {
+  id: string;
+  slug: string;
+  doctorFullName: string;
+  primarySpecialty: string;
+}
 
 interface Client {
   id: number;
@@ -90,6 +98,13 @@ export default function ViewSalePage() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
+
+  useEffect(() => {
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
+  }, [session]);
 
   useEffect(() => {
     if (saleId) {
@@ -97,6 +112,22 @@ export default function ViewSalePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) {
+          setDoctorProfile(doctor);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchSale = async () => {
     setLoading(true);
@@ -135,20 +166,23 @@ export default function ViewSalePage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !sale) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Venta no encontrada</h2>
           <Link
             href="/dashboard/practice/ventas"
-            className="text-green-600 hover:text-green-700"
+            className="text-blue-600 hover:text-blue-700"
           >
             Volver a Ventas
           </Link>
@@ -162,10 +196,13 @@ export default function ViewSalePage() {
   const balanceDue = parseFloat(sale.total) - parseFloat(sale.amountPaid);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-5xl mx-auto">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar doctorProfile={doctorProfile} />
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-5xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href="/dashboard/practice/ventas"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -176,8 +213,8 @@ export default function ViewSalePage() {
 
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <ShoppingCart className="w-8 h-8 text-green-600" />
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                <ShoppingCart className="w-8 h-8 text-blue-600" />
                 Venta {sale.saleNumber}
               </h1>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -219,12 +256,12 @@ export default function ViewSalePage() {
         </div>
 
         {/* Sale Document */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-hidden">
           {/* Document Header */}
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-8">
+          <div className="bg-blue-600 text-white p-8">
             <div className="text-center">
-              <h2 className="text-3xl font-bold">VENTA EN FIRME</h2>
-              <p className="text-green-100 mt-2">Folio: {sale.saleNumber}</p>
+              <h2 className="text-2xl font-bold">VENTA EN FIRME</h2>
+              <p className="text-blue-100 mt-2">Folio: {sale.saleNumber}</p>
             </div>
           </div>
 
@@ -367,7 +404,8 @@ export default function ViewSalePage() {
             )}
           </div>
         </div>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
