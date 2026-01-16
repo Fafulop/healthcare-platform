@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import Sidebar from '@/components/layout/Sidebar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -164,11 +163,7 @@ export default function EncounterDetailPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -303,8 +298,6 @@ export default function EncounterDetailPage() {
           </div>
         </div>
       </div>
-        </div>
-      </main>
     </div>
   );
 }

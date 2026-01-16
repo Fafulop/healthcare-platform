@@ -5,7 +5,6 @@ import { redirect, useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, Edit2 } from "lucide-react";
 import Link from "next/link";
-import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -360,11 +359,7 @@ export default function EditProductPage() {
   const activeComponents = components.filter(c => !c.isDeleted);
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
           {/* Header */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
@@ -680,8 +675,6 @@ export default function EditProductPage() {
             </div>
           </div>
         </form>
-        </div>
-      </main>
     </div>
   );
 }

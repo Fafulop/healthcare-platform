@@ -4,20 +4,13 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, FileText, ArrowLeft, Eye, Users, ShoppingCart } from "lucide-react";
-import InlineStatusSelect, { StatusOption } from "@/components/practice/InlineStatusSelect";
+import { Plus, Search, Edit2, Trash2, Loader2, FileText, Eye, Users, ShoppingCart } from "lucide-react";
+import InlineStatusSelect from "@/components/practice/InlineStatusSelect";
 import Toast, { ToastType } from "@/components/ui/Toast";
 import { validateQuotationTransition, QuotationStatus } from "@/lib/practice/statusTransitions";
-import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
 
 interface Client {
   id: number;
@@ -65,7 +58,6 @@ export default function CotizacionesPage() {
     },
   });
 
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -75,28 +67,9 @@ export default function CotizacionesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
     fetchQuotations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchQuotations = async () => {
     setLoading(true);
@@ -151,8 +124,6 @@ export default function CotizacionesPage() {
 
       const result = await response.json();
       alert(`¡Venta creada exitosamente! Folio: ${result.data.saleNumber}`);
-
-      // Redirect to the new sale page
       window.location.href = `/dashboard/practice/ventas/${result.data.id}`;
     } catch (err) {
       console.error('Error al convertir cotización:', err);
@@ -162,7 +133,6 @@ export default function CotizacionesPage() {
   };
 
   const handleQuotationStatusChange = async (quotationId: number, oldStatus: string, newStatus: string) => {
-    // Validate transition
     const validation = validateQuotationTransition(oldStatus as QuotationStatus, newStatus as QuotationStatus);
 
     if (!validation.allowed) {
@@ -170,21 +140,18 @@ export default function CotizacionesPage() {
       return;
     }
 
-    // Show confirmation if required
     if (validation.requiresConfirmation && validation.confirmationMessage) {
       if (!confirm(validation.confirmationMessage)) {
         return;
       }
     }
 
-    // Optimistic update
     setQuotations(prev => prev.map(q =>
       q.id === quotationId ? { ...q, status: newStatus } : q
     ));
     setUpdatingId(quotationId);
 
     try {
-      // Fetch current quotation
       const fetchResponse = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`);
 
       if (!fetchResponse.ok) {
@@ -193,7 +160,6 @@ export default function CotizacionesPage() {
 
       const currentData = await fetchResponse.json();
 
-      // Update with new status
       const updateResponse = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -206,11 +172,9 @@ export default function CotizacionesPage() {
         throw new Error('Error al actualizar estado');
       }
 
-      // Refresh list
       await fetchQuotations();
       setToastMessage({ message: 'Estado actualizado exitosamente', type: 'success' });
     } catch (error: any) {
-      // Revert on error
       setQuotations(prev => prev.map(q =>
         q.id === quotationId ? { ...q, status: oldStatus } : q
       ));
@@ -258,67 +222,54 @@ export default function CotizacionesPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando cotizaciones...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver al Dashboard
-          </Link>
-          <div className="flex justify-between items-center">
+    <>
+      <div className="p-4 sm:p-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                <FileText className="w-8 h-8 text-blue-600" />
-                Cotizaciones
-              </h1>
-              <p className="text-gray-600 mt-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Cotizaciones</h1>
+              <p className="text-gray-600 mt-1 text-sm sm:text-base">
                 Gestiona las cotizaciones para tus clientes
               </p>
             </div>
             <div className="flex gap-2">
               <Link
                 href="/dashboard/practice/clients"
-                className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors font-semibold"
               >
                 <Users className="w-5 h-5" />
-                Clientes
+                <span className="hidden sm:inline">Clientes</span>
               </Link>
               <Link
                 href="/dashboard/practice/ventas"
-                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors font-semibold"
               >
                 <ShoppingCart className="w-5 h-5" />
-                Ventas
+                <span className="hidden sm:inline">Ventas</span>
               </Link>
               <Link
                 href="/dashboard/practice/cotizaciones/new"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-semibold"
               >
                 <Plus className="w-5 h-5" />
-                Nueva Cotización
+                <span className="hidden sm:inline">Nueva</span>
               </Link>
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
@@ -331,7 +282,7 @@ export default function CotizacionesPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Todos los Estados</option>
               <option value="DRAFT">Borrador</option>
@@ -351,133 +302,242 @@ export default function CotizacionesPage() {
           </div>
         )}
 
-        {/* Quotations List */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {filteredQuotations.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">
-                {search || statusFilter !== 'all' ? 'No se encontraron cotizaciones' : 'No hay cotizaciones todavía'}
-              </p>
-              <p className="text-gray-400 text-sm mt-2">
-                {!search && statusFilter === 'all' && 'Crea tu primera cotización para comenzar'}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-blue-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Folio
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Cliente
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Fecha
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Válida hasta
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Total
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredQuotations.map(quotation => {
-                    const config = statusConfig[quotation.status as keyof typeof statusConfig] || statusConfig.DRAFT;
-                    const expiringSoon = isExpiringSoon(quotation.validUntil);
-                    const expired = isExpired(quotation.validUntil);
+        {/* Empty State */}
+        {filteredQuotations.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {search || statusFilter !== 'all' ? 'No se encontraron cotizaciones' : 'No hay cotizaciones'}
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {!search && statusFilter === 'all' && 'Crea tu primera cotización para comenzar'}
+            </p>
+            {!search && statusFilter === 'all' && (
+              <Link
+                href="/dashboard/practice/cotizaciones/new"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Nueva Cotización
+              </Link>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Mobile Card View */}
+            <div className="lg:hidden space-y-3">
+              {filteredQuotations.map(quotation => {
+                const config = statusConfig[quotation.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+                const expiringSoon = isExpiringSoon(quotation.validUntil);
+                const expired = isExpired(quotation.validUntil);
 
-                    return (
-                      <tr
-                        key={quotation.id}
-                        className={`hover:bg-gray-50 transition-colors ${
-                          expired ? 'bg-red-50' : expiringSoon ? 'bg-yellow-50' : ''
-                        }`}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-gray-900">{quotation.quotationNumber}</div>
-                          <div className="text-xs text-gray-500">{quotation.items.length} item(s)</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900">{quotation.client.businessName}</div>
-                          {quotation.client.contactName && (
-                            <div className="text-sm text-gray-500">{quotation.client.contactName}</div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">
-                          {formatDate(quotation.issueDate)}
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">
-                          {formatDate(quotation.validUntil)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-gray-900">
-                            {formatCurrency(quotation.total)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <InlineStatusSelect
-                            currentStatus={quotation.status}
-                            statuses={Object.entries(statusConfig).map(([value, conf]) => ({
-                              value,
-                              label: conf.label,
-                              color: conf.color,
-                              icon: conf.icon
-                            }))}
-                            onStatusChange={(newStatus) => handleQuotationStatusChange(quotation.id, quotation.status, newStatus)}
-                            disabled={updatingId === quotation.id}
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <Link
-                              href={`/dashboard/practice/cotizaciones/${quotation.id}`}
-                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Ver cotización"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Link>
-                            <Link
-                              href={`/dashboard/practice/cotizaciones/${quotation.id}/edit`}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Editar cotización"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Link>
-                            <button
-                              onClick={() => handleConvertToSale(quotation)}
-                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                              title="Convertir a venta"
-                            >
-                              <ShoppingCart className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(quotation)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Eliminar cotización"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                return (
+                  <div
+                    key={quotation.id}
+                    className={`bg-white rounded-lg shadow p-4 ${
+                      expired ? 'border-l-4 border-red-500' : expiringSoon ? 'border-l-4 border-yellow-500' : ''
+                    }`}
+                  >
+                    {/* Card Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <div className="font-semibold text-gray-900">{quotation.quotationNumber}</div>
+                        <div className="text-xs text-gray-500">{quotation.items.length} item(s)</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-gray-900">{formatCurrency(quotation.total)}</div>
+                      </div>
+                    </div>
+
+                    {/* Client */}
+                    <div className="mb-3">
+                      <div className="text-sm font-medium text-gray-900">{quotation.client.businessName}</div>
+                      {quotation.client.contactName && (
+                        <div className="text-xs text-gray-500">{quotation.client.contactName}</div>
+                      )}
+                    </div>
+
+                    {/* Dates Row */}
+                    <div className="flex gap-4 text-xs text-gray-600 mb-3">
+                      <div>
+                        <span className="text-gray-400">Fecha:</span> {formatDate(quotation.issueDate)}
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Válida:</span> {formatDate(quotation.validUntil)}
+                        {expired && <span className="text-red-600 ml-1">(Vencida)</span>}
+                        {expiringSoon && !expired && <span className="text-yellow-600 ml-1">(Por vencer)</span>}
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="mb-3">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+                        {config.icon} {config.label}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                      <InlineStatusSelect
+                        currentStatus={quotation.status}
+                        statuses={Object.entries(statusConfig).map(([value, conf]) => ({
+                          value,
+                          label: conf.label,
+                          color: conf.color,
+                          icon: conf.icon
+                        }))}
+                        onStatusChange={(newStatus) => handleQuotationStatusChange(quotation.id, quotation.status, newStatus)}
+                        disabled={updatingId === quotation.id}
+                      />
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`/dashboard/practice/cotizaciones/${quotation.id}`}
+                          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </Link>
+                        <Link
+                          href={`/dashboard/practice/cotizaciones/${quotation.id}/edit`}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </Link>
+                        <button
+                          onClick={() => handleConvertToSale(quotation)}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        >
+                          <ShoppingCart className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(quotation)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden lg:block bg-white rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Folio
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Cliente
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fecha
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Válida hasta
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredQuotations.map(quotation => {
+                      const config = statusConfig[quotation.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+                      const expiringSoon = isExpiringSoon(quotation.validUntil);
+                      const expired = isExpired(quotation.validUntil);
+
+                      return (
+                        <tr
+                          key={quotation.id}
+                          className={`hover:bg-gray-50 transition-colors ${
+                            expired ? 'bg-red-50' : expiringSoon ? 'bg-yellow-50' : ''
+                          }`}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-gray-900">{quotation.quotationNumber}</div>
+                            <div className="text-xs text-gray-500">{quotation.items.length} item(s)</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-gray-900">{quotation.client.businessName}</div>
+                            {quotation.client.contactName && (
+                              <div className="text-sm text-gray-500">{quotation.client.contactName}</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-gray-600">
+                            {formatDate(quotation.issueDate)}
+                          </td>
+                          <td className="px-6 py-4 text-gray-600">
+                            {formatDate(quotation.validUntil)}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="font-semibold text-gray-900">
+                              {formatCurrency(quotation.total)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <InlineStatusSelect
+                              currentStatus={quotation.status}
+                              statuses={Object.entries(statusConfig).map(([value, conf]) => ({
+                                value,
+                                label: conf.label,
+                                color: conf.color,
+                                icon: conf.icon
+                              }))}
+                              onStatusChange={(newStatus) => handleQuotationStatusChange(quotation.id, quotation.status, newStatus)}
+                              disabled={updatingId === quotation.id}
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Link
+                                href={`/dashboard/practice/cotizaciones/${quotation.id}`}
+                                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                title="Ver"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Link>
+                              <Link
+                                href={`/dashboard/practice/cotizaciones/${quotation.id}/edit`}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Editar"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Link>
+                              <button
+                                onClick={() => handleConvertToSale(quotation)}
+                                className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                                title="Convertir a venta"
+                              >
+                                <ShoppingCart className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(quotation)}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Summary */}
         {filteredQuotations.length > 0 && (
@@ -485,8 +545,7 @@ export default function CotizacionesPage() {
             Mostrando {filteredQuotations.length} de {quotations.length} cotización(es)
           </div>
         )}
-        </div>
-      </main>
+      </div>
 
       {/* Toast Notification */}
       {toastMessage && (
@@ -496,6 +555,6 @@ export default function CotizacionesPage() {
           onClose={() => setToastMessage(null)}
         />
       )}
-    </div>
+    </>
   );
 }

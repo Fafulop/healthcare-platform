@@ -7,7 +7,6 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Edit, FileText, Send, Ban, Trash2, Download, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList, type Medication } from '@/components/medical-records/MedicationList';
-import Sidebar from '@/components/layout/Sidebar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -263,11 +262,7 @@ export default function ViewPrescriptionPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -488,8 +483,6 @@ export default function ViewPrescriptionPage() {
           </div>
         </div>
       )}
-        </div>
-      </main>
     </div>
   );
 }

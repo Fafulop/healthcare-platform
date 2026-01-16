@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Edit2, Loader2, Package, Download, FileText } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
-import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -196,11 +195,7 @@ export default function ViewPurchasePage() {
   const balanceDue = parseFloat(purchase.total) - parseFloat(purchase.amountPaid);
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
@@ -404,8 +399,6 @@ export default function ViewPurchasePage() {
             )}
           </div>
         </div>
-        </div>
-      </main>
     </div>
   );
 }

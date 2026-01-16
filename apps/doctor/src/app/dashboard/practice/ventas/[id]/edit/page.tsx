@@ -6,16 +6,8 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
-import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  doctorFullName: string;
-  primarySpecialty: string;
-}
 
 interface Client {
   id: number;
@@ -63,7 +55,6 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   const [saleId, setSaleId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
 
   // Data loading
   const [clients, setClients] = useState<Client[]>([]);
@@ -105,9 +96,6 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   }, [params]);
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
     if (session?.user?.email && saleId) {
       fetchClients();
       fetchProducts();
@@ -115,22 +103,6 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchSale = async () => {
     if (!saleId) return;
@@ -432,11 +404,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
@@ -1027,8 +995,6 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
         )}
-        </div>
-      </main>
     </div>
   );
 }

@@ -5,7 +5,6 @@ import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import Link from "next/link";
-import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -111,11 +110,7 @@ export default function NewProveedorPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
           {/* Header */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <Link
@@ -365,8 +360,6 @@ export default function NewProveedorPage() {
             </button>
           </div>
           </form>
-        </div>
-      </main>
     </div>
   );
 }

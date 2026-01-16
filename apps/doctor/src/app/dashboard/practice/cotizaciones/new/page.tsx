@@ -5,16 +5,9 @@ import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, FileText, X } from "lucide-react";
 import Link from "next/link";
-import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
 
 interface Client {
   id: number;
@@ -60,7 +53,6 @@ export default function NewCotizacionPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,29 +85,10 @@ export default function NewCotizacionPage() {
   const [customPrice, setCustomPrice] = useState(0);
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
     fetchClients();
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   // Pre-select client from URL parameter
   useEffect(() => {
@@ -378,11 +351,7 @@ export default function NewCotizacionPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
           {/* Header */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
@@ -930,8 +899,6 @@ export default function NewCotizacionPage() {
             </div>
           </div>
         )}
-        </div>
-      </main>
     </div>
   );
 }

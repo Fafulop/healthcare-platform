@@ -6,7 +6,6 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
-import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -421,12 +420,8 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-7xl mx-auto">
-          {/* Header */}
+    <div className="p-4 sm:p-6">
+      {/* Header */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href={`/dashboard/practice/compras/${purchaseId}`}
@@ -1016,8 +1011,6 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
         )}
-        </div>
-      </main>
     </div>
   );
 }

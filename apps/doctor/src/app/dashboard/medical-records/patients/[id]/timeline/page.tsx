@@ -7,7 +7,6 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Plus, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { TimelineView } from '@/components/medical-records/TimelineView';
-import Sidebar from '@/components/layout/Sidebar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -132,11 +131,7 @@ export default function PatientTimelinePage() {
   const { timeline, patient } = timelineData;
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -196,8 +191,6 @@ export default function PatientTimelinePage() {
 
       {/* Timeline */}
       <TimelineView timeline={timeline} patientId={patientId} />
-        </div>
-      </main>
     </div>
   );
 }

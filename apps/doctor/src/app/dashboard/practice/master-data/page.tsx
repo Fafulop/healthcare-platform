@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Edit2, Trash2, Loader2, Database, ChevronDown, ChevronRight, ArrowLeft, DollarSign } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -276,11 +275,7 @@ export default function MasterDataPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
           {/* Header */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
@@ -578,8 +573,6 @@ export default function MasterDataPage() {
             </div>
           </div>
         )}
-        </div>
-      </main>
     </div>
   );
 }

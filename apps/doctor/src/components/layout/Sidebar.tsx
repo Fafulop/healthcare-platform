@@ -69,7 +69,7 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <aside className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col">
       {/* Logo/Brand */}
       <div className="p-6 border-b border-gray-200">
         <Link href="/dashboard">

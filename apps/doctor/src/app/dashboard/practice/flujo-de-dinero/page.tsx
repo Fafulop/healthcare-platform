@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -390,11 +389,7 @@ export default function FlujoDeDineroPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6">
+    <div className="p-4 sm:p-6">
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center justify-between">
@@ -1101,8 +1096,6 @@ export default function FlujoDeDineroPage() {
               </div>
             </div>
           )}
-        </div>
-      </main>
     </div>
   );
 }

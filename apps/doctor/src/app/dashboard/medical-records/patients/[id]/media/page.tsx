@@ -9,7 +9,6 @@ import { ArrowLeft, Plus, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MediaGallery } from '@/components/medical-records/MediaGallery';
 import { MediaViewer } from '@/components/medical-records/MediaViewer';
-import Sidebar from '@/components/layout/Sidebar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -146,11 +145,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6">
+    <div className="p-4 sm:p-6">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -212,8 +207,6 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
           onUpdate={handleMediaUpdate}
         />
       )}
-        </div>
-      </main>
     </div>
   );
 }

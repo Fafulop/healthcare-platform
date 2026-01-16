@@ -4,18 +4,11 @@ import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Send, Loader2, AlertCircle } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
 import RichTextEditor from "@/components/blog/RichTextEditor";
 import { generateSlug, isValidSlug } from "@/lib/slug-generator";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
 
 export default function NewArticlePage() {
   const router = useRouter();
@@ -37,17 +30,9 @@ export default function NewArticlePage() {
     status: 'DRAFT' as 'DRAFT' | 'PUBLISHED',
   });
 
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
-
-  // Fetch doctor profile
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
 
   // Auto-generate slug from title
   useEffect(() => {
@@ -153,11 +138,7 @@ export default function NewArticlePage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-6">
             <button
@@ -355,8 +336,6 @@ export default function NewArticlePage() {
             </button>
           </div>
         </div>
-        </div>
-      </main>
     </div>
   );
 }

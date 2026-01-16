@@ -5,16 +5,9 @@ import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
-import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
 
 interface Client {
   id: number;
@@ -62,7 +55,6 @@ export default function NewVentaPage() {
   const searchParams = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
 
   // Data loading
   const [clients, setClients] = useState<Client[]>([]);
@@ -116,9 +108,6 @@ export default function NewVentaPage() {
 
   useEffect(() => {
     if (session?.user?.email) {
-      if (session?.user?.doctorId) {
-        fetchDoctorProfile(session.user.doctorId);
-      }
       fetchClients();
       fetchProducts();
     }
@@ -135,22 +124,6 @@ export default function NewVentaPage() {
       }
     }
   }, [searchParams, clients]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchClients = async () => {
     try {
@@ -396,11 +369,7 @@ export default function NewVentaPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6">
           {/* Header */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <Link
@@ -866,110 +835,108 @@ export default function NewVentaPage() {
           </div>
         )}
 
-        {/* Custom Item Modal */}
-        {showCustomItemModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
-              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  {customItemType === 'product' ? 'Producto Personalizado' : 'Servicio Personalizado'}
-                </h3>
-                <button
-                  onClick={() => setShowCustomItemModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+      {/* Custom Item Modal */}
+      {showCustomItemModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-xl font-semibold text-gray-900">
+                {customItemType === 'product' ? 'Producto Personalizado' : 'Servicio Personalizado'}
+              </h3>
+              <button
+                onClick={() => setShowCustomItemModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Descripción *
+                </label>
+                <input
+                  type="text"
+                  value={customDescription}
+                  onChange={(e) => setCustomDescription(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Nombre del producto o servicio"
+                  autoFocus
+                />
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Descripción *
-                  </label>
-                  <input
-                    type="text"
-                    value={customDescription}
-                    onChange={(e) => setCustomDescription(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Nombre del producto o servicio"
-                    autoFocus
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cantidad *
-                    </label>
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={customQuantity}
-                      onChange={(e) => setCustomQuantity(parseFloat(e.target.value) || 1)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Unidad *
-                    </label>
-                    <select
-                      value={customUnit}
-                      onChange={(e) => setCustomUnit(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="pza">Pieza</option>
-                      <option value="kg">Kilogramo</option>
-                      <option value="lt">Litro</option>
-                      <option value="mt">Metro</option>
-                      <option value="caja">Caja</option>
-                      <option value="servicio">Servicio</option>
-                      <option value="hora">Hora</option>
-                      <option value="día">Día</option>
-                      <option value="sesión">Sesión</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Precio Unitario *
+                    Cantidad *
                   </label>
                   <input
                     type="number"
-                    min="0"
+                    min="0.01"
                     step="0.01"
-                    value={customPrice}
-                    onChange={(e) => setCustomPrice(parseFloat(e.target.value) || 0)}
+                    value={customQuantity}
+                    onChange={(e) => setCustomQuantity(parseFloat(e.target.value) || 1)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="0.00"
                   />
                 </div>
 
-                <div className="flex gap-2 pt-4">
-                  <button
-                    onClick={() => setShowCustomItemModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Unidad *
+                  </label>
+                  <select
+                    value={customUnit}
+                    onChange={(e) => setCustomUnit(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={addCustomItemToQuote}
-                    disabled={!customDescription || customPrice <= 0}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Agregar
-                  </button>
+                    <option value="pza">Pieza</option>
+                    <option value="kg">Kilogramo</option>
+                    <option value="lt">Litro</option>
+                    <option value="mt">Metro</option>
+                    <option value="caja">Caja</option>
+                    <option value="servicio">Servicio</option>
+                    <option value="hora">Hora</option>
+                    <option value="día">Día</option>
+                    <option value="sesión">Sesión</option>
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Precio Unitario *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={customPrice}
+                  onChange={(e) => setCustomPrice(parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <button
+                  onClick={() => setShowCustomItemModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={addCustomItemToQuote}
+                  disabled={!customDescription || customPrice <= 0}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Agregar
+                </button>
               </div>
             </div>
           </div>
-        )}
         </div>
-      </main>
+      )}
     </div>
   );
 }

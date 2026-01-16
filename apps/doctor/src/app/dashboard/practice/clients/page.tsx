@@ -4,17 +4,10 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, Users, Building2, ArrowLeft, FileText, ShoppingCart } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
+import { Plus, Search, Edit2, Trash2, Loader2, Users, Building2, FileText, ShoppingCart, Phone, Mail, MapPin } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
 
 interface Client {
   id: number;
@@ -44,7 +37,6 @@ export default function ClientsPage() {
     },
   });
 
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -52,28 +44,9 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
     fetchClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchClients = async () => {
     setLoading(true);
@@ -132,132 +105,209 @@ export default function ClientsPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando clientes...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver al Dashboard
-          </Link>
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                <Users className="w-8 h-8 text-blue-600" />
-                Clientes
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Gestiona tus relaciones y la información de contacto de tus clientes
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Link
-                href="/dashboard/practice/cotizaciones"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <FileText className="w-5 h-5" />
-                Cotizaciones
-              </Link>
-              <Link
-                href="/dashboard/practice/ventas"
-                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                Ventas
-              </Link>
-              <Link
-                href="/dashboard/practice/clients/new"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <Plus className="w-5 h-5" />
-                Nuevo Cliente
-              </Link>
-            </div>
+    <div className="p-4 sm:p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Clientes</h1>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">
+              Gestiona tus relaciones con clientes
+            </p>
           </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar clientes por nombre, contacto, correo o ciudad..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          <div className="flex gap-2">
+            <Link
+              href="/dashboard/practice/cotizaciones"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors font-semibold"
             >
-              <option value="all">Todos los Estados</option>
-              <option value="active">Activo</option>
-              <option value="inactive">Inactivo</option>
-            </select>
+              <FileText className="w-5 h-5" />
+              <span className="hidden sm:inline">Cotizaciones</span>
+            </Link>
+            <Link
+              href="/dashboard/practice/ventas"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors font-semibold"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              <span className="hidden sm:inline">Ventas</span>
+            </Link>
+            <Link
+              href="/dashboard/practice/clients/new"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-semibold"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="hidden sm:inline">Nuevo</span>
+            </Link>
           </div>
         </div>
+      </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {error}
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, contacto, correo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
-        )}
 
-        {/* Clients List */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {filteredClients.length === 0 ? (
-            <div className="text-center py-12">
-              <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">
-                {search || statusFilter !== 'all' ? 'Ningún cliente coincide con los filtros' : 'Aún no hay clientes'}
-              </p>
-              <p className="text-gray-400 text-sm mt-2">
-                {!search && statusFilter === 'all' && 'Crea tu primer cliente para comenzar a gestionar relaciones'}
-              </p>
-            </div>
-          ) : (
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Todos los Estados</option>
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {filteredClients.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-8 text-center">
+          <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            {search || statusFilter !== 'all' ? 'No se encontraron clientes' : 'No hay clientes'}
+          </h3>
+          <p className="text-gray-600 mb-4">
+            {!search && statusFilter === 'all' && 'Crea tu primer cliente para comenzar'}
+          </p>
+          {!search && statusFilter === 'all' && (
+            <Link
+              href="/dashboard/practice/clients/new"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Nuevo Cliente
+            </Link>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-3">
+            {filteredClients.map(client => (
+              <div key={client.id} className="bg-white rounded-lg shadow p-4">
+                {/* Card Header */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-gray-900 truncate">{client.businessName}</div>
+                    {client.industry && (
+                      <div className="text-xs text-gray-500">{client.industry}</div>
+                    )}
+                    {client.rfc && (
+                      <div className="text-xs text-gray-400">RFC: {client.rfc}</div>
+                    )}
+                  </div>
+                  <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
+                    client.status === 'active'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {client.status === 'active' ? 'Activo' : 'Inactivo'}
+                  </span>
+                </div>
+
+                {/* Contact Info */}
+                <div className="space-y-2 mb-3">
+                  {client.contactName && (
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <Users className="w-4 h-4 text-gray-400" />
+                      {client.contactName}
+                    </div>
+                  )}
+                  {client.email && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span className="truncate">{client.email}</span>
+                    </div>
+                  )}
+                  {client.phone && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Phone className="w-4 h-4 text-gray-400" />
+                      {client.phone}
+                    </div>
+                  )}
+                  {(client.city || client.state) && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <MapPin className="w-4 h-4 text-gray-400" />
+                      {client.city && client.state
+                        ? `${client.city}, ${client.state}`
+                        : client.city || client.state}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-1 pt-3 border-t border-gray-100">
+                  <Link
+                    href={`/dashboard/practice/cotizaciones/new?clientId=${client.id}`}
+                    className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                    title="Crear cotización"
+                  >
+                    <FileText className="w-5 h-5" />
+                  </Link>
+                  <Link
+                    href={`/dashboard/practice/clients/${client.id}/edit`}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                  </Link>
+                  <button
+                    onClick={() => handleDelete(client)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden lg:block bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-blue-50">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Empresa
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Contacto
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Correo
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Teléfono
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Ubicación
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Acciones
                     </th>
                   </tr>
@@ -297,26 +347,26 @@ export default function ClientsPage() {
                           {client.status === 'active' ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <Link
                             href={`/dashboard/practice/cotizaciones/new?clientId=${client.id}`}
-                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                            title="Crear cotización para este cliente"
+                            className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                            title="Crear cotización"
                           >
                             <FileText className="w-4 h-4" />
                           </Link>
                           <Link
                             href={`/dashboard/practice/clients/${client.id}/edit`}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Editar cliente"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Editar"
                           >
                             <Edit2 className="w-4 h-4" />
                           </Link>
                           <button
                             onClick={() => handleDelete(client)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Eliminar cliente"
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -327,17 +377,16 @@ export default function ClientsPage() {
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
-
-        {/* Summary */}
-        {filteredClients.length > 0 && (
-          <div className="mt-4 text-center text-sm text-gray-600">
-            Mostrando {filteredClients.length} de {clients.length} cliente{clients.length !== 1 ? 's' : ''}
           </div>
-        )}
+        </>
+      )}
+
+      {/* Summary */}
+      {filteredClients.length > 0 && (
+        <div className="mt-4 text-center text-sm text-gray-600">
+          Mostrando {filteredClients.length} de {clients.length} cliente{clients.length !== 1 ? 's' : ''}
         </div>
-      </main>
+      )}
     </div>
   );
 }

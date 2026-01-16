@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import Sidebar from '@/components/layout/Sidebar';
 import { PatientForm, type PatientFormData } from '@/components/medical-records/PatientForm';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -115,31 +114,22 @@ export default function EditPatientPage() {
 
   if (error || !patient) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar doctorProfile={doctorProfile} />
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-6">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-800">{error || 'Paciente no encontrado'}</p>
-              <Link
-                href="/dashboard/medical-records"
-                className="text-red-600 hover:text-red-800 mt-2 inline-block"
-              >
-                Volver a la lista
-              </Link>
-            </div>
-          </div>
-        </main>
+      <div className="p-4 sm:p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">{error || 'Paciente no encontrado'}</p>
+          <Link
+            href="/dashboard/medical-records"
+            className="text-red-600 hover:text-red-800 mt-2 inline-block"
+          >
+            Volver a la lista
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-6">
             <Link
@@ -155,15 +145,13 @@ export default function EditPatientPage() {
             <p className="text-gray-600 mt-1">Actualice la información del paciente</p>
           </div>
 
-          <PatientForm
-            initialData={patient}
-            onSubmit={handleSubmit}
-            submitLabel="Guardar Cambios"
-            cancelHref={`/dashboard/medical-records/patients/${patientId}`}
-            isEditing={true}
-          />
-        </div>
-      </main>
+      <PatientForm
+        initialData={patient}
+        onSubmit={handleSubmit}
+        submitLabel="Guardar Cambios"
+        cancelHref={`/dashboard/medical-records/patients/${patientId}`}
+        isEditing={true}
+      />
     </div>
   );
 }

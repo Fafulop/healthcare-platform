@@ -4,16 +4,9 @@ import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FileText, Plus, Edit, Trash2, Eye, Loader2, AlertCircle, BarChart } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
 
 interface Article {
   id: string;
@@ -38,7 +31,6 @@ export default function BlogManagementPage() {
   });
 
   const [articles, setArticles] = useState<Article[]>([]);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFT'>('ALL');
@@ -46,9 +38,6 @@ export default function BlogManagementPage() {
   useEffect(() => {
     if (session && status === 'authenticated') {
       fetchArticles();
-      if (session.user?.doctorId) {
-        fetchDoctorProfile(session.user.doctorId);
-      }
     }
     // Only run once when authenticated
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,22 +62,6 @@ export default function BlogManagementPage() {
       setError('Error loading articles');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
     }
   };
 
@@ -130,7 +103,7 @@ export default function BlogManagementPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
           <p className="mt-4 text-gray-600 font-medium">Loading articles...</p>
@@ -140,11 +113,7 @@ export default function BlogManagementPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6">
+    <div className="p-4 sm:p-6">
           {/* Header */}
           <div className="mb-6">
             <div className="flex justify-between items-center">
@@ -343,8 +312,6 @@ export default function BlogManagementPage() {
             </div>
           )}
         </div>
-        </div>
-      </main>
     </div>
   );
 }

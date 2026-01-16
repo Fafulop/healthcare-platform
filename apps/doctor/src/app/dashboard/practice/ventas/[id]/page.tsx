@@ -6,16 +6,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Edit2, Loader2, ShoppingCart, Download, FileText } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
-import Sidebar from "@/components/layout/Sidebar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  doctorFullName: string;
-  primarySpecialty: string;
-}
 
 interface Client {
   id: number;
@@ -98,13 +90,6 @@ export default function ViewSalePage() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
 
   useEffect(() => {
     if (saleId) {
@@ -112,22 +97,6 @@ export default function ViewSalePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchSale = async () => {
     setLoading(true);
@@ -196,11 +165,7 @@ export default function ViewSalePage() {
   const balanceDue = parseFloat(sale.total) - parseFloat(sale.amountPaid);
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
@@ -404,8 +369,6 @@ export default function ViewSalePage() {
             )}
           </div>
         </div>
-        </div>
-      </main>
     </div>
   );
 }

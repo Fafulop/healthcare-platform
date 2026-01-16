@@ -4,7 +4,6 @@ import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -392,11 +391,7 @@ export default function NewCompraPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
@@ -964,8 +959,6 @@ export default function NewCompraPage() {
             </div>
           </div>
         )}
-        </div>
-      </main>
     </div>
   );
 }
