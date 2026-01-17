@@ -138,7 +138,7 @@ export default function AppointmentsPage() {
   };
 
   const deleteSlot = async (slotId: string) => {
-    if (!confirm("Are you sure you want to delete this slot?")) return;
+    if (!confirm("¿Estás seguro de que quieres eliminar este horario?")) return;
 
     try {
       const response = await authFetch(
@@ -148,15 +148,15 @@ export default function AppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert("Slot deleted successfully");
+        alert("Horario eliminado exitosamente");
         fetchSlots();
         fetchBookings();
       } else {
-        alert(data.error || "Failed to delete slot");
+        alert(data.error || "Error al eliminar horario");
       }
     } catch (error) {
       console.error("Error deleting slot:", error);
-      alert("Failed to delete slot");
+      alert("Error al eliminar horario");
     }
   };
 
@@ -178,11 +178,11 @@ export default function AppointmentsPage() {
         fetchSlots();
         fetchBookings();
       } else {
-        alert(data.error || "Failed to update slot");
+        alert(data.error || "Error al actualizar horario");
       }
     } catch (error) {
       console.error("Error updating slot:", error);
-      alert("Failed to update slot");
+      alert("Error al actualizar horario");
     }
   };
 
@@ -190,12 +190,12 @@ export default function AppointmentsPage() {
     const slotIds = Array.from(selectedSlots);
 
     if (slotIds.length === 0) {
-      alert("Please select slots first");
+      alert("Por favor selecciona horarios primero");
       return;
     }
 
-    const actionText = action === "delete" ? "delete" : action === "block" ? "block" : "unblock";
-    if (!confirm(`Are you sure you want to ${actionText} ${slotIds.length} slot(s)?`)) {
+    const actionText = action === "delete" ? "eliminar" : action === "block" ? "bloquear" : "desbloquear";
+    if (!confirm(`¿Estás seguro de que quieres ${actionText} ${slotIds.length} horario(s)?`)) {
       return;
     }
 
@@ -210,16 +210,16 @@ export default function AppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert(`Successfully ${actionText}ed ${data.count} slot(s)`);
+        alert(`${data.count} horario(s) ${actionText === "eliminar" ? "eliminados" : actionText === "bloquear" ? "bloqueados" : "desbloqueados"} exitosamente`);
         setSelectedSlots(new Set());
         fetchSlots();
         fetchBookings();
       } else {
-        alert(data.error || `Failed to ${actionText} slots`);
+        alert(data.error || `Error al ${actionText} horarios`);
       }
     } catch (error) {
       console.error(`Error performing bulk ${action}:`, error);
-      alert(`Failed to ${actionText} slots`);
+      alert(`Error al ${actionText} horarios`);
     }
   };
 
@@ -303,7 +303,7 @@ export default function AppointmentsPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading appointments...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando citas...</p>
         </div>
       </div>
     );
@@ -313,8 +313,8 @@ export default function AppointmentsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white rounded-lg shadow p-8 max-w-md">
-          <p className="text-red-600 font-semibold">No doctor profile linked to your account.</p>
-          <p className="text-gray-600 text-sm mt-2">Please contact an administrator.</p>
+          <p className="text-red-600 font-semibold">No hay perfil de médico vinculado a tu cuenta.</p>
+          <p className="text-gray-600 text-sm mt-2">Por favor contacta a un administrador.</p>
         </div>
       </div>
     );
@@ -330,15 +330,15 @@ export default function AppointmentsPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Appointment Management</h1>
-                <p className="text-gray-600 mt-1">Create and manage your availability</p>
+                <h1 className="text-2xl font-bold text-gray-900">Gestión de Citas</h1>
+                <p className="text-gray-600 mt-1">Crea y gestiona tu disponibilidad</p>
               </div>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
               >
                 <Plus className="w-5 h-5" />
-                Create Slots
+                Crear Horarios
               </button>
             </div>
 
@@ -352,7 +352,7 @@ export default function AppointmentsPage() {
                     : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                Calendar View
+                Vista de Calendario
               </button>
               <button
                 onClick={() => setViewMode("list")}
@@ -362,17 +362,17 @@ export default function AppointmentsPage() {
                     : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                List View
+                Vista de Lista
               </button>
             </div>
           </div>
 
-          {/* Booked Appointments Card */}
+          {/* Citas Reservadas */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <User className="w-5 h-5 text-blue-600" />
-                Booked Appointments
+                Citas Reservadas
               </h2>
             <span className="text-sm font-medium text-gray-600">
               {bookings.length} total
@@ -382,19 +382,19 @@ export default function AppointmentsPage() {
           {bookings.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <User className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No bookings yet</p>
+              <p className="text-sm">Sin reservas aún</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Date & Time</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Patient</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Contact</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Price</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Code</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Fecha y Hora</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Paciente</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Contacto</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Estado</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Precio</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Código</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -405,7 +405,7 @@ export default function AppointmentsPage() {
                           <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                           <div>
                             <p className="font-medium text-gray-900">
-                              {new Date(booking.slot.date).toLocaleDateString("en-US", {
+                              {new Date(booking.slot.date).toLocaleDateString("es-MX", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
@@ -471,7 +471,7 @@ export default function AppointmentsPage() {
             <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-gray-900">
-                  {selectedDate.toLocaleDateString("en-US", {
+                  {selectedDate.toLocaleDateString("es-MX", {
                     month: "long",
                     year: "numeric",
                   })}
@@ -485,13 +485,13 @@ export default function AppointmentsPage() {
                     }
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
                   >
-                    ‹ Prev
+                    ‹ Anterior
                   </button>
                   <button
                     onClick={() => setSelectedDate(new Date())}
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
                   >
-                    Today
+                    Hoy
                   </button>
                   <button
                     onClick={() =>
@@ -501,14 +501,14 @@ export default function AppointmentsPage() {
                     }
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
                   >
-                    Next ›
+                    Siguiente ›
                   </button>
                 </div>
               </div>
 
               {/* Calendar Grid */}
               <div className="grid grid-cols-7 gap-2">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
                   <div
                     key={day}
                     className="text-center font-semibold text-gray-600 text-sm py-2"
@@ -552,10 +552,10 @@ export default function AppointmentsPage() {
               </div>
             </div>
 
-            {/* Slots for Selected Date */}
+            {/* Horarios para Fecha Seleccionada */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="font-bold text-gray-900 mb-4">
-                {selectedDate.toLocaleDateString("en-US", {
+                {selectedDate.toLocaleDateString("es-MX", {
                   weekday: "long",
                   month: "short",
                   day: "numeric",
@@ -565,7 +565,7 @@ export default function AppointmentsPage() {
               {slotsForSelectedDate.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Clock className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No slots for this date</p>
+                  <p className="text-sm">Sin horarios para esta fecha</p>
                 </div>
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -614,7 +614,7 @@ export default function AppointmentsPage() {
                         <button
                           onClick={() => toggleBlockSlot(slot.id, slot.status)}
                           className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs"
-                          title={slot.status === "BLOCKED" ? "Unblock" : "Block"}
+                          title={slot.status === "BLOCKED" ? "Desbloquear" : "Bloquear"}
                         >
                           {slot.status === "BLOCKED" ? (
                             <Unlock className="w-3 h-3" />
@@ -626,7 +626,7 @@ export default function AppointmentsPage() {
                           onClick={() => deleteSlot(slot.id)}
                           className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs"
                           disabled={slot.currentBookings > 0}
-                          title={slot.currentBookings > 0 ? "Cannot delete - has bookings" : "Delete"}
+                          title={slot.currentBookings > 0 ? "No se puede eliminar - tiene reservas" : "Eliminar"}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -639,17 +639,17 @@ export default function AppointmentsPage() {
           </div>
         )}
 
-        {/* List View */}
+        {/* Vista de Lista */}
         {viewMode === "list" && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">All Slots</h2>
+              <h2 className="text-xl font-bold text-gray-900">Todos los Horarios</h2>
 
-              {/* Bulk Actions Toolbar */}
+              {/* Barra de Acciones Masivas */}
               {selectedSlots.size > 0 && (
                 <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
                   <span className="text-sm font-medium text-gray-700">
-                    {selectedSlots.size} selected
+                    {selectedSlots.size} seleccionados
                   </span>
                   <div className="flex gap-2">
                     <button
@@ -657,27 +657,27 @@ export default function AppointmentsPage() {
                       className="flex items-center gap-1 px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm font-medium transition-colors"
                     >
                       <Lock className="w-3 h-3" />
-                      Block
+                      Bloquear
                     </button>
                     <button
                       onClick={() => bulkAction("unblock")}
                       className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
                     >
                       <Unlock className="w-3 h-3" />
-                      Unblock
+                      Desbloquear
                     </button>
                     <button
                       onClick={() => bulkAction("delete")}
                       className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition-colors"
                     >
                       <Trash2 className="w-3 h-3" />
-                      Delete
+                      Eliminar
                     </button>
                     <button
                       onClick={() => setSelectedSlots(new Set())}
                       className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-sm font-medium transition-colors"
                     >
-                      Clear
+                      Limpiar
                     </button>
                   </div>
                 </div>
@@ -687,12 +687,12 @@ export default function AppointmentsPage() {
             {slots.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>No appointment slots created yet</p>
+                <p>Aún no se han creado horarios de citas</p>
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
                 >
-                  Create your first slots
+                  Crea tus primeros horarios
                 </button>
               </div>
             ) : (
@@ -704,7 +704,7 @@ export default function AppointmentsPage() {
                         <button
                           onClick={toggleAllSlots}
                           className="p-1 hover:bg-gray-100 rounded"
-                          title={selectedSlots.size === slots.length ? "Deselect All" : "Select All"}
+                          title={selectedSlots.size === slots.length ? "Deseleccionar Todo" : "Seleccionar Todo"}
                         >
                           {selectedSlots.size === slots.length ? (
                             <CheckSquare className="w-5 h-5 text-blue-600" />
@@ -713,13 +713,13 @@ export default function AppointmentsPage() {
                           )}
                         </button>
                       </th>
-                      <th className="text-left py-3 px-4">Date</th>
-                      <th className="text-left py-3 px-4">Time</th>
-                      <th className="text-left py-3 px-4">Duration</th>
-                      <th className="text-left py-3 px-4">Price</th>
-                      <th className="text-left py-3 px-4">Status</th>
-                      <th className="text-left py-3 px-4">Bookings</th>
-                      <th className="text-right py-3 px-4">Actions</th>
+                      <th className="text-left py-3 px-4">Fecha</th>
+                      <th className="text-left py-3 px-4">Hora</th>
+                      <th className="text-left py-3 px-4">Duración</th>
+                      <th className="text-left py-3 px-4">Precio</th>
+                      <th className="text-left py-3 px-4">Estado</th>
+                      <th className="text-left py-3 px-4">Reservas</th>
+                      <th className="text-right py-3 px-4">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -764,7 +764,7 @@ export default function AppointmentsPage() {
                             <button
                               onClick={() => toggleBlockSlot(slot.id, slot.status)}
                               className="p-2 hover:bg-gray-200 rounded"
-                              title={slot.status === "BLOCKED" ? "Unblock" : "Block"}
+                              title={slot.status === "BLOCKED" ? "Desbloquear" : "Bloquear"}
                             >
                               {slot.status === "BLOCKED" ? (
                                 <Unlock className="w-4 h-4 text-gray-600" />

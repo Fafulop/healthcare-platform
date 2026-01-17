@@ -101,7 +101,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
       setMedia(mediaData.data);
     } catch (error) {
       console.error('Error fetching data:', error);
-      alert('Failed to load media gallery');
+      alert('Error al cargar galería de medios');
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +130,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -139,7 +139,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
   if (!patient) {
     return (
       <div className="p-6">
-        <p className="text-red-600">Patient not found</p>
+        <p className="text-red-600">Paciente no encontrado</p>
       </div>
     );
   }
@@ -153,13 +153,13 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
           className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to Patient
+          Volver al Paciente
         </Link>
 
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Media Gallery
+              Galería de Medios
             </h1>
             <p className="text-gray-600">
               {patient.firstName} {patient.lastName} (ID: {patient.internalId})
@@ -171,7 +171,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
             className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Upload Media
+            Subir Archivo
           </Link>
         </div>
       </div>
@@ -186,13 +186,13 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
         />
       ) : (
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-500 mb-4">No media uploaded yet</p>
+          <p className="text-gray-500 mb-4">Aún no se han subido archivos</p>
           <Link
             href={`/dashboard/medical-records/patients/${resolvedParams.id}/media/upload`}
             className="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
           >
             <Plus className="w-5 h-5 mr-2" />
-            Upload First Media
+            Subir Primer Archivo
           </Link>
         </div>
       )}

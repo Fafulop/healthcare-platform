@@ -55,18 +55,18 @@ export default function BlogManagementPage() {
         setArticles(result.data);
         setError(null);
       } else {
-        setError(result.error || 'Failed to load articles');
+        setError(result.error || 'Error al cargar artículos');
       }
     } catch (err) {
       console.error('Error fetching articles:', err);
-      setError('Error loading articles');
+      setError('Error al cargar artículos');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) {
+    if (!confirm(`¿Estás seguro de que quieres eliminar "${title}"?`)) {
       return;
     }
 
@@ -81,11 +81,11 @@ export default function BlogManagementPage() {
         // Remove from local state
         setArticles(articles.filter(a => a.id !== id));
       } else {
-        alert(`Failed to delete article: ${result.error}`);
+        alert(`Error al eliminar artículo: ${result.error}`);
       }
     } catch (err) {
       console.error('Error deleting article:', err);
-      alert('Error deleting article');
+      alert('Error al eliminar artículo');
     }
   };
 
@@ -106,7 +106,7 @@ export default function BlogManagementPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading articles...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando artículos...</p>
         </div>
       </div>
     );
@@ -118,25 +118,25 @@ export default function BlogManagementPage() {
           <div className="mb-6">
             <div className="flex justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">My Blog</h1>
-                <p className="text-gray-600 mt-1">Manage your articles and blog posts</p>
+                <h1 className="text-2xl font-bold text-gray-900">Mi Blog</h1>
+                <p className="text-gray-600 mt-1">Gestiona tus artículos y publicaciones</p>
               </div>
               <button
                 onClick={() => router.push('/dashboard/blog/new')}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center gap-2 transition-colors"
               >
                 <Plus className="w-5 h-5" />
-                New Article
+                Nuevo Artículo
               </button>
             </div>
           </div>
 
-        {/* Stats Cards */}
+        {/* Tarjetas de Estadísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Total Articles</p>
+                <p className="text-sm text-gray-600 mb-1">Total de Artículos</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
               <FileText className="w-10 h-10 text-blue-600 opacity-20" />
@@ -146,7 +146,7 @@ export default function BlogManagementPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Published</p>
+                <p className="text-sm text-gray-600 mb-1">Publicados</p>
                 <p className="text-2xl font-bold text-blue-600">{stats.published}</p>
               </div>
               <Eye className="w-10 h-10 text-blue-600 opacity-20" />
@@ -156,7 +156,7 @@ export default function BlogManagementPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Drafts</p>
+                <p className="text-sm text-gray-600 mb-1">Borradores</p>
                 <p className="text-2xl font-bold text-orange-600">{stats.drafts}</p>
               </div>
               <Edit className="w-10 h-10 text-orange-600 opacity-20" />
@@ -166,7 +166,7 @@ export default function BlogManagementPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Total Views</p>
+                <p className="text-sm text-gray-600 mb-1">Total de Vistas</p>
                 <p className="text-2xl font-bold text-blue-600">{stats.totalViews}</p>
               </div>
               <BarChart className="w-10 h-10 text-blue-600 opacity-20" />
@@ -174,7 +174,7 @@ export default function BlogManagementPage() {
           </div>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Pestañas de Filtro */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="border-b border-gray-200">
             <div className="flex">
@@ -188,7 +188,7 @@ export default function BlogManagementPage() {
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  {tab === 'ALL' ? 'All' : tab === 'PUBLISHED' ? 'Published' : 'Drafts'}
+                  {tab === 'ALL' ? 'Todos' : tab === 'PUBLISHED' ? 'Publicados' : 'Borradores'}
                   <span className="ml-2 text-sm text-gray-500">
                     ({tab === 'ALL' ? stats.total : tab === 'PUBLISHED' ? stats.published : stats.drafts})
                   </span>
@@ -209,23 +209,23 @@ export default function BlogManagementPage() {
           </div>
         )}
 
-        {/* Articles Table */}
+        {/* Tabla de Artículos */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {filteredArticles.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg mb-2">No articles yet</p>
+              <p className="text-gray-600 text-lg mb-2">Aún no hay artículos</p>
               <p className="text-gray-500 mb-4">
                 {filter === 'ALL'
-                  ? 'Start writing your first blog post!'
-                  : `No ${filter.toLowerCase()} articles`}
+                  ? '¡Comienza a escribir tu primer artículo!'
+                  : filter === 'PUBLISHED' ? 'No hay artículos publicados' : 'No hay borradores'}
               </p>
               <button
                 onClick={() => router.push('/dashboard/blog/new')}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold inline-flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
-                Create Article
+                Crear Artículo
               </button>
             </div>
           ) : (
@@ -234,19 +234,19 @@ export default function BlogManagementPage() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Title
+                      Título
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
+                      Estado
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
+                      Fecha
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Views
+                      Vistas
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      Acciones
                     </th>
                   </tr>
                 </thead>
@@ -271,11 +271,11 @@ export default function BlogManagementPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {article.status === 'PUBLISHED' ? (
                           <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                            Published
+                            Publicado
                           </span>
                         ) : (
                           <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
-                            Draft
+                            Borrador
                           </span>
                         )}
                       </td>
@@ -292,14 +292,14 @@ export default function BlogManagementPage() {
                           <button
                             onClick={() => router.push(`/dashboard/blog/${article.id}/edit`)}
                             className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
-                            title="Edit"
+                            title="Editar"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(article.id, article.title)}
                             className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded transition-colors"
-                            title="Delete"
+                            title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

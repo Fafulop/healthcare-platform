@@ -73,8 +73,8 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
       {/* Logo/Brand */}
       <div className="p-6 border-b border-gray-200">
         <Link href="/dashboard">
-          <h1 className="text-xl font-bold text-gray-900">Doctor Portal</h1>
-          <p className="text-sm text-gray-500 mt-1">Medical Platform</p>
+          <h1 className="text-xl font-bold text-gray-900">Portal Médico</h1>
+          <p className="text-sm text-gray-500 mt-1">Plataforma Médica</p>
         </Link>
       </div>
 
@@ -111,9 +111,9 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-4">
-        <NavGroup title="Profile & Public">
-          <NavItem icon={FileText} label="My Blog" href="/dashboard/blog" active={pathname === "/dashboard/blog"} />
-          <NavItem icon={Calendar} label="Appointments" href="/appointments" active={pathname === "/appointments"} />
+        <NavGroup title="Perfil y Público">
+          <NavItem icon={FileText} label="Mi Blog" href="/dashboard/blog" active={pathname === "/dashboard/blog"} />
+          <NavItem icon={Calendar} label="Citas" href="/appointments" active={pathname === "/appointments"} />
           {doctorProfile && (
             <a
               href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
@@ -122,62 +122,62 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
               className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
             >
               <ExternalLink className="w-5 h-5" />
-              <span className="text-sm font-medium">Public Profile</span>
+              <span className="text-sm font-medium">Perfil Público</span>
             </a>
           )}
         </NavGroup>
 
-        <NavGroup title="Medical Records">
+        <NavGroup title="Expedientes Médicos">
           <NavItem
             icon={Users}
-            label="Patient Records"
+            label="Expedientes de Pacientes"
             href="/dashboard/medical-records"
             active={pathname?.startsWith("/dashboard/medical-records")}
           />
           <NavItem
             icon={ClipboardList}
-            label="New Encounter"
+            label="Nueva Consulta"
             href="/dashboard/medical-records"
           />
-          <NavItem icon={BarChart3} label="Reports" href="/dashboard/medical-records" />
+          <NavItem icon={BarChart3} label="Reportes" href="/dashboard/medical-records" />
         </NavGroup>
 
-        <NavGroup title="Practice Management">
+        <NavGroup title="Gestión de Consultorio">
           <NavItem
             icon={Package}
-            label="Products"
+            label="Productos"
             href="/dashboard/practice/products"
             active={pathname?.startsWith("/dashboard/practice/products")}
           />
           <NavItem
             icon={DollarSign}
-            label="Cash Flow"
+            label="Flujo de Dinero"
             href="/dashboard/practice/flujo-de-dinero"
             active={pathname?.startsWith("/dashboard/practice/flujo-de-dinero")}
           />
           <NavItem
             icon={ShoppingCart}
-            label="Sales"
+            label="Ventas"
             href="/dashboard/practice/ventas"
             active={pathname?.startsWith("/dashboard/practice/ventas")}
           />
           <NavItem
             icon={ShoppingBag}
-            label="Purchases"
+            label="Compras"
             href="/dashboard/practice/compras"
             active={pathname?.startsWith("/dashboard/practice/compras")}
           />
         </NavGroup>
       </nav>
 
-      {/* Sign Out */}
+      {/* Cerrar Sesión */}
       <div className="p-4 border-t border-gray-200">
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100 w-full"
         >
           <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">Sign Out</span>
+          <span className="text-sm font-medium">Cerrar Sesión</span>
         </button>
       </div>
     </aside>

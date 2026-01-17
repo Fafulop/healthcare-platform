@@ -90,7 +90,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Menú</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
@@ -132,59 +132,59 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto">
-          <NavGroup title="Practice Management">
+          <NavGroup title="Gestión de Consultorio">
             <NavItem
               icon={Users}
-              label="Clients"
+              label="Clientes"
               href="/dashboard/practice/clients"
               active={pathname?.startsWith("/dashboard/practice/clients")}
               onClick={onClose}
             />
             <NavItem
               icon={Package}
-              label="Products"
+              label="Productos"
               href="/dashboard/practice/products"
               active={pathname?.startsWith("/dashboard/practice/products")}
               onClick={onClose}
             />
             <NavItem
               icon={ShoppingCart}
-              label="Sales"
+              label="Ventas"
               href="/dashboard/practice/ventas"
               active={pathname?.startsWith("/dashboard/practice/ventas")}
               onClick={onClose}
             />
             <NavItem
               icon={FileText}
-              label="Quotations"
+              label="Cotizaciones"
               href="/dashboard/practice/cotizaciones"
               active={pathname?.startsWith("/dashboard/practice/cotizaciones")}
               onClick={onClose}
             />
             <NavItem
               icon={ShoppingBag}
-              label="Purchases"
+              label="Compras"
               href="/dashboard/practice/compras"
               active={pathname?.startsWith("/dashboard/practice/compras")}
               onClick={onClose}
             />
             <NavItem
               icon={Truck}
-              label="Suppliers"
+              label="Proveedores"
               href="/dashboard/practice/proveedores"
               active={pathname?.startsWith("/dashboard/practice/proveedores")}
               onClick={onClose}
             />
             <NavItem
               icon={DollarSign}
-              label="Cash Flow"
+              label="Flujo de Dinero"
               href="/dashboard/practice/flujo-de-dinero"
               active={pathname?.startsWith("/dashboard/practice/flujo-de-dinero")}
               onClick={onClose}
             />
             <NavItem
               icon={BarChart3}
-              label="Reports"
+              label="Reportes"
               href="/dashboard/practice/reports"
               active={pathname?.startsWith("/dashboard/practice/reports")}
               onClick={onClose}
@@ -192,7 +192,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
           </NavGroup>
 
           {doctorProfile && (
-            <NavGroup title="External">
+            <NavGroup title="Externo">
               <a
                 href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
                 target="_blank"
@@ -201,13 +201,13 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
                 className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <ExternalLink className="w-5 h-5" />
-                <span className="text-sm font-medium">Public Profile</span>
+                <span className="text-sm font-medium">Perfil Público</span>
               </a>
             </NavGroup>
           )}
         </nav>
 
-        {/* Sign Out */}
+        {/* Cerrar Sesión */}
         <div className="p-4 border-t border-gray-200">
           <button
             onClick={() => {
@@ -217,7 +217,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
             className="flex items-center gap-3 px-4 py-3 rounded-md text-red-600 hover:bg-red-50 w-full transition-colors"
           >
             <LogOut className="w-5 h-5" />
-            <span className="text-sm font-medium">Sign Out</span>
+            <span className="text-sm font-medium">Cerrar Sesión</span>
           </button>
         </div>
       </div>

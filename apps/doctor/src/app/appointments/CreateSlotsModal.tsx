@@ -38,7 +38,7 @@ export default function CreateSlotsModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewSlots, setPreviewSlots] = useState<number>(0);
 
-  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
   // Calculate preview of slots to be created
   useEffect(() => {
@@ -114,22 +114,22 @@ export default function CreateSlotsModal({
     e.preventDefault();
 
     if (!basePrice || parseFloat(basePrice) <= 0) {
-      alert("Please enter a valid base price");
+      alert("Por favor ingresa un precio base válido");
       return;
     }
 
     if (mode === "single" && !singleDate) {
-      alert("Please select a date");
+      alert("Por favor selecciona una fecha");
       return;
     }
 
     if (mode === "recurring" && (!startDate || !endDate)) {
-      alert("Please select start and end dates");
+      alert("Por favor selecciona fechas de inicio y fin");
       return;
     }
 
     if (mode === "recurring" && daysOfWeek.length === 0) {
-      alert("Please select at least one day of the week");
+      alert("Por favor selecciona al menos un día de la semana");
       return;
     }
 
@@ -171,16 +171,16 @@ export default function CreateSlotsModal({
       console.log("📋 Payload sent:", payload);
 
       if (data.success) {
-        alert(`Success! Created ${data.count} appointment slots.`);
+        alert(`¡Éxito! Se crearon ${data.count} horarios de citas.`);
         onSuccess();
         onClose();
         resetForm();
       } else {
-        alert(data.error || "Failed to create slots");
+        alert(data.error || "Error al crear horarios");
       }
     } catch (error) {
       console.error("Error creating slots:", error);
-      alert("Failed to create slots. Please try again.");
+      alert("Error al crear horarios. Por favor intenta de nuevo.");
     } finally {
       setIsSubmitting(false);
     }
@@ -215,7 +215,7 @@ export default function CreateSlotsModal({
         <div className="bg-blue-600 px-6 py-4 rounded-t-lg flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             <Calendar className="w-6 h-6" />
-            Create Appointment Slots
+            Crear Horarios de Citas
           </h2>
           <button
             onClick={onClose}
@@ -229,7 +229,7 @@ export default function CreateSlotsModal({
           {/* Mode Selection */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-3">
-              Creation Mode
+              Modo de Creación
             </label>
             <div className="flex gap-4">
               <button
@@ -241,7 +241,7 @@ export default function CreateSlotsModal({
                     : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200"
                 }`}
               >
-                Single Day
+                Día Único
               </button>
               <button
                 type="button"
@@ -252,7 +252,7 @@ export default function CreateSlotsModal({
                     : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200"
                 }`}
               >
-                Recurring
+                Recurrente
               </button>
             </div>
           </div>
@@ -262,7 +262,7 @@ export default function CreateSlotsModal({
             {mode === "single" ? (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Select Date *
+                  Seleccionar Fecha *
                 </label>
                 <input
                   type="date"
@@ -278,7 +278,7 @@ export default function CreateSlotsModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Start Date *
+                      Fecha de Inicio *
                     </label>
                     <input
                       type="date"
@@ -291,7 +291,7 @@ export default function CreateSlotsModal({
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      End Date *
+                      Fecha de Fin *
                     </label>
                     <input
                       type="date"
@@ -306,7 +306,7 @@ export default function CreateSlotsModal({
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Repeat On *
+                    Repetir en *
                   </label>
                   <div className="flex gap-2 flex-wrap">
                     {dayNames.map((day, index) => (
@@ -333,13 +333,13 @@ export default function CreateSlotsModal({
           <div className="border-t pt-6">
             <label className="block text-sm font-semibold text-gray-700 mb-4">
               <Clock className="inline w-4 h-4 mr-2" />
-              Time Settings
+              Configuración de Horario
             </label>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-2">
-                  Start Time *
+                  Hora de Inicio *
                 </label>
                 <input
                   type="time"
@@ -351,7 +351,7 @@ export default function CreateSlotsModal({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-2">
-                  End Time *
+                  Hora de Fin *
                 </label>
                 <input
                   type="time"
@@ -365,7 +365,7 @@ export default function CreateSlotsModal({
 
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-600 mb-2">
-                Slot Duration *
+                Duración del Horario *
               </label>
               <div className="flex gap-3">
                 <button
@@ -377,7 +377,7 @@ export default function CreateSlotsModal({
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  30 minutes
+                  30 minutos
                 </button>
                 <button
                   type="button"
@@ -388,7 +388,7 @@ export default function CreateSlotsModal({
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  60 minutes
+                  60 minutos
                 </button>
               </div>
             </div>
@@ -403,7 +403,7 @@ export default function CreateSlotsModal({
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm font-medium text-gray-700">
-                  Add break time (optional)
+                  Agregar descanso (opcional)
                 </span>
               </label>
 
@@ -411,7 +411,7 @@ export default function CreateSlotsModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-2">
-                      Break Start
+                      Inicio de Descanso
                     </label>
                     <input
                       type="time"
@@ -422,7 +422,7 @@ export default function CreateSlotsModal({
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-2">
-                      Break End
+                      Fin de Descanso
                     </label>
                     <input
                       type="time"
@@ -436,16 +436,16 @@ export default function CreateSlotsModal({
             </div>
           </div>
 
-          {/* Pricing */}
+          {/* Precios */}
           <div className="border-t pt-6">
             <label className="block text-sm font-semibold text-gray-700 mb-4">
               <DollarSign className="inline w-4 h-4 mr-2" />
-              Pricing
+              Precios
             </label>
 
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-600 mb-2">
-                Base Price (USD) *
+                Precio Base (MXN) *
               </label>
               <input
                 type="number"
@@ -453,7 +453,7 @@ export default function CreateSlotsModal({
                 onChange={(e) => setBasePrice(e.target.value)}
                 min="0"
                 step="0.01"
-                placeholder="50.00"
+                placeholder="500.00"
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
@@ -468,7 +468,7 @@ export default function CreateSlotsModal({
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm font-medium text-gray-700">
-                  Add discount (optional)
+                  Agregar descuento (opcional)
                 </span>
               </label>
 
@@ -485,7 +485,7 @@ export default function CreateSlotsModal({
                       }`}
                     >
                       <Percent className="inline w-4 h-4 mr-1" />
-                      Percentage
+                      Porcentaje
                     </button>
                     <button
                       type="button"
@@ -497,13 +497,13 @@ export default function CreateSlotsModal({
                       }`}
                     >
                       <DollarSign className="inline w-4 h-4 mr-1" />
-                      Fixed Amount
+                      Cantidad Fija
                     </button>
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-2">
-                      Discount {discountType === "PERCENTAGE" ? "(%)" : "(USD)"}
+                      Descuento {discountType === "PERCENTAGE" ? "(%)" : "(MXN)"}
                     </label>
                     <input
                       type="number"
@@ -512,7 +512,7 @@ export default function CreateSlotsModal({
                       min="0"
                       max={discountType === "PERCENTAGE" ? "100" : undefined}
                       step={discountType === "PERCENTAGE" ? "1" : "0.01"}
-                      placeholder={discountType === "PERCENTAGE" ? "10" : "5.00"}
+                      placeholder={discountType === "PERCENTAGE" ? "10" : "50.00"}
                       className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -520,10 +520,10 @@ export default function CreateSlotsModal({
                   {discount && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                       <p className="text-sm text-green-800">
-                        <strong>Final Price:</strong> ${finalPrice.toFixed(2)}
+                        <strong>Precio Final:</strong> ${finalPrice.toFixed(2)}
                         {discountType === "PERCENTAGE" && discount && (
                           <span className="ml-2 text-blue-600">
-                            ({discount}% off)
+                            ({discount}% de descuento)
                           </span>
                         )}
                       </p>
@@ -534,17 +534,17 @@ export default function CreateSlotsModal({
             </div>
           </div>
 
-          {/* Preview */}
+          {/* Vista Previa */}
           {previewSlots > 0 && (
             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-blue-900">Preview</p>
+                  <p className="font-semibold text-blue-900">Vista Previa</p>
                   <p className="text-sm text-blue-700 mt-1">
-                    This will create approximately <strong>{previewSlots} appointment slots</strong>
+                    Esto creará aproximadamente <strong>{previewSlots} horarios de citas</strong>
                     {mode === "recurring" && (
-                      <span> across the selected date range</span>
+                      <span> en el rango de fechas seleccionado</span>
                     )}
                   </p>
                 </div>
@@ -560,7 +560,7 @@ export default function CreateSlotsModal({
               className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-colors"
               disabled={isSubmitting}
             >
-              Cancel
+              Cancelar
             </button>
             <button
               type="submit"
@@ -570,10 +570,10 @@ export default function CreateSlotsModal({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Creating...
+                  Creando...
                 </>
               ) : (
-                `Create ${previewSlots} Slot${previewSlots !== 1 ? "s" : ""}`
+                `Crear ${previewSlots} Horario${previewSlots !== 1 ? "s" : ""}`
               )}
             </button>
           </div>

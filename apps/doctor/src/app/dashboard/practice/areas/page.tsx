@@ -229,7 +229,7 @@ export default function AreasPage() {
 
   const handleDeleteArea = async (area: Area) => {
     if (!session?.user?.email) return;
-    if (!confirm(`Are you sure you want to delete "${area.name}"? This will also delete all subareas.`)) return;
+    if (!confirm(`¿Estás seguro de eliminar "${area.name}"? Esto también eliminará todas las subáreas.`)) return;
 
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/areas/${area.id}`, {
@@ -237,19 +237,19 @@ export default function AreasPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete area');
+        throw new Error('Error al eliminar área');
       }
 
       await fetchAreas();
     } catch (err) {
       console.error('Error deleting area:', err);
-      alert('Failed to delete area');
+      alert('Error al eliminar área');
     }
   };
 
   const handleDeleteSubarea = async (area: Area, subarea: Subarea) => {
     if (!session?.user?.email) return;
-    if (!confirm(`Are you sure you want to delete "${subarea.name}"?`)) return;
+    if (!confirm(`¿Estás seguro de eliminar "${subarea.name}"?`)) return;
 
     try {
       const response = await authFetch(
@@ -260,13 +260,13 @@ export default function AreasPage() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to delete subarea');
+        throw new Error('Error al eliminar subárea');
       }
 
       await fetchAreas();
     } catch (err) {
       console.error('Error deleting subarea:', err);
-      alert('Failed to delete subarea');
+      alert('Error al eliminar subárea');
     }
   };
 
@@ -275,7 +275,7 @@ export default function AreasPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -290,16 +290,16 @@ export default function AreasPage() {
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
+            Volver al Panel
           </Link>
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
                 <FolderTree className="w-8 h-8 text-blue-600" />
-                Areas & Subareas
+                Áreas y Subáreas
               </h1>
               <p className="text-gray-600 mt-2">
-                Organize your practice management with hierarchical categories
+                Organiza la gestión de tu consultorio con categorías jerárquicas
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -315,14 +315,14 @@ export default function AreasPage() {
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
               >
                 <Plus className="w-5 h-5" />
-                Nueva Área Ingresos
+                Nueva Área de Ingresos
               </button>
               <button
                 onClick={() => openAreaModal('EGRESO')}
                 className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
               >
                 <Plus className="w-5 h-5" />
-                Nueva Área Egresos
+                Nueva Área de Egresos
               </button>
             </div>
           </div>
@@ -377,21 +377,21 @@ export default function AreasPage() {
                       <button
                         onClick={() => openSubareaModal(area)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Add subarea"
+                        title="Agregar subárea"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => openAreaModal(area.type, area)}
                         className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Edit area"
+                        title="Editar área"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteArea(area)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete area"
+                        title="Eliminar área"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -416,14 +416,14 @@ export default function AreasPage() {
                             <button
                               onClick={() => openSubareaModal(area, subarea)}
                               className="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
-                              title="Edit subarea"
+                              title="Editar subárea"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteSubarea(area, subarea)}
                               className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                              title="Delete subarea"
+                              title="Eliminar subárea"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -486,21 +486,21 @@ export default function AreasPage() {
                       <button
                         onClick={() => openSubareaModal(area)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Add subarea"
+                        title="Agregar subárea"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => openAreaModal(area.type, area)}
                         className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Edit area"
+                        title="Editar área"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteArea(area)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete area"
+                        title="Eliminar área"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -525,14 +525,14 @@ export default function AreasPage() {
                             <button
                               onClick={() => openSubareaModal(area, subarea)}
                               className="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
-                              title="Edit subarea"
+                              title="Editar subárea"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteSubarea(area, subarea)}
                               className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                              title="Delete subarea"
+                              title="Eliminar subárea"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -555,7 +555,7 @@ export default function AreasPage() {
             <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
               <div className={`p-6 border-b border-gray-200 ${areaType === 'INGRESO' ? 'bg-blue-50' : 'bg-red-50'}`}>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {editingArea ? 'Editar Área' : `Nueva Área ${areaType === 'INGRESO' ? 'Ingresos' : 'Egresos'}`}
+                  {editingArea ? 'Editar Área' : `Nueva Área de ${areaType === 'INGRESO' ? 'Ingresos' : 'Egresos'}`}
                 </h2>
                 <div className="mt-2">
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
@@ -578,27 +578,27 @@ export default function AreasPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Area Name *
+                    Nombre del Área *
                   </label>
                   <input
                     type="text"
                     value={areaName}
                     onChange={(e) => setAreaName(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Ventas, Gastos, Proyectos"
+                    placeholder="ej., Ventas, Gastos, Proyectos"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description (optional)
+                    Descripción (opcional)
                   </label>
                   <textarea
                     value={areaDescription}
                     onChange={(e) => setAreaDescription(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
-                    placeholder="Describe this area..."
+                    placeholder="Describe esta área..."
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -608,14 +608,14 @@ export default function AreasPage() {
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                     disabled={submitting}
                   >
-                    Cancel
+                    Cancelar
                   </button>
                   <button
                     type="submit"
                     className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     disabled={submitting}
                   >
-                    {submitting ? 'Saving...' : 'Save'}
+                    {submitting ? 'Guardando...' : 'Guardar'}
                   </button>
                 </div>
               </form>
@@ -629,10 +629,10 @@ export default function AreasPage() {
             <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {editingSubarea ? 'Edit Subarea' : 'New Subarea'}
+                  {editingSubarea ? 'Editar Subárea' : 'Nueva Subárea'}
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Under: {selectedAreaForSubarea?.name}
+                  Bajo: {selectedAreaForSubarea?.name}
                 </p>
               </div>
               <form onSubmit={handleSaveSubarea} className="p-6 space-y-4">
@@ -643,27 +643,27 @@ export default function AreasPage() {
                 )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Subarea Name *
+                    Nombre de Subárea *
                   </label>
                   <input
                     type="text"
                     value={subareaName}
                     onChange={(e) => setSubareaName(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Online, Tienda Física"
+                    placeholder="ej., Online, Tienda Física"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description (optional)
+                    Descripción (opcional)
                   </label>
                   <textarea
                     value={subareaDescription}
                     onChange={(e) => setSubareaDescription(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
-                    placeholder="Describe this subarea..."
+                    placeholder="Describe esta subárea..."
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -673,14 +673,14 @@ export default function AreasPage() {
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                     disabled={submitting}
                   >
-                    Cancel
+                    Cancelar
                   </button>
                   <button
                     type="submit"
                     className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     disabled={submitting}
                   >
-                    {submitting ? 'Saving...' : 'Save'}
+                    {submitting ? 'Guardando...' : 'Guardar'}
                   </button>
                 </div>
               </form>

@@ -45,10 +45,10 @@ export default function DoctorDashboardPage() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-          Welcome back, {session?.user?.name?.split(' ')[0] || 'Doctor'}!
+          ¡Bienvenido de vuelta, {session?.user?.name?.split(' ')[0] || 'Doctor'}!
         </h1>
         <p className="text-gray-600 mt-1 text-sm sm:text-base">
-          Here's what's happening with your practice today
+          Esto es lo que está pasando en tu consultorio hoy
         </p>
       </div>
 
@@ -56,38 +56,38 @@ export default function DoctorDashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6">
         <StatCard
           icon={Users}
-          label="Total Patients"
+          label="Total de Pacientes"
           value="—"
           iconColor="#2563eb"
           iconBg="#dbeafe"
         />
         <StatCard
           icon={Calendar}
-          label="Appointments Today"
+          label="Citas de Hoy"
           iconColor="#10b981"
           iconBg="#d1fae5"
           value="—"
         />
         <StatCard
           icon={ClipboardList}
-          label="Pending Encounters"
+          label="Consultas Pendientes"
           value="—"
           iconColor="#f59e0b"
           iconBg="#fef3c7"
         />
         <StatCard
           icon={DollarSign}
-          label="Revenue This Month"
+          label="Ingresos Este Mes"
           value="—"
           iconColor="#8b5cf6"
           iconBg="#ede9fe"
         />
       </div>
 
-      {/* Quick Actions */}
+      {/* Acciones Rápidas */}
       <div className="bg-white rounded-lg shadow mb-6">
         <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Acciones Rápidas</h2>
         </div>
         <div className="p-4 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -99,8 +99,8 @@ export default function DoctorDashboardPage() {
                 <Users className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">New Patient</p>
-                <p className="text-sm text-gray-600 hidden sm:block">Add patient record</p>
+                <p className="font-medium text-gray-900">Nuevo Paciente</p>
+                <p className="text-sm text-gray-600 hidden sm:block">Agregar expediente</p>
               </div>
             </Link>
 
@@ -112,8 +112,8 @@ export default function DoctorDashboardPage() {
                 <ClipboardList className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">New Encounter</p>
-                <p className="text-sm text-gray-600 hidden sm:block">Create consultation</p>
+                <p className="font-medium text-gray-900">Nueva Consulta</p>
+                <p className="text-sm text-gray-600 hidden sm:block">Crear consulta</p>
               </div>
             </Link>
 
@@ -125,23 +125,23 @@ export default function DoctorDashboardPage() {
                 <Calendar className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Schedule</p>
-                <p className="text-sm text-gray-600 hidden sm:block">Manage appointments</p>
+                <p className="font-medium text-gray-900">Agenda</p>
+                <p className="text-sm text-gray-600 hidden sm:block">Gestionar citas</p>
               </div>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity Placeholder */}
+      {/* Actividad Reciente */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Actividad Reciente</h2>
         </div>
         <div className="p-4 sm:p-6">
           <div className="text-center py-8 text-gray-500">
             <Heart className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>No recent activity to display</p>
+            <p>No hay actividad reciente</p>
           </div>
         </div>
       </div>

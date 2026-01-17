@@ -87,11 +87,11 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
           status: result.data.status,
         });
       } else {
-        setError(result.error || 'Failed to load article');
+        setError(result.error || 'Error al cargar artículo');
       }
     } catch (err) {
       console.error('Error fetching article:', err);
-      setError('Error loading article');
+      setError('Error al cargar artículo');
     } finally {
       setLoading(false);
     }
@@ -102,38 +102,38 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
 
     // Validation
     if (!formData.title?.trim()) {
-      setError('Title is required');
+      setError('El título es requerido');
       return;
     }
 
     if (!formData.slug?.trim()) {
-      setError('Slug is required');
+      setError('El slug es requerido');
       return;
     }
 
     if (!isValidSlug(formData.slug)) {
-      setError('Invalid slug format. Use only lowercase letters, numbers, and hyphens.');
+      setError('Formato de slug inválido. Usa solo letras minúsculas, números y guiones.');
       return;
     }
 
     if (!formData.content?.trim()) {
-      setError('Content is required');
+      setError('El contenido es requerido');
       return;
     }
 
     if (!formData.excerpt?.trim()) {
-      setError('Excerpt is required');
+      setError('El extracto es requerido');
       return;
     }
 
     if (formData.excerpt.length > 200) {
-      setError('Excerpt must be 200 characters or less');
+      setError('El extracto debe tener 200 caracteres o menos');
       return;
     }
 
     // Check slug change protection for published articles
     if (article?.status === 'PUBLISHED' && formData.slug !== article.slug) {
-      setError('Cannot change slug of published article (SEO protection)');
+      setError('No se puede cambiar el slug de un artículo publicado (protección SEO)');
       return;
     }
 
@@ -163,11 +163,11 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
         // Redirect to blog management page
         router.push('/dashboard/blog');
       } else {
-        setError(result.error || 'Failed to update article');
+        setError(result.error || 'Error al actualizar artículo');
       }
     } catch (err) {
       console.error('Error updating article:', err);
-      setError('Error updating article');
+      setError('Error al actualizar artículo');
     } finally {
       setSaving(false);
     }
@@ -186,7 +186,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading article...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando artículo...</p>
         </div>
       </div>
     );
@@ -197,13 +197,13 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
       <div className="p-4 sm:p-6 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
-          <p className="text-xl text-gray-900 mb-2">Error Loading Article</p>
+          <p className="text-xl text-gray-900 mb-2">Error al Cargar Artículo</p>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={() => router.push('/dashboard/blog')}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
           >
-            Back to Blog
+            Volver al Blog
           </button>
         </div>
       </div>
@@ -219,11 +219,11 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Blog
+            Volver al Blog
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Edit Article</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Editar Artículo</h1>
           {article?.status === 'PUBLISHED' && (
-            <p className="text-sm text-green-600 mt-1">This article is currently published</p>
+            <p className="text-sm text-green-600 mt-1">Este artículo está publicado actualmente</p>
           )}
           </div>
 
@@ -232,9 +232,9 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
             <div>
-              <p className="font-semibold text-yellow-900">SEO Protection Warning</p>
+              <p className="font-semibold text-yellow-900">Advertencia de Protección SEO</p>
               <p className="text-yellow-700 text-sm">
-                You cannot change the slug of a published article. This protects your SEO rankings and prevents broken links.
+                No puedes cambiar el slug de un artículo publicado. Esto protege tu posicionamiento SEO y previene enlaces rotos.
               </p>
             </div>
           </div>
@@ -256,7 +256,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Title <span className="text-red-600">*</span>
+              Título <span className="text-red-600">*</span>
             </label>
             <input
               type="text"
@@ -271,7 +271,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Slug <span className="text-red-600">*</span>
               {article?.status === 'PUBLISHED' && (
-                <span className="text-xs text-red-600 ml-2">(Cannot be changed - SEO protection)</span>
+                <span className="text-xs text-red-600 ml-2">(No se puede cambiar - protección SEO)</span>
               )}
             </label>
             <div className="flex items-center gap-2">
@@ -289,7 +289,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
           {/* Thumbnail */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Thumbnail Image URL
+              URL de Imagen Miniatura
             </label>
             <input
               type="url"
@@ -313,7 +313,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
           {/* Content Editor */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Content <span className="text-red-600">*</span>
+              Contenido <span className="text-red-600">*</span>
             </label>
             <RichTextEditor
               content={formData.content}
@@ -324,8 +324,8 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
           {/* Excerpt */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Excerpt <span className="text-red-600">*</span>
-              <span className="text-xs text-gray-500 ml-2">(Short summary, max 200 chars)</span>
+              Extracto <span className="text-red-600">*</span>
+              <span className="text-xs text-gray-500 ml-2">(Resumen corto, máx. 200 caracteres)</span>
             </label>
             <textarea
               value={formData.excerpt}
@@ -335,19 +335,19 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
             <p className="text-xs text-gray-500 mt-1">
-              {formData.excerpt.length}/200 characters
+              {formData.excerpt.length}/200 caracteres
             </p>
           </div>
 
           {/* SEO Section */}
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">SEO (Optional)</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">SEO (Opcional)</h3>
 
             {/* Meta Description */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Meta Description
-                <span className="text-xs text-gray-500 ml-2">(Max 160 chars)</span>
+                Meta Descripción
+                <span className="text-xs text-gray-500 ml-2">(Máx. 160 caracteres)</span>
               </label>
               <textarea
                 value={formData.metaDescription}
@@ -357,15 +357,15 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-1">
-                {formData.metaDescription.length}/160 characters
+                {formData.metaDescription.length}/160 caracteres
               </p>
             </div>
 
             {/* Keywords */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Keywords
-                <span className="text-xs text-gray-500 ml-2">(Comma-separated)</span>
+                Palabras Clave
+                <span className="text-xs text-gray-500 ml-2">(Separadas por comas)</span>
               </label>
               <input
                 type="text"
@@ -386,7 +386,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
                   disabled={saving}
                   className="px-4 py-2 text-orange-600 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50"
                 >
-                  Unpublish
+                  Despublicar
                 </button>
               )}
             </div>
@@ -398,7 +398,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
                 disabled={saving}
                 className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
-                Cancel
+                Cancelar
               </button>
 
               {article?.status === 'DRAFT' && (
@@ -413,7 +413,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
-                  Save Draft
+                  Guardar Borrador
                 </button>
               )}
 
@@ -428,7 +428,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
                 ) : (
                   <Send className="w-4 h-4" />
                 )}
-                {article?.status === 'PUBLISHED' ? 'Update' : 'Publish'}
+                {article?.status === 'PUBLISHED' ? 'Actualizar' : 'Publicar'}
               </button>
             </div>
           </div>

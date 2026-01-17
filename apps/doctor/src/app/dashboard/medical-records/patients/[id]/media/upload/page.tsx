@@ -73,7 +73,7 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
       setPatient(data.data);
     } catch (error) {
       console.error('Error fetching patient:', error);
-      alert('Failed to load patient information');
+      alert('Error al cargar información del paciente');
     }
   };
 
@@ -91,7 +91,7 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -106,11 +106,11 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
           className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to Gallery
+          Volver a la Galería
         </Link>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Upload Media
+          Subir Medios
         </h1>
         <p className="text-gray-600">
           {patient.firstName} {patient.lastName} (ID: {patient.internalId})

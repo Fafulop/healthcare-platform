@@ -63,19 +63,19 @@ export default function BottomNav({ onMoreClick, isDrawerOpen }: BottomNavProps)
       <div className="flex items-center justify-around safe-area-bottom">
         <NavItem
           icon={Home}
-          label="Home"
+          label="Inicio"
           href="/dashboard"
           active={pathname === "/dashboard"}
         />
         <NavItem
           icon={Users}
-          label="Patients"
+          label="Pacientes"
           href="/dashboard/medical-records"
           active={pathname?.startsWith("/dashboard/medical-records")}
         />
         <NavItem
           icon={Calendar}
-          label="Appointments"
+          label="Citas"
           href="/appointments"
           active={pathname === "/appointments"}
         />
@@ -87,7 +87,7 @@ export default function BottomNav({ onMoreClick, isDrawerOpen }: BottomNavProps)
         />
         <NavItem
           icon={Menu}
-          label="More"
+          label="Más"
           href="#"
           active={isDrawerOpen}
           onClick={onMoreClick}

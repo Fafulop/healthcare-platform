@@ -178,41 +178,46 @@ export default function PatientProfilePage() {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/timeline`}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+              title="Línea de Tiempo"
             >
               <Clock className="w-4 h-4" />
-              Línea de Tiempo
+              <span className="hidden sm:inline">Línea de Tiempo</span>
             </Link>
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/media`}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+              title="Galería"
             >
               <Image className="w-4 h-4" />
-              Galería
+              <span className="hidden sm:inline">Galería</span>
             </Link>
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/prescriptions`}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+              title="Prescripciones"
             >
               <Pill className="w-4 h-4" />
-              Prescripciones
+              <span className="hidden sm:inline">Prescripciones</span>
             </Link>
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/edit`}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+              title="Editar"
             >
               <Edit className="w-4 h-4" />
-              Editar
+              <span className="hidden sm:inline">Editar</span>
             </Link>
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/encounters/new`}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 w-full sm:w-auto justify-center"
+              title="Nueva Consulta"
             >
               <Plus className="w-4 h-4" />
-              Nueva Consulta
+              <span>Nueva Consulta</span>
             </Link>
           </div>
         </div>

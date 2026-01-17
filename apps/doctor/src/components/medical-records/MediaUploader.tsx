@@ -31,19 +31,19 @@ const CATEGORIES = [
 ];
 
 const BODY_AREAS = [
-  'Head',
-  'Neck',
-  'Chest',
+  'Cabeza',
+  'Cuello',
+  'Pecho',
   'Abdomen',
-  'Back',
-  'Right Arm',
-  'Left Arm',
-  'Right Leg',
-  'Left Leg',
-  'Right Hand',
-  'Left Hand',
-  'Right Foot',
-  'Left Foot',
+  'Espalda',
+  'Brazo Derecho',
+  'Brazo Izquierdo',
+  'Pierna Derecha',
+  'Pierna Izquierda',
+  'Mano Derecha',
+  'Mano Izquierda',
+  'Pie Derecho',
+  'Pie Izquierdo',
 ];
 
 export function MediaUploader({ patientId, encounterId: propEncounterId, onUploadComplete, onCancel }: MediaUploaderProps) {
@@ -104,7 +104,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) {
-      setError('Please select at least one file');
+      setError('Por favor selecciona al menos un archivo');
       return;
     }
 
@@ -123,7 +123,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
       }
 
       if (!uploadedFiles || uploadedFiles.length === 0) {
-        throw new Error('Upload failed');
+        throw new Error('Error al subir archivo');
       }
 
       // Step 2: Create media records in database for each uploaded file
@@ -150,7 +150,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
         });
 
         if (!response.ok) {
-          throw new Error('Failed to save media record');
+          throw new Error('Error al guardar registro de medios');
         }
 
         const { data } = await response.json();
@@ -174,7 +174,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
       }
     } catch (err: any) {
       console.error('Upload error:', err);
-      setError(err.message || 'Failed to upload media');
+      setError(err.message || 'Error al subir medios');
     } finally {
       setIsUploading(false);
     }
@@ -191,12 +191,12 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-xl font-semibold mb-4">Upload Media</h2>
+      <h2 className="text-xl font-semibold mb-4">Subir Medios</h2>
 
       {/* File Selection */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Files
+          Seleccionar Archivos
         </label>
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
           <input
@@ -211,12 +211,12 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
           <label htmlFor="file-upload" className="cursor-pointer">
             <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
             <p className="text-sm text-gray-600 mb-1">
-              Click to upload or drag and drop
+              Haz clic para subir o arrastra y suelta
             </p>
             <p className="text-xs text-gray-500">
-              {mediaType === 'image' && 'Images up to 10MB'}
-              {mediaType === 'video' && 'Videos up to 100MB'}
-              {mediaType === 'audio' && 'Audio up to 20MB'}
+              {mediaType === 'image' && 'Imágenes hasta 10MB'}
+              {mediaType === 'video' && 'Videos hasta 100MB'}
+              {mediaType === 'audio' && 'Audio hasta 20MB'}
             </p>
           </label>
         </div>
@@ -252,7 +252,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
+              Categoría
             </label>
             <select
               value={category}
@@ -260,7 +260,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
               className="w-full border border-gray-300 rounded-md px-3 py-2"
               disabled={isUploading}
             >
-              <option value="">Select category...</option>
+              <option value="">Seleccionar categoría...</option>
               {CATEGORIES.map(cat => (
                 <option key={cat} value={cat}>
                   {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -271,7 +271,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Body Area
+              Área del Cuerpo
             </label>
             <select
               value={bodyArea}
@@ -279,7 +279,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
               className="w-full border border-gray-300 rounded-md px-3 py-2"
               disabled={isUploading}
             >
-              <option value="">Select area...</option>
+              <option value="">Seleccionar área...</option>
               {BODY_AREAS.map(area => (
                 <option key={area} value={area}>
                   {area}
@@ -292,7 +292,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
         {/* Link to Encounter */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Link to Encounter (Optional)
+            Vincular a Consulta (Opcional)
           </label>
           <select
             value={selectedEncounterId}
@@ -300,7 +300,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
             className="w-full border border-gray-300 rounded-md px-3 py-2"
             disabled={isUploading || propEncounterId !== undefined}
           >
-            <option value="">No encounter selected</option>
+            <option value="">Ninguna consulta seleccionada</option>
             {encounters.map(encounter => (
               <option key={encounter.id} value={encounter.id}>
                 {new Date(encounter.encounterDate).toLocaleDateString('es-MX')} - {encounter.chiefComplaint}
@@ -309,20 +309,20 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
           </select>
           {propEncounterId && (
             <p className="text-xs text-gray-500 mt-1">
-              Media will be linked to the current encounter
+              Los medios se vincularán a la consulta actual
             </p>
           )}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Description
+            Descripción
           </label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Brief description of the media..."
+            placeholder="Breve descripción de los medios..."
             className="w-full border border-gray-300 rounded-md px-3 py-2"
             disabled={isUploading}
           />
@@ -330,12 +330,12 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Doctor Notes (Private)
+            Notas del Doctor (Privadas)
           </label>
           <textarea
             value={doctorNotes}
             onChange={(e) => setDoctorNotes(e.target.value)}
-            placeholder="Clinical observations, interpretations..."
+            placeholder="Observaciones clínicas, interpretaciones..."
             rows={3}
             className="w-full border border-gray-300 rounded-md px-3 py-2"
             disabled={isUploading}
@@ -358,7 +358,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
             disabled={isUploading}
             className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
           >
-            Cancel
+            Cancelar
           </button>
         )}
         <button
@@ -369,12 +369,12 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
           {isUploading ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Uploading...
+              Subiendo...
             </>
           ) : (
             <>
               <Upload className="w-4 h-4" />
-              Upload
+              Subir
             </>
           )}
         </button>

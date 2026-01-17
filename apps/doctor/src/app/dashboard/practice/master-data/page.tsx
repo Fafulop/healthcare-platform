@@ -228,24 +228,24 @@ export default function MasterDataPage() {
 
   const handleDeleteAttribute = async (attribute: Attribute) => {
     if (!session?.user?.email) return;
-    if (!confirm(`Delete "${attribute.name}"? This will delete all its values.`)) return;
+    if (!confirm(`¿Eliminar "${attribute.name}"? Esto eliminará todos sus valores.`)) return;
 
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/product-attributes/${attribute.id}`, {
         method: 'DELETE'
       });
 
-      if (!response.ok) throw new Error('Failed to delete attribute');
+      if (!response.ok) throw new Error('Error al eliminar atributo');
       await fetchAttributes();
     } catch (err) {
       console.error('Error deleting attribute:', err);
-      alert('Failed to delete attribute');
+      alert('Error al eliminar atributo');
     }
   };
 
   const handleDeleteValue = async (attribute: Attribute, value: AttributeValue) => {
     if (!session?.user?.email) return;
-    if (!confirm(`Delete "${value.value}"?`)) return;
+    if (!confirm(`¿Eliminar "${value.value}"?`)) return;
 
     try {
       const response = await authFetch(
@@ -255,11 +255,11 @@ export default function MasterDataPage() {
         }
       );
 
-      if (!response.ok) throw new Error('Failed to delete value');
+      if (!response.ok) throw new Error('Error al eliminar valor');
       await fetchAttributes();
     } catch (err) {
       console.error('Error deleting value:', err);
-      alert('Failed to delete value');
+      alert('Error al eliminar valor');
     }
   };
 
@@ -268,7 +268,7 @@ export default function MasterDataPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -283,16 +283,16 @@ export default function MasterDataPage() {
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
+            Volver al Panel
           </Link>
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
                 <Database className="w-8 h-8 text-blue-600" />
-                Master Data
+                Datos Maestros
               </h1>
               <p className="text-gray-600 mt-2">
-                Manage reusable components and materials for your products
+                Administra componentes y materiales reutilizables para tus productos
               </p>
             </div>
             <button
@@ -300,7 +300,7 @@ export default function MasterDataPage() {
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <Plus className="w-5 h-5" />
-              New Category
+              Nueva Categoría
             </button>
           </div>
         </div>
@@ -310,9 +310,9 @@ export default function MasterDataPage() {
           {attributes.length === 0 ? (
             <div className="text-center py-12">
               <Database className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">No categories yet</p>
+              <p className="text-gray-500 text-lg">Aún no hay categorías</p>
               <p className="text-gray-400 text-sm mt-2">
-                Create categories like "Raw Materials", "Packaging", etc.
+                Crea categorías como "Materias Primas", "Embalaje", etc.
               </p>
             </div>
           ) : (
@@ -346,21 +346,21 @@ export default function MasterDataPage() {
                       <button
                         onClick={() => openValueModal(attribute)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Add item"
+                        title="Agregar elemento"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => openAttributeModal(attribute)}
                         className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Edit category"
+                        title="Editar categoría"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteAttribute(attribute)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete category"
+                        title="Eliminar categoría"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -389,7 +389,7 @@ export default function MasterDataPage() {
                               )}
                               {value.unit && (
                                 <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                  per {value.unit}
+                                  por {value.unit}
                                 </span>
                               )}
                             </div>
@@ -398,14 +398,14 @@ export default function MasterDataPage() {
                             <button
                               onClick={() => openValueModal(attribute, value)}
                               className="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
-                              title="Edit item"
+                              title="Editar elemento"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteValue(attribute, value)}
                               className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                              title="Delete item"
+                              title="Eliminar elemento"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -426,7 +426,7 @@ export default function MasterDataPage() {
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {editingAttribute ? 'Edit Category' : 'New Category'}
+                  {editingAttribute ? 'Editar Categoría' : 'Nueva Categoría'}
                 </h2>
               </div>
               <form onSubmit={handleSaveAttribute} className="p-6 space-y-4">
@@ -437,27 +437,27 @@ export default function MasterDataPage() {
                 )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category Name *
+                    Nombre de Categoría *
                   </label>
                   <input
                     type="text"
                     value={attributeName}
                     onChange={(e) => setAttributeName(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Raw Materials, Packaging"
+                    placeholder="ej., Materias Primas, Embalaje"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description (optional)
+                    Descripción (opcional)
                   </label>
                   <textarea
                     value={attributeDescription}
                     onChange={(e) => setAttributeDescription(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
-                    placeholder="Describe this category..."
+                    placeholder="Describe esta categoría..."
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -467,14 +467,14 @@ export default function MasterDataPage() {
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                     disabled={submitting}
                   >
-                    Cancel
+                    Cancelar
                   </button>
                   <button
                     type="submit"
                     className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     disabled={submitting}
                   >
-                    {submitting ? 'Saving...' : 'Save'}
+                    {submitting ? 'Guardando...' : 'Guardar'}
                   </button>
                 </div>
               </form>
@@ -488,10 +488,10 @@ export default function MasterDataPage() {
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {editingValue ? 'Edit Item' : 'New Item'}
+                  {editingValue ? 'Editar Elemento' : 'Nuevo Elemento'}
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Category: {selectedAttributeForValue?.name}
+                  Categoría: {selectedAttributeForValue?.name}
                 </p>
               </div>
               <form onSubmit={handleSaveValue} className="p-6 space-y-4">
@@ -502,33 +502,33 @@ export default function MasterDataPage() {
                 )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Item Name *
+                    Nombre del Elemento *
                   </label>
                   <input
                     type="text"
                     value={valueName}
                     onChange={(e) => setValueName(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Flour (50kg), Small Box"
+                    placeholder="ej., Harina (50kg), Caja Pequeña"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description (optional)
+                    Descripción (opcional)
                   </label>
                   <input
                     type="text"
                     value={valueDescription}
                     onChange={(e) => setValueDescription(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Additional details..."
+                    placeholder="Detalles adicionales..."
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cost per Unit
+                      Costo por Unidad
                     </label>
                     <input
                       type="number"
@@ -541,14 +541,14 @@ export default function MasterDataPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Unit
+                      Unidad
                     </label>
                     <input
                       type="text"
                       value={valueUnit}
                       onChange={(e) => setValueUnit(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="kg, pcs, liter"
+                      placeholder="kg, pzs, litro"
                     />
                   </div>
                 </div>
@@ -559,14 +559,14 @@ export default function MasterDataPage() {
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                     disabled={submitting}
                   >
-                    Cancel
+                    Cancelar
                   </button>
                   <button
                     type="submit"
                     className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     disabled={submitting}
                   >
-                    {submitting ? 'Saving...' : 'Save'}
+                    {submitting ? 'Guardando...' : 'Guardar'}
                   </button>
                 </div>
               </form>

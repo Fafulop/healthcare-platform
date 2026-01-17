@@ -18,10 +18,10 @@ function LoginContent() {
             <Stethoscope className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-green-700 to-emerald-700 bg-clip-text text-transparent">
-            Doctor Portal
+            Portal Médico
           </h1>
           <p className="mt-2 text-gray-600">
-            Healthcare Platform
+            Plataforma de Salud
           </p>
         </div>
 
@@ -30,10 +30,10 @@ function LoginContent() {
           {/* Welcome Message */}
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Welcome Back
+              Bienvenido
             </h2>
             <p className="text-sm text-gray-600">
-              Sign in to manage your profile and appointments
+              Inicia sesión para gestionar tu perfil y citas
             </p>
           </div>
 
@@ -45,13 +45,13 @@ function LoginContent() {
                 <div>
                   <p className="text-sm font-medium text-red-900">
                     {error === "AccessDenied"
-                      ? "Access Denied"
-                      : "Authentication Failed"}
+                      ? "Acceso Denegado"
+                      : "Autenticación Fallida"}
                   </p>
                   <p className="text-sm text-red-700 mt-1">
                     {error === "AccessDenied"
-                      ? "You do not have doctor access. Please contact support to get your account verified."
-                      : "Authentication failed. Please try again or contact support if the problem persists."}
+                      ? "No tienes acceso de médico. Por favor contacta a soporte para verificar tu cuenta."
+                      : "La autenticación falló. Por favor intenta de nuevo o contacta a soporte si el problema persiste."}
                   </p>
                 </div>
               </div>
@@ -82,7 +82,7 @@ function LoginContent() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              Sign in with Google
+              Iniciar sesión con Google
             </button>
           </div>
 
@@ -93,7 +93,7 @@ function LoginContent() {
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-4 bg-white text-gray-500">
-                Secure authentication
+                Autenticación segura
               </span>
             </div>
           </div>
@@ -101,7 +101,7 @@ function LoginContent() {
           {/* Info Box */}
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-xs text-green-800 text-center">
-              <span className="font-semibold">🔒 Protected Portal:</span> Sign in with the email address associated with your verified doctor profile
+              <span className="font-semibold">🔒 Portal Protegido:</span> Inicia sesión con el correo electrónico asociado a tu perfil de médico verificado
             </p>
           </div>
         </div>
@@ -109,7 +109,7 @@ function LoginContent() {
         {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
-            Need help? Contact{" "}
+            ¿Necesitas ayuda? Contacta a{" "}
             <a href="mailto:support@healthcare.com" className="text-green-600 hover:text-green-700 font-medium">
               support@healthcare.com
             </a>
@@ -126,7 +126,7 @@ export default function DoctorLoginPage() {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
         <div className="text-center">
           <Stethoscope className="w-12 h-12 text-green-600 animate-pulse mx-auto mb-4" />
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Cargando...</p>
         </div>
       </div>
     }>

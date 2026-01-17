@@ -67,7 +67,7 @@ export default function PatientsPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Loading medical records...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando expedientes médicos...</p>
         </div>
       </div>
     );
@@ -79,9 +79,9 @@ export default function PatientsPage() {
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Medical Records</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Expedientes Médicos</h1>
             <p className="text-gray-600 mt-1">
-              Manage your patient records
+              Gestiona los expedientes de tus pacientes
             </p>
           </div>
           <Link
@@ -89,7 +89,7 @@ export default function PatientsPage() {
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
           >
             <Plus className="w-5 h-5" />
-            New Patient
+            Nuevo Paciente
           </Link>
         </div>
       </div>
@@ -110,7 +110,7 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* Patient List */}
+      {/* Lista de Pacientes */}
       {patients.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {patients.map((patient) => (
@@ -120,16 +120,16 @@ export default function PatientsPage() {
       ) : (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg mb-2">No patients found</p>
+          <p className="text-gray-500 text-lg mb-2">No se encontraron pacientes</p>
           <p className="text-gray-400 text-sm mb-4">
-            Start by adding your first patient
+            Comienza agregando tu primer paciente
           </p>
           <Link
             href="/dashboard/medical-records/patients/new"
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
-            New Patient
+            Nuevo Paciente
           </Link>
         </div>
       )}
