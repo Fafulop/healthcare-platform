@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import Link from 'next/link';
 import { VitalsInput, type VitalsData } from './VitalsInput';
@@ -74,6 +74,43 @@ export function EncounterForm({
     followUpNotes: initialData.followUpNotes || '',
     status: initialData.status || 'draft',
   });
+
+  // Sync form state when initialData changes (e.g., from voice assistant)
+  useEffect(() => {
+    // Only update if initialData has meaningful content
+    const hasContent = initialData && Object.values(initialData).some(
+      v => v !== undefined && v !== null && v !== ''
+    );
+
+    if (hasContent) {
+      setFormData(prev => ({
+        encounterDate: initialData.encounterDate ? initialData.encounterDate.split('T')[0] : prev.encounterDate,
+        encounterType: initialData.encounterType || prev.encounterType,
+        chiefComplaint: initialData.chiefComplaint || prev.chiefComplaint,
+        location: initialData.location ?? prev.location,
+        clinicalNotes: initialData.clinicalNotes ?? prev.clinicalNotes,
+        subjective: initialData.subjective ?? prev.subjective,
+        objective: initialData.objective ?? prev.objective,
+        assessment: initialData.assessment ?? prev.assessment,
+        plan: initialData.plan ?? prev.plan,
+        vitalsBloodPressure: initialData.vitalsBloodPressure ?? prev.vitalsBloodPressure,
+        vitalsHeartRate: initialData.vitalsHeartRate ?? prev.vitalsHeartRate,
+        vitalsTemperature: initialData.vitalsTemperature ?? prev.vitalsTemperature,
+        vitalsWeight: initialData.vitalsWeight ?? prev.vitalsWeight,
+        vitalsHeight: initialData.vitalsHeight ?? prev.vitalsHeight,
+        vitalsOxygenSat: initialData.vitalsOxygenSat ?? prev.vitalsOxygenSat,
+        vitalsOther: initialData.vitalsOther ?? prev.vitalsOther,
+        followUpDate: initialData.followUpDate ? initialData.followUpDate.split('T')[0] : prev.followUpDate,
+        followUpNotes: initialData.followUpNotes ?? prev.followUpNotes,
+        status: initialData.status || prev.status,
+      }));
+
+      // Auto-enable SOAP mode if SOAP fields are populated
+      if (initialData.subjective || initialData.objective || initialData.assessment || initialData.plan) {
+        setUseSOAP(true);
+      }
+    }
+  }, [initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({

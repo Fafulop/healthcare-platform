@@ -1,14 +1,46 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Mic } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterForm, type EncounterFormData } from '@/components/medical-records/EncounterForm';
+import {
+  AIDraftBanner,
+  VoiceChatSidebar,
+  VoiceRecordingModal,
+} from '@/components/voice-assistant';
+import type { InitialChatData } from '@/hooks/useChatSession';
+import type { VoiceEncounterData, VoiceStructuredData } from '@/types/voice-assistant';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+// Helper to map voice data to form data
+function mapVoiceToFormData(voiceData: VoiceEncounterData): Partial<EncounterFormData> {
+  return {
+    encounterDate: voiceData.encounterDate || new Date().toISOString().split('T')[0],
+    encounterType: voiceData.encounterType || 'consultation',
+    chiefComplaint: voiceData.chiefComplaint || '',
+    location: voiceData.location || undefined,
+    status: voiceData.status || 'draft',
+    vitalsBloodPressure: voiceData.vitalsBloodPressure || undefined,
+    vitalsHeartRate: voiceData.vitalsHeartRate || undefined,
+    vitalsTemperature: voiceData.vitalsTemperature || undefined,
+    vitalsWeight: voiceData.vitalsWeight || undefined,
+    vitalsHeight: voiceData.vitalsHeight || undefined,
+    vitalsOxygenSat: voiceData.vitalsOxygenSat || undefined,
+    vitalsOther: voiceData.vitalsOther || undefined,
+    clinicalNotes: voiceData.clinicalNotes || undefined,
+    subjective: voiceData.subjective || undefined,
+    objective: voiceData.objective || undefined,
+    assessment: voiceData.assessment || undefined,
+    plan: voiceData.plan || undefined,
+    followUpDate: voiceData.followUpDate || undefined,
+    followUpNotes: voiceData.followUpNotes || undefined,
+  };
+}
 
 interface DoctorProfile {
   id: string;
@@ -19,6 +51,7 @@ interface DoctorProfile {
 export default function NewEncounterPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const patientId = params.id as string;
 
   const { data: session, status } = useSession({
@@ -29,6 +62,60 @@ export default function NewEncounterPage() {
   });
 
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
+
+  // Voice recording modal state
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // Voice chat sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
+
+  // Voice assistant state
+  const [voiceInitialData, setVoiceInitialData] = useState<Partial<EncounterFormData> | undefined>(undefined);
+  const [showAIBanner, setShowAIBanner] = useState(false);
+  const [aiMetadata, setAIMetadata] = useState<{
+    sessionId: string;
+    transcriptId: string;
+    fieldsExtracted: string[];
+    fieldsEmpty: string[];
+    confidence: 'high' | 'medium' | 'low';
+  } | null>(null);
+
+  // Load voice data from sessionStorage
+  useEffect(() => {
+    if (searchParams.get('voice') === 'true') {
+      const stored = sessionStorage.getItem('voiceEncounterData');
+      if (stored) {
+        try {
+          const { data, sessionId, transcriptId } = JSON.parse(stored);
+
+          // Map voice data to form data
+          setVoiceInitialData(mapVoiceToFormData(data));
+
+          // Calculate extracted/empty fields
+          const allFields = Object.keys(data);
+          const extracted = allFields.filter(k => data[k] != null && data[k] !== '');
+          const empty = allFields.filter(k => data[k] == null || data[k] === '');
+
+          // Set AI metadata for banner
+          setAIMetadata({
+            sessionId,
+            transcriptId,
+            fieldsExtracted: extracted,
+            fieldsEmpty: empty,
+            confidence: extracted.length > 6 ? 'high' : extracted.length > 3 ? 'medium' : 'low',
+          });
+
+          setShowAIBanner(true);
+
+          // Clear storage
+          sessionStorage.removeItem('voiceEncounterData');
+        } catch (e) {
+          console.error('Error parsing voice data:', e);
+        }
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (session?.user?.doctorId) {
@@ -51,6 +138,73 @@ export default function NewEncounterPage() {
       console.error("Error fetching doctor profile:", err);
     }
   };
+
+  // Handle modal completion - transition to sidebar with initial data
+  const handleModalComplete = useCallback((
+    transcript: string,
+    data: VoiceStructuredData,
+    sessionId: string,
+    transcriptId: string,
+    audioDuration: number
+  ) => {
+    const voiceData = data as VoiceEncounterData;
+
+    // Calculate extracted fields
+    const allFields = Object.keys(voiceData);
+    const extracted = allFields.filter(
+      k => voiceData[k as keyof VoiceEncounterData] != null &&
+           voiceData[k as keyof VoiceEncounterData] !== ''
+    );
+
+    // Prepare initial data for sidebar
+    const initialData: InitialChatData = {
+      transcript,
+      structuredData: data,
+      transcriptId,
+      sessionId,
+      audioDuration,
+      fieldsExtracted: extracted,
+    };
+
+    // Close modal, set initial data, and open sidebar
+    setModalOpen(false);
+    setSidebarInitialData(initialData);
+    setSidebarOpen(true);
+  }, []);
+
+  // Handle voice chat confirm - populate form with extracted data
+  const handleVoiceConfirm = useCallback((data: VoiceStructuredData) => {
+    console.log('[Page] handleVoiceConfirm called with data:', data);
+
+    const voiceData = data as VoiceEncounterData;
+    const mappedData = mapVoiceToFormData(voiceData);
+
+    console.log('[Page] Mapped data for form:', mappedData);
+
+    setVoiceInitialData(mappedData);
+
+    // Calculate extracted/empty fields for banner
+    const allFields = Object.keys(voiceData);
+    const extracted = allFields.filter(k => voiceData[k as keyof VoiceEncounterData] != null && voiceData[k as keyof VoiceEncounterData] !== '');
+    const empty = allFields.filter(k => voiceData[k as keyof VoiceEncounterData] == null || voiceData[k as keyof VoiceEncounterData] === '');
+
+    console.log('[Page] Fields analysis:', { extracted, empty });
+
+    setAIMetadata({
+      sessionId: crypto.randomUUID(),
+      transcriptId: crypto.randomUUID(),
+      fieldsExtracted: extracted,
+      fieldsEmpty: empty,
+      confidence: extracted.length > 6 ? 'high' : extracted.length > 3 ? 'medium' : 'low',
+    });
+
+    setShowAIBanner(true);
+
+    // Clear initial data after confirming
+    setSidebarInitialData(undefined);
+
+    console.log('[Page] Form should now be filled with voice data');
+  }, []);
 
   const handleSubmit = async (formData: EncounterFormData) => {
     const res = await fetch(`/api/medical-records/patients/${patientId}/encounters`, {
@@ -98,15 +252,71 @@ export default function NewEncounterPage() {
           <ArrowLeft className="w-5 h-5" />
           Volver al Paciente
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Nueva Consulta</h1>
-        <p className="text-gray-600 mt-1">Registre los detalles de la consulta</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Nueva Consulta</h1>
+            <p className="text-gray-600 mt-1">Registre los detalles de la consulta</p>
+          </div>
+          {/* Voice Assistant Button */}
+          <button
+            onClick={() => setModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Mic className="w-5 h-5" />
+            Asistente de Voz
+          </button>
+        </div>
       </div>
+
+      {/* AI Draft Banner */}
+      {showAIBanner && aiMetadata && (
+        <AIDraftBanner
+          confidence={aiMetadata.confidence}
+          fieldsExtracted={aiMetadata.fieldsExtracted}
+          fieldsEmpty={aiMetadata.fieldsEmpty}
+          onDismiss={() => setShowAIBanner(false)}
+        />
+      )}
 
       <EncounterForm
         patientId={patientId}
+        initialData={voiceInitialData}
         onSubmit={handleSubmit}
         submitLabel="Crear Consulta"
       />
+
+      {/* Voice Recording Modal */}
+      {session?.user?.doctorId && (
+        <VoiceRecordingModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          sessionType="NEW_ENCOUNTER"
+          context={{
+            patientId,
+            doctorId: session.user.doctorId,
+            doctorName: doctorProfile?.slug || undefined,
+          }}
+          onComplete={handleModalComplete}
+        />
+      )}
+
+      {/* Voice Chat Sidebar */}
+      {session?.user?.doctorId && (
+        <VoiceChatSidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          sessionType="NEW_ENCOUNTER"
+          patientId={patientId}
+          doctorId={session.user.doctorId}
+          context={{
+            patientId,
+            doctorId: session.user.doctorId,
+            doctorName: doctorProfile?.slug || undefined,
+          }}
+          initialData={sidebarInitialData}
+          onConfirm={handleVoiceConfirm}
+        />
+      )}
     </div>
   );
 }

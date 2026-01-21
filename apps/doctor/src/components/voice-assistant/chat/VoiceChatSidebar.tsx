@@ -1,0 +1,312 @@
+'use client';
+
+/**
+ * VoiceChatSidebar
+ *
+ * Main chat sidebar component that slides in from the right.
+ * Integrates all chat components and manages the session.
+ */
+
+import { useEffect, useState, useRef } from 'react';
+import { X, CheckCircle, RotateCcw, AlertCircle, GripVertical } from 'lucide-react';
+import { ChatMessageList } from './ChatMessageList';
+import { ChatInput } from './ChatInput';
+import { StructuredDataPreview } from './StructuredDataPreview';
+import { useChatSession } from '@/hooks/useChatSession';
+import type { InitialChatData } from '@/hooks/useChatSession';
+import type {
+  VoiceSessionType,
+  VoiceSessionContext,
+  VoiceStructuredData,
+} from '@/types/voice-assistant';
+
+// Sidebar width constraints
+const MIN_WIDTH = 320;
+const MAX_WIDTH = 800;
+const DEFAULT_WIDTH = 384; // 96 * 4 (24rem = sm:w-96)
+
+interface VoiceChatSidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+  sessionType: VoiceSessionType;
+  patientId: string;
+  doctorId: string;
+  context?: VoiceSessionContext;
+  onConfirm: (data: VoiceStructuredData) => void;
+  initialData?: InitialChatData; // NEW: Initial voice recording data
+}
+
+// Titles per session type
+const SIDEBAR_TITLES: Record<VoiceSessionType, string> = {
+  NEW_PATIENT: 'Asistente - Nuevo Paciente',
+  NEW_ENCOUNTER: 'Asistente - Nueva Consulta',
+  NEW_PRESCRIPTION: 'Asistente - Nueva Receta',
+};
+
+export function VoiceChatSidebar({
+  isOpen,
+  onClose,
+  sessionType,
+  patientId,
+  doctorId,
+  context,
+  onConfirm,
+  initialData,
+}: VoiceChatSidebarProps) {
+  const chat = useChatSession({
+    sessionType,
+    patientId,
+    doctorId,
+    context,
+    initialData, // Pass through initial data from voice recording modal
+    onConfirm: (data) => {
+      onConfirm(data);
+      onClose();
+    },
+  });
+
+  // Sidebar width state
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Load saved width from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('voiceChatSidebarWidth');
+    if (saved) {
+      const parsedWidth = parseInt(saved, 10);
+      if (parsedWidth >= MIN_WIDTH && parsedWidth <= MAX_WIDTH) {
+        setWidth(parsedWidth);
+      }
+    }
+  }, []);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
+  // Prevent body scroll when sidebar is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  // Handle resize
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    // Prevent text selection while resizing
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!sidebarRef.current) return;
+
+      // Calculate new width based on distance from right edge
+      const newWidth = window.innerWidth - e.clientX;
+
+      // Clamp between min and max
+      const clampedWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth));
+
+      setWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      // Restore cursor and selection
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      // Save to localStorage
+      localStorage.setItem('voiceChatSidebarWidth', width.toString());
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [isResizing, width]);
+
+  const handleConfirm = () => {
+    console.log('[VoiceChatSidebar] Confirming data:', {
+      hasCurrentData: !!chat.currentData,
+      fieldsCount: chat.fieldsExtracted.length,
+      currentData: chat.currentData
+    });
+
+    const result = chat.confirmData();
+
+    console.log('[VoiceChatSidebar] Confirm result:', result);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/30 z-40 transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Resize cursor overlay when resizing */}
+      {isResizing && (
+        <div className="fixed inset-0 z-[60] cursor-col-resize" />
+      )}
+
+      {/* Sidebar */}
+      <div
+        ref={sidebarRef}
+        style={{
+          // Use full width on mobile, custom width on desktop
+          width: isMobile ? '100%' : `${width}px`
+        }}
+        className={`
+          fixed right-0 top-0 h-full bg-white shadow-2xl z-50
+          flex flex-col
+          transform transition-transform duration-300 ease-out
+          ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+          ${isResizing ? 'transition-none' : ''}
+        `}
+      >
+        {/* Resize Handle - hidden on mobile */}
+        <div
+          onMouseDown={handleMouseDown}
+          className={`
+            hidden sm:block
+            absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10
+            hover:bg-blue-400 transition-all
+            group
+            ${isResizing ? 'bg-blue-500' : 'bg-gray-200'}
+          `}
+          title="Arrastra para ajustar el ancho"
+        >
+          {/* Grip icon - shows on hover */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <GripVertical className="w-3 h-3 text-gray-600" />
+          </div>
+        </div>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+          <h2 className="font-semibold text-gray-900">
+            {SIDEBAR_TITLES[sessionType]}
+          </h2>
+          <div className="flex items-center gap-2">
+            {/* Reset button */}
+            {chat.messages.length > 0 && (
+              <button
+                onClick={chat.resetSession}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+                title="Reiniciar conversación"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+              title="Cerrar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Error banner */}
+        {chat.error && (
+          <div className="px-4 py-2 bg-red-50 border-b border-red-100 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-700 flex-1">{chat.error}</p>
+          </div>
+        )}
+
+        {/* Messages */}
+        <ChatMessageList
+          messages={chat.messages}
+          sessionType={sessionType}
+          isProcessing={chat.isProcessing}
+        />
+
+        {/* Data summary and confirm button */}
+        {chat.isReady && chat.currentData && (
+          <div className="border-t border-gray-200 bg-green-50 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <span className="font-medium text-green-800">
+                {chat.fieldsExtracted.length} campos listos para confirmar
+              </span>
+            </div>
+
+            {/* Compact data preview */}
+            <div className="bg-white rounded-lg p-3 mb-3 max-h-40 overflow-y-auto border border-green-200">
+              <StructuredDataPreview
+                data={chat.currentData}
+                sessionType={sessionType}
+                fieldsExtracted={chat.fieldsExtracted}
+                compact
+              />
+            </div>
+
+            {/* Confirm button */}
+            <button
+              onClick={handleConfirm}
+              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <CheckCircle className="w-5 h-5" />
+              Confirmar y Rellenar Formulario
+            </button>
+          </div>
+        )}
+
+        {/* Input */}
+        <ChatInput
+          isRecording={chat.isRecording}
+          isProcessing={chat.isProcessing}
+          recordingDuration={chat.recordingDurationFormatted}
+          onStartRecording={chat.startVoiceMessage}
+          onStopRecording={chat.stopVoiceMessage}
+          onCancelRecording={chat.cancelVoiceMessage}
+          onSendText={chat.sendTextMessage}
+          disabled={false}
+        />
+      </div>
+    </>
+  );
+}
+
+export default VoiceChatSidebar;
