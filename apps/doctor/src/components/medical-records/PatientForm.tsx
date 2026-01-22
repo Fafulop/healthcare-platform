@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import Link from 'next/link';
 
@@ -67,6 +67,34 @@ export function PatientForm({
     generalNotes: initialData.generalNotes || '',
     tags: initialData.tags ? initialData.tags.join(', ') : '',
   });
+
+  // Update form when initialData changes (e.g., from voice assistant)
+  useEffect(() => {
+    if (initialData && Object.keys(initialData).length > 0) {
+      setFormData({
+        internalId: initialData.internalId || '',
+        firstName: initialData.firstName || '',
+        lastName: initialData.lastName || '',
+        dateOfBirth: initialData.dateOfBirth ? initialData.dateOfBirth.split('T')[0] : '',
+        sex: initialData.sex || 'male',
+        email: initialData.email || '',
+        phone: initialData.phone || '',
+        address: initialData.address || '',
+        city: initialData.city || '',
+        state: initialData.state || '',
+        postalCode: initialData.postalCode || '',
+        emergencyContactName: initialData.emergencyContactName || '',
+        emergencyContactPhone: initialData.emergencyContactPhone || '',
+        emergencyContactRelation: initialData.emergencyContactRelation || '',
+        currentAllergies: initialData.currentAllergies || '',
+        currentChronicConditions: initialData.currentChronicConditions || '',
+        currentMedications: initialData.currentMedications || '',
+        bloodType: initialData.bloodType || '',
+        generalNotes: initialData.generalNotes || '',
+        tags: initialData.tags ? initialData.tags.join(', ') : '',
+      });
+    }
+  }, [initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({

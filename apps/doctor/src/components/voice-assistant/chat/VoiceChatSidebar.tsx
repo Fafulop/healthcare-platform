@@ -303,38 +303,6 @@ export function VoiceChatSidebar({
               </div>
             )}
 
-            {/* Missing fields suggestions */}
-            {(() => {
-              const allFields = FIELDS[sessionType];
-              const missingFields = allFields.filter(
-                field => !chat.fieldsExtracted.includes(field)
-              );
-
-              if (missingFields.length > 0) {
-                // Show max 6 missing fields as suggestions
-                const suggestedFields = missingFields.slice(0, 6);
-
-                return (
-                  <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
-                    <p className="text-xs font-medium text-yellow-800 mb-1.5">
-                      Campos que puede agregar:
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {suggestedFields.map(field => (
-                        <span
-                          key={field}
-                          className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-yellow-100 text-yellow-800 border border-yellow-200"
-                        >
-                          {LABELS[field] || field}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
             {/* Compact data preview with filled and missing fields */}
             <div className="bg-white rounded-lg p-3 mb-3 max-h-48 overflow-y-auto border border-green-200">
               <StructuredDataPreview

@@ -3,12 +3,17 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, Loader2, Mic } from 'lucide-react';
 import Link from 'next/link';
 import { PatientForm, type PatientFormData } from '@/components/medical-records/PatientForm';
-import { AIDraftBanner } from '@/components/voice-assistant';
-import type { VoicePatientData } from '@/types/voice-assistant';
+import {
+  AIDraftBanner,
+  VoiceChatSidebar,
+  VoiceRecordingModal,
+} from '@/components/voice-assistant';
+import type { InitialChatData } from '@/hooks/useChatSession';
+import type { VoicePatientData, VoiceStructuredData } from '@/types/voice-assistant';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -56,7 +61,14 @@ export default function NewPatientPage() {
 
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
 
-  // Voice assistant state
+  // Voice recording modal state
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // Voice chat sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
+
+  // Voice assistant result state
   const [voiceInitialData, setVoiceInitialData] = useState<Partial<PatientFormData> | undefined>(undefined);
   const [showAIBanner, setShowAIBanner] = useState(false);
   const [aiMetadata, setAIMetadata] = useState<{
@@ -125,6 +137,75 @@ export default function NewPatientPage() {
     }
   };
 
+  // Handle modal completion - transition to sidebar with initial data
+  const handleModalComplete = useCallback((
+    transcript: string,
+    data: VoiceStructuredData,
+    sessionId: string,
+    transcriptId: string,
+    audioDuration: number
+  ) => {
+    const voiceData = data as VoicePatientData;
+
+    // Calculate extracted fields
+    const allFields = Object.keys(voiceData);
+    const extracted = allFields.filter(
+      k => voiceData[k as keyof VoicePatientData] != null &&
+           voiceData[k as keyof VoicePatientData] !== ''
+    );
+
+    // Prepare initial data for sidebar
+    const initialData: InitialChatData = {
+      transcript,
+      structuredData: data,
+      transcriptId,
+      sessionId,
+      audioDuration,
+      fieldsExtracted: extracted,
+    };
+
+    // Close modal, set initial data, and open sidebar
+    setModalOpen(false);
+    setSidebarInitialData(initialData);
+    setSidebarOpen(true);
+  }, []);
+
+  // Handle voice chat confirm - populate form with extracted data
+  const handleVoiceConfirm = useCallback((data: VoiceStructuredData) => {
+    console.log('[Page] handleVoiceConfirm called with data:', data);
+
+    const voiceData = data as VoicePatientData;
+
+    // Map voice data to form data
+    const mappedData = mapVoiceToFormData(voiceData);
+    console.log('[Page] Mapped data for form:', mappedData);
+
+    setVoiceInitialData(mappedData);
+
+    // Calculate extracted/empty fields for banner
+    const allFields = Object.keys(voiceData);
+    const extracted = allFields.filter(k => voiceData[k as keyof VoicePatientData] != null && voiceData[k as keyof VoicePatientData] !== '');
+    const empty = allFields.filter(k => voiceData[k as keyof VoicePatientData] == null || voiceData[k as keyof VoicePatientData] === '');
+
+    console.log('[Page] Fields analysis:', { extracted, empty });
+
+    setAIMetadata({
+      sessionId: crypto.randomUUID(),
+      transcriptId: crypto.randomUUID(),
+      fieldsExtracted: extracted,
+      fieldsEmpty: empty,
+      confidence: extracted.length > 5 ? 'high' : extracted.length > 2 ? 'medium' : 'low',
+    });
+
+    setShowAIBanner(true);
+
+    // Close sidebar and clear initial data
+    setSidebarOpen(false);
+    setSidebarInitialData(undefined);
+
+    console.log('[Page] Form should now be filled with voice data');
+  }, []);
+
   const handleSubmit = async (formData: PatientFormData) => {
     const res = await fetch('/api/medical-records/patients', {
       method: 'POST',
@@ -171,8 +252,22 @@ export default function NewPatientPage() {
           <ArrowLeft className="w-5 h-5" />
           Volver a Pacientes
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Nuevo Paciente</h1>
-        <p className="text-gray-600 mt-1">Complete la información del paciente</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Nuevo Paciente</h1>
+            <p className="text-gray-600 mt-1">Complete la información del paciente</p>
+          </div>
+          {/* Voice Assistant Button - hidden after data is confirmed */}
+          {!voiceInitialData && !showAIBanner && (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Mic className="w-5 h-5" />
+              Asistente de Voz
+            </button>
+          )}
+        </div>
       </div>
 
       {/* AI Draft Banner */}
@@ -191,6 +286,39 @@ export default function NewPatientPage() {
         submitLabel="Crear Paciente"
         cancelHref="/dashboard/medical-records"
       />
+
+      {/* Voice Recording Modal */}
+      {session?.user?.doctorId && (
+        <VoiceRecordingModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          sessionType="NEW_PATIENT"
+          context={{
+            patientId: undefined,
+            doctorId: session.user.doctorId,
+            doctorName: doctorProfile?.slug || undefined,
+          }}
+          onComplete={handleModalComplete}
+        />
+      )}
+
+      {/* Voice Chat Sidebar */}
+      {session?.user?.doctorId && (
+        <VoiceChatSidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          sessionType="NEW_PATIENT"
+          patientId="new"
+          doctorId={session.user.doctorId}
+          context={{
+            patientId: undefined,
+            doctorId: session.user.doctorId,
+            doctorName: doctorProfile?.slug || undefined,
+          }}
+          initialData={sidebarInitialData}
+          onConfirm={handleVoiceConfirm}
+        />
+      )}
     </div>
   );
 }

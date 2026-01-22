@@ -5,7 +5,8 @@
       "Bash(pnpm db:migrate:*)",
       "Bash(git add:*)",
       "Bash(ls:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(pnpm turbo run build:*)"
     ]
   }
 }
