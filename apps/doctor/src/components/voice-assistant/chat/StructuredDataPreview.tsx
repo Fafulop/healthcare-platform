@@ -22,6 +22,7 @@ interface StructuredDataPreviewProps {
   sessionType: VoiceSessionType;
   fieldsExtracted?: string[];
   compact?: boolean;
+  showMissing?: boolean; // Show fields that haven't been captured yet
 }
 
 // Field groupings for display
@@ -76,6 +77,7 @@ export function StructuredDataPreview({
   sessionType,
   fieldsExtracted = [],
   compact = false,
+  showMissing = false,
 }: StructuredDataPreviewProps) {
   if (sessionType === 'NEW_PRESCRIPTION') {
     return (
@@ -92,25 +94,52 @@ export function StructuredDataPreview({
   return (
     <div className={`space-y-3 ${compact ? 'text-sm' : ''}`}>
       {Object.entries(groups).map(([key, group]) => {
-        const groupFields = group.fields.filter((field) => {
+        // Separate filled and missing fields
+        const filledFields = group.fields.filter((field) => {
           const value = (data as any)[field];
           return value !== null && value !== undefined && value !== '';
         });
 
-        if (groupFields.length === 0) return null;
+        const missingFields = showMissing
+          ? group.fields.filter((field) => {
+              const value = (data as any)[field];
+              return value === null || value === undefined || value === '';
+            })
+          : [];
+
+        // Skip group if no fields to show
+        if (filledFields.length === 0 && missingFields.length === 0) return null;
 
         return (
           <div key={key} className="border-l-2 border-blue-200 pl-3">
             <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
               {group.label}
+              {showMissing && (
+                <span className="ml-2 font-normal">
+                  ({filledFields.length}/{group.fields.length})
+                </span>
+              )}
             </h4>
             <div className="space-y-1">
-              {groupFields.map((field) => (
+              {/* Show filled fields first */}
+              {filledFields.map((field) => (
                 <FieldRow
                   key={field}
                   field={field}
                   value={(data as any)[field]}
                   isExtracted={fieldsExtracted.includes(field)}
+                  isMissing={false}
+                  compact={compact}
+                />
+              ))}
+              {/* Show missing fields */}
+              {missingFields.map((field) => (
+                <FieldRow
+                  key={field}
+                  field={field}
+                  value={null}
+                  isExtracted={false}
+                  isMissing={true}
                   compact={compact}
                 />
               ))}
@@ -129,26 +158,32 @@ function FieldRow({
   field,
   value,
   isExtracted,
+  isMissing,
   compact,
 }: {
   field: string;
   value: any;
   isExtracted: boolean;
+  isMissing: boolean;
   compact: boolean;
 }) {
   const label = FIELD_LABELS_ES[field] || field;
-  const displayValue = formatValue(field, value);
+  const displayValue = isMissing ? 'Sin capturar' : formatValue(field, value);
 
   return (
-    <div className="flex items-start gap-2">
-      {isExtracted ? (
+    <div className={`flex items-start gap-2 ${isMissing ? 'opacity-60' : ''}`}>
+      {isMissing ? (
+        <Circle className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
+      ) : isExtracted ? (
         <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
       ) : (
-        <Circle className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
+        <CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
       )}
-      <div className={compact ? 'flex gap-1' : ''}>
-        <span className="text-gray-500 text-xs">{label}:</span>
-        <span className={`text-gray-900 ${compact ? 'text-xs' : 'text-sm'}`}>
+      <div className={compact ? 'flex gap-1 flex-wrap' : ''}>
+        <span className={`text-xs ${isMissing ? 'text-gray-400' : 'text-gray-500'}`}>
+          {label}:
+        </span>
+        <span className={`${isMissing ? 'text-gray-400 italic' : 'text-gray-900'} ${compact ? 'text-xs' : 'text-sm'}`}>
           {displayValue}
         </span>
       </div>

@@ -265,20 +265,26 @@ export function VoiceChatSidebar({
         {/* Data summary and confirm button */}
         {chat.isReady && chat.currentData && (
           <div className="border-t border-gray-200 bg-green-50 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <span className="font-medium text-green-800">
-                {chat.fieldsExtracted.length} campos listos para confirmar
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <span className="font-medium text-green-800">
+                  {chat.fieldsExtracted.length} campos capturados
+                </span>
+              </div>
+              <span className="text-xs text-gray-500">
+                Campos faltantes aparecen en gris
               </span>
             </div>
 
-            {/* Compact data preview */}
-            <div className="bg-white rounded-lg p-3 mb-3 max-h-40 overflow-y-auto border border-green-200">
+            {/* Compact data preview with filled and missing fields */}
+            <div className="bg-white rounded-lg p-3 mb-3 max-h-48 overflow-y-auto border border-green-200">
               <StructuredDataPreview
                 data={chat.currentData}
                 sessionType={sessionType}
                 fieldsExtracted={chat.fieldsExtracted}
                 compact
+                showMissing
               />
             </div>
 

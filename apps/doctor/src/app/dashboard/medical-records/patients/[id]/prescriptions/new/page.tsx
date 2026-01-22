@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList, type Medication } from '@/components/medical-records/MedicationList';
+import { AIDraftBanner } from '@/components/voice-assistant';
+import type { VoicePrescriptionData } from '@/types/voice-assistant';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -23,9 +25,17 @@ interface Patient {
   internalId: string;
 }
 
+interface Encounter {
+  id: string;
+  encounterDate: string;
+  encounterType: string;
+  chiefComplaint: string;
+}
+
 export default function NewPrescriptionPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const patientId = params.id as string;
 
   const { data: session, status } = useSession({
@@ -40,6 +50,19 @@ export default function NewPrescriptionPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loadingPatient, setLoadingPatient] = useState(true);
+  const [encounters, setEncounters] = useState<Encounter[]>([]);
+  const [selectedEncounterId, setSelectedEncounterId] = useState<string>('');
+
+  // Voice assistant state
+  const [showAIBanner, setShowAIBanner] = useState(false);
+  const [aiMetadata, setAIMetadata] = useState<{
+    sessionId: string;
+    transcriptId: string;
+    fieldsExtracted: string[];
+    fieldsEmpty: string[];
+    confidence: 'high' | 'medium' | 'low';
+  } | null>(null);
+  const [voiceDataLoaded, setVoiceDataLoaded] = useState(false);
 
   useEffect(() => {
     if (session?.user?.doctorId) {
@@ -82,6 +105,73 @@ export default function NewPrescriptionPage() {
     }
   ]);
 
+  // Load voice data from sessionStorage
+  useEffect(() => {
+    if (searchParams.get('voice') === 'true' && !voiceDataLoaded) {
+      const stored = sessionStorage.getItem('voicePrescriptionData');
+      if (stored) {
+        try {
+          const { data, sessionId, transcriptId } = JSON.parse(stored) as {
+            data: VoicePrescriptionData;
+            sessionId: string;
+            transcriptId: string;
+          };
+
+          // Pre-fill form fields
+          if (data.prescriptionDate) setPrescriptionDate(data.prescriptionDate);
+          if (data.diagnosis) setDiagnosis(data.diagnosis);
+          if (data.clinicalNotes) setClinicalNotes(data.clinicalNotes);
+          if (data.doctorFullName) setDoctorFullName(data.doctorFullName);
+          if (data.doctorLicense) setDoctorLicense(data.doctorLicense);
+          if (data.expiresAt) setExpiresAt(data.expiresAt);
+
+          // Pre-fill medications
+          if (data.medications && data.medications.length > 0) {
+            setMedications(data.medications.map((med, index) => ({
+              drugName: med.drugName || '',
+              presentation: med.presentation || undefined,
+              dosage: med.dosage || '',
+              frequency: med.frequency || '',
+              duration: med.duration || undefined,
+              quantity: med.quantity || undefined,
+              instructions: med.instructions || '',
+              warnings: med.warnings || undefined,
+              order: index,
+            })));
+          }
+
+          // Calculate extracted/empty fields
+          const extracted: string[] = [];
+          const empty: string[] = [];
+
+          if (data.prescriptionDate) extracted.push('prescriptionDate'); else empty.push('prescriptionDate');
+          if (data.diagnosis) extracted.push('diagnosis'); else empty.push('diagnosis');
+          if (data.clinicalNotes) extracted.push('clinicalNotes'); else empty.push('clinicalNotes');
+          if (data.doctorFullName) extracted.push('doctorFullName'); else empty.push('doctorFullName');
+          if (data.doctorLicense) extracted.push('doctorLicense'); else empty.push('doctorLicense');
+          if (data.medications && data.medications.length > 0) extracted.push('medications'); else empty.push('medications');
+
+          // Set AI metadata for banner
+          setAIMetadata({
+            sessionId,
+            transcriptId,
+            fieldsExtracted: extracted,
+            fieldsEmpty: empty,
+            confidence: data.medications && data.medications.length > 0 ? 'high' : 'medium',
+          });
+
+          setShowAIBanner(true);
+          setVoiceDataLoaded(true);
+
+          // Clear storage
+          sessionStorage.removeItem('voicePrescriptionData');
+        } catch (e) {
+          console.error('Error parsing voice data:', e);
+        }
+      }
+    }
+  }, [searchParams, voiceDataLoaded]);
+
   useEffect(() => {
     fetchPatient();
   }, [patientId]);
@@ -94,6 +184,7 @@ export default function NewPrescriptionPage() {
       }
       const data = await res.json();
       setPatient(data.data);
+      setEncounters(data.data.encounters || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -128,6 +219,7 @@ export default function NewPrescriptionPage() {
         doctorFullName,
         doctorLicense,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        encounterId: selectedEncounterId || null,
       };
 
       const res = await fetch(`/api/medical-records/patients/${patientId}/prescriptions`, {
@@ -217,6 +309,16 @@ export default function NewPrescriptionPage() {
         )}
       </div>
 
+      {/* AI Draft Banner */}
+      {showAIBanner && aiMetadata && (
+        <AIDraftBanner
+          confidence={aiMetadata.confidence}
+          fieldsExtracted={aiMetadata.fieldsExtracted}
+          fieldsEmpty={aiMetadata.fieldsEmpty}
+          onDismiss={() => setShowAIBanner(false)}
+        />
+      )}
+
       {/* Error */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
@@ -281,6 +383,24 @@ export default function NewPrescriptionPage() {
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Vincular a Consulta (Opcional)
+            </label>
+            <select
+              value={selectedEncounterId}
+              onChange={(e) => setSelectedEncounterId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Ninguna consulta seleccionada</option>
+              {encounters.map(encounter => (
+                <option key={encounter.id} value={encounter.id}>
+                  {new Date(encounter.encounterDate).toLocaleDateString('es-MX')} - {encounter.chiefComplaint}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

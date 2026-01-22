@@ -257,14 +257,16 @@ export default function NewEncounterPage() {
             <h1 className="text-2xl font-bold text-gray-900">Nueva Consulta</h1>
             <p className="text-gray-600 mt-1">Registre los detalles de la consulta</p>
           </div>
-          {/* Voice Assistant Button */}
-          <button
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Mic className="w-5 h-5" />
-            Asistente de Voz
-          </button>
+          {/* Voice Assistant Button - hidden after data is confirmed */}
+          {!voiceInitialData && (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Mic className="w-5 h-5" />
+              Asistente de Voz
+            </button>
+          )}
         </div>
       </div>
 

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Edit, Plus, Calendar, FileText, User, AlertCircle, Clock, Image, Pill, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Calendar, FileText, User, Clock, Image, Pill, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterCard, type Encounter } from '@/components/medical-records/EncounterCard';
 
@@ -39,7 +39,6 @@ interface Patient {
 
 export default function PatientProfilePage() {
   const params = useParams();
-  const router = useRouter();
   const patientId = params.id as string;
   const { data: session, status } = useSession({
     required: true,
@@ -156,9 +155,19 @@ export default function PatientProfilePage() {
 
             {/* Basic Info */}
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {patient.firstName} {patient.lastName}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {patient.firstName} {patient.lastName}
+                </h1>
+                <Link
+                  href={`/dashboard/medical-records/patients/${patient.id}/edit`}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-gray-600"
+                  title="Editar Paciente"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  Editar Paciente
+                </Link>
+              </div>
               <p className="text-gray-600 mt-1">
                 ID: {patient.internalId} • {calculateAge(patient.dateOfBirth)} años • {patient.sex}
               </p>
@@ -204,20 +213,12 @@ export default function PatientProfilePage() {
               <span className="hidden sm:inline">Prescripciones</span>
             </Link>
             <Link
-              href={`/dashboard/medical-records/patients/${patient.id}/edit`}
-              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
-              title="Editar"
-            >
-              <Edit className="w-4 h-4" />
-              <span className="hidden sm:inline">Editar</span>
-            </Link>
-            <Link
               href={`/dashboard/medical-records/patients/${patient.id}/encounters/new`}
-              className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 w-full sm:w-auto justify-center"
+              className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
               title="Nueva Consulta"
             >
               <Plus className="w-4 h-4" />
-              <span>Nueva Consulta</span>
+              <span className="hidden sm:inline">Nueva Consulta</span>
             </Link>
           </div>
         </div>
@@ -278,39 +279,6 @@ export default function PatientProfilePage() {
             </div>
           )}
 
-          {/* Medical Information */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-500" />
-              Información Médica Importante
-            </h2>
-            <div className="space-y-4">
-              {patient.bloodType && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Tipo de Sangre</label>
-                  <p className="text-gray-900 font-semibold">{patient.bloodType}</p>
-                </div>
-              )}
-              {patient.currentAllergies && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Alergias</label>
-                  <p className="text-gray-900 whitespace-pre-wrap">{patient.currentAllergies}</p>
-                </div>
-              )}
-              {patient.currentChronicConditions && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Condiciones Crónicas</label>
-                  <p className="text-gray-900 whitespace-pre-wrap">{patient.currentChronicConditions}</p>
-                </div>
-              )}
-              {patient.currentMedications && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Medicamentos Actuales</label>
-                  <p className="text-gray-900 whitespace-pre-wrap">{patient.currentMedications}</p>
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* General Notes */}
           {patient.generalNotes && (

@@ -3,12 +3,16 @@
 import { useState, useEffect } from 'react';
 import { Plus, Users, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { PatientCard, type Patient } from '@/components/medical-records/PatientCard';
 import { PatientSearchBar } from '@/components/medical-records/PatientSearchBar';
+import { VoiceButton } from '@/components/voice-assistant';
+import type { VoicePatientData } from '@/types/voice-assistant';
 
 export default function PatientsPage() {
+  const router = useRouter();
   const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
@@ -21,6 +25,22 @@ export default function PatientsPage() {
   const [statusFilter, setStatusFilter] = useState('active');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Handle voice assistant completion
+  const handleVoiceComplete = (
+    data: VoicePatientData,
+    sessionId: string,
+    transcriptId: string
+  ) => {
+    // Store voice data for the form page to pick up
+    sessionStorage.setItem('voicePatientData', JSON.stringify({
+      data,
+      sessionId,
+      transcriptId,
+    }));
+    // Navigate to form with voice flag
+    router.push('/dashboard/medical-records/patients/new?voice=true');
+  };
 
   useEffect(() => {
     fetchPatients();
@@ -84,13 +104,21 @@ export default function PatientsPage() {
               Gestiona los expedientes de tus pacientes
             </p>
           </div>
-          <Link
-            href="/dashboard/medical-records/patients/new"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Nuevo Paciente
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/medical-records/patients/new"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Nuevo Paciente
+            </Link>
+            <VoiceButton
+              sessionType="NEW_PATIENT"
+              onComplete={handleVoiceComplete}
+              variant="outline"
+              label="Voz"
+            />
+          </div>
         </div>
       </div>
 
