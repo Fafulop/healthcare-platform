@@ -33,6 +33,14 @@ const WELCOME_MESSAGES: Record<VoiceSessionType, { title: string; subtitle: stri
     title: 'Nueva Prescripción',
     subtitle: 'Dicte los medicamentos con dosis, frecuencia e instrucciones. Por ejemplo: "Amoxicilina 500mg cada 8 horas por 7 días"',
   },
+  CREATE_APPOINTMENT_SLOTS: {
+    title: 'Crear Horarios de Citas',
+    subtitle: 'Dicte o escriba la configuración de horarios. Por ejemplo: "De lunes a viernes, de 9 a 5, citas de 60 minutos, precio 500 pesos"',
+  },
+  CREATE_LEDGER_ENTRY: {
+    title: 'Nuevo Movimiento de Dinero',
+    subtitle: 'Dicte o escriba los detalles del movimiento. Por ejemplo: "Ingreso de 500 pesos por consulta de hoy, en efectivo" o "Egreso de 1500 por compra de material médico"',
+  },
 };
 
 export function ChatMessageList({ messages, sessionType, isProcessing }: ChatMessageListProps) {

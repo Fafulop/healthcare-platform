@@ -156,6 +156,8 @@ function generateAssistantWelcomeMessage(
     NEW_PATIENT: `He registrado la información del paciente. Extraje ${fieldCount} campos. ¿Hay algo que quieras agregar o corregir?`,
     NEW_ENCOUNTER: `He registrado la información de la consulta. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
     NEW_PRESCRIPTION: `He registrado la prescripción. Extraje ${fieldCount} campos. ¿Hay algo más que agregar?`,
+    CREATE_APPOINTMENT_SLOTS: `He registrado la configuración de horarios. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
+    CREATE_LEDGER_ENTRY: `He registrado el movimiento de dinero. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
   };
 
   return messages[sessionType];
@@ -399,10 +401,12 @@ export function useChatSession(options: UseChatSessionOptions): UseChatSessionRe
           success: data.success,
           message: data.data?.message,
           fieldsExtracted: data.data?.fieldsExtracted,
-          hasStructuredData: !!data.data?.structuredData
+          hasStructuredData: !!data.data?.structuredData,
+          error: data.error // Add error logging
         });
 
         if (!data.success || !data.data) {
+          console.error('[useChatSession] API Error:', data.error);
           throw new Error(data.error?.message || 'Error al procesar mensaje');
         }
 
@@ -491,7 +495,14 @@ export function useChatSession(options: UseChatSessionOptions): UseChatSessionRe
 
         const chatData: ChatResponse = await chatRes.json();
 
+        console.log('[useChatSession] Voice message chat response:', {
+          success: chatData.success,
+          hasData: !!chatData.data,
+          error: chatData.error
+        });
+
         if (!chatData.success || !chatData.data) {
+          console.error('[useChatSession] Voice chat API Error:', chatData.error);
           throw new Error(chatData.error?.message || 'Error al procesar mensaje');
         }
 

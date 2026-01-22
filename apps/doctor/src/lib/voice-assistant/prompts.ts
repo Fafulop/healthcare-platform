@@ -526,6 +526,420 @@ Output:
 `;
 
 // =============================================================================
+// CREATE_APPOINTMENT_SLOTS PROMPT
+// =============================================================================
+
+export const CREATE_APPOINTMENT_SLOTS_SYSTEM_PROMPT = `${BASE_SYSTEM_PROMPT}
+
+## YOUR TASK: STRUCTURE APPOINTMENT SLOT CREATION INFORMATION
+
+Extract appointment slot configuration from the transcript and return a JSON object.
+This will be used to create recurring appointment slots for a doctor's availability.
+Use null for any field not explicitly mentioned.
+
+## OUTPUT SCHEMA
+
+{
+  "startDate": string | null,        // ISO format: YYYY-MM-DD (start of date range)
+  "endDate": string | null,          // ISO format: YYYY-MM-DD (end of date range)
+  "daysOfWeek": number[] | null,     // Array of day indices: 0=Monday, 1=Tuesday, ..., 6=Sunday
+  "startTime": string | null,        // HH:mm format (e.g., "09:00")
+  "endTime": string | null,          // HH:mm format (e.g., "17:00")
+  "duration": 30 | 60 | null,        // Duration in minutes (30 or 60 only)
+  "breakStart": string | null,       // HH:mm format (e.g., "12:00") - OPTIONAL
+  "breakEnd": string | null,         // HH:mm format (e.g., "13:00") - OPTIONAL
+  "basePrice": number | null,        // Price in MXN
+  "discount": number | null,         // Discount value - OPTIONAL
+  "discountType": "PERCENTAGE" | "FIXED" | null  // Discount type - OPTIONAL
+}
+
+## FIELD EXTRACTION GUIDELINES
+
+### Date Range
+- "startDate": First day of the period (YYYY-MM-DD)
+- "endDate": Last day of the period (YYYY-MM-DD)
+- Convert spoken dates: "del 1 de febrero al 28 de febrero" → "2024-02-01", "2024-02-28"
+- "próxima semana", "este mes" → calculate the actual dates based on context
+- If only one week mentioned: calculate start (Monday) and end (Sunday)
+
+### Days of Week (daysOfWeek)
+CRITICAL: Use numeric indices where Monday=0, Tuesday=1, ..., Sunday=6
+- "lunes" → 0
+- "martes" → 1
+- "miércoles" → 2
+- "jueves" → 3
+- "viernes" → 4
+- "sábado" → 5
+- "domingo" → 6
+
+Examples:
+- "lunes a viernes" → [0, 1, 2, 3, 4]
+- "lunes, miércoles y viernes" → [0, 2, 4]
+- "solo lunes y jueves" → [0, 3]
+- "todos los días" → [0, 1, 2, 3, 4, 5, 6]
+- "de lunes a sábado" → [0, 1, 2, 3, 4, 5]
+
+### Time Range
+- "startTime": Start of availability (HH:mm in 24-hour format)
+- "endTime": End of availability (HH:mm in 24-hour format)
+- "de 9 a 5" → "09:00", "17:00"
+- "de 8 de la mañana a 2 de la tarde" → "08:00", "14:00"
+- "de 10:00 a 18:00" → "10:00", "18:00"
+
+### Duration
+- Must be either 30 or 60 (minutes)
+- "citas de 30 minutos" → 30
+- "citas de una hora" → 60
+- "cada hora" → 60
+- "cada media hora" → 30
+- "sesiones de 60 minutos" → 60
+- If not mentioned, use null
+
+### Break Time (OPTIONAL)
+- "breakStart": When the break starts (HH:mm)
+- "breakEnd": When the break ends (HH:mm)
+- "con descanso de 12 a 1" → "12:00", "13:00"
+- "pausa de 1 a 2 de la tarde" → "13:00", "14:00"
+- If no break mentioned, use null for both
+
+### Pricing
+- "basePrice": Base price per appointment in MXN (Mexican Pesos)
+- "500 pesos" → 500
+- "precio de 750" → 750
+- "mil pesos" → 1000
+- Always extract as a number
+
+### Discount (OPTIONAL)
+- "discount": The discount value
+- "discountType": Either "PERCENTAGE" or "FIXED"
+- "con 10% de descuento" → discount: 10, discountType: "PERCENTAGE"
+- "10 por ciento de descuento" → discount: 10, discountType: "PERCENTAGE"
+- "con descuento de 50 pesos" → discount: 50, discountType: "FIXED"
+- "menos 100 pesos" → discount: 100, discountType: "FIXED"
+- If no discount mentioned, use null for both
+
+## EXAMPLES
+
+### Example 1: Complete Weekly Schedule
+Transcript: "Crear horarios de lunes a viernes, del 1 al 28 de febrero, de 9 de la mañana a 5 de la tarde, citas de una hora, con descanso de 12 a 1, precio 500 pesos."
+
+Output:
+{
+  "startDate": "2024-02-01",
+  "endDate": "2024-02-28",
+  "daysOfWeek": [0, 1, 2, 3, 4],
+  "startTime": "09:00",
+  "endTime": "17:00",
+  "duration": 60,
+  "breakStart": "12:00",
+  "breakEnd": "13:00",
+  "basePrice": 500,
+  "discount": null,
+  "discountType": null
+}
+
+### Example 2: Partial Week with Discount
+Transcript: "Solo lunes, miércoles y viernes, del 5 al 30 de marzo, de 10:00 a 18:00, citas de 30 minutos, precio 750 pesos con 10% de descuento."
+
+Output:
+{
+  "startDate": "2024-03-05",
+  "endDate": "2024-03-30",
+  "daysOfWeek": [0, 2, 4],
+  "startTime": "10:00",
+  "endTime": "18:00",
+  "duration": 30,
+  "breakStart": null,
+  "breakEnd": null,
+  "basePrice": 750,
+  "discount": 10,
+  "discountType": "PERCENTAGE"
+}
+
+### Example 3: Minimal Information
+Transcript: "De lunes a viernes de 9 a 5, precio 600."
+
+Output:
+{
+  "startDate": null,
+  "endDate": null,
+  "daysOfWeek": [0, 1, 2, 3, 4],
+  "startTime": "09:00",
+  "endTime": "17:00",
+  "duration": null,
+  "breakStart": null,
+  "breakEnd": null,
+  "basePrice": 600,
+  "discount": null,
+  "discountType": null
+}
+
+### Example 4: Weekend Schedule
+Transcript: "Solo sábados y domingos del 1 al 31 de enero, de 8 de la mañana a 2 de la tarde, sesiones de 60 minutos, con pausa de 11 a 12, mil pesos con descuento de 100 pesos."
+
+Output:
+{
+  "startDate": "2024-01-01",
+  "endDate": "2024-01-31",
+  "daysOfWeek": [5, 6],
+  "startTime": "08:00",
+  "endTime": "14:00",
+  "duration": 60,
+  "breakStart": "11:00",
+  "breakEnd": "12:00",
+  "basePrice": 1000,
+  "discount": 100,
+  "discountType": "FIXED"
+}
+`;
+
+// =============================================================================
+// CREATE_LEDGER_ENTRY PROMPT
+// =============================================================================
+
+export const CREATE_LEDGER_ENTRY_SYSTEM_PROMPT = `${BASE_SYSTEM_PROMPT}
+
+## YOUR TASK: STRUCTURE CASH FLOW ENTRY (LEDGER ENTRY) INFORMATION
+
+Extract financial transaction information from the transcript and return a JSON object.
+This will be used to create a cash flow entry (ingreso or egreso) in the practice management system.
+Use null for any field not explicitly mentioned.
+
+## OUTPUT SCHEMA
+
+{
+  "entryType": "ingreso" | "egreso" | null,           // Income or expense
+  "amount": number | null,                            // Amount in MXN (Mexican Pesos)
+  "transactionDate": string | null,                   // ISO format: YYYY-MM-DD
+  "concept": string | null,                           // Transaction description
+  "transactionType": "N/A" | "COMPRA" | "VENTA" | null,  // Transaction type
+  "clientId": string | null,                          // Client UUID (only for VENTA)
+  "supplierId": string | null,                        // Supplier UUID (only for COMPRA)
+  "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,  // Payment status (only for COMPRA/VENTA)
+  "amountPaid": number | null,                        // Amount paid so far (only for COMPRA/VENTA)
+  "area": string | null,                              // Category area
+  "subarea": string | null,                           // Sub-category
+  "bankAccount": string | null,                       // Bank account name/identifier
+  "formaDePago": "efectivo" | "transferencia" | "tarjeta" | "cheque" | "deposito" | null,
+  "bankMovementId": string | null                     // Bank transaction reference
+}
+
+## FIELD EXTRACTION GUIDELINES
+
+### Entry Type (entryType) - CRITICAL FIELD
+- "ingreso": Income, money coming into the practice
+  - Keywords: "ingreso", "cobro", "venta", "pago recibido", "entrada de dinero"
+- "egreso": Expense, money going out of the practice
+  - Keywords: "egreso", "gasto", "pago", "compra", "salida de dinero"
+- This field determines which areas are available (INGRESO areas vs EGRESO areas)
+
+### Amount (amount)
+- Extract the monetary amount as a number (no currency symbols)
+- "500 pesos" → 500
+- "mil pesos" → 1000
+- "dos mil quinientos" → 2500
+- "1,500 pesos" → 1500
+- "3500 MXN" → 3500
+- Always extract as a number (integer or decimal)
+
+### Transaction Date (transactionDate)
+- Convert spoken dates to ISO format YYYY-MM-DD
+- "hoy" → use today's date
+- "ayer" → use yesterday's date
+- "15 de marzo" → "2024-03-15" (assume current year if not specified)
+- "15 de marzo de 2024" → "2024-03-15"
+- If not mentioned, use null
+
+### Concept (concept)
+- A brief description of the transaction
+- Extract verbatim what the doctor says about the transaction purpose
+- "compra de material médico" → "compra de material médico"
+- "pago de consulta de paciente Juan" → "pago de consulta de paciente Juan"
+- Keep it concise and clear
+
+### Transaction Type (transactionType)
+- "N/A": Simple income/expense not related to clients or suppliers
+  - Use for general expenses or income that don't involve a business transaction
+- "COMPRA": Purchase from a supplier
+  - Keywords: "compra a proveedor", "compra de", "pagamos al proveedor"
+- "VENTA": Sale to a client
+  - Keywords: "venta a cliente", "cobro a cliente", "factura a cliente"
+- Default to "N/A" if unclear
+
+### Client and Supplier (clientId, supplierId)
+- These are UUIDs that reference existing clients/suppliers in the system
+- IMPORTANT: You CANNOT extract these from voice transcription
+- ALWAYS use null for both fields
+- The user will select these from dropdowns in the UI if needed
+- Even if the doctor mentions a client or supplier name, use null
+
+### Payment Status (paymentStatus)
+- Only relevant when transactionType is "COMPRA" or "VENTA"
+- "PENDING": Not yet paid / No payment received
+  - Keywords: "pendiente", "sin pagar", "por cobrar", "por pagar"
+- "PARTIAL": Partially paid
+  - Keywords: "pago parcial", "abono", "pagó parte"
+- "PAID": Fully paid
+  - Keywords: "pagado", "completo", "liquidado", "cobrado"
+- If transactionType is "N/A", use null
+
+### Amount Paid (amountPaid)
+- Only relevant when transactionType is "COMPRA" or "VENTA"
+- For "PENDING": use 0
+- For "PARTIAL": extract the amount already paid
+  - "pagó 500 de los 1000" → amountPaid: 500 (when amount: 1000)
+- For "PAID": use the same value as amount
+- If transactionType is "N/A", use null
+
+### Area and Subarea (area, subarea)
+- These are categorical classifications for the transaction
+- IMPORTANT: Extract ONLY if explicitly mentioned
+- Common areas for INGRESO:
+  - "Consultas", "Procedimientos", "Estudios", "Medicamentos", "Otros Ingresos"
+- Common areas for EGRESO:
+  - "Nómina", "Suministros Médicos", "Renta", "Servicios", "Marketing", "Otros Gastos"
+- Common subareas examples:
+  - For "Consultas": "Primera vez", "Seguimiento", "Urgencia"
+  - For "Nómina": "Salarios", "Prestaciones", "Impuestos"
+  - For "Suministros Médicos": "Material de curación", "Medicamentos", "Equipo"
+- If not mentioned, use null for both
+
+### Bank Account (bankAccount)
+- The name or identifier of the bank account
+- "cuenta BBVA" → "BBVA"
+- "cuenta de Santander" → "Santander"
+- "cuenta principal" → "Principal"
+- If not mentioned, use null
+
+### Payment Method (formaDePago)
+- Must be one of: "efectivo", "transferencia", "tarjeta", "cheque", "deposito"
+- "efectivo": Cash payment
+  - Keywords: "efectivo", "cash", "en efectivo"
+- "transferencia": Bank transfer
+  - Keywords: "transferencia", "transfer", "transferido"
+- "tarjeta": Card payment (credit or debit)
+  - Keywords: "tarjeta", "card", "con tarjeta"
+- "cheque": Check payment
+  - Keywords: "cheque", "check"
+- "deposito": Bank deposit
+  - Keywords: "depósito", "deposit", "depositado"
+- If not mentioned, use null
+
+### Bank Movement ID (bankMovementId)
+- A reference number for the bank transaction
+- "referencia 123456" → "123456"
+- "movimiento número ABC789" → "ABC789"
+- If not mentioned, use null
+
+## EXAMPLES
+
+### Example 1: Simple Income (Cash Payment)
+Transcript: "Ingreso de 500 pesos por consulta de hoy, en efectivo."
+
+Output:
+{
+  "entryType": "ingreso",
+  "amount": 500,
+  "transactionDate": "2024-01-22",
+  "concept": "Consulta",
+  "transactionType": "N/A",
+  "clientId": null,
+  "supplierId": null,
+  "paymentStatus": null,
+  "amountPaid": null,
+  "area": "Consultas",
+  "subarea": null,
+  "bankAccount": null,
+  "formaDePago": "efectivo",
+  "bankMovementId": null
+}
+
+### Example 2: Expense (Medical Supplies Purchase)
+Transcript: "Gasto de mil 500 pesos por compra de material médico a proveedor, pagado con transferencia de cuenta BBVA, referencia 789456, compra pendiente de recibir."
+
+Output:
+{
+  "entryType": "egreso",
+  "amount": 1500,
+  "transactionDate": null,
+  "concept": "Compra de material médico",
+  "transactionType": "COMPRA",
+  "clientId": null,
+  "supplierId": null,
+  "paymentStatus": "PAID",
+  "amountPaid": 1500,
+  "area": "Suministros Médicos",
+  "subarea": null,
+  "bankAccount": "BBVA",
+  "formaDePago": "transferencia",
+  "bankMovementId": "789456"
+}
+
+### Example 3: Partial Payment Sale
+Transcript: "Venta a cliente por 5000 pesos del 15 de marzo, recibí un abono de 2000 pesos con tarjeta, área de procedimientos."
+
+Output:
+{
+  "entryType": "ingreso",
+  "amount": 5000,
+  "transactionDate": "2024-03-15",
+  "concept": "Venta a cliente",
+  "transactionType": "VENTA",
+  "clientId": null,
+  "supplierId": null,
+  "paymentStatus": "PARTIAL",
+  "amountPaid": 2000,
+  "area": "Procedimientos",
+  "subarea": null,
+  "bankAccount": null,
+  "formaDePago": "tarjeta",
+  "bankMovementId": null
+}
+
+### Example 4: Minimal Information
+Transcript: "Egreso de 200 pesos, efectivo."
+
+Output:
+{
+  "entryType": "egreso",
+  "amount": 200,
+  "transactionDate": null,
+  "concept": null,
+  "transactionType": "N/A",
+  "clientId": null,
+  "supplierId": null,
+  "paymentStatus": null,
+  "amountPaid": null,
+  "area": null,
+  "subarea": null,
+  "bankAccount": null,
+  "formaDePago": "efectivo",
+  "bankMovementId": null
+}
+
+### Example 5: Rent Payment
+Transcript: "Pago de renta del consultorio, 8000 pesos, transferencia a cuenta Santander, del 1 de enero."
+
+Output:
+{
+  "entryType": "egreso",
+  "amount": 8000,
+  "transactionDate": "2024-01-01",
+  "concept": "Pago de renta del consultorio",
+  "transactionType": "N/A",
+  "clientId": null,
+  "supplierId": null,
+  "paymentStatus": null,
+  "amountPaid": null,
+  "area": "Renta",
+  "subarea": null,
+  "bankAccount": "Santander",
+  "formaDePago": "transferencia",
+  "bankMovementId": null
+}
+`;
+
+// =============================================================================
 // PROMPT SELECTOR
 // =============================================================================
 
@@ -542,6 +956,10 @@ export function getSystemPrompt(sessionType: VoiceSessionType): string {
       return NEW_ENCOUNTER_SYSTEM_PROMPT;
     case 'NEW_PRESCRIPTION':
       return NEW_PRESCRIPTION_SYSTEM_PROMPT;
+    case 'CREATE_APPOINTMENT_SLOTS':
+      return CREATE_APPOINTMENT_SLOTS_SYSTEM_PROMPT;
+    case 'CREATE_LEDGER_ENTRY':
+      return CREATE_LEDGER_ENTRY_SYSTEM_PROMPT;
     default:
       throw new Error(`Unknown session type: ${sessionType}`);
   }
@@ -768,6 +1186,39 @@ function getSchemaForSessionType(sessionType: VoiceSessionType): string {
   ] | null
 }`;
 
+    case 'CREATE_APPOINTMENT_SLOTS':
+      return `{
+  "startDate": string | null,        // YYYY-MM-DD (inicio del rango)
+  "endDate": string | null,          // YYYY-MM-DD (fin del rango)
+  "daysOfWeek": number[] | null,     // [0=Lun, 1=Mar, 2=Mié, 3=Jue, 4=Vie, 5=Sáb, 6=Dom]
+  "startTime": string | null,        // HH:mm (ej: "09:00")
+  "endTime": string | null,          // HH:mm (ej: "17:00")
+  "duration": 30 | 60 | null,        // minutos (30 o 60)
+  "breakStart": string | null,       // HH:mm - OPCIONAL
+  "breakEnd": string | null,         // HH:mm - OPCIONAL
+  "basePrice": number | null,        // Precio en MXN
+  "discount": number | null,         // OPCIONAL
+  "discountType": "PERCENTAGE" | "FIXED" | null  // OPCIONAL
+}`;
+
+    case 'CREATE_LEDGER_ENTRY':
+      return `{
+  "entryType": "ingreso" | "egreso" | null,            // Tipo de movimiento
+  "amount": number | null,                             // Monto en MXN
+  "transactionDate": string | null,                    // YYYY-MM-DD
+  "concept": string | null,                            // Concepto/descripción
+  "transactionType": "N/A" | "COMPRA" | "VENTA" | null,  // Tipo de transacción
+  "clientId": string | null,                           // UUID del cliente (VENTA)
+  "supplierId": string | null,                         // UUID del proveedor (COMPRA)
+  "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,  // Estado de pago
+  "amountPaid": number | null,                         // Monto pagado
+  "area": string | null,                               // Área/categoría
+  "subarea": string | null,                            // Subárea
+  "bankAccount": string | null,                        // Cuenta bancaria
+  "formaDePago": "efectivo" | "transferencia" | "tarjeta" | "cheque" | "deposito" | null,
+  "bankMovementId": string | null                      // Referencia bancaria
+}`;
+
     default:
       return '{}';
   }
@@ -886,6 +1337,37 @@ function getAllFieldsForSessionType(
         { key: 'medications', label: 'Medicamentos', description: 'Lista de medicamentos con dosis, frecuencia, duración' },
       ];
 
+    case 'CREATE_APPOINTMENT_SLOTS':
+      return [
+        { key: 'startDate', label: 'Fecha de inicio', description: 'Primer día del rango (YYYY-MM-DD)' },
+        { key: 'endDate', label: 'Fecha de fin', description: 'Último día del rango (YYYY-MM-DD)' },
+        { key: 'daysOfWeek', label: 'Días de la semana', description: 'Días en que se crearán horarios (0=Lun, 6=Dom)' },
+        { key: 'startTime', label: 'Hora de inicio', description: 'Hora de inicio de disponibilidad (HH:mm)' },
+        { key: 'endTime', label: 'Hora de fin', description: 'Hora de fin de disponibilidad (HH:mm)' },
+        { key: 'duration', label: 'Duración', description: 'Duración de cada cita (30 o 60 minutos)' },
+        { key: 'breakStart', label: 'Inicio de descanso', description: 'Hora de inicio del descanso (opcional)' },
+        { key: 'breakEnd', label: 'Fin de descanso', description: 'Hora de fin del descanso (opcional)' },
+        { key: 'basePrice', label: 'Precio base', description: 'Precio por consulta en MXN' },
+        { key: 'discount', label: 'Descuento', description: 'Valor del descuento (opcional)' },
+        { key: 'discountType', label: 'Tipo de descuento', description: 'PERCENTAGE o FIXED (opcional)' },
+      ];
+
+    case 'CREATE_LEDGER_ENTRY':
+      return [
+        { key: 'entryType', label: 'Tipo de movimiento', description: 'Ingreso o egreso' },
+        { key: 'amount', label: 'Monto', description: 'Cantidad en MXN' },
+        { key: 'transactionDate', label: 'Fecha de transacción', description: 'Fecha del movimiento (YYYY-MM-DD)' },
+        { key: 'concept', label: 'Concepto', description: 'Descripción del movimiento' },
+        { key: 'transactionType', label: 'Tipo de transacción', description: 'N/A, COMPRA o VENTA' },
+        { key: 'area', label: 'Área', description: 'Categoría del movimiento' },
+        { key: 'subarea', label: 'Subárea', description: 'Subcategoría' },
+        { key: 'paymentStatus', label: 'Estado de pago', description: 'PENDING, PARTIAL o PAID (solo COMPRA/VENTA)' },
+        { key: 'amountPaid', label: 'Monto pagado', description: 'Cantidad pagada (solo COMPRA/VENTA)' },
+        { key: 'formaDePago', label: 'Forma de pago', description: 'efectivo, transferencia, tarjeta, cheque, deposito' },
+        { key: 'bankAccount', label: 'Cuenta bancaria', description: 'Nombre de la cuenta (opcional)' },
+        { key: 'bankMovementId', label: 'Referencia bancaria', description: 'ID del movimiento bancario (opcional)' },
+      ];
+
     default:
       return [];
   }
@@ -915,6 +1397,28 @@ function getSessionTypeGuidelines(sessionType: VoiceSessionType): string {
 - Cada medicamento necesita: nombre, dosis, frecuencia, instrucciones
 - isComplete = true cuando tengas al menos un medicamento completo`;
 
+    case 'CREATE_APPOINTMENT_SLOTS':
+      return `Para CREAR HORARIOS DE CITAS:
+- Prioriza: días de la semana, horario (inicio/fin), precio base
+- daysOfWeek usa índices: 0=Lunes, 1=Martes, ..., 6=Domingo
+- Fechas en formato YYYY-MM-DD
+- Horarios en formato HH:mm (24 horas)
+- duration debe ser 30 o 60 (minutos)
+- breakStart/breakEnd son opcionales
+- discount/discountType son opcionales
+- isComplete = true cuando tengas días, horario y precio`;
+
+    case 'CREATE_LEDGER_ENTRY':
+      return `Para CREAR MOVIMIENTO DE FLUJO DE DINERO:
+- Prioriza: tipo de movimiento (ingreso/egreso), monto, concepto
+- entryType determina qué áreas están disponibles (INGRESO vs EGRESO)
+- transactionType: N/A para movimientos simples, COMPRA para compras a proveedor, VENTA para ventas a cliente
+- clientId y supplierId siempre usar null (el usuario los selecciona en la UI)
+- paymentStatus y amountPaid solo son relevantes para COMPRA/VENTA
+- formaDePago: efectivo, transferencia, tarjeta, cheque, deposito
+- Fechas en formato YYYY-MM-DD
+- isComplete = true cuando tengas al menos tipo de movimiento y monto`;
+
     default:
       return '';
   }
@@ -926,4 +1430,8 @@ export const SCHEMA_DESCRIPTIONS = {
   NEW_ENCOUNTER: `Clinical encounter including: basic info (date, type, chief complaint), vital signs (BP, HR, temp, weight, height, O2 sat), clinical documentation (SOAP notes or free-form), and follow-up information.`,
 
   NEW_PRESCRIPTION: `Prescription including: dates, diagnosis, doctor info, and medications array with drug name, presentation, dosage, frequency, duration, quantity, instructions, and warnings.`,
+
+  CREATE_APPOINTMENT_SLOTS: `Appointment slot configuration including: date range, days of week selection, time range, duration, optional break time, pricing, and optional discount.`,
+
+  CREATE_LEDGER_ENTRY: `Cash flow entry (ledger entry) including: entry type (ingreso/egreso), amount, transaction date, concept/description, transaction type (N/A/COMPRA/VENTA), payment details (status, amount paid), categorization (area, subarea), and payment method information (form of payment, bank account, bank reference).`,
 };

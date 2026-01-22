@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Validate session type
-    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION'];
+    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY'];
     if (!validSessionTypes.includes(sessionType)) {
       return NextResponse.json(
         {
@@ -268,6 +268,18 @@ function calculateConfidence(
       // Prescriptions mainly need medications
       if (extractedCount >= 2) return 'high'; // Has diagnosis + medications
       if (extractedCount >= 1) return 'medium';
+      return 'low';
+
+    case 'CREATE_APPOINTMENT_SLOTS':
+      // Appointment slots need: days, time range, price (minimum)
+      if (extractedCount >= 5) return 'high'; // Has most fields
+      if (extractedCount >= 3) return 'medium'; // Has essential fields
+      return 'low';
+
+    case 'CREATE_LEDGER_ENTRY':
+      // Ledger entries need: entryType, amount, concept minimum
+      if (extractedCount >= 5) return 'high'; // Has comprehensive details
+      if (extractedCount >= 3) return 'medium'; // Has essential fields
       return 'low';
 
     default:

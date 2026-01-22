@@ -44,6 +44,8 @@ const SIDEBAR_TITLES: Record<VoiceSessionType, string> = {
   NEW_PATIENT: 'Asistente - Nuevo Paciente',
   NEW_ENCOUNTER: 'Asistente - Nueva Consulta',
   NEW_PRESCRIPTION: 'Asistente - Nueva Receta',
+  CREATE_APPOINTMENT_SLOTS: 'Asistente - Crear Horarios',
+  CREATE_LEDGER_ENTRY: 'Asistente - Movimiento de Dinero',
 };
 
 export function VoiceChatSidebar({

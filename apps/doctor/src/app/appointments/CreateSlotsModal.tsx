@@ -12,6 +12,7 @@ interface CreateSlotsModalProps {
   onClose: () => void;
   doctorId: string;
   onSuccess: () => void;
+  initialData?: any; // Voice assistant data for pre-filling
 }
 
 export default function CreateSlotsModal({
@@ -19,8 +20,9 @@ export default function CreateSlotsModal({
   onClose,
   doctorId,
   onSuccess,
+  initialData,
 }: CreateSlotsModalProps) {
-  const [mode, setMode] = useState<"single" | "recurring">("single");
+  const [mode, setMode] = useState<"single" | "recurring">("recurring"); // Always recurring for voice
   const [singleDate, setSingleDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -39,6 +41,26 @@ export default function CreateSlotsModal({
   const [previewSlots, setPreviewSlots] = useState<number>(0);
 
   const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+  // Pre-fill form with voice assistant data
+  useEffect(() => {
+    if (initialData) {
+      setMode("recurring"); // Force recurring mode
+      if (initialData.startDate) setStartDate(initialData.startDate);
+      if (initialData.endDate) setEndDate(initialData.endDate);
+      if (initialData.daysOfWeek) setDaysOfWeek(initialData.daysOfWeek);
+      if (initialData.startTime) setStartTime(initialData.startTime);
+      if (initialData.endTime) setEndTime(initialData.endTime);
+      if (initialData.duration) setDuration(initialData.duration);
+      if (initialData.hasBreak !== undefined) setHasBreak(initialData.hasBreak);
+      if (initialData.breakStart) setBreakStart(initialData.breakStart);
+      if (initialData.breakEnd) setBreakEnd(initialData.breakEnd);
+      if (initialData.basePrice) setBasePrice(initialData.basePrice);
+      if (initialData.hasDiscount !== undefined) setHasDiscount(initialData.hasDiscount);
+      if (initialData.discount) setDiscount(initialData.discount);
+      if (initialData.discountType) setDiscountType(initialData.discountType);
+    }
+  }, [initialData]);
 
   // Calculate preview of slots to be created
   useEffect(() => {

@@ -3,9 +3,13 @@
 import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown, Mic } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import { VoiceRecordingModal } from "@/components/voice-assistant/VoiceRecordingModal";
+import { VoiceChatSidebar } from "@/components/voice-assistant/chat/VoiceChatSidebar";
+import type { InitialChatData } from "@/hooks/useChatSession";
+import type { VoiceStructuredData, VoiceLedgerEntryData } from "@/types/voice-assistant";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -75,6 +79,12 @@ export default function NewFlujoDeDineroPage() {
     paymentStatus: "PENDING" as "PENDING" | "PARTIAL" | "PAID",
     amountPaid: "0"
   });
+
+  // Voice Assistant state
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const [voiceSidebarOpen, setVoiceSidebarOpen] = useState(false);
+  const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
+  const [voiceFormData, setVoiceFormData] = useState<Partial<typeof formData> | null>(null);
 
   useEffect(() => {
     if (session?.user?.email) {
@@ -150,6 +160,83 @@ export default function NewFlujoDeDineroPage() {
       setLoadingSuppliers(false);
     }
   };
+
+  // Voice Assistant: Convert voice data to form format
+  const mapVoiceToFormData = (voiceData: VoiceLedgerEntryData): Partial<typeof formData> => {
+    return {
+      entryType: voiceData.entryType || undefined,
+      amount: voiceData.amount !== null && voiceData.amount !== undefined ? String(voiceData.amount) : undefined,
+      concept: voiceData.concept || undefined,
+      transactionDate: voiceData.transactionDate || undefined,
+      area: voiceData.area || undefined,
+      subarea: voiceData.subarea || undefined,
+      bankAccount: voiceData.bankAccount || undefined,
+      formaDePago: voiceData.formaDePago || undefined,
+      bankMovementId: voiceData.bankMovementId || undefined,
+      transactionType: voiceData.transactionType || undefined,
+      // Note: clientId and supplierId are always null from voice (user must select from dropdown)
+      clientId: undefined, // Always let user select
+      supplierId: undefined, // Always let user select
+      paymentStatus: voiceData.paymentStatus || undefined,
+      amountPaid: voiceData.amountPaid !== null && voiceData.amountPaid !== undefined ? String(voiceData.amountPaid) : undefined,
+    };
+  };
+
+  // Voice Assistant: Handle recording modal completion
+  const handleVoiceModalComplete = (
+    transcript: string,
+    data: VoiceStructuredData,
+    sessionId: string,
+    transcriptId: string,
+    audioDuration: number
+  ) => {
+    const ledgerData = data as VoiceLedgerEntryData;
+
+    // Calculate extracted fields
+    const allFields = Object.keys(ledgerData);
+    const extracted = allFields.filter(
+      k => ledgerData[k as keyof VoiceLedgerEntryData] != null &&
+           ledgerData[k as keyof VoiceLedgerEntryData] !== '' &&
+           !(Array.isArray(ledgerData[k as keyof VoiceLedgerEntryData]) &&
+             (ledgerData[k as keyof VoiceLedgerEntryData] as any[]).length === 0)
+    );
+
+    // Prepare initial data for sidebar
+    const initialData: InitialChatData = {
+      transcript,
+      structuredData: data,
+      sessionId,
+      transcriptId,
+      audioDuration,
+      fieldsExtracted: extracted,
+    };
+
+    setSidebarInitialData(initialData);
+    setVoiceModalOpen(false);
+    setVoiceSidebarOpen(true);
+  };
+
+  // Voice Assistant: Handle confirmation from chat sidebar
+  const handleVoiceConfirm = (data: VoiceStructuredData) => {
+    const ledgerData = data as VoiceLedgerEntryData;
+    const mappedData = mapVoiceToFormData(ledgerData);
+    setVoiceFormData(mappedData);
+    setVoiceSidebarOpen(false);
+    setSidebarInitialData(undefined); // Clear after confirmation
+  };
+
+  // Voice Assistant: Apply voice data to form when confirmed
+  useEffect(() => {
+    if (voiceFormData) {
+      setFormData((prev) => ({
+        ...prev,
+        ...Object.fromEntries(
+          Object.entries(voiceFormData).filter(([_, v]) => v !== undefined)
+        ),
+      }));
+      setVoiceFormData(null); // Clear after applying
+    }
+  }, [voiceFormData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -314,8 +401,20 @@ export default function NewFlujoDeDineroPage() {
             <ArrowLeft className="w-4 h-4" />
             Volver a Flujo de Dinero
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Nuevo Movimiento</h1>
-          <p className="text-gray-600 mt-1">Registra un nuevo ingreso o egreso</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Nuevo Movimiento</h1>
+              <p className="text-gray-600 mt-1">Registra un nuevo ingreso o egreso</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVoiceModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Mic className="w-4 h-4" />
+              Asistente de Voz
+            </button>
+          </div>
         </div>
 
         {/* Error Message */}
@@ -694,6 +793,30 @@ export default function NewFlujoDeDineroPage() {
             </div>
           </div>
         </form>
+
+      {/* Voice Recording Modal */}
+      <VoiceRecordingModal
+        isOpen={voiceModalOpen}
+        onClose={() => setVoiceModalOpen(false)}
+        sessionType="CREATE_LEDGER_ENTRY"
+        onComplete={handleVoiceModalComplete}
+      />
+
+      {/* Voice Chat Sidebar */}
+      {session?.user?.doctorId && (
+        <VoiceChatSidebar
+          isOpen={voiceSidebarOpen}
+          onClose={() => {
+            setVoiceSidebarOpen(false);
+            setSidebarInitialData(undefined);
+          }}
+          sessionType="CREATE_LEDGER_ENTRY"
+          patientId="ledger" // Use a special ID for ledger entry context
+          doctorId={session.user.doctorId}
+          onConfirm={handleVoiceConfirm}
+          initialData={sidebarInitialData}
+        />
+      )}
     </div>
   );
 }

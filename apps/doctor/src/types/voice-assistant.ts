@@ -27,10 +27,10 @@ export type InputMethod = 'manual' | 'voice';
 // =============================================================================
 
 /**
- * The three supported voice session types.
+ * The five supported voice session types.
  * Each type determines which schema is used for structuring.
  */
-export type VoiceSessionType = 'NEW_PATIENT' | 'NEW_ENCOUNTER' | 'NEW_PRESCRIPTION';
+export type VoiceSessionType = 'NEW_PATIENT' | 'NEW_ENCOUNTER' | 'NEW_PRESCRIPTION' | 'CREATE_APPOINTMENT_SLOTS' | 'CREATE_LEDGER_ENTRY';
 
 /**
  * Voice session status progression:
@@ -186,6 +186,84 @@ export interface VoicePrescriptionData {
 
 
 // =============================================================================
+// CREATE_APPOINTMENT_SLOTS SCHEMA
+// =============================================================================
+
+/**
+ * Schema for appointment slot creation extracted from voice dictation.
+ * Maps to the CreateSlotsModal form (recurring mode only).
+ *
+ * All fields are optional - the LLM will only populate fields
+ * that are explicitly mentioned in the transcript.
+ */
+export interface VoiceAppointmentSlotsData {
+  // Date Range (recurring mode only)
+  startDate?: string | null; // ISO date string (YYYY-MM-DD)
+  endDate?: string | null; // ISO date string (YYYY-MM-DD)
+
+  // Days of Week Selection
+  // 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday
+  daysOfWeek?: number[] | null;
+
+  // Time Configuration
+  startTime?: string | null; // HH:mm format (e.g., "09:00")
+  endTime?: string | null; // HH:mm format (e.g., "17:00")
+  duration?: 30 | 60 | null; // Duration in minutes (30 or 60)
+
+  // Break Time (optional)
+  breakStart?: string | null; // HH:mm format (e.g., "12:00")
+  breakEnd?: string | null; // HH:mm format (e.g., "13:00")
+
+  // Pricing
+  basePrice?: number | null; // Price in MXN
+  discount?: number | null; // Discount value
+  discountType?: 'PERCENTAGE' | 'FIXED' | null; // Discount type
+}
+
+
+// =============================================================================
+// CREATE_LEDGER_ENTRY SCHEMA
+// =============================================================================
+
+/**
+ * Schema for ledger entry (cash flow movement) extracted from voice dictation.
+ * Maps to the ledger entry form in flujo-de-dinero/new/page.tsx
+ *
+ * All fields are optional - the LLM will only populate fields
+ * that are explicitly mentioned in the transcript.
+ *
+ * Note: Complex conditional logic exists in the form:
+ * - transactionType is N/A for simple entries, COMPRA/VENTA for purchases/sales
+ * - clientId is only relevant for VENTA
+ * - supplierId is only relevant for COMPRA
+ * - paymentStatus/amountPaid are only relevant for COMPRA/VENTA
+ */
+export interface VoiceLedgerEntryData {
+  // Basic Information
+  entryType?: 'ingreso' | 'egreso' | null; // Income or expense
+  amount?: number | null; // Amount in MXN
+  transactionDate?: string | null; // ISO date string (YYYY-MM-DD)
+  concept?: string | null; // Transaction description
+
+  // Transaction Details (conditional based on entryType)
+  transactionType?: 'N/A' | 'COMPRA' | 'VENTA' | null;
+  clientId?: string | null; // UUID - only for VENTA transactions
+  supplierId?: string | null; // UUID - only for COMPRA transactions
+  paymentStatus?: 'PENDING' | 'PARTIAL' | 'PAID' | null; // Only for COMPRA/VENTA
+  amountPaid?: number | null; // Only for COMPRA/VENTA
+
+  // Categorization
+  area?: string | null; // Category area (filtered by entryType)
+  subarea?: string | null; // Sub-category (filtered by area)
+
+  // Payment Details
+  bankAccount?: string | null; // Bank account identifier
+  formaDePago?: 'efectivo' | 'transferencia' | 'tarjeta' | 'cheque' | 'deposito' | null;
+  bankMovementId?: string | null; // Bank transaction reference
+}
+
+
+// =============================================================================
 // VOICE SESSION
 // =============================================================================
 
@@ -223,7 +301,7 @@ export interface VoiceSession {
   transcript?: string;
 
   // Structured Output (union type based on session type)
-  structuredData?: VoicePatientData | VoiceEncounterData | VoicePrescriptionData;
+  structuredData?: VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData;
   fieldsExtracted?: string[];
   fieldsEmpty?: string[];
   confidence?: 'high' | 'medium' | 'low';
@@ -283,7 +361,7 @@ export interface StructureResponse {
   success: boolean;
   data?: {
     sessionId: string;
-    structuredData: VoicePatientData | VoiceEncounterData | VoicePrescriptionData;
+    structuredData: VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData;
     fieldsExtracted: string[];
     fieldsEmpty: string[];
     confidence: 'high' | 'medium' | 'low';
@@ -318,7 +396,7 @@ export interface AIGeneratedMetadata {
 /**
  * Union type for all structured data outputs
  */
-export type VoiceStructuredData = VoicePatientData | VoiceEncounterData | VoicePrescriptionData;
+export type VoiceStructuredData = VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData;
 
 /**
  * Map session type to its corresponding data type
@@ -327,6 +405,8 @@ export type SessionTypeDataMap = {
   NEW_PATIENT: VoicePatientData;
   NEW_ENCOUNTER: VoiceEncounterData;
   NEW_PRESCRIPTION: VoicePrescriptionData;
+  CREATE_APPOINTMENT_SLOTS: VoiceAppointmentSlotsData;
+  CREATE_LEDGER_ENTRY: VoiceLedgerEntryData;
 };
 
 /**
@@ -388,6 +468,35 @@ export const EXTRACTABLE_FIELDS: Record<VoiceSessionType, string[]> = {
     'doctorFullName',
     'doctorLicense',
     'medications',
+  ],
+  CREATE_APPOINTMENT_SLOTS: [
+    'startDate',
+    'endDate',
+    'daysOfWeek',
+    'startTime',
+    'endTime',
+    'duration',
+    'breakStart',
+    'breakEnd',
+    'basePrice',
+    'discount',
+    'discountType',
+  ],
+  CREATE_LEDGER_ENTRY: [
+    'entryType',
+    'amount',
+    'transactionDate',
+    'concept',
+    'transactionType',
+    'clientId',
+    'supplierId',
+    'paymentStatus',
+    'amountPaid',
+    'area',
+    'subarea',
+    'bankAccount',
+    'formaDePago',
+    'bankMovementId',
   ],
 };
 
@@ -546,4 +655,33 @@ export const FIELD_LABELS_ES: Record<string, string> = {
   doctorFullName: 'Nombre del Doctor',
   doctorLicense: 'Cédula Profesional',
   medications: 'Medicamentos',
+
+  // Appointment Slots fields
+  startDate: 'Fecha de Inicio',
+  endDate: 'Fecha de Fin',
+  daysOfWeek: 'Días de la Semana',
+  startTime: 'Hora de Inicio',
+  endTime: 'Hora de Fin',
+  duration: 'Duración',
+  breakStart: 'Inicio de Descanso',
+  breakEnd: 'Fin de Descanso',
+  basePrice: 'Precio Base',
+  discount: 'Descuento',
+  discountType: 'Tipo de Descuento',
+
+  // Ledger Entry fields
+  entryType: 'Tipo de Movimiento',
+  amount: 'Monto',
+  transactionDate: 'Fecha de Transacción',
+  concept: 'Concepto',
+  transactionType: 'Tipo de Transacción',
+  clientId: 'Cliente',
+  supplierId: 'Proveedor',
+  paymentStatus: 'Estado de Pago',
+  amountPaid: 'Monto Pagado',
+  area: 'Área',
+  subarea: 'Subárea',
+  bankAccount: 'Cuenta Bancaria',
+  formaDePago: 'Forma de Pago',
+  bankMovementId: 'ID de Movimiento Bancario',
 };

@@ -15,6 +15,8 @@ import {
   type VoiceEncounterData,
   type VoicePrescriptionData,
   type VoiceMedicationData,
+  type VoiceAppointmentSlotsData,
+  type VoiceLedgerEntryData,
 } from '@/types/voice-assistant';
 
 interface StructuredDataPreviewProps {
@@ -72,6 +74,40 @@ const PATIENT_GROUPS = {
   },
 };
 
+const APPOINTMENT_SLOTS_GROUPS = {
+  dateConfig: {
+    label: 'Configuración de Fechas',
+    fields: ['startDate', 'endDate', 'daysOfWeek'],
+  },
+  timeSettings: {
+    label: 'Configuración de Horario',
+    fields: ['startTime', 'endTime', 'duration', 'breakStart', 'breakEnd'],
+  },
+  pricing: {
+    label: 'Precios',
+    fields: ['basePrice', 'discount', 'discountType'],
+  },
+};
+
+const LEDGER_ENTRY_GROUPS = {
+  basic: {
+    label: 'Información Básica',
+    fields: ['entryType', 'amount', 'transactionDate', 'concept'],
+  },
+  transaction: {
+    label: 'Detalles de Transacción',
+    fields: ['transactionType', 'paymentStatus', 'amountPaid'],
+  },
+  categorization: {
+    label: 'Categorización',
+    fields: ['area', 'subarea'],
+  },
+  payment: {
+    label: 'Detalles de Pago',
+    fields: ['formaDePago', 'bankAccount', 'bankMovementId'],
+  },
+};
+
 export function StructuredDataPreview({
   data,
   sessionType,
@@ -85,6 +121,28 @@ export function StructuredDataPreview({
         data={data as VoicePrescriptionData}
         fieldsExtracted={fieldsExtracted}
         compact={compact}
+      />
+    );
+  }
+
+  if (sessionType === 'CREATE_APPOINTMENT_SLOTS') {
+    return (
+      <AppointmentSlotsPreview
+        data={data as VoiceAppointmentSlotsData}
+        fieldsExtracted={fieldsExtracted}
+        compact={compact}
+        showMissing={showMissing}
+      />
+    );
+  }
+
+  if (sessionType === 'CREATE_LEDGER_ENTRY') {
+    return (
+      <LedgerEntryPreview
+        data={data as VoiceLedgerEntryData}
+        fieldsExtracted={fieldsExtracted}
+        compact={compact}
+        showMissing={showMissing}
       />
     );
   }
@@ -217,6 +275,66 @@ function formatValue(field: string, value: any): string {
     return typeMap[value] || value;
   }
 
+  // Appointment slots specific formatting
+  if (field === 'daysOfWeek' && Array.isArray(value)) {
+    const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    return value.map(day => dayNames[day] || day).join(', ');
+  }
+
+  if (field === 'duration') {
+    return `${value} minutos`;
+  }
+
+  if (field === 'basePrice' || field === 'discount') {
+    return `$${value}`;
+  }
+
+  if (field === 'discountType') {
+    return value === 'PERCENTAGE' ? 'Porcentaje' : 'Cantidad Fija';
+  }
+
+  // Ledger entry specific formatting
+  if (field === 'entryType') {
+    return value === 'ingreso' ? 'Ingreso' : 'Egreso';
+  }
+
+  if (field === 'amount' || field === 'amountPaid') {
+    return `$${value.toLocaleString('es-MX')} MXN`;
+  }
+
+  if (field === 'transactionType') {
+    const typeMap: Record<string, string> = {
+      'N/A': 'Simple',
+      'COMPRA': 'Compra a Proveedor',
+      'VENTA': 'Venta a Cliente',
+    };
+    return typeMap[value] || value;
+  }
+
+  if (field === 'paymentStatus') {
+    const statusMap: Record<string, string> = {
+      'PENDING': 'Pendiente',
+      'PARTIAL': 'Pago Parcial',
+      'PAID': 'Pagado',
+    };
+    return statusMap[value] || value;
+  }
+
+  if (field === 'formaDePago') {
+    const methodMap: Record<string, string> = {
+      'efectivo': 'Efectivo',
+      'transferencia': 'Transferencia',
+      'tarjeta': 'Tarjeta',
+      'cheque': 'Cheque',
+      'deposito': 'Depósito',
+    };
+    return methodMap[value] || value;
+  }
+
+  if (field.includes('Time')) {
+    return value; // Already in HH:mm format
+  }
+
   if (field.includes('Date') && typeof value === 'string') {
     try {
       return new Date(value).toLocaleDateString('es-MX', {
@@ -328,6 +446,154 @@ function MedicationCard({
       {medication.warnings && (
         <p className="mt-1 text-amber-600 text-xs">⚠️ {medication.warnings}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Appointment Slots-specific preview
+ */
+function AppointmentSlotsPreview({
+  data,
+  fieldsExtracted,
+  compact,
+  showMissing,
+}: {
+  data: VoiceAppointmentSlotsData;
+  fieldsExtracted: string[];
+  compact: boolean;
+  showMissing: boolean;
+}) {
+  return (
+    <div className={`space-y-3 ${compact ? 'text-sm' : ''}`}>
+      {Object.entries(APPOINTMENT_SLOTS_GROUPS).map(([key, group]) => {
+        // Separate filled and missing fields
+        const filledFields = group.fields.filter((field) => {
+          const value = (data as any)[field];
+          return value !== null && value !== undefined && value !== '' && !(Array.isArray(value) && value.length === 0);
+        });
+
+        const missingFields = showMissing
+          ? group.fields.filter((field) => {
+              const value = (data as any)[field];
+              return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
+            })
+          : [];
+
+        // Skip group if no fields to show
+        if (filledFields.length === 0 && missingFields.length === 0) return null;
+
+        return (
+          <div key={key} className="border-l-2 border-blue-200 pl-3">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              {group.label}
+              {showMissing && (
+                <span className="ml-2 font-normal">
+                  ({filledFields.length}/{group.fields.length})
+                </span>
+              )}
+            </h4>
+            <div className="space-y-1">
+              {/* Show filled fields first */}
+              {filledFields.map((field) => (
+                <FieldRow
+                  key={field}
+                  field={field}
+                  value={(data as any)[field]}
+                  isExtracted={fieldsExtracted.includes(field)}
+                  isMissing={false}
+                  compact={compact}
+                />
+              ))}
+              {/* Show missing fields */}
+              {missingFields.map((field) => (
+                <FieldRow
+                  key={field}
+                  field={field}
+                  value={null}
+                  isExtracted={false}
+                  isMissing={true}
+                  compact={compact}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Ledger Entry-specific preview
+ */
+function LedgerEntryPreview({
+  data,
+  fieldsExtracted,
+  compact,
+  showMissing,
+}: {
+  data: VoiceLedgerEntryData;
+  fieldsExtracted: string[];
+  compact: boolean;
+  showMissing: boolean;
+}) {
+  return (
+    <div className={`space-y-3 ${compact ? 'text-sm' : ''}`}>
+      {Object.entries(LEDGER_ENTRY_GROUPS).map(([key, group]) => {
+        // Separate filled and missing fields
+        const filledFields = group.fields.filter((field) => {
+          const value = (data as any)[field];
+          return value !== null && value !== undefined && value !== '';
+        });
+
+        const missingFields = showMissing
+          ? group.fields.filter((field) => {
+              const value = (data as any)[field];
+              return value === null || value === undefined || value === '';
+            })
+          : [];
+
+        // Skip group if no fields to show
+        if (filledFields.length === 0 && missingFields.length === 0) return null;
+
+        return (
+          <div key={key} className="border-l-2 border-blue-200 pl-3">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              {group.label}
+              {showMissing && (
+                <span className="ml-2 font-normal">
+                  ({filledFields.length}/{group.fields.length})
+                </span>
+              )}
+            </h4>
+            <div className="space-y-1">
+              {/* Show filled fields first */}
+              {filledFields.map((field) => (
+                <FieldRow
+                  key={field}
+                  field={field}
+                  value={(data as any)[field]}
+                  isExtracted={fieldsExtracted.includes(field)}
+                  isMissing={false}
+                  compact={compact}
+                />
+              ))}
+              {/* Show missing fields */}
+              {missingFields.map((field) => (
+                <FieldRow
+                  key={field}
+                  field={field}
+                  value={null}
+                  isExtracted={false}
+                  isMissing={true}
+                  compact={compact}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

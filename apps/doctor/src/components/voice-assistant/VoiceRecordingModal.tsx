@@ -23,6 +23,8 @@ import {
   Stethoscope,
   Pill,
   User,
+  Calendar,
+  Receipt,
 } from 'lucide-react';
 import { useVoiceSession, formatDuration } from '@/hooks/useVoiceSession';
 import type {
@@ -91,6 +93,35 @@ const REFERENCE_GUIDES: Record<VoiceSessionType, { title: string; icon: React.Re
       '  • Duración (ej: 7 días)',
       '  • Indicaciones de uso (REQUERIDO)',
       '  • Advertencias especiales',
+    ],
+  },
+  CREATE_APPOINTMENT_SLOTS: {
+    title: 'Crear Horarios de Citas',
+    icon: <Calendar className="w-5 h-5" />,
+    items: [
+      'Rango de fechas (ej: "del 1 al 28 de febrero")',
+      'Días de la semana (ej: "lunes a viernes", "solo lunes y jueves")',
+      'Horario de atención (ej: "de 9 de la mañana a 5 de la tarde")',
+      'Duración de citas (ej: "citas de 60 minutos", "cada media hora")',
+      'Descanso - OPCIONAL (ej: "con descanso de 12 a 1")',
+      'Precio por cita (ej: "500 pesos", "precio 750")',
+      'Descuento - OPCIONAL (ej: "con 10% de descuento", "menos 50 pesos")',
+    ],
+  },
+  CREATE_LEDGER_ENTRY: {
+    title: 'Nuevo Movimiento de Dinero',
+    icon: <Receipt className="w-5 h-5" />,
+    items: [
+      'Tipo de movimiento: ingreso o egreso (REQUERIDO)',
+      'Monto en pesos (ej: "500 pesos", "mil 500") (REQUERIDO)',
+      'Concepto/descripción del movimiento',
+      'Fecha (ej: "hoy", "ayer", "15 de marzo")',
+      'Tipo de transacción: simple (N/A), compra a proveedor, o venta a cliente',
+      'Estado de pago - OPCIONAL para compras/ventas (ej: "pendiente", "pagado", "abono de 500")',
+      'Área/categoría (ej: "consultas", "suministros médicos", "renta")',
+      'Forma de pago (ej: "efectivo", "transferencia", "tarjeta")',
+      'Cuenta bancaria - OPCIONAL (ej: "cuenta BBVA")',
+      'Referencia bancaria - OPCIONAL',
     ],
   },
 };

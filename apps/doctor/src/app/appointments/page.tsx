@@ -2,11 +2,17 @@
 
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { useState, useEffect } from "react";
-import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle, Mic } from "lucide-react";
 import CreateSlotsModal from "./CreateSlotsModal";
 import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
+import {
+  VoiceRecordingModal,
+  VoiceChatSidebar,
+} from '@/components/voice-assistant';
+import type { InitialChatData } from '@/hooks/useChatSession';
+import type { VoiceAppointmentSlotsData, VoiceStructuredData } from '@/types/voice-assistant';
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -67,8 +73,82 @@ export default function AppointmentsPage() {
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
 
+  // Voice assistant state
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const [voiceSidebarOpen, setVoiceSidebarOpen] = useState(false);
+  const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
+  const [voiceFormData, setVoiceFormData] = useState<any | undefined>(undefined);
+
   // Get doctor ID from session
   const doctorId = session?.user?.doctorId;
+
+  // Helper to map voice data to CreateSlotsModal form data
+  const mapVoiceToFormData = useCallback((voiceData: VoiceAppointmentSlotsData) => {
+    return {
+      startDate: voiceData.startDate || '',
+      endDate: voiceData.endDate || '',
+      daysOfWeek: voiceData.daysOfWeek || [1, 2, 3, 4, 5], // Default Mon-Fri
+      startTime: voiceData.startTime || '09:00',
+      endTime: voiceData.endTime || '17:00',
+      duration: voiceData.duration || 60,
+      breakStart: voiceData.breakStart || '12:00',
+      breakEnd: voiceData.breakEnd || '13:00',
+      hasBreak: Boolean(voiceData.breakStart && voiceData.breakEnd),
+      basePrice: voiceData.basePrice?.toString() || '',
+      discount: voiceData.discount?.toString() || '',
+      discountType: voiceData.discountType || 'PERCENTAGE',
+      hasDiscount: Boolean(voiceData.discount),
+    };
+  }, []);
+
+  // Handle voice recording modal completion - transition to sidebar
+  const handleVoiceModalComplete = useCallback((
+    transcript: string,
+    data: VoiceStructuredData,
+    sessionId: string,
+    transcriptId: string,
+    audioDuration: number
+  ) => {
+    const voiceData = data as VoiceAppointmentSlotsData;
+
+    // Calculate extracted fields
+    const allFields = Object.keys(voiceData);
+    const extracted = allFields.filter(
+      k => voiceData[k as keyof VoiceAppointmentSlotsData] != null &&
+           voiceData[k as keyof VoiceAppointmentSlotsData] !== '' &&
+           !(Array.isArray(voiceData[k as keyof VoiceAppointmentSlotsData]) &&
+             (voiceData[k as keyof VoiceAppointmentSlotsData] as any[]).length === 0)
+    );
+
+    // Prepare initial data for sidebar
+    const initialData: InitialChatData = {
+      transcript,
+      structuredData: data,
+      transcriptId,
+      sessionId,
+      audioDuration,
+      fieldsExtracted: extracted,
+    };
+
+    // Close modal, set initial data, and open sidebar
+    setVoiceModalOpen(false);
+    setSidebarInitialData(initialData);
+    setVoiceSidebarOpen(true);
+  }, []);
+
+  // Handle voice chat confirm - populate CreateSlotsModal
+  const handleVoiceConfirm = useCallback((data: VoiceStructuredData) => {
+    const voiceData = data as VoiceAppointmentSlotsData;
+
+    // Map voice data to form data
+    const mappedData = mapVoiceToFormData(voiceData);
+    setVoiceFormData(mappedData);
+
+    // Close sidebar and open CreateSlotsModal with pre-filled data
+    setVoiceSidebarOpen(false);
+    setSidebarInitialData(undefined);
+    setShowCreateModal(true);
+  }, [mapVoiceToFormData]);
 
   useEffect(() => {
     if (doctorId) {
@@ -333,13 +413,27 @@ export default function AppointmentsPage() {
                 <h1 className="text-2xl font-bold text-gray-900">Gestión de Citas</h1>
                 <p className="text-gray-600 mt-1">Crea y gestiona tu disponibilidad</p>
               </div>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                Crear Horarios
-              </button>
+              <div className="flex gap-3">
+                {/* Voice Assistant Button */}
+                <button
+                  onClick={() => setVoiceModalOpen(true)}
+                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+                >
+                  <Mic className="w-5 h-5" />
+                  Asistente de Voz
+                </button>
+                {/* Manual Create Button */}
+                <button
+                  onClick={() => {
+                    setVoiceFormData(undefined); // Clear voice data
+                    setShowCreateModal(true);
+                  }}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Crear Horarios
+                </button>
+              </div>
             </div>
 
             {/* View Toggle */}
@@ -791,15 +885,52 @@ export default function AppointmentsPage() {
         )}
 
         {/* Create Slots Modal */}
-        <CreateSlotsModal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          doctorId={doctorId!}
-          onSuccess={() => {
-            fetchSlots();
-            fetchBookings();
-          }}
-        />
+        {doctorId && (
+          <CreateSlotsModal
+            isOpen={showCreateModal}
+            onClose={() => {
+              setShowCreateModal(false);
+              setVoiceFormData(undefined); // Clear voice data on close
+            }}
+            doctorId={doctorId}
+            onSuccess={() => {
+              fetchSlots();
+              fetchBookings();
+              setVoiceFormData(undefined); // Clear voice data after success
+            }}
+            initialData={voiceFormData} // Pass voice data to pre-fill form
+          />
+        )}
+
+        {/* Voice Recording Modal */}
+        {doctorId && (
+          <VoiceRecordingModal
+            isOpen={voiceModalOpen}
+            onClose={() => setVoiceModalOpen(false)}
+            sessionType="CREATE_APPOINTMENT_SLOTS"
+            context={{
+              patientId: undefined,
+              doctorId: doctorId,
+            }}
+            onComplete={handleVoiceModalComplete}
+          />
+        )}
+
+        {/* Voice Chat Sidebar */}
+        {doctorId && (
+          <VoiceChatSidebar
+            isOpen={voiceSidebarOpen}
+            onClose={() => {
+              setVoiceSidebarOpen(false);
+              setSidebarInitialData(undefined);
+            }}
+            sessionType="CREATE_APPOINTMENT_SLOTS"
+            patientId="appointments" // Use a special ID for appointments context
+            doctorId={doctorId}
+            onConfirm={handleVoiceConfirm}
+            initialData={sidebarInitialData}
+          />
+        )}
         </div>
       </main>
     </div>
