@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Plus, Filter, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { PrescriptionCard, type Prescription } from '@/components/medical-records/PrescriptionCard';
-import { VoiceButton } from '@/components/voice-assistant';
-import type { VoicePrescriptionData } from '@/types/voice-assistant';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -20,7 +18,6 @@ interface DoctorProfile {
 
 export default function PrescriptionsListPage() {
   const params = useParams();
-  const router = useRouter();
   const patientId = params.id as string;
 
   const { data: session, status } = useSession({
@@ -61,20 +58,6 @@ export default function PrescriptionsListPage() {
   useEffect(() => {
     fetchPrescriptions();
   }, [patientId, statusFilter]);
-
-  // Handle voice assistant completion for new prescription
-  const handleVoicePrescriptionComplete = (
-    data: VoicePrescriptionData,
-    sessionId: string,
-    transcriptId: string
-  ) => {
-    sessionStorage.setItem('voicePrescriptionData', JSON.stringify({
-      data,
-      sessionId,
-      transcriptId,
-    }));
-    router.push(`/dashboard/medical-records/patients/${patientId}/prescriptions/new?voice=true`);
-  };
 
   const fetchPrescriptions = async () => {
     setLoading(true);
@@ -134,22 +117,13 @@ export default function PrescriptionsListPage() {
             <p className="text-gray-600 mt-1">Gestiona las prescripciones del paciente</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/dashboard/medical-records/patients/${patientId}/prescriptions/new`}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Nueva Prescripción
-            </Link>
-            <VoiceButton
-              sessionType="NEW_PRESCRIPTION"
-              context={{ patientId }}
-              onComplete={handleVoicePrescriptionComplete}
-              variant="outline"
-              label="Voz"
-            />
-          </div>
+          <Link
+            href={`/dashboard/medical-records/patients/${patientId}/prescriptions/new`}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Nueva Prescripción
+          </Link>
         </div>
       </div>
 

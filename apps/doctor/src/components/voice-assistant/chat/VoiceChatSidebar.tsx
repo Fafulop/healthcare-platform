@@ -18,7 +18,10 @@ import type {
   VoiceSessionType,
   VoiceSessionContext,
   VoiceStructuredData,
+  EXTRACTABLE_FIELDS,
+  FIELD_LABELS_ES,
 } from '@/types/voice-assistant';
+import { EXTRACTABLE_FIELDS as FIELDS, FIELD_LABELS_ES as LABELS } from '@/types/voice-assistant';
 
 // Sidebar width constraints
 const MIN_WIDTH = 320;
@@ -266,16 +269,71 @@ export function VoiceChatSidebar({
         {chat.isReady && chat.currentData && (
           <div className="border-t border-gray-200 bg-green-50 p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="font-medium text-green-800">
-                  {chat.fieldsExtracted.length} campos capturados
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="font-medium text-green-800">
+                    {chat.fieldsExtracted.length} campos capturados
+                  </span>
+                </div>
+                {(() => {
+                  const allFields = FIELDS[sessionType];
+                  const missingCount = allFields.length - chat.fieldsExtracted.length;
+                  if (missingCount > 0) {
+                    return (
+                      <span className="text-sm text-gray-600">
+                        • {missingCount} faltantes
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
               <span className="text-xs text-gray-500">
                 Campos faltantes aparecen en gris
               </span>
             </div>
+
+            {/* Prescription-specific tip */}
+            {sessionType === 'NEW_PRESCRIPTION' && (
+              <div className="mb-2 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                <p className="text-xs text-blue-800">
+                  💡 <strong>Tip:</strong> Puede dictar o escribir múltiples medicamentos con todas sus características (dosis, frecuencia, indicaciones). Todos serán agregados a la receta.
+                </p>
+              </div>
+            )}
+
+            {/* Missing fields suggestions */}
+            {(() => {
+              const allFields = FIELDS[sessionType];
+              const missingFields = allFields.filter(
+                field => !chat.fieldsExtracted.includes(field)
+              );
+
+              if (missingFields.length > 0) {
+                // Show max 6 missing fields as suggestions
+                const suggestedFields = missingFields.slice(0, 6);
+
+                return (
+                  <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                    <p className="text-xs font-medium text-yellow-800 mb-1.5">
+                      Campos que puede agregar:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {suggestedFields.map(field => (
+                        <span
+                          key={field}
+                          className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-yellow-100 text-yellow-800 border border-yellow-200"
+                        >
+                          {LABELS[field] || field}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {/* Compact data preview with filled and missing fields */}
             <div className="bg-white rounded-lg p-3 mb-3 max-h-48 overflow-y-auto border border-green-200">
