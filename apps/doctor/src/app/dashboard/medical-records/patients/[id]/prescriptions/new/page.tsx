@@ -1,14 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Mic } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList, type Medication } from '@/components/medical-records/MedicationList';
-import { AIDraftBanner } from '@/components/voice-assistant';
-import type { VoicePrescriptionData } from '@/types/voice-assistant';
+import {
+  AIDraftBanner,
+  VoiceChatSidebar,
+  VoiceRecordingModal,
+} from '@/components/voice-assistant';
+import type { InitialChatData } from '@/hooks/useChatSession';
+import type { VoicePrescriptionData, VoiceStructuredData } from '@/types/voice-assistant';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -53,7 +58,14 @@ export default function NewPrescriptionPage() {
   const [encounters, setEncounters] = useState<Encounter[]>([]);
   const [selectedEncounterId, setSelectedEncounterId] = useState<string>('');
 
-  // Voice assistant state
+  // Voice recording modal state
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // Voice chat sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
+
+  // Voice assistant result state
   const [showAIBanner, setShowAIBanner] = useState(false);
   const [aiMetadata, setAIMetadata] = useState<{
     sessionId: string;
@@ -85,6 +97,100 @@ export default function NewPrescriptionPage() {
       console.error("Error fetching doctor profile:", err);
     }
   };
+
+  // Handle modal completion - transition to sidebar with initial data
+  const handleModalComplete = useCallback((
+    transcript: string,
+    data: VoiceStructuredData,
+    sessionId: string,
+    transcriptId: string,
+    audioDuration: number
+  ) => {
+    const voiceData = data as VoicePrescriptionData;
+
+    // Calculate extracted fields
+    const allFields = Object.keys(voiceData);
+    const extracted = allFields.filter(
+      k => voiceData[k as keyof VoicePrescriptionData] != null &&
+           voiceData[k as keyof VoicePrescriptionData] !== ''
+    );
+
+    // Prepare initial data for sidebar
+    const initialData: InitialChatData = {
+      transcript,
+      structuredData: data,
+      transcriptId,
+      sessionId,
+      audioDuration,
+      fieldsExtracted: extracted,
+    };
+
+    // Close modal, set initial data, and open sidebar
+    setModalOpen(false);
+    setSidebarInitialData(initialData);
+    setSidebarOpen(true);
+  }, []);
+
+  // Handle voice chat confirm - populate form with extracted data
+  const handleVoiceConfirm = useCallback((data: VoiceStructuredData) => {
+    console.log('[Page] handleVoiceConfirm called with data:', data);
+
+    const voiceData = data as VoicePrescriptionData;
+
+    // Pre-fill form fields
+    if (voiceData.prescriptionDate) setPrescriptionDate(voiceData.prescriptionDate);
+    if (voiceData.diagnosis) setDiagnosis(voiceData.diagnosis);
+    if (voiceData.clinicalNotes) setClinicalNotes(voiceData.clinicalNotes);
+    if (voiceData.doctorFullName) setDoctorFullName(voiceData.doctorFullName);
+    if (voiceData.doctorLicense) setDoctorLicense(voiceData.doctorLicense);
+    if (voiceData.expiresAt) setExpiresAt(voiceData.expiresAt);
+
+    // Pre-fill medications
+    if (voiceData.medications && voiceData.medications.length > 0) {
+      console.log('[Page] Medications from voice:', voiceData.medications);
+      const mappedMedications = voiceData.medications.map((med, index) => ({
+        drugName: med.drugName || '',
+        presentation: med.presentation || undefined,
+        dosage: med.dosage || '',
+        frequency: med.frequency || '',
+        duration: med.duration || undefined,
+        quantity: med.quantity || undefined,
+        instructions: med.instructions || '',
+        warnings: med.warnings || undefined,
+        order: index,
+      }));
+      console.log('[Page] Mapped medications:', mappedMedications);
+      setMedications(mappedMedications);
+    }
+
+    // Calculate extracted/empty fields for banner
+    const allFields = Object.keys(voiceData);
+    const extracted = allFields.filter(
+      k => voiceData[k as keyof VoicePrescriptionData] != null &&
+           voiceData[k as keyof VoicePrescriptionData] !== ''
+    );
+    const empty = allFields.filter(
+      k => voiceData[k as keyof VoicePrescriptionData] == null ||
+           voiceData[k as keyof VoicePrescriptionData] === ''
+    );
+
+    console.log('[Page] Fields analysis:', { extracted, empty });
+
+    setAIMetadata({
+      sessionId: crypto.randomUUID(),
+      transcriptId: crypto.randomUUID(),
+      fieldsExtracted: extracted,
+      fieldsEmpty: empty,
+      confidence: voiceData.medications && voiceData.medications.length > 0 ? 'high' : 'medium',
+    });
+
+    setShowAIBanner(true);
+
+    // Clear initial data after confirming
+    setSidebarInitialData(undefined);
+
+    console.log('[Page] Form should now be filled with voice data');
+  }, []);
 
   // Form state
   const [prescriptionDate, setPrescriptionDate] = useState(
@@ -199,9 +305,17 @@ export default function NewPrescriptionPage() {
 
     try {
       // Validate medications
+      console.log('[Submit] All medications:', medications);
       const validMedications = medications.filter(
         (med) => med.drugName && med.dosage && med.frequency && med.instructions
       );
+      console.log('[Submit] Valid medications:', validMedications);
+      console.log('[Submit] Validation details:', medications.map(med => ({
+        drugName: !!med.drugName,
+        dosage: !!med.dosage,
+        frequency: !!med.frequency,
+        instructions: !!med.instructions,
+      })));
 
       if (validMedications.length === 0) {
         throw new Error('Debe agregar al menos un medicamento válido');
@@ -301,12 +415,26 @@ export default function NewPrescriptionPage() {
           Volver a Prescripciones
         </Link>
 
-        <h1 className="text-2xl font-bold text-gray-900">Nueva Prescripción</h1>
-        {patient && (
-          <p className="text-gray-600 mt-1">
-            Paciente: {patient.firstName} {patient.lastName} (ID: {patient.internalId})
-          </p>
-        )}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Nueva Prescripción</h1>
+            {patient && (
+              <p className="text-gray-600 mt-1">
+                Paciente: {patient.firstName} {patient.lastName} (ID: {patient.internalId})
+              </p>
+            )}
+          </div>
+          {/* Voice Assistant Button - hidden after data is loaded */}
+          {!voiceDataLoaded && !showAIBanner && (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Mic className="w-5 h-5" />
+              Asistente de Voz
+            </button>
+          )}
+        </div>
       </div>
 
       {/* AI Draft Banner */}
@@ -477,6 +605,39 @@ export default function NewPrescriptionPage() {
           </button>
         </div>
       </form>
+
+      {/* Voice Recording Modal */}
+      {session?.user?.doctorId && (
+        <VoiceRecordingModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          sessionType="NEW_PRESCRIPTION"
+          context={{
+            patientId,
+            doctorId: session.user.doctorId,
+            doctorName: doctorProfile?.slug || undefined,
+          }}
+          onComplete={handleModalComplete}
+        />
+      )}
+
+      {/* Voice Chat Sidebar */}
+      {session?.user?.doctorId && (
+        <VoiceChatSidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          sessionType="NEW_PRESCRIPTION"
+          patientId={patientId}
+          doctorId={session.user.doctorId}
+          context={{
+            patientId,
+            doctorId: session.user.doctorId,
+            doctorName: doctorProfile?.slug || undefined,
+          }}
+          initialData={sidebarInitialData}
+          onConfirm={handleVoiceConfirm}
+        />
+      )}
     </div>
   );
 }
