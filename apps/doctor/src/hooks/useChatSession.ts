@@ -152,6 +152,26 @@ function generateAssistantWelcomeMessage(
 ): string {
   const fieldCount = calculateExtractedFields(data).length;
 
+  // Check if this is a batch entry for CREATE_LEDGER_ENTRY
+  const batchData = data as any;
+  if (sessionType === 'CREATE_LEDGER_ENTRY' && batchData.isBatch && batchData.entries) {
+    const entryCount = batchData.totalCount || batchData.entries.length;
+    // Check if any entries are missing dates
+    const entriesWithoutDate = batchData.entries.filter((e: any) => !e.transactionDate);
+    if (entriesWithoutDate.length > 0) {
+      return `He detectado ${entryCount} ${entryCount === 1 ? 'movimiento' : 'movimientos'} de dinero. Extraje ${fieldCount} campos.\n\n⚠️ Nota: ${entriesWithoutDate.length === entryCount ? 'Ninguno tiene' : entriesWithoutDate.length + ' no tienen'} fecha de transacción. ¿De qué fecha son estos movimientos?`;
+    }
+    return `He detectado ${entryCount} ${entryCount === 1 ? 'movimiento' : 'movimientos'} de dinero. Puedes editar cualquiera, eliminar alguno, o agregar más. Cuando estés listo, confirma para crearlos.`;
+  }
+
+  // For single ledger entry, check if transactionDate is missing
+  if (sessionType === 'CREATE_LEDGER_ENTRY') {
+    const ledgerData = data as any;
+    if (!ledgerData.transactionDate) {
+      return `He registrado el movimiento de dinero. Extraje ${fieldCount} campos.\n\n⚠️ Nota: No capturé la fecha de transacción. ¿De qué fecha es este movimiento? (hoy, ayer, u otra fecha)`;
+    }
+  }
+
   const messages: Record<VoiceSessionType, string> = {
     NEW_PATIENT: `He registrado la información del paciente. Extraje ${fieldCount} campos. ¿Hay algo que quieras agregar o corregir?`,
     NEW_ENCOUNTER: `He registrado la información de la consulta. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,

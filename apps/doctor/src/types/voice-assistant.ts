@@ -262,6 +262,16 @@ export interface VoiceLedgerEntryData {
   bankMovementId?: string | null; // Bank transaction reference
 }
 
+/**
+ * Schema for batch ledger entries extracted from voice dictation.
+ * Used when multiple entries are detected in a single voice recording.
+ */
+export interface VoiceLedgerEntryBatch {
+  isBatch: true; // Flag to distinguish from single entry
+  entries: VoiceLedgerEntryData[]; // Array of ledger entries
+  totalCount: number; // Number of entries detected
+}
+
 
 // =============================================================================
 // VOICE SESSION
@@ -396,7 +406,7 @@ export interface AIGeneratedMetadata {
 /**
  * Union type for all structured data outputs
  */
-export type VoiceStructuredData = VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData;
+export type VoiceStructuredData = VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData | VoiceLedgerEntryBatch;
 
 /**
  * Map session type to its corresponding data type
@@ -406,7 +416,7 @@ export type SessionTypeDataMap = {
   NEW_ENCOUNTER: VoiceEncounterData;
   NEW_PRESCRIPTION: VoicePrescriptionData;
   CREATE_APPOINTMENT_SLOTS: VoiceAppointmentSlotsData;
-  CREATE_LEDGER_ENTRY: VoiceLedgerEntryData;
+  CREATE_LEDGER_ENTRY: VoiceLedgerEntryData | VoiceLedgerEntryBatch; // Can be single or batch
 };
 
 /**

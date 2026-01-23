@@ -222,6 +222,26 @@ function analyzeExtractedFields(
   const fieldsExtracted: string[] = [];
   const fieldsEmpty: string[] = [];
 
+  // Special handling for batch ledger entries
+  const batchData = data as any;
+  if (batchData.isBatch && batchData.entries && Array.isArray(batchData.entries)) {
+    // For batch, we consider it extracted if we have entries
+    if (batchData.entries.length > 0) {
+      fieldsExtracted.push('entries', 'isBatch', 'totalCount');
+      // Count average fields across all entries
+      batchData.entries.forEach((entry: any, index: number) => {
+        Object.keys(entry).forEach(key => {
+          const value = entry[key];
+          if (value !== null && value !== undefined && value !== '') {
+            fieldsExtracted.push(`entry${index}_${key}`);
+          }
+        });
+      });
+    }
+    return { fieldsExtracted, fieldsEmpty: [] };
+  }
+
+  // Normal single entry handling
   for (const field of allFields) {
     const value = (data as any)[field];
 

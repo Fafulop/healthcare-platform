@@ -702,26 +702,67 @@ export const CREATE_LEDGER_ENTRY_SYSTEM_PROMPT = `${BASE_SYSTEM_PROMPT}
 ## YOUR TASK: STRUCTURE CASH FLOW ENTRY (LEDGER ENTRY) INFORMATION
 
 Extract financial transaction information from the transcript and return a JSON object.
-This will be used to create a cash flow entry (ingreso or egreso) in the practice management system.
+This will be used to create cash flow entries (ingreso or egreso) in the practice management system.
 Use null for any field not explicitly mentioned.
+
+## DETECTING MULTIPLE ENTRIES
+
+The transcript may contain ONE or MULTIPLE entries. Detect this carefully:
+
+**Single Entry Indicators:**
+- One amount mentioned
+- One transaction described
+- Simple statement like "Ingreso de 500 pesos por consulta"
+
+**Multiple Entry Indicators:**
+- Phrases like: "tres movimientos", "varios movimientos", "primero... segundo... tercero"
+- Multiple amounts listed: "500 pesos... 200 pesos... 1000 pesos"
+- Sequential markers: "primero", "segundo", "tercero", "luego", "después", "y también"
+- "Y otro": "ingreso de 500 y otro de 300"
 
 ## OUTPUT SCHEMA
 
+### For SINGLE Entry:
 {
-  "entryType": "ingreso" | "egreso" | null,           // Income or expense
-  "amount": number | null,                            // Amount in MXN (Mexican Pesos)
-  "transactionDate": string | null,                   // ISO format: YYYY-MM-DD
-  "concept": string | null,                           // Transaction description
-  "transactionType": "N/A" | "COMPRA" | "VENTA" | null,  // Transaction type
-  "clientId": string | null,                          // Client UUID (only for VENTA)
-  "supplierId": string | null,                        // Supplier UUID (only for COMPRA)
-  "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,  // Payment status (only for COMPRA/VENTA)
-  "amountPaid": number | null,                        // Amount paid so far (only for COMPRA/VENTA)
-  "area": string | null,                              // Category area
-  "subarea": string | null,                           // Sub-category
-  "bankAccount": string | null,                       // Bank account name/identifier
+  "entryType": "ingreso" | "egreso" | null,
+  "amount": number | null,
+  "transactionDate": string | null,
+  "concept": string | null,
+  "transactionType": "N/A" | "COMPRA" | "VENTA" | null,
+  "clientId": string | null,
+  "supplierId": string | null,
+  "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,
+  "amountPaid": number | null,
+  "area": string | null,
+  "subarea": string | null,
+  "bankAccount": string | null,
   "formaDePago": "efectivo" | "transferencia" | "tarjeta" | "cheque" | "deposito" | null,
-  "bankMovementId": string | null                     // Bank transaction reference
+  "bankMovementId": string | null
+}
+
+### For MULTIPLE Entries:
+{
+  "isBatch": true,
+  "totalCount": number,                    // Number of entries detected
+  "entries": [                             // Array of entry objects
+    {
+      "entryType": "ingreso" | "egreso" | null,
+      "amount": number | null,
+      "transactionDate": string | null,
+      "concept": string | null,
+      "transactionType": "N/A" | "COMPRA" | "VENTA" | null,
+      "clientId": string | null,
+      "supplierId": string | null,
+      "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,
+      "amountPaid": number | null,
+      "area": string | null,
+      "subarea": string | null,
+      "bankAccount": string | null,
+      "formaDePago": "efectivo" | "transferencia" | "tarjeta" | "cheque" | "deposito" | null,
+      "bankMovementId": string | null
+    },
+    // ... more entries
+  ]
 }
 
 ## FIELD EXTRACTION GUIDELINES
@@ -742,13 +783,15 @@ Use null for any field not explicitly mentioned.
 - "3500 MXN" → 3500
 - Always extract as a number (integer or decimal)
 
-### Transaction Date (transactionDate)
+### Transaction Date (transactionDate) - HIGHLY RECOMMENDED
+- **IMPORTANT**: Always try to extract or infer the transaction date
 - Convert spoken dates to ISO format YYYY-MM-DD
 - "hoy" → use today's date
 - "ayer" → use yesterday's date
 - "15 de marzo" → "2024-03-15" (assume current year if not specified)
 - "15 de marzo de 2024" → "2024-03-15"
-- If not mentioned, use null
+- If date is implied by context (e.g., "ingreso de hoy", "pago de ayer"), extract it
+- If truly not mentioned at all, use null (backend will default to today, but this should be avoided)
 
 ### Concept (concept)
 - A brief description of the transaction
@@ -791,9 +834,10 @@ Use null for any field not explicitly mentioned.
 - For "PAID": use the same value as amount
 - If transactionType is "N/A", use null
 
-### Area and Subarea (area, subarea)
+### Area and Subarea (area, subarea) - OPTIONAL
 - These are categorical classifications for the transaction
 - IMPORTANT: Extract ONLY if explicitly mentioned
+- These fields are OPTIONAL - transactions can be created without them
 - Common areas for INGRESO:
   - "Consultas", "Procedimientos", "Estudios", "Medicamentos", "Otros Ingresos"
 - Common areas for EGRESO:
@@ -802,7 +846,7 @@ Use null for any field not explicitly mentioned.
   - For "Consultas": "Primera vez", "Seguimiento", "Urgencia"
   - For "Nómina": "Salarios", "Prestaciones", "Impuestos"
   - For "Suministros Médicos": "Material de curación", "Medicamentos", "Equipo"
-- If not mentioned, use null for both
+- If not mentioned, use null for both (this is perfectly acceptable)
 
 ### Bank Account (bankAccount)
 - The name or identifier of the bank account
@@ -936,6 +980,108 @@ Output:
   "bankAccount": "Santander",
   "formaDePago": "transferencia",
   "bankMovementId": null
+}
+
+### Example 6: Multiple Entries (Batch)
+Transcript: "Tres movimientos: primero, ingreso de 500 pesos por consulta en efectivo. Segundo, egreso de 200 pesos por material médico con transferencia. Tercero, ingreso de 1000 pesos por honorarios con tarjeta."
+
+Output:
+{
+  "isBatch": true,
+  "totalCount": 3,
+  "entries": [
+    {
+      "entryType": "ingreso",
+      "amount": 500,
+      "transactionDate": null,
+      "concept": "Consulta",
+      "transactionType": "N/A",
+      "clientId": null,
+      "supplierId": null,
+      "paymentStatus": null,
+      "amountPaid": null,
+      "area": "Consultas",
+      "subarea": null,
+      "bankAccount": null,
+      "formaDePago": "efectivo",
+      "bankMovementId": null
+    },
+    {
+      "entryType": "egreso",
+      "amount": 200,
+      "transactionDate": null,
+      "concept": "Material médico",
+      "transactionType": "N/A",
+      "clientId": null,
+      "supplierId": null,
+      "paymentStatus": null,
+      "amountPaid": null,
+      "area": "Suministros Médicos",
+      "subarea": null,
+      "bankAccount": null,
+      "formaDePago": "transferencia",
+      "bankMovementId": null
+    },
+    {
+      "entryType": "ingreso",
+      "amount": 1000,
+      "transactionDate": null,
+      "concept": "Honorarios",
+      "transactionType": "N/A",
+      "clientId": null,
+      "supplierId": null,
+      "paymentStatus": null,
+      "amountPaid": null,
+      "area": "Consultas",
+      "subarea": null,
+      "bankAccount": null,
+      "formaDePago": "tarjeta",
+      "bankMovementId": null
+    }
+  ]
+}
+
+### Example 7: Multiple Entries with "y otro"
+Transcript: "Ingreso de 500 pesos en efectivo por consulta, y otro ingreso de 300 pesos con transferencia por seguimiento."
+
+Output:
+{
+  "isBatch": true,
+  "totalCount": 2,
+  "entries": [
+    {
+      "entryType": "ingreso",
+      "amount": 500,
+      "transactionDate": null,
+      "concept": "Consulta",
+      "transactionType": "N/A",
+      "clientId": null,
+      "supplierId": null,
+      "paymentStatus": null,
+      "amountPaid": null,
+      "area": "Consultas",
+      "subarea": null,
+      "bankAccount": null,
+      "formaDePago": "efectivo",
+      "bankMovementId": null
+    },
+    {
+      "entryType": "ingreso",
+      "amount": 300,
+      "transactionDate": null,
+      "concept": "Seguimiento",
+      "transactionType": "N/A",
+      "clientId": null,
+      "supplierId": null,
+      "paymentStatus": null,
+      "amountPaid": null,
+      "area": "Consultas",
+      "subarea": null,
+      "bankAccount": null,
+      "formaDePago": "transferencia",
+      "bankMovementId": null
+    }
+  ]
 }
 `;
 
@@ -1410,14 +1556,18 @@ function getSessionTypeGuidelines(sessionType: VoiceSessionType): string {
 
     case 'CREATE_LEDGER_ENTRY':
       return `Para CREAR MOVIMIENTO DE FLUJO DE DINERO:
-- Prioriza: tipo de movimiento (ingreso/egreso), monto, concepto
+- Prioriza: tipo de movimiento (ingreso/egreso), monto, concepto, **FECHA DE TRANSACCIÓN**
+- **CRÍTICO - FECHA**: Si transactionDate está vacío o es null, SIEMPRE pregunta proactivamente:
+  * "¿De qué fecha es este movimiento?" o
+  * "¿Este movimiento es de hoy, ayer, u otra fecha?"
+  * NO asumas que es de hoy - confirma con el doctor
 - entryType determina qué áreas están disponibles (INGRESO vs EGRESO)
 - transactionType: N/A para movimientos simples, COMPRA para compras a proveedor, VENTA para ventas a cliente
 - clientId y supplierId siempre usar null (el usuario los selecciona en la UI)
 - paymentStatus y amountPaid solo son relevantes para COMPRA/VENTA
 - formaDePago: efectivo, transferencia, tarjeta, cheque, deposito
 - Fechas en formato YYYY-MM-DD
-- isComplete = true cuando tengas al menos tipo de movimiento y monto`;
+- isComplete = true cuando tengas al menos tipo de movimiento, monto, Y FECHA DE TRANSACCIÓN`;
 
     default:
       return '';

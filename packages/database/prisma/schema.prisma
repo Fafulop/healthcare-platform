@@ -630,8 +630,8 @@ model LedgerEntry {
   bankMovementId  String?            @map("bank_movement_id") @db.VarChar(255)
   entryType       String             @map("entry_type") @db.VarChar(20)
   transactionDate DateTime           @map("transaction_date") @db.Date
-  area            String             @db.VarChar(255)
-  subarea         String             @db.VarChar(255)
+  area            String?            @db.VarChar(255)
+  subarea         String?            @db.VarChar(255)
   porRealizar     Boolean            @default(false) @map("por_realizar")
 
   // Integration with Sales/Purchases

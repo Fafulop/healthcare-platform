@@ -9,7 +9,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { VoiceRecordingModal } from "@/components/voice-assistant/VoiceRecordingModal";
 import { VoiceChatSidebar } from "@/components/voice-assistant/chat/VoiceChatSidebar";
 import type { InitialChatData } from "@/hooks/useChatSession";
-import type { VoiceStructuredData, VoiceLedgerEntryData } from "@/types/voice-assistant";
+import type { VoiceStructuredData, VoiceLedgerEntryData, VoiceLedgerEntryBatch } from "@/types/voice-assistant";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -217,12 +217,82 @@ export default function NewFlujoDeDineroPage() {
   };
 
   // Voice Assistant: Handle confirmation from chat sidebar
-  const handleVoiceConfirm = (data: VoiceStructuredData) => {
+  const handleVoiceConfirm = async (data: VoiceStructuredData) => {
+    // Check if this is a batch of entries
+    const batchData = data as VoiceLedgerEntryBatch;
+    if (batchData.isBatch && batchData.entries) {
+      // Handle batch creation - create all entries sequentially
+      await handleBatchEntryCreation(batchData.entries);
+      return;
+    }
+
+    // Single entry - populate form as usual
     const ledgerData = data as VoiceLedgerEntryData;
     const mappedData = mapVoiceToFormData(ledgerData);
     setVoiceFormData(mappedData);
     setVoiceSidebarOpen(false);
     setSidebarInitialData(undefined); // Clear after confirmation
+  };
+
+  // Voice Assistant: Handle batch entry creation
+  const handleBatchEntryCreation = async (entries: VoiceLedgerEntryData[]) => {
+    if (!session?.user?.email) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      let successCount = 0;
+      const errors: string[] = [];
+
+      // Create each entry sequentially
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+
+        try {
+          const response = await authFetch(`${API_URL}/api/practice-management/ledger`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              ...entry,
+              amount: entry.amount || 0,
+              amountPaid: entry.amountPaid || 0,
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            errors.push(`Movimiento ${i + 1}: ${errorData.error || 'Error'}`);
+          } else {
+            successCount++;
+          }
+        } catch (err: any) {
+          errors.push(`Movimiento ${i + 1}: ${err.message}`);
+        }
+      }
+
+      // Close sidebar
+      setVoiceSidebarOpen(false);
+      setSidebarInitialData(undefined);
+
+      // Show results and redirect
+      if (successCount === entries.length) {
+        // All successful - redirect to list
+        router.push('/dashboard/practice/flujo-de-dinero?success=batch&count=' + successCount);
+      } else if (successCount > 0) {
+        // Partial success
+        setError(`Se crearon ${successCount} de ${entries.length} movimientos. Errores: ${errors.join(', ')}`);
+      } else {
+        // All failed
+        setError(`No se pudo crear ningún movimiento: ${errors.join(', ')}`);
+      }
+    } catch (err: any) {
+      setError('Error al crear movimientos: ' + err.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Voice Assistant: Apply voice data to form when confirmed
@@ -314,10 +384,7 @@ export default function NewFlujoDeDineroPage() {
       return;
     }
 
-    if (!formData.area || !formData.subarea) {
-      setError('Seleccione un área y subárea');
-      return;
-    }
+    // Area and subarea are now optional - no validation needed
 
     // Validate transaction type fields
     if (formData.transactionType === 'VENTA') {
@@ -674,14 +741,13 @@ export default function NewFlujoDeDineroPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Área *
+                  Área
                 </label>
                 <select
                   name="area"
                   value={formData.area}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
                 >
                   <option value="">Seleccione un área</option>
                   {filteredAreas.map(area => (
@@ -694,7 +760,7 @@ export default function NewFlujoDeDineroPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Subárea *
+                  Subárea
                 </label>
                 <select
                   name="subarea"
@@ -702,7 +768,6 @@ export default function NewFlujoDeDineroPage() {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={!formData.area}
-                  required
                 >
                   <option value="">Seleccione una subárea</option>
                   {availableSubareas.map(subarea => (

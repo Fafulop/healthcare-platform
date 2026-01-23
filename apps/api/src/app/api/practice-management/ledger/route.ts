@@ -256,23 +256,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!transactionDate) {
+    // TransactionDate defaults to today if not provided
+    const finalTransactionDate = transactionDate || new Date().toISOString().split('T')[0];
+
+    // Area and subarea are optional - validate format if provided
+    if (area !== undefined && area !== null && typeof area !== 'string') {
       return NextResponse.json(
-        { error: 'La fecha de transacción es requerida' },
+        { error: 'El área debe ser texto' },
         { status: 400 }
       );
     }
 
-    if (!area || typeof area !== 'string' || area.trim().length === 0) {
+    if (subarea !== undefined && subarea !== null && typeof subarea !== 'string') {
       return NextResponse.json(
-        { error: 'El área es requerida' },
-        { status: 400 }
-      );
-    }
-
-    if (!subarea || typeof subarea !== 'string' || subarea.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'La subárea es requerida' },
+        { error: 'La subárea debe ser texto' },
         { status: 400 }
       );
     }
@@ -360,7 +357,7 @@ export async function POST(request: NextRequest) {
           doctorId: doctor.id,
           clientId: parseInt(clientId),
           saleNumber,
-          saleDate: new Date(transactionDate),
+          saleDate: new Date(finalTransactionDate),
           status: 'CONFIRMED',
           paymentStatus: paymentStatus,
           amountPaid: amountPaid ? parseFloat(amountPaid) : (paymentStatus === 'PAID' ? amount : 0),
@@ -398,7 +395,7 @@ export async function POST(request: NextRequest) {
           doctorId: doctor.id,
           supplierId: parseInt(supplierId),
           purchaseNumber,
-          purchaseDate: new Date(transactionDate),
+          purchaseDate: new Date(finalTransactionDate),
           status: 'CONFIRMED',
           paymentStatus: paymentStatus,
           amountPaid: amountPaid ? parseFloat(amountPaid) : (paymentStatus === 'PAID' ? amount : 0),
@@ -438,9 +435,9 @@ export async function POST(request: NextRequest) {
         internalId: finalInternalId,
         bankMovementId: bankMovementId?.trim() || null,
         entryType: entryType,
-        transactionDate: new Date(transactionDate),
-        area: area.trim(),
-        subarea: subarea.trim(),
+        transactionDate: new Date(finalTransactionDate),
+        area: area?.trim() || null,
+        subarea: subarea?.trim() || null,
         porRealizar: porRealizar || false,
         transactionType: txType,
         saleId: saleId,

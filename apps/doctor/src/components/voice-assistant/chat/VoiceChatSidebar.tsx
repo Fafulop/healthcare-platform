@@ -12,12 +12,14 @@ import { X, CheckCircle, RotateCcw, AlertCircle, GripVertical } from 'lucide-rea
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
 import { StructuredDataPreview } from './StructuredDataPreview';
+import { BatchEntryList } from './BatchEntryList';
 import { useChatSession } from '@/hooks/useChatSession';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type {
   VoiceSessionType,
   VoiceSessionContext,
   VoiceStructuredData,
+  VoiceLedgerEntryBatch,
   EXTRACTABLE_FIELDS,
   FIELD_LABELS_ES,
 } from '@/types/voice-assistant';
@@ -307,13 +309,31 @@ export function VoiceChatSidebar({
 
             {/* Compact data preview with filled and missing fields */}
             <div className="bg-white rounded-lg p-3 mb-3 max-h-48 overflow-y-auto border border-green-200">
-              <StructuredDataPreview
-                data={chat.currentData}
-                sessionType={sessionType}
-                fieldsExtracted={chat.fieldsExtracted}
-                compact
-                showMissing
-              />
+              {/* Check if this is a batch entry for CREATE_LEDGER_ENTRY */}
+              {sessionType === 'CREATE_LEDGER_ENTRY' &&
+               chat.currentData &&
+               (chat.currentData as VoiceLedgerEntryBatch).isBatch ? (
+                <BatchEntryList
+                  entries={(chat.currentData as VoiceLedgerEntryBatch).entries}
+                  onUpdateEntries={(updatedEntries) => {
+                    // Update the batch with new entries
+                    const batchData = chat.currentData as VoiceLedgerEntryBatch;
+                    chat.currentData = {
+                      ...batchData,
+                      entries: updatedEntries,
+                      totalCount: updatedEntries.length,
+                    };
+                  }}
+                />
+              ) : (
+                <StructuredDataPreview
+                  data={chat.currentData}
+                  sessionType={sessionType}
+                  fieldsExtracted={chat.fieldsExtracted}
+                  compact
+                  showMissing
+                />
+              )}
             </div>
 
             {/* Confirm button */}
@@ -322,7 +342,11 @@ export function VoiceChatSidebar({
               className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               <CheckCircle className="w-5 h-5" />
-              Confirmar y Rellenar Formulario
+              {sessionType === 'CREATE_LEDGER_ENTRY' &&
+               chat.currentData &&
+               (chat.currentData as VoiceLedgerEntryBatch).isBatch
+                ? `Crear ${(chat.currentData as VoiceLedgerEntryBatch).totalCount} Movimientos`
+                : 'Confirmar y Rellenar Formulario'}
             </button>
           </div>
         )}
