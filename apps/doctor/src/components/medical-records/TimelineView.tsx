@@ -49,11 +49,20 @@ interface TimelineViewProps {
 
 export function TimelineView({ timeline, patientId }: TimelineViewProps) {
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('es-MX', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    try {
+      const [year, month, day] = dateString.split('-').map(Number);
+      if (year && month && day) {
+        const date = new Date(year, month - 1, day); // month is 0-indexed
+        return date.toLocaleDateString('es-MX', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+      return dateString;
+    } catch {
+      return dateString;
+    }
   };
 
   const getStatusColor = (status: string): string => {

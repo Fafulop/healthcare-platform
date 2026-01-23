@@ -17,6 +17,28 @@ import type { VoiceAppointmentSlotsData, VoiceStructuredData } from '@/types/voi
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
+// Helper function to get local date string (fixes timezone issues)
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Helper function to format date string for display (fixes timezone issues)
+function formatDateString(dateStr: string, locale: string = 'es-MX', options?: Intl.DateTimeFormatOptions): string {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    if (year && month && day) {
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+      return date.toLocaleDateString(locale, options);
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
+
 interface DoctorProfile {
   id: string;
   slug: string;
@@ -350,14 +372,14 @@ export default function AppointmentsPage() {
   };
 
   // Get slots for selected date
-  const selectedDateStr = selectedDate.toISOString().split("T")[0];
+  const selectedDateStr = getLocalDateString(selectedDate);
   const slotsForSelectedDate = slots.filter(
-    (slot) => new Date(slot.date).toISOString().split("T")[0] === selectedDateStr
+    (slot) => slot.date.split('T')[0] === selectedDateStr
   );
 
   // Get dates with slots for calendar highlighting
   const datesWithSlots = new Set(
-    slots.map((slot) => new Date(slot.date).toISOString().split("T")[0])
+    slots.map((slot) => slot.date.split('T')[0])
   );
 
   // Calendar days for current month
@@ -499,7 +521,7 @@ export default function AppointmentsPage() {
                           <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                           <div>
                             <p className="font-medium text-gray-900">
-                              {new Date(booking.slot.date).toLocaleDateString("es-MX", {
+                              {formatDateString(booking.slot.date, "es-MX", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
@@ -616,11 +638,11 @@ export default function AppointmentsPage() {
                     return <div key={`empty-${index}`} className="aspect-square" />;
                   }
 
-                  const dateStr = new Date(year, month, day).toISOString().split("T")[0];
+                  const dateStr = getLocalDateString(new Date(year, month, day));
                   const hasSlots = datesWithSlots.has(dateStr);
                   const isSelected = dateStr === selectedDateStr;
                   const isToday =
-                    dateStr === new Date().toISOString().split("T")[0];
+                    dateStr === getLocalDateString(new Date());
 
                   return (
                     <button
@@ -832,7 +854,7 @@ export default function AppointmentsPage() {
                           </button>
                         </td>
                         <td className="py-3 px-4">
-                          {new Date(slot.date).toLocaleDateString()}
+                          {formatDateString(slot.date)}
                         </td>
                         <td className="py-3 px-4">{slot.startTime} - {slot.endTime}</td>
                         <td className="py-3 px-4">{slot.duration} min</td>

@@ -7,6 +7,14 @@ import { authFetch } from "@/lib/auth-fetch";
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
+// Helper function to get local date string (fixes timezone issues)
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 interface CreateSlotsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -290,7 +298,7 @@ export default function CreateSlotsModal({
                   type="date"
                   value={singleDate}
                   onChange={(e) => setSingleDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
+                  min={getLocalDateString(new Date())}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
@@ -306,7 +314,7 @@ export default function CreateSlotsModal({
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      min={new Date().toISOString().split("T")[0]}
+                      min={getLocalDateString(new Date())}
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -319,7 +327,7 @@ export default function CreateSlotsModal({
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      min={startDate || new Date().toISOString().split("T")[0]}
+                      min={startDate || getLocalDateString(new Date())}
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />

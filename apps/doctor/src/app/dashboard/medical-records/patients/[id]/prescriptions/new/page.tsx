@@ -17,6 +17,28 @@ import type { VoicePrescriptionData, VoiceStructuredData } from '@/types/voice-a
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+// Helper to get local date string (fixes timezone issues)
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Helper to format date string for display (fixes timezone issues)
+function formatDateString(dateStr: string, locale: string = 'es-MX'): string {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    if (year && month && day) {
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+      return date.toLocaleDateString(locale);
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
+
 interface DoctorProfile {
   id: string;
   slug: string;
@@ -194,7 +216,7 @@ export default function NewPrescriptionPage() {
 
   // Form state
   const [prescriptionDate, setPrescriptionDate] = useState(
-    new Date().toISOString().split('T')[0]
+    getLocalDateString(new Date())
   );
   const [diagnosis, setDiagnosis] = useState('');
   const [clinicalNotes, setClinicalNotes] = useState('');
@@ -525,7 +547,7 @@ export default function NewPrescriptionPage() {
               <option value="">Ninguna consulta seleccionada</option>
               {encounters.map(encounter => (
                 <option key={encounter.id} value={encounter.id}>
-                  {new Date(encounter.encounterDate).toLocaleDateString('es-MX')} - {encounter.chiefComplaint}
+                  {formatDateString(encounter.encounterDate, 'es-MX')} - {encounter.chiefComplaint}
                 </option>
               ))}
             </select>

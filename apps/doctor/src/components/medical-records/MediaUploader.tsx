@@ -4,6 +4,20 @@ import { useState, useEffect } from 'react';
 import { Upload, X, Image as ImageIcon, Video, Mic, Loader2 } from 'lucide-react';
 import { useUploadThing } from '@/lib/uploadthing';
 
+// Helper to format date string for display (fixes timezone issues)
+function formatDateString(dateStr: string, locale: string = 'es-MX'): string {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    if (year && month && day) {
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+      return date.toLocaleDateString(locale);
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
+
 interface MediaUploaderProps {
   patientId: string;
   encounterId?: string;
@@ -303,7 +317,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
             <option value="">Ninguna consulta seleccionada</option>
             {encounters.map(encounter => (
               <option key={encounter.id} value={encounter.id}>
-                {new Date(encounter.encounterDate).toLocaleDateString('es-MX')} - {encounter.chiefComplaint}
+                {formatDateString(encounter.encounterDate, 'es-MX')} - {encounter.chiefComplaint}
               </option>
             ))}
           </select>

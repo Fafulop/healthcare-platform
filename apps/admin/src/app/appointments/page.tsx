@@ -8,6 +8,28 @@ import { Calendar, Filter, User, Clock, DollarSign, Search, Download, Loader2, C
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
+// Helper function to get local date string (fixes timezone issues)
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Helper function to format date string for display (fixes timezone issues)
+function formatDateString(dateStr: string, locale: string = 'en-US', options?: Intl.DateTimeFormatOptions): string {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    if (year && month && day) {
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+      return date.toLocaleDateString(locale, options);
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
+
 interface Booking {
   id: string;
   patientName: string;
@@ -150,7 +172,7 @@ export default function AdminAppointmentsPage() {
 
     const rows = filteredBookings.map((b) => [
       b.confirmationCode,
-      new Date(b.slot.date).toLocaleDateString(),
+      formatDateString(b.slot.date),
       `${b.slot.startTime} - ${b.slot.endTime}`,
       b.patientName,
       b.patientEmail,
@@ -168,7 +190,7 @@ export default function AdminAppointmentsPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `appointments-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `appointments-${getLocalDateString(new Date())}.csv`;
     a.click();
   };
 
@@ -365,7 +387,7 @@ export default function AdminAppointmentsPage() {
                           <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                           <div>
                             <p className="font-medium text-gray-900">
-                              {new Date(booking.slot.date).toLocaleDateString("en-US", {
+                              {formatDateString(booking.slot.date, "en-US", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
