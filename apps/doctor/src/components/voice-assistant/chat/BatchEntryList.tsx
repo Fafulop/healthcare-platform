@@ -65,6 +65,22 @@ export function BatchEntryList({ entries, onUpdateEntries }: BatchEntryListProps
     return methods[method || 'efectivo'] || 'Efectivo';
   };
 
+  // Format date without UTC conversion (YYYY-MM-DD -> local date display)
+  const formatDate = (dateStr: string) => {
+    try {
+      // Extract just the date part (YYYY-MM-DD) from ISO timestamp (2026-01-23T00:00:00.000Z)
+      const datePart = dateStr.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      if (year && month && day) {
+        const date = new Date(year, month - 1, day); // month is 0-indexed
+        return date.toLocaleDateString('es-MX');
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-2">
@@ -157,7 +173,7 @@ export function BatchEntryList({ entries, onUpdateEntries }: BatchEntryListProps
               )}
               {entry.transactionDate && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
-                  {new Date(entry.transactionDate).toLocaleDateString('es-MX')}
+                  {formatDate(entry.transactionDate)}
                 </span>
               )}
             </div>

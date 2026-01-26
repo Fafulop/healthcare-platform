@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Validate session type
-    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY'];
+    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY', 'CREATE_SALE', 'CREATE_PURCHASE'];
     if (!validSessionTypes.includes(sessionType)) {
       return NextResponse.json(
         {
@@ -92,9 +92,14 @@ export async function POST(request: NextRequest) {
     // 5. Generate session ID for audit trail
     const sessionId = crypto.randomUUID();
 
-    // 6. Get appropriate system prompt
+    // 6. Get appropriate system prompt with current date context
     const systemPrompt = getSystemPrompt(sessionType);
-    const userPrompt = getUserPrompt(transcript);
+    const userPrompt = getUserPrompt(transcript, new Date());
+
+    // Debug: Log the date context being sent to LLM
+    // Extract just the date lines from the prompt for clearer logging
+    const dateContextMatch = userPrompt.match(/## CURRENT DATE CONTEXT[\s\S]*?(?=\n\nTRANSCRIPT)/);
+    console.log('[Voice Structure] Date context:', dateContextMatch ? dateContextMatch[0] : 'NOT FOUND');
 
     // 7. Call OpenAI API
     const completion = await openai.chat.completions.create({

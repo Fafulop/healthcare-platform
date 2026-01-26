@@ -65,7 +65,12 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
 
   // Form state
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
-  const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
+  // Fix: Use local date components instead of UTC to avoid timezone shift
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const [saleDate, setSaleDate] = useState(`${year}-${month}-${day}`);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [notes, setNotes] = useState('');
   const [termsAndConditions, setTermsAndConditions] = useState('');

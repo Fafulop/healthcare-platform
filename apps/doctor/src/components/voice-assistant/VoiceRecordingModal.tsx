@@ -25,6 +25,8 @@ import {
   User,
   Calendar,
   Receipt,
+  ShoppingCart,
+  Package,
 } from 'lucide-react';
 import { useVoiceSession, formatDuration } from '@/hooks/useVoiceSession';
 import type {
@@ -122,6 +124,42 @@ const REFERENCE_GUIDES: Record<VoiceSessionType, { title: string; icon: React.Re
       'Forma de pago (ej: "efectivo", "transferencia", "tarjeta")',
       'Cuenta bancaria - OPCIONAL (ej: "cuenta BBVA")',
       'Referencia bancaria - OPCIONAL',
+    ],
+  },
+  CREATE_SALE: {
+    title: 'Nueva Venta',
+    icon: <ShoppingCart className="w-5 h-5" />,
+    items: [
+      'Nombre del cliente (ej: "Farmacia San Juan", "Cliente López")',
+      'Fecha de venta (ej: "hoy", "ayer", "15 de marzo")',
+      'Fecha de entrega - OPCIONAL (ej: "entrega el viernes")',
+      '💡 Puede dictar múltiples productos/servicios en un solo comando',
+      'Para cada producto o servicio:',
+      '  • Descripción/nombre (ej: "3 consultas médicas", "2 cajas de guantes")',
+      '  • Cantidad y unidad (ej: "3 consultas", "2 cajas", "5 horas")',
+      '  • Precio unitario (ej: "a 500 pesos cada una")',
+      '  • Descuento - OPCIONAL (ej: "con 10% de descuento")',
+      '  • IVA - OPCIONAL (ej: "sin IVA", "con IVA incluido")',
+      'Estado de pago (ej: "pendiente", "pagado", "pago parcial de 1000 pesos")',
+      'Notas adicionales - OPCIONAL',
+    ],
+  },
+  CREATE_PURCHASE: {
+    title: 'Nueva Compra',
+    icon: <Package className="w-5 h-5" />,
+    items: [
+      'Nombre del proveedor (ej: "Distribuidora Médica", "Farmacéutica del Sur")',
+      'Fecha de compra (ej: "hoy", "ayer", "15 de marzo")',
+      'Fecha de entrega - OPCIONAL (ej: "llega el viernes", "entrega en 3 días")',
+      '💡 Puede dictar múltiples productos en un solo comando',
+      'Para cada producto:',
+      '  • Descripción/nombre (ej: "10 cajas de guantes", "5 frascos de suero")',
+      '  • Cantidad y unidad (ej: "10 cajas", "5 frascos", "20 piezas")',
+      '  • Precio unitario (ej: "a 100 pesos cada una")',
+      '  • Descuento - OPCIONAL (ej: "con 5% de descuento")',
+      '  • IVA - OPCIONAL (ej: "sin IVA", "con IVA incluido")',
+      'Estado de pago (ej: "pendiente", "pagado", "abonamos 300 pesos")',
+      'Notas adicionales - OPCIONAL',
     ],
   },
 };

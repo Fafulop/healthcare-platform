@@ -3,9 +3,23 @@
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Loader2, Plus, Trash2, ShoppingCart, X } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Plus, Trash2, ShoppingCart, X, Mic } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import dynamic from 'next/dynamic';
+import type { VoiceStructuredData, VoiceSaleData } from '@/types/voice-assistant';
+import type { InitialChatData } from '@/hooks/useChatSession';
+
+// Dynamically import voice assistant components (client-side only)
+const VoiceRecordingModal = dynamic(
+  () => import('@/components/voice-assistant/VoiceRecordingModal').then(mod => mod.VoiceRecordingModal),
+  { ssr: false }
+);
+
+const VoiceChatSidebar = dynamic(
+  () => import('@/components/voice-assistant/chat/VoiceChatSidebar').then(mod => mod.VoiceChatSidebar),
+  { ssr: false }
+);
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -64,7 +78,12 @@ export default function NewVentaPage() {
 
   // Form state
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
-  const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
+  // Fix: Use local date components instead of UTC to avoid timezone shift
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const [saleDate, setSaleDate] = useState(`${year}-${month}-${day}`);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [notes, setNotes] = useState('');
   const [termsAndConditions, setTermsAndConditions] = useState('');
@@ -98,6 +117,11 @@ export default function NewVentaPage() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+
+  // Voice assistant state
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showVoiceSidebar, setShowVoiceSidebar] = useState(false);
+  const [voiceInitialData, setVoiceInitialData] = useState<any>(null);
 
   // Custom item modal state
   const [customItemType, setCustomItemType] = useState<'product' | 'service'>('service');
@@ -288,6 +312,130 @@ export default function NewVentaPage() {
     return subtotal + tax;
   };
 
+  const handleVoiceModalComplete = (
+    transcript: string,
+    data: VoiceStructuredData,
+    sessionId: string,
+    transcriptId: string,
+    audioDuration: number
+  ) => {
+    const saleData = data as VoiceSaleData;
+
+    // Calculate extracted fields
+    const allFields = Object.keys(saleData);
+    const extracted = allFields.filter(
+      k => saleData[k as keyof VoiceSaleData] != null &&
+           saleData[k as keyof VoiceSaleData] !== '' &&
+           !(Array.isArray(saleData[k as keyof VoiceSaleData]) &&
+             (saleData[k as keyof VoiceSaleData] as any[]).length === 0)
+    );
+
+    // Prepare initial data for sidebar
+    const initialData: InitialChatData = {
+      transcript,
+      structuredData: data,
+      sessionId,
+      transcriptId,
+      audioDuration,
+      fieldsExtracted: extracted,
+    };
+
+    setVoiceInitialData(initialData);
+    setShowVoiceModal(false);
+    setShowVoiceSidebar(true);
+  };
+
+  const handleVoiceConfirm = (data: VoiceStructuredData) => {
+    const saleData = data as VoiceSaleData;
+
+    console.log('[Ventas New] Voice data confirmed:', saleData);
+
+    // 1. Set client if clientName is provided (attempt fuzzy matching)
+    if (saleData.clientName) {
+      const matchedClient = clients.find(
+        (c) =>
+          c.businessName.toLowerCase().includes(saleData.clientName!.toLowerCase()) ||
+          c.contactName?.toLowerCase().includes(saleData.clientName!.toLowerCase())
+      );
+      if (matchedClient) {
+        setSelectedClientId(matchedClient.id);
+        console.log('[Ventas New] Matched client:', matchedClient.businessName);
+      } else {
+        console.log('[Ventas New] No client match found for:', saleData.clientName);
+      }
+    }
+
+    // 2. Set dates
+    if (saleData.saleDate) {
+      setSaleDate(saleData.saleDate);
+    }
+    if (saleData.deliveryDate) {
+      setDeliveryDate(saleData.deliveryDate);
+    }
+
+    // 3. Set payment status and amount
+    if (saleData.paymentStatus) {
+      setPaymentStatus(saleData.paymentStatus);
+    }
+    if (saleData.amountPaid !== null && saleData.amountPaid !== undefined) {
+      setAmountPaid(saleData.amountPaid);
+    }
+
+    // 4. Set notes and terms
+    if (saleData.notes) {
+      setNotes(saleData.notes);
+    }
+    if (saleData.termsAndConditions) {
+      setTermsAndConditions(saleData.termsAndConditions);
+    }
+
+    // 5. Map items to form state
+    if (saleData.items && saleData.items.length > 0) {
+      const mappedItems: SaleItem[] = saleData.items.map((voiceItem, index) => {
+        // Try to match to existing product
+        let matchedProduct: Product | undefined;
+        if (voiceItem.productName) {
+          matchedProduct = products.find(
+            (p) =>
+              p.name.toLowerCase().includes(voiceItem.productName!.toLowerCase()) ||
+              p.sku?.toLowerCase().includes(voiceItem.productName!.toLowerCase())
+          );
+        }
+
+        const quantity = voiceItem.quantity || 1;
+        const unitPrice = voiceItem.unitPrice || 0;
+        const discountRate = voiceItem.discountRate || 0;
+        const taxRate = voiceItem.taxRate !== null && voiceItem.taxRate !== undefined ? voiceItem.taxRate : 0.16;
+
+        const baseAmount = quantity * unitPrice;
+        const discountAmount = baseAmount * discountRate;
+        const subtotal = baseAmount - discountAmount;
+        const taxAmount = subtotal * taxRate;
+
+        return {
+          tempId: `voice-${Date.now()}-${index}`,
+          productId: matchedProduct?.id || null,
+          itemType: voiceItem.itemType,
+          description: voiceItem.description,
+          sku: matchedProduct?.sku || voiceItem.sku || null,
+          quantity,
+          unit: voiceItem.unit || (voiceItem.itemType === 'service' ? 'servicio' : 'pza'),
+          unitPrice,
+          discountRate,
+          taxRate,
+          taxAmount,
+          subtotal,
+        };
+      });
+
+      setItems(mappedItems);
+      console.log('[Ventas New] Mapped items:', mappedItems.length);
+    }
+
+    // Close voice sidebar
+    setShowVoiceSidebar(false);
+  };
+
   const handleSubmit = async (saveStatus: 'PENDING' | 'CONFIRMED') => {
     if (!session?.user?.email) return;
 
@@ -372,13 +520,23 @@ export default function NewVentaPage() {
     <div className="p-4 sm:p-6">
           {/* Header */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <Link
-              href="/dashboard/practice/ventas"
-              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Volver a Ventas
-            </Link>
+            <div className="flex items-center justify-between mb-4">
+              <Link
+                href="/dashboard/practice/ventas"
+                className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Volver a Ventas
+              </Link>
+              <button
+                onClick={() => setShowVoiceModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                title="Asistente de Voz"
+              >
+                <Mic className="w-4 h-4" />
+                Asistente de Voz
+              </button>
+            </div>
             <h1 className="text-2xl font-bold text-gray-900">Nueva Venta</h1>
             <p className="text-gray-600 mt-1">Registra una nueva venta en firme</p>
           </div>
@@ -936,6 +1094,36 @@ export default function NewVentaPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Voice Assistant Modal */}
+      {showVoiceModal && session?.user?.email && (
+        <VoiceRecordingModal
+          isOpen={showVoiceModal}
+          onClose={() => setShowVoiceModal(false)}
+          sessionType="CREATE_SALE"
+          onComplete={handleVoiceModalComplete}
+        />
+      )}
+
+      {/* Voice Assistant Sidebar */}
+      {showVoiceSidebar && session?.user?.email && (
+        <VoiceChatSidebar
+          isOpen={showVoiceSidebar}
+          onClose={() => {
+            setShowVoiceSidebar(false);
+            setVoiceInitialData(null);
+          }}
+          sessionType="CREATE_SALE"
+          patientId="sale" // Use a special ID for sale context
+          doctorId={session.user.email}
+          onConfirm={handleVoiceConfirm}
+          initialData={voiceInitialData}
+          saleContext={{
+            clients: clients,
+            products: products,
+          }}
+        />
       )}
     </div>
   );

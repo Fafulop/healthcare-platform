@@ -30,6 +30,37 @@ const MIN_WIDTH = 320;
 const MAX_WIDTH = 800;
 const DEFAULT_WIDTH = 384; // 96 * 4 (24rem = sm:w-96)
 
+// Context data for different session types
+interface Client {
+  id: number;
+  businessName: string;
+  contactName?: string | null;
+}
+
+interface Supplier {
+  id: number;
+  businessName: string;
+  contactName?: string | null;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  sku?: string | null;
+  unit?: string | null;
+  price?: string | null;
+}
+
+interface SaleContext {
+  clients?: Client[];
+  products?: Product[];
+}
+
+interface PurchaseContext {
+  suppliers?: Supplier[];
+  products?: Product[];
+}
+
 interface VoiceChatSidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -39,6 +70,8 @@ interface VoiceChatSidebarProps {
   context?: VoiceSessionContext;
   onConfirm: (data: VoiceStructuredData) => void;
   initialData?: InitialChatData; // NEW: Initial voice recording data
+  saleContext?: SaleContext; // NEW: For CREATE_SALE session type
+  purchaseContext?: PurchaseContext; // NEW: For CREATE_PURCHASE session type
 }
 
 // Titles per session type
@@ -48,6 +81,8 @@ const SIDEBAR_TITLES: Record<VoiceSessionType, string> = {
   NEW_PRESCRIPTION: 'Asistente - Nueva Receta',
   CREATE_APPOINTMENT_SLOTS: 'Asistente - Crear Horarios',
   CREATE_LEDGER_ENTRY: 'Asistente - Movimiento de Dinero',
+  CREATE_SALE: 'Asistente - Nueva Venta',
+  CREATE_PURCHASE: 'Asistente - Nueva Compra',
 };
 
 export function VoiceChatSidebar({
@@ -59,6 +94,8 @@ export function VoiceChatSidebar({
   context,
   onConfirm,
   initialData,
+  saleContext,
+  purchaseContext,
 }: VoiceChatSidebarProps) {
   const chat = useChatSession({
     sessionType,
@@ -332,6 +369,9 @@ export function VoiceChatSidebar({
                   fieldsExtracted={chat.fieldsExtracted}
                   compact
                   showMissing
+                  clients={saleContext?.clients}
+                  products={saleContext?.products || purchaseContext?.products}
+                  suppliers={purchaseContext?.suppliers}
                 />
               )}
             </div>

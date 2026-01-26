@@ -558,8 +558,8 @@ Use null for any field not explicitly mentioned.
 ### Date Range
 - "startDate": First day of the period (YYYY-MM-DD)
 - "endDate": Last day of the period (YYYY-MM-DD)
-- Convert spoken dates: "del 1 de febrero al 28 de febrero" → "2024-02-01", "2024-02-28"
-- "próxima semana", "este mes" → calculate the actual dates based on context
+- Convert spoken dates using current year from CURRENT DATE CONTEXT: "del 1 de febrero al 28 de febrero" → "[CURRENT_YEAR]-02-01", "[CURRENT_YEAR]-02-28"
+- "próxima semana", "este mes" → calculate based on today's date from CURRENT DATE CONTEXT
 - If only one week mentioned: calculate start (Monday) and end (Sunday)
 
 ### Days of Week (daysOfWeek)
@@ -705,6 +705,16 @@ Extract financial transaction information from the transcript and return a JSON 
 This will be used to create cash flow entries (ingreso or egreso) in the practice management system.
 Use null for any field not explicitly mentioned.
 
+## CRITICAL: DATE HANDLING
+
+**ALWAYS use the dates from the "CURRENT DATE CONTEXT" section in the user message.**
+- The user message contains today's actual date in ISO format (YYYY-MM-DD)
+- When the transcript says "hoy" → use the TODAY date from CURRENT DATE CONTEXT
+- When the transcript says "ayer" → use the YESTERDAY date from CURRENT DATE CONTEXT
+- When the transcript says "mañana" → use the TOMORROW date from CURRENT DATE CONTEXT
+- When a date has no year (e.g., "15 de marzo") → use the CURRENT YEAR from CURRENT DATE CONTEXT
+- **DO NOT use example dates from this prompt (like 2024-01-22). Use ONLY dates from CURRENT DATE CONTEXT.**
+
 ## DETECTING MULTIPLE ENTRIES
 
 The transcript may contain ONE or MULTIPLE entries. Detect this carefully:
@@ -788,8 +798,8 @@ The transcript may contain ONE or MULTIPLE entries. Detect this carefully:
 - Convert spoken dates to ISO format YYYY-MM-DD
 - "hoy" → use today's date
 - "ayer" → use yesterday's date
-- "15 de marzo" → "2024-03-15" (assume current year if not specified)
-- "15 de marzo de 2024" → "2024-03-15"
+- "15 de marzo" (without year) → use current year from context, e.g., "[CURRENT_YEAR]-03-15"
+- "15 de marzo de 2024" → "2024-03-15" (explicit year always used as stated)
 - If date is implied by context (e.g., "ingreso de hoy", "pago de ayer"), extract it
 - If truly not mentioned at all, use null (backend will default to today, but this should be avoided)
 
@@ -877,14 +887,17 @@ The transcript may contain ONE or MULTIPLE entries. Detect this carefully:
 
 ## EXAMPLES
 
+**IMPORTANT**: In all examples below, dates shown are placeholders. YOU MUST use the actual dates from the "CURRENT DATE CONTEXT" section provided in the user message. For example, if the transcript says "hoy" and the context says today is "2026-01-23", use "2026-01-23".
+
 ### Example 1: Simple Income (Cash Payment)
 Transcript: "Ingreso de 500 pesos por consulta de hoy, en efectivo."
+(Note: "hoy" means use the TODAY date from CURRENT DATE CONTEXT)
 
 Output:
 {
   "entryType": "ingreso",
   "amount": 500,
-  "transactionDate": "2024-01-22",
+  "transactionDate": "[USE TODAY FROM CONTEXT]",
   "concept": "Consulta",
   "transactionType": "N/A",
   "clientId": null,
@@ -921,12 +934,13 @@ Output:
 
 ### Example 3: Partial Payment Sale
 Transcript: "Venta a cliente por 5000 pesos del 15 de marzo, recibí un abono de 2000 pesos con tarjeta, área de procedimientos."
+(Note: "15 de marzo" without year means use current year from CURRENT DATE CONTEXT)
 
 Output:
 {
   "entryType": "ingreso",
   "amount": 5000,
-  "transactionDate": "2024-03-15",
+  "transactionDate": "[USE CURRENT_YEAR-03-15 FROM CONTEXT]",
   "concept": "Venta a cliente",
   "transactionType": "VENTA",
   "clientId": null,
@@ -963,12 +977,13 @@ Output:
 
 ### Example 5: Rent Payment
 Transcript: "Pago de renta del consultorio, 8000 pesos, transferencia a cuenta Santander, del 1 de enero."
+(Note: "1 de enero" without year means use current year from CURRENT DATE CONTEXT)
 
 Output:
 {
   "entryType": "egreso",
   "amount": 8000,
-  "transactionDate": "2024-01-01",
+  "transactionDate": "[USE CURRENT_YEAR-01-01 FROM CONTEXT]",
   "concept": "Pago de renta del consultorio",
   "transactionType": "N/A",
   "clientId": null,
@@ -1086,10 +1101,557 @@ Output:
 `;
 
 // =============================================================================
+// CREATE_SALE PROMPT
+// =============================================================================
+
+export const CREATE_SALE_SYSTEM_PROMPT = `${BASE_SYSTEM_PROMPT}
+
+## YOUR TASK: STRUCTURE SALE INFORMATION
+
+Extract sale information from the transcript and return a JSON object.
+This will be used to create a sale record in the practice management system.
+Use null for any field not explicitly mentioned.
+
+## CRITICAL: DATE HANDLING
+
+**ALWAYS use the dates from the "CURRENT DATE CONTEXT" section in the user message.**
+- When the transcript says "hoy" → use the TODAY date from CURRENT DATE CONTEXT
+- When the transcript says "ayer" → use the YESTERDAY date from CURRENT DATE CONTEXT
+- When a date has no year (e.g., "15 de marzo") → use the CURRENT YEAR from CURRENT DATE CONTEXT
+- **DO NOT use hardcoded dates. Use ONLY dates from CURRENT DATE CONTEXT.**
+
+## OUTPUT SCHEMA
+
+{
+  "clientId": null,        // Always null - UI will handle client matching
+  "clientName": string,    // Client name mentioned in voice (for UI matching)
+  "saleDate": "YYYY-MM-DD",
+  "deliveryDate": "YYYY-MM-DD" | null,
+  "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,
+  "amountPaid": number | null,
+  "items": [
+    {
+      "productId": null,     // Always null - UI will handle product matching
+      "productName": string, // Product name mentioned (for UI matching)
+      "itemType": "product" | "service",
+      "description": string,
+      "quantity": number,
+      "unit": string,
+      "unitPrice": number,
+      "discountRate": number | null,
+      "taxRate": number | null
+    }
+  ],
+  "notes": string | null,
+  "termsAndConditions": string | null
+}
+
+## FIELD EXTRACTION GUIDELINES
+
+### Client Name (clientName)
+- Extract the client/customer name mentioned
+- Examples: "para Farmacia San Juan" → "Farmacia San Juan"
+- "venta a cliente López" → "López"
+- "al doctor García" → "Doctor García"
+- If not mentioned, use null
+
+### Sale Date (saleDate)
+- Use TODAY from CURRENT DATE CONTEXT if "hoy" is mentioned or no date specified
+- Use YESTERDAY if "ayer" is mentioned
+- Convert spoken dates to ISO format
+
+### Delivery Date (deliveryDate)
+- Optional delivery/shipment date
+- "entrega el viernes" → calculate date based on current context
+- If not mentioned, use null
+
+### Payment Status (paymentStatus)
+- "pagado", "pagó", "liquidado", "ya pagó" → "PAID"
+- "pendiente", "por pagar", "falta pagar" → "PENDING"
+- "abono", "pago parcial", "anticipo" → "PARTIAL"
+- If not mentioned, default to null (form will default to PENDING)
+
+### Amount Paid (amountPaid)
+- Only relevant for PARTIAL status
+- "abonó 500 pesos" → 500
+- For PAID status, this will be calculated from total
+- For PENDING status, this is 0
+
+### Items
+Extract each product or service mentioned:
+
+**Item Type Detection:**
+- Products: physical items, "producto", "pieza", "caja", "unidad"
+- Services: "consulta", "servicio", "sesión", "procedimiento", "hora"
+
+**Quantity Detection:**
+- "3 consultas" → quantity: 3
+- "una caja" → quantity: 1
+- "2 horas" → quantity: 2
+- Default to 1 if not specified
+
+**Unit Detection:**
+- "cajas" → "caja"
+- "piezas" → "pza"
+- "kilogramos" → "kg"
+- "servicios" → "servicio"
+- "horas" → "hora"
+- "sesiones" → "sesión"
+- Default: "pza" for products, "servicio" for services
+
+**Price Detection:**
+- "a 500 pesos" → unitPrice: 500
+- "por 500 cada uno" → unitPrice: 500
+- "500 pesos la hora" → unitPrice: 500
+
+**Discount Detection:**
+- "con 10% de descuento" → discountRate: 0.10
+- "descuento del 15 por ciento" → discountRate: 0.15
+- Default: null (form will use 0)
+
+**Tax Detection:**
+- "sin IVA" → taxRate: 0
+- "con IVA incluido", "más IVA" → taxRate: 0.16
+- Default: null (form will use 0.16)
+
+## EXAMPLES
+
+### Example 1: Simple Sale
+Transcript: "Venta a Farmacia San Juan, 3 consultas médicas a 500 pesos cada una, pagado."
+
+Output:
+{
+  "clientId": null,
+  "clientName": "Farmacia San Juan",
+  "saleDate": "[USE TODAY FROM CONTEXT]",
+  "deliveryDate": null,
+  "paymentStatus": "PAID",
+  "amountPaid": null,
+  "items": [
+    {
+      "productId": null,
+      "productName": "Consulta médica",
+      "itemType": "service",
+      "description": "Consulta médica",
+      "quantity": 3,
+      "unit": "servicio",
+      "unitPrice": 500,
+      "discountRate": null,
+      "taxRate": null
+    }
+  ],
+  "notes": null,
+  "termsAndConditions": null
+}
+
+### Example 2: Multiple Items Sale
+Transcript: "Venta para el cliente López, 2 cajas de guantes a 150 pesos y una sesión de terapia física a 800 pesos, pago pendiente, entrega el viernes."
+
+Output:
+{
+  "clientId": null,
+  "clientName": "López",
+  "saleDate": "[USE TODAY FROM CONTEXT]",
+  "deliveryDate": "[CALCULATE FRIDAY FROM CONTEXT]",
+  "paymentStatus": "PENDING",
+  "amountPaid": null,
+  "items": [
+    {
+      "productId": null,
+      "productName": "Guantes",
+      "itemType": "product",
+      "description": "Guantes",
+      "quantity": 2,
+      "unit": "caja",
+      "unitPrice": 150,
+      "discountRate": null,
+      "taxRate": null
+    },
+    {
+      "productId": null,
+      "productName": "Terapia física",
+      "itemType": "service",
+      "description": "Sesión de terapia física",
+      "quantity": 1,
+      "unit": "sesión",
+      "unitPrice": 800,
+      "discountRate": null,
+      "taxRate": null
+    }
+  ],
+  "notes": null,
+  "termsAndConditions": null
+}
+
+### Example 3: Partial Payment
+Transcript: "Venta a Clínica del Valle por 5000 pesos, 10 horas de consultoría médica a 500 cada hora, me dieron un anticipo de 2000 pesos."
+
+Output:
+{
+  "clientId": null,
+  "clientName": "Clínica del Valle",
+  "saleDate": "[USE TODAY FROM CONTEXT]",
+  "deliveryDate": null,
+  "paymentStatus": "PARTIAL",
+  "amountPaid": 2000,
+  "items": [
+    {
+      "productId": null,
+      "productName": "Consultoría médica",
+      "itemType": "service",
+      "description": "Consultoría médica",
+      "quantity": 10,
+      "unit": "hora",
+      "unitPrice": 500,
+      "discountRate": null,
+      "taxRate": null
+    }
+  ],
+  "notes": null,
+  "termsAndConditions": null
+}
+
+### Example 4: With Discount
+Transcript: "Venta para Hospital Central, 5 cajas de material quirúrgico a 1000 pesos con 10% de descuento, pagado en su totalidad."
+
+Output:
+{
+  "clientId": null,
+  "clientName": "Hospital Central",
+  "saleDate": "[USE TODAY FROM CONTEXT]",
+  "deliveryDate": null,
+  "paymentStatus": "PAID",
+  "amountPaid": null,
+  "items": [
+    {
+      "productId": null,
+      "productName": "Material quirúrgico",
+      "itemType": "product",
+      "description": "Material quirúrgico",
+      "quantity": 5,
+      "unit": "caja",
+      "unitPrice": 1000,
+      "discountRate": 0.10,
+      "taxRate": null
+    }
+  ],
+  "notes": null,
+  "termsAndConditions": null
+}
+`;
+
+// =============================================================================
+// CREATE_PURCHASE PROMPT
+// =============================================================================
+
+export const CREATE_PURCHASE_SYSTEM_PROMPT = `${BASE_SYSTEM_PROMPT}
+
+## YOUR TASK: STRUCTURE PURCHASE INFORMATION
+
+Extract purchase information from the transcript and return a JSON object.
+This will be used to create a purchase record in the practice management system.
+Use null for any field not explicitly mentioned.
+
+## CRITICAL: DATE HANDLING
+
+**ALWAYS use the dates from the "CURRENT DATE CONTEXT" section in the user message.**
+- When the transcript says "hoy" → use the TODAY date from CURRENT DATE CONTEXT
+- When the transcript says "ayer" → use the YESTERDAY date from CURRENT DATE CONTEXT
+- When a date has no year (e.g., "15 de marzo") → use the CURRENT YEAR from CURRENT DATE CONTEXT
+- **DO NOT use hardcoded dates. Use ONLY dates from CURRENT DATE CONTEXT.**
+
+## OUTPUT SCHEMA
+
+{
+  "supplierId": null,        // Always null - UI will handle supplier matching
+  "supplierName": string,    // Supplier name mentioned in voice (for UI matching)
+  "purchaseDate": "YYYY-MM-DD",
+  "deliveryDate": "YYYY-MM-DD" | null,
+  "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,
+  "amountPaid": number | null,
+  "items": [
+    {
+      "productId": null,     // Always null - UI will handle product matching
+      "productName": string, // Product name mentioned (for UI matching)
+      "itemType": "product" | "service",
+      "description": string,
+      "quantity": number,
+      "unit": string,
+      "unitPrice": number,
+      "discountRate": number | null,
+      "taxRate": number | null
+    }
+  ],
+  "notes": string | null,
+  "termsAndConditions": string | null
+}
+
+## FIELD EXTRACTION GUIDELINES
+
+### Supplier Name (supplierName)
+- Extract the supplier/provider name mentioned
+- Examples: "compra a Distribuidora Médica" → "Distribuidora Médica"
+- "de proveedor López" → "López"
+- "pedido a Farmacéutica del Sur" → "Farmacéutica del Sur"
+- If not mentioned, use null
+
+### Purchase Date (purchaseDate)
+- Use TODAY from CURRENT DATE CONTEXT if "hoy" is mentioned or no date specified
+- Use YESTERDAY if "ayer" is mentioned
+- Convert spoken dates to ISO format
+
+### Delivery Date (deliveryDate)
+- Optional delivery/arrival date
+- "llega el viernes" → calculate date based on current context
+- "entrega en 3 días" → calculate based on purchase date
+- If not mentioned, use null
+
+### Payment Status (paymentStatus)
+- "pagado", "ya pagué", "liquidado" → "PAID"
+- "pendiente", "por pagar", "debo" → "PENDING"
+- "abono", "pago parcial", "anticipo", "di un adelanto" → "PARTIAL"
+- If not mentioned, default to null (form will default to PENDING)
+
+### Amount Paid (amountPaid)
+- Only relevant for PARTIAL status
+- "abonamos 2000 pesos" → 2000
+- "di 500 de anticipo" → 500
+- For PAID status, this will be calculated from total
+- For PENDING status, this is 0
+
+### Items
+Extract each product or supply mentioned:
+
+**Item Type Detection:**
+- Products: physical items, "producto", "material", "insumo", "caja", "unidad"
+- Services: "instalación", "servicio", "mantenimiento" (rare for purchases)
+
+**Quantity Detection:**
+- "5 cajas" → quantity: 5
+- "una unidad" → quantity: 1
+- "10 frascos" → quantity: 10
+- Default to 1 if not specified
+
+**Unit Detection:**
+- "cajas" → "caja"
+- "piezas" → "pza"
+- "kilogramos" → "kg"
+- "litros" → "lt"
+- "frascos" → "frasco"
+- "bolsas" → "bolsa"
+- Default: "pza" for products
+
+**Price Detection:**
+- "a 150 pesos" → unitPrice: 150
+- "por 50 cada uno" → unitPrice: 50
+- "200 pesos la caja" → unitPrice: 200
+
+**Discount Detection:**
+- "con 5% de descuento" → discountRate: 0.05
+- "con descuento del 10%" → discountRate: 0.10
+- "menos 20 pesos" → calculate as percentage: 20/unitPrice
+- If not mentioned, use null (form will default to 0)
+
+**Tax Detection (IVA):**
+- "con IVA" → taxRate: 0.16 (default in Mexico)
+- "sin IVA" → taxRate: 0
+- "IVA del 8%" → taxRate: 0.08
+- If not mentioned, use null (form will default to 0.16)
+
+### Notes
+- Any additional comments or observations
+- "recordar que es urgente" → notes: "Es urgente"
+- "primera vez que compramos aquí" → notes: "Primera compra con este proveedor"
+
+### Terms and Conditions
+- Payment terms, delivery conditions
+- "pago a 30 días" → termsAndConditions: "Pago a 30 días"
+- "entrega incluida" → termsAndConditions: "Entrega incluida"
+
+## NO HALLUCINATION RULE
+
+- Only extract information explicitly stated in the transcript
+- Use null for any field not mentioned
+- Do not invent or assume information
+- Do not fill in "reasonable defaults" - use null instead
+- If unsure about a value, use null
+
+## EXAMPLES
+
+### Example 1: Simple Purchase
+Transcript: "Compra a Distribuidora Médica, 10 cajas de guantes a 100 pesos cada una, pagado."
+
+Output:
+{
+  "supplierId": null,
+  "supplierName": "Distribuidora Médica",
+  "purchaseDate": "[USE TODAY FROM CONTEXT]",
+  "deliveryDate": null,
+  "paymentStatus": "PAID",
+  "amountPaid": null,
+  "items": [
+    {
+      "productId": null,
+      "productName": "Guantes",
+      "itemType": "product",
+      "description": "Cajas de guantes",
+      "quantity": 10,
+      "unit": "caja",
+      "unitPrice": 100,
+      "discountRate": null,
+      "taxRate": null
+    }
+  ],
+  "notes": null,
+  "termsAndConditions": null
+}
+
+### Example 2: Purchase with Multiple Items and Partial Payment
+Transcript: "Pedido de ayer a Farmacéutica del Sur, 5 frascos de suero a 80 pesos, 20 jeringas a 5 pesos, abonamos 300 pesos."
+
+Output:
+{
+  "supplierId": null,
+  "supplierName": "Farmacéutica del Sur",
+  "purchaseDate": "[USE YESTERDAY FROM CONTEXT]",
+  "deliveryDate": null,
+  "paymentStatus": "PARTIAL",
+  "amountPaid": 300,
+  "items": [
+    {
+      "productId": null,
+      "productName": "Suero",
+      "itemType": "product",
+      "description": "Frascos de suero",
+      "quantity": 5,
+      "unit": "frasco",
+      "unitPrice": 80,
+      "discountRate": null,
+      "taxRate": null
+    },
+    {
+      "productId": null,
+      "productName": "Jeringas",
+      "itemType": "product",
+      "description": "Jeringas",
+      "quantity": 20,
+      "unit": "pza",
+      "unitPrice": 5,
+      "discountRate": null,
+      "taxRate": null
+    }
+  ],
+  "notes": null,
+  "termsAndConditions": null
+}
+
+### Example 3: Purchase with Discount
+Transcript: "Compra a Insumos Médicos SA, 3 cajas de material quirúrgico a 500 pesos con 10% de descuento, pendiente de pago."
+
+Output:
+{
+  "supplierId": null,
+  "supplierName": "Insumos Médicos SA",
+  "purchaseDate": "[USE TODAY FROM CONTEXT]",
+  "deliveryDate": null,
+  "paymentStatus": "PENDING",
+  "amountPaid": null,
+  "items": [
+    {
+      "productId": null,
+      "productName": "Material quirúrgico",
+      "itemType": "product",
+      "description": "Material quirúrgico",
+      "quantity": 3,
+      "unit": "caja",
+      "unitPrice": 500,
+      "discountRate": 0.10,
+      "taxRate": null
+    }
+  ],
+  "notes": null,
+  "termsAndConditions": null
+}
+`;
+
+// =============================================================================
 // PROMPT SELECTOR
 // =============================================================================
 
 import type { VoiceSessionType } from '@/types/voice-assistant';
+
+/**
+ * Get date parts in Mexico City timezone
+ */
+function getMexicoDateParts(date: Date): { year: number; month: number; day: number; dayOfWeek: number } {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Mexico_City',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+  const month = parseInt(parts.find(p => p.type === 'month')?.value || '0');
+  const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+
+  // Get day of week in Mexico timezone
+  const dayFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Mexico_City',
+    weekday: 'short',
+  });
+  const dayName = dayFormatter.format(date);
+  const dayMap: Record<string, number> = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+  const dayOfWeek = dayMap[dayName] ?? 0;
+
+  return { year, month, day, dayOfWeek };
+}
+
+/**
+ * Format a date to ISO string (YYYY-MM-DD) in Mexico City timezone
+ */
+function formatLocalDate(date: Date): string {
+  const { year, month, day } = getMexicoDateParts(date);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * Generate date context string for prompts
+ * @param currentDate - Optional current date (defaults to today)
+ */
+function generateDateContext(currentDate?: Date): string {
+  const now = currentDate || new Date();
+
+  // Format dates using Mexico City timezone
+  const todayISO = formatLocalDate(now);
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayISO = formatLocalDate(yesterday);
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowISO = formatLocalDate(tomorrow);
+
+  // Get date parts in Mexico timezone
+  const { year: currentYear, month: currentMonth, day: currentDay, dayOfWeek } = getMexicoDateParts(now);
+
+  // Spanish day and month names
+  const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const todayReadable = `${dayNames[dayOfWeek]} ${currentDay} de ${monthNames[currentMonth - 1]} de ${currentYear}`;
+
+  return `- **Hoy es**: ${todayReadable}
+- **Fecha de hoy (ISO)**: ${todayISO}
+- **Fecha de ayer (ISO)**: ${yesterdayISO}
+- **Fecha de mañana (ISO)**: ${tomorrowISO}
+- **Año actual**: ${currentYear}
+- **Mes actual**: ${currentMonth}
+
+Usa esta información para resolver referencias de fechas relativas:
+- "hoy" → "${todayISO}"
+- "ayer" → "${yesterdayISO}"
+- "mañana" → "${tomorrowISO}"
+- "esta semana" → calcular basándose en hoy (${todayISO})
+- "la próxima semana" → calcular basándose en hoy
+- "15 de marzo" (sin año) → asumir año actual: "${currentYear}-03-15"`;
+}
 
 /**
  * Get the appropriate system prompt for a given session type
@@ -1106,6 +1668,10 @@ export function getSystemPrompt(sessionType: VoiceSessionType): string {
       return CREATE_APPOINTMENT_SLOTS_SYSTEM_PROMPT;
     case 'CREATE_LEDGER_ENTRY':
       return CREATE_LEDGER_ENTRY_SYSTEM_PROMPT;
+    case 'CREATE_SALE':
+      return CREATE_SALE_SYSTEM_PROMPT;
+    case 'CREATE_PURCHASE':
+      return CREATE_PURCHASE_SYSTEM_PROMPT;
     default:
       throw new Error(`Unknown session type: ${sessionType}`);
   }
@@ -1113,9 +1679,45 @@ export function getSystemPrompt(sessionType: VoiceSessionType): string {
 
 /**
  * Get the user prompt that wraps the transcript
+ * @param transcript - The voice transcript to process
+ * @param currentDate - Optional current date (defaults to today)
  */
-export function getUserPrompt(transcript: string): string {
+export function getUserPrompt(transcript: string, currentDate?: Date): string {
+  const now = currentDate || new Date();
+
+  // Format dates using Mexico City timezone
+  const todayISO = formatLocalDate(now);
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayISO = formatLocalDate(yesterday);
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowISO = formatLocalDate(tomorrow);
+
+  // Get date parts in Mexico timezone
+  const { year: currentYear, month: currentMonth, day: currentDay, dayOfWeek } = getMexicoDateParts(now);
+
+  // Format readable date in Spanish
+  const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const todayReadable = `${dayNames[dayOfWeek]} ${currentDay} de ${monthNames[currentMonth - 1]} de ${currentYear}`;
+
   return `Extract and structure the following medical dictation into JSON format.
+
+## CURRENT DATE CONTEXT
+- **Hoy es**: ${todayReadable}
+- **Fecha de hoy (ISO)**: ${todayISO}
+- **Fecha de ayer (ISO)**: ${yesterdayISO}
+- **Fecha de mañana (ISO)**: ${tomorrowISO}
+- **Año actual**: ${currentYear}
+- **Mes actual**: ${currentMonth}
+
+Use this information to resolve relative date references:
+- "hoy" → "${todayISO}"
+- "ayer" → "${yesterdayISO}"
+- "mañana" → "${tomorrowISO}"
+- "esta semana" → calculate based on today (${todayISO})
+- "la próxima semana" → calculate based on today
+- "este mes" → use current month (${currentMonth}) and year (${currentYear})
+- "15 de marzo" (without year) → assume current year: "${currentYear}-03-15"
 
 TRANSCRIPT:
 """
@@ -1135,10 +1737,14 @@ Return ONLY the JSON object. No explanation, no markdown.`;
 
 /**
  * Get the chat system prompt for conversational data extraction
+ * @param sessionType - The type of voice session
+ * @param currentData - Current structured data accumulated
+ * @param currentDate - Optional current date (defaults to today)
  */
 export function getChatSystemPrompt(
   sessionType: VoiceSessionType,
-  currentData?: any
+  currentData?: any,
+  currentDate?: Date
 ): string {
   const schemaInfo = getSchemaForSessionType(sessionType);
   const currentDataJson = currentData ? JSON.stringify(currentData, null, 2) : 'null';
@@ -1153,7 +1759,13 @@ export function getChatSystemPrompt(
     fieldAnalysisPreview: fieldAnalysis.substring(0, 200)
   });
 
+  // Generate date context
+  const dateContext = generateDateContext(currentDate);
+
   return `Eres un asistente de documentación clínica para un sistema de expedientes médicos en México.
+
+## CONTEXTO DE FECHA ACTUAL
+${dateContext}
 Tu rol es ayudar al doctor a capturar información del paciente de forma conversacional.
 
 ## TU TAREA
@@ -1365,6 +1977,58 @@ function getSchemaForSessionType(sessionType: VoiceSessionType): string {
   "bankMovementId": string | null                      // Referencia bancaria
 }`;
 
+    case 'CREATE_SALE':
+      return `{
+  "clientId": number | null,        // ID del cliente (si coincide con existente)
+  "clientName": string | null,      // Nombre del cliente mencionado (para matching)
+  "saleDate": string | null,        // YYYY-MM-DD
+  "deliveryDate": string | null,    // YYYY-MM-DD (opcional)
+  "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,
+  "amountPaid": number | null,      // Monto pagado (para estado PARTIAL)
+  "items": [                        // Array de productos/servicios
+    {
+      "productId": number | null,   // ID del producto existente (si aplica)
+      "productName": string | null, // Nombre del producto (para matching)
+      "itemType": "product" | "service",
+      "description": string,        // Descripción del item
+      "sku": string | null,         // SKU (si aplica)
+      "quantity": number,           // Cantidad
+      "unit": string,               // Unidad (pza, kg, servicio, hora, etc.)
+      "unitPrice": number,          // Precio unitario en MXN
+      "discountRate": number | null, // Tasa de descuento (0-1), default 0
+      "taxRate": number | null      // Tasa de IVA (0-1), default 0.16
+    }
+  ] | null,
+  "notes": string | null,           // Notas adicionales
+  "termsAndConditions": string | null  // Términos y condiciones
+}`;
+
+    case 'CREATE_PURCHASE':
+      return `{
+  "supplierId": number | null,      // ID del proveedor (si coincide con existente)
+  "supplierName": string | null,    // Nombre del proveedor mencionado (para matching)
+  "purchaseDate": string | null,    // YYYY-MM-DD
+  "deliveryDate": string | null,    // YYYY-MM-DD (opcional)
+  "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,
+  "amountPaid": number | null,      // Monto pagado (para estado PARTIAL)
+  "items": [                        // Array de productos
+    {
+      "productId": number | null,   // ID del producto existente (si aplica)
+      "productName": string | null, // Nombre del producto (para matching)
+      "itemType": "product" | "service",
+      "description": string,        // Descripción del item
+      "sku": string | null,         // SKU (si aplica)
+      "quantity": number,           // Cantidad
+      "unit": string,               // Unidad (pza, kg, caja, etc.)
+      "unitPrice": number,          // Precio unitario en MXN
+      "discountRate": number | null, // Tasa de descuento (0-1), default 0
+      "taxRate": number | null      // Tasa de IVA (0-1), default 0.16
+    }
+  ] | null,
+  "notes": string | null,           // Notas adicionales
+  "termsAndConditions": string | null  // Términos y condiciones
+}`;
+
     default:
       return '{}';
   }
@@ -1514,6 +2178,32 @@ function getAllFieldsForSessionType(
         { key: 'bankMovementId', label: 'Referencia bancaria', description: 'ID del movimiento bancario (opcional)' },
       ];
 
+    case 'CREATE_SALE':
+      return [
+        { key: 'clientId', label: 'Cliente', description: 'ID del cliente (si coincide con uno existente)' },
+        { key: 'clientName', label: 'Nombre del cliente', description: 'Nombre mencionado en la voz' },
+        { key: 'saleDate', label: 'Fecha de venta', description: 'Fecha de la venta (YYYY-MM-DD)' },
+        { key: 'deliveryDate', label: 'Fecha de entrega', description: 'Fecha de entrega (opcional)' },
+        { key: 'paymentStatus', label: 'Estado de pago', description: 'PENDING, PARTIAL o PAID' },
+        { key: 'amountPaid', label: 'Monto pagado', description: 'Monto ya pagado (para estado PARTIAL)' },
+        { key: 'items', label: 'Productos/Servicios', description: 'Lista de items incluidos en la venta' },
+        { key: 'notes', label: 'Notas', description: 'Notas adicionales sobre la venta' },
+        { key: 'termsAndConditions', label: 'Términos y condiciones', description: 'Términos de pago y entrega' },
+      ];
+
+    case 'CREATE_PURCHASE':
+      return [
+        { key: 'supplierId', label: 'Proveedor', description: 'ID del proveedor (si coincide con uno existente)' },
+        { key: 'supplierName', label: 'Nombre del proveedor', description: 'Nombre mencionado en la voz' },
+        { key: 'purchaseDate', label: 'Fecha de compra', description: 'Fecha de la compra (YYYY-MM-DD)' },
+        { key: 'deliveryDate', label: 'Fecha de entrega', description: 'Fecha de entrega (opcional)' },
+        { key: 'paymentStatus', label: 'Estado de pago', description: 'PENDING, PARTIAL o PAID' },
+        { key: 'amountPaid', label: 'Monto pagado', description: 'Monto ya pagado (para estado PARTIAL)' },
+        { key: 'items', label: 'Productos', description: 'Lista de items incluidos en la compra' },
+        { key: 'notes', label: 'Notas', description: 'Notas adicionales sobre la compra' },
+        { key: 'termsAndConditions', label: 'Términos y condiciones', description: 'Términos de pago y entrega' },
+      ];
+
     default:
       return [];
   }
@@ -1569,6 +2259,34 @@ function getSessionTypeGuidelines(sessionType: VoiceSessionType): string {
 - Fechas en formato YYYY-MM-DD
 - isComplete = true cuando tengas al menos tipo de movimiento, monto, Y FECHA DE TRANSACCIÓN`;
 
+    case 'CREATE_SALE':
+      return `Para CREAR VENTA:
+- Prioriza: nombre del cliente, productos/servicios con cantidades y precios, fecha de venta
+- clientId siempre usar null (el usuario seleccionará al cliente en la UI usando clientName como referencia)
+- items: Extrae cada producto o servicio mencionado
+  * productId siempre null (el usuario puede vincular a productos existentes en la UI)
+  * Identifica si es producto físico o servicio
+  * Extrae cantidad, unidad, precio unitario
+  * discountRate y taxRate son opcionales (defaults: 0 y 0.16 respectivamente)
+- paymentStatus: PENDING (pendiente), PARTIAL (pago parcial), PAID (pagado completo)
+- amountPaid: Solo relevante para PARTIAL (abono recibido)
+- Fechas en formato YYYY-MM-DD
+- isComplete = true cuando tengas al menos cliente y un item con cantidad/precio`;
+
+    case 'CREATE_PURCHASE':
+      return `Para CREAR COMPRA:
+- Prioriza: nombre del proveedor, productos con cantidades y precios, fecha de compra
+- supplierId siempre usar null (el usuario seleccionará al proveedor en la UI usando supplierName como referencia)
+- items: Extrae cada producto o insumo mencionado
+  * productId siempre null (el usuario puede vincular a productos existentes en la UI)
+  * Identifica si es producto físico o servicio (generalmente productos para compras)
+  * Extrae cantidad, unidad, precio unitario
+  * discountRate y taxRate son opcionales (defaults: 0 y 0.16 respectivamente)
+- paymentStatus: PENDING (pendiente), PARTIAL (pago parcial), PAID (pagado completo)
+- amountPaid: Solo relevante para PARTIAL (abono realizado)
+- Fechas en formato YYYY-MM-DD
+- isComplete = true cuando tengas al menos proveedor y un item con cantidad/precio`;
+
     default:
       return '';
   }
@@ -1584,4 +2302,8 @@ export const SCHEMA_DESCRIPTIONS = {
   CREATE_APPOINTMENT_SLOTS: `Appointment slot configuration including: date range, days of week selection, time range, duration, optional break time, pricing, and optional discount.`,
 
   CREATE_LEDGER_ENTRY: `Cash flow entry (ledger entry) including: entry type (ingreso/egreso), amount, transaction date, concept/description, transaction type (N/A/COMPRA/VENTA), payment details (status, amount paid), categorization (area, subarea), and payment method information (form of payment, bank account, bank reference).`,
+
+  CREATE_SALE: `Sale record including: client information, sale and delivery dates, payment status and amount paid, items array (products/services with quantities, units, prices, discounts, taxes), and additional notes and terms.`,
+
+  CREATE_PURCHASE: `Purchase record including: supplier information, purchase and delivery dates, payment status and amount paid, items array (products with quantities, units, prices, discounts, taxes), and additional notes and terms.`,
 };

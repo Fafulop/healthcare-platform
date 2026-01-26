@@ -17,7 +17,31 @@ import {
   type VoiceMedicationData,
   type VoiceAppointmentSlotsData,
   type VoiceLedgerEntryData,
+  type VoiceSaleData,
+  type VoicePurchaseData,
 } from '@/types/voice-assistant';
+import { SaleDataPreview } from './SaleDataPreview';
+import { PurchaseDataPreview } from './PurchaseDataPreview';
+
+interface Client {
+  id: number;
+  businessName: string;
+  contactName?: string | null;
+}
+
+interface Supplier {
+  id: number;
+  businessName: string;
+  contactName?: string | null;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  sku?: string | null;
+  unit?: string | null;
+  price?: string | null;
+}
 
 interface StructuredDataPreviewProps {
   data: VoiceStructuredData;
@@ -25,6 +49,11 @@ interface StructuredDataPreviewProps {
   fieldsExtracted?: string[];
   compact?: boolean;
   showMissing?: boolean; // Show fields that haven't been captured yet
+  // For CREATE_SALE session type
+  clients?: Client[];
+  products?: Product[];
+  // For CREATE_PURCHASE session type
+  suppliers?: Supplier[];
 }
 
 // Field groupings for display
@@ -114,6 +143,9 @@ export function StructuredDataPreview({
   fieldsExtracted = [],
   compact = false,
   showMissing = false,
+  clients = [],
+  products = [],
+  suppliers = [],
 }: StructuredDataPreviewProps) {
   if (sessionType === 'NEW_PRESCRIPTION') {
     return (
@@ -143,6 +175,32 @@ export function StructuredDataPreview({
         fieldsExtracted={fieldsExtracted}
         compact={compact}
         showMissing={showMissing}
+      />
+    );
+  }
+
+  if (sessionType === 'CREATE_SALE') {
+    return (
+      <SaleDataPreview
+        data={data as VoiceSaleData}
+        fieldsExtracted={fieldsExtracted}
+        compact={compact}
+        showMissing={showMissing}
+        clients={clients}
+        products={products}
+      />
+    );
+  }
+
+  if (sessionType === 'CREATE_PURCHASE') {
+    return (
+      <PurchaseDataPreview
+        data={data as VoicePurchaseData}
+        fieldsExtracted={fieldsExtracted}
+        compact={compact}
+        showMissing={showMissing}
+        suppliers={suppliers}
+        products={products}
       />
     );
   }
@@ -337,11 +395,21 @@ function formatValue(field: string, value: any): string {
 
   if (field.includes('Date') && typeof value === 'string') {
     try {
-      return new Date(value).toLocaleDateString('es-MX', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
+      // Parse date string (YYYY-MM-DD) without timezone conversion
+      // new Date("2026-01-23") parses as UTC midnight, which shifts the day in local time
+      // Instead, parse the components directly
+      // Extract just the date part (YYYY-MM-DD) from ISO timestamp (2026-01-23T00:00:00.000Z)
+      const datePart = value.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      if (year && month && day) {
+        const date = new Date(year, month - 1, day); // month is 0-indexed
+        return date.toLocaleDateString('es-MX', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+      }
+      return value;
     } catch {
       return value;
     }

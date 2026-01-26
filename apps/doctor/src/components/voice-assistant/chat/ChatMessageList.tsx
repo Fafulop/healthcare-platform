@@ -41,6 +41,14 @@ const WELCOME_MESSAGES: Record<VoiceSessionType, { title: string; subtitle: stri
     title: 'Nuevo Movimiento de Dinero',
     subtitle: 'Dicte o escriba los detalles del movimiento. Por ejemplo: "Ingreso de 500 pesos por consulta de hoy, en efectivo" o "Egreso de 1500 por compra de material médico"',
   },
+  CREATE_SALE: {
+    title: 'Nueva Venta',
+    subtitle: 'Dicte o escriba los detalles de la venta. Por ejemplo: "Venta para Farmacia San Juan, 3 consultas a 500 pesos cada una, pago parcial de 1000 pesos"',
+  },
+  CREATE_PURCHASE: {
+    title: 'Nueva Compra',
+    subtitle: 'Dicte o escriba los detalles de la compra. Por ejemplo: "Compra a Distribuidora Médica, 10 cajas de guantes a 100 pesos, 5 frascos de suero a 80 pesos, pagado"',
+  },
 };
 
 export function ChatMessageList({ messages, sessionType, isProcessing }: ChatMessageListProps) {

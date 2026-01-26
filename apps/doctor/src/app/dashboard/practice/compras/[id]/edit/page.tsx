@@ -73,7 +73,12 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
 
   // Form state
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  // Fix: Use local date components instead of UTC to avoid timezone shift
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const [purchaseDate, setPurchaseDate] = useState(`${year}-${month}-${day}`);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [notes, setNotes] = useState('');
   const [termsAndConditions, setTermsAndConditions] = useState('');

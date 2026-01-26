@@ -66,7 +66,14 @@ export default function NewFlujoDeDineroPage() {
     entryType: "ingreso" as "ingreso" | "egreso",
     amount: "",
     concept: "",
-    transactionDate: new Date().toISOString().split('T')[0],
+    // Use local date (not UTC) to avoid timezone issues
+    transactionDate: (() => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    })(),
     area: "",
     subarea: "",
     bankAccount: "",

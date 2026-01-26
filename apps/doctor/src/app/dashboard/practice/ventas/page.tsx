@@ -181,13 +181,24 @@ export default function VentasPage() {
     }
   };
 
+  // Fix: Parse date components directly to avoid UTC timezone shift
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-MX', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+    try {
+      // Extract just the date part (YYYY-MM-DD) from ISO timestamp (2026-01-23T00:00:00.000Z)
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      if (year && month && day) {
+        const date = new Date(year, month - 1, day); // month is 0-indexed
+        return date.toLocaleDateString('es-MX', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      }
+      return dateString;
+    } catch {
+      return dateString;
+    }
   };
 
   const formatCurrency = (amount: string | number) => {

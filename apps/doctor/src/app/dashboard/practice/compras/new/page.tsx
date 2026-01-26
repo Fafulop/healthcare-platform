@@ -3,9 +3,23 @@
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X, Mic } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import dynamic from 'next/dynamic';
+import type { VoiceStructuredData, VoicePurchaseData } from '@/types/voice-assistant';
+import type { InitialChatData } from '@/hooks/useChatSession';
+
+// Dynamically import voice assistant components (client-side only)
+const VoiceRecordingModal = dynamic(
+  () => import('@/components/voice-assistant/VoiceRecordingModal').then(mod => mod.VoiceRecordingModal),
+  { ssr: false }
+);
+
+const VoiceChatSidebar = dynamic(
+  () => import('@/components/voice-assistant/chat/VoiceChatSidebar').then(mod => mod.VoiceChatSidebar),
+  { ssr: false }
+);
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -71,7 +85,12 @@ export default function NewCompraPage() {
 
   // Form state
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  // Fix: Use local date components instead of UTC to avoid timezone shift
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const [purchaseDate, setPurchaseDate] = useState(`${year}-${month}-${day}`);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [notes, setNotes] = useState('');
   const [termsAndConditions, setTermsAndConditions] = useState('');
@@ -105,6 +124,11 @@ export default function NewCompraPage() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+
+  // Voice assistant state
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showVoiceSidebar, setShowVoiceSidebar] = useState(false);
+  const [voiceInitialData, setVoiceInitialData] = useState<any>(null);
 
   // Custom item modal state
   const [customItemType, setCustomItemType] = useState<'product' | 'service'>('service');
@@ -312,6 +336,130 @@ export default function NewCompraPage() {
     return subtotal + tax;
   };
 
+  const handleVoiceModalComplete = (
+    transcript: string,
+    data: VoiceStructuredData,
+    sessionId: string,
+    transcriptId: string,
+    audioDuration: number
+  ) => {
+    const purchaseData = data as VoicePurchaseData;
+
+    // Calculate extracted fields
+    const allFields = Object.keys(purchaseData);
+    const extracted = allFields.filter(
+      k => purchaseData[k as keyof VoicePurchaseData] != null &&
+           purchaseData[k as keyof VoicePurchaseData] !== '' &&
+           !(Array.isArray(purchaseData[k as keyof VoicePurchaseData]) &&
+             (purchaseData[k as keyof VoicePurchaseData] as any[]).length === 0)
+    );
+
+    // Prepare initial data for sidebar
+    const initialData: InitialChatData = {
+      transcript,
+      structuredData: data,
+      sessionId,
+      transcriptId,
+      audioDuration,
+      fieldsExtracted: extracted,
+    };
+
+    setVoiceInitialData(initialData);
+    setShowVoiceModal(false);
+    setShowVoiceSidebar(true);
+  };
+
+  const handleVoiceConfirm = (data: VoiceStructuredData) => {
+    const purchaseData = data as VoicePurchaseData;
+
+    console.log('[Compras New] Voice data confirmed:', purchaseData);
+
+    // 1. Set supplier if supplierName is provided (attempt fuzzy matching)
+    if (purchaseData.supplierName) {
+      const matchedSupplier = suppliers.find(
+        (s) =>
+          s.businessName.toLowerCase().includes(purchaseData.supplierName!.toLowerCase()) ||
+          s.contactName?.toLowerCase().includes(purchaseData.supplierName!.toLowerCase())
+      );
+      if (matchedSupplier) {
+        setSelectedSupplierId(matchedSupplier.id);
+        console.log('[Compras New] Matched supplier:', matchedSupplier.businessName);
+      } else {
+        console.log('[Compras New] No supplier match found for:', purchaseData.supplierName);
+      }
+    }
+
+    // 2. Set dates
+    if (purchaseData.purchaseDate) {
+      setPurchaseDate(purchaseData.purchaseDate);
+    }
+    if (purchaseData.deliveryDate) {
+      setDeliveryDate(purchaseData.deliveryDate);
+    }
+
+    // 3. Set payment status and amount
+    if (purchaseData.paymentStatus) {
+      setPaymentStatus(purchaseData.paymentStatus);
+    }
+    if (purchaseData.amountPaid !== null && purchaseData.amountPaid !== undefined) {
+      setAmountPaid(purchaseData.amountPaid);
+    }
+
+    // 4. Set notes and terms
+    if (purchaseData.notes) {
+      setNotes(purchaseData.notes);
+    }
+    if (purchaseData.termsAndConditions) {
+      setTermsAndConditions(purchaseData.termsAndConditions);
+    }
+
+    // 5. Map items to form state
+    if (purchaseData.items && purchaseData.items.length > 0) {
+      const mappedItems: PurchaseItem[] = purchaseData.items.map((voiceItem, index) => {
+        // Try to match to existing product
+        let matchedProduct: Product | undefined;
+        if (voiceItem.productName) {
+          matchedProduct = products.find(
+            (p) =>
+              p.name.toLowerCase().includes(voiceItem.productName!.toLowerCase()) ||
+              p.sku?.toLowerCase().includes(voiceItem.productName!.toLowerCase())
+          );
+        }
+
+        const quantity = voiceItem.quantity || 1;
+        const unitPrice = voiceItem.unitPrice || 0;
+        const discountRate = voiceItem.discountRate || 0;
+        const taxRate = voiceItem.taxRate !== null && voiceItem.taxRate !== undefined ? voiceItem.taxRate : 0.16;
+
+        const baseAmount = quantity * unitPrice;
+        const discountAmount = baseAmount * discountRate;
+        const subtotal = baseAmount - discountAmount;
+        const taxAmount = subtotal * taxRate;
+
+        return {
+          tempId: `voice-${Date.now()}-${index}`,
+          productId: matchedProduct?.id || null,
+          itemType: voiceItem.itemType,
+          description: voiceItem.description,
+          sku: matchedProduct?.sku || voiceItem.sku || null,
+          quantity,
+          unit: voiceItem.unit || 'pza',
+          unitPrice,
+          discountRate,
+          taxRate,
+          taxAmount,
+          subtotal,
+        };
+      });
+
+      setItems(mappedItems);
+      console.log('[Compras New] Mapped items:', mappedItems.length);
+    }
+
+    // Close voice sidebar
+    setShowVoiceSidebar(false);
+  };
+
   const handleSubmit = async (saveStatus: 'PENDING' | 'CONFIRMED') => {
     if (!selectedSupplierId) {
       alert('Debe seleccionar un proveedor');
@@ -394,13 +542,23 @@ export default function NewCompraPage() {
     <div className="p-4 sm:p-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <Link
-            href="/dashboard/practice/compras"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver a Compras
-          </Link>
+          <div className="flex items-center justify-between mb-4">
+            <Link
+              href="/dashboard/practice/compras"
+              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Volver a Compras
+            </Link>
+            <button
+              onClick={() => setShowVoiceModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              title="Asistente de Voz"
+            >
+              <Mic className="w-4 h-4" />
+              Asistente de Voz
+            </button>
+          </div>
           <h1 className="text-2xl font-bold text-gray-900">Nueva Compra</h1>
           <p className="text-gray-600 mt-1">Registra una nueva compra</p>
         </div>
@@ -959,6 +1117,36 @@ export default function NewCompraPage() {
             </div>
           </div>
         )}
+
+      {/* Voice Assistant Modal */}
+      {showVoiceModal && session?.user?.email && (
+        <VoiceRecordingModal
+          isOpen={showVoiceModal}
+          onClose={() => setShowVoiceModal(false)}
+          sessionType="CREATE_PURCHASE"
+          onComplete={handleVoiceModalComplete}
+        />
+      )}
+
+      {/* Voice Assistant Sidebar */}
+      {showVoiceSidebar && session?.user?.email && (
+        <VoiceChatSidebar
+          isOpen={showVoiceSidebar}
+          onClose={() => {
+            setShowVoiceSidebar(false);
+            setVoiceInitialData(null);
+          }}
+          sessionType="CREATE_PURCHASE"
+          patientId="purchase" // Use a special ID for purchase context
+          doctorId={session.user.email}
+          onConfirm={handleVoiceConfirm}
+          initialData={voiceInitialData}
+          purchaseContext={{
+            suppliers: suppliers,
+            products: products,
+          }}
+        />
+      )}
     </div>
   );
 }

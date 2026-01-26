@@ -431,22 +431,26 @@ export async function DELETE(
       );
     }
 
-    // If this ledger entry has associated sale/purchase, delete them first
-    if (existingEntry.saleId) {
-      await prisma.sale.delete({
-        where: { id: existingEntry.saleId }
+    // Use a transaction to ensure all deletions succeed or fail together
+    await prisma.$transaction(async (tx) => {
+      // Delete the ledger entry first (this will set sale/purchase references to null via onDelete: SetNull)
+      await tx.ledgerEntry.delete({
+        where: { id: entryId }
       });
-    }
 
-    if (existingEntry.purchaseId) {
-      await prisma.purchase.delete({
-        where: { id: existingEntry.purchaseId }
-      });
-    }
+      // Then delete associated sale if it exists
+      if (existingEntry.saleId) {
+        await tx.sale.delete({
+          where: { id: existingEntry.saleId }
+        });
+      }
 
-    // Delete ledger entry (cascades to attachments, facturas, facturasXml)
-    await prisma.ledgerEntry.delete({
-      where: { id: entryId }
+      // And delete associated purchase if it exists
+      if (existingEntry.purchaseId) {
+        await tx.purchase.delete({
+          where: { id: existingEntry.purchaseId }
+        });
+      }
     });
 
     return NextResponse.json({ success: true }, { status: 200 });
@@ -457,6 +461,21 @@ export async function DELETE(
       return NextResponse.json(
         { error: error.message },
         { status: 403 }
+      );
+    }
+
+    // Provide more specific error messages for common issues
+    if (error.code === 'P2003') {
+      return NextResponse.json(
+        { error: 'No se puede eliminar porque tiene registros relacionados' },
+        { status: 409 }
+      );
+    }
+
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'El registro ya fue eliminado' },
+        { status: 404 }
       );
     }
 

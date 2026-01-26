@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const { sessionType, messages, currentData, context } = body;
 
     // 3. Validate session type
-    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY'];
+    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY', 'CREATE_SALE', 'CREATE_PURCHASE'];
     if (!validSessionTypes.includes(sessionType)) {
       return NextResponse.json(
         {
@@ -70,8 +70,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Build system prompt with current data context
-    const systemPrompt = getChatSystemPrompt(sessionType, currentData);
+    // 5. Build system prompt with current data context and date
+    const systemPrompt = getChatSystemPrompt(sessionType, currentData, new Date());
 
     // Log for debugging
     console.log('[Voice Chat] Request:', {

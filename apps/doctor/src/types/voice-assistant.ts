@@ -27,10 +27,10 @@ export type InputMethod = 'manual' | 'voice';
 // =============================================================================
 
 /**
- * The five supported voice session types.
+ * The supported voice session types.
  * Each type determines which schema is used for structuring.
  */
-export type VoiceSessionType = 'NEW_PATIENT' | 'NEW_ENCOUNTER' | 'NEW_PRESCRIPTION' | 'CREATE_APPOINTMENT_SLOTS' | 'CREATE_LEDGER_ENTRY';
+export type VoiceSessionType = 'NEW_PATIENT' | 'NEW_ENCOUNTER' | 'NEW_PRESCRIPTION' | 'CREATE_APPOINTMENT_SLOTS' | 'CREATE_LEDGER_ENTRY' | 'CREATE_SALE' | 'CREATE_PURCHASE';
 
 /**
  * Voice session status progression:
@@ -274,6 +274,120 @@ export interface VoiceLedgerEntryBatch {
 
 
 // =============================================================================
+// CREATE_SALE SCHEMA
+// =============================================================================
+
+/**
+ * Schema for a single sale item extracted from voice dictation.
+ * Can be either a product from inventory or a custom product/service.
+ */
+export interface VoiceSaleItemData {
+  // Item identification
+  productId?: number | null; // ID of existing product (null for custom items)
+  productName?: string | null; // Name mentioned in voice (for matching)
+
+  // Item details
+  itemType: 'product' | 'service'; // Type of item
+  description: string; // Item description
+  sku?: string | null; // SKU (if matched to existing product)
+
+  // Quantity and pricing
+  quantity: number; // Quantity
+  unit: string; // Unit (pza, kg, servicio, hora, etc.)
+  unitPrice: number; // Unit price in MXN
+
+  // Discounts and taxes (optional, will use defaults if not specified)
+  discountRate?: number | null; // Discount rate (0-1), default 0
+  taxRate?: number | null; // Tax rate (0-1), default 0.16
+}
+
+/**
+ * Schema for sale data extracted from voice dictation.
+ * Maps to the sale form in ventas/new/page.tsx
+ *
+ * All fields are optional - the LLM will only populate fields
+ * that are explicitly mentioned in the transcript.
+ */
+export interface VoiceSaleData {
+  // Client Information
+  clientId?: number | null; // ID of existing client (if matched)
+  clientName?: string | null; // Client name mentioned in voice (for matching)
+
+  // Dates
+  saleDate?: string | null; // ISO date string (YYYY-MM-DD)
+  deliveryDate?: string | null; // ISO date string (YYYY-MM-DD), optional
+
+  // Payment Information
+  paymentStatus?: 'PENDING' | 'PARTIAL' | 'PAID' | null;
+  amountPaid?: number | null; // Amount paid (for PARTIAL status)
+
+  // Items
+  items?: VoiceSaleItemData[] | null; // Array of sale items
+
+  // Additional Information
+  notes?: string | null; // Additional notes
+  termsAndConditions?: string | null; // Terms and conditions
+}
+
+
+// =============================================================================
+// CREATE_PURCHASE SCHEMA
+// =============================================================================
+
+/**
+ * Schema for a single purchase item extracted from voice dictation.
+ * Can be either a product from inventory or a custom product.
+ */
+export interface VoicePurchaseItemData {
+  // Item identification
+  productId?: number | null; // ID of existing product (null for custom items)
+  productName?: string | null; // Name mentioned in voice (for matching)
+
+  // Item details
+  itemType: 'product' | 'service'; // Type of item (usually 'product' for purchases)
+  description: string; // Item description
+  sku?: string | null; // SKU (if matched to existing product)
+
+  // Quantity and pricing
+  quantity: number; // Quantity
+  unit: string; // Unit (pza, kg, caja, etc.)
+  unitPrice: number; // Unit price in MXN
+
+  // Discounts and taxes (optional, will use defaults if not specified)
+  discountRate?: number | null; // Discount rate (0-1), default 0
+  taxRate?: number | null; // Tax rate (0-1), default 0.16
+}
+
+/**
+ * Schema for purchase data extracted from voice dictation.
+ * Maps to the purchase form in compras/new/page.tsx
+ *
+ * All fields are optional - the LLM will only populate fields
+ * that are explicitly mentioned in the transcript.
+ */
+export interface VoicePurchaseData {
+  // Supplier Information
+  supplierId?: number | null; // ID of existing supplier (if matched)
+  supplierName?: string | null; // Supplier name mentioned in voice (for matching)
+
+  // Dates
+  purchaseDate?: string | null; // ISO date string (YYYY-MM-DD)
+  deliveryDate?: string | null; // ISO date string (YYYY-MM-DD), optional
+
+  // Payment Information
+  paymentStatus?: 'PENDING' | 'PARTIAL' | 'PAID' | null;
+  amountPaid?: number | null; // Amount paid (for PARTIAL status)
+
+  // Items
+  items?: VoicePurchaseItemData[] | null; // Array of purchase items
+
+  // Additional Information
+  notes?: string | null; // Additional notes
+  termsAndConditions?: string | null; // Terms and conditions
+}
+
+
+// =============================================================================
 // VOICE SESSION
 // =============================================================================
 
@@ -406,7 +520,7 @@ export interface AIGeneratedMetadata {
 /**
  * Union type for all structured data outputs
  */
-export type VoiceStructuredData = VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData | VoiceLedgerEntryBatch;
+export type VoiceStructuredData = VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData | VoiceLedgerEntryBatch | VoiceSaleData | VoicePurchaseData;
 
 /**
  * Map session type to its corresponding data type
@@ -417,6 +531,8 @@ export type SessionTypeDataMap = {
   NEW_PRESCRIPTION: VoicePrescriptionData;
   CREATE_APPOINTMENT_SLOTS: VoiceAppointmentSlotsData;
   CREATE_LEDGER_ENTRY: VoiceLedgerEntryData | VoiceLedgerEntryBatch; // Can be single or batch
+  CREATE_SALE: VoiceSaleData;
+  CREATE_PURCHASE: VoicePurchaseData;
 };
 
 /**
@@ -507,6 +623,28 @@ export const EXTRACTABLE_FIELDS: Record<VoiceSessionType, string[]> = {
     'bankAccount',
     'formaDePago',
     'bankMovementId',
+  ],
+  CREATE_SALE: [
+    'clientId',
+    'clientName',
+    'saleDate',
+    'deliveryDate',
+    'paymentStatus',
+    'amountPaid',
+    'items',
+    'notes',
+    'termsAndConditions',
+  ],
+  CREATE_PURCHASE: [
+    'supplierId',
+    'supplierName',
+    'purchaseDate',
+    'deliveryDate',
+    'paymentStatus',
+    'amountPaid',
+    'items',
+    'notes',
+    'termsAndConditions',
   ],
 };
 
@@ -694,4 +832,17 @@ export const FIELD_LABELS_ES: Record<string, string> = {
   bankAccount: 'Cuenta Bancaria',
   formaDePago: 'Forma de Pago',
   bankMovementId: 'ID de Movimiento Bancario',
+
+  // Sale fields
+  clientName: 'Nombre del Cliente',
+  saleDate: 'Fecha de Venta',
+  deliveryDate: 'Fecha de Entrega',
+  items: 'Productos/Servicios',
+  notes: 'Notas',
+  termsAndConditions: 'Términos y Condiciones',
+
+  // Purchase fields
+  supplierId: 'Proveedor',
+  supplierName: 'Nombre del Proveedor',
+  purchaseDate: 'Fecha de Compra',
 };
