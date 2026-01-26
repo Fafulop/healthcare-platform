@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { DoctorProfileProvider } from "@/contexts/DoctorProfileContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
 
 export default function DashboardRootLayout({
   children,
@@ -32,6 +33,7 @@ export default function DashboardRootLayout({
   return (
     <DoctorProfileProvider>
       <DashboardLayout>{children}</DashboardLayout>
+      <ChatWidget />
     </DoctorProfileProvider>
   );
 }

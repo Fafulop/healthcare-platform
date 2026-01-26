@@ -9,7 +9,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "practice_management", "medical_records"]
+  schemas  = ["public", "practice_management", "medical_records", "llm_assistant"]
 }
 
 // User authentication model for staff (doctors + admins)
@@ -1407,4 +1407,129 @@ model PatientAuditLog {
   @@index([userId, timestamp])
   @@map("patient_audit_logs")
   @@schema("medical_records")
+}
+
+// ============================================================================
+// LLM ASSISTANT DOMAIN
+// ============================================================================
+
+// -----------------------------------------------------------------------------
+// DOCUMENT CHUNKS (for RAG vector search)
+// -----------------------------------------------------------------------------
+
+model LlmDocsChunk {
+  id          Int      @id @default(autoincrement())
+  content     String   @db.Text
+  embedding   Unsupported("vector(1536)")?
+  module      String   @db.VarChar(100)
+  submodule   String?  @db.VarChar(100)
+  section     String?  @db.VarChar(255)
+  docType     String   @default("reference") @map("doc_type") @db.VarChar(50)
+  filePath    String   @map("file_path") @db.VarChar(500)
+  heading     String?  @db.VarChar(500)
+  tokenCount  Int      @default(0) @map("token_count")
+  chunkIndex  Int      @default(0) @map("chunk_index")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([module])
+  @@index([filePath])
+  @@index([docType])
+  @@map("llm_docs_chunks")
+  @@schema("llm_assistant")
+}
+
+// -----------------------------------------------------------------------------
+// MODULE SUMMARIES (for module detection via embedding)
+// -----------------------------------------------------------------------------
+
+model LlmModuleSummary {
+  id          Int      @id @default(autoincrement())
+  moduleId    String   @unique @map("module_id") @db.VarChar(100)
+  name        String   @db.VarChar(255)
+  description String   @db.Text
+  keywords    String[] @default([])
+  embedding   Unsupported("vector(1536)")?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("llm_module_summaries")
+  @@schema("llm_assistant")
+}
+
+// -----------------------------------------------------------------------------
+// QUERY CACHE
+// -----------------------------------------------------------------------------
+
+model LlmQueryCache {
+  id          Int      @id @default(autoincrement())
+  queryHash   String   @unique @map("query_hash") @db.VarChar(64)
+  queryText   String   @map("query_text") @db.Text
+  response    String   @db.Text
+  modulesUsed String[] @default([]) @map("modules_used")
+  chunksUsed  Int[]    @default([]) @map("chunks_used")
+  hitCount    Int      @default(0) @map("hit_count")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([expiresAt])
+  @@map("llm_query_cache")
+  @@schema("llm_assistant")
+}
+
+// -----------------------------------------------------------------------------
+// CONVERSATION MEMORY
+// -----------------------------------------------------------------------------
+
+model LlmConversationMemory {
+  id           Int      @id @default(autoincrement())
+  sessionId    String   @unique @map("session_id") @db.VarChar(100)
+  userId       String   @map("user_id") @db.VarChar(100)
+  turns        Json     @default("[]")
+  activeModule String?  @map("active_module") @db.VarChar(100)
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("llm_conversation_memory")
+  @@schema("llm_assistant")
+}
+
+// -----------------------------------------------------------------------------
+// DOCS VERSIONING
+// -----------------------------------------------------------------------------
+
+model LlmDocsVersion {
+  id            Int      @id @default(autoincrement())
+  version       Int
+  moduleId      String   @map("module_id") @db.VarChar(100)
+  changeType    String   @map("change_type") @db.VarChar(50)
+  filesChanged  String[] @default([]) @map("files_changed")
+  chunksAdded   Int      @default(0) @map("chunks_added")
+  chunksRemoved Int      @default(0) @map("chunks_removed")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([moduleId])
+  @@map("llm_docs_versions")
+  @@schema("llm_assistant")
+}
+
+// -----------------------------------------------------------------------------
+// FILE HASH TRACKING (for incremental sync)
+// -----------------------------------------------------------------------------
+
+model LlmDocsFileHash {
+  id          Int      @id @default(autoincrement())
+  filePath    String   @unique @map("file_path") @db.VarChar(500)
+  contentHash String   @map("content_hash") @db.VarChar(64)
+  moduleId    String   @map("module_id") @db.VarChar(100)
+  lastSynced  DateTime @default(now()) @map("last_synced")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([moduleId])
+  @@map("llm_docs_file_hashes")
+  @@schema("llm_assistant")
 }

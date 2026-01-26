@@ -23,9 +23,15 @@
     "db:migrate": "turbo run db:migrate --filter=@healthcare/database",
     "db:migrate:deploy": "turbo run db:migrate:deploy --filter=@healthcare/database",
     "db:seed": "turbo run db:seed --filter=@healthcare/database",
-    "db:studio": "turbo run db:studio --filter=@healthcare/database"
+    "db:studio": "turbo run db:studio --filter=@healthcare/database",
+    "docs:sync": "tsx --env-file .env scripts/docs-sync.ts sync",
+    "docs:sync-all": "tsx --env-file .env scripts/docs-sync.ts sync-all",
+    "docs:list": "tsx --env-file .env scripts/docs-sync.ts list",
+    "docs:status": "tsx --env-file .env scripts/docs-sync.ts status",
+    "docs:history": "tsx --env-file .env scripts/docs-sync.ts history"
   },
   "devDependencies": {
+    "tsx": "^4.19.2",
     "turbo": "^2.3.3"
   }
 }
