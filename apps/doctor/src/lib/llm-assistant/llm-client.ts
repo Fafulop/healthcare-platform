@@ -8,7 +8,7 @@ import { LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS } from './constants';
 import type { PromptMessage } from './types';
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || '',
 });
 
 /**
