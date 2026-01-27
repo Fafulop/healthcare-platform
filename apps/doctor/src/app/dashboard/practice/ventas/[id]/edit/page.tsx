@@ -334,6 +334,8 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
       return;
     }
 
+    if (!session) return;
+
     setSubmitting(true);
     setError(null);
 
