@@ -113,17 +113,11 @@ export function validateSaleTransition(
   }
 
   // Determine if confirmation is required for critical transitions
-  const requiresConfirmation =
-    newStatus === 'CANCELLED' ||
-    (currentStatus === 'CONFIRMED' && newStatus === 'CANCELLED') ||
-    (currentStatus === 'PROCESSING' && newStatus === 'CANCELLED') ||
-    (currentStatus === 'SHIPPED' && newStatus === 'CANCELLED');
+  const requiresConfirmation = newStatus === 'CANCELLED';
 
   let confirmationMessage: string | undefined;
   if (requiresConfirmation) {
-    if (newStatus === 'CANCELLED') {
-      confirmationMessage = '¿Estás seguro de que quieres cancelar esta venta?';
-    }
+    confirmationMessage = '¿Estás seguro de que quieres cancelar esta venta?';
   }
 
   return {
@@ -187,17 +181,11 @@ export function validatePurchaseTransition(
   }
 
   // Determine if confirmation is required for critical transitions
-  const requiresConfirmation =
-    newStatus === 'CANCELLED' ||
-    (currentStatus === 'CONFIRMED' && newStatus === 'CANCELLED') ||
-    (currentStatus === 'PROCESSING' && newStatus === 'CANCELLED') ||
-    (currentStatus === 'SHIPPED' && newStatus === 'CANCELLED');
+  const requiresConfirmation = newStatus === 'CANCELLED';
 
   let confirmationMessage: string | undefined;
   if (requiresConfirmation) {
-    if (newStatus === 'CANCELLED') {
-      confirmationMessage = '¿Estás seguro de que quieres cancelar esta compra?';
-    }
+    confirmationMessage = '¿Estás seguro de que quieres cancelar esta compra?';
   }
 
   return {
