@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@healthcare/auth";
 import jwt from "jsonwebtoken";
 
 /**
  * Get JWT token for API authentication
- * NextAuth v5 uses encrypted session tokens (JWE), so we decode the session
- * and create a new signed JWT (not encrypted) for the API to verify
+ * Uses NextAuth v5 auth() to get session, then creates a signed JWT for the API
  */
 export async function GET(request: NextRequest) {
   try {
-    // Extract and decode NextAuth session (NOT raw - we need the decrypted payload)
     const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
     if (!secret) {
@@ -19,35 +17,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get the decrypted session payload (NOT raw)
-    const session = await getToken({
-      req: request as any,
-      secret,
-      raw: false, // Get decoded payload, not encrypted token
-    });
+    // Get session using NextAuth v5 auth()
+    const session = await auth();
 
-    if (!session || !session.email) {
+    if (!session || !session.user?.email) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       );
     }
 
+    const user = session.user as any;
+
     // Create a new signed JWT (not encrypted) for the API to verify
     const apiToken = jwt.sign(
       {
-        email: session.email,
-        sub: session.sub,
-        name: session.name,
-        picture: session.picture,
-        userId: session.userId,
-        role: session.role,
-        doctorId: session.doctorId,
+        email: user.email,
+        sub: user.id,
+        name: user.name,
+        picture: user.image,
+        userId: user.id,
+        role: user.role,
+        doctorId: user.doctorId,
       },
       secret,
       {
         algorithm: 'HS256',
-        expiresIn: '1h', // Token valid for 1 hour
+        expiresIn: '1h',
       }
     );
 
