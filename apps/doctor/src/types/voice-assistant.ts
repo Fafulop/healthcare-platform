@@ -842,7 +842,6 @@ export const FIELD_LABELS_ES: Record<string, string> = {
   termsAndConditions: 'Términos y Condiciones',
 
   // Purchase fields
-  supplierId: 'Proveedor',
   supplierName: 'Nombre del Proveedor',
   purchaseDate: 'Fecha de Compra',
 };
