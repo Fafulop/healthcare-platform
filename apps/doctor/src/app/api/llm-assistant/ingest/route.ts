@@ -9,25 +9,22 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { auth } from '@healthcare/auth';
 import { runIngestionPipeline } from '@/lib/llm-assistant/ingestion/pipeline';
 
 export async function POST(request: NextRequest) {
   try {
     // Admin-only authentication
-    const token = await getToken({
-      req: request as any,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
+    const session = await auth();
 
-    if (!token) {
+    if (!session || !session.user) {
       return NextResponse.json(
         { success: false, error: 'No autorizado' },
         { status: 401 }
       );
     }
 
-    if (token.role !== 'ADMIN') {
+    if ((session.user as any).role !== 'ADMIN') {
       return NextResponse.json(
         { success: false, error: 'Se requieren permisos de administrador' },
         { status: 403 }

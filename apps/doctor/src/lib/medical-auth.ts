@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { auth } from '@healthcare/auth';
 import { prisma } from '@healthcare/database';
 
 export interface MedicalAuthContext {
@@ -16,31 +16,30 @@ export interface MedicalAuthContext {
 export async function requireDoctorAuth(
   request: NextRequest
 ): Promise<MedicalAuthContext> {
-  const token = await getToken({
-    req: request as any,
-    secret: process.env.NEXTAUTH_SECRET
-  });
+  const session = await auth();
 
-  if (!token) {
+  if (!session || !session.user) {
     throw new Error('Authentication required');
   }
 
+  const user = session.user as any;
+
   // Check role is DOCTOR
-  if (token.role !== 'DOCTOR') {
+  if (user.role !== 'DOCTOR') {
     throw new Error('Doctor role required');
   }
 
-  // Get doctor ID from token
-  const doctorId = token.doctorId as string;
+  // Get doctor ID from session
+  const doctorId = user.doctorId as string;
 
   if (!doctorId) {
     throw new Error('No doctor profile linked to user');
   }
 
   return {
-    userId: token.sub as string,
-    email: token.email as string,
-    role: token.role as string,
+    userId: user.id as string,
+    email: user.email as string,
+    role: user.role as string,
     doctorId
   };
 }
