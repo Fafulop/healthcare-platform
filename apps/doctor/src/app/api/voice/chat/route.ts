@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       sessionType,
       messagesCount: messages.length,
       hasCurrentData: !!currentData,
-      currentDataFields: currentData ? Object.keys(currentData).filter(k => currentData[k] != null) : [],
+      currentDataFields: currentData ? Object.keys(currentData).filter(k => (currentData as Record<string, unknown>)[k] != null) : [],
       lastUserMessage: messages[messages.length - 1]?.content?.substring(0, 100)
     });
 

@@ -144,7 +144,7 @@ export async function POST(
     }
 
     // Calculate cost
-    const unitCost = parseFloat(attributeValue.cost || '0');
+    const unitCost = parseFloat(attributeValue.cost?.toString() || '0');
     const calculatedCost = unitCost * parseFloat(quantity.toString());
 
     // Create component

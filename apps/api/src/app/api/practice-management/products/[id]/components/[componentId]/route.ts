@@ -66,7 +66,7 @@ export async function PUT(
     }
 
     // Recalculate cost
-    const unitCost = parseFloat(existingComponent.attributeValue.cost || '0');
+    const unitCost = parseFloat(existingComponent.attributeValue.cost?.toString() || '0');
     const calculatedCost = unitCost * parseFloat(quantity.toString());
 
     // Update component
