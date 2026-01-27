@@ -25,14 +25,10 @@ export const authConfig: NextAuthConfig = {
     },
 
     async jwt({ token, user, account, trigger }: any) {
-      console.log('[JWT CALLBACK] Called with:', { hasUser: !!user, trigger, email: user?.email || token.email });
-
       // On sign in, fetch user info from API
       if (user || trigger === "update") {
         try {
-          // Call the API to get/create user and fetch role
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-          console.log('[JWT CALLBACK] Fetching user from API:', apiUrl);
 
           const response = await fetch(`${apiUrl}/api/auth/user`, {
             method: 'POST',
@@ -46,7 +42,6 @@ export const authConfig: NextAuthConfig = {
 
           if (response.ok) {
             const dbUser = await response.json();
-            console.log('[JWT CALLBACK] User from API:', { email: dbUser.email, role: dbUser.role });
             token.userId = dbUser.id;
             token.role = dbUser.role;
             token.doctorId = dbUser.doctorId;
@@ -61,7 +56,6 @@ export const authConfig: NextAuthConfig = {
         }
       }
 
-      console.log('[JWT CALLBACK] Returning token with role:', token.role);
       return token;
     },
 
@@ -87,7 +81,7 @@ export const authConfig: NextAuthConfig = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
-  debug: true,
+  debug: process.env.NODE_ENV === 'development',
 };
 
 // Export the auth function for NextAuth v5
