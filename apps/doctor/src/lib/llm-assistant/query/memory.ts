@@ -24,7 +24,7 @@ export async function loadMemory(sessionId: string): Promise<ConversationMemory 
     return null;
   }
 
-  const turns = (record.turns as ConversationTurn[]) || [];
+  const turns = (record.turns as unknown as ConversationTurn[]) || [];
 
   return {
     sessionId: record.sessionId,
@@ -52,7 +52,7 @@ export async function updateMemory(
   });
 
   const existingTurns = existing
-    ? (existing.turns as ConversationTurn[]) || []
+    ? (existing.turns as unknown as ConversationTurn[]) || []
     : [];
 
   const newTurns: ConversationTurn[] = [
