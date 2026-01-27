@@ -201,12 +201,10 @@ export default function NewFlujoDeDineroPage() {
 
     // Calculate extracted fields
     const allFields = Object.keys(ledgerData);
-    const extracted = allFields.filter(
-      k => ledgerData[k as keyof VoiceLedgerEntryData] != null &&
-           ledgerData[k as keyof VoiceLedgerEntryData] !== '' &&
-           !(Array.isArray(ledgerData[k as keyof VoiceLedgerEntryData]) &&
-             (ledgerData[k as keyof VoiceLedgerEntryData] as any[]).length === 0)
-    );
+    const extracted = allFields.filter(k => {
+      const val = ledgerData[k as keyof VoiceLedgerEntryData];
+      return val != null && val !== '' && !(Array.isArray(val) && val.length === 0);
+    });
 
     // Prepare initial data for sidebar
     const initialData: InitialChatData = {
