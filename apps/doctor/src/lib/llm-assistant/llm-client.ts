@@ -7,16 +7,18 @@ import OpenAI from 'openai';
 import { LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS } from './constants';
 import type { PromptMessage } from './types';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
+let _openai: OpenAI;
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 /**
  * Call the LLM with assembled prompt messages.
  * Returns the assistant's text response.
  */
 export async function callLLM(messages: PromptMessage[]): Promise<string> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: LLM_MODEL,
     temperature: LLM_TEMPERATURE,
     max_tokens: LLM_MAX_TOKENS,

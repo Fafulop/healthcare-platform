@@ -20,10 +20,12 @@ import {
   EXTRACTABLE_FIELDS,
 } from '@/types/voice-assistant';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
+// Lazy-initialize OpenAI client to avoid build-time crash
+let _openai: OpenAI;
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 // Configuration
 const MODEL = 'gpt-4o'; // Use GPT-4o for best accuracy with medical content
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest) {
     console.log('[Voice Structure] Date context:', dateContextMatch ? dateContextMatch[0] : 'NOT FOUND');
 
     // 7. Call OpenAI API
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: MODEL,
       temperature: TEMPERATURE,
       max_tokens: MAX_TOKENS,

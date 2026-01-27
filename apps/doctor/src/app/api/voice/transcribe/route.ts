@@ -15,10 +15,12 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
+// Lazy-initialize OpenAI client to avoid build-time crash
+let _openai: OpenAI;
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 // Configuration
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB (OpenAI limit)
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest) {
     const audioFileForOpenAI = await toFile(Buffer.from(arrayBuffer), filename);
 
     // 7. Call OpenAI Whisper API
-    const transcription = await openai.audio.transcriptions.create({
+    const transcription = await getOpenAI().audio.transcriptions.create({
       file: audioFileForOpenAI,
       model: 'whisper-1',
       language: language,
