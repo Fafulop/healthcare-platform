@@ -67,7 +67,7 @@ export function validateQuotationTransition(
   // Determine if confirmation is required
   const requiresConfirmation =
     newStatus === 'CANCELLED' ||
-    (currentStatus === 'APPROVED' && newStatus !== 'CANCELLED');
+    currentStatus === 'APPROVED';
 
   let confirmationMessage: string | undefined;
   if (requiresConfirmation) {
