@@ -42,22 +42,6 @@ export default function NewArticlePage() {
     }
   }, [formData.title, slugManuallyEdited]);
 
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
-
   const handleSubmit = async (publishNow: boolean) => {
     // Validation
     if (!formData.title?.trim()) {

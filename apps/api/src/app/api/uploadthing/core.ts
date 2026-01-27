@@ -61,7 +61,7 @@ export const ourFileRouter = {
   // Medical images (patient photos, wounds, X-rays, lab results, etc.)
   medicalImages: f({
     image: {
-      maxFileSize: "10MB",
+      maxFileSize: "16MB",
       maxFileCount: 10
     }
   })
@@ -73,7 +73,7 @@ export const ourFileRouter = {
   // Medical videos (procedures, examinations, etc.)
   medicalVideos: f({
     video: {
-      maxFileSize: "100MB",
+      maxFileSize: "128MB",
       maxFileCount: 5
     }
   })
@@ -85,7 +85,7 @@ export const ourFileRouter = {
   // Medical audio (voice notes, recordings, etc.)
   medicalAudio: f({
     audio: {
-      maxFileSize: "20MB",
+      maxFileSize: "32MB",
       maxFileCount: 10
     }
   })
