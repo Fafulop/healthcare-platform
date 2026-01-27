@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { Decimal } from '@prisma/client/runtime/library';
 
 // PUT /api/practice-management/products/:id/components/:componentId
 // Update a product component (recalculates cost)
@@ -74,8 +73,8 @@ export async function PUT(
     const component = await prisma.productComponent.update({
       where: { id: componentId },
       data: {
-        quantity: new Decimal(quantity),
-        calculatedCost: new Decimal(calculatedCost),
+        quantity,
+        calculatedCost,
         order: order !== undefined ? order : existingComponent.order
       },
       include: {

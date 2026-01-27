@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { Decimal } from '@prisma/client/runtime/library';
 
 // GET /api/practice-management/products/:id/components
 // Get all components for a product
@@ -153,8 +152,8 @@ export async function POST(
       data: {
         productId,
         attributeValueId,
-        quantity: new Decimal(quantity),
-        calculatedCost: new Decimal(calculatedCost),
+        quantity,
+        calculatedCost,
         order: order || 0
       },
       include: {

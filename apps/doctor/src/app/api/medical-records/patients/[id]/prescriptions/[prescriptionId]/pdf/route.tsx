@@ -94,7 +94,14 @@ export async function GET(
     // Generate PDF
     const pdfBuffer = await renderToBuffer(
       <PrescriptionPDF
-        prescription={prescription}
+        prescription={{
+          ...prescription,
+          prescriptionDate: prescription.prescriptionDate.toISOString(),
+          patient: {
+            ...prescription.patient,
+            dateOfBirth: prescription.patient.dateOfBirth.toISOString(),
+          },
+        }}
         clinicInfo={{
           name: doctor.doctorFullName,
           address: doctor.clinicAddress || undefined,
