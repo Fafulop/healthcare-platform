@@ -54,8 +54,7 @@ export async function POST(
         fileUrl,
         fileSize: fileSize || 0,
         fileType: fileType || 'application/octet-stream',
-        attachmentType: 'file',
-        uploadedBy: doctor.userId
+        attachmentType: 'file'
       }
     });
 
