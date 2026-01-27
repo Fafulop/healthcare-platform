@@ -57,8 +57,8 @@ export async function updateMemory(
 
   const newTurns: ConversationTurn[] = [
     ...existingTurns,
-    { role: 'user', content: userMessage, timestamp: new Date().toISOString() },
-    { role: 'assistant', content: assistantMessage, timestamp: new Date().toISOString() },
+    { role: 'user' as const, content: userMessage, timestamp: new Date().toISOString() },
+    { role: 'assistant' as const, content: assistantMessage, timestamp: new Date().toISOString() },
   ].slice(-(MEMORY_MAX_TURNS * 2));
 
   await prisma.llmConversationMemory.upsert({
