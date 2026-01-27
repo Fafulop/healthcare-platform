@@ -178,6 +178,8 @@ function generateAssistantWelcomeMessage(
     NEW_PRESCRIPTION: `He registrado la prescripción. Extraje ${fieldCount} campos. ¿Hay algo más que agregar?`,
     CREATE_APPOINTMENT_SLOTS: `He registrado la configuración de horarios. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
     CREATE_LEDGER_ENTRY: `He registrado el movimiento de dinero. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
+    CREATE_SALE: `He registrado la información de la venta. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
+    CREATE_PURCHASE: `He registrado la información de la compra. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
   };
 
   return messages[sessionType];
