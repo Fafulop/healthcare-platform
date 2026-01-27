@@ -1,4 +1,4 @@
-import type { BadgeVariant } from '@healthcare/ui';
+type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'secondary';
 
 /**
  * Maps status strings to Badge component variants
