@@ -89,8 +89,7 @@ export async function POST(
         metodoPago: cfdiData.metodoPago,
         formaPago: cfdiData.formaPago,
         moneda: cfdiData.moneda,
-        notes: notes || null,
-        uploadedBy: doctor.userId
+        notes: notes || null
       }
     });
 

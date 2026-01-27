@@ -59,8 +59,7 @@ export async function POST(
         rfcEmisor: rfcEmisor || null,
         rfcReceptor: rfcReceptor || null,
         total: total ? parseFloat(total) : null,
-        notes: notes || null,
-        uploadedBy: doctor.userId
+        notes: notes || null
       }
     });
 
