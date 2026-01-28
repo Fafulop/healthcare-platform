@@ -16,22 +16,31 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
     throw new Error("No active session - please log in");
   }
 
-  // Create a simple auth payload with user info
-  // The API will verify this against the database
-  const authPayload = {
-    email: session.user.email,
-    role: session.user.role,
-    timestamp: Date.now(),
-  };
+  // Get proper JWT token from the get-token endpoint
+  // This endpoint creates a signed JWT that the API can verify
+  try {
+    const tokenResponse = await fetch('/api/auth/get-token', {
+      credentials: 'include',
+    });
 
-  // Encode as base64 (not for security, just for transport)
-  // Real security comes from validating against database
-  const token = btoa(JSON.stringify(authPayload));
+    if (!tokenResponse.ok) {
+      throw new Error(`Failed to get auth token: ${tokenResponse.status}`);
+    }
 
-  return {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  };
+    const { token } = await tokenResponse.json();
+
+    if (!token) {
+      throw new Error('No token returned from auth endpoint');
+    }
+
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  } catch (error) {
+    console.error('Error getting auth token:', error);
+    throw new Error('Failed to authenticate - please try logging in again');
+  }
 }
 
 /**

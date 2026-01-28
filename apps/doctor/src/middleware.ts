@@ -24,9 +24,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Check if user has DOCTOR role
+  // Check if user has DOCTOR or ADMIN role
+  // Admins can access doctor portal for testing/support
   // If user has a session but no role or wrong role, sign them out
-  if (!session.user.role || session.user.role !== "DOCTOR") {
+  const allowedRoles = ["DOCTOR", "ADMIN"];
+  if (!session.user.role || !allowedRoles.includes(session.user.role)) {
     console.log(`⚠️ [DOCTOR MIDDLEWARE] User ${session.user.email} has invalid role: ${session.user.role} - redirecting to signout`);
 
     // Redirect to signout to clear the invalid session

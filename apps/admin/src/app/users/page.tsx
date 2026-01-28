@@ -269,28 +269,22 @@ export default function UsersManagementPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {user.role === "DOCTOR" && (
-                          <>
-                            <button
-                              onClick={() => handleLinkDoctor(user)}
-                              className="text-blue-600 hover:text-blue-900 mr-4"
-                              disabled={updating}
-                            >
-                              {user.doctor ? "Cambiar" : "Vincular"}
-                            </button>
-                            {user.doctor && (
-                              <button
-                                onClick={() => handleUnlinkDoctor(user.id)}
-                                className="text-red-600 hover:text-red-900"
-                                disabled={updating}
-                              >
-                                Desvincular
-                              </button>
-                            )}
-                          </>
-                        )}
-                        {user.role === "ADMIN" && (
-                          <span className="text-gray-400 text-xs">N/A</span>
+                        {/* Allow both ADMIN and DOCTOR to link to profiles */}
+                        <button
+                          onClick={() => handleLinkDoctor(user)}
+                          className="text-blue-600 hover:text-blue-900 mr-4"
+                          disabled={updating}
+                        >
+                          {user.doctor ? "Cambiar" : "Vincular"}
+                        </button>
+                        {user.doctor && (
+                          <button
+                            onClick={() => handleUnlinkDoctor(user.id)}
+                            className="text-red-600 hover:text-red-900"
+                            disabled={updating}
+                          >
+                            Desvincular
+                          </button>
                         )}
                       </td>
                     </tr>

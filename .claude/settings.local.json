@@ -6,7 +6,18 @@
       "Bash(git add:*)",
       "Bash(ls:*)",
       "Bash(dir:*)",
-      "Bash(pnpm turbo run build:*)"
+      "Bash(pnpm turbo run build:*)",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\pg_dump.exe\" \"postgresql://postgres:kTNIFtTLEbZMqSJNepsqNjUTAsqqxYqr@switchyard.proxy.rlwy.net:44641/railway\" --no-owner --no-acl --clean --if-exists --file=railway-postgres-backup.sql)",
+      "Bash(railway status:*)",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\pg_dump.exe\" \"postgresql://postgres:postgres@localhost:5432/docs_mono\" --no-owner --no-acl --clean --if-exists --file=local-postgres-backup.sql)",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -f local-postgres-backup.sql)",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -c \"SELECT id, doctor_full_name FROM public.doctors;\")",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:postgres@localhost:5432/docs_mono\" -c \"SELECT id, doctor_full_name FROM public.doctors;\")",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -c \"\\\\dt practice_management.* \")",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -c \"TRUNCATE TABLE public.doctors CASCADE;\")",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -f railway-postgres-backup.sql)",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -c \"SELECT id, doctor_full_name, slug FROM public.doctors ORDER BY created_at;\")",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -c \"SELECT COUNT\\(*\\) as bookings FROM public.bookings;\")"
     ]
   }
 }

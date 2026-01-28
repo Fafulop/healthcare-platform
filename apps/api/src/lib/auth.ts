@@ -108,13 +108,14 @@ export async function requireAdminAuth(request: Request) {
 }
 
 /**
- * Require DOCTOR role for API endpoint
+ * Require DOCTOR or ADMIN role for API endpoint
+ * ADMIN users have access to all doctor-related endpoints for management
  */
 export async function requireDoctorAuth(request: Request) {
   const user = await validateAuthToken(request);
 
-  if (user.role !== 'DOCTOR') {
-    throw new Error('Doctor access required');
+  if (!['DOCTOR', 'ADMIN'].includes(user.role)) {
+    throw new Error('Doctor or Admin access required');
   }
 
   return user;
@@ -135,32 +136,43 @@ export async function requireStaffAuth(request: Request) {
 
 /**
  * Get authenticated doctor's profile
- * Requires user to be a DOCTOR and have a linked doctor profile
+ * Requires user to be a DOCTOR or ADMIN with a linked doctor profile
+ * ADMIN users can access all doctor endpoints for management purposes
  */
 export async function getAuthenticatedDoctor(request: Request) {
   const user = await requireDoctorAuth(request);
 
-  if (!user.doctorId) {
+  // For DOCTOR role, doctorId is required
+  // For ADMIN role, doctorId may be null (they can manage all doctors)
+  if (user.role === 'DOCTOR' && !user.doctorId) {
     throw new Error('No doctor profile linked to this account');
   }
 
-  // Get the doctor profile
-  const doctor = await prisma.doctor.findUnique({
-    where: { id: user.doctorId },
-    select: {
-      id: true,
-      slug: true,
-      doctorFullName: true,
-      primarySpecialty: true,
-    },
-  });
+  // If user has a doctorId, fetch the profile
+  if (user.doctorId) {
+    const doctor = await prisma.doctor.findUnique({
+      where: { id: user.doctorId },
+      select: {
+        id: true,
+        slug: true,
+        doctorFullName: true,
+        primarySpecialty: true,
+      },
+    });
 
-  if (!doctor) {
-    throw new Error('Doctor profile not found');
+    if (!doctor && user.role === 'DOCTOR') {
+      throw new Error('Doctor profile not found');
+    }
+
+    return {
+      user,
+      doctor,
+    };
   }
 
+  // ADMIN without doctorId - return null for doctor
   return {
     user,
-    doctor,
+    doctor: null,
   };
 }

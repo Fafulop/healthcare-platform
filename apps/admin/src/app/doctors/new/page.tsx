@@ -155,13 +155,21 @@ export default function NewDoctorWizard() {
         body: JSON.stringify(formData),
       });
 
+      console.log("Response status:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+
+      // Get response text first to see what we're actually getting
+      const responseText = await response.text();
+      console.log("Raw response body:", responseText);
+
       // Try to parse JSON response
       let result;
       try {
-        result = await response.json();
+        result = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
         console.error("Error parsing response:", parseError);
-        throw new Error(`Server responded with status ${response.status} but response was not JSON`);
+        console.error("Response text was:", responseText);
+        throw new Error(`Server responded with status ${response.status} but response was not valid JSON`);
       }
 
       if (!response.ok) {

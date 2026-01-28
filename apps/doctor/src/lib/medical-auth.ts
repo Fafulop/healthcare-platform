@@ -24,9 +24,10 @@ export async function requireDoctorAuth(
 
   const user = session.user as any;
 
-  // Check role is DOCTOR
-  if (user.role !== 'DOCTOR') {
-    throw new Error('Doctor role required');
+  // Check role is DOCTOR or ADMIN
+  // ADMIN users can access medical records for support/management purposes
+  if (!['DOCTOR', 'ADMIN'].includes(user.role)) {
+    throw new Error('Doctor or Admin role required');
   }
 
   // Get doctor ID from session
