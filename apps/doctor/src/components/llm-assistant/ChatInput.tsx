@@ -41,7 +41,7 @@ export function ChatInput({
   const canSend = text.trim().length > 0 && !disabled;
 
   return (
-    <div className="border-t border-gray-200 p-3 bg-white">
+    <div className="border-t border-gray-200 p-2 sm:p-3 bg-white">
       <div className="flex items-center gap-2">
         <input
           ref={inputRef}
@@ -52,7 +52,7 @@ export function ChatInput({
           placeholder={placeholder}
           disabled={disabled}
           className={`
-            flex-1 px-4 py-2 rounded-full border border-gray-200
+            flex-1 px-3 sm:px-4 py-2.5 sm:py-2 rounded-full border border-gray-200
             focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400
             text-sm placeholder:text-gray-400
             ${disabled ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}
@@ -63,7 +63,7 @@ export function ChatInput({
           onClick={handleSend}
           disabled={!canSend}
           className={`
-            w-10 h-10 rounded-full flex items-center justify-center transition-all
+            w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0
             ${canSend
               ? 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
               : 'bg-gray-100 text-gray-300 cursor-not-allowed'

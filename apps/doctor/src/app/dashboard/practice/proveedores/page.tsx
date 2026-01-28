@@ -140,49 +140,51 @@ export default function ProveedoresPage() {
   return (
     <div className="p-4 sm:p-6">
           {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
+          <div className="mb-4 sm:mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Proveedores</h1>
-                <p className="text-gray-600 mt-1">Gestiona tus relaciones con proveedores</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Proveedores</h1>
+                <p className="text-gray-600 mt-1 text-sm sm:text-base">Gestiona tus relaciones con proveedores</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <Link
                   href="/dashboard/practice/compras"
-                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2 rounded-md transition-colors"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-3 sm:px-4 py-2 rounded-md transition-colors text-sm sm:text-base"
                 >
-                  <Package className="w-5 h-5" />
-                  Compras
+                  <Package className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">Compras</span>
+                  <span className="sm:hidden">Compras</span>
                 </Link>
                 <Link
                   href="/dashboard/practice/proveedores/new"
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md transition-colors"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 sm:px-4 py-2 rounded-md transition-colors text-sm sm:text-base"
                 >
-                  <Plus className="w-5 h-5" />
-                  Nuevo Proveedor
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">Nuevo Proveedor</span>
+                  <span className="sm:hidden">Nuevo</span>
                 </Link>
               </div>
             </div>
           </div>
 
           {/* Filters */}
-          <div className="bg-white rounded-lg shadow p-4 mb-6">
-            <div className="flex flex-col md:flex-row gap-4">
+          <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-4 sm:mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar proveedores por nombre, contacto, correo o ciudad..."
+                  placeholder="Buscar proveedores..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                 />
               </div>
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="border border-gray-300 rounded-lg px-3 sm:px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
               >
                 <option value="all">Todos los Estados</option>
                 <option value="active">Activo</option>
@@ -193,7 +195,7 @@ export default function ProveedoresPage() {
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-4 sm:mb-6 text-sm sm:text-base">
               {error}
             </div>
           )}
@@ -201,107 +203,165 @@ export default function ProveedoresPage() {
           {/* Suppliers List */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
           {filteredProveedores.length === 0 ? (
-            <div className="text-center py-12">
-              <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">
+            <div className="text-center py-8 sm:py-12">
+              <Truck className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
+              <p className="text-gray-500 text-base sm:text-lg">
                 {search || statusFilter !== 'all' ? 'Ningún proveedor coincide con los filtros' : 'Aún no hay proveedores'}
               </p>
-              <p className="text-gray-400 text-sm mt-2">
-                {!search && statusFilter === 'all' && 'Crea tu primer proveedor para comenzar a gestionar vendedores'}
+              <p className="text-gray-400 text-xs sm:text-sm mt-2">
+                {!search && statusFilter === 'all' && 'Crea tu primer proveedor para comenzar'}
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Empresa
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Contacto
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Correo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Teléfono
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ubicación
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredProveedores.map(proveedor => (
-                    <tr key={proveedor.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-gray-900">{proveedor.businessName}</div>
+            <>
+              {/* Mobile Cards View */}
+              <div className="block sm:hidden divide-y divide-gray-200">
+                {filteredProveedores.map(proveedor => (
+                  <div key={proveedor.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 text-sm truncate">{proveedor.businessName}</h3>
                         {proveedor.industry && (
-                          <div className="text-sm text-gray-500">{proveedor.industry}</div>
+                          <p className="text-xs text-gray-500 truncate">{proveedor.industry}</p>
                         )}
-                        {proveedor.rfc && (
-                          <div className="text-xs text-gray-400">RFC: {proveedor.rfc}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-gray-900">
-                        {proveedor.contactName || '-'}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {proveedor.email || '-'}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {proveedor.phone || '-'}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {proveedor.city && proveedor.state
-                          ? `${proveedor.city}, ${proveedor.state}`
-                          : proveedor.city || proveedor.state || '-'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          proveedor.status === 'active'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {proveedor.status === 'active' ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/dashboard/practice/proveedores/${proveedor.id}/edit`}
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(proveedor)}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+                      </div>
+                      <span className={`flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        proveedor.status === 'active'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {proveedor.status === 'active' ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-xs text-gray-600 mb-3">
+                      {proveedor.contactName && (
+                        <p><span className="text-gray-400">Contacto:</span> {proveedor.contactName}</p>
+                      )}
+                      {proveedor.phone && (
+                        <p><span className="text-gray-400">Tel:</span> {proveedor.phone}</p>
+                      )}
+                      {proveedor.email && (
+                        <p className="truncate"><span className="text-gray-400">Email:</span> {proveedor.email}</p>
+                      )}
+                      {(proveedor.city || proveedor.state) && (
+                        <p><span className="text-gray-400">Ubicación:</span> {proveedor.city && proveedor.state ? `${proveedor.city}, ${proveedor.state}` : proveedor.city || proveedor.state}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                      <Link
+                        href={`/dashboard/practice/proveedores/${proveedor.id}/edit`}
+                        className="flex-1 flex items-center justify-center gap-1 text-blue-600 hover:bg-blue-50 py-1.5 rounded-lg transition-colors text-xs font-medium"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Editar
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(proveedor)}
+                        className="flex-1 flex items-center justify-center gap-1 text-red-600 hover:bg-red-50 py-1.5 rounded-lg transition-colors text-xs font-medium"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Empresa
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Contacto
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Correo
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Teléfono
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ubicación
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredProveedores.map(proveedor => (
+                      <tr key={proveedor.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 sm:px-6 py-3 sm:py-4">
+                          <div className="font-semibold text-gray-900">{proveedor.businessName}</div>
+                          {proveedor.industry && (
+                            <div className="text-sm text-gray-500">{proveedor.industry}</div>
+                          )}
+                          {proveedor.rfc && (
+                            <div className="text-xs text-gray-400">RFC: {proveedor.rfc}</div>
+                          )}
+                        </td>
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-gray-900">
+                          {proveedor.contactName || '-'}
+                        </td>
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-gray-600">
+                          {proveedor.email || '-'}
+                        </td>
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-gray-600">
+                          {proveedor.phone || '-'}
+                        </td>
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-gray-600">
+                          {proveedor.city && proveedor.state
+                            ? `${proveedor.city}, ${proveedor.state}`
+                            : proveedor.city || proveedor.state || '-'}
+                        </td>
+                        <td className="px-4 sm:px-6 py-3 sm:py-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            proveedor.status === 'active'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {proveedor.status === 'active' ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-6 py-3 sm:py-4">
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Link
+                              href={`/dashboard/practice/proveedores/${proveedor.id}/edit`}
+                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1.5 sm:p-2 rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(proveedor)}
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1.5 sm:p-2 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
           </div>
 
           {/* Summary */}
           {filteredProveedores.length > 0 && (
-            <div className="mt-4 text-center text-sm text-gray-600">
+            <div className="mt-3 sm:mt-4 text-center text-xs sm:text-sm text-gray-600">
               Mostrando {filteredProveedores.length} de {proveedores.length} proveedor{proveedores.length !== 1 ? 'es' : ''}
             </div>
           )}
