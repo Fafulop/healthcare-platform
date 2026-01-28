@@ -137,42 +137,31 @@ export async function requireStaffAuth(request: Request) {
 /**
  * Get authenticated doctor's profile
  * Requires user to be a DOCTOR or ADMIN with a linked doctor profile
- * ADMIN users can access all doctor endpoints for management purposes
  */
 export async function getAuthenticatedDoctor(request: Request) {
   const user = await requireDoctorAuth(request);
 
-  // For DOCTOR role, doctorId is required
-  // For ADMIN role, doctorId may be null (they can manage all doctors)
-  if (user.role === 'DOCTOR' && !user.doctorId) {
+  // Both DOCTOR and ADMIN require a linked doctor profile
+  if (!user.doctorId) {
     throw new Error('No doctor profile linked to this account');
   }
 
-  // If user has a doctorId, fetch the profile
-  if (user.doctorId) {
-    const doctor = await prisma.doctor.findUnique({
-      where: { id: user.doctorId },
-      select: {
-        id: true,
-        slug: true,
-        doctorFullName: true,
-        primarySpecialty: true,
-      },
-    });
+  const doctor = await prisma.doctor.findUnique({
+    where: { id: user.doctorId },
+    select: {
+      id: true,
+      slug: true,
+      doctorFullName: true,
+      primarySpecialty: true,
+    },
+  });
 
-    if (!doctor && user.role === 'DOCTOR') {
-      throw new Error('Doctor profile not found');
-    }
-
-    return {
-      user,
-      doctor,
-    };
+  if (!doctor) {
+    throw new Error('Doctor profile not found');
   }
 
-  // ADMIN without doctorId - return null for doctor
   return {
     user,
-    doctor: null,
+    doctor,
   };
 }
