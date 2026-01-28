@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@healthcare/auth";
 import jwt from "jsonwebtoken";
 
 /**
  * Get JWT token for API authentication
- * NextAuth v5 uses encrypted session tokens (JWE), so we decode the session
- * and create a new signed JWT (not encrypted) for the API to verify
+ * Creates a signed JWT token from the NextAuth session for API authentication
  */
 export async function GET(request: NextRequest) {
   try {
-    // Extract and decode NextAuth session (NOT raw - we need the decrypted payload)
     const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
     if (!secret) {
@@ -19,20 +17,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get the decrypted session payload (NOT raw)
-    const session = await getToken({
-      req: request as any,
-      secret,
-      raw: false, // Get decoded payload, not encrypted token
-    });
+    // Get session using the same auth() function as middleware
+    const session = await auth();
 
-    console.log('[GET-TOKEN] Session from getToken():', session ? 'Found' : 'NULL');
-    console.log('[GET-TOKEN] Session email:', session?.email);
-    console.log('[GET-TOKEN] Session doctorId:', session?.doctorId);
-    console.log('[GET-TOKEN] Cookies:', request.cookies.getAll().map(c => c.name));
+    console.log('[GET-TOKEN] Session from auth():', session ? 'Found' : 'NULL');
+    console.log('[GET-TOKEN] User email:', session?.user?.email);
+    console.log('[GET-TOKEN] User doctorId:', session?.user?.doctorId);
 
-    if (!session || !session.email) {
-      console.error('[GET-TOKEN] Session or email missing - returning 401');
+    if (!session || !session.user || !session.user.email) {
+      console.error('[GET-TOKEN] Session or user missing - returning 401');
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
@@ -42,13 +35,13 @@ export async function GET(request: NextRequest) {
     // Create a new signed JWT (not encrypted) for the API to verify
     const apiToken = jwt.sign(
       {
-        email: session.email,
-        sub: session.sub,
-        name: session.name,
-        picture: session.picture,
-        userId: session.userId,
-        role: session.role,
-        doctorId: session.doctorId,
+        email: session.user.email,
+        sub: session.user.id,
+        name: session.user.name,
+        picture: session.user.image,
+        userId: session.user.id,
+        role: session.user.role,
+        doctorId: session.user.doctorId,
       },
       secret,
       {
@@ -57,6 +50,7 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    console.log('[GET-TOKEN] Created API token for:', session.user.email);
     return NextResponse.json({ token: apiToken });
   } catch (error) {
     console.error("Error getting token:", error);
