@@ -26,7 +26,13 @@ export async function GET(request: NextRequest) {
       raw: false, // Get decoded payload, not encrypted token
     });
 
+    console.log('[GET-TOKEN] Session from getToken():', session ? 'Found' : 'NULL');
+    console.log('[GET-TOKEN] Session email:', session?.email);
+    console.log('[GET-TOKEN] Session doctorId:', session?.doctorId);
+    console.log('[GET-TOKEN] Cookies:', request.cookies.getAll().map(c => c.name));
+
     if (!session || !session.email) {
+      console.error('[GET-TOKEN] Session or email missing - returning 401');
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
