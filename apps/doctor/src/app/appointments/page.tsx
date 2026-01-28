@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle, Mic } from "lucide-react";
 import CreateSlotsModal from "./CreateSlotsModal";
-import Sidebar from "@/components/layout/Sidebar";
 import { authFetch } from "@/lib/auth-fetch";
 import {
   VoiceRecordingModal,
@@ -37,12 +36,6 @@ function formatDateString(dateStr: string, locale: string = 'es-MX', options?: I
   } catch {
     return dateStr;
   }
-}
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
 }
 
 interface AppointmentSlot {
@@ -88,7 +81,6 @@ export default function AppointmentsPage() {
 
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -174,27 +166,10 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     if (doctorId) {
-      fetchDoctorProfile(doctorId);
       fetchSlots();
       fetchBookings();
     }
   }, [doctorId, selectedDate]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchSlots = async () => {
     if (!doctorId) return;
@@ -423,85 +398,127 @@ export default function AppointmentsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar doctorProfile={doctorProfile} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Gestión de Citas</h1>
-                <p className="text-gray-600 mt-1">Crea y gestiona tu disponibilidad</p>
-              </div>
-              <div className="flex gap-3">
-                {/* Voice Assistant Button */}
-                <button
-                  onClick={() => setVoiceModalOpen(true)}
-                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
-                >
-                  <Mic className="w-5 h-5" />
-                  Asistente de Voz
-                </button>
-                {/* Manual Create Button */}
-                <button
-                  onClick={() => {
-                    setVoiceFormData(undefined); // Clear voice data
-                    setShowCreateModal(true);
-                  }}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  Crear Horarios
-                </button>
-              </div>
-            </div>
-
-            {/* View Toggle */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode("calendar")}
-                className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                  viewMode === "calendar"
-                    ? "bg-blue-50 text-blue-700"
-                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                Vista de Calendario
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                  viewMode === "list"
-                    ? "bg-blue-50 text-blue-700"
-                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                Vista de Lista
-              </button>
-            </div>
+    <div className="p-4 sm:p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestión de Citas</h1>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">Crea y gestiona tu disponibilidad</p>
           </div>
-
-          {/* Citas Reservadas */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-600" />
-                Citas Reservadas
-              </h2>
-            <span className="text-sm font-medium text-gray-600">
-              {bookings.length} total
-            </span>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            {/* Voice Assistant Button */}
+            <button
+              onClick={() => setVoiceModalOpen(true)}
+              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
+            >
+              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Asistente de Voz</span>
+              <span className="sm:hidden">Voz</span>
+            </button>
+            {/* Manual Create Button */}
+            <button
+              onClick={() => {
+                setVoiceFormData(undefined); // Clear voice data
+                setShowCreateModal(true);
+              }}
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
+            >
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Crear Horarios</span>
+              <span className="sm:hidden">Crear</span>
+            </button>
           </div>
+        </div>
 
-          {bookings.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <User className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Sin reservas aún</p>
+        {/* View Toggle */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setViewMode("calendar")}
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
+              viewMode === "calendar"
+                ? "bg-blue-50 text-blue-700"
+                : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <span className="hidden sm:inline">Vista de </span>Calendario
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
+              viewMode === "list"
+                ? "bg-blue-50 text-blue-700"
+                : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <span className="hidden sm:inline">Vista de </span>Lista
+          </button>
+        </div>
+      </div>
+
+      {/* Citas Reservadas */}
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+            Citas Reservadas
+          </h2>
+          <span className="text-xs sm:text-sm font-medium text-gray-600">
+            {bookings.length} total
+          </span>
+        </div>
+
+        {bookings.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <User className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Sin reservas aún</p>
+          </div>
+        ) : (
+          <>
+            {/* Mobile Cards View */}
+            <div className="block sm:hidden space-y-3">
+              {bookings.map((booking) => (
+                <div key={booking.id} className="border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">{booking.patientName}</p>
+                      <p className="text-xs text-gray-600">
+                        {formatDateString(booking.slot.date, "es-MX", {
+                          month: "short",
+                          day: "numeric",
+                        })} · {booking.slot.startTime}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(
+                        booking.status
+                      )}`}
+                    >
+                      {getStatusIcon(booking.status)}
+                      {booking.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-600">
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-3 h-3" />
+                      {booking.patientPhone}
+                    </span>
+                    <span className="flex items-center gap-1 font-semibold text-gray-900">
+                      <DollarSign className="w-3 h-3" />
+                      {booking.finalPrice}
+                    </span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-100">
+                    <code className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono">
+                      {booking.confirmationCode}
+                    </code>
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
+
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
@@ -577,242 +594,342 @@ export default function AppointmentsPage() {
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
-
-        {/* Calendar View */}
-        {viewMode === "calendar" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Calendar */}
-            <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {selectedDate.toLocaleDateString("es-MX", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      setSelectedDate(
-                        new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1)
-                      )
-                    }
-                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
-                  >
-                    ‹ Anterior
-                  </button>
-                  <button
-                    onClick={() => setSelectedDate(new Date())}
-                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
-                  >
-                    Hoy
-                  </button>
-                  <button
-                    onClick={() =>
-                      setSelectedDate(
-                        new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1)
-                      )
-                    }
-                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
-                  >
-                    Siguiente ›
-                  </button>
-                </div>
-              </div>
-
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-2">
-                {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
-                  <div
-                    key={day}
-                    className="text-center font-semibold text-gray-600 text-sm py-2"
-                  >
-                    {day}
-                  </div>
-                ))}
-
-                {calendarDays.map((day, index) => {
-                  if (day === null) {
-                    return <div key={`empty-${index}`} className="aspect-square" />;
-                  }
-
-                  const dateStr = getLocalDateString(new Date(year, month, day));
-                  const hasSlots = datesWithSlots.has(dateStr);
-                  const isSelected = dateStr === selectedDateStr;
-                  const isToday =
-                    dateStr === getLocalDateString(new Date());
-
-                  return (
-                    <button
-                      key={day}
-                      onClick={() => setSelectedDate(new Date(year, month, day))}
-                      className={`aspect-square p-2 rounded-lg text-center transition-all ${
-                        isSelected
-                          ? "bg-blue-600 text-white font-bold"
-                          : isToday
-                          ? "bg-blue-100 text-blue-700 font-semibold"
-                          : hasSlots
-                          ? "bg-blue-200 text-blue-900 font-medium hover:bg-blue-300"
-                          : "text-gray-600 hover:bg-gray-100"
-                      }`}
-                    >
-                      <div className="text-sm">{day}</div>
-                      {hasSlots && !isSelected && (
-                        <div className="w-1 h-1 bg-blue-600 rounded-full mx-auto mt-1" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Horarios para Fecha Seleccionada */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-bold text-gray-900 mb-4">
-                {selectedDate.toLocaleDateString("es-MX", {
-                  weekday: "long",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </h3>
-
-              {slotsForSelectedDate.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Sin horarios para esta fecha</p>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {slotsForSelectedDate.map((slot) => (
-                    <div
-                      key={slot.id}
-                      className={`p-3 rounded-lg border-2 ${
-                        slot.status === "BOOKED"
-                          ? "bg-blue-50 border-blue-200"
-                          : slot.status === "BLOCKED"
-                          ? "bg-gray-100 border-gray-300"
-                          : "bg-blue-50 border-blue-200"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-gray-600" />
-                          <span className="font-semibold text-gray-900">
-                            {slot.startTime} - {slot.endTime}
-                          </span>
-                        </div>
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            slot.status === "AVAILABLE"
-                              ? "bg-blue-100 text-blue-700"
-                              : slot.status === "BOOKED"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-gray-200 text-gray-700"
-                          }`}
-                        >
-                          {slot.status}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                        <DollarSign className="w-4 h-4" />
-                        <span className="font-medium">${slot.finalPrice}</span>
-                        {slot.discount && (
-                          <span className="text-xs text-blue-600">
-                            ({slot.discountType === "PERCENTAGE" ? `${slot.discount}%` : `$${slot.discount}`} off)
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => toggleBlockSlot(slot.id, slot.status)}
-                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs"
-                          title={slot.status === "BLOCKED" ? "Desbloquear" : "Bloquear"}
-                        >
-                          {slot.status === "BLOCKED" ? (
-                            <Unlock className="w-3 h-3" />
-                          ) : (
-                            <Lock className="w-3 h-3" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => deleteSlot(slot.id)}
-                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs"
-                          disabled={slot.currentBookings > 0}
-                          title={slot.currentBookings > 0 ? "No se puede eliminar - tiene reservas" : "Eliminar"}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          </>
         )}
+      </div>
 
-        {/* Vista de Lista */}
-        {viewMode === "list" && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Todos los Horarios</h2>
-
-              {/* Barra de Acciones Masivas */}
-              {selectedSlots.size > 0 && (
-                <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    {selectedSlots.size} seleccionados
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => bulkAction("block")}
-                      className="flex items-center gap-1 px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm font-medium transition-colors"
-                    >
-                      <Lock className="w-3 h-3" />
-                      Bloquear
-                    </button>
-                    <button
-                      onClick={() => bulkAction("unblock")}
-                      className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
-                    >
-                      <Unlock className="w-3 h-3" />
-                      Desbloquear
-                    </button>
-                    <button
-                      onClick={() => bulkAction("delete")}
-                      className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition-colors"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Eliminar
-                    </button>
-                    <button
-                      onClick={() => setSelectedSlots(new Set())}
-                      className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-sm font-medium transition-colors"
-                    >
-                      Limpiar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {slots.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>Aún no se han creado horarios de citas</p>
+      {/* Calendar View */}
+      {viewMode === "calendar" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Calendar */}
+          <div className="lg:col-span-2 bg-white rounded-lg shadow p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 capitalize">
+                {selectedDate.toLocaleDateString("es-MX", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </h2>
+              <div className="flex gap-1 sm:gap-2">
                 <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+                  onClick={() =>
+                    setSelectedDate(
+                      new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1)
+                    )
+                  }
+                  className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 text-sm"
                 >
-                  Crea tus primeros horarios
+                  <span className="hidden sm:inline">‹ </span>Ant.
+                </button>
+                <button
+                  onClick={() => setSelectedDate(new Date())}
+                  className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 text-sm"
+                >
+                  Hoy
+                </button>
+                <button
+                  onClick={() =>
+                    setSelectedDate(
+                      new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1)
+                    )
+                  }
+                  className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 text-sm"
+                >
+                  Sig.<span className="hidden sm:inline"> ›</span>
                 </button>
               </div>
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-1 sm:gap-2">
+              {["D", "L", "M", "M", "J", "V", "S"].map((day, idx) => (
+                <div
+                  key={`${day}-${idx}`}
+                  className="text-center font-semibold text-gray-600 text-xs sm:text-sm py-1 sm:py-2"
+                >
+                  <span className="sm:hidden">{day}</span>
+                  <span className="hidden sm:inline">{["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][idx]}</span>
+                </div>
+              ))}
+
+              {calendarDays.map((day, index) => {
+                if (day === null) {
+                  return <div key={`empty-${index}`} className="aspect-square" />;
+                }
+
+                const dateStr = getLocalDateString(new Date(year, month, day));
+                const hasSlots = datesWithSlots.has(dateStr);
+                const isSelected = dateStr === selectedDateStr;
+                const isToday =
+                  dateStr === getLocalDateString(new Date());
+
+                return (
+                  <button
+                    key={day}
+                    onClick={() => setSelectedDate(new Date(year, month, day))}
+                    className={`aspect-square p-1 sm:p-2 rounded-lg text-center transition-all ${
+                      isSelected
+                        ? "bg-blue-600 text-white font-bold"
+                        : isToday
+                        ? "bg-blue-100 text-blue-700 font-semibold"
+                        : hasSlots
+                        ? "bg-blue-200 text-blue-900 font-medium hover:bg-blue-300"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    <div className="text-xs sm:text-sm">{day}</div>
+                    {hasSlots && !isSelected && (
+                      <div className="w-1 h-1 bg-blue-600 rounded-full mx-auto mt-0.5 sm:mt-1" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Horarios para Fecha Seleccionada */}
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <h3 className="font-bold text-gray-900 mb-4 text-sm sm:text-base capitalize">
+              {selectedDate.toLocaleDateString("es-MX", {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              })}
+            </h3>
+
+            {slotsForSelectedDate.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 opacity-50" />
+                <p className="text-xs sm:text-sm">Sin horarios para esta fecha</p>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="space-y-2 sm:space-y-3 max-h-72 sm:max-h-96 overflow-y-auto">
+                {slotsForSelectedDate.map((slot) => (
+                  <div
+                    key={slot.id}
+                    className={`p-2 sm:p-3 rounded-lg border-2 ${
+                      slot.status === "BOOKED"
+                        ? "bg-blue-50 border-blue-200"
+                        : slot.status === "BLOCKED"
+                        ? "bg-gray-100 border-gray-300"
+                        : "bg-blue-50 border-blue-200"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-1 sm:mb-2">
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600" />
+                        <span className="font-semibold text-gray-900 text-xs sm:text-sm">
+                          {slot.startTime} - {slot.endTime}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-medium ${
+                          slot.status === "AVAILABLE"
+                            ? "bg-blue-100 text-blue-700"
+                            : slot.status === "BOOKED"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-200 text-gray-700"
+                        }`}
+                      >
+                        {slot.status}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">
+                      <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="font-medium">${slot.finalPrice}</span>
+                      {slot.discount && (
+                        <span className="text-[10px] sm:text-xs text-blue-600">
+                          ({slot.discountType === "PERCENTAGE" ? `${slot.discount}%` : `$${slot.discount}`} off)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-1 sm:gap-2 mt-1 sm:mt-2">
+                      <button
+                        onClick={() => toggleBlockSlot(slot.id, slot.status)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-[10px] sm:text-xs"
+                        title={slot.status === "BLOCKED" ? "Desbloquear" : "Bloquear"}
+                      >
+                        {slot.status === "BLOCKED" ? (
+                          <Unlock className="w-3 h-3" />
+                        ) : (
+                          <Lock className="w-3 h-3" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => deleteSlot(slot.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-[10px] sm:text-xs"
+                        disabled={slot.currentBookings > 0}
+                        title={slot.currentBookings > 0 ? "No se puede eliminar - tiene reservas" : "Eliminar"}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Vista de Lista */}
+      {viewMode === "list" && (
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Todos los Horarios</h2>
+
+            {/* Barra de Acciones Masivas */}
+            {selectedSlots.size > 0 && (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 bg-blue-50 border border-blue-200 rounded-lg p-2 sm:px-4 sm:py-2">
+                <span className="text-xs sm:text-sm font-medium text-gray-700 text-center sm:text-left">
+                  {selectedSlots.size} seleccionados
+                </span>
+                <div className="flex gap-1 sm:gap-2 flex-wrap justify-center sm:justify-start">
+                  <button
+                    onClick={() => bulkAction("block")}
+                    className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs sm:text-sm font-medium transition-colors"
+                  >
+                    <Lock className="w-3 h-3" />
+                    <span className="hidden sm:inline">Bloquear</span>
+                  </button>
+                  <button
+                    onClick={() => bulkAction("unblock")}
+                    className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs sm:text-sm font-medium transition-colors"
+                  >
+                    <Unlock className="w-3 h-3" />
+                    <span className="hidden sm:inline">Desbloquear</span>
+                  </button>
+                  <button
+                    onClick={() => bulkAction("delete")}
+                    className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs sm:text-sm font-medium transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span className="hidden sm:inline">Eliminar</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedSlots(new Set())}
+                    className="px-2 sm:px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs sm:text-sm font-medium transition-colors"
+                  >
+                    <span className="sm:hidden">×</span>
+                    <span className="hidden sm:inline">Limpiar</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {slots.length === 0 ? (
+            <div className="text-center py-8 sm:py-12 text-gray-500">
+              <Calendar className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 opacity-50" />
+              <p className="text-sm sm:text-base">Aún no se han creado horarios de citas</p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="mt-3 sm:mt-4 text-blue-600 hover:text-blue-700 font-medium text-sm sm:text-base"
+              >
+                Crea tus primeros horarios
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Mobile Cards View */}
+              <div className="block sm:hidden space-y-2">
+                {/* Select All Button */}
+                <button
+                  onClick={toggleAllSlots}
+                  className="flex items-center gap-2 mb-3 text-sm text-gray-600"
+                >
+                  {selectedSlots.size === slots.length ? (
+                    <CheckSquare className="w-5 h-5 text-blue-600" />
+                  ) : (
+                    <Square className="w-5 h-5 text-gray-400" />
+                  )}
+                  {selectedSlots.size === slots.length ? "Deseleccionar todo" : "Seleccionar todo"}
+                </button>
+
+                {slots.map((slot) => (
+                  <div
+                    key={slot.id}
+                    className={`border rounded-lg p-3 ${
+                      selectedSlots.has(slot.id) ? "border-blue-400 bg-blue-50" : "border-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <button
+                        onClick={() => toggleSlotSelection(slot.id)}
+                        className="p-1 -ml-1"
+                      >
+                        {selectedSlots.has(slot.id) ? (
+                          <CheckSquare className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <Square className="w-5 h-5 text-gray-400" />
+                        )}
+                      </button>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          slot.status === "AVAILABLE"
+                            ? "bg-blue-100 text-blue-700"
+                            : slot.status === "BOOKED"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-200 text-gray-700"
+                        }`}
+                      >
+                        {slot.status}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Fecha:</span>
+                        <span className="font-medium">{formatDateString(slot.date)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Hora:</span>
+                        <span className="font-medium">{slot.startTime} - {slot.endTime}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Precio:</span>
+                        <span className="font-medium">${slot.finalPrice}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Reservas:</span>
+                        <span className="font-medium">{slot.currentBookings}/{slot.maxBookings}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100">
+                      <button
+                        onClick={() => toggleBlockSlot(slot.id, slot.status)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs font-medium"
+                      >
+                        {slot.status === "BLOCKED" ? (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            Desbloquear
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            Bloquear
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => deleteSlot(slot.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs font-medium"
+                        disabled={slot.currentBookings > 0}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
@@ -902,59 +1019,58 @@ export default function AppointmentsPage() {
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Create Slots Modal */}
-        {doctorId && (
-          <CreateSlotsModal
-            isOpen={showCreateModal}
-            onClose={() => {
-              setShowCreateModal(false);
-              setVoiceFormData(undefined); // Clear voice data on close
-            }}
-            doctorId={doctorId}
-            onSuccess={() => {
-              fetchSlots();
-              fetchBookings();
-              setVoiceFormData(undefined); // Clear voice data after success
-            }}
-            initialData={voiceFormData} // Pass voice data to pre-fill form
-          />
-        )}
-
-        {/* Voice Recording Modal */}
-        {doctorId && (
-          <VoiceRecordingModal
-            isOpen={voiceModalOpen}
-            onClose={() => setVoiceModalOpen(false)}
-            sessionType="CREATE_APPOINTMENT_SLOTS"
-            context={{
-              patientId: undefined,
-              doctorId: doctorId,
-            }}
-            onComplete={handleVoiceModalComplete}
-          />
-        )}
-
-        {/* Voice Chat Sidebar */}
-        {doctorId && (
-          <VoiceChatSidebar
-            isOpen={voiceSidebarOpen}
-            onClose={() => {
-              setVoiceSidebarOpen(false);
-              setSidebarInitialData(undefined);
-            }}
-            sessionType="CREATE_APPOINTMENT_SLOTS"
-            patientId="appointments" // Use a special ID for appointments context
-            doctorId={doctorId}
-            onConfirm={handleVoiceConfirm}
-            initialData={sidebarInitialData}
-          />
-        )}
+            </>
+          )}
         </div>
-      </main>
+      )}
+
+      {/* Create Slots Modal */}
+      {doctorId && (
+        <CreateSlotsModal
+          isOpen={showCreateModal}
+          onClose={() => {
+            setShowCreateModal(false);
+            setVoiceFormData(undefined); // Clear voice data on close
+          }}
+          doctorId={doctorId}
+          onSuccess={() => {
+            fetchSlots();
+            fetchBookings();
+            setVoiceFormData(undefined); // Clear voice data after success
+          }}
+          initialData={voiceFormData} // Pass voice data to pre-fill form
+        />
+      )}
+
+      {/* Voice Recording Modal */}
+      {doctorId && (
+        <VoiceRecordingModal
+          isOpen={voiceModalOpen}
+          onClose={() => setVoiceModalOpen(false)}
+          sessionType="CREATE_APPOINTMENT_SLOTS"
+          context={{
+            patientId: undefined,
+            doctorId: doctorId,
+          }}
+          onComplete={handleVoiceModalComplete}
+        />
+      )}
+
+      {/* Voice Chat Sidebar */}
+      {doctorId && (
+        <VoiceChatSidebar
+          isOpen={voiceSidebarOpen}
+          onClose={() => {
+            setVoiceSidebarOpen(false);
+            setSidebarInitialData(undefined);
+          }}
+          sessionType="CREATE_APPOINTMENT_SLOTS"
+          patientId="appointments" // Use a special ID for appointments context
+          doctorId={doctorId}
+          onConfirm={handleVoiceConfirm}
+          initialData={sidebarInitialData}
+        />
+      )}
     </div>
   );
 }

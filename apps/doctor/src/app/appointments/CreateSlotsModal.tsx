@@ -239,33 +239,34 @@ export default function CreateSlotsModal({
   const finalPrice = calculateFinalPrice();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full my-8">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full my-4 sm:my-8">
         {/* Header */}
-        <div className="bg-blue-600 px-6 py-4 rounded-t-lg flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Calendar className="w-6 h-6" />
-            Crear Horarios de Citas
+        <div className="bg-blue-600 px-4 sm:px-6 py-3 sm:py-4 rounded-t-lg flex items-center justify-between">
+          <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
+            <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+            <span className="hidden sm:inline">Crear Horarios de Citas</span>
+            <span className="sm:hidden">Crear Horarios</span>
           </h2>
           <button
             onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+            className="text-white hover:bg-white/20 rounded-lg p-1.5 sm:p-2 transition-colors"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-h-[calc(100vh-120px)] sm:max-h-[calc(100vh-200px)] overflow-y-auto">
           {/* Mode Selection */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
               Modo de Creación
             </label>
-            <div className="flex gap-4">
+            <div className="flex gap-2 sm:gap-4">
               <button
                 type="button"
                 onClick={() => setMode("single")}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-medium transition-all text-sm sm:text-base ${
                   mode === "single"
                     ? "bg-blue-100 text-blue-700 border-2 border-blue-500"
                     : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200"
@@ -276,7 +277,7 @@ export default function CreateSlotsModal({
               <button
                 type="button"
                 onClick={() => setMode("recurring")}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-medium transition-all text-sm sm:text-base ${
                   mode === "recurring"
                     ? "bg-blue-100 text-blue-700 border-2 border-blue-500"
                     : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200"
@@ -288,10 +289,10 @@ export default function CreateSlotsModal({
           </div>
 
           {/* Date Selection */}
-          <div className="border-t pt-6">
+          <div className="border-t pt-4 sm:pt-6">
             {mode === "single" ? (
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Seleccionar Fecha *
                 </label>
                 <input
@@ -299,15 +300,15 @@ export default function CreateSlotsModal({
                   value={singleDate}
                   onChange={(e) => setSingleDate(e.target.value)}
                   min={getLocalDateString(new Date())}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                   required
                 />
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                       Fecha de Inicio *
                     </label>
                     <input
@@ -315,12 +316,12 @@ export default function CreateSlotsModal({
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       min={getLocalDateString(new Date())}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                       Fecha de Fin *
                     </label>
                     <input
@@ -328,23 +329,23 @@ export default function CreateSlotsModal({
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       min={startDate || getLocalDateString(new Date())}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                       required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                     Repetir en *
                   </label>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-1.5 sm:gap-2 flex-wrap">
                     {dayNames.map((day, index) => (
                       <button
                         key={index}
                         type="button"
                         onClick={() => toggleDay(index)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                        className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                           daysOfWeek.includes(index)
                             ? "bg-blue-600 text-white"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -360,105 +361,105 @@ export default function CreateSlotsModal({
           </div>
 
           {/* Time Settings */}
-          <div className="border-t pt-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-4">
-              <Clock className="inline w-4 h-4 mr-2" />
+          <div className="border-t pt-4 sm:pt-6">
+            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3 sm:mb-4">
+              <Clock className="inline w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
               Configuración de Horario
             </label>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
                   Hora de Inicio *
                 </label>
                 <input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
                   Hora de Fin *
                 </label>
                 <input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                   required
                 />
               </div>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-600 mb-2">
+            <div className="mb-3 sm:mb-4">
+              <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
                 Duración del Horario *
               </label>
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setDuration(30)}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                  className={`flex-1 py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                     duration === 30
                       ? "bg-blue-600 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  30 minutos
+                  30 min
                 </button>
                 <button
                   type="button"
                   onClick={() => setDuration(60)}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                  className={`flex-1 py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                     duration === 60
                       ? "bg-blue-600 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  60 minutos
+                  60 min
                 </button>
               </div>
             </div>
 
             {/* Break Time */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <label className="flex items-center gap-2 mb-3">
+            <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+              <label className="flex items-center gap-2 mb-2 sm:mb-3">
                 <input
                   type="checkbox"
                   checked={hasBreak}
                   onChange={(e) => setHasBreak(e.target.checked)}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-xs sm:text-sm font-medium text-gray-700">
                   Agregar descanso (opcional)
                 </span>
               </label>
 
               {hasBreak && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">
-                      Inicio de Descanso
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
+                      Inicio
                     </label>
                     <input
                       type="time"
                       value={breakStart}
                       onChange={(e) => setBreakStart(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">
-                      Fin de Descanso
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
+                      Fin
                     </label>
                     <input
                       type="time"
                       value={breakEnd}
                       onChange={(e) => setBreakEnd(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
                   </div>
                 </div>
@@ -467,14 +468,14 @@ export default function CreateSlotsModal({
           </div>
 
           {/* Precios */}
-          <div className="border-t pt-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-4">
-              <DollarSign className="inline w-4 h-4 mr-2" />
+          <div className="border-t pt-4 sm:pt-6">
+            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3 sm:mb-4">
+              <DollarSign className="inline w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
               Precios
             </label>
 
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-600 mb-2">
+            <div className="mb-3 sm:mb-4">
+              <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
                 Precio Base (MXN) *
               </label>
               <input
@@ -484,55 +485,57 @@ export default function CreateSlotsModal({
                 min="0"
                 step="0.01"
                 placeholder="500.00"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                 required
               />
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-4">
-              <label className="flex items-center gap-2 mb-3">
+            <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+              <label className="flex items-center gap-2 mb-2 sm:mb-3">
                 <input
                   type="checkbox"
                   checked={hasDiscount}
                   onChange={(e) => setHasDiscount(e.target.checked)}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-xs sm:text-sm font-medium text-gray-700">
                   Agregar descuento (opcional)
                 </span>
               </label>
 
               {hasDiscount && (
-                <div className="space-y-3">
-                  <div className="flex gap-3">
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="flex gap-2 sm:gap-3">
                     <button
                       type="button"
                       onClick={() => setDiscountType("PERCENTAGE")}
-                      className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${
+                      className={`flex-1 py-1.5 sm:py-2 px-2 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                         discountType === "PERCENTAGE"
                           ? "bg-blue-600 text-white"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
-                      <Percent className="inline w-4 h-4 mr-1" />
-                      Porcentaje
+                      <Percent className="inline w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                      <span className="hidden sm:inline">Porcentaje</span>
+                      <span className="sm:hidden">%</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setDiscountType("FIXED")}
-                      className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${
+                      className={`flex-1 py-1.5 sm:py-2 px-2 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                         discountType === "FIXED"
                           ? "bg-blue-600 text-white"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
-                      <DollarSign className="inline w-4 h-4 mr-1" />
-                      Cantidad Fija
+                      <DollarSign className="inline w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                      <span className="hidden sm:inline">Cantidad Fija</span>
+                      <span className="sm:hidden">Fijo</span>
                     </button>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
                       Descuento {discountType === "PERCENTAGE" ? "(%)" : "(MXN)"}
                     </label>
                     <input
@@ -543,17 +546,17 @@ export default function CreateSlotsModal({
                       max={discountType === "PERCENTAGE" ? "100" : undefined}
                       step={discountType === "PERCENTAGE" ? "1" : "0.01"}
                       placeholder={discountType === "PERCENTAGE" ? "10" : "50.00"}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
                   </div>
 
                   {discount && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <p className="text-sm text-green-800">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-2 sm:p-3">
+                      <p className="text-xs sm:text-sm text-green-800">
                         <strong>Precio Final:</strong> ${finalPrice.toFixed(2)}
                         {discountType === "PERCENTAGE" && discount && (
-                          <span className="ml-2 text-blue-600">
-                            ({discount}% de descuento)
+                          <span className="ml-1 sm:ml-2 text-blue-600">
+                            ({discount}% off)
                           </span>
                         )}
                       </p>
@@ -566,15 +569,15 @@ export default function CreateSlotsModal({
 
           {/* Vista Previa */}
           {previewSlots > 0 && (
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 sm:p-4">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-blue-900">Vista Previa</p>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Esto creará aproximadamente <strong>{previewSlots} horarios de citas</strong>
+                  <p className="font-semibold text-blue-900 text-sm sm:text-base">Vista Previa</p>
+                  <p className="text-xs sm:text-sm text-blue-700 mt-0.5 sm:mt-1">
+                    Esto creará <strong>{previewSlots} horarios</strong>
                     {mode === "recurring" && (
-                      <span> en el rango de fechas seleccionado</span>
+                      <span className="hidden sm:inline"> en el rango de fechas seleccionado</span>
                     )}
                   </p>
                 </div>
@@ -583,11 +586,11 @@ export default function CreateSlotsModal({
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-colors"
+              className="flex-1 px-4 sm:px-6 py-2 sm:py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-colors text-sm sm:text-base"
               disabled={isSubmitting}
             >
               Cancelar
@@ -595,15 +598,18 @@ export default function CreateSlotsModal({
             <button
               type="submit"
               disabled={isSubmitting || previewSlots === 0}
-              className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Creando...
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                  <span className="hidden sm:inline">Creando...</span>
                 </>
               ) : (
-                `Crear ${previewSlots} Horario${previewSlots !== 1 ? "s" : ""}`
+                <>
+                  <span className="hidden sm:inline">Crear {previewSlots} Horario{previewSlots !== 1 ? "s" : ""}</span>
+                  <span className="sm:hidden">Crear ({previewSlots})</span>
+                </>
               )}
             </button>
           </div>
