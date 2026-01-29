@@ -10,12 +10,33 @@ export interface VitalsData {
   vitalsOther?: string;
 }
 
+export interface VitalsFieldVisibility {
+  bloodPressure?: boolean;
+  heartRate?: boolean;
+  temperature?: boolean;
+  weight?: boolean;
+  height?: boolean;
+  oxygenSat?: boolean;
+  other?: boolean;
+}
+
 interface VitalsInputProps {
   vitals: VitalsData;
   onChange: (vitals: VitalsData) => void;
+  fieldVisibility?: VitalsFieldVisibility;
 }
 
-export function VitalsInput({ vitals, onChange }: VitalsInputProps) {
+export function VitalsInput({ vitals, onChange, fieldVisibility }: VitalsInputProps) {
+  // Default all fields to visible if no visibility config provided
+  const visibility = {
+    bloodPressure: fieldVisibility?.bloodPressure ?? true,
+    heartRate: fieldVisibility?.heartRate ?? true,
+    temperature: fieldVisibility?.temperature ?? true,
+    weight: fieldVisibility?.weight ?? true,
+    height: fieldVisibility?.height ?? true,
+    oxygenSat: fieldVisibility?.oxygenSat ?? true,
+    other: fieldVisibility?.other ?? true,
+  };
   const handleChange = (field: keyof VitalsData, value: string | number) => {
     onChange({
       ...vitals,
@@ -28,125 +49,139 @@ export function VitalsInput({ vitals, onChange }: VitalsInputProps) {
       <h2 className="text-lg font-semibold text-gray-900 mb-4">Signos Vitales</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Blood Pressure */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Presión Arterial
-          </label>
-          <input
-            type="text"
-            value={vitals.vitalsBloodPressure || ''}
-            onChange={(e) => handleChange('vitalsBloodPressure', e.target.value)}
-            placeholder="120/80"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">mmHg</p>
-        </div>
+        {visibility.bloodPressure && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Presión Arterial
+            </label>
+            <input
+              type="text"
+              value={vitals.vitalsBloodPressure || ''}
+              onChange={(e) => handleChange('vitalsBloodPressure', e.target.value)}
+              placeholder="120/80"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">mmHg</p>
+          </div>
+        )}
 
         {/* Heart Rate */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Frecuencia Cardíaca
-          </label>
-          <input
-            type="number"
-            value={vitals.vitalsHeartRate || ''}
-            onChange={(e) => handleChange('vitalsHeartRate', e.target.value ? parseInt(e.target.value) : '')}
-            placeholder="72"
-            min="0"
-            max="300"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">lpm (latidos por minuto)</p>
-        </div>
+        {visibility.heartRate && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Frecuencia Cardíaca
+            </label>
+            <input
+              type="number"
+              value={vitals.vitalsHeartRate || ''}
+              onChange={(e) => handleChange('vitalsHeartRate', e.target.value ? parseInt(e.target.value) : '')}
+              placeholder="72"
+              min="0"
+              max="300"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">lpm (latidos por minuto)</p>
+          </div>
+        )}
 
         {/* Temperature */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Temperatura
-          </label>
-          <input
-            type="number"
-            step="0.1"
-            value={vitals.vitalsTemperature || ''}
-            onChange={(e) => handleChange('vitalsTemperature', e.target.value ? parseFloat(e.target.value) : '')}
-            placeholder="36.5"
-            min="30"
-            max="45"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">°C</p>
-        </div>
+        {visibility.temperature && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Temperatura
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={vitals.vitalsTemperature || ''}
+              onChange={(e) => handleChange('vitalsTemperature', e.target.value ? parseFloat(e.target.value) : '')}
+              placeholder="36.5"
+              min="30"
+              max="45"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">°C</p>
+          </div>
+        )}
 
         {/* Weight */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Peso
-          </label>
-          <input
-            type="number"
-            step="0.1"
-            value={vitals.vitalsWeight || ''}
-            onChange={(e) => handleChange('vitalsWeight', e.target.value ? parseFloat(e.target.value) : '')}
-            placeholder="70.5"
-            min="0"
-            max="500"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">kg</p>
-        </div>
+        {visibility.weight && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Peso
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={vitals.vitalsWeight || ''}
+              onChange={(e) => handleChange('vitalsWeight', e.target.value ? parseFloat(e.target.value) : '')}
+              placeholder="70.5"
+              min="0"
+              max="500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">kg</p>
+          </div>
+        )}
 
         {/* Height */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Altura
-          </label>
-          <input
-            type="number"
-            step="0.1"
-            value={vitals.vitalsHeight || ''}
-            onChange={(e) => handleChange('vitalsHeight', e.target.value ? parseFloat(e.target.value) : '')}
-            placeholder="170"
-            min="0"
-            max="300"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">cm</p>
-        </div>
+        {visibility.height && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Altura
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={vitals.vitalsHeight || ''}
+              onChange={(e) => handleChange('vitalsHeight', e.target.value ? parseFloat(e.target.value) : '')}
+              placeholder="170"
+              min="0"
+              max="300"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">cm</p>
+          </div>
+        )}
 
         {/* Oxygen Saturation */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Saturación de Oxígeno
-          </label>
-          <input
-            type="number"
-            value={vitals.vitalsOxygenSat || ''}
-            onChange={(e) => handleChange('vitalsOxygenSat', e.target.value ? parseInt(e.target.value) : '')}
-            placeholder="98"
-            min="0"
-            max="100"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">% (SpO2)</p>
-        </div>
+        {visibility.oxygenSat && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Saturación de Oxígeno
+            </label>
+            <input
+              type="number"
+              value={vitals.vitalsOxygenSat || ''}
+              onChange={(e) => handleChange('vitalsOxygenSat', e.target.value ? parseInt(e.target.value) : '')}
+              placeholder="98"
+              min="0"
+              max="100"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">% (SpO2)</p>
+          </div>
+        )}
 
         {/* Other Vitals */}
-        <div className="md:col-span-2 lg:col-span-3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Otros Signos Vitales
-          </label>
-          <textarea
-            value={vitals.vitalsOther || ''}
-            onChange={(e) => handleChange('vitalsOther', e.target.value)}
-            rows={2}
-            placeholder="Otros signos vitales o notas adicionales..."
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+        {visibility.other && (
+          <div className="md:col-span-2 lg:col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Otros Signos Vitales
+            </label>
+            <textarea
+              value={vitals.vitalsOther || ''}
+              onChange={(e) => handleChange('vitalsOther', e.target.value)}
+              rows={2}
+              placeholder="Otros signos vitales o notas adicionales..."
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        )}
       </div>
 
-      {/* BMI Calculation */}
-      {vitals.vitalsWeight && vitals.vitalsHeight && (
+      {/* BMI Calculation - Show only if both weight and height are visible and have values */}
+      {visibility.weight && visibility.height && vitals.vitalsWeight && vitals.vitalsHeight && (
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Índice de Masa Corporal (IMC):</span>

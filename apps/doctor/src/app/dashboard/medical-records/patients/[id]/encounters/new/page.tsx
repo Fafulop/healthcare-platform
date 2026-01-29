@@ -6,7 +6,8 @@ import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Loader2, Mic } from 'lucide-react';
 import Link from 'next/link';
-import { EncounterForm, type EncounterFormData } from '@/components/medical-records/EncounterForm';
+import { EncounterForm, type EncounterFormData, type TemplateConfig } from '@/components/medical-records/EncounterForm';
+import { TemplateSelector } from '@/components/medical-records/TemplateSelector';
 import {
   AIDraftBanner,
   VoiceChatSidebar,
@@ -14,6 +15,7 @@ import {
 } from '@/components/voice-assistant';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoiceEncounterData, VoiceStructuredData } from '@/types/voice-assistant';
+import type { EncounterTemplate, FieldVisibility, DefaultValues } from '@/types/encounter-template';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -70,6 +72,9 @@ export default function NewEncounterPage() {
   });
 
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
+
+  // Template state
+  const [selectedTemplate, setSelectedTemplate] = useState<EncounterTemplate | null>(null);
 
   // Voice recording modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -214,6 +219,32 @@ export default function NewEncounterPage() {
     console.log('[Page] Form should now be filled with voice data');
   }, []);
 
+  // Handle template selection
+  const handleTemplateSelect = useCallback((template: EncounterTemplate | null) => {
+    setSelectedTemplate(template);
+  }, []);
+
+  // Build template config for the form
+  const templateConfig: TemplateConfig | undefined = selectedTemplate
+    ? {
+        fieldVisibility: selectedTemplate.fieldVisibility as FieldVisibility,
+        defaultValues: selectedTemplate.defaultValues as DefaultValues,
+        useSOAPMode: selectedTemplate.useSOAPMode,
+      }
+    : undefined;
+
+  // Track template usage
+  const trackTemplateUsage = async (templateId: string) => {
+    try {
+      await fetch(`/api/medical-records/templates/${templateId}/usage`, {
+        method: 'POST',
+      });
+    } catch (err) {
+      console.error('Error tracking template usage:', err);
+      // Don't throw - tracking shouldn't block the encounter creation
+    }
+  };
+
   const handleSubmit = async (formData: EncounterFormData) => {
     const res = await fetch(`/api/medical-records/patients/${patientId}/encounters`, {
       method: 'POST',
@@ -232,6 +263,11 @@ export default function NewEncounterPage() {
 
     if (!data?.data?.id) {
       throw new Error('Invalid response format');
+    }
+
+    // Track template usage if a template was selected
+    if (selectedTemplate) {
+      await trackTemplateUsage(selectedTemplate.id);
     }
 
     // Redirect to encounter detail
@@ -278,6 +314,19 @@ export default function NewEncounterPage() {
         </div>
       </div>
 
+      {/* Template Selector */}
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+            Plantilla:
+          </label>
+          <TemplateSelector
+            selectedTemplateId={selectedTemplate?.id || null}
+            onSelect={handleTemplateSelect}
+          />
+        </div>
+      </div>
+
       {/* AI Draft Banner */}
       {showAIBanner && aiMetadata && (
         <AIDraftBanner
@@ -289,10 +338,12 @@ export default function NewEncounterPage() {
       )}
 
       <EncounterForm
+        key={selectedTemplate?.id || 'no-template'} // Re-mount form when template changes
         patientId={patientId}
         initialData={voiceInitialData}
         onSubmit={handleSubmit}
         submitLabel="Crear Consulta"
+        templateConfig={templateConfig}
       />
 
       {/* Voice Recording Modal */}

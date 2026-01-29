@@ -104,6 +104,7 @@ model Doctor {
 
   // Medical Records Relations (EMR)
   patients           Patient[]
+  encounterTemplates EncounterTemplate[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -1406,6 +1407,49 @@ model PatientAuditLog {
   @@index([doctorId, timestamp])
   @@index([userId, timestamp])
   @@map("patient_audit_logs")
+  @@schema("medical_records")
+}
+
+// -----------------------------------------------------------------------------
+// ENCOUNTER TEMPLATES
+// -----------------------------------------------------------------------------
+
+/// Encounter Template
+/// Allows doctors to create personalized encounter templates ("plantillas")
+/// for different use cases (e.g., "Consulta Dermatología", "Seguimiento Diabetes")
+model EncounterTemplate {
+  id              String   @id @default(cuid())
+  doctorId        String   @map("doctor_id")
+
+  // Metadata
+  name            String   @db.VarChar(100)    // "Consulta Dermatología"
+  description     String?  @db.Text
+  icon            String?  @db.VarChar(50)     // Lucide icon name
+  color           String?  @db.VarChar(20)     // Tailwind color
+
+  // Configuration (JSON)
+  fieldVisibility Json     @map("field_visibility")  // Which fields to show
+  defaultValues   Json     @map("default_values")    // Pre-filled values
+
+  // Settings
+  useSOAPMode     Boolean  @default(false) @map("use_soap_mode")
+  isDefault       Boolean  @default(false) @map("is_default")
+  isActive        Boolean  @default(true)  @map("is_active")
+  displayOrder    Int      @default(0) @map("display_order")
+
+  // Usage tracking
+  usageCount      Int      @default(0) @map("usage_count")
+  lastUsedAt      DateTime? @map("last_used_at")
+
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  doctor          Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, name])
+  @@index([doctorId, isActive])
+  @@map("encounter_templates")
   @@schema("medical_records")
 }
 

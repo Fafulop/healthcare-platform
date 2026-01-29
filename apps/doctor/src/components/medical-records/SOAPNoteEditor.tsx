@@ -7,12 +7,27 @@ export interface SOAPNoteData {
   plan?: string;
 }
 
+export interface SOAPFieldVisibility {
+  subjective?: boolean;
+  objective?: boolean;
+  assessment?: boolean;
+  plan?: boolean;
+}
+
 interface SOAPNoteEditorProps {
   soapNotes: SOAPNoteData;
   onChange: (soapNotes: SOAPNoteData) => void;
+  fieldVisibility?: SOAPFieldVisibility;
 }
 
-export function SOAPNoteEditor({ soapNotes, onChange }: SOAPNoteEditorProps) {
+export function SOAPNoteEditor({ soapNotes, onChange, fieldVisibility }: SOAPNoteEditorProps) {
+  // Default all fields to visible if no visibility config provided
+  const visibility = {
+    subjective: fieldVisibility?.subjective ?? true,
+    objective: fieldVisibility?.objective ?? true,
+    assessment: fieldVisibility?.assessment ?? true,
+    plan: fieldVisibility?.plan ?? true,
+  };
   const handleChange = (field: keyof SOAPNoteData, value: string) => {
     onChange({
       ...soapNotes,
@@ -31,100 +46,108 @@ export function SOAPNoteEditor({ soapNotes, onChange }: SOAPNoteEditorProps) {
 
       <div className="space-y-6">
         {/* Subjective */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold">
-              S
+        {visibility.subjective && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold">
+                S
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900">
+                  Subjetivo (S)
+                </label>
+                <p className="text-xs text-gray-500">
+                  Síntomas reportados por el paciente, historia clínica relevante
+                </p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-900">
-                Subjetivo (S)
-              </label>
-              <p className="text-xs text-gray-500">
-                Síntomas reportados por el paciente, historia clínica relevante
-              </p>
-            </div>
+            <textarea
+              value={soapNotes.subjective || ''}
+              onChange={(e) => handleChange('subjective', e.target.value)}
+              rows={4}
+              placeholder="¿Qué le trae al paciente? ¿Cuáles son sus síntomas? ¿Cómo se siente?&#10;Ejemplo: 'Paciente refiere dolor de cabeza desde hace 3 días, localizado en región frontal, intensidad 7/10...'"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
           </div>
-          <textarea
-            value={soapNotes.subjective || ''}
-            onChange={(e) => handleChange('subjective', e.target.value)}
-            rows={4}
-            placeholder="¿Qué le trae al paciente? ¿Cuáles son sus síntomas? ¿Cómo se siente?&#10;Ejemplo: 'Paciente refiere dolor de cabeza desde hace 3 días, localizado en región frontal, intensidad 7/10...'"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          />
-        </div>
+        )}
 
         {/* Objective */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-700 font-semibold">
-              O
+        {visibility.objective && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-700 font-semibold">
+                O
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900">
+                  Objetivo (O)
+                </label>
+                <p className="text-xs text-gray-500">
+                  Hallazgos del examen físico, datos objetivos, resultados de pruebas
+                </p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-900">
-                Objetivo (O)
-              </label>
-              <p className="text-xs text-gray-500">
-                Hallazgos del examen físico, datos objetivos, resultados de pruebas
-              </p>
-            </div>
+            <textarea
+              value={soapNotes.objective || ''}
+              onChange={(e) => handleChange('objective', e.target.value)}
+              rows={4}
+              placeholder="Hallazgos del examen físico, signos observados, resultados de laboratorio...&#10;Ejemplo: 'Paciente alerta y orientado, sin signos de dificultad respiratoria. Auscultación pulmonar normal...'"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+            />
           </div>
-          <textarea
-            value={soapNotes.objective || ''}
-            onChange={(e) => handleChange('objective', e.target.value)}
-            rows={4}
-            placeholder="Hallazgos del examen físico, signos observados, resultados de laboratorio...&#10;Ejemplo: 'Paciente alerta y orientado, sin signos de dificultad respiratoria. Auscultación pulmonar normal...'"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
-          />
-        </div>
+        )}
 
         {/* Assessment */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-100 text-yellow-700 font-semibold">
-              A
+        {visibility.assessment && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-100 text-yellow-700 font-semibold">
+                A
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900">
+                  Evaluación (A)
+                </label>
+                <p className="text-xs text-gray-500">
+                  Diagnóstico, impresión clínica, análisis de la situación
+                </p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-900">
-                Evaluación (A)
-              </label>
-              <p className="text-xs text-gray-500">
-                Diagnóstico, impresión clínica, análisis de la situación
-              </p>
-            </div>
+            <textarea
+              value={soapNotes.assessment || ''}
+              onChange={(e) => handleChange('assessment', e.target.value)}
+              rows={4}
+              placeholder="Diagnóstico diferencial, impresión diagnóstica, análisis clínico...&#10;Ejemplo: 'Cefalea tensional probablemente secundaria a estrés laboral. Descartar migraña...'"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm"
+            />
           </div>
-          <textarea
-            value={soapNotes.assessment || ''}
-            onChange={(e) => handleChange('assessment', e.target.value)}
-            rows={4}
-            placeholder="Diagnóstico diferencial, impresión diagnóstica, análisis clínico...&#10;Ejemplo: 'Cefalea tensional probablemente secundaria a estrés laboral. Descartar migraña...'"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm"
-          />
-        </div>
+        )}
 
         {/* Plan */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold">
-              P
+        {visibility.plan && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold">
+                P
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900">
+                  Plan (P)
+                </label>
+                <p className="text-xs text-gray-500">
+                  Plan de tratamiento, medicamentos, estudios adicionales, seguimiento
+                </p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-900">
-                Plan (P)
-              </label>
-              <p className="text-xs text-gray-500">
-                Plan de tratamiento, medicamentos, estudios adicionales, seguimiento
-              </p>
-            </div>
+            <textarea
+              value={soapNotes.plan || ''}
+              onChange={(e) => handleChange('plan', e.target.value)}
+              rows={4}
+              placeholder="Plan de tratamiento, medicación prescrita, estudios adicionales, educación al paciente...&#10;Ejemplo: 'Iniciar con paracetamol 500mg cada 8 horas. Manejo del estrés. Control en 7 días...'"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            />
           </div>
-          <textarea
-            value={soapNotes.plan || ''}
-            onChange={(e) => handleChange('plan', e.target.value)}
-            rows={4}
-            placeholder="Plan de tratamiento, medicación prescrita, estudios adicionales, educación al paciente...&#10;Ejemplo: 'Iniciar con paracetamol 500mg cada 8 horas. Manejo del estrés. Control en 7 días...'"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-          />
-        </div>
+        )}
       </div>
 
       {/* Helper Tips */}

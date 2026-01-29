@@ -5,6 +5,8 @@ import { Save } from 'lucide-react';
 import Link from 'next/link';
 import { VitalsInput, type VitalsData } from './VitalsInput';
 import { SOAPNoteEditor, type SOAPNoteData } from './SOAPNoteEditor';
+import type { FieldVisibility, DefaultValues } from '@/types/encounter-template';
+import { DEFAULT_FIELD_VISIBILITY } from '@/constants/encounter-fields';
 
 export interface EncounterFormData {
   encounterDate: string;
@@ -28,6 +30,13 @@ export interface EncounterFormData {
   status: string;
 }
 
+// Template configuration for conditional rendering
+export interface TemplateConfig {
+  fieldVisibility: FieldVisibility;
+  defaultValues: DefaultValues;
+  useSOAPMode: boolean;
+}
+
 interface EncounterFormProps {
   patientId: string;
   initialData?: Partial<EncounterFormData>;
@@ -35,6 +44,7 @@ interface EncounterFormProps {
   submitLabel?: string;
   cancelHref?: string;
   isEditing?: boolean;
+  templateConfig?: TemplateConfig; // Template-based configuration
 }
 
 export function EncounterForm({
@@ -43,11 +53,18 @@ export function EncounterForm({
   onSubmit,
   submitLabel = 'Crear Consulta',
   cancelHref,
-  isEditing = false
+  isEditing = false,
+  templateConfig,
 }: EncounterFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Field visibility from template or show all by default
+  const fieldVisibility = templateConfig?.fieldVisibility || DEFAULT_FIELD_VISIBILITY;
+
+  // Initialize SOAP mode from template config or detect from initial data
   const [useSOAP, setUseSOAP] = useState(
+    templateConfig?.useSOAPMode ??
     !!(initialData.subjective || initialData.objective || initialData.assessment || initialData.plan)
   );
 
@@ -61,16 +78,19 @@ export function EncounterForm({
     return `${year}-${month}-${day}`;
   };
 
+  // Merge template default values with initial data (voice data overrides template defaults)
+  const templateDefaults = templateConfig?.defaultValues || {};
+
   const [formData, setFormData] = useState<EncounterFormData>({
     encounterDate: initialData.encounterDate ? initialData.encounterDate.split('T')[0] : getLocalDateString(new Date()),
-    encounterType: initialData.encounterType || 'consultation',
+    encounterType: initialData.encounterType || templateDefaults.encounterType || 'consultation',
     chiefComplaint: initialData.chiefComplaint || '',
-    location: initialData.location || '',
-    clinicalNotes: initialData.clinicalNotes || '',
-    subjective: initialData.subjective || '',
-    objective: initialData.objective || '',
-    assessment: initialData.assessment || '',
-    plan: initialData.plan || '',
+    location: initialData.location || templateDefaults.location || '',
+    clinicalNotes: initialData.clinicalNotes || templateDefaults.clinicalNotes || '',
+    subjective: initialData.subjective || templateDefaults.subjective || '',
+    objective: initialData.objective || templateDefaults.objective || '',
+    assessment: initialData.assessment || templateDefaults.assessment || '',
+    plan: initialData.plan || templateDefaults.plan || '',
     vitalsBloodPressure: initialData.vitalsBloodPressure || '',
     vitalsHeartRate: initialData.vitalsHeartRate,
     vitalsTemperature: initialData.vitalsTemperature,
@@ -79,7 +99,7 @@ export function EncounterForm({
     vitalsOxygenSat: initialData.vitalsOxygenSat,
     vitalsOther: initialData.vitalsOther || '',
     followUpDate: initialData.followUpDate ? initialData.followUpDate.split('T')[0] : '',
-    followUpNotes: initialData.followUpNotes || '',
+    followUpNotes: initialData.followUpNotes || templateDefaults.followUpNotes || '',
     status: initialData.status || 'draft',
   });
 
@@ -216,111 +236,157 @@ export function EncounterForm({
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ubicación
-              </label>
-              <input
-                type="text"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                placeholder="Consultorio, En línea, etc."
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            {fieldVisibility.location && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ubicación
+                </label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="Consultorio, En línea, etc."
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Vitals Section */}
-        <VitalsInput
-          vitals={{
-            vitalsBloodPressure: formData.vitalsBloodPressure,
-            vitalsHeartRate: formData.vitalsHeartRate,
-            vitalsTemperature: formData.vitalsTemperature,
-            vitalsWeight: formData.vitalsWeight,
-            vitalsHeight: formData.vitalsHeight,
-            vitalsOxygenSat: formData.vitalsOxygenSat,
-            vitalsOther: formData.vitalsOther,
-          }}
-          onChange={handleVitalsChange}
-        />
+        {/* Vitals Section - Show if any vitals field is visible */}
+        {(fieldVisibility.vitalsBloodPressure ||
+          fieldVisibility.vitalsHeartRate ||
+          fieldVisibility.vitalsTemperature ||
+          fieldVisibility.vitalsWeight ||
+          fieldVisibility.vitalsHeight ||
+          fieldVisibility.vitalsOxygenSat ||
+          fieldVisibility.vitalsOther) && (
+          <VitalsInput
+            vitals={{
+              vitalsBloodPressure: formData.vitalsBloodPressure,
+              vitalsHeartRate: formData.vitalsHeartRate,
+              vitalsTemperature: formData.vitalsTemperature,
+              vitalsWeight: formData.vitalsWeight,
+              vitalsHeight: formData.vitalsHeight,
+              vitalsOxygenSat: formData.vitalsOxygenSat,
+              vitalsOther: formData.vitalsOther,
+            }}
+            onChange={handleVitalsChange}
+            fieldVisibility={{
+              bloodPressure: fieldVisibility.vitalsBloodPressure,
+              heartRate: fieldVisibility.vitalsHeartRate,
+              temperature: fieldVisibility.vitalsTemperature,
+              weight: fieldVisibility.vitalsWeight,
+              height: fieldVisibility.vitalsHeight,
+              oxygenSat: fieldVisibility.vitalsOxygenSat,
+              other: fieldVisibility.vitalsOther,
+            }}
+          />
+        )}
 
         {/* Clinical Notes - Toggle between simple and SOAP */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Documentación Clínica</h2>
-            <button
-              type="button"
-              onClick={() => setUseSOAP(!useSOAP)}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              {useSOAP ? '← Usar notas simples' : 'Usar notas SOAP →'}
-            </button>
+        {/* Show if any clinical field is visible */}
+        {(fieldVisibility.clinicalNotes ||
+          fieldVisibility.subjective ||
+          fieldVisibility.objective ||
+          fieldVisibility.assessment ||
+          fieldVisibility.plan) && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Documentación Clínica</h2>
+              {/* Only show toggle if both modes have visible fields */}
+              {fieldVisibility.clinicalNotes &&
+                (fieldVisibility.subjective || fieldVisibility.objective || fieldVisibility.assessment || fieldVisibility.plan) && (
+                  <button
+                    type="button"
+                    onClick={() => setUseSOAP(!useSOAP)}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    {useSOAP ? '← Usar notas simples' : 'Usar notas SOAP →'}
+                  </button>
+                )}
+            </div>
+
+            {useSOAP ? (
+              <SOAPNoteEditor
+                soapNotes={{
+                  subjective: formData.subjective,
+                  objective: formData.objective,
+                  assessment: formData.assessment,
+                  plan: formData.plan,
+                }}
+                onChange={handleSOAPChange}
+                fieldVisibility={{
+                  subjective: fieldVisibility.subjective,
+                  objective: fieldVisibility.objective,
+                  assessment: fieldVisibility.assessment,
+                  plan: fieldVisibility.plan,
+                }}
+              />
+            ) : (
+              fieldVisibility.clinicalNotes && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notas Clínicas
+                  </label>
+                  <textarea
+                    name="clinicalNotes"
+                    value={formData.clinicalNotes}
+                    onChange={handleChange}
+                    rows={8}
+                    placeholder="Descripción de la consulta, hallazgos, tratamiento, etc."
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {(fieldVisibility.subjective || fieldVisibility.objective || fieldVisibility.assessment || fieldVisibility.plan) && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      Considere usar <button type="button" onClick={() => setUseSOAP(true)} className="text-blue-600 hover:underline">notas estructuradas SOAP</button> para mejor organización
+                    </p>
+                  )}
+                </div>
+              )
+            )}
           </div>
+        )}
 
-          {useSOAP ? (
-            <SOAPNoteEditor
-              soapNotes={{
-                subjective: formData.subjective,
-                objective: formData.objective,
-                assessment: formData.assessment,
-                plan: formData.plan,
-              }}
-              onChange={handleSOAPChange}
-            />
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notas Clínicas
-              </label>
-              <textarea
-                name="clinicalNotes"
-                value={formData.clinicalNotes}
-                onChange={handleChange}
-                rows={8}
-                placeholder="Descripción de la consulta, hallazgos, tratamiento, etc."
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-sm text-gray-500 mt-2">
-                💡 Considere usar <button type="button" onClick={() => setUseSOAP(true)} className="text-blue-600 hover:underline">notas estructuradas SOAP</button> para mejor organización
-              </p>
-            </div>
-          )}
-        </div>
+        {/* Follow-up - Show if any follow-up field is visible */}
+        {(fieldVisibility.followUpDate || fieldVisibility.followUpNotes) && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Seguimiento</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {fieldVisibility.followUpDate && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha de Seguimiento
+                  </label>
+                  <input
+                    type="date"
+                    name="followUpDate"
+                    value={formData.followUpDate}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
 
-        {/* Follow-up */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Seguimiento</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha de Seguimiento
-              </label>
-              <input
-                type="date"
-                name="followUpDate"
-                value={formData.followUpDate}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notas de Seguimiento
-              </label>
-              <textarea
-                name="followUpNotes"
-                value={formData.followUpNotes}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Instrucciones para la próxima visita"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              {fieldVisibility.followUpNotes && (
+                <div className={fieldVisibility.followUpDate ? "md:col-span-2" : ""}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notas de Seguimiento
+                  </label>
+                  <textarea
+                    name="followUpNotes"
+                    value={formData.followUpNotes}
+                    onChange={handleChange}
+                    rows={3}
+                    placeholder="Instrucciones para la próxima visita"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 justify-end">
