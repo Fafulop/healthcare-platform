@@ -105,6 +105,7 @@ model Doctor {
   // Medical Records Relations (EMR)
   patients           Patient[]
   encounterTemplates EncounterTemplate[]
+  tasks              Task[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -1123,6 +1124,7 @@ model Patient {
   media                PatientMedia[]
   prescriptions        Prescription[]
   auditLogs            PatientAuditLog[]
+  tasks                Task[]
 
   @@unique([doctorId, internalId])
   @@index([doctorId, status])
@@ -1450,6 +1452,36 @@ model EncounterTemplate {
   @@unique([doctorId, name])
   @@index([doctorId, isActive])
   @@map("encounter_templates")
+  @@schema("medical_records")
+}
+
+// -----------------------------------------------------------------------------
+// TASKS (PENDIENTES)
+// -----------------------------------------------------------------------------
+
+model Task {
+  id            String    @id @default(cuid())
+  doctorId      String    @map("doctor_id")
+  title         String    @db.VarChar(200)
+  description   String?   @db.Text
+  dueDate       DateTime? @map("due_date") @db.Date
+  dueTime       String?   @map("due_time") @db.VarChar(5)
+  priority      String    @default("MEDIA") @db.VarChar(10)
+  status        String    @default("PENDIENTE") @db.VarChar(20)
+  category      String    @default("OTRO") @db.VarChar(20)
+  patientId     String?   @map("patient_id")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  doctor        Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient       Patient?  @relation(fields: [patientId], references: [id], onDelete: SetNull)
+
+  @@index([doctorId, status])
+  @@index([doctorId, dueDate])
+  @@index([doctorId, priority])
+  @@index([patientId])
+  @@map("tasks")
   @@schema("medical_records")
 }
 

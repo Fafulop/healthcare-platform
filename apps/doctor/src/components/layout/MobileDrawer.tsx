@@ -8,14 +8,12 @@ import {
   ExternalLink,
   LogOut,
   Package,
-  DollarSign,
   ShoppingCart,
   ShoppingBag,
-  BarChart3,
   X,
-  Users,
-  Truck,
   FileText,
+  Video,
+  CheckSquare,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -40,22 +38,6 @@ function NavItem({ icon: Icon, label, href, active = false, onClick }: NavItemPr
       <Icon className="w-5 h-5" />
       <span className="text-sm font-medium">{label}</span>
     </Link>
-  );
-}
-
-interface NavGroupProps {
-  title: string;
-  children: React.ReactNode;
-}
-
-function NavGroup({ title, children }: NavGroupProps) {
-  return (
-    <div className="py-2">
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 px-4">
-        {title}
-      </h3>
-      <div>{children}</div>
-    </div>
   );
 }
 
@@ -132,67 +114,8 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto">
-          <NavGroup title="Gestión de Consultorio">
-            <NavItem
-              icon={Users}
-              label="Clientes"
-              href="/dashboard/practice/clients"
-              active={pathname?.startsWith("/dashboard/practice/clients")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={Package}
-              label="Productos"
-              href="/dashboard/practice/products"
-              active={pathname?.startsWith("/dashboard/practice/products")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={ShoppingCart}
-              label="Ventas"
-              href="/dashboard/practice/ventas"
-              active={pathname?.startsWith("/dashboard/practice/ventas")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={FileText}
-              label="Cotizaciones"
-              href="/dashboard/practice/cotizaciones"
-              active={pathname?.startsWith("/dashboard/practice/cotizaciones")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={ShoppingBag}
-              label="Compras"
-              href="/dashboard/practice/compras"
-              active={pathname?.startsWith("/dashboard/practice/compras")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={Truck}
-              label="Proveedores"
-              href="/dashboard/practice/proveedores"
-              active={pathname?.startsWith("/dashboard/practice/proveedores")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={DollarSign}
-              label="Flujo de Dinero"
-              href="/dashboard/practice/flujo-de-dinero"
-              active={pathname?.startsWith("/dashboard/practice/flujo-de-dinero")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={BarChart3}
-              label="Reportes"
-              href="/dashboard/practice/reports"
-              active={pathname?.startsWith("/dashboard/practice/reports")}
-              onClick={onClose}
-            />
-          </NavGroup>
-
-          {doctorProfile && (
-            <NavGroup title="Externo">
+          <div className="py-2">
+            {doctorProfile && (
               <a
                 href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
                 target="_blank"
@@ -203,8 +126,50 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
                 <ExternalLink className="w-5 h-5" />
                 <span className="text-sm font-medium">Perfil Público</span>
               </a>
-            </NavGroup>
-          )}
+            )}
+            <NavItem
+              icon={Video}
+              label="Contenido Audiovisual"
+              href="/dashboard/contenido-audiovisual"
+              active={pathname?.startsWith("/dashboard/contenido-audiovisual")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={FileText}
+              label="Mi Blog"
+              href="/dashboard/blog"
+              active={pathname?.startsWith("/dashboard/blog")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={CheckSquare}
+              label="Pendientes"
+              href="/dashboard/pendientes"
+              active={pathname?.startsWith("/dashboard/pendientes")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={ShoppingCart}
+              label="Ventas"
+              href="/dashboard/practice/ventas"
+              active={pathname?.startsWith("/dashboard/practice/ventas")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={ShoppingBag}
+              label="Compras"
+              href="/dashboard/practice/compras"
+              active={pathname?.startsWith("/dashboard/practice/compras")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={Package}
+              label="Productos"
+              href="/dashboard/practice/products"
+              active={pathname?.startsWith("/dashboard/practice/products")}
+              onClick={onClose}
+            />
+          </div>
         </nav>
 
         {/* Cerrar Sesión */}

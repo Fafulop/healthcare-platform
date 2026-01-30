@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Heart,
   DollarSign,
+  CheckSquare,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -90,7 +91,7 @@ export default function DoctorDashboardPage() {
           <h2 className="text-lg font-semibold text-gray-900">Acciones Rápidas</h2>
         </div>
         <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <Link
               href="/dashboard/medical-records/patients/new"
               className="flex items-center gap-3 p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
@@ -127,6 +128,19 @@ export default function DoctorDashboardPage() {
               <div>
                 <p className="font-medium text-gray-900">Agenda</p>
                 <p className="text-sm text-gray-600 hidden sm:block">Gestionar citas</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/pendientes/new"
+              className="flex items-center gap-3 p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                <CheckSquare className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Nueva Pendiente</p>
+                <p className="text-sm text-gray-600 hidden sm:block">Crear tarea</p>
               </div>
             </Link>
           </div>

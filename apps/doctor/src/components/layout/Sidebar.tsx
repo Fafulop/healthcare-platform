@@ -10,12 +10,12 @@ import {
   ExternalLink,
   LogOut,
   Users,
-  ClipboardList,
-  BarChart3,
-  Package,
   DollarSign,
   ShoppingCart,
   ShoppingBag,
+  Package,
+  Video,
+  CheckSquare,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -38,22 +38,6 @@ function NavItem({ icon: Icon, label, href, active = false }: NavItemProps) {
       <Icon className="w-5 h-5" />
       <span className="text-sm font-medium">{label}</span>
     </Link>
-  );
-}
-
-interface NavGroupProps {
-  title: string;
-  children: React.ReactNode;
-}
-
-function NavGroup({ title, children }: NavGroupProps) {
-  return (
-    <div className="mb-6">
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
-        {title}
-      </h3>
-      <div className="space-y-1">{children}</div>
-    </div>
   );
 }
 
@@ -111,9 +95,7 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-4">
-        <NavGroup title="Perfil y Público">
-          <NavItem icon={FileText} label="Mi Blog" href="/dashboard/blog" active={pathname === "/dashboard/blog"} />
-          <NavItem icon={Calendar} label="Citas" href="/appointments" active={pathname === "/appointments"} />
+        <div className="space-y-1">
           {doctorProfile && (
             <a
               href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
@@ -125,30 +107,46 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
               <span className="text-sm font-medium">Perfil Público</span>
             </a>
           )}
-        </NavGroup>
+          <NavItem
+            icon={Video}
+            label="Contenido Audiovisual"
+            href="/dashboard/contenido-audiovisual"
+            active={pathname?.startsWith("/dashboard/contenido-audiovisual")}
+          />
+          <NavItem
+            icon={FileText}
+            label="Mi Blog"
+            href="/dashboard/blog"
+            active={pathname?.startsWith("/dashboard/blog")}
+          />
+        </div>
 
-        <NavGroup title="Expedientes Médicos">
+        <hr className="my-3 border-gray-200" />
+
+        <div className="space-y-1">
+          <NavItem
+            icon={Calendar}
+            label="Mis Citas"
+            href="/appointments"
+            active={pathname === "/appointments"}
+          />
           <NavItem
             icon={Users}
-            label="Expedientes de Pacientes"
+            label="Expedientes Médicos"
             href="/dashboard/medical-records"
             active={pathname?.startsWith("/dashboard/medical-records")}
           />
           <NavItem
-            icon={ClipboardList}
-            label="Nueva Consulta"
-            href="/dashboard/medical-records"
+            icon={CheckSquare}
+            label="Pendientes"
+            href="/dashboard/pendientes"
+            active={pathname?.startsWith("/dashboard/pendientes")}
           />
-          <NavItem icon={BarChart3} label="Reportes" href="/dashboard/medical-records" />
-        </NavGroup>
+        </div>
 
-        <NavGroup title="Gestión de Consultorio">
-          <NavItem
-            icon={Package}
-            label="Productos"
-            href="/dashboard/practice/products"
-            active={pathname?.startsWith("/dashboard/practice/products")}
-          />
+        <hr className="my-3 border-gray-200" />
+
+        <div className="space-y-1">
           <NavItem
             icon={DollarSign}
             label="Flujo de Dinero"
@@ -167,7 +165,13 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             href="/dashboard/practice/compras"
             active={pathname?.startsWith("/dashboard/practice/compras")}
           />
-        </NavGroup>
+          <NavItem
+            icon={Package}
+            label="Productos"
+            href="/dashboard/practice/products"
+            active={pathname?.startsWith("/dashboard/practice/products")}
+          />
+        </div>
       </nav>
 
       {/* Cerrar Sesión */}
