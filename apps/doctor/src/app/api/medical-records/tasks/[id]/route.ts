@@ -59,7 +59,8 @@ export async function PUT(
     if (body.title !== undefined) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;
     if (body.dueDate !== undefined) updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
-    if (body.dueTime !== undefined) updateData.dueTime = body.dueTime;
+    if (body.startTime !== undefined) updateData.startTime = body.startTime;
+    if (body.endTime !== undefined) updateData.endTime = body.endTime;
     if (body.priority !== undefined) updateData.priority = body.priority;
     if (body.category !== undefined) updateData.category = body.category;
     if (body.patientId !== undefined) updateData.patientId = body.patientId || null;

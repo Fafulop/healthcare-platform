@@ -1465,7 +1465,8 @@ model Task {
   title         String    @db.VarChar(200)
   description   String?   @db.Text
   dueDate       DateTime? @map("due_date") @db.Date
-  dueTime       String?   @map("due_time") @db.VarChar(5)
+  startTime     String?   @map("start_time") @db.VarChar(5)
+  endTime       String?   @map("end_time") @db.VarChar(5)
   priority      String    @default("MEDIA") @db.VarChar(10)
   status        String    @default("PENDIENTE") @db.VarChar(20)
   category      String    @default("OTRO") @db.VarChar(20)

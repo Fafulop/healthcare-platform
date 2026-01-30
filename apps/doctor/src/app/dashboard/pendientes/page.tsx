@@ -14,14 +14,24 @@ import {
   AlertTriangle,
   CheckCircle2,
   Calendar,
+  Eye,
 } from "lucide-react";
+
+// Helper function to get local date string (fixes timezone issues)
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 interface Task {
   id: string;
   title: string;
   description: string | null;
   dueDate: string | null;
-  dueTime: string | null;
+  startTime: string | null;
+  endTime: string | null;
   priority: "ALTA" | "MEDIA" | "BAJA";
   status: "PENDIENTE" | "EN_PROGRESO" | "COMPLETADA" | "CANCELADA";
   category: string;
@@ -30,6 +40,16 @@ interface Task {
   createdAt: string;
   updatedAt: string;
   patient: { id: string; firstName: string; lastName: string } | null;
+}
+
+interface AppointmentSlot {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  currentBookings: number;
+  maxBookings: number;
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -81,6 +101,14 @@ export default function PendientesPage() {
   const [filterPriority, setFilterPriority] = useState<string>("");
   const [filterCategory, setFilterCategory] = useState<string>("");
 
+  // Calendar view state
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [calendarTasks, setCalendarTasks] = useState<Task[]>([]);
+  const [appointmentSlots, setAppointmentSlots] = useState<AppointmentSlot[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+
   const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
@@ -110,6 +138,37 @@ export default function PendientesPage() {
       fetchTasks();
     }
   }, [authStatus, fetchTasks]);
+
+  const fetchCalendarData = useCallback(async () => {
+    try {
+      setCalendarLoading(true);
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth();
+      const startDate = new Date(year, month, 1);
+      const endDate = new Date(year, month + 1, 0);
+
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+
+      const res = await fetch(`/api/medical-records/tasks/calendar?startDate=${startDateStr}&endDate=${endDateStr}`);
+      const result = await res.json();
+
+      if (res.ok) {
+        setCalendarTasks(result.data.tasks || []);
+        setAppointmentSlots(result.data.appointmentSlots || []);
+      }
+    } catch (err) {
+      console.error('Error fetching calendar data:', err);
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, [currentMonth]);
+
+  useEffect(() => {
+    if (authStatus === "authenticated" && viewMode === 'calendar') {
+      fetchCalendarData();
+    }
+  }, [authStatus, viewMode, fetchCalendarData]);
 
   const handleToggleComplete = async (task: Task) => {
     const newStatus = task.status === "COMPLETADA" ? "PENDIENTE" : "COMPLETADA";
@@ -190,7 +249,7 @@ export default function PendientesPage() {
     <div className="p-4 sm:p-6">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Pendientes</h1>
             <p className="text-gray-600 mt-1 text-sm sm:text-base">Gestiona tus tareas y seguimientos</p>
@@ -201,6 +260,30 @@ export default function PendientesPage() {
           >
             <Plus className="w-5 h-5" />
             <span className="hidden sm:inline">Nueva Tarea</span>
+          </button>
+        </div>
+
+        {/* View Toggle */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+              viewMode === 'list'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Lista
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+              viewMode === 'calendar'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Calendario
           </button>
         </div>
       </div>
@@ -245,49 +328,265 @@ export default function PendientesPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex flex-wrap gap-3">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm"
-          >
-            <option value="">Todos los estados</option>
-            <option value="PENDIENTE">Pendiente</option>
-            <option value="EN_PROGRESO">En Progreso</option>
-            <option value="COMPLETADA">Completada</option>
-            <option value="CANCELADA">Cancelada</option>
-          </select>
-          <select
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm"
-          >
-            <option value="">Todas las prioridades</option>
-            <option value="ALTA">Alta</option>
-            <option value="MEDIA">Media</option>
-            <option value="BAJA">Baja</option>
-          </select>
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm"
-          >
-            <option value="">Todas las categorías</option>
-            <option value="SEGUIMIENTO">Seguimiento</option>
-            <option value="ADMINISTRATIVO">Administrativo</option>
-            <option value="LABORATORIO">Laboratorio</option>
-            <option value="RECETA">Receta</option>
-            <option value="REFERENCIA">Referencia</option>
-            <option value="PERSONAL">Personal</option>
-            <option value="OTRO">Otro</option>
-          </select>
+      {/* List View: Filters */}
+      {viewMode === 'list' && (
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex flex-wrap gap-3">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+            >
+              <option value="">Todos los estados</option>
+              <option value="PENDIENTE">Pendiente</option>
+              <option value="EN_PROGRESO">En Progreso</option>
+              <option value="COMPLETADA">Completada</option>
+              <option value="CANCELADA">Cancelada</option>
+            </select>
+            <select
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+            >
+              <option value="">Todas las prioridades</option>
+              <option value="ALTA">Alta</option>
+              <option value="MEDIA">Media</option>
+              <option value="BAJA">Baja</option>
+            </select>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+            >
+              <option value="">Todas las categorías</option>
+              <option value="SEGUIMIENTO">Seguimiento</option>
+              <option value="ADMINISTRATIVO">Administrativo</option>
+              <option value="LABORATORIO">Laboratorio</option>
+              <option value="RECETA">Receta</option>
+              <option value="REFERENCIA">Referencia</option>
+              <option value="PERSONAL">Personal</option>
+              <option value="OTRO">Otro</option>
+            </select>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Calendar View */}
+      {viewMode === 'calendar' && (
+        <div className="mb-6">
+          {/* Calendar Navigation */}
+          <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => {
+                  const newMonth = new Date(currentMonth);
+                  newMonth.setMonth(currentMonth.getMonth() - 1);
+                  setCurrentMonth(newMonth);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-md"
+              >
+                <span className="text-xl">&lt;</span>
+              </button>
+              <h2 className="text-lg font-semibold">
+                {currentMonth.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+              </h2>
+              <button
+                onClick={() => {
+                  const newMonth = new Date(currentMonth);
+                  newMonth.setMonth(currentMonth.getMonth() + 1);
+                  setCurrentMonth(newMonth);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-md"
+              >
+                <span className="text-xl">&gt;</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {calendarLoading ? (
+              <div className="p-12 text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+                <p className="text-gray-600">Cargando calendario...</p>
+              </div>
+            ) : (
+              <>
+                {/* Day Headers */}
+                <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
+                  {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((day) => (
+                    <div key={day} className="p-2 text-center text-sm font-medium text-gray-700">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calendar Days */}
+                <div className="grid grid-cols-7">
+                  {(() => {
+                    const year = currentMonth.getFullYear();
+                    const month = currentMonth.getMonth();
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const days: JSX.Element[] = [];
+
+                    // Empty cells before month starts
+                    for (let i = 0; i < firstDay; i++) {
+                      days.push(<div key={`empty-${i}`} className="p-2 border-b border-r border-gray-200 bg-gray-50 h-24" />);
+                    }
+
+                    // Days of the month
+                    for (let day = 1; day <= daysInMonth; day++) {
+                      const date = new Date(year, month, day);
+                      const dateStr = getLocalDateString(date);
+                      // Normalize task dueDate to YYYY-MM-DD for comparison
+                      const dayTasks = calendarTasks.filter(t => {
+                        if (!t.dueDate) return false;
+                        const taskDateStr = typeof t.dueDate === 'string'
+                          ? t.dueDate.split('T')[0]
+                          : getLocalDateString(new Date(t.dueDate));
+                        return taskDateStr === dateStr;
+                      });
+                      const daySlots = appointmentSlots.filter(s => s.date.startsWith(dateStr));
+                      const isToday = dateStr === getLocalDateString(new Date());
+                      const isSelected = selectedDate && getLocalDateString(selectedDate) === dateStr;
+
+                      days.push(
+                        <button
+                          key={day}
+                          onClick={() => setSelectedDate(date)}
+                          className={`p-2 border-b border-r border-gray-200 h-24 text-left hover:bg-blue-50 transition-colors ${
+                            isToday ? 'bg-blue-50' : ''
+                          } ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+                        >
+                          <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+                            {day}
+                          </div>
+                          <div className="space-y-1">
+                            {dayTasks.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                <span className="text-xs text-gray-600">{dayTasks.length} tarea{dayTasks.length > 1 ? 's' : ''}</span>
+                              </div>
+                            )}
+                            {daySlots.filter(s => s.status === 'AVAILABLE').length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                <span className="text-xs text-gray-600">Disponible</span>
+                              </div>
+                            )}
+                            {daySlots.filter(s => s.status === 'BOOKED').length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                                <span className="text-xs text-gray-600">Citas</span>
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    }
+
+                    return days;
+                  })()}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Day Details Panel */}
+          {selectedDate && (
+            <div className="bg-white rounded-lg shadow p-4 mt-4">
+              <h3 className="text-lg font-semibold mb-4">
+                Detalles del día - {selectedDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}
+              </h3>
+
+              {/* Tasks for selected day */}
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-900 mb-2">Pendientes</h4>
+                {(() => {
+                  const selectedDateStr = getLocalDateString(selectedDate);
+                  const tasksForDay = calendarTasks.filter(t => {
+                    if (!t.dueDate) return false;
+                    const taskDateStr = typeof t.dueDate === 'string'
+                      ? t.dueDate.split('T')[0]
+                      : getLocalDateString(new Date(t.dueDate));
+                    return taskDateStr === selectedDateStr;
+                  });
+                  return tasksForDay.length === 0 ? (
+                  <p className="text-sm text-gray-500">Sin tareas pendientes</p>
+                ) : (
+                  <div className="space-y-2">
+                    {tasksForDay
+                      .map(task => (
+                        <div key={task.id} className="border border-gray-200 rounded p-3 hover:border-blue-300 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <button
+                                onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
+                                className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors"
+                              >
+                                {task.title}
+                              </button>
+                              {task.startTime && task.endTime && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {task.startTime} - {task.endTime}
+                                </p>
+                              )}
+                              {task.patient && (
+                                <p className="text-sm text-gray-500 mt-1">
+                                  Paciente: {task.patient.firstName} {task.patient.lastName}
+                                </p>
+                              )}
+                            </div>
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>
+                              {task.priority}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                );
+                })()}
+              </div>
+
+              {/* Appointments for selected day */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Citas</h4>
+                {appointmentSlots.filter(s => s.date.startsWith(getLocalDateString(selectedDate))).length === 0 ? (
+                  <p className="text-sm text-gray-500">Sin citas programadas</p>
+                ) : (
+                  <div className="space-y-2">
+                    {appointmentSlots
+                      .filter(s => s.date.startsWith(getLocalDateString(selectedDate)))
+                      .map(slot => (
+                        <div key={slot.id} className="border border-gray-200 rounded p-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {slot.startTime} - {slot.endTime}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                              slot.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              {slot.status === 'AVAILABLE' ? 'Disponible' : 'Reservado'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error */}
-      {error && (
+      {error && viewMode === 'list' && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
           <p className="text-red-700">{error}</p>
@@ -295,6 +594,7 @@ export default function PendientesPage() {
       )}
 
       {/* Task List */}
+      {viewMode === 'list' && (
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {tasks.length === 0 ? (
           <div className="text-center py-12">
@@ -341,7 +641,7 @@ export default function PendientesPage() {
                           <span className={`text-xs flex items-center gap-1 ${isOverdue(task) ? "text-red-600 font-semibold" : "text-gray-500"}`}>
                             <Calendar className="w-3 h-3" />
                             {new Date(task.dueDate).toLocaleDateString()}
-                            {task.dueTime && ` ${task.dueTime}`}
+                            {task.startTime && task.endTime && ` ${task.startTime}-${task.endTime}`}
                           </span>
                         )}
                       </div>
@@ -353,14 +653,23 @@ export default function PendientesPage() {
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <button
+                        onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
+                        className="text-gray-600 hover:text-gray-900 p-2 hover:bg-gray-50 rounded transition-colors"
+                        title="Ver detalles"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => router.push(`/dashboard/pendientes/${task.id}/edit`)}
                         className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
+                        title="Editar"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(task.id, task.title)}
                         className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded transition-colors"
+                        title="Eliminar"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -409,7 +718,7 @@ export default function PendientesPage() {
                         {task.dueDate ? (
                           <span className={isOverdue(task) ? "text-red-600 font-semibold" : "text-gray-500"}>
                             {new Date(task.dueDate).toLocaleDateString()}
-                            {task.dueTime && ` ${task.dueTime}`}
+                            {task.startTime && task.endTime && ` ${task.startTime}-${task.endTime}`}
                           </span>
                         ) : (
                           <span className="text-gray-400">—</span>
@@ -434,14 +743,23 @@ export default function PendientesPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <div className="flex justify-end gap-1">
                           <button
+                            onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
+                            className="text-gray-600 hover:text-gray-900 p-2 hover:bg-gray-50 rounded transition-colors"
+                            title="Ver detalles"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => router.push(`/dashboard/pendientes/${task.id}/edit`)}
                             className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
+                            title="Editar"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(task.id, task.title)}
                             className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded transition-colors"
+                            title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -455,6 +773,7 @@ export default function PendientesPage() {
           </>
         )}
       </div>
+      )}
     </div>
   );
 }
