@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { prisma } from '@healthcare/database';
+import { normalizeDate } from '@/lib/conflict-checker';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,8 +24,8 @@ export async function GET(request: NextRequest) {
       where: {
         doctorId,
         dueDate: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
+          gte: normalizeDate(startDate),
+          lte: normalizeDate(endDate),
         },
       },
       orderBy: { dueDate: 'asc' },
@@ -41,8 +42,8 @@ export async function GET(request: NextRequest) {
 
     // Fetch appointment slots from API app
     // Convert to ISO strings to match appointments API expectations
-    const startDateISO = new Date(startDate).toISOString();
-    const endDateISO = new Date(endDate).toISOString();
+    const startDateISO = normalizeDate(startDate).toISOString();
+    const endDateISO = normalizeDate(endDate).toISOString();
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
     const slotsUrl = `${apiUrl}/api/appointments/slots?doctorId=${doctorId}&startDate=${startDateISO}&endDate=${endDateISO}`;
 

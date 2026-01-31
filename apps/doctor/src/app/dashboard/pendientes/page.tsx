@@ -203,18 +203,23 @@ export default function PendientesPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Extract YYYY-MM-DD from ISO string to avoid timezone shifts
+  const toLocalDate = (isoStr: string): Date => {
+    const dateStr = isoStr.split('T')[0];
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d, 0, 0, 0, 0);
+  };
+
   const isOverdue = (task: Task) => {
     if (!task.dueDate) return false;
     if (task.status === "COMPLETADA" || task.status === "CANCELADA") return false;
-    const due = new Date(task.dueDate);
-    due.setHours(0, 0, 0, 0);
+    const due = toLocalDate(task.dueDate as string);
     return due < today;
   };
 
   const isToday = (task: Task) => {
     if (!task.dueDate) return false;
-    const due = new Date(task.dueDate);
-    due.setHours(0, 0, 0, 0);
+    const due = toLocalDate(task.dueDate as string);
     return due.getTime() === today.getTime();
   };
 
@@ -428,7 +433,7 @@ export default function PendientesPage() {
                     const month = currentMonth.getMonth();
                     const firstDay = new Date(year, month, 1).getDay();
                     const daysInMonth = new Date(year, month + 1, 0).getDate();
-                    const days: JSX.Element[] = [];
+                    const days: React.ReactElement[] = [];
 
                     // Empty cells before month starts
                     for (let i = 0; i < firstDay; i++) {
@@ -451,6 +456,35 @@ export default function PendientesPage() {
                       const isToday = dateStr === getLocalDateString(new Date());
                       const isSelected = selectedDate && getLocalDateString(selectedDate) === dateStr;
 
+                      // Detect time overlaps between tasks and slots on this day
+                      const timedTasks = dayTasks.filter(t => t.startTime && t.endTime);
+                      const activeSlots = daySlots.filter(s => s.status === 'AVAILABLE' || s.status === 'BOOKED');
+                      let hasOverlap = false;
+
+                      // Check task-vs-slot overlaps
+                      for (const task of timedTasks) {
+                        for (const slot of activeSlots) {
+                          if (task.startTime! < slot.endTime && task.endTime! > slot.startTime) {
+                            hasOverlap = true;
+                            break;
+                          }
+                        }
+                        if (hasOverlap) break;
+                      }
+
+                      // Check task-vs-task overlaps
+                      if (!hasOverlap && timedTasks.length > 1) {
+                        for (let i = 0; i < timedTasks.length; i++) {
+                          for (let j = i + 1; j < timedTasks.length; j++) {
+                            if (timedTasks[i].startTime! < timedTasks[j].endTime! && timedTasks[i].endTime! > timedTasks[j].startTime!) {
+                              hasOverlap = true;
+                              break;
+                            }
+                          }
+                          if (hasOverlap) break;
+                        }
+                      }
+
                       days.push(
                         <button
                           key={day}
@@ -463,6 +497,12 @@ export default function PendientesPage() {
                             {day}
                           </div>
                           <div className="space-y-1">
+                            {hasOverlap && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                <span className="text-xs text-red-600 font-medium">Conflicto</span>
+                              </div>
+                            )}
                             {dayTasks.length > 0 && (
                               <div className="flex items-center gap-1">
                                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
@@ -512,13 +552,43 @@ export default function PendientesPage() {
                       : getLocalDateString(new Date(t.dueDate));
                     return taskDateStr === selectedDateStr;
                   });
+                  const selectedSlots = appointmentSlots.filter(s => s.date.startsWith(selectedDateStr));
+                  const selectedActiveSlots = selectedSlots.filter(s => s.status === 'AVAILABLE' || s.status === 'BOOKED');
+
+                  // Build set of task IDs that have overlaps
+                  const overlappingTaskIds = new Set<string>();
+                  for (const task of tasksForDay) {
+                    if (!task.startTime || !task.endTime) continue;
+                    // Check against slots
+                    for (const slot of selectedActiveSlots) {
+                      if (task.startTime < slot.endTime && task.endTime > slot.startTime) {
+                        overlappingTaskIds.add(task.id);
+                        break;
+                      }
+                    }
+                    // Check against other tasks
+                    for (const other of tasksForDay) {
+                      if (other.id === task.id || !other.startTime || !other.endTime) continue;
+                      if (task.startTime < other.endTime && task.endTime > other.startTime) {
+                        overlappingTaskIds.add(task.id);
+                        overlappingTaskIds.add(other.id);
+                      }
+                    }
+                  }
+
                   return tasksForDay.length === 0 ? (
                   <p className="text-sm text-gray-500">Sin tareas pendientes</p>
                 ) : (
                   <div className="space-y-2">
                     {tasksForDay
-                      .map(task => (
-                        <div key={task.id} className="border border-gray-200 rounded p-3 hover:border-blue-300 transition-colors">
+                      .map(task => {
+                        const isConflicting = overlappingTaskIds.has(task.id);
+                        return (
+                        <div key={task.id} className={`border rounded p-3 transition-colors ${
+                          isConflicting
+                            ? 'border-red-300 bg-red-50 hover:border-red-400'
+                            : 'border-gray-200 hover:border-blue-300'
+                        }`}>
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <button
@@ -528,8 +598,9 @@ export default function PendientesPage() {
                                 {task.title}
                               </button>
                               {task.startTime && task.endTime && (
-                                <p className="text-sm text-gray-600 mt-1">
+                                <p className={`text-sm mt-1 ${isConflicting ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
                                   {task.startTime} - {task.endTime}
+                                  {isConflicting && ' — Conflicto de horario'}
                                 </p>
                               )}
                               {task.patient && (
@@ -543,7 +614,8 @@ export default function PendientesPage() {
                             </span>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 );
                 })()}
@@ -552,33 +624,61 @@ export default function PendientesPage() {
               {/* Appointments for selected day */}
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Citas</h4>
-                {appointmentSlots.filter(s => s.date.startsWith(getLocalDateString(selectedDate))).length === 0 ? (
-                  <p className="text-sm text-gray-500">Sin citas programadas</p>
-                ) : (
-                  <div className="space-y-2">
-                    {appointmentSlots
-                      .filter(s => s.date.startsWith(getLocalDateString(selectedDate)))
-                      .map(slot => (
-                        <div key={slot.id} className="border border-gray-200 rounded p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-gray-900">
-                                {slot.startTime} - {slot.endTime}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
-                              </p>
+                {(() => {
+                  const sDateStr = getLocalDateString(selectedDate);
+                  const slotsForDay = appointmentSlots.filter(s => s.date.startsWith(sDateStr));
+                  const timedTasksForDay = calendarTasks.filter(t => {
+                    if (!t.dueDate || !t.startTime || !t.endTime) return false;
+                    const tds = typeof t.dueDate === 'string' ? t.dueDate.split('T')[0] : getLocalDateString(new Date(t.dueDate));
+                    return tds === sDateStr;
+                  });
+
+                  // Build set of slot IDs that overlap with tasks
+                  const overlappingSlotIds = new Set<string>();
+                  for (const slot of slotsForDay) {
+                    if (slot.status !== 'AVAILABLE' && slot.status !== 'BOOKED') continue;
+                    for (const task of timedTasksForDay) {
+                      if (task.startTime! < slot.endTime && task.endTime! > slot.startTime) {
+                        overlappingSlotIds.add(slot.id);
+                        break;
+                      }
+                    }
+                  }
+
+                  return slotsForDay.length === 0 ? (
+                    <p className="text-sm text-gray-500">Sin citas programadas</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {slotsForDay.map(slot => {
+                        const isConflicting = overlappingSlotIds.has(slot.id);
+                        return (
+                          <div key={slot.id} className={`border rounded p-3 ${
+                            isConflicting
+                              ? 'border-red-300 bg-red-50'
+                              : 'border-gray-200'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className={`font-medium ${isConflicting ? 'text-red-700' : 'text-gray-900'}`}>
+                                  {slot.startTime} - {slot.endTime}
+                                  {isConflicting && ' — Conflicto con pendiente'}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
+                                </p>
+                              </div>
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                slot.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {slot.status === 'AVAILABLE' ? 'Disponible' : 'Reservado'}
+                              </span>
                             </div>
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              slot.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
-                            }`}>
-                              {slot.status === 'AVAILABLE' ? 'Disponible' : 'Reservado'}
-                            </span>
                           </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -640,7 +740,7 @@ export default function PendientesPage() {
                         {task.dueDate && (
                           <span className={`text-xs flex items-center gap-1 ${isOverdue(task) ? "text-red-600 font-semibold" : "text-gray-500"}`}>
                             <Calendar className="w-3 h-3" />
-                            {new Date(task.dueDate).toLocaleDateString()}
+                            {toLocalDate(task.dueDate as string).toLocaleDateString()}
                             {task.startTime && task.endTime && ` ${task.startTime}-${task.endTime}`}
                           </span>
                         )}
@@ -687,6 +787,8 @@ export default function PendientesPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10"></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hora Inicio</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hora Fin</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prioridad</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
@@ -717,12 +819,17 @@ export default function PendientesPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         {task.dueDate ? (
                           <span className={isOverdue(task) ? "text-red-600 font-semibold" : "text-gray-500"}>
-                            {new Date(task.dueDate).toLocaleDateString()}
-                            {task.startTime && task.endTime && ` ${task.startTime}-${task.endTime}`}
+                            {toLocalDate(task.dueDate as string).toLocaleDateString()}
                           </span>
                         ) : (
                           <span className="text-gray-400">—</span>
                         )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {task.startTime || "—"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {task.endTime || "—"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>

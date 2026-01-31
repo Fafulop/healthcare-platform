@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { checkConflictsForEntry, ConflictEntry } from '@/lib/conflict-checker';
 
+// GET - single conflict check
 export async function GET(request: NextRequest) {
   try {
     const { doctorId } = await requireDoctorAuth(request);
 
     const { searchParams } = new URL(request.url);
-    const date = searchParams.get('date');           // "2026-01-15"
-    const startTime = searchParams.get('startTime'); // "09:00"
-    const endTime = searchParams.get('endTime');     // "10:00"
+    const date = searchParams.get('date');
+    const startTime = searchParams.get('startTime');
+    const endTime = searchParams.get('endTime');
+    const excludeTaskId = searchParams.get('excludeTaskId');
 
     if (!date || !startTime || !endTime) {
       return NextResponse.json(
@@ -18,35 +21,41 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch appointment slots for the date
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-    const slotsUrl = `${apiUrl}/api/appointments/slots?doctorId=${doctorId}&startDate=${date}&endDate=${date}`;
+    const result = await checkConflictsForEntry(
+      doctorId,
+      { date, startTime, endTime },
+      excludeTaskId || undefined
+    );
 
-    let conflicts = [];
-    try {
-      const slotsResponse = await fetch(slotsUrl);
-      if (slotsResponse.ok) {
-        const slotsData = await slotsResponse.json();
-        const slots = slotsData.data || [];
-
-        // Filter for overlapping slots
-        // Overlap: slotStart < taskEnd AND slotEnd > taskStart
-        conflicts = slots.filter((slot: any) => {
-          const slotStart = slot.startTime; // e.g., "09:00"
-          const slotEnd = slot.endTime;     // e.g., "10:00"
-          return slotStart < endTime && slotEnd > startTime;
-        });
-      }
-    } catch (error) {
-      console.error('Error checking conflicts:', error);
-    }
-
-    return NextResponse.json({
-      data: {
-        conflicts,
-      },
-    });
+    return NextResponse.json({ data: result });
   } catch (error) {
     return handleApiError(error, 'checking task conflicts');
+  }
+}
+
+// POST - batch conflict check
+export async function POST(request: NextRequest) {
+  try {
+    const { doctorId } = await requireDoctorAuth(request);
+    const body = await request.json();
+
+    const entries: ConflictEntry[] = body.entries;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return NextResponse.json(
+        { error: 'entries array es requerido' },
+        { status: 400 }
+      );
+    }
+
+    const results = await Promise.all(
+      entries.map(async (entry, index) => {
+        const result = await checkConflictsForEntry(doctorId, entry);
+        return { index, ...result };
+      })
+    );
+
+    return NextResponse.json({ data: { results } });
+  } catch (error) {
+    return handleApiError(error, 'batch checking task conflicts');
   }
 }

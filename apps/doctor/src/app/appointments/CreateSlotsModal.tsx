@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Calendar, Clock, DollarSign, Percent, Info, Loader2 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import ConflictDialog from "@/components/ConflictDialog";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -13,6 +14,72 @@ function getLocalDateString(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+interface SlotEntry {
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+// Generate individual slot entries from form parameters
+function generateSlotEntries(
+  mode: "single" | "recurring",
+  singleDate: string,
+  startDate: string,
+  endDate: string,
+  daysOfWeek: number[],
+  startTime: string,
+  endTime: string,
+  duration: number,
+  hasBreak: boolean,
+  breakStart: string,
+  breakEnd: string
+): SlotEntry[] {
+  const entries: SlotEntry[] = [];
+
+  const [startH, startM] = startTime.split(":").map(Number);
+  const [endH, endM] = endTime.split(":").map(Number);
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+
+  const [breakStartH, breakStartM] = hasBreak ? breakStart.split(":").map(Number) : [0, 0];
+  const [breakEndH, breakEndM] = hasBreak ? breakEnd.split(":").map(Number) : [0, 0];
+  const breakStartMin = hasBreak ? breakStartH * 60 + breakStartM : 0;
+  const breakEndMin = hasBreak ? breakEndH * 60 + breakEndM : 0;
+
+  const dates: string[] = [];
+  if (mode === "single" && singleDate) {
+    dates.push(singleDate);
+  } else if (mode === "recurring" && startDate && endDate) {
+    const start = new Date(startDate + 'T12:00:00');
+    const end = new Date(endDate + 'T12:00:00');
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      if (daysOfWeek.includes(adjustedDay)) {
+        dates.push(getLocalDateString(d));
+      }
+    }
+  }
+
+  for (const date of dates) {
+    let currentMin = startMinutes;
+    while (currentMin + duration <= endMinutes) {
+      const slotEnd = currentMin + duration;
+      // Skip slots that overlap with break
+      if (hasBreak && currentMin < breakEndMin && slotEnd > breakStartMin) {
+        currentMin = breakEndMin;
+        continue;
+      }
+      const slotStartTime = `${String(Math.floor(currentMin / 60)).padStart(2, '0')}:${String(currentMin % 60).padStart(2, '0')}`;
+      const slotEndTime = `${String(Math.floor(slotEnd / 60)).padStart(2, '0')}:${String(slotEnd % 60).padStart(2, '0')}`;
+      entries.push({ date, startTime: slotStartTime, endTime: slotEndTime });
+      currentMin = slotEnd;
+    }
+  }
+
+  return entries;
 }
 
 interface CreateSlotsModalProps {
@@ -47,6 +114,19 @@ export default function CreateSlotsModal({
   const [discountType, setDiscountType] = useState<"PERCENTAGE" | "FIXED">("PERCENTAGE");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewSlots, setPreviewSlots] = useState<number>(0);
+
+  // Conflict state
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [conflictData, setConflictData] = useState<{
+    appointmentConflicts: any[];
+    taskConflicts: any[];
+    hasBookedAppointments: boolean;
+    appointmentCheckFailed?: boolean;
+    taskCheckFailed?: boolean;
+  } | null>(null);
+  const [checkFailureWarning, setCheckFailureWarning] = useState(false);
+  const [skipConflictCheck, setSkipConflictCheck] = useState(false);
+  const [overrideLoading, setOverrideLoading] = useState(false);
 
   const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -122,6 +202,12 @@ export default function CreateSlotsModal({
     breakEnd,
   ]);
 
+  const timeOptions = Array.from({ length: 48 }, (_, i) => {
+    const h = String(Math.floor(i / 2)).padStart(2, '0');
+    const m = i % 2 === 0 ? '00' : '30';
+    return `${h}:${m}`;
+  });
+
   const toggleDay = (day: number) => {
     setDaysOfWeek((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
@@ -140,29 +226,7 @@ export default function CreateSlotsModal({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!basePrice || parseFloat(basePrice) <= 0) {
-      alert("Por favor ingresa un precio base válido");
-      return;
-    }
-
-    if (mode === "single" && !singleDate) {
-      alert("Por favor selecciona una fecha");
-      return;
-    }
-
-    if (mode === "recurring" && (!startDate || !endDate)) {
-      alert("Por favor selecciona fechas de inicio y fin");
-      return;
-    }
-
-    if (mode === "recurring" && daysOfWeek.length === 0) {
-      alert("Por favor selecciona al menos un día de la semana");
-      return;
-    }
-
+  const executeSlotCreation = async () => {
     setIsSubmitting(true);
 
     try {
@@ -197,11 +261,8 @@ export default function CreateSlotsModal({
 
       const data = await response.json();
 
-      console.log("✅ Slot creation response:", data);
-      console.log("📋 Payload sent:", payload);
-
       if (data.success) {
-        alert(`¡Éxito! Se crearon ${data.count} horarios de citas.`);
+        alert(`Se crearon ${data.count} horarios de citas.`);
         onSuccess();
         onClose();
         resetForm();
@@ -213,6 +274,145 @@ export default function CreateSlotsModal({
       alert("Error al crear horarios. Por favor intenta de nuevo.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!basePrice || parseFloat(basePrice) <= 0) {
+      alert("Por favor ingresa un precio base valido");
+      return;
+    }
+
+    if (mode === "single" && !singleDate) {
+      alert("Por favor selecciona una fecha");
+      return;
+    }
+
+    if (mode === "recurring" && (!startDate || !endDate)) {
+      alert("Por favor selecciona fechas de inicio y fin");
+      return;
+    }
+
+    if (mode === "recurring" && daysOfWeek.length === 0) {
+      alert("Por favor selecciona al menos un dia de la semana");
+      return;
+    }
+
+    // Generate slot entries and check conflicts
+    const entries = generateSlotEntries(
+      mode, singleDate, startDate, endDate, daysOfWeek,
+      startTime, endTime, duration, hasBreak, breakStart, breakEnd
+    );
+
+    if (entries.length === 0) {
+      alert("No se generaron horarios con la configuracion actual");
+      return;
+    }
+
+    // Batch conflict check
+    setIsSubmitting(true);
+    if (skipConflictCheck) {
+      setSkipConflictCheck(false);
+      await executeSlotCreation();
+      return;
+    }
+    try {
+      const conflictRes = await fetch("/api/medical-records/tasks/conflicts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries }),
+      });
+
+      if (conflictRes.ok) {
+        const conflictResult = await conflictRes.json();
+        const results = conflictResult.data.results || [];
+        const hasAnyConflicts = results.some(
+          (r: any) => r.appointmentConflicts.length > 0 || r.taskConflicts.length > 0
+        );
+        const hasAnyFailures = results.some(
+          (r: any) => r.appointmentCheckFailed || r.taskCheckFailed
+        );
+
+        if (hasAnyConflicts) {
+          // Aggregate and deduplicate
+          const allAppts: any[] = [];
+          const allTasks: any[] = [];
+          let hasBooked = false;
+          let apptFailed = false;
+          let taskFailed = false;
+          for (const r of results) {
+            allAppts.push(...r.appointmentConflicts);
+            allTasks.push(...r.taskConflicts);
+            if (r.hasBookedAppointments) hasBooked = true;
+            if (r.appointmentCheckFailed) apptFailed = true;
+            if (r.taskCheckFailed) taskFailed = true;
+          }
+          const uniqueAppts = Array.from(new Map(allAppts.map(a => [a.id, a])).values());
+          const uniqueTasks = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
+
+          setConflictData({
+            appointmentConflicts: uniqueAppts,
+            taskConflicts: uniqueTasks,
+            hasBookedAppointments: hasBooked,
+            appointmentCheckFailed: apptFailed,
+            taskCheckFailed: taskFailed,
+          });
+          setConflictDialogOpen(true);
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (hasAnyFailures) {
+          setCheckFailureWarning(true);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+    } catch {
+      // If conflict check completely fails, warn the user
+      setCheckFailureWarning(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // No conflicts, proceed
+    await executeSlotCreation();
+  };
+
+  const handleOverride = async () => {
+    if (!conflictData) return;
+    setOverrideLoading(true);
+
+    const slotIdsToBlock = conflictData.appointmentConflicts
+      .filter(s => s.status === 'AVAILABLE')
+      .map(s => s.id);
+    const taskIdsToCancel = conflictData.taskConflicts.map(t => t.id);
+
+    try {
+      const res = await fetch("/api/medical-records/tasks/conflicts/override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskIdsToCancel, slotIdsToBlock }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        alert(errorData?.error || "Error al anular conflictos");
+        setOverrideLoading(false);
+        setConflictDialogOpen(false);
+        return;
+      }
+
+      setConflictDialogOpen(false);
+      setConflictData(null);
+
+      await executeSlotCreation();
+    } catch {
+      alert("Error al anular conflictos");
+    } finally {
+      setOverrideLoading(false);
     }
   };
 
@@ -372,25 +572,31 @@ export default function CreateSlotsModal({
                 <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
                   Hora de Inicio *
                 </label>
-                <input
-                  type="time"
+                <select
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                   className="w-full px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                   required
-                />
+                >
+                  {timeOptions.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
                   Hora de Fin *
                 </label>
-                <input
-                  type="time"
+                <select
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className="w-full px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                   required
-                />
+                >
+                  {timeOptions.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -444,23 +650,29 @@ export default function CreateSlotsModal({
                     <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
                       Inicio
                     </label>
-                    <input
-                      type="time"
+                    <select
                       value={breakStart}
                       onChange={(e) => setBreakStart(e.target.value)}
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
+                    >
+                      {timeOptions.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
                       Fin
                     </label>
-                    <input
-                      type="time"
+                    <select
                       value={breakEnd}
                       onChange={(e) => setBreakEnd(e.target.value)}
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
+                    >
+                      {timeOptions.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
@@ -587,6 +799,23 @@ export default function CreateSlotsModal({
 
           {/* Actions */}
           <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
+            {checkFailureWarning && (
+              <div className="col-span-2 bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
+                <p className="text-sm text-red-800 font-medium">
+                  No se pudo verificar conflictos con el sistema de citas o pendientes.
+                </p>
+                <p className="text-sm text-red-700 mt-1">
+                  Si continúas, podrían crearse horarios duplicados.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setCheckFailureWarning(false); setSkipConflictCheck(true); }}
+                  className="mt-2 text-sm text-red-600 underline hover:text-red-800"
+                >
+                  Entiendo, crear de todas formas
+                </button>
+              </div>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -597,7 +826,7 @@ export default function CreateSlotsModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || previewSlots === 0}
+              disabled={isSubmitting || previewSlots === 0 || checkFailureWarning}
               className="flex-1 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base"
             >
               {isSubmitting ? (
@@ -615,6 +844,22 @@ export default function CreateSlotsModal({
           </div>
         </form>
       </div>
+
+      {/* Conflict Dialog */}
+      {conflictData && (
+        <ConflictDialog
+          isOpen={conflictDialogOpen}
+          onClose={() => {
+            setConflictDialogOpen(false);
+            setConflictData(null);
+          }}
+          appointmentConflicts={conflictData.appointmentConflicts}
+          taskConflicts={conflictData.taskConflicts}
+          hasBookedAppointments={conflictData.hasBookedAppointments}
+          onOverride={handleOverride}
+          loading={overrideLoading}
+        />
+      )}
     </div>
   );
 }

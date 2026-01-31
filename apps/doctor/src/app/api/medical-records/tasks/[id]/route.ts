@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { normalizeDate } from '@/lib/conflict-checker';
 
 // GET /api/medical-records/tasks/[id]
 export async function GET(
@@ -58,7 +59,7 @@ export async function PUT(
     const updateData: Record<string, unknown> = {};
     if (body.title !== undefined) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;
-    if (body.dueDate !== undefined) updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+    if (body.dueDate !== undefined) updateData.dueDate = body.dueDate ? normalizeDate(body.dueDate) : null;
     if (body.startTime !== undefined) updateData.startTime = body.startTime;
     if (body.endTime !== undefined) updateData.endTime = body.endTime;
     if (body.priority !== undefined) updateData.priority = body.priority;
