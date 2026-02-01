@@ -41,18 +41,24 @@ export async function GET(request: NextRequest) {
     });
 
     // Fetch appointment slots from API app
-    // Convert to ISO strings to match appointments API expectations
-    const startDateISO = normalizeDate(startDate).toISOString();
-    const endDateISO = normalizeDate(endDate).toISOString();
+    // Pass date strings directly without timezone conversion
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-    const slotsUrl = `${apiUrl}/api/appointments/slots?doctorId=${doctorId}&startDate=${startDateISO}&endDate=${endDateISO}`;
+    const slotsUrl = `${apiUrl}/api/appointments/slots?doctorId=${doctorId}&startDate=${startDate}&endDate=${endDate}`;
+
+    console.log('🔗 Fetching slots from API:', slotsUrl);
 
     let appointmentSlots = [];
     try {
       const slotsResponse = await fetch(slotsUrl);
+      console.log('📡 Slots API response status:', slotsResponse.status);
       if (slotsResponse.ok) {
         const slotsData = await slotsResponse.json();
+        console.log('📊 Slots API data:', slotsData);
         appointmentSlots = slotsData.data || [];
+        console.log('✅ Appointment slots fetched:', appointmentSlots.length);
+      } else {
+        const errorText = await slotsResponse.text();
+        console.error('❌ Slots API error response:', errorText);
       }
     } catch (error) {
       console.error('Error fetching appointment slots:', error);

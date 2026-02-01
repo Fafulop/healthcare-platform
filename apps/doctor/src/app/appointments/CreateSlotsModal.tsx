@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { X, Calendar, Clock, DollarSign, Percent, Info, Loader2 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
-import ConflictDialog from "@/components/ConflictDialog";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -115,18 +114,12 @@ export default function CreateSlotsModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewSlots, setPreviewSlots] = useState<number>(0);
 
-  // Conflict state
-  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
-  const [conflictData, setConflictData] = useState<{
-    appointmentConflicts: any[];
-    taskConflicts: any[];
-    hasBookedAppointments: boolean;
-    appointmentCheckFailed?: boolean;
-    taskCheckFailed?: boolean;
+  // Task info state (informational)
+  const [tasksInfo, setTasksInfo] = useState<{
+    count: number;
+    message: string;
+    tasks: any[];
   } | null>(null);
-  const [checkFailureWarning, setCheckFailureWarning] = useState(false);
-  const [skipConflictCheck, setSkipConflictCheck] = useState(false);
-  const [overrideLoading, setOverrideLoading] = useState(false);
 
   const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -226,7 +219,7 @@ export default function CreateSlotsModal({
     }
   };
 
-  const executeSlotCreation = async () => {
+  const executeSlotCreation = async (replaceConflicts = false) => {
     setIsSubmitting(true);
 
     try {
@@ -239,6 +232,7 @@ export default function CreateSlotsModal({
         basePrice: parseFloat(basePrice),
         discount: hasDiscount && discount ? parseFloat(discount) : null,
         discountType: hasDiscount && discount ? discountType : null,
+        replaceConflicts, // NEW: Include replaceConflicts flag
       };
 
       if (hasBreak) {
@@ -261,8 +255,38 @@ export default function CreateSlotsModal({
 
       const data = await response.json();
 
+      // Handle 409 Conflict response (slot conflicts detected)
+      if (response.status === 409) {
+        // Show error alert and don't allow replacement
+        const conflictList = data.conflicts.slice(0, 5).map((c: any) =>
+          `• ${new Date(c.date).toLocaleDateString('es-MX')} ${c.startTime}-${c.endTime}${c.hasBookings ? ` (${c.currentBookings} reserva${c.currentBookings > 1 ? 's' : ''})` : ''}`
+        ).join('\n');
+
+        const moreCount = data.conflicts.length > 5 ? `\n... y ${data.conflicts.length - 5} más` : '';
+
+        alert(
+          `⚠️ No se pueden crear los horarios\n\n` +
+          `${data.message}\n\n` +
+          `Horarios existentes:\n${conflictList}${moreCount}\n\n` +
+          `Por favor, elimina primero los horarios existentes si deseas crear nuevos en estos tiempos.`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       if (data.success) {
-        alert(`Se crearon ${data.count} horarios de citas.`);
+        // Show success message
+        let message = `Se crearon ${data.count} horarios de citas.`;
+        if (data.replaced > 0) {
+          message += ` (${data.replaced} reemplazados)`;
+        }
+
+        // Show task info if exists (informational)
+        if (data.tasksInfo) {
+          setTasksInfo(data.tasksInfo);
+        }
+
+        alert(message);
         onSuccess();
         onClose();
         resetForm();
@@ -300,120 +324,8 @@ export default function CreateSlotsModal({
       return;
     }
 
-    // Generate slot entries and check conflicts
-    const entries = generateSlotEntries(
-      mode, singleDate, startDate, endDate, daysOfWeek,
-      startTime, endTime, duration, hasBreak, breakStart, breakEnd
-    );
-
-    if (entries.length === 0) {
-      alert("No se generaron horarios con la configuracion actual");
-      return;
-    }
-
-    // Batch conflict check
-    setIsSubmitting(true);
-    if (skipConflictCheck) {
-      setSkipConflictCheck(false);
-      await executeSlotCreation();
-      return;
-    }
-    try {
-      const conflictRes = await fetch("/api/medical-records/tasks/conflicts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries }),
-      });
-
-      if (conflictRes.ok) {
-        const conflictResult = await conflictRes.json();
-        const results = conflictResult.data.results || [];
-        const hasAnyConflicts = results.some(
-          (r: any) => r.appointmentConflicts.length > 0 || r.taskConflicts.length > 0
-        );
-        const hasAnyFailures = results.some(
-          (r: any) => r.appointmentCheckFailed || r.taskCheckFailed
-        );
-
-        if (hasAnyConflicts) {
-          // Aggregate and deduplicate
-          const allAppts: any[] = [];
-          const allTasks: any[] = [];
-          let hasBooked = false;
-          let apptFailed = false;
-          let taskFailed = false;
-          for (const r of results) {
-            allAppts.push(...r.appointmentConflicts);
-            allTasks.push(...r.taskConflicts);
-            if (r.hasBookedAppointments) hasBooked = true;
-            if (r.appointmentCheckFailed) apptFailed = true;
-            if (r.taskCheckFailed) taskFailed = true;
-          }
-          const uniqueAppts = Array.from(new Map(allAppts.map(a => [a.id, a])).values());
-          const uniqueTasks = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
-
-          setConflictData({
-            appointmentConflicts: uniqueAppts,
-            taskConflicts: uniqueTasks,
-            hasBookedAppointments: hasBooked,
-            appointmentCheckFailed: apptFailed,
-            taskCheckFailed: taskFailed,
-          });
-          setConflictDialogOpen(true);
-          setIsSubmitting(false);
-          return;
-        }
-
-        if (hasAnyFailures) {
-          setCheckFailureWarning(true);
-          setIsSubmitting(false);
-          return;
-        }
-      }
-    } catch {
-      // If conflict check completely fails, warn the user
-      setCheckFailureWarning(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // No conflicts, proceed
-    await executeSlotCreation();
-  };
-
-  const handleOverride = async () => {
-    if (!conflictData) return;
-    setOverrideLoading(true);
-
-    const slotIdsToBlock = conflictData.appointmentConflicts
-      .filter(s => s.status === 'AVAILABLE')
-      .map(s => s.id);
-    const taskIdsToCancel = conflictData.taskConflicts.map(t => t.id);
-
-    try {
-      const res = await fetch("/api/medical-records/tasks/conflicts/override", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskIdsToCancel, slotIdsToBlock }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        alert(errorData?.error || "Error al anular conflictos");
-        setOverrideLoading(false);
-        setConflictDialogOpen(false);
-        return;
-      }
-
-      setConflictDialogOpen(false);
-      setConflictData(null);
-
-      await executeSlotCreation();
-    } catch {
-      alert("Error al anular conflictos");
-    } finally {
-      setOverrideLoading(false);
-    }
+    // Submit without allowing replacements (replaceConflicts = false)
+    await executeSlotCreation(false);
   };
 
   const resetForm = () => {
@@ -797,25 +709,36 @@ export default function CreateSlotsModal({
             </div>
           )}
 
+          {/* Task Info Banner (Informational) */}
+          {tasksInfo && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800 font-medium">
+                ℹ️ {tasksInfo.message}
+              </p>
+              <div className="mt-2 space-y-1">
+                {tasksInfo.tasks.slice(0, 3).map((task, idx) => (
+                  <p key={idx} className="text-xs text-blue-700">
+                    • {task.title} ({task.startTime}-{task.endTime})
+                  </p>
+                ))}
+                {tasksInfo.tasks.length > 3 && (
+                  <p className="text-xs text-blue-600">
+                    ... y {tasksInfo.tasks.length - 3} más
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setTasksInfo(null)}
+                className="mt-2 text-sm text-blue-600 underline hover:text-blue-800"
+              >
+                Entendido
+              </button>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
-            {checkFailureWarning && (
-              <div className="col-span-2 bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
-                <p className="text-sm text-red-800 font-medium">
-                  No se pudo verificar conflictos con el sistema de citas o pendientes.
-                </p>
-                <p className="text-sm text-red-700 mt-1">
-                  Si continúas, podrían crearse horarios duplicados.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => { setCheckFailureWarning(false); setSkipConflictCheck(true); }}
-                  className="mt-2 text-sm text-red-600 underline hover:text-red-800"
-                >
-                  Entiendo, crear de todas formas
-                </button>
-              </div>
-            )}
             <button
               type="button"
               onClick={onClose}
@@ -826,7 +749,7 @@ export default function CreateSlotsModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || previewSlots === 0 || checkFailureWarning}
+              disabled={isSubmitting || previewSlots === 0}
               className="flex-1 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base"
             >
               {isSubmitting ? (
@@ -844,22 +767,6 @@ export default function CreateSlotsModal({
           </div>
         </form>
       </div>
-
-      {/* Conflict Dialog */}
-      {conflictData && (
-        <ConflictDialog
-          isOpen={conflictDialogOpen}
-          onClose={() => {
-            setConflictDialogOpen(false);
-            setConflictData(null);
-          }}
-          appointmentConflicts={conflictData.appointmentConflicts}
-          taskConflicts={conflictData.taskConflicts}
-          hasBookedAppointments={conflictData.hasBookedAppointments}
-          onOverride={handleOverride}
-          loading={overrideLoading}
-        />
-      )}
     </div>
   );
 }

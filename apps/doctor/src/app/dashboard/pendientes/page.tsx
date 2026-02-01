@@ -47,7 +47,7 @@ interface AppointmentSlot {
   date: string;
   startTime: string;
   endTime: string;
-  status: string;
+  isOpen: boolean;
   currentBookings: number;
   maxBookings: number;
 }
@@ -150,12 +150,21 @@ export default function PendientesPage() {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
 
+      console.log('📅 Fetching calendar data for:', { startDateStr, endDateStr });
+
       const res = await fetch(`/api/medical-records/tasks/calendar?startDate=${startDateStr}&endDate=${endDateStr}`);
       const result = await res.json();
+
+      console.log('📊 Calendar API response:', result);
 
       if (res.ok) {
         setCalendarTasks(result.data.tasks || []);
         setAppointmentSlots(result.data.appointmentSlots || []);
+        console.log('✅ Set calendar data:', {
+          tasksCount: result.data.tasks?.length || 0,
+          appointmentSlotsCount: result.data.appointmentSlots?.length || 0,
+          appointmentSlots: result.data.appointmentSlots
+        });
       }
     } catch (err) {
       console.error('Error fetching calendar data:', err);
@@ -378,164 +387,137 @@ export default function PendientesPage() {
 
       {/* Calendar View */}
       {viewMode === 'calendar' && (
-        <div className="mb-6">
-          {/* Calendar Navigation */}
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => {
-                  const newMonth = new Date(currentMonth);
-                  newMonth.setMonth(currentMonth.getMonth() - 1);
-                  setCurrentMonth(newMonth);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-md"
-              >
-                <span className="text-xl">&lt;</span>
-              </button>
-              <h2 className="text-lg font-semibold">
-                {currentMonth.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
-              </h2>
-              <button
-                onClick={() => {
-                  const newMonth = new Date(currentMonth);
-                  newMonth.setMonth(currentMonth.getMonth() + 1);
-                  setCurrentMonth(newMonth);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-md"
-              >
-                <span className="text-xl">&gt;</span>
-              </button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          {/* Calendar Section */}
+          <div>
+            {/* Calendar Navigation */}
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 capitalize">
+                  {currentMonth.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const newMonth = new Date(currentMonth);
+                      newMonth.setMonth(currentMonth.getMonth() - 1);
+                      setCurrentMonth(newMonth);
+                    }}
+                    className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 text-sm"
+                  >
+                    <span className="hidden sm:inline">‹ </span>Ant.
+                  </button>
+                  <button
+                    onClick={() => setCurrentMonth(new Date())}
+                    className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 text-sm"
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newMonth = new Date(currentMonth);
+                      newMonth.setMonth(currentMonth.getMonth() + 1);
+                      setCurrentMonth(newMonth);
+                    }}
+                    className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 text-sm"
+                  >
+                    Sig.<span className="hidden sm:inline"> ›</span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Calendar Grid */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {/* Calendar Grid */}
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             {calendarLoading ? (
               <div className="p-12 text-center">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+                <Loader2 className="w-8 h-8 animate-spin text-yellow-600 mx-auto mb-2" />
                 <p className="text-gray-600">Cargando calendario...</p>
               </div>
             ) : (
-              <>
+              <div className="grid grid-cols-7 gap-1 sm:gap-2">
                 {/* Day Headers */}
-                <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-                  {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((day) => (
-                    <div key={day} className="p-2 text-center text-sm font-medium text-gray-700">
-                      {day}
-                    </div>
-                  ))}
-                </div>
+                {["D", "L", "M", "M", "J", "V", "S"].map((day, idx) => (
+                  <div
+                    key={`${day}-${idx}`}
+                    className="text-center font-semibold text-gray-600 text-xs sm:text-sm py-1 sm:py-2"
+                  >
+                    <span className="sm:hidden">{day}</span>
+                    <span className="hidden sm:inline">{["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][idx]}</span>
+                  </div>
+                ))}
 
                 {/* Calendar Days */}
-                <div className="grid grid-cols-7">
-                  {(() => {
-                    const year = currentMonth.getFullYear();
-                    const month = currentMonth.getMonth();
-                    const firstDay = new Date(year, month, 1).getDay();
-                    const daysInMonth = new Date(year, month + 1, 0).getDate();
-                    const days: React.ReactElement[] = [];
+                {(() => {
+                  const year = currentMonth.getFullYear();
+                  const month = currentMonth.getMonth();
+                  const firstDay = new Date(year, month, 1).getDay();
+                  const daysInMonth = new Date(year, month + 1, 0).getDate();
+                  const days: React.ReactElement[] = [];
 
-                    // Empty cells before month starts
-                    for (let i = 0; i < firstDay; i++) {
-                      days.push(<div key={`empty-${i}`} className="p-2 border-b border-r border-gray-200 bg-gray-50 h-24" />);
-                    }
+                  // Empty cells before month starts
+                  for (let i = 0; i < firstDay; i++) {
+                    days.push(<div key={`empty-${i}`} className="aspect-square" />);
+                  }
 
-                    // Days of the month
-                    for (let day = 1; day <= daysInMonth; day++) {
-                      const date = new Date(year, month, day);
-                      const dateStr = getLocalDateString(date);
-                      // Normalize task dueDate to YYYY-MM-DD for comparison
-                      const dayTasks = calendarTasks.filter(t => {
-                        if (!t.dueDate) return false;
-                        const taskDateStr = typeof t.dueDate === 'string'
-                          ? t.dueDate.split('T')[0]
-                          : getLocalDateString(new Date(t.dueDate));
-                        return taskDateStr === dateStr;
-                      });
-                      const daySlots = appointmentSlots.filter(s => s.date.startsWith(dateStr));
-                      const isToday = dateStr === getLocalDateString(new Date());
-                      const isSelected = selectedDate && getLocalDateString(selectedDate) === dateStr;
+                  // Days of the month
+                  for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(year, month, day);
+                    const dateStr = getLocalDateString(date);
+                    // Normalize task dueDate to YYYY-MM-DD for comparison
+                    const dayTasks = calendarTasks.filter(t => {
+                      if (!t.dueDate) return false;
+                      const taskDateStr = typeof t.dueDate === 'string'
+                        ? t.dueDate.split('T')[0]
+                        : getLocalDateString(new Date(t.dueDate));
+                      return taskDateStr === dateStr;
+                    });
+                    const daySlots = appointmentSlots.filter(s => {
+                      const slotDateStr = typeof s.date === 'string'
+                        ? s.date.split('T')[0]
+                        : getLocalDateString(new Date(s.date));
+                      return slotDateStr === dateStr;
+                    });
+                    const isToday = dateStr === getLocalDateString(new Date());
+                    const isSelected = selectedDate && getLocalDateString(selectedDate) === dateStr;
 
-                      // Detect time overlaps between tasks and slots on this day
-                      const timedTasks = dayTasks.filter(t => t.startTime && t.endTime);
-                      const activeSlots = daySlots.filter(s => s.status === 'AVAILABLE' || s.status === 'BOOKED');
-                      let hasOverlap = false;
+                    // Check if day has tasks or appointments
+                    const hasTasks = dayTasks.length > 0;
+                    const hasSlots = daySlots.length > 0;
+                    const hasContent = hasTasks || hasSlots;
 
-                      // Check task-vs-slot overlaps
-                      for (const task of timedTasks) {
-                        for (const slot of activeSlots) {
-                          if (task.startTime! < slot.endTime && task.endTime! > slot.startTime) {
-                            hasOverlap = true;
-                            break;
-                          }
-                        }
-                        if (hasOverlap) break;
-                      }
+                    days.push(
+                      <button
+                        key={day}
+                        onClick={() => setSelectedDate(date)}
+                        className={`aspect-square p-1 sm:p-2 rounded-lg text-center transition-all ${
+                          isSelected
+                            ? "bg-yellow-600 text-white font-bold"
+                            : isToday
+                            ? "bg-yellow-100 text-yellow-700 font-semibold"
+                            : hasContent
+                            ? "bg-yellow-200 text-yellow-900 font-medium hover:bg-yellow-300"
+                            : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        <div className="text-xs sm:text-sm">{day}</div>
+                        {hasContent && !isSelected && (
+                          <div className="w-1 h-1 bg-yellow-600 rounded-full mx-auto mt-0.5 sm:mt-1" />
+                        )}
+                      </button>
+                    );
+                  }
 
-                      // Check task-vs-task overlaps
-                      if (!hasOverlap && timedTasks.length > 1) {
-                        for (let i = 0; i < timedTasks.length; i++) {
-                          for (let j = i + 1; j < timedTasks.length; j++) {
-                            if (timedTasks[i].startTime! < timedTasks[j].endTime! && timedTasks[i].endTime! > timedTasks[j].startTime!) {
-                              hasOverlap = true;
-                              break;
-                            }
-                          }
-                          if (hasOverlap) break;
-                        }
-                      }
-
-                      days.push(
-                        <button
-                          key={day}
-                          onClick={() => setSelectedDate(date)}
-                          className={`p-2 border-b border-r border-gray-200 h-24 text-left hover:bg-blue-50 transition-colors ${
-                            isToday ? 'bg-blue-50' : ''
-                          } ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
-                        >
-                          <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
-                            {day}
-                          </div>
-                          <div className="space-y-1">
-                            {hasOverlap && (
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                <span className="text-xs text-red-600 font-medium">Conflicto</span>
-                              </div>
-                            )}
-                            {dayTasks.length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                <span className="text-xs text-gray-600">{dayTasks.length} tarea{dayTasks.length > 1 ? 's' : ''}</span>
-                              </div>
-                            )}
-                            {daySlots.filter(s => s.status === 'AVAILABLE').length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                <span className="text-xs text-gray-600">Disponible</span>
-                              </div>
-                            )}
-                            {daySlots.filter(s => s.status === 'BOOKED').length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                                <span className="text-xs text-gray-600">Citas</span>
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    }
-
-                    return days;
-                  })()}
-                </div>
-              </>
+                  return days;
+                })()}
+              </div>
             )}
+            </div>
           </div>
 
           {/* Day Details Panel */}
-          {selectedDate && (
-            <div className="bg-white rounded-lg shadow p-4 mt-4">
+          {selectedDate ? (
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
               <h3 className="text-lg font-semibold mb-4">
                 Detalles del día - {selectedDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}
               </h3>
@@ -552,26 +534,39 @@ export default function PendientesPage() {
                       : getLocalDateString(new Date(t.dueDate));
                     return taskDateStr === selectedDateStr;
                   });
-                  const selectedSlots = appointmentSlots.filter(s => s.date.startsWith(selectedDateStr));
-                  const selectedActiveSlots = selectedSlots.filter(s => s.status === 'AVAILABLE' || s.status === 'BOOKED');
+                  const selectedSlots = appointmentSlots.filter(s => {
+                    const slotDateStr = typeof s.date === 'string'
+                      ? s.date.split('T')[0]
+                      : getLocalDateString(new Date(s.date));
+                    return slotDateStr === selectedDateStr;
+                  });
+                  const selectedOpenSlots = selectedSlots.filter(s => s.isOpen);
 
-                  // Build set of task IDs that have overlaps
-                  const overlappingTaskIds = new Set<string>();
+                  // Build sets for different types of conflicts/warnings
+                  const taskTaskConflictIds = new Set<string>();
+                  const bookedAppointmentWarningIds = new Set<string>();
+
                   for (const task of tasksForDay) {
                     if (!task.startTime || !task.endTime) continue;
-                    // Check against slots
-                    for (const slot of selectedActiveSlots) {
-                      if (task.startTime < slot.endTime && task.endTime > slot.startTime) {
-                        overlappingTaskIds.add(task.id);
-                        break;
-                      }
-                    }
-                    // Check against other tasks
+
+                    // Check task-vs-task conflicts (BLOCKING)
                     for (const other of tasksForDay) {
                       if (other.id === task.id || !other.startTime || !other.endTime) continue;
                       if (task.startTime < other.endTime && task.endTime > other.startTime) {
-                        overlappingTaskIds.add(task.id);
-                        overlappingTaskIds.add(other.id);
+                        taskTaskConflictIds.add(task.id);
+                        taskTaskConflictIds.add(other.id);
+                      }
+                    }
+
+                    // Check task-vs-booked-appointment warnings (INFORMATIONAL)
+                    // Only if not already in task-task conflict
+                    if (!taskTaskConflictIds.has(task.id)) {
+                      for (const slot of selectedOpenSlots) {
+                        const isBooked = slot.currentBookings > 0;
+                        if (isBooked && task.startTime < slot.endTime && task.endTime > slot.startTime) {
+                          bookedAppointmentWarningIds.add(task.id);
+                          break;
+                        }
                       }
                     }
                   }
@@ -582,13 +577,17 @@ export default function PendientesPage() {
                   <div className="space-y-2">
                     {tasksForDay
                       .map(task => {
-                        const isConflicting = overlappingTaskIds.has(task.id);
+                        const hasTaskConflict = taskTaskConflictIds.has(task.id);
+                        const hasBookedWarning = bookedAppointmentWarningIds.has(task.id);
+
+                        const borderColor = hasTaskConflict
+                          ? 'border-red-300 bg-red-50 hover:border-red-400'
+                          : hasBookedWarning
+                          ? 'border-blue-300 bg-blue-50 hover:border-blue-400'
+                          : 'border-gray-200 hover:border-blue-300';
+
                         return (
-                        <div key={task.id} className={`border rounded p-3 transition-colors ${
-                          isConflicting
-                            ? 'border-red-300 bg-red-50 hover:border-red-400'
-                            : 'border-gray-200 hover:border-blue-300'
-                        }`}>
+                        <div key={task.id} className={`border rounded p-3 transition-colors ${borderColor}`}>
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <button
@@ -598,9 +597,14 @@ export default function PendientesPage() {
                                 {task.title}
                               </button>
                               {task.startTime && task.endTime && (
-                                <p className={`text-sm mt-1 ${isConflicting ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                                <p className={`text-sm mt-1 ${
+                                  hasTaskConflict ? 'text-red-600 font-medium' :
+                                  hasBookedWarning ? 'text-blue-600 font-medium' :
+                                  'text-gray-600'
+                                }`}>
                                   {task.startTime} - {task.endTime}
-                                  {isConflicting && ' — Conflicto de horario'}
+                                  {hasTaskConflict && ' — Conflicto con otro pendiente'}
+                                  {hasBookedWarning && ' — Cita reservada a esta hora'}
                                 </p>
                               )}
                               {task.patient && (
@@ -626,51 +630,81 @@ export default function PendientesPage() {
                 <h4 className="font-medium text-gray-900 mb-2">Citas</h4>
                 {(() => {
                   const sDateStr = getLocalDateString(selectedDate);
-                  const slotsForDay = appointmentSlots.filter(s => s.date.startsWith(sDateStr));
+                  console.log('🔍 Filtering appointments for selected date:', sDateStr);
+                  console.log('📦 Total appointment slots available:', appointmentSlots.length);
+                  console.log('📋 All appointment slots:', appointmentSlots);
+
+                  const slotsForDay = appointmentSlots.filter(s => {
+                    const slotDateStr = typeof s.date === 'string'
+                      ? s.date.split('T')[0]
+                      : getLocalDateString(new Date(s.date));
+                    console.log(`   Comparing slot date "${slotDateStr}" with selected "${sDateStr}":`, slotDateStr === sDateStr);
+                    return slotDateStr === sDateStr;
+                  });
+
+                  console.log('✅ Filtered slots for day:', slotsForDay);
                   const timedTasksForDay = calendarTasks.filter(t => {
                     if (!t.dueDate || !t.startTime || !t.endTime) return false;
                     const tds = typeof t.dueDate === 'string' ? t.dueDate.split('T')[0] : getLocalDateString(new Date(t.dueDate));
                     return tds === sDateStr;
                   });
 
-                  // Build set of slot IDs that overlap with tasks
-                  const overlappingSlotIds = new Set<string>();
+                  // Build set of slot IDs that overlap with tasks (for informational display only)
+                  // Note: Task-slot overlaps are ALLOWED, only shown as blue info if slot is booked
+                  const slotTaskOverlapIds = new Set<string>();
                   for (const slot of slotsForDay) {
-                    if (slot.status !== 'AVAILABLE' && slot.status !== 'BOOKED') continue;
-                    for (const task of timedTasksForDay) {
-                      if (task.startTime! < slot.endTime && task.endTime! > slot.startTime) {
-                        overlappingSlotIds.add(slot.id);
-                        break;
+                    if (!slot.isOpen) continue;
+                    const isBooked = slot.currentBookings > 0;
+                    if (isBooked) {
+                      for (const task of timedTasksForDay) {
+                        if (task.startTime! < slot.endTime && task.endTime! > slot.startTime) {
+                          slotTaskOverlapIds.add(slot.id);
+                          break;
+                        }
                       }
                     }
                   }
+
+                  // Helper to get slot status
+                  const getSlotDisplayStatus = (slot: AppointmentSlot) => {
+                    const isFull = slot.currentBookings >= slot.maxBookings;
+                    if (!slot.isOpen) {
+                      return { label: "Cerrado", color: "bg-gray-200 text-gray-700" };
+                    }
+                    if (isFull) {
+                      return { label: "Lleno", color: "bg-blue-100 text-blue-700" };
+                    }
+                    if (slot.currentBookings > 0) {
+                      return { label: "Reservado", color: "bg-orange-100 text-orange-800" };
+                    }
+                    return { label: "Disponible", color: "bg-green-100 text-green-800" };
+                  };
 
                   return slotsForDay.length === 0 ? (
                     <p className="text-sm text-gray-500">Sin citas programadas</p>
                   ) : (
                     <div className="space-y-2">
                       {slotsForDay.map(slot => {
-                        const isConflicting = overlappingSlotIds.has(slot.id);
+                        const hasTaskOverlap = slotTaskOverlapIds.has(slot.id);
+                        const slotStatus = getSlotDisplayStatus(slot);
                         return (
                           <div key={slot.id} className={`border rounded p-3 ${
-                            isConflicting
-                              ? 'border-red-300 bg-red-50'
+                            hasTaskOverlap
+                              ? 'border-blue-300 bg-blue-50'
                               : 'border-gray-200'
                           }`}>
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className={`font-medium ${isConflicting ? 'text-red-700' : 'text-gray-900'}`}>
+                                <p className={`font-medium ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
                                   {slot.startTime} - {slot.endTime}
-                                  {isConflicting && ' — Conflicto con pendiente'}
+                                  {hasTaskOverlap && ' — Pendiente a esta hora'}
                                 </p>
                                 <p className="text-sm text-gray-600">
                                   {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
                                 </p>
                               </div>
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                slot.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
-                              }`}>
-                                {slot.status === 'AVAILABLE' ? 'Disponible' : 'Reservado'}
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${slotStatus.color}`}>
+                                {slotStatus.label}
                               </span>
                             </div>
                           </div>
@@ -679,6 +713,13 @@ export default function PendientesPage() {
                     </div>
                   );
                 })()}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6 flex items-center justify-center min-h-[400px]">
+              <div className="text-center text-gray-500">
+                <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Selecciona un día para ver los detalles</p>
               </div>
             </div>
           )}
