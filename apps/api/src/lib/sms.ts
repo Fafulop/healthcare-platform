@@ -51,8 +51,13 @@ function formatPhoneNumber(phone: string): string {
 
 /**
  * Send SMS confirmation to patient
+ * @param details - Booking details
+ * @param status - Booking status: 'PENDING' sends request acknowledgment, 'CONFIRMED' sends confirmation
  */
-export async function sendPatientSMS(details: BookingDetails): Promise<boolean> {
+export async function sendPatientSMS(
+  details: BookingDetails,
+  status: 'PENDING' | 'CONFIRMED' = 'CONFIRMED'
+): Promise<boolean> {
   if (!client || !TWILIO_PHONE_NUMBER) {
     console.warn('⚠️ Twilio SMS not configured. Skipping SMS notification.');
     return false;
@@ -65,24 +70,39 @@ export async function sendPatientSMS(details: BookingDetails): Promise<boolean> 
     day: 'numeric',
   });
 
-  // Build review link if token is provided
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const reviewLink = details.reviewToken
-    ? `\n\nDespues de tu cita, dejanos tu opinion:\n${baseUrl}/review/${details.reviewToken}`
-    : '';
+  let message: string;
 
-  // SMS has 160 character limit per segment, keep it concise
-  const message = `¡Hola ${details.patientName}!
+  if (status === 'PENDING') {
+    // SMS 1: Booking request received (pending doctor confirmation)
+    message = `¡Hola ${details.patientName}!
 
-Tu cita confirmada:
+Tu solicitud de cita ha sido recibida:
+Dr. ${details.doctorName}
+${formattedDate}
+${details.startTime} - ${details.endTime}
+
+Recibirás la confirmación del doctor pronto vía SMS y correo electrónico.
+
+Código de referencia: ${details.confirmationCode}`;
+  } else {
+    // SMS 2: Booking confirmed by doctor
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const reviewLink = details.reviewToken
+      ? `\n\nDespués de tu cita, déjanos tu opinión:\n${baseUrl}/review/${details.reviewToken}`
+      : '';
+
+    message = `¡Hola ${details.patientName}!
+
+Tu cita ha sido CONFIRMADA:
 Dr. ${details.doctorName}
 ${formattedDate}
 ${details.startTime} - ${details.endTime}
 Precio: $${details.finalPrice}
 
-Codigo: ${details.confirmationCode}
+Código de confirmación: ${details.confirmationCode}
 
 Por favor llega 10 min antes.${reviewLink}`;
+  }
 
   try {
     const formattedPhone = formatPhoneNumber(details.patientPhone);
@@ -93,10 +113,10 @@ Por favor llega 10 min antes.${reviewLink}`;
       body: message,
     });
 
-    console.log(`✅ SMS sent to patient: ${formattedPhone}`);
+    console.log(`✅ SMS sent to patient (${status}): ${formattedPhone}`);
     return true;
   } catch (error) {
-    console.error('❌ Error sending SMS to patient:', error);
+    console.error(`❌ Error sending SMS to patient (${status}):`, error);
     return false;
   }
 }

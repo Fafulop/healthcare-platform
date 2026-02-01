@@ -147,15 +147,18 @@ export async function POST(request: Request) {
         reviewToken,
       };
 
-      // Send to patient (don't await - let it run in background)
-      sendPatientSMS(smsDetails).catch((error) =>
-        console.error('SMS patient notification failed:', error)
+      // Send PENDING SMS to patient (acknowledgment that request was received)
+      sendPatientSMS(smsDetails, 'PENDING').catch((error) =>
+        console.error('SMS patient notification (PENDING) failed:', error)
       );
 
       // Send to doctor (don't await - let it run in background)
       sendDoctorSMS(smsDetails).catch((error) =>
         console.error('SMS doctor notification failed:', error)
       );
+
+      // TODO: Send email to patient (future implementation)
+      // sendPatientEmail(emailDetails, 'PENDING').catch(...)
     }
 
     return NextResponse.json(

@@ -254,7 +254,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
           )}
 
           <p className="text-xs text-gray-500 mb-4">
-            Recibirás una confirmación por SMS en breve.
+            Tu solicitud ha sido enviada. Recibirás la confirmación del doctor por SMS y correo electrónico.
           </p>
 
           <button

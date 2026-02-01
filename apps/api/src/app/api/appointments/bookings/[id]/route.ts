@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import { sendPatientSMS, isSMSConfigured } from '@/lib/sms';
 
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -175,7 +176,45 @@ export async function PATCH(
         status: newStatus,
         ...(newStatus === 'CONFIRMED' && { confirmedAt: new Date() }),
       },
+      include: {
+        slot: true,
+        doctor: {
+          select: {
+            doctorFullName: true,
+            primarySpecialty: true,
+            clinicAddress: true,
+            clinicPhone: true,
+          },
+        },
+      },
     });
+
+    // Send confirmation SMS when status changes to CONFIRMED
+    if (newStatus === 'CONFIRMED' && isSMSConfigured()) {
+      const smsDetails = {
+        patientName: updatedBooking.patientName,
+        patientPhone: updatedBooking.patientPhone,
+        doctorName: updatedBooking.doctor.doctorFullName,
+        doctorPhone: updatedBooking.doctor.clinicPhone || undefined,
+        date: updatedBooking.slot.date.toISOString(),
+        startTime: updatedBooking.slot.startTime,
+        endTime: updatedBooking.slot.endTime,
+        duration: updatedBooking.slot.duration,
+        finalPrice: Number(updatedBooking.finalPrice),
+        confirmationCode: updatedBooking.confirmationCode,
+        clinicAddress: updatedBooking.doctor.clinicAddress || undefined,
+        specialty: updatedBooking.doctor.primarySpecialty || undefined,
+        reviewToken: updatedBooking.reviewToken || undefined,
+      };
+
+      // Send CONFIRMED SMS to patient
+      sendPatientSMS(smsDetails, 'CONFIRMED').catch((error) =>
+        console.error('SMS confirmation notification failed:', error)
+      );
+
+      // TODO: Send confirmation email to patient (future implementation)
+      // sendPatientEmail(emailDetails, 'CONFIRMED').catch(...)
+    }
 
     const statusMessages: Record<string, string> = {
       CONFIRMED: 'Booking confirmed successfully',
