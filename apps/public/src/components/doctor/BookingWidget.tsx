@@ -6,6 +6,20 @@ import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCir
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
+// Helper to format a date string without timezone shift
+function formatDateString(dateStr: string, locale: string, options?: Intl.DateTimeFormatOptions): string {
+  try {
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    if (year && month && day) {
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString(locale, options);
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
+
 interface Slot {
   id: string;
   date: string;
@@ -26,7 +40,15 @@ interface BookingWidgetProps {
 }
 
 export default function BookingWidget({ doctorSlug, isModal = false, onDayClick, initialDate = null }: BookingWidgetProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    if (initialDate && typeof initialDate === 'string' && initialDate.includes('-')) {
+      const [y, m] = initialDate.split('-').map(Number);
+      if (y && m) {
+        return new Date(y, m - 1, 1);
+      }
+    }
+    return new Date();
+  });
   const [selectedDate, setSelectedDate] = useState<string | null>(initialDate);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [slotsByDate, setSlotsByDate] = useState<Record<string, Slot[]>>({});
@@ -50,10 +72,14 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     fetchAvailability();
   }, [currentMonth, doctorSlug]);
 
-  // Set selected date when initialDate is provided (e.g., from sidebar click)
+  // Set selected date and navigate to its month when initialDate changes
   useEffect(() => {
-    if (initialDate) {
+    if (initialDate && typeof initialDate === 'string' && initialDate.includes('-')) {
       setSelectedDate(initialDate);
+      const [y, m] = initialDate.split('-').map(Number);
+      if (y && m) {
+        setCurrentMonth(new Date(y, m - 1, 1));
+      }
     }
   }, [initialDate]);
 
@@ -163,7 +189,8 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     calendarDays.push(day);
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const selectedSlots = selectedDate ? slotsByDate[selectedDate] || [] : [];
 
   const goToPrevMonth = () => {
@@ -206,7 +233,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
               <p className="text-sm font-semibold text-[var(--color-secondary)] mb-3">Detalles de la Cita:</p>
               <div className="space-y-2 text-sm">
                 <p className="text-gray-900">
-                  <strong>Fecha:</strong> {new Date(selectedSlot.date).toLocaleDateString("es-MX", {
+                  <strong>Fecha:</strong> {formatDateString(selectedSlot.date, "es-MX", {
                     weekday: "long",
                     year: "numeric",
                     month: "long",
@@ -279,7 +306,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4 shadow-sm">
             <p className="text-xs font-medium text-[var(--color-secondary)] mb-1 opacity-80">Horario seleccionado:</p>
             <p className="text-sm font-semibold text-[var(--color-neutral-dark)]">
-              {new Date(selectedSlot.date).toLocaleDateString("es-MX", {
+              {formatDateString(selectedSlot.date, "es-MX", {
                 weekday: "long",
                 month: "long",
                 day: "numeric",
@@ -431,7 +458,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                     return <div key={`empty-${index}`} />;
                   }
 
-                  const dateStr = new Date(year, month, day).toISOString().split("T")[0];
+                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                   const slotsCount = slotsByDate[dateStr]?.length || 0;
                   const hasSlots = slotsCount > 0;
                   const isSelected = dateStr === selectedDate;

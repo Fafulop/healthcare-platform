@@ -36,16 +36,26 @@ export default function AppointmentCalendar({ nextAvailableDate, modes }: Appoin
           </div>
 
           {/* Next Available Date */}
-          {nextAvailableDate && (
+          {nextAvailableDate && typeof nextAvailableDate === 'string' && (
             <div className="text-center lg:text-left mb-6 lg:mb-3">
               <p className="text-xs text-[var(--color-neutral-medium)] mb-1">Próxima Fecha Disponible</p>
               <p className="text-xl lg:text-base font-bold text-[var(--color-secondary)]">
-                {new Date(nextAvailableDate).toLocaleDateString('es-MX', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
+                {(() => {
+                  try {
+                    const [y, m, d] = nextAvailableDate.split('T')[0].split('-').map(Number);
+                    if (y && m && d) {
+                      return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      });
+                    }
+                  } catch (e) {
+                    console.error('Error parsing date:', e);
+                  }
+                  return nextAvailableDate;
+                })()}
               </p>
             </div>
           )}
