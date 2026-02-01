@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (slot.status === 'BLOCKED') {
+    if (!slot.isOpen) {
       return NextResponse.json(
         { success: false, error: 'This slot is not available for booking' },
         { status: 400 }
@@ -106,8 +106,8 @@ export async function POST(request: Request) {
         where: { id: slotId },
         data: {
           currentBookings: { increment: 1 },
-          status:
-            slot.currentBookings + 1 >= slot.maxBookings ? 'BOOKED' : 'AVAILABLE',
+          // Note: Availability is now determined by isOpen and currentBookings < maxBookings
+          // No need to update status field (removed from schema)
         },
       }),
     ]);

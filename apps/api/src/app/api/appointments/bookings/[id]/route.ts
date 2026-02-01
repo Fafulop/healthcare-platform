@@ -4,6 +4,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 
+// Booking state machine transitions
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['COMPLETED', 'NO_SHOW', 'CANCELLED'],
+  CANCELLED: [], // Terminal state
+  COMPLETED: [], // Terminal state
+  NO_SHOW: [], // Terminal state
+};
+
 // GET - Get booking by ID or confirmation code
 export async function GET(
   request: Request,
@@ -79,9 +88,9 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status } = body;
+    const { status: newStatus } = body;
 
-    if (!status) {
+    if (!newStatus) {
       return NextResponse.json(
         { success: false, error: 'Status is required' },
         { status: 400 }
@@ -89,14 +98,14 @@ export async function PATCH(
     }
 
     const validStatuses = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'NO_SHOW'];
-    if (!validStatuses.includes(status)) {
+    if (!validStatuses.includes(newStatus)) {
       return NextResponse.json(
         { success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
         { status: 400 }
       );
     }
 
-    // Get current booking
+    // Get current booking with slot
     const currentBooking = await prisma.booking.findUnique({
       where: { id },
       include: { slot: true },
@@ -109,58 +118,74 @@ export async function PATCH(
       );
     }
 
-    // Handle cancellation - free up the slot
-    if (status === 'CANCELLED' && currentBooking.status !== 'CANCELLED') {
-      const [updatedBooking, updatedSlot] = await prisma.$transaction([
+    const currentStatus = currentBooking.status;
+
+    // Validate state transition
+    if (!VALID_TRANSITIONS[currentStatus]?.includes(newStatus)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Invalid transition: cannot go from ${currentStatus} to ${newStatus}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Terminal statuses (CANCELLED, COMPLETED, NO_SHOW) all free up the slot
+    const isTerminalStatus = ['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(newStatus);
+    const wasNotTerminal = !['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(currentStatus);
+
+    if (isTerminalStatus && wasNotTerminal) {
+      // Update booking and decrement slot's currentBookings in a transaction
+      const [updatedBooking] = await prisma.$transaction([
         prisma.booking.update({
           where: { id },
           data: {
-            status,
-            cancelledAt: new Date(),
+            status: newStatus,
+            ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
+            ...(newStatus === 'CONFIRMED' && { confirmedAt: new Date() }),
           },
         }),
         prisma.appointmentSlot.update({
           where: { id: currentBooking.slotId },
           data: {
             currentBookings: { decrement: 1 },
-            status: 'AVAILABLE', // Make slot available again
+            // Note: We do NOT change isOpen - that's doctor's explicit control
           },
         }),
       ]);
 
-      return NextResponse.json({
-        success: true,
-        data: updatedBooking,
-        message: 'Booking cancelled successfully',
-      });
-    }
-
-    // Handle confirmation
-    if (status === 'CONFIRMED' && currentBooking.status === 'PENDING') {
-      const updatedBooking = await prisma.booking.update({
-        where: { id },
-        data: {
-          status,
-          confirmedAt: new Date(),
-        },
-      });
+      const statusMessages = {
+        CANCELLED: 'Booking cancelled successfully',
+        COMPLETED: 'Booking marked as completed',
+        NO_SHOW: 'Booking marked as no-show',
+      };
 
       return NextResponse.json({
         success: true,
         data: updatedBooking,
-        message: 'Booking confirmed successfully',
+        message: statusMessages[newStatus as keyof typeof statusMessages],
       });
     }
 
-    // Regular status update
+    // Non-terminal status updates (PENDING → CONFIRMED)
     const updatedBooking = await prisma.booking.update({
       where: { id },
-      data: { status },
+      data: {
+        status: newStatus,
+        ...(newStatus === 'CONFIRMED' && { confirmedAt: new Date() }),
+      },
     });
+
+    const statusMessages: Record<string, string> = {
+      CONFIRMED: 'Booking confirmed successfully',
+      PENDING: 'Booking reverted to pending',
+    };
 
     return NextResponse.json({
       success: true,
       data: updatedBooking,
+      message: statusMessages[newStatus] || 'Booking status updated',
     });
   } catch (error) {
     console.error('Error updating booking status:', error);

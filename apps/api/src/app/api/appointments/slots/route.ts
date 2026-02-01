@@ -113,9 +113,15 @@ export async function GET(request: Request) {
       where.date = { gte: new Date(startDate) };
     }
 
-    // Status filter
+    // isOpen filter (replaces status filter)
     if (status) {
-      where.status = status;
+      // Map old status values to isOpen for backward compatibility
+      if (status === 'AVAILABLE') {
+        where.isOpen = true;
+      } else if (status === 'BLOCKED') {
+        where.isOpen = false;
+      }
+      // Note: BOOKED is now computed (currentBookings >= maxBookings), not stored
     }
 
     const slots = await prisma.appointmentSlot.findMany({
@@ -167,6 +173,7 @@ export async function POST(request: Request) {
       basePrice,
       discount,
       discountType,
+      replaceConflicts, // NEW: If true, delete conflicting slots and create new ones
     } = body;
 
     // Validation
@@ -251,8 +258,8 @@ export async function POST(request: Request) {
         );
       }
 
-      const slotDate = new Date(date);
-      slotDate.setHours(0, 0, 0, 0);
+      const slotDate = new Date(date + 'T12:00:00Z');
+      slotDate.setUTCHours(0, 0, 0, 0);
 
       const slotsToCreate = timeSlots.map((slot) => ({
         doctorId,
@@ -266,15 +273,103 @@ export async function POST(request: Request) {
         finalPrice,
       }));
 
+      // Check for existing slots (same-type conflict detection)
+      const existingSlots = await prisma.appointmentSlot.findMany({
+        where: {
+          doctorId,
+          date: slotDate,
+          startTime: {
+            in: slotsToCreate.map((s) => s.startTime),
+          },
+        },
+        include: {
+          bookings: {
+            where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+          },
+        },
+      });
+
+      // If conflicts exist and replaceConflicts is false, return 409
+      if (existingSlots.length > 0 && !replaceConflicts) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Slot conflicts detected',
+            conflicts: existingSlots.map((slot) => ({
+              id: slot.id,
+              date: slot.date,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              currentBookings: slot.currentBookings,
+              maxBookings: slot.maxBookings,
+              hasBookings: slot.bookings.length > 0,
+            })),
+            message: `Ya existen ${existingSlots.length} horarios en estos tiempos`,
+          },
+          { status: 409 }
+        );
+      }
+
+      // Check for tasks at these times (informational only, not blocking)
+      const tasksAtTimes = await prisma.task.findMany({
+        where: {
+          doctorId,
+          dueDate: slotDate,
+          startTime: {
+            not: null,
+          },
+          endTime: {
+            not: null,
+          },
+          status: {
+            in: ['PENDIENTE', 'EN_PROGRESO'],
+          },
+        },
+      });
+
+      // Filter tasks that actually overlap with our slots
+      const overlappingTasks = tasksAtTimes.filter((task) => {
+        return slotsToCreate.some((slot) => {
+          // Time overlap check: task.start < slot.end AND task.end > slot.start
+          return task.startTime! < slot.endTime && task.endTime! > slot.startTime;
+        });
+      });
+
+      // If replaceConflicts, delete existing slots first (atomic with creation)
+      if (replaceConflicts && existingSlots.length > 0) {
+        await prisma.appointmentSlot.deleteMany({
+          where: {
+            id: {
+              in: existingSlots.map((s) => s.id),
+            },
+          },
+        });
+      }
+
+      // Create new slots
       const created = await prisma.appointmentSlot.createMany({
         data: slotsToCreate,
-        skipDuplicates: true, // Skip if slot already exists
+        skipDuplicates: false, // Don't skip, we already handled conflicts
       });
 
       return NextResponse.json({
         success: true,
         message: `Created ${created.count} slots`,
         count: created.count,
+        replaced: replaceConflicts ? existingSlots.length : 0,
+        tasksInfo:
+          overlappingTasks.length > 0
+            ? {
+                count: overlappingTasks.length,
+                message: `Tienes ${overlappingTasks.length} pendiente(s) a estas horas`,
+                tasks: overlappingTasks.map((t) => ({
+                  id: t.id,
+                  title: t.title,
+                  startTime: t.startTime,
+                  endTime: t.endTime,
+                })),
+              }
+            : null,
       });
     }
 
@@ -291,10 +386,10 @@ export async function POST(request: Request) {
         );
       }
 
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      const start = new Date(startDate + 'T12:00:00Z');
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(endDate + 'T12:00:00Z');
+      end.setUTCHours(23, 59, 59, 999);
 
       const allSlotsToCreate: any[] = [];
 
@@ -304,12 +399,12 @@ export async function POST(request: Request) {
         currentDate <= end;
         currentDate.setDate(currentDate.getDate() + 1)
       ) {
-        const dayOfWeek = currentDate.getDay();
+        const dayOfWeek = currentDate.getUTCDay();
         const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert Sunday=0 to Sunday=6
 
         if (daysOfWeek.includes(adjustedDay)) {
           const slotDate = new Date(currentDate);
-          slotDate.setHours(0, 0, 0, 0);
+          slotDate.setUTCHours(0, 0, 0, 0);
 
           const slotsForDay = timeSlots.map((slot) => ({
             doctorId,
@@ -337,9 +432,96 @@ export async function POST(request: Request) {
         );
       }
 
+      // Check for existing slots (same-type conflict detection)
+      // Get all dates we're trying to create slots for
+      const uniqueDates = Array.from(
+        new Set(allSlotsToCreate.map((s) => s.date.toISOString()))
+      ).map((d) => new Date(d));
+
+      const existingSlots = await prisma.appointmentSlot.findMany({
+        where: {
+          doctorId,
+          date: {
+            in: uniqueDates,
+          },
+          // Check if any of the times match
+          OR: allSlotsToCreate.map((slot) => ({
+            date: slot.date,
+            startTime: slot.startTime,
+          })),
+        },
+        include: {
+          bookings: {
+            where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+          },
+        },
+      });
+
+      // If conflicts exist and replaceConflicts is false, return 409
+      if (existingSlots.length > 0 && !replaceConflicts) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Slot conflicts detected',
+            conflicts: existingSlots.map((slot) => ({
+              id: slot.id,
+              date: slot.date,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              currentBookings: slot.currentBookings,
+              maxBookings: slot.maxBookings,
+              hasBookings: slot.bookings.length > 0,
+            })),
+            message: `Ya existen ${existingSlots.length} horarios en estos tiempos`,
+          },
+          { status: 409 }
+        );
+      }
+
+      // Check for tasks at these times (informational only)
+      const tasksAtTimes = await prisma.task.findMany({
+        where: {
+          doctorId,
+          dueDate: {
+            in: uniqueDates,
+          },
+          startTime: {
+            not: null,
+          },
+          endTime: {
+            not: null,
+          },
+          status: {
+            in: ['PENDIENTE', 'EN_PROGRESO'],
+          },
+        },
+      });
+
+      // Filter tasks that actually overlap
+      const overlappingTasks = tasksAtTimes.filter((task) => {
+        return allSlotsToCreate.some((slot) => {
+          const sameDate = task.dueDate?.toISOString() === slot.date.toISOString();
+          const timeOverlap =
+            task.startTime! < slot.endTime && task.endTime! > slot.startTime;
+          return sameDate && timeOverlap;
+        });
+      });
+
+      // If replaceConflicts, delete existing slots first
+      if (replaceConflicts && existingSlots.length > 0) {
+        await prisma.appointmentSlot.deleteMany({
+          where: {
+            id: {
+              in: existingSlots.map((s) => s.id),
+            },
+          },
+        });
+      }
+
+      // Create new slots
       const created = await prisma.appointmentSlot.createMany({
         data: allSlotsToCreate,
-        skipDuplicates: true,
+        skipDuplicates: false,
       });
 
       return NextResponse.json({
@@ -347,6 +529,21 @@ export async function POST(request: Request) {
         message: `Created ${created.count} recurring slots`,
         count: created.count,
         totalPossible: allSlotsToCreate.length,
+        replaced: replaceConflicts ? existingSlots.length : 0,
+        tasksInfo:
+          overlappingTasks.length > 0
+            ? {
+                count: overlappingTasks.length,
+                message: `Tienes ${overlappingTasks.length} pendiente(s) a estas horas`,
+                tasks: overlappingTasks.map((t) => ({
+                  id: t.id,
+                  title: t.title,
+                  dueDate: t.dueDate,
+                  startTime: t.startTime,
+                  endTime: t.endTime,
+                })),
+              }
+            : null,
       });
     }
 

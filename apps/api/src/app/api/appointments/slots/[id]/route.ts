@@ -30,7 +30,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { startTime, endTime, duration, basePrice, discount, discountType, status } =
+    const { startTime, endTime, duration, basePrice, discount, discountType, isOpen } =
       body;
 
     // Check if slot exists and isn't booked
@@ -38,7 +38,7 @@ export async function PUT(
       where: { id },
       include: {
         bookings: {
-          where: { status: { notIn: ['CANCELLED'] } },
+          where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
         },
       },
     });
@@ -50,8 +50,8 @@ export async function PUT(
       );
     }
 
-    // Prevent editing if slot has active bookings (except for blocking)
-    if (existingSlot.bookings.length > 0 && status !== 'BLOCKED') {
+    // Prevent editing if slot has active bookings (except for toggling isOpen)
+    if (existingSlot.bookings.length > 0 && isOpen !== existingSlot.isOpen) {
       return NextResponse.json(
         {
           success: false,
@@ -61,19 +61,27 @@ export async function PUT(
       );
     }
 
-    const finalPrice = calculateFinalPrice(basePrice, discount, discountType);
+    // Calculate final price if basePrice or discount fields are being updated
+    const finalPrice =
+      basePrice !== undefined || discount !== undefined || discountType !== undefined
+        ? calculateFinalPrice(
+            basePrice !== undefined ? basePrice : existingSlot.basePrice.toNumber(),
+            discount !== undefined ? discount : existingSlot.discount?.toNumber() ?? null,
+            discountType !== undefined ? discountType : existingSlot.discountType
+          )
+        : undefined;
 
     const updated = await prisma.appointmentSlot.update({
       where: { id },
       data: {
-        ...(startTime && { startTime }),
-        ...(endTime && { endTime }),
-        ...(duration && { duration }),
+        ...(startTime !== undefined && { startTime }),
+        ...(endTime !== undefined && { endTime }),
+        ...(duration !== undefined && { duration }),
         ...(basePrice !== undefined && { basePrice }),
         ...(discount !== undefined && { discount }),
         ...(discountType !== undefined && { discountType }),
-        ...(basePrice !== undefined && { finalPrice }),
-        ...(status && { status }),
+        ...(finalPrice !== undefined && { finalPrice }),
+        ...(isOpen !== undefined && { isOpen }),
       },
     });
 
@@ -149,7 +157,7 @@ export async function DELETE(
   }
 }
 
-// PATCH - Update slot status (block/unblock)
+// PATCH - Toggle slot open/closed (replaces block/unblock)
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -157,13 +165,13 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status } = body;
+    const { isOpen } = body;
 
-    if (!status || !['AVAILABLE', 'BLOCKED'].includes(status)) {
+    if (typeof isOpen !== 'boolean') {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid status. Must be AVAILABLE or BLOCKED',
+          error: 'Invalid isOpen. Must be a boolean (true or false)',
         },
         { status: 400 }
       );
@@ -171,16 +179,16 @@ export async function PATCH(
 
     const updated = await prisma.appointmentSlot.update({
       where: { id },
-      data: { status },
+      data: { isOpen },
     });
 
     return NextResponse.json({
       success: true,
       data: updated,
-      message: `Slot ${status === 'BLOCKED' ? 'blocked' : 'unblocked'} successfully`,
+      message: `Slot ${isOpen ? 'opened for bookings' : 'closed for bookings'}`,
     });
   } catch (error) {
-    console.error('Error updating slot status:', error);
+    console.error('Error updating slot isOpen status:', error);
     return NextResponse.json(
       {
         success: false,

@@ -36,10 +36,9 @@ export async function GET(
     if (month) {
       // Get all slots for a specific month
       const [year, monthNum] = month.split('-').map(Number);
-      const startOfMonth = new Date(year, monthNum - 1, 1);
-      const endOfMonth = new Date(year, monthNum, 0);
-      startOfMonth.setHours(0, 0, 0, 0);
-      endOfMonth.setHours(23, 59, 59, 999);
+      const startOfMonth = new Date(`${year}-${String(monthNum).padStart(2, '0')}-01T00:00:00Z`);
+      const lastDay = new Date(year, monthNum, 0).getDate();
+      const endOfMonth = new Date(`${year}-${String(monthNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999Z`);
 
       dateFilter = {
         gte: startOfMonth,
@@ -71,12 +70,12 @@ export async function GET(
       };
     }
 
-    // Get available slots
-    const slots = await prisma.appointmentSlot.findMany({
+    // Get available slots (isOpen = true AND not fully booked)
+    const allSlots = await prisma.appointmentSlot.findMany({
       where: {
         doctorId: doctor.id,
         date: dateFilter,
-        status: 'AVAILABLE',
+        isOpen: true, // Only open slots
       },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
       select: {
@@ -91,20 +90,31 @@ export async function GET(
         finalPrice: true,
         maxBookings: true,
         currentBookings: true,
+        isOpen: true,
       },
     });
 
-    console.log(`📅 Date filter:`, dateFilter);
-    console.log(`📍 Found ${slots.length} AVAILABLE slots for doctor ID: ${doctor.id}`);
+    // Filter out fully booked slots (where currentBookings >= maxBookings)
+    const slots = allSlots.filter(slot => slot.currentBookings < slot.maxBookings);
 
-    // Debug: Check ALL slots for this doctor (any status)
-    const allSlotsCount = await prisma.appointmentSlot.count({
+    console.log(`📅 Date filter:`, dateFilter);
+    console.log(`📍 Found ${allSlots.length} open slots, ${slots.length} available (not full) for doctor ID: ${doctor.id}`);
+
+    // Debug: Check ALL slots for this doctor (open and closed)
+    const totalSlotsCount = await prisma.appointmentSlot.count({
       where: {
         doctorId: doctor.id,
         date: dateFilter,
       },
     });
-    console.log(`🔢 Total slots (all statuses) for this doctor in date range: ${allSlotsCount}`);
+    const openSlotsCount = await prisma.appointmentSlot.count({
+      where: {
+        doctorId: doctor.id,
+        date: dateFilter,
+        isOpen: true,
+      },
+    });
+    console.log(`🔢 Total slots in date range: ${totalSlotsCount} (${openSlotsCount} open, ${totalSlotsCount - openSlotsCount} closed)`);
 
     // Group slots by date for easier frontend consumption
     const slotsByDate: Record<string, any[]> = {};

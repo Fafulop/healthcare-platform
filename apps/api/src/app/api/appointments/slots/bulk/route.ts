@@ -60,39 +60,38 @@ export async function POST(request: Request) {
       });
     }
 
-    // Block multiple slots
-    if (action === 'block') {
+    // Close multiple slots (prevent new bookings)
+    if (action === 'close') {
       const updated = await prisma.appointmentSlot.updateMany({
         where: {
           id: { in: slotIds },
         },
         data: {
-          status: 'BLOCKED',
+          isOpen: false,
         },
       });
 
       return NextResponse.json({
         success: true,
-        message: `Blocked ${updated.count} slots`,
+        message: `Cerrados ${updated.count} horarios`,
         count: updated.count,
       });
     }
 
-    // Unblock multiple slots
-    if (action === 'unblock') {
+    // Open multiple slots (allow new bookings)
+    if (action === 'open') {
       const updated = await prisma.appointmentSlot.updateMany({
         where: {
           id: { in: slotIds },
-          status: 'BLOCKED',
         },
         data: {
-          status: 'AVAILABLE',
+          isOpen: true,
         },
       });
 
       return NextResponse.json({
         success: true,
-        message: `Unblocked ${updated.count} slots`,
+        message: `Abiertos ${updated.count} horarios`,
         count: updated.count,
       });
     }
@@ -100,7 +99,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: 'Invalid action. Must be delete, block, or unblock',
+        error: 'Invalid action. Must be delete, close, or open',
       },
       { status: 400 }
     );

@@ -258,7 +258,7 @@ model AppointmentSlot {
   finalPrice         Decimal     @map("final_price") @db.Decimal(10, 2)
 
   // Availability
-  status             SlotStatus  @default(AVAILABLE)
+  isOpen             Boolean     @default(true) @map("is_open") // true = patients can book, false = blocked by doctor
   maxBookings        Int         @default(1) @map("max_bookings")
   currentBookings    Int         @default(0) @map("current_bookings")
 
@@ -270,17 +270,9 @@ model AppointmentSlot {
   updatedAt          DateTime    @updatedAt @map("updated_at")
 
   @@map("appointment_slots")
-  @@index([doctorId, date, status])
+  @@index([doctorId, date, isOpen])
   @@index([date])
   @@unique([doctorId, date, startTime]) // Prevent duplicate slots at same time
-  @@schema("public")
-}
-
-enum SlotStatus {
-  AVAILABLE
-  BOOKED
-  BLOCKED
-
   @@schema("public")
 }
 
