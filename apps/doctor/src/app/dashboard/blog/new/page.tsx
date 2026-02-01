@@ -132,7 +132,7 @@ export default function NewArticlePage() {
               <ArrowLeft className="w-4 h-4" />
               Volver al Blog
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Nuevo Artículo</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Nuevo Artículo</h1>
           </div>
 
         {/* Error Message */}
@@ -147,7 +147,7 @@ export default function NewArticlePage() {
         )}
 
         {/* Form */}
-        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
+        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 space-y-6">
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -283,12 +283,12 @@ export default function NewArticlePage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-6 border-t">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
             <button
               type="button"
               onClick={() => router.push('/dashboard/blog')}
               disabled={loading}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 order-3 sm:order-1"
             >
               Cancelar
             </button>
@@ -296,7 +296,7 @@ export default function NewArticlePage() {
               type="button"
               onClick={() => handleSubmit(false)}
               disabled={loading}
-              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 order-2"
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -309,7 +309,7 @@ export default function NewArticlePage() {
               type="button"
               onClick={() => handleSubmit(true)}
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 order-1 sm:order-3"
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

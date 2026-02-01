@@ -221,7 +221,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
             <ArrowLeft className="w-4 h-4" />
             Volver al Blog
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Editar Artículo</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Editar Artículo</h1>
           {article?.status === 'PUBLISHED' && (
             <p className="text-sm text-green-600 mt-1">Este artículo está publicado actualmente</p>
           )}
@@ -252,7 +252,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
         )}
 
         {/* Form */}
-        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
+        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 space-y-6">
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -377,26 +377,26 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-between items-center pt-6 border-t">
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 pt-6 border-t">
             <div>
               {article?.status === 'PUBLISHED' && (
                 <button
                   type="button"
                   onClick={() => handleSubmit('DRAFT')}
                   disabled={saving}
-                  className="px-4 py-2 text-orange-600 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-2 text-orange-600 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50"
                 >
                   Despublicar
                 </button>
               )}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
                 onClick={() => router.push('/dashboard/blog')}
                 disabled={saving}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 order-3 sm:order-1"
               >
                 Cancelar
               </button>
@@ -406,7 +406,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
                   type="button"
                   onClick={() => handleSubmit('DRAFT')}
                   disabled={saving}
-                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 order-2"
                 >
                   {saving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -421,7 +421,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
                 type="button"
                 onClick={() => handleSubmit(article?.status === 'PUBLISHED' ? 'PUBLISHED' : 'PUBLISHED')}
                 disabled={saving}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 order-1 sm:order-3"
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

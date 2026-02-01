@@ -118,58 +118,58 @@ export default function BlogManagementPage() {
           <div className="mb-6">
             <div className="flex justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Mi Blog</h1>
-                <p className="text-gray-600 mt-1">Gestiona tus artículos y publicaciones</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Mi Blog</h1>
+                <p className="text-gray-600 mt-1 text-sm sm:text-base">Gestiona tus artículos y publicaciones</p>
               </div>
               <button
                 onClick={() => router.push('/dashboard/blog/new')}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center gap-2 transition-colors"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 sm:px-4 rounded-md font-semibold flex items-center gap-2 transition-colors"
               >
                 <Plus className="w-5 h-5" />
-                Nuevo Artículo
+                <span className="hidden sm:inline">Nuevo Artículo</span>
               </button>
             </div>
           </div>
 
         {/* Tarjetas de Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total de Artículos</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
-              <FileText className="w-10 h-10 text-blue-600 opacity-20" />
+              <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600 opacity-20" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Publicados</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.published}</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600">{stats.published}</p>
               </div>
-              <Eye className="w-10 h-10 text-blue-600 opacity-20" />
+              <Eye className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600 opacity-20" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Borradores</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.drafts}</p>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">{stats.drafts}</p>
               </div>
-              <Edit className="w-10 h-10 text-orange-600 opacity-20" />
+              <Edit className="w-8 h-8 sm:w-10 sm:h-10 text-orange-600 opacity-20" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total de Vistas</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.totalViews}</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600">{stats.totalViews}</p>
               </div>
-              <BarChart className="w-10 h-10 text-blue-600 opacity-20" />
+              <BarChart className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600 opacity-20" />
             </div>
           </div>
         </div>
@@ -177,19 +177,19 @@ export default function BlogManagementPage() {
         {/* Pestañas de Filtro */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="border-b border-gray-200">
-            <div className="flex">
+            <div className="flex overflow-x-auto">
               {(['ALL', 'PUBLISHED', 'DRAFT'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setFilter(tab)}
-                  className={`px-6 py-3 font-medium transition-colors ${
+                  className={`px-3 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap text-sm sm:text-base ${
                     filter === tab
                       ? 'text-blue-600 border-b-2 border-blue-600'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   {tab === 'ALL' ? 'Todos' : tab === 'PUBLISHED' ? 'Publicados' : 'Borradores'}
-                  <span className="ml-2 text-sm text-gray-500">
+                  <span className="ml-1 sm:ml-2 text-xs sm:text-sm text-gray-500">
                     ({tab === 'ALL' ? stats.total : tab === 'PUBLISHED' ? stats.published : stats.drafts})
                   </span>
                 </button>
@@ -209,7 +209,7 @@ export default function BlogManagementPage() {
           </div>
         )}
 
-        {/* Tabla de Artículos */}
+        {/* Artículos */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {filteredArticles.length === 0 ? (
             <div className="text-center py-12">
@@ -229,87 +229,144 @@ export default function BlogManagementPage() {
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Título
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Vistas
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredArticles.map((article) => (
-                    <tr key={article.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          {article.thumbnail && (
-                            <img
-                              src={article.thumbnail}
-                              alt=""
-                              className="w-12 h-12 rounded object-cover"
-                            />
+            <>
+              {/* Mobile Card View */}
+              <div className="sm:hidden divide-y divide-gray-200">
+                {filteredArticles.map((article) => (
+                  <div key={article.id} className="p-4">
+                    <div className="flex items-start gap-3">
+                      {article.thumbnail && (
+                        <img
+                          src={article.thumbnail}
+                          alt=""
+                          className="w-12 h-12 rounded object-cover flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{article.title}</p>
+                        <p className="text-sm text-gray-500 line-clamp-1 mt-0.5">{article.excerpt}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          {article.status === 'PUBLISHED' ? (
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                              Publicado
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                              Borrador
+                            </span>
                           )}
-                          <div>
-                            <p className="font-medium text-gray-900">{article.title}</p>
-                            <p className="text-sm text-gray-500 line-clamp-1">{article.excerpt}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {article.status === 'PUBLISHED' ? (
-                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                            Publicado
+                          <span className="text-xs text-gray-500">
+                            {article.publishedAt
+                              ? new Date(article.publishedAt).toLocaleDateString()
+                              : new Date(article.updatedAt).toLocaleDateString()}
                           </span>
-                        ) : (
-                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
-                            Borrador
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {article.publishedAt
-                          ? new Date(article.publishedAt).toLocaleDateString()
-                          : new Date(article.updatedAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {article.views}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => router.push(`/dashboard/blog/${article.id}/edit`)}
-                            className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
-                            title="Editar"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(article.id, article.title)}
-                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <span className="text-xs text-gray-500">{article.views} vistas</span>
                         </div>
-                      </td>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => router.push(`/dashboard/blog/${article.id}/edit`)}
+                          className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
+                          title="Editar"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(article.id, article.title)}
+                          className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Título
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fecha
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Vistas
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredArticles.map((article) => (
+                      <tr key={article.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            {article.thumbnail && (
+                              <img
+                                src={article.thumbnail}
+                                alt=""
+                                className="w-12 h-12 rounded object-cover"
+                              />
+                            )}
+                            <div>
+                              <p className="font-medium text-gray-900">{article.title}</p>
+                              <p className="text-sm text-gray-500 line-clamp-1">{article.excerpt}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {article.status === 'PUBLISHED' ? (
+                            <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                              Publicado
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                              Borrador
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {article.publishedAt
+                            ? new Date(article.publishedAt).toLocaleDateString()
+                            : new Date(article.updatedAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {article.views}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => router.push(`/dashboard/blog/${article.id}/edit`)}
+                              className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
+                              title="Editar"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(article.id, article.title)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
     </div>
