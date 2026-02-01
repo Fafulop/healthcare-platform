@@ -13,6 +13,7 @@ import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
 import { StructuredDataPreview } from './StructuredDataPreview';
 import { BatchEntryList } from './BatchEntryList';
+import { BatchTaskList } from './BatchTaskList';
 import { useChatSession } from '@/hooks/useChatSession';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type {
@@ -20,6 +21,7 @@ import type {
   VoiceSessionContext,
   VoiceStructuredData,
   VoiceLedgerEntryBatch,
+  VoiceTaskBatch,
   EXTRACTABLE_FIELDS,
   FIELD_LABELS_ES,
 } from '@/types/voice-assistant';
@@ -83,6 +85,7 @@ const SIDEBAR_TITLES: Record<VoiceSessionType, string> = {
   CREATE_LEDGER_ENTRY: 'Asistente - Movimiento de Dinero',
   CREATE_SALE: 'Asistente - Nueva Venta',
   CREATE_PURCHASE: 'Asistente - Nueva Compra',
+  NEW_TASK: 'Asistente - Nuevo Pendiente',
 };
 
 export function VoiceChatSidebar({
@@ -353,8 +356,21 @@ export function VoiceChatSidebar({
                 <BatchEntryList
                   entries={(chat.currentData as VoiceLedgerEntryBatch).entries}
                   onUpdateEntries={(updatedEntries) => {
-                    // Update the batch with new entries
                     const batchData = chat.currentData as VoiceLedgerEntryBatch;
+                    chat.currentData = {
+                      ...batchData,
+                      entries: updatedEntries,
+                      totalCount: updatedEntries.length,
+                    };
+                  }}
+                />
+              ) : sessionType === 'NEW_TASK' &&
+               chat.currentData &&
+               (chat.currentData as VoiceTaskBatch).isBatch ? (
+                <BatchTaskList
+                  entries={(chat.currentData as VoiceTaskBatch).entries}
+                  onUpdateEntries={(updatedEntries) => {
+                    const batchData = chat.currentData as VoiceTaskBatch;
                     chat.currentData = {
                       ...batchData,
                       entries: updatedEntries,

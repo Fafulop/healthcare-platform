@@ -522,198 +522,289 @@ export default function PendientesPage() {
                 Detalles del día - {selectedDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}
               </h3>
 
-              {/* Tasks for selected day */}
-              <div className="mb-6">
-                <h4 className="font-medium text-gray-900 mb-2">Pendientes</h4>
-                {(() => {
-                  const selectedDateStr = getLocalDateString(selectedDate);
-                  const tasksForDay = calendarTasks.filter(t => {
-                    if (!t.dueDate) return false;
-                    const taskDateStr = typeof t.dueDate === 'string'
-                      ? t.dueDate.split('T')[0]
-                      : getLocalDateString(new Date(t.dueDate));
-                    return taskDateStr === selectedDateStr;
-                  });
-                  const selectedSlots = appointmentSlots.filter(s => {
-                    const slotDateStr = typeof s.date === 'string'
-                      ? s.date.split('T')[0]
-                      : getLocalDateString(new Date(s.date));
-                    return slotDateStr === selectedDateStr;
-                  });
-                  const selectedOpenSlots = selectedSlots.filter(s => s.isOpen);
+              {/* Chronological Timeline View */}
+              {(() => {
+                const selectedDateStr = getLocalDateString(selectedDate);
 
-                  // Build sets for different types of conflicts/warnings
-                  const taskTaskConflictIds = new Set<string>();
-                  const bookedAppointmentWarningIds = new Set<string>();
+                // Get tasks for the day
+                const tasksForDay = calendarTasks.filter(t => {
+                  if (!t.dueDate) return false;
+                  const taskDateStr = typeof t.dueDate === 'string'
+                    ? t.dueDate.split('T')[0]
+                    : getLocalDateString(new Date(t.dueDate));
+                  return taskDateStr === selectedDateStr;
+                });
 
-                  for (const task of tasksForDay) {
-                    if (!task.startTime || !task.endTime) continue;
+                // Get appointment slots for the day
+                const slotsForDay = appointmentSlots.filter(s => {
+                  const slotDateStr = typeof s.date === 'string'
+                    ? s.date.split('T')[0]
+                    : getLocalDateString(new Date(s.date));
+                  return slotDateStr === selectedDateStr;
+                });
 
-                    // Check task-vs-task conflicts (BLOCKING)
-                    for (const other of tasksForDay) {
-                      if (other.id === task.id || !other.startTime || !other.endTime) continue;
-                      if (task.startTime < other.endTime && task.endTime > other.startTime) {
-                        taskTaskConflictIds.add(task.id);
-                        taskTaskConflictIds.add(other.id);
-                      }
+                // Build conflict detection sets
+                const taskTaskConflictIds = new Set<string>();
+                const bookedAppointmentWarningIds = new Set<string>();
+                const slotTaskOverlapIds = new Set<string>();
+
+                // Check task-task conflicts
+                for (const task of tasksForDay) {
+                  if (!task.startTime || !task.endTime) continue;
+                  for (const other of tasksForDay) {
+                    if (other.id === task.id || !other.startTime || !other.endTime) continue;
+                    if (task.startTime < other.endTime && task.endTime > other.startTime) {
+                      taskTaskConflictIds.add(task.id);
+                      taskTaskConflictIds.add(other.id);
                     }
+                  }
+                }
 
-                    // Check task-vs-booked-appointment warnings (INFORMATIONAL)
-                    // Only if not already in task-task conflict
-                    if (!taskTaskConflictIds.has(task.id)) {
-                      for (const slot of selectedOpenSlots) {
-                        const isBooked = slot.currentBookings > 0;
-                        if (isBooked && task.startTime < slot.endTime && task.endTime > slot.startTime) {
-                          bookedAppointmentWarningIds.add(task.id);
-                          break;
-                        }
+                // Check task-appointment overlaps
+                const openSlots = slotsForDay.filter(s => s.isOpen);
+                for (const task of tasksForDay) {
+                  if (!task.startTime || !task.endTime) continue;
+                  if (!taskTaskConflictIds.has(task.id)) {
+                    for (const slot of openSlots) {
+                      const isBooked = slot.currentBookings > 0;
+                      if (isBooked && task.startTime < slot.endTime && task.endTime > slot.startTime) {
+                        bookedAppointmentWarningIds.add(task.id);
+                        break;
                       }
                     }
                   }
+                }
 
-                  return tasksForDay.length === 0 ? (
-                  <p className="text-sm text-gray-500">Sin tareas pendientes</p>
-                ) : (
-                  <div className="space-y-2">
-                    {tasksForDay
-                      .map(task => {
-                        const hasTaskConflict = taskTaskConflictIds.has(task.id);
-                        const hasBookedWarning = bookedAppointmentWarningIds.has(task.id);
+                // Check slot-task overlaps
+                for (const slot of slotsForDay) {
+                  if (!slot.isOpen) continue;
+                  const isBooked = slot.currentBookings > 0;
+                  if (isBooked) {
+                    for (const task of tasksForDay) {
+                      if (!task.startTime || !task.endTime) continue;
+                      if (task.startTime < slot.endTime && task.endTime > slot.startTime) {
+                        slotTaskOverlapIds.add(slot.id);
+                        break;
+                      }
+                    }
+                  }
+                }
 
-                        const borderColor = hasTaskConflict
-                          ? 'border-red-300 bg-red-50 hover:border-red-400'
-                          : hasBookedWarning
-                          ? 'border-blue-300 bg-blue-50 hover:border-blue-400'
-                          : 'border-gray-200 hover:border-blue-300';
+                // Helper to get slot status
+                const getSlotDisplayStatus = (slot: AppointmentSlot) => {
+                  const isFull = slot.currentBookings >= slot.maxBookings;
+                  if (!slot.isOpen) {
+                    return { label: "Cerrado", color: "bg-gray-200 text-gray-700" };
+                  }
+                  if (isFull) {
+                    return { label: "Lleno", color: "bg-blue-100 text-blue-700" };
+                  }
+                  if (slot.currentBookings > 0) {
+                    return { label: "Reservado", color: "bg-orange-100 text-orange-800" };
+                  }
+                  return { label: "Disponible", color: "bg-green-100 text-green-800" };
+                };
 
-                        return (
-                        <div key={task.id} className={`border rounded p-3 transition-colors ${borderColor}`}>
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <button
-                                onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
-                                className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors"
-                              >
-                                {task.title}
-                              </button>
-                              {task.startTime && task.endTime && (
-                                <p className={`text-sm mt-1 ${
-                                  hasTaskConflict ? 'text-red-600 font-medium' :
-                                  hasBookedWarning ? 'text-blue-600 font-medium' :
-                                  'text-gray-600'
-                                }`}>
-                                  {task.startTime} - {task.endTime}
-                                  {hasTaskConflict && ' — Conflicto con otro pendiente'}
-                                  {hasBookedWarning && ' — Cita reservada a esta hora'}
-                                </p>
-                              )}
-                              {task.patient && (
-                                <p className="text-sm text-gray-500 mt-1">
-                                  Paciente: {task.patient.firstName} {task.patient.lastName}
-                                </p>
-                              )}
-                            </div>
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>
-                              {task.priority}
-                            </span>
+                // Combine tasks and appointments into timeline items
+                type TimelineItem = {
+                  type: 'task' | 'appointment';
+                  startTime: string;
+                  endTime: string;
+                  data: Task | AppointmentSlot;
+                };
+
+                const timelineItems: TimelineItem[] = [
+                  ...tasksForDay
+                    .filter(t => t.startTime && t.endTime)
+                    .map(t => ({
+                      type: 'task' as const,
+                      startTime: t.startTime!,
+                      endTime: t.endTime!,
+                      data: t
+                    })),
+                  // Only show appointments that have bookings (exclude available empty slots)
+                  ...slotsForDay
+                    .filter(s => s.currentBookings > 0)
+                    .map(s => ({
+                      type: 'appointment' as const,
+                      startTime: s.startTime,
+                      endTime: s.endTime,
+                      data: s
+                    }))
+                ];
+
+                // Sort by start time, then by type (appointments first, then tasks)
+                timelineItems.sort((a, b) => {
+                  const timeCompare = a.startTime.localeCompare(b.startTime);
+                  if (timeCompare !== 0) return timeCompare;
+                  // Secondary sort: 'appointment' comes before 'task' alphabetically
+                  return a.type.localeCompare(b.type);
+                });
+
+                // Group by unique time slots
+                const timeSlots = new Map<string, TimelineItem[]>();
+                for (const item of timelineItems) {
+                  const key = `${item.startTime}-${item.endTime}`;
+                  if (!timeSlots.has(key)) {
+                    timeSlots.set(key, []);
+                  }
+                  timeSlots.get(key)!.push(item);
+                }
+
+                // Get tasks without times
+                const tasksWithoutTime = tasksForDay.filter(t => !t.startTime || !t.endTime);
+
+                if (timelineItems.length === 0 && tasksWithoutTime.length === 0) {
+                  return (
+                    <p className="text-sm text-gray-500">Sin pendientes ni citas programadas</p>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {/* Timeline items grouped by time */}
+                    {Array.from(timeSlots.entries()).map(([timeKey, items]) => {
+                      const [startTime, endTime] = timeKey.split('-');
+                      return (
+                        <div key={timeKey} className="border-l-4 border-yellow-400 pl-4">
+                          {/* Time Header */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <Clock className="w-4 h-4 text-yellow-600" />
+                            <h4 className="font-semibold text-gray-900">
+                              {startTime} - {endTime}
+                            </h4>
+                          </div>
+
+                          {/* Items at this time */}
+                          <div className="space-y-2">
+                            {items.map((item, idx) => {
+                              if (item.type === 'task') {
+                                const task = item.data as Task;
+                                const hasTaskConflict = taskTaskConflictIds.has(task.id);
+                                const hasBookedWarning = bookedAppointmentWarningIds.has(task.id);
+                                const borderColor = hasTaskConflict
+                                  ? 'border-red-300 bg-red-50 hover:border-red-400'
+                                  : hasBookedWarning
+                                  ? 'border-blue-300 bg-blue-50 hover:border-blue-400'
+                                  : 'border-gray-200 hover:border-blue-300';
+
+                                return (
+                                  <div key={`task-${task.id}`} className={`border rounded-lg p-3 transition-colors ${borderColor}`}>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">
+                                            Pendiente
+                                          </span>
+                                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>
+                                            {task.priority}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
+                                          className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors"
+                                        >
+                                          {task.title}
+                                        </button>
+                                        {(hasTaskConflict || hasBookedWarning) && (
+                                          <p className={`text-sm mt-1 ${
+                                            hasTaskConflict ? 'text-red-600 font-medium' :
+                                            'text-blue-600 font-medium'
+                                          }`}>
+                                            {hasTaskConflict && '⚠️ Conflicto con otro pendiente'}
+                                            {hasBookedWarning && 'ℹ️ Cita reservada a esta hora'}
+                                          </p>
+                                        )}
+                                        {task.patient && (
+                                          <p className="text-sm text-gray-500 mt-1">
+                                            Paciente: {task.patient.firstName} {task.patient.lastName}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              } else {
+                                const slot = item.data as AppointmentSlot;
+                                const hasTaskOverlap = slotTaskOverlapIds.has(slot.id);
+                                const slotStatus = getSlotDisplayStatus(slot);
+
+                                return (
+                                  <div key={`slot-${slot.id}`} className={`border rounded-lg p-3 ${
+                                    hasTaskOverlap
+                                      ? 'border-blue-300 bg-blue-50'
+                                      : 'border-gray-200'
+                                  }`}>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">
+                                            Cita
+                                          </span>
+                                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${slotStatus.color}`}>
+                                            {slotStatus.label}
+                                          </span>
+                                        </div>
+                                        <p className={`font-medium ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
+                                          {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
+                                        </p>
+                                        {hasTaskOverlap && (
+                                          <p className="text-sm text-blue-600 font-medium mt-1">
+                                            ℹ️ Pendiente a esta hora
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                            })}
                           </div>
                         </div>
-                        );
-                      })}
+                      );
+                    })}
+
+                    {/* Tasks without time (at the end) */}
+                    {tasksWithoutTime.length > 0 && (
+                      <div className="border-l-4 border-gray-300 pl-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="w-4 h-4 text-gray-500" />
+                          <h4 className="font-semibold text-gray-700">Sin hora específica</h4>
+                        </div>
+                        <div className="space-y-2">
+                          {tasksWithoutTime.map(task => (
+                            <div key={`task-notime-${task.id}`} className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">
+                                      Pendiente
+                                    </span>
+                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>
+                                      {task.priority}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
+                                    className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors"
+                                  >
+                                    {task.title}
+                                  </button>
+                                  {task.patient && (
+                                    <p className="text-sm text-gray-500 mt-1">
+                                      Paciente: {task.patient.firstName} {task.patient.lastName}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
-                })()}
-              </div>
-
-              {/* Appointments for selected day */}
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">Citas</h4>
-                {(() => {
-                  const sDateStr = getLocalDateString(selectedDate);
-                  console.log('🔍 Filtering appointments for selected date:', sDateStr);
-                  console.log('📦 Total appointment slots available:', appointmentSlots.length);
-                  console.log('📋 All appointment slots:', appointmentSlots);
-
-                  const slotsForDay = appointmentSlots.filter(s => {
-                    const slotDateStr = typeof s.date === 'string'
-                      ? s.date.split('T')[0]
-                      : getLocalDateString(new Date(s.date));
-                    console.log(`   Comparing slot date "${slotDateStr}" with selected "${sDateStr}":`, slotDateStr === sDateStr);
-                    return slotDateStr === sDateStr;
-                  });
-
-                  console.log('✅ Filtered slots for day:', slotsForDay);
-                  const timedTasksForDay = calendarTasks.filter(t => {
-                    if (!t.dueDate || !t.startTime || !t.endTime) return false;
-                    const tds = typeof t.dueDate === 'string' ? t.dueDate.split('T')[0] : getLocalDateString(new Date(t.dueDate));
-                    return tds === sDateStr;
-                  });
-
-                  // Build set of slot IDs that overlap with tasks (for informational display only)
-                  // Note: Task-slot overlaps are ALLOWED, only shown as blue info if slot is booked
-                  const slotTaskOverlapIds = new Set<string>();
-                  for (const slot of slotsForDay) {
-                    if (!slot.isOpen) continue;
-                    const isBooked = slot.currentBookings > 0;
-                    if (isBooked) {
-                      for (const task of timedTasksForDay) {
-                        if (task.startTime! < slot.endTime && task.endTime! > slot.startTime) {
-                          slotTaskOverlapIds.add(slot.id);
-                          break;
-                        }
-                      }
-                    }
-                  }
-
-                  // Helper to get slot status
-                  const getSlotDisplayStatus = (slot: AppointmentSlot) => {
-                    const isFull = slot.currentBookings >= slot.maxBookings;
-                    if (!slot.isOpen) {
-                      return { label: "Cerrado", color: "bg-gray-200 text-gray-700" };
-                    }
-                    if (isFull) {
-                      return { label: "Lleno", color: "bg-blue-100 text-blue-700" };
-                    }
-                    if (slot.currentBookings > 0) {
-                      return { label: "Reservado", color: "bg-orange-100 text-orange-800" };
-                    }
-                    return { label: "Disponible", color: "bg-green-100 text-green-800" };
-                  };
-
-                  return slotsForDay.length === 0 ? (
-                    <p className="text-sm text-gray-500">Sin citas programadas</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {slotsForDay.map(slot => {
-                        const hasTaskOverlap = slotTaskOverlapIds.has(slot.id);
-                        const slotStatus = getSlotDisplayStatus(slot);
-                        return (
-                          <div key={slot.id} className={`border rounded p-3 ${
-                            hasTaskOverlap
-                              ? 'border-blue-300 bg-blue-50'
-                              : 'border-gray-200'
-                          }`}>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className={`font-medium ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
-                                  {slot.startTime} - {slot.endTime}
-                                  {hasTaskOverlap && ' — Pendiente a esta hora'}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
-                                </p>
-                              </div>
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${slotStatus.color}`}>
-                                {slotStatus.label}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-              </div>
+              })()}
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow p-4 sm:p-6 flex items-center justify-center min-h-[400px]">

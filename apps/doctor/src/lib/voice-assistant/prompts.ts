@@ -1575,6 +1575,184 @@ Output:
 `;
 
 // =============================================================================
+// NEW_TASK PROMPT
+// =============================================================================
+
+export const NEW_TASK_SYSTEM_PROMPT = `${BASE_SYSTEM_PROMPT}
+
+## YOUR TASK: STRUCTURE TASK/PENDIENTE INFORMATION
+
+Extract task information from the transcript and return a JSON object.
+This will be used to create a task (pendiente) in the task management system.
+Use null for any field not explicitly mentioned.
+
+## CRITICAL: DATE AND TIME HANDLING
+
+**ALWAYS use the dates from the "CURRENT DATE CONTEXT" section in the user message.**
+- When the transcript says "hoy" → use the TODAY date from CURRENT DATE CONTEXT
+- When the transcript says "mañana" → use the TOMORROW date from CURRENT DATE CONTEXT
+- When a date has no year (e.g., "15 de marzo") → use the CURRENT YEAR from CURRENT DATE CONTEXT
+- **DO NOT use hardcoded dates. Use ONLY dates from CURRENT DATE CONTEXT.**
+
+## OUTPUT SCHEMA
+
+{
+  "title": string | null,           // Brief task title
+  "description": string | null,      // Detailed task description
+  "dueDate": "YYYY-MM-DD" | null,   // Task due date
+  "startTime": "HH:mm" | null,      // Start time in 24-hour format (e.g., "09:00")
+  "endTime": "HH:mm" | null,        // End time in 24-hour format (e.g., "10:30")
+  "priority": "ALTA" | "MEDIA" | "BAJA" | null,  // Task priority
+  "category": string | null,         // Task category (see below)
+  "patientId": null                  // Always null - UI will handle patient matching
+}
+
+## FIELD EXTRACTION GUIDELINES
+
+### Title (title)
+- Brief summary of the task (required field)
+- Examples:
+  - "llamar al paciente Juan López" → "Llamar a Juan López"
+  - "revisar resultados de laboratorio" → "Revisar resultados de laboratorio"
+  - "preparar receta para María" → "Preparar receta para María"
+- If not mentioned explicitly, extract a brief summary from the description
+
+### Description (description)
+- Detailed information about the task
+- Include any specific instructions or notes
+- Examples:
+  - "llamar a Juan para confirmar su cita del viernes" → "Llamar a Juan para confirmar su cita del viernes"
+  - "revisar laboratorios de María, especialmente glucosa y hemoglobina" → "Revisar laboratorios de María, especialmente glucosa y hemoglobina"
+
+### Due Date (dueDate)
+- Use TODAY from CURRENT DATE CONTEXT if "hoy" is mentioned or no date specified
+- Use TOMORROW if "mañana" is mentioned
+- Convert spoken dates to ISO format:
+  - "el lunes" → calculate next Monday based on current date
+  - "15 de marzo" → "YYYY-03-15" (use current year)
+  - "próxima semana" → calculate based on current date
+- If not mentioned, use null
+
+### Start Time (startTime)
+- Extract start time in 24-hour format
+- Examples:
+  - "a las 9" → "09:00"
+  - "a las 2 de la tarde" → "14:00"
+  - "9:30" → "09:30"
+  - "15 horas" → "15:00"
+- If not mentioned, use null
+
+### End Time (endTime)
+- Extract end time in 24-hour format
+- Examples:
+  - "hasta las 10" → "10:00"
+  - "de 9 a 10" → endTime: "10:00"
+- If not mentioned, use null
+
+### Priority (priority)
+- "urgente", "importante", "prioridad alta" → "ALTA"
+- "normal", "regular", "prioridad media" → "MEDIA"
+- "baja", "puede esperar", "no urgente" → "BAJA"
+- If not mentioned, use null (form will default to "MEDIA")
+
+### Category (category)
+- Extract or infer category from context:
+  - "SEGUIMIENTO" - Follow-up calls, check-ins, monitoring
+  - "ADMINISTRATIVO" - Admin tasks, paperwork, scheduling
+  - "LABORATORIO" - Lab results, test reviews
+  - "RECETA" - Prescription preparation, renewals
+  - "REFERENCIA" - Referrals to specialists
+  - "PERSONAL" - Personal tasks, reminders
+  - "OTRO" - Anything else
+- Examples:
+  - "llamar a paciente" → "SEGUIMIENTO"
+  - "revisar laboratorios" → "LABORATORIO"
+  - "preparar receta" → "RECETA"
+  - "organizar archivos" → "ADMINISTRATIVO"
+- If not mentioned or unclear, use null (form will default to "OTRO")
+
+### Patient ID (patientId)
+- Always use null
+- The UI will handle patient matching based on names mentioned in title/description
+
+## MULTIPLE TASKS (BATCH DETECTION)
+
+If the doctor dictates MULTIPLE distinct tasks in a single recording, return a BATCH object instead:
+{
+  "isBatch": true,
+  "entries": [
+    { "title": ..., "description": ..., "dueDate": ..., ... },
+    { "title": ..., "description": ..., "dueDate": ..., ... }
+  ],
+  "totalCount": 2
+}
+
+### Signals for multiple tasks:
+- "Primero..., segundo..., tercero..."
+- "Tres pendientes:" or "Varios pendientes:"
+- Lists separated by "y también", "además", "otro pendiente"
+- Clearly distinct tasks mentioned sequentially
+
+### When NOT to use batch:
+- Single task with multiple details (e.g., "llamar a Juan y preguntarle por los estudios")
+- One task mentioned multiple times with corrections
+
+## NO HALLUCINATION RULE
+
+- Only extract information explicitly stated in the transcript
+- Use null for any field not mentioned
+- Do not invent or assume information
+- If unsure about a value, use null
+
+## EXAMPLES
+
+### Example 1: Simple Reminder
+Transcript: "Recordatorio para llamar a Juan mañana a las 10 de la mañana"
+
+Output:
+{
+  "title": "Llamar a Juan",
+  "description": "Recordatorio para llamar a Juan",
+  "dueDate": "[USE TOMORROW FROM CONTEXT]",
+  "startTime": "10:00",
+  "endTime": null,
+  "priority": null,
+  "category": "SEGUIMIENTO",
+  "patientId": null
+}
+
+### Example 2: Lab Results Review
+Transcript: "Revisar laboratorios de María Rodríguez hoy, especialmente glucosa. Es urgente."
+
+Output:
+{
+  "title": "Revisar laboratorios de María Rodríguez",
+  "description": "Revisar laboratorios de María Rodríguez, especialmente glucosa",
+  "dueDate": "[USE TODAY FROM CONTEXT]",
+  "startTime": null,
+  "endTime": null,
+  "priority": "ALTA",
+  "category": "LABORATORIO",
+  "patientId": null
+}
+
+### Example 3: Detailed Task with Time
+Transcript: "Preparar receta para el señor López el lunes entre 2 y 3 de la tarde. Incluir medicamento para la presión."
+
+Output:
+{
+  "title": "Preparar receta para el señor López",
+  "description": "Preparar receta para el señor López. Incluir medicamento para la presión.",
+  "dueDate": "[CALCULATE NEXT MONDAY BASED ON TODAY]",
+  "startTime": "14:00",
+  "endTime": "15:00",
+  "priority": null,
+  "category": "RECETA",
+  "patientId": null
+}
+`;
+
+// =============================================================================
 // PROMPT SELECTOR
 // =============================================================================
 
@@ -1672,6 +1850,8 @@ export function getSystemPrompt(sessionType: VoiceSessionType): string {
       return CREATE_SALE_SYSTEM_PROMPT;
     case 'CREATE_PURCHASE':
       return CREATE_PURCHASE_SYSTEM_PROMPT;
+    case 'NEW_TASK':
+      return NEW_TASK_SYSTEM_PROMPT;
     default:
       throw new Error(`Unknown session type: ${sessionType}`);
   }
@@ -1825,12 +2005,81 @@ ${getSessionTypeGuidelines(sessionType)}
 
 ## EJEMPLOS DE RESPUESTA
 
-### Ejemplo 1: Primera captura de datos
+${getChatExamples(sessionType)}
+
+Recuerda: Responde SOLO con el JSON, sin texto adicional ni bloques de código markdown.`;
+}
+
+/**
+ * Get session-type-specific chat examples
+ */
+function getChatExamples(sessionType: VoiceSessionType): string {
+  switch (sessionType) {
+    case 'NEW_TASK':
+      return `### Ejemplo 1: Primera captura de datos
+Doctor dice: "Necesito llamar a Juan López mañana a las 10 para confirmar su cita"
+
+Tu respuesta:
+{
+  "message": "Entendido. He registrado:\\n• Título: Llamar a Juan López\\n• Fecha: mañana\\n• Hora: 10:00\\n• Categoría: Seguimiento\\n\\n¿Desea agregar prioridad o algún detalle adicional?",
+  "structuredData": {
+    "title": "Llamar a Juan López",
+    "description": "Llamar a Juan López para confirmar su cita",
+    "dueDate": "[FECHA DE MAÑANA]",
+    "startTime": "10:00",
+    "endTime": null,
+    "priority": null,
+    "category": "SEGUIMIENTO",
+    "patientId": null
+  },
+  "isComplete": false
+}
+
+### Ejemplo 2: Doctor pregunta qué falta
+Doctor dice: "¿Qué otros campos faltan?"
+
+Tu respuesta:
+{
+  "message": "Ya tenemos título, fecha, hora y categoría. Campos que podríamos agregar:\\n\\n• Prioridad (alta, media, baja)\\n• Hora de fin\\n• Descripción más detallada\\n\\n¿Desea agregar alguno?",
+  "structuredData": {
+    "title": "Llamar a Juan López",
+    "description": "Llamar a Juan López para confirmar su cita",
+    "dueDate": "[FECHA DE MAÑANA]",
+    "startTime": "10:00",
+    "endTime": null,
+    "priority": null,
+    "category": "SEGUIMIENTO",
+    "patientId": null
+  },
+  "isComplete": false
+}
+
+### Ejemplo 3: Doctor corrige información
+Doctor dice: "Cambia la hora a las 2 de la tarde y ponlo como urgente"
+
+Tu respuesta:
+{
+  "message": "Perfecto, he actualizado la hora a 14:00 y la prioridad a alta.",
+  "structuredData": {
+    "title": "Llamar a Juan López",
+    "description": "Llamar a Juan López para confirmar su cita",
+    "dueDate": "[FECHA DE MAÑANA]",
+    "startTime": "14:00",
+    "endTime": null,
+    "priority": "ALTA",
+    "category": "SEGUIMIENTO",
+    "patientId": null
+  },
+  "isComplete": false
+}`;
+
+    case 'NEW_ENCOUNTER':
+      return `### Ejemplo 1: Primera captura de datos
 Doctor dice: "Paciente Juan Pérez, masculino, 45 años, viene por dolor abdominal desde hace 3 días"
 
 Tu respuesta:
 {
-  "message": "Entendido. He registrado:\n• Motivo: Dolor abdominal de 3 días de evolución\n• Tipo: Consulta\n\n¿Podría indicarme los signos vitales y las características del dolor (localización, intensidad, tipo)?",
+  "message": "Entendido. He registrado:\\n• Motivo: Dolor abdominal de 3 días de evolución\\n• Tipo: Consulta\\n\\n¿Podría indicarme los signos vitales y las características del dolor (localización, intensidad, tipo)?",
   "structuredData": {
     "chiefComplaint": "Dolor abdominal de 3 días de evolución",
     "encounterType": "consultation",
@@ -1844,7 +2093,7 @@ Doctor dice: "¿Qué otros campos faltan?"
 
 Tu respuesta:
 {
-  "message": "Ya tenemos el motivo de consulta y datos subjetivos. Campos que podríamos agregar:\n\n• Signos vitales (presión arterial, frecuencia cardíaca, temperatura)\n• Hallazgos del examen físico (objetivo)\n• Diagnóstico o impresión clínica (evaluación)\n• Plan de tratamiento\n\n¿Desea agregar alguno?",
+  "message": "Ya tenemos el motivo de consulta y datos subjetivos. Campos que podríamos agregar:\\n\\n• Signos vitales (presión arterial, frecuencia cardíaca, temperatura)\\n• Hallazgos del examen físico (objetivo)\\n• Diagnóstico o impresión clínica (evaluación)\\n• Plan de tratamiento\\n\\n¿Desea agregar alguno?",
   "structuredData": {
     "chiefComplaint": "Dolor abdominal de 3 días de evolución",
     "encounterType": "consultation",
@@ -1866,9 +2115,30 @@ Tu respuesta:
     "subjective": "Paciente masculino de 45 años refiere dolor abdominal desde hace 3 días."
   },
   "isComplete": false
+}`;
+
+    default:
+      // Generic examples for other session types
+      return `### Ejemplo 1: Primera captura de datos
+Doctor proporciona información inicial.
+
+Tu respuesta:
+{
+  "message": "Entendido. He registrado los datos proporcionados. ¿Desea agregar o modificar algo?",
+  "structuredData": { ... datos según el schema de ${sessionType} ... },
+  "isComplete": false
 }
 
-Recuerda: Responde SOLO con el JSON, sin texto adicional ni bloques de código markdown.`;
+### Ejemplo 2: Doctor pregunta qué falta
+Doctor dice: "¿Qué otros campos faltan?"
+
+Tu respuesta:
+{
+  "message": "Ya tenemos [campos capturados]. Campos que podríamos agregar:\\n\\n• [campo faltante 1]\\n• [campo faltante 2]\\n\\n¿Desea agregar alguno?",
+  "structuredData": { ... datos acumulados ... },
+  "isComplete": false
+}`;
+  }
 }
 
 /**
@@ -2027,6 +2297,25 @@ function getSchemaForSessionType(sessionType: VoiceSessionType): string {
   ] | null,
   "notes": string | null,           // Notas adicionales
   "termsAndConditions": string | null  // Términos y condiciones
+}`;
+
+    case 'NEW_TASK':
+      return `{
+  "title": string | null,           // Título breve del pendiente
+  "description": string | null,      // Descripción detallada
+  "dueDate": string | null,          // YYYY-MM-DD
+  "startTime": string | null,        // HH:mm (24 horas)
+  "endTime": string | null,          // HH:mm (24 horas)
+  "priority": "ALTA" | "MEDIA" | "BAJA" | null,
+  "category": string | null,         // SEGUIMIENTO, ADMINISTRATIVO, LABORATORIO, RECETA, REFERENCIA, PERSONAL, OTRO
+  "patientId": null                   // Siempre null (UI lo maneja)
+}
+
+**MÚLTIPLES PENDIENTES**: Si el doctor dicta más de un pendiente, devuelve un objeto batch:
+{
+  "isBatch": true,
+  "entries": [ ... array de objetos con el schema de arriba ... ],
+  "totalCount": number
 }`;
 
     default:
@@ -2204,6 +2493,18 @@ function getAllFieldsForSessionType(
         { key: 'termsAndConditions', label: 'Términos y condiciones', description: 'Términos de pago y entrega' },
       ];
 
+    case 'NEW_TASK':
+      return [
+        { key: 'title', label: 'Título', description: 'Título breve del pendiente' },
+        { key: 'description', label: 'Descripción', description: 'Descripción detallada' },
+        { key: 'dueDate', label: 'Fecha', description: 'Fecha del pendiente (YYYY-MM-DD)' },
+        { key: 'startTime', label: 'Hora de inicio', description: 'Hora de inicio (HH:mm)' },
+        { key: 'endTime', label: 'Hora de fin', description: 'Hora de fin (HH:mm)' },
+        { key: 'priority', label: 'Prioridad', description: 'ALTA, MEDIA o BAJA' },
+        { key: 'category', label: 'Categoría', description: 'SEGUIMIENTO, ADMINISTRATIVO, LABORATORIO, RECETA, REFERENCIA, PERSONAL, OTRO' },
+        { key: 'patientId', label: 'Paciente', description: 'ID del paciente asociado (opcional)' },
+      ];
+
     default:
       return [];
   }
@@ -2287,6 +2588,16 @@ function getSessionTypeGuidelines(sessionType: VoiceSessionType): string {
 - Fechas en formato YYYY-MM-DD
 - isComplete = true cuando tengas al menos proveedor y un item con cantidad/precio`;
 
+    case 'NEW_TASK':
+      return `Para NUEVO PENDIENTE:
+- Prioriza: título, fecha, hora, prioridad, categoría
+- Si el doctor dicta múltiples pendientes, devuelve un objeto batch con isBatch: true y entries: [...]
+- Señales de múltiples pendientes: "primero..., segundo...", "tres cosas:", listas separadas por "y también", "otro pendiente"
+- category: SEGUIMIENTO (llamadas, check-ins), ADMINISTRATIVO (papeleo), LABORATORIO (resultados), RECETA (prescripciones), REFERENCIA (especialistas), PERSONAL, OTRO
+- patientId siempre null (la UI lo maneja)
+- Fechas en formato YYYY-MM-DD, horas en HH:mm (24h)
+- isComplete = true cuando tengas al menos título`;
+
     default:
       return '';
   }
@@ -2306,4 +2617,6 @@ export const SCHEMA_DESCRIPTIONS = {
   CREATE_SALE: `Sale record including: client information, sale and delivery dates, payment status and amount paid, items array (products/services with quantities, units, prices, discounts, taxes), and additional notes and terms.`,
 
   CREATE_PURCHASE: `Purchase record including: supplier information, purchase and delivery dates, payment status and amount paid, items array (products with quantities, units, prices, discounts, taxes), and additional notes and terms.`,
+
+  NEW_TASK: `Task (pendiente) including: title, description, due date, start/end times, priority (ALTA/MEDIA/BAJA), category (SEGUIMIENTO/ADMINISTRATIVO/LABORATORIO/RECETA/REFERENCIA/PERSONAL/OTRO), and optional patient association. Supports batch mode for multiple tasks.`,
 };

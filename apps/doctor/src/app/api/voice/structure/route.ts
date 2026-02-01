@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Validate session type
-    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY', 'CREATE_SALE', 'CREATE_PURCHASE'];
+    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY', 'CREATE_SALE', 'CREATE_PURCHASE', 'NEW_TASK'];
     if (!validSessionTypes.includes(sessionType)) {
       return NextResponse.json(
         {
@@ -305,6 +305,19 @@ function calculateConfidence(
 
     case 'CREATE_LEDGER_ENTRY':
       // Ledger entries need: entryType, amount, concept minimum
+      if (extractedCount >= 5) return 'high'; // Has comprehensive details
+      if (extractedCount >= 3) return 'medium'; // Has essential fields
+      return 'low';
+
+    case 'NEW_TASK':
+      // Tasks need: title, dueDate minimum
+      if (extractedCount >= 4) return 'high'; // Has title, date, time, and priority/category
+      if (extractedCount >= 2) return 'medium'; // Has title and at least one other field
+      return 'low';
+
+    case 'CREATE_SALE':
+    case 'CREATE_PURCHASE':
+      // Sales/purchases need: client/supplier, date, items
       if (extractedCount >= 5) return 'high'; // Has comprehensive details
       if (extractedCount >= 3) return 'medium'; // Has essential fields
       return 'low';

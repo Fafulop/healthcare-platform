@@ -62,6 +62,35 @@ export async function POST(request: Request) {
 
     // Close multiple slots (prevent new bookings)
     if (action === 'close') {
+      // Check if any slots have active bookings
+      const slotsWithBookings = await prisma.appointmentSlot.findMany({
+        where: {
+          id: { in: slotIds },
+        },
+        include: {
+          bookings: {
+            where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+          },
+        },
+      });
+
+      const hasBookings = slotsWithBookings.some(
+        (slot) => slot.bookings.length > 0
+      );
+
+      if (hasBookings) {
+        const slotsWithActiveBookings = slotsWithBookings.filter(
+          (slot) => slot.bookings.length > 0
+        );
+        return NextResponse.json(
+          {
+            success: false,
+            error: `${slotsWithActiveBookings.length} horario(s) tienen reservas activas y no se pueden cerrar. Por favor cancela las reservas primero.`,
+          },
+          { status: 400 }
+        );
+      }
+
       const updated = await prisma.appointmentSlot.updateMany({
         where: {
           id: { in: slotIds },

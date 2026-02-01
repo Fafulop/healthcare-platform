@@ -49,6 +49,10 @@ const WELCOME_MESSAGES: Record<VoiceSessionType, { title: string; subtitle: stri
     title: 'Nueva Compra',
     subtitle: 'Dicte o escriba los detalles de la compra. Por ejemplo: "Compra a Distribuidora Médica, 10 cajas de guantes a 100 pesos, 5 frascos de suero a 80 pesos, pagado"',
   },
+  NEW_TASK: {
+    title: 'Nuevo Pendiente',
+    subtitle: 'Dicte o escriba los detalles del pendiente. Por ejemplo: "Llamar al paciente Juan García mañana a las 10am para seguimiento de estudios"',
+  },
 };
 
 export function ChatMessageList({ messages, sessionType, isProcessing }: ChatMessageListProps) {

@@ -12,3 +12,4 @@ export { AIMessage } from './AIMessage';
 export { VoiceRecordButton } from './VoiceRecordButton';
 export { StructuredDataPreview } from './StructuredDataPreview';
 export { BatchEntryList } from './BatchEntryList';
+export { BatchTaskList } from './BatchTaskList';

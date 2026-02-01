@@ -299,7 +299,14 @@ export default function AppointmentsPage() {
   };
 
   const toggleOpenSlot = async (slotId: string, currentIsOpen: boolean) => {
+    const slot = slots.find(s => s.id === slotId);
     const newIsOpen = !currentIsOpen;
+
+    // Prevent closing slots with active bookings
+    if (slot && !newIsOpen && slot.currentBookings > 0) {
+      alert(`No se puede cerrar este horario porque tiene ${slot.currentBookings} reserva(s) activa(s). Por favor cancela las reservas primero.`);
+      return;
+    }
 
     try {
       const response = await authFetch(
@@ -330,6 +337,17 @@ export default function AppointmentsPage() {
     if (slotIds.length === 0) {
       alert("Por favor selecciona horarios primero");
       return;
+    }
+
+    // Check if trying to close slots with bookings
+    if (action === "close") {
+      const selectedSlotsData = slots.filter(s => slotIds.includes(s.id));
+      const slotsWithBookings = selectedSlotsData.filter(s => s.currentBookings > 0);
+
+      if (slotsWithBookings.length > 0) {
+        alert(`No se pueden cerrar ${slotsWithBookings.length} horario(s) porque tienen reservas activas. Por favor cancela las reservas primero o deselecciona esos horarios.`);
+        return;
+      }
     }
 
     const actionText = action === "delete" ? "eliminar" : action === "close" ? "cerrar" : "abrir";

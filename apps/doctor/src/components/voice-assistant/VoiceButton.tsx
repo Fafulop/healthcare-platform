@@ -42,6 +42,7 @@ const DEFAULT_LABELS: Record<VoiceSessionType, string> = {
   CREATE_LEDGER_ENTRY: 'Registro Contable (Voz)',
   CREATE_SALE: 'Nueva Venta (Voz)',
   CREATE_PURCHASE: 'Nueva Compra (Voz)',
+  NEW_TASK: 'Nuevo Pendiente (Voz)',
 };
 
 export function VoiceButton({

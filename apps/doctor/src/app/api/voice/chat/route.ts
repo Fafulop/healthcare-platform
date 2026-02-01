@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const { sessionType, messages, currentData, context } = body;
 
     // 3. Validate session type
-    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY', 'CREATE_SALE', 'CREATE_PURCHASE'];
+    const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY', 'CREATE_SALE', 'CREATE_PURCHASE', 'NEW_TASK'];
     if (!validSessionTypes.includes(sessionType)) {
       return NextResponse.json(
         {

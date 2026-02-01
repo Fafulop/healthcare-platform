@@ -180,7 +180,14 @@ function generateAssistantWelcomeMessage(
     CREATE_LEDGER_ENTRY: `He registrado el movimiento de dinero. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
     CREATE_SALE: `He registrado la información de la venta. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
     CREATE_PURCHASE: `He registrado la información de la compra. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
+    NEW_TASK: `He registrado el pendiente. Extraje ${fieldCount} campos. ¿Deseas agregar o modificar algo?`,
   };
+
+  // Check if this is a batch for NEW_TASK
+  if (sessionType === 'NEW_TASK' && batchData.isBatch && batchData.entries) {
+    const entryCount = batchData.totalCount || batchData.entries.length;
+    return `He detectado ${entryCount} ${entryCount === 1 ? 'pendiente' : 'pendientes'}. Puedes editar cualquiera, eliminar alguno, o agregar más. Cuando estés listo, confirma para crearlos.`;
+  }
 
   return messages[sessionType];
 }

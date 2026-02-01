@@ -118,6 +118,21 @@ const APPOINTMENT_SLOTS_GROUPS = {
   },
 };
 
+const TASK_GROUPS = {
+  basic: {
+    label: 'Información del Pendiente',
+    fields: ['title', 'description'],
+  },
+  schedule: {
+    label: 'Fecha y Hora',
+    fields: ['dueDate', 'startTime', 'endTime'],
+  },
+  details: {
+    label: 'Detalles',
+    fields: ['priority', 'category', 'patientId'],
+  },
+};
+
 const LEDGER_ENTRY_GROUPS = {
   basic: {
     label: 'Información Básica',
@@ -205,7 +220,11 @@ export function StructuredDataPreview({
     );
   }
 
-  const groups = sessionType === 'NEW_ENCOUNTER' ? ENCOUNTER_GROUPS : PATIENT_GROUPS;
+  const groups = sessionType === 'NEW_ENCOUNTER'
+    ? ENCOUNTER_GROUPS
+    : sessionType === 'NEW_TASK'
+    ? TASK_GROUPS
+    : PATIENT_GROUPS;
 
   return (
     <div className={`space-y-3 ${compact ? 'text-sm' : ''}`}>
@@ -387,6 +406,15 @@ function formatValue(field: string, value: any): string {
       'deposito': 'Depósito',
     };
     return methodMap[value] || value;
+  }
+
+  if (field === 'priority') {
+    const priorityMap: Record<string, string> = {
+      'ALTA': 'Alta',
+      'MEDIA': 'Media',
+      'BAJA': 'Baja',
+    };
+    return priorityMap[value] || value;
   }
 
   if (field.includes('Time')) {

@@ -162,6 +162,26 @@ const REFERENCE_GUIDES: Record<VoiceSessionType, { title: string; icon: React.Re
       'Notas adicionales - OPCIONAL',
     ],
   },
+  NEW_TASK: {
+    title: 'Nueva Tarea/Pendiente',
+    icon: <CheckCircle className="w-5 h-5" />,
+    items: [
+      'Título o descripción breve de la tarea',
+      'Descripción detallada - OPCIONAL',
+      'Fecha límite (ej: "hoy", "mañana", "el lunes", "15 de marzo")',
+      'Hora de inicio - OPCIONAL (ej: "a las 9", "a las 2 de la tarde")',
+      'Hora de fin - OPCIONAL (ej: "hasta las 10", "de 9 a 10")',
+      'Prioridad - OPCIONAL (ej: "urgente", "normal", "baja prioridad")',
+      'Categoría - OPCIONAL:',
+      '  • Seguimiento - llamadas, check-ins',
+      '  • Administrativo - papeleo, organización',
+      '  • Laboratorio - revisar resultados',
+      '  • Receta - preparar prescripciones',
+      '  • Referencia - derivar a especialistas',
+      '  • Personal - recordatorios personales',
+      'Nombre del paciente - OPCIONAL (si está relacionado con un paciente)',
+    ],
+  },
 };
 
 export function VoiceRecordingModal({

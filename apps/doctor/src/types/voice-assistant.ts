@@ -30,7 +30,7 @@ export type InputMethod = 'manual' | 'voice';
  * The supported voice session types.
  * Each type determines which schema is used for structuring.
  */
-export type VoiceSessionType = 'NEW_PATIENT' | 'NEW_ENCOUNTER' | 'NEW_PRESCRIPTION' | 'CREATE_APPOINTMENT_SLOTS' | 'CREATE_LEDGER_ENTRY' | 'CREATE_SALE' | 'CREATE_PURCHASE';
+export type VoiceSessionType = 'NEW_PATIENT' | 'NEW_ENCOUNTER' | 'NEW_PRESCRIPTION' | 'CREATE_APPOINTMENT_SLOTS' | 'CREATE_LEDGER_ENTRY' | 'CREATE_SALE' | 'CREATE_PURCHASE' | 'NEW_TASK';
 
 /**
  * Voice session status progression:
@@ -386,6 +386,41 @@ export interface VoicePurchaseData {
   termsAndConditions?: string | null; // Terms and conditions
 }
 
+/**
+ * Schema for task data extracted from voice dictation.
+ * Maps to the task form in pendientes/new/page.tsx
+ *
+ * All fields are optional - the LLM will only populate fields
+ * that are explicitly mentioned in the transcript.
+ */
+export interface VoiceTaskData {
+  // Task Information
+  title?: string | null; // Task title
+  description?: string | null; // Task description
+
+  // Dates and Times
+  dueDate?: string | null; // ISO date string (YYYY-MM-DD)
+  startTime?: string | null; // Start time in HH:mm format
+  endTime?: string | null; // End time in HH:mm format
+
+  // Classification
+  priority?: 'ALTA' | 'MEDIA' | 'BAJA' | null; // Task priority
+  category?: string | null; // Task category (SEGUIMIENTO, ADMINISTRATIVO, etc.)
+
+  // Associations
+  patientId?: string | null; // Associated patient ID (optional)
+}
+
+/**
+ * Schema for batch tasks extracted from voice dictation.
+ * Used when multiple tasks are detected in a single voice recording.
+ */
+export interface VoiceTaskBatch {
+  isBatch: true; // Flag to distinguish from single task
+  entries: VoiceTaskData[]; // Array of tasks
+  totalCount: number; // Number of tasks detected
+}
+
 
 // =============================================================================
 // VOICE SESSION
@@ -425,7 +460,7 @@ export interface VoiceSession {
   transcript?: string;
 
   // Structured Output (union type based on session type)
-  structuredData?: VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData;
+  structuredData?: VoiceStructuredData;
   fieldsExtracted?: string[];
   fieldsEmpty?: string[];
   confidence?: 'high' | 'medium' | 'low';
@@ -485,7 +520,7 @@ export interface StructureResponse {
   success: boolean;
   data?: {
     sessionId: string;
-    structuredData: VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData;
+    structuredData: VoiceStructuredData;
     fieldsExtracted: string[];
     fieldsEmpty: string[];
     confidence: 'high' | 'medium' | 'low';
@@ -520,7 +555,7 @@ export interface AIGeneratedMetadata {
 /**
  * Union type for all structured data outputs
  */
-export type VoiceStructuredData = VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData | VoiceLedgerEntryBatch | VoiceSaleData | VoicePurchaseData;
+export type VoiceStructuredData = VoicePatientData | VoiceEncounterData | VoicePrescriptionData | VoiceAppointmentSlotsData | VoiceLedgerEntryData | VoiceLedgerEntryBatch | VoiceSaleData | VoicePurchaseData | VoiceTaskData | VoiceTaskBatch;
 
 /**
  * Map session type to its corresponding data type
@@ -533,6 +568,7 @@ export type SessionTypeDataMap = {
   CREATE_LEDGER_ENTRY: VoiceLedgerEntryData | VoiceLedgerEntryBatch; // Can be single or batch
   CREATE_SALE: VoiceSaleData;
   CREATE_PURCHASE: VoicePurchaseData;
+  NEW_TASK: VoiceTaskData | VoiceTaskBatch;
 };
 
 /**
@@ -645,6 +681,16 @@ export const EXTRACTABLE_FIELDS: Record<VoiceSessionType, string[]> = {
     'items',
     'notes',
     'termsAndConditions',
+  ],
+  NEW_TASK: [
+    'title',
+    'description',
+    'dueDate',
+    'startTime',
+    'endTime',
+    'priority',
+    'category',
+    'patientId',
   ],
 };
 
@@ -844,4 +890,12 @@ export const FIELD_LABELS_ES: Record<string, string> = {
   // Purchase fields
   supplierName: 'Nombre del Proveedor',
   purchaseDate: 'Fecha de Compra',
+
+  // Task fields (pendientes)
+  title: 'Título',
+  description: 'Descripción',
+  dueDate: 'Fecha Límite',
+  priority: 'Prioridad',
+  category: 'Categoría',
+  patientId: 'Paciente',
 };
