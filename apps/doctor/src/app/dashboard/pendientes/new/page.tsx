@@ -10,7 +10,7 @@ import {
   VoiceChatSidebar,
   VoiceRecordingModal,
 } from '@/components/voice-assistant';
-import ConflictDialog from '@/components/ConflictDialog';
+// ConflictDialog no longer needed - simplified to inline dialog
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoiceStructuredData } from '@/types/voice-assistant';
 
@@ -54,12 +54,10 @@ function mapVoiceToFormData(voiceData: VoiceTaskData) {
   };
 }
 
-interface ConflictData {
-  appointmentConflicts: any[];
+// Simplified conflict handling - server-side only
+interface TaskConflictData {
   taskConflicts: any[];
-  hasBookedAppointments: boolean;
-  appointmentCheckFailed?: boolean;
-  taskCheckFailed?: boolean;
+  error: string;
 }
 
 export default function NewTaskPage() {
@@ -73,21 +71,13 @@ export default function NewTaskPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [patients, setPatients] = useState<PatientOption[]>([]);
   const [patientSearch, setPatientSearch] = useState("");
-  const [checkingConflicts, setCheckingConflicts] = useState(false);
 
-  // Conflict dialog state
+  // Simplified conflict state (server-side only)
+  const [taskConflicts, setTaskConflicts] = useState<TaskConflictData | null>(null);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
-  const [conflictData, setConflictData] = useState<ConflictData | null>(null);
-  const [overrideLoading, setOverrideLoading] = useState(false);
-  // Pending submission data (stored when conflicts block creation)
-  const [pendingSubmit, setPendingSubmit] = useState<any>(null);
-  // Batch conflict state
-  const [batchConflictData, setBatchConflictData] = useState<{
-    results: any[];
-    entries: VoiceTaskData[];
-  } | null>(null);
 
   // Voice assistant state
   const [modalOpen, setModalOpen] = useState(false);
@@ -177,83 +167,7 @@ export default function NewTaskPage() {
 
       const entries = batchData.entries as VoiceTaskData[];
 
-      // Check conflicts for entries that have time ranges
-      const timedEntries = entries
-        .map((entry, index) => ({ entry, index }))
-        .filter(({ entry }) => entry.startTime && entry.endTime && entry.dueDate);
-
-      if (timedEntries.length > 0) {
-        try {
-          const conflictRes = await fetch("/api/medical-records/tasks/conflicts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              entries: timedEntries.map(({ entry }) => ({
-                date: entry.dueDate,
-                startTime: entry.startTime,
-                endTime: entry.endTime,
-              })),
-            }),
-          });
-          const conflictResult = await conflictRes.json();
-
-          if (conflictRes.ok) {
-            const results = conflictResult.data.results || [];
-            const hasAnyConflicts = results.some(
-              (r: any) => r.appointmentConflicts.length > 0 || r.taskConflicts.length > 0
-            );
-
-            if (hasAnyConflicts) {
-              // Store batch conflict data and show dialog
-              setBatchConflictData({ results, entries });
-
-              // Aggregate all conflicts for the dialog
-              const allAppointmentConflicts: any[] = [];
-              const allTaskConflicts: any[] = [];
-              let hasBooked = false;
-              let apptFailed = false;
-              let taskFailed = false;
-              for (const r of results) {
-                allAppointmentConflicts.push(...r.appointmentConflicts);
-                allTaskConflicts.push(...r.taskConflicts);
-                if (r.hasBookedAppointments) hasBooked = true;
-                if (r.appointmentCheckFailed) apptFailed = true;
-                if (r.taskCheckFailed) taskFailed = true;
-              }
-              // Deduplicate by id
-              const uniqueAppts = Array.from(new Map(allAppointmentConflicts.map(a => [a.id, a])).values());
-              const uniqueTasks = Array.from(new Map(allTaskConflicts.map(t => [t.id, t])).values());
-
-              setConflictData({
-                appointmentConflicts: uniqueAppts,
-                taskConflicts: uniqueTasks,
-                hasBookedAppointments: hasBooked,
-                appointmentCheckFailed: apptFailed,
-                taskCheckFailed: taskFailed,
-              });
-              setConflictDialogOpen(true);
-              setSaving(false);
-              return;
-            }
-
-            // No conflicts but check failures — warn
-            const hasAnyFailures = results.some(
-              (r: any) => r.appointmentCheckFailed || r.taskCheckFailed
-            );
-            if (hasAnyFailures) {
-              setError('No se pudo verificar todos los conflictos. Algunos servicios no están disponibles. Si continúas, podrían crearse horarios duplicados.');
-              setSaving(false);
-              return;
-            }
-          }
-        } catch {
-          setError('No se pudo verificar conflictos. El servicio no está disponible. Si continúas, podrían crearse horarios duplicados.');
-          setSaving(false);
-          return;
-        }
-      }
-
-      // No conflicts — proceed with batch creation
+      // No client-side conflict checking - server handles it per task
       await executeBatchCreation(entries);
       return;
     }
@@ -282,7 +196,7 @@ export default function NewTaskPage() {
     setSidebarInitialData(undefined);
   }, [router]);
 
-  const executeBatchCreation = async (entries: VoiceTaskData[], skipConflictCheck = false) => {
+  const executeBatchCreation = async (entries: VoiceTaskData[]) => {
     setSaving(true);
     let successCount = 0;
     const failed: { entry: VoiceTaskData; reason: string }[] = [];
@@ -301,11 +215,18 @@ export default function NewTaskPage() {
             priority: entry.priority || "MEDIA",
             category: entry.category || "OTRO",
             patientId: entry.patientId || null,
-            skipConflictCheck,
           }),
         });
+
+        // Handle both success and 409 conflicts
         if (res.ok) {
           successCount++;
+        } else if (res.status === 409) {
+          const errData = await res.json().catch(() => null);
+          failed.push({
+            entry,
+            reason: errData?.error || "Conflicto de horario",
+          });
         } else {
           const errData = await res.json().catch(() => null);
           failed.push({
@@ -332,48 +253,7 @@ export default function NewTaskPage() {
     }
   };
 
-  // Check for conflicts when date and times are filled (live preview)
-  useEffect(() => {
-    const checkConflicts = async () => {
-      if (!form.dueDate || !form.startTime || !form.endTime) {
-        setConflictData(null);
-        return;
-      }
-
-      setCheckingConflicts(true);
-      try {
-        const res = await fetch(
-          `/api/medical-records/tasks/conflicts?date=${form.dueDate}&startTime=${form.startTime}&endTime=${form.endTime}`
-        );
-        const result = await res.json();
-        if (res.ok) {
-          const data = result.data;
-          const hasConflicts =
-            (data.appointmentConflicts?.length || 0) > 0 ||
-            (data.taskConflicts?.length || 0) > 0;
-          const hasFailures = data.appointmentCheckFailed || data.taskCheckFailed;
-          if (hasConflicts || hasFailures) {
-            setConflictData(data);
-          } else {
-            setConflictData(null);
-          }
-        }
-      } catch {
-        setConflictData({
-          appointmentConflicts: [],
-          taskConflicts: [],
-          hasBookedAppointments: false,
-          appointmentCheckFailed: true,
-          taskCheckFailed: true,
-        });
-      } finally {
-        setCheckingConflicts(false);
-      }
-    };
-
-    const timeoutId = setTimeout(checkConflicts, 300);
-    return () => clearTimeout(timeoutId);
-  }, [form.dueDate, form.startTime, form.endTime]);
+  // Removed live conflict preview - server handles conflict detection on submission
 
   const handleStartTimeChange = (value: string) => {
     if (!value) {
@@ -394,6 +274,11 @@ export default function NewTaskPage() {
       return;
     }
 
+    if (!form.dueDate) {
+      setError("La fecha es obligatoria");
+      return;
+    }
+
     // Validate startTime/endTime pairing
     if (form.startTime && !form.endTime) {
       setError("Si se proporciona hora de inicio, la hora de fin es obligatoria");
@@ -404,27 +289,11 @@ export default function NewTaskPage() {
       return;
     }
 
-    // If there are conflicts, show dialog instead of submitting
-    if (form.startTime && form.endTime && conflictData &&
-        (conflictData.appointmentConflicts.length > 0 || conflictData.taskConflicts.length > 0)) {
-      setPendingSubmit({
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        dueDate: form.dueDate || null,
-        startTime: form.startTime || null,
-        endTime: form.endTime || null,
-        priority: form.priority,
-        category: form.category,
-        patientId: form.patientId || null,
-      });
-      setConflictDialogOpen(true);
-      return;
-    }
-
+    // Direct submission - server detects conflicts
     await submitTask();
   };
 
-  const submitTask = async (skipConflictCheck = false) => {
+  const submitTask = async () => {
     setSaving(true);
     setError(null);
 
@@ -441,14 +310,35 @@ export default function NewTaskPage() {
           priority: form.priority,
           category: form.category,
           patientId: form.patientId || null,
-          skipConflictCheck,
         }),
       });
 
+      const result = await res.json();
+
+      // Handle 409 Conflict - Task-task conflicts (BLOCKING)
+      if (res.status === 409) {
+        setTaskConflicts({
+          taskConflicts: result.taskConflicts || [],
+          error: result.error || "Ya tienes un pendiente a esta hora",
+        });
+        setConflictDialogOpen(true);
+        setSaving(false);
+        return;
+      }
+
       if (res.ok) {
-        router.push("/dashboard/pendientes");
+        // Task created successfully
+        if (result.warning && result.bookedAppointments) {
+          // Show success + warning for 3 seconds then redirect
+          setSuccessMessage(`Tarea creada exitosamente\n\n${result.warning}`);
+          setTimeout(() => {
+            router.push("/dashboard/pendientes");
+          }, 3000);
+        } else {
+          // No warning - redirect immediately
+          router.push("/dashboard/pendientes");
+        }
       } else {
-        const result = await res.json();
         setError(result.error || "Error al crear la tarea");
       }
     } catch {
@@ -458,51 +348,7 @@ export default function NewTaskPage() {
     }
   };
 
-  const handleOverride = async () => {
-    if (!conflictData) return;
-
-    setOverrideLoading(true);
-
-    // Collect IDs to override (exclude BOOKED appointments)
-    const slotIdsToBlock = conflictData.appointmentConflicts
-      .filter(s => s.status === 'AVAILABLE')
-      .map(s => s.id);
-    const taskIdsToCancel = conflictData.taskConflicts.map(t => t.id);
-
-    try {
-      const res = await fetch("/api/medical-records/tasks/conflicts/override", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskIdsToCancel, slotIdsToBlock }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        setError(errorData?.error || "Error al anular conflictos");
-        setOverrideLoading(false);
-        setConflictDialogOpen(false);
-        return;
-      }
-
-      setConflictDialogOpen(false);
-      setConflictData(null);
-
-      // Now proceed with creation
-      if (batchConflictData) {
-        // Batch flow — skip conflict check since we just overrode
-        await executeBatchCreation(batchConflictData.entries, true);
-        setBatchConflictData(null);
-      } else {
-        // Single task flow — skip conflict check since we just overrode
-        await submitTask(true);
-      }
-    } catch {
-      setError("Error al anular conflictos");
-    } finally {
-      setOverrideLoading(false);
-      setPendingSubmit(null);
-    }
-  };
+  // Override not needed - conflicts must be resolved manually or task rescheduled
 
   const filteredPatients = patients.filter((p) => {
     if (!patientSearch) return true;
@@ -521,11 +367,6 @@ export default function NewTaskPage() {
       </div>
     );
   }
-
-  const hasConflicts = conflictData &&
-    (conflictData.appointmentConflicts.length > 0 || conflictData.taskConflicts.length > 0);
-  const hasCheckFailures = conflictData &&
-    (conflictData.appointmentCheckFailed || conflictData.taskCheckFailed);
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
@@ -573,6 +414,18 @@ export default function NewTaskPage() {
         </div>
       )}
 
+      {/* Success message with appointment overlap warning */}
+      {successMessage && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-2">
+            <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-blue-700 whitespace-pre-line flex-1">{successMessage}</p>
+          </div>
+        </div>
+      )}
+
       {/* Form */}
       <form onSubmit={handleSubmit}>
         <div className="bg-white rounded-lg shadow">
@@ -606,19 +459,22 @@ export default function NewTaskPage() {
 
             {/* Date and Time Range */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha <span className="text-red-500">*</span>
+              </label>
               <input
                 type="date"
                 value={form.dueDate}
                 onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hora de inicio
+                  Hora de inicio (opcional)
                   {form.endTime && !form.startTime && <span className="text-red-500"> *</span>}
                 </label>
                 <select
@@ -636,7 +492,7 @@ export default function NewTaskPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hora de fin
+                  Hora de fin (opcional)
                   {form.startTime && <span className="text-red-500"> *</span>}
                 </label>
                 <select
@@ -653,60 +509,6 @@ export default function NewTaskPage() {
                 </select>
               </div>
             </div>
-
-            {/* Conflict Warning (inline preview) */}
-            {hasConflicts && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <div>
-                    <h4 className="font-medium text-yellow-800">
-                      Conflictos de horario detectados
-                    </h4>
-                    <p className="text-sm text-yellow-700 mt-1">
-                      {conflictData!.appointmentConflicts.length > 0 &&
-                        `${conflictData!.appointmentConflicts.length} cita(s)`}
-                      {conflictData!.appointmentConflicts.length > 0 && conflictData!.taskConflicts.length > 0 && ' y '}
-                      {conflictData!.taskConflicts.length > 0 &&
-                        `${conflictData!.taskConflicts.length} pendiente(s)`}
-                      {' '}en conflicto. Al guardar podras anular los conflictos.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {checkingConflicts && (
-              <div className="text-sm text-gray-500 flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Verificando conflictos...
-              </div>
-            )}
-
-            {hasCheckFailures && !hasConflicts && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex gap-3">
-                  <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <div>
-                    <h4 className="font-medium text-red-800">
-                      No se pudo verificar conflictos
-                    </h4>
-                    <p className="text-sm text-red-700 mt-1">
-                      {conflictData?.appointmentCheckFailed && conflictData?.taskCheckFailed
-                        ? 'No se pudo conectar con el servicio de citas ni verificar pendientes existentes.'
-                        : conflictData?.appointmentCheckFailed
-                        ? 'No se pudo conectar con el servicio de citas para verificar conflictos.'
-                        : 'No se pudo verificar conflictos con pendientes existentes.'}
-                      {' '}Si continúas, podrían crearse horarios duplicados.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Priority and Category */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -785,21 +587,52 @@ export default function NewTaskPage() {
         </div>
       </form>
 
-      {/* Conflict Dialog */}
-      {conflictData && (
-        <ConflictDialog
-          isOpen={conflictDialogOpen}
-          onClose={() => {
-            setConflictDialogOpen(false);
-            setPendingSubmit(null);
-            setBatchConflictData(null);
-          }}
-          appointmentConflicts={conflictData.appointmentConflicts}
-          taskConflicts={conflictData.taskConflicts}
-          hasBookedAppointments={conflictData.hasBookedAppointments}
-          onOverride={handleOverride}
-          loading={overrideLoading}
-        />
+      {/* Task Conflict Dialog (simple inline) */}
+      {conflictDialogOpen && taskConflicts && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                ⚠️ Conflicto de Horario
+              </h3>
+              <p className="text-gray-700 mb-4">{taskConflicts.error}</p>
+
+              {taskConflicts.taskConflicts.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm font-medium text-red-800 mb-2">
+                    Pendientes en conflicto:
+                  </p>
+                  <div className="space-y-2">
+                    {taskConflicts.taskConflicts.map((task: any) => (
+                      <div key={task.id} className="text-sm text-red-700">
+                        <p className="font-medium">{task.title}</p>
+                        <p className="text-xs">
+                          {task.dueDate} • {task.startTime} - {task.endTime}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-sm text-gray-600 mb-4">
+                Por favor, ajusta el horario de tu tarea o cancela el pendiente existente.
+              </p>
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => {
+                    setConflictDialogOpen(false);
+                    setTaskConflicts(null);
+                  }}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Voice Recording Modal */}
