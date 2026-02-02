@@ -14,7 +14,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Calendar,
-  Eye,
+  User,
+  Phone,
+  Mail,
 } from "lucide-react";
 
 // Helper function to get local date string (fixes timezone issues)
@@ -42,6 +44,14 @@ interface Task {
   patient: { id: string; firstName: string; lastName: string } | null;
 }
 
+interface Booking {
+  id: string;
+  patientName: string;
+  patientEmail: string;
+  patientPhone: string;
+  status: string;
+}
+
 interface AppointmentSlot {
   id: string;
   date: string;
@@ -50,6 +60,7 @@ interface AppointmentSlot {
   isOpen: boolean;
   currentBookings: number;
   maxBookings: number;
+  bookings?: Booking[];
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -101,6 +112,16 @@ export default function PendientesPage() {
   const [filterPriority, setFilterPriority] = useState<string>("");
   const [filterCategory, setFilterCategory] = useState<string>("");
 
+  // Selection state for bulk actions
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Modal state for task details
+  const [viewingTask, setViewingTask] = useState<Task | null>(null);
+
+  // Inline status editing
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+
   // Calendar view state
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -112,6 +133,7 @@ export default function PendientesPage() {
   const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
+      setSelectedIds(new Set()); // Clear selection when reloading
       const params = new URLSearchParams();
       if (filterStatus) params.set("status", filterStatus);
       if (filterPriority) params.set("priority", filterPriority);
@@ -203,9 +225,80 @@ export default function PendientesPage() {
       });
       if (res.ok) {
         setTasks(tasks.filter((t) => t.id !== id));
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       }
     } catch {
       alert("Error al eliminar");
+    }
+  };
+
+  // Selection handlers
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === tasks.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(tasks.map((t) => t.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`¿Eliminar ${selectedIds.size} tarea(s) seleccionada(s)?`)) return;
+
+    setBulkDeleting(true);
+    const idsToDelete = Array.from(selectedIds);
+    let deleted = 0;
+
+    for (const id of idsToDelete) {
+      try {
+        const res = await fetch(`/api/medical-records/tasks/${id}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          deleted++;
+        }
+      } catch {
+        // Continue with next
+      }
+    }
+
+    if (deleted > 0) {
+      setTasks((prev) => prev.filter((t) => !selectedIds.has(t.id)));
+      setSelectedIds(new Set());
+    }
+
+    setBulkDeleting(false);
+  };
+
+  const handleStatusChange = async (taskId: string, newStatus: string) => {
+    setEditingStatusId(null);
+    try {
+      const res = await fetch(`/api/medical-records/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        fetchTasks();
+      }
+    } catch {
+      // silent fail
     }
   };
 
@@ -381,6 +474,35 @@ export default function PendientesPage() {
               <option value="PERSONAL">Personal</option>
               <option value="OTRO">Otro</option>
             </select>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Action Bar */}
+      {viewMode === 'list' && selectedIds.size > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-center justify-between">
+          <span className="text-blue-800 font-medium">
+            {selectedIds.size} tarea{selectedIds.size > 1 ? 's' : ''} seleccionada{selectedIds.size > 1 ? 's' : ''}
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              {bulkDeleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              Eliminar
+            </button>
           </div>
         </div>
       )}
@@ -728,6 +850,7 @@ export default function PendientesPage() {
                                 const slot = item.data as AppointmentSlot;
                                 const hasTaskOverlap = slotTaskOverlapIds.has(slot.id);
                                 const slotStatus = getSlotDisplayStatus(slot);
+                                const activeBookings = slot.bookings?.filter(b => b.status !== 'CANCELLED') || [];
 
                                 return (
                                   <div key={`slot-${slot.id}`} className={`border rounded-lg p-3 ${
@@ -748,6 +871,29 @@ export default function PendientesPage() {
                                         <p className={`font-medium ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
                                           {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
                                         </p>
+                                        {/* Patient Info from Bookings */}
+                                        {activeBookings.length > 0 && (
+                                          <div className="mt-2 space-y-2">
+                                            {activeBookings.map((booking) => (
+                                              <div key={booking.id} className="bg-white border border-gray-100 rounded p-2">
+                                                <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                                                  <User className="w-3 h-3 text-gray-500" />
+                                                  {booking.patientName}
+                                                </div>
+                                                <div className="mt-1 space-y-0.5">
+                                                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                                                    <Mail className="w-3 h-3" />
+                                                    {booking.patientEmail}
+                                                  </div>
+                                                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                                                    <Phone className="w-3 h-3" />
+                                                    {booking.patientPhone}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                         {hasTaskOverlap && (
                                           <p className="text-sm text-blue-600 font-medium mt-1">
                                             ℹ️ Pendiente a esta hora
@@ -846,18 +992,19 @@ export default function PendientesPage() {
             {/* Mobile Card View */}
             <div className="sm:hidden divide-y divide-gray-200">
               {tasks.map((task) => (
-                <div key={task.id} className="p-4">
+                <div
+                  key={task.id}
+                  onClick={() => setViewingTask(task)}
+                  className={`p-4 cursor-pointer active:bg-gray-100 ${selectedIds.has(task.id) ? "bg-blue-50" : ""}`}
+                >
                   <div className="flex items-start gap-3">
-                    <button
-                      onClick={() => handleToggleComplete(task)}
-                      className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                        task.status === "COMPLETADA"
-                          ? "bg-green-500 border-green-500 text-white"
-                          : "border-gray-300 hover:border-blue-500"
-                      }`}
-                    >
-                      {task.status === "COMPLETADA" && <CheckCircle2 className="w-3 h-3" />}
-                    </button>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(task.id)}
+                      onChange={() => toggleSelection(task.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-1 flex-shrink-0 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className={`font-medium ${task.status === "COMPLETADA" ? "line-through text-gray-400" : "text-gray-900"}`}>
                         {task.title}
@@ -883,14 +1030,7 @@ export default function PendientesPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
-                        className="text-gray-600 hover:text-gray-900 p-2 hover:bg-gray-50 rounded transition-colors"
-                        title="Ver detalles"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                    <div className="flex gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => router.push(`/dashboard/pendientes/${task.id}/edit`)}
                         className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
@@ -916,7 +1056,14 @@ export default function PendientesPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10"></th>
+                    <th className="px-4 py-3 text-left w-10">
+                      <input
+                        type="checkbox"
+                        checked={tasks.length > 0 && selectedIds.size === tasks.length}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hora Inicio</th>
@@ -930,18 +1077,18 @@ export default function PendientesPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {tasks.map((task) => (
-                    <tr key={task.id} className={`hover:bg-gray-50 transition-colors ${isOverdue(task) ? "bg-red-50/50" : ""}`}>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleToggleComplete(task)}
-                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                            task.status === "COMPLETADA"
-                              ? "bg-green-500 border-green-500 text-white"
-                              : "border-gray-300 hover:border-blue-500"
-                          }`}
-                        >
-                          {task.status === "COMPLETADA" && <CheckCircle2 className="w-3 h-3" />}
-                        </button>
+                    <tr
+                      key={task.id}
+                      onClick={() => setViewingTask(task)}
+                      className={`hover:bg-gray-50 transition-colors cursor-pointer ${selectedIds.has(task.id) ? "bg-blue-50" : ""}`}
+                    >
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(task.id)}
+                          onChange={() => toggleSelection(task.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
                       </td>
                       <td className="px-4 py-3">
                         <p className={`font-medium ${task.status === "COMPLETADA" ? "line-through text-gray-400" : "text-gray-900"}`}>
@@ -973,21 +1120,41 @@ export default function PendientesPage() {
                           {CATEGORY_LABELS[task.category] || task.category}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {STATUS_LABELS[task.status] || task.status}
+                      <td
+                        className="px-4 py-3 whitespace-nowrap text-sm relative"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {editingStatusId === task.id ? (
+                          <select
+                            value={task.status}
+                            onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                            onBlur={() => setTimeout(() => setEditingStatusId(null), 150)}
+                            autoFocus
+                            className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="PENDIENTE">Pendiente</option>
+                            <option value="EN_PROGRESO">En Progreso</option>
+                            <option value="COMPLETADA">Completada</option>
+                            <option value="CANCELADA">Cancelada</option>
+                          </select>
+                        ) : (
+                          <span
+                            onClick={() => setEditingStatusId(task.id)}
+                            className={`px-2 py-1 text-xs font-semibold rounded-full cursor-pointer hover:opacity-80 ${
+                            task.status === "COMPLETADA" ? "bg-green-100 text-green-800" :
+                            task.status === "EN_PROGRESO" ? "bg-blue-100 text-blue-800" :
+                            task.status === "CANCELADA" ? "bg-gray-100 text-gray-800" :
+                            "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {STATUS_LABELS[task.status] || task.status}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                         {task.patient ? `${task.patient.firstName} ${task.patient.lastName}` : "—"}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                      <td className="px-4 py-3 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
-                          <button
-                            onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
-                            className="text-gray-600 hover:text-gray-900 p-2 hover:bg-gray-50 rounded transition-colors"
-                            title="Ver detalles"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
                           <button
                             onClick={() => router.push(`/dashboard/pendientes/${task.id}/edit`)}
                             className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
@@ -1012,6 +1179,122 @@ export default function PendientesPage() {
           </>
         )}
       </div>
+      )}
+
+      {/* Task Details Modal */}
+      {viewingTask && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setViewingTask(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between p-4 border-b border-gray-200">
+              <div className="flex-1 min-w-0 pr-4">
+                <h2 className={`text-lg font-semibold ${viewingTask.status === "COMPLETADA" ? "line-through text-gray-400" : "text-gray-900"}`}>
+                  {viewingTask.title}
+                </h2>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[viewingTask.priority]}`}>
+                    {viewingTask.priority}
+                  </span>
+                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${CATEGORY_COLORS[viewingTask.category] || CATEGORY_COLORS.OTRO}`}>
+                    {CATEGORY_LABELS[viewingTask.category] || viewingTask.category}
+                  </span>
+                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                    viewingTask.status === "COMPLETADA" ? "bg-green-100 text-green-800" :
+                    viewingTask.status === "EN_PROGRESO" ? "bg-blue-100 text-blue-800" :
+                    viewingTask.status === "CANCELADA" ? "bg-gray-100 text-gray-800" :
+                    "bg-yellow-100 text-yellow-800"
+                  }`}>
+                    {STATUS_LABELS[viewingTask.status] || viewingTask.status}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingTask(null)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 space-y-4">
+              {/* Description */}
+              {viewingTask.description && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Descripción</h3>
+                  <p className="text-gray-900 whitespace-pre-wrap">{viewingTask.description}</p>
+                </div>
+              )}
+
+              {/* Date & Time */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Fecha</h3>
+                  <p className={`text-gray-900 flex items-center gap-2 ${isOverdue(viewingTask) ? "text-red-600 font-semibold" : ""}`}>
+                    <Calendar className="w-4 h-4" />
+                    {viewingTask.dueDate ? toLocalDate(viewingTask.dueDate).toLocaleDateString() : "Sin fecha"}
+                    {isOverdue(viewingTask) && <span className="text-xs">(Vencida)</span>}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Horario</h3>
+                  <p className="text-gray-900 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    {viewingTask.startTime && viewingTask.endTime
+                      ? `${viewingTask.startTime} - ${viewingTask.endTime}`
+                      : "Sin horario"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Patient */}
+              {viewingTask.patient && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Paciente</h3>
+                  <p className="text-gray-900">
+                    {viewingTask.patient.firstName} {viewingTask.patient.lastName}
+                  </p>
+                </div>
+              )}
+
+              {/* Dates info */}
+              <div className="text-xs text-gray-400 pt-2 border-t border-gray-100">
+                <p>Creada: {new Date(viewingTask.createdAt).toLocaleString()}</p>
+                {viewingTask.completedAt && (
+                  <p>Completada: {new Date(viewingTask.completedAt).toLocaleString()}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setViewingTask(null)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={() => {
+                  router.push(`/dashboard/pendientes/${viewingTask.id}/edit`);
+                  setViewingTask(null);
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+                Editar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

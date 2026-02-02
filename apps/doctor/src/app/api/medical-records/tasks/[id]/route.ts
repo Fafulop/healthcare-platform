@@ -55,6 +55,100 @@ export async function PUT(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
+    // Determine the final date/time values (use body if provided, else existing)
+    const finalDueDate = body.dueDate !== undefined ? body.dueDate : existing.dueDate;
+    const finalStartTime = body.startTime !== undefined ? body.startTime : existing.startTime;
+    const finalEndTime = body.endTime !== undefined ? body.endTime : existing.endTime;
+
+    // Helper to convert Date or string to normalized Date
+    const toNormalizedDate = (date: Date | string): Date => {
+      if (date instanceof Date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+      }
+      return normalizeDate(date);
+    };
+
+    // Check for task-task conflicts if time is being set/changed (exclude current task)
+    let bookedAppointmentWarning = null;
+
+    if (finalDueDate && finalStartTime && finalEndTime) {
+      // 1. Check for task-task conflicts (BLOCKING) - exclude current task
+      const taskConflicts = await prisma.task.findMany({
+        where: {
+          doctorId,
+          id: { not: id }, // Exclude the task being edited
+          dueDate: toNormalizedDate(finalDueDate),
+          startTime: { not: null },
+          endTime: { not: null },
+          status: { in: ['PENDIENTE', 'EN_PROGRESO'] },
+          AND: [
+            { startTime: { lt: finalEndTime } },
+            { endTime: { gt: finalStartTime } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          dueDate: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          priority: true,
+        },
+      });
+
+      if (taskConflicts.length > 0) {
+        return NextResponse.json(
+          {
+            error: 'Ya tienes un pendiente a esta hora',
+            taskConflicts,
+          },
+          { status: 409 }
+        );
+      }
+
+      // 2. Check for booked appointments (INFORMATIONAL WARNING ONLY)
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+        const dueDateStr = typeof finalDueDate === 'string' ? finalDueDate.split('T')[0] : finalDueDate.toISOString().split('T')[0];
+        const slotsUrl = `${apiUrl}/api/appointments/slots?doctorId=${doctorId}&startDate=${dueDateStr}&endDate=${dueDateStr}`;
+
+        const slotsResponse = await fetch(slotsUrl);
+        if (slotsResponse.ok) {
+          const slotsData = await slotsResponse.json();
+          const slots = slotsData.data || [];
+
+          const bookedSlotsOverlapping = slots.filter((slot: any) => {
+            const hasBookings =
+              slot.currentBookings > 0 &&
+              slot.bookings?.some(
+                (b: any) => !['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(b.status)
+              );
+            const overlaps = slot.startTime < finalEndTime && slot.endTime > finalStartTime;
+            return hasBookings && overlaps;
+          });
+
+          if (bookedSlotsOverlapping.length > 0) {
+            bookedAppointmentWarning = {
+              warning: `Tienes ${bookedSlotsOverlapping.length} cita(s) con pacientes a esta hora`,
+              bookedAppointments: bookedSlotsOverlapping.map((slot: any) => ({
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                bookings: slot.bookings
+                  ?.filter((b: any) => !['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(b.status))
+                  .map((b: any) => ({
+                    patientName: b.patientName,
+                    status: b.status,
+                  })),
+              })),
+            };
+          }
+        }
+      } catch (error) {
+        console.error('Error checking booked appointments (non-blocking):', error);
+      }
+    }
+
     // Set completedAt when status changes to COMPLETADA
     const updateData: Record<string, unknown> = {};
     if (body.title !== undefined) updateData.title = body.title;
@@ -89,7 +183,14 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json({ data: task });
+    // Return task with optional warning about booked appointments
+    const response: Record<string, unknown> = { data: task };
+    if (bookedAppointmentWarning) {
+      response.warning = bookedAppointmentWarning.warning;
+      response.bookedAppointments = bookedAppointmentWarning.bookedAppointments;
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     return handleApiError(error, 'PUT /api/medical-records/tasks/[id]');
   }
