@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { TemplateEditor } from '@/components/medical-records/TemplateEditor';
-import type { CreateTemplateInput } from '@/types/encounter-template';
+import type { CreateTemplateInput, UpdateTemplateInput } from '@/types/encounter-template';
 
 export default function NewTemplatePage() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function NewTemplatePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSave = async (data: CreateTemplateInput) => {
+  const handleSave = async (data: CreateTemplateInput | UpdateTemplateInput) => {
     try {
       setSaving(true);
       setError(null);
