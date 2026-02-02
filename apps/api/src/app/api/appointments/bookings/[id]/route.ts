@@ -201,7 +201,7 @@ export async function PATCH(
         endTime: updatedBooking.slot.endTime,
         duration: updatedBooking.slot.duration,
         finalPrice: Number(updatedBooking.finalPrice),
-        confirmationCode: updatedBooking.confirmationCode,
+        confirmationCode: updatedBooking.confirmationCode ?? '',
         clinicAddress: updatedBooking.doctor.clinicAddress || undefined,
         specialty: updatedBooking.doctor.primarySpecialty || undefined,
         reviewToken: updatedBooking.reviewToken || undefined,
