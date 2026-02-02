@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { redirect, useRouter } from "next/navigation";
+import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, Loader2, Save, Mic } from "lucide-react";
 import Link from "next/link";
@@ -62,6 +62,7 @@ interface TaskConflictData {
 
 export default function NewTaskPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status: authStatus } = useSession({
     required: true,
     onUnauthenticated() {
@@ -195,6 +196,23 @@ export default function NewTaskPage() {
     setSidebarOpen(false);
     setSidebarInitialData(undefined);
   }, [router]);
+
+  // Load voice data from sessionStorage (hub widget flow)
+  // Handles both single tasks (pre-fill form) and batch (direct API creation)
+  useEffect(() => {
+    if (searchParams.get('voice') === 'true') {
+      const stored = sessionStorage.getItem('voiceTaskData');
+      if (stored) {
+        try {
+          const { data } = JSON.parse(stored);
+          sessionStorage.removeItem('voiceTaskData');
+          handleVoiceConfirm(data);
+        } catch (e) {
+          console.error('Error parsing voice task data:', e);
+        }
+      }
+    }
+  }, [searchParams, handleVoiceConfirm]);
 
   const executeBatchCreation = async (entries: VoiceTaskData[]) => {
     setSaving(true);

@@ -1,10 +1,22 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Mic, UserPlus, FileText, Pill, Calendar, DollarSign, ShoppingCart, ShoppingBag, CheckSquare } from 'lucide-react';
 import { VoiceRecordingModal, VoiceChatSidebar } from '@/components/voice-assistant';
 import type { VoiceSessionType, VoiceStructuredData } from '@/types/voice-assistant';
 import type { InitialChatData } from '@/hooks/useChatSession';
+
+const SESSION_TYPE_ROUTES: Record<VoiceSessionType, { route: string; storageKey: string }> = {
+  NEW_PATIENT: { route: '/dashboard/medical-records/patients/new', storageKey: 'voicePatientData' },
+  NEW_ENCOUNTER: { route: '/dashboard/medical-records/patients/new', storageKey: 'voicePatientData' },
+  NEW_PRESCRIPTION: { route: '/dashboard/medical-records/patients/new', storageKey: 'voicePatientData' },
+  NEW_TASK: { route: '/dashboard/pendientes/new', storageKey: 'voiceTaskData' },
+  CREATE_APPOINTMENT_SLOTS: { route: '/appointments', storageKey: 'voiceAppointmentData' },
+  CREATE_SALE: { route: '/dashboard/practice/ventas/new', storageKey: 'voiceSaleData' },
+  CREATE_PURCHASE: { route: '/dashboard/practice/compras/new', storageKey: 'voicePurchaseData' },
+  CREATE_LEDGER_ENTRY: { route: '/dashboard/practice/flujo-de-dinero/new', storageKey: 'voiceLedgerData' },
+};
 
 interface VoiceAssistantHubModalProps {
   isOpen: boolean;
@@ -98,6 +110,7 @@ const VOICE_ACTIONS: VoiceAction[] = [
 ];
 
 export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssistantHubModalProps) {
+  const router = useRouter();
   const [activeAction, setActiveAction] = useState<VoiceAction | null>(null);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [voiceSidebarOpen, setVoiceSidebarOpen] = useState(false);
@@ -234,11 +247,18 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
           }}
           initialData={sidebarInitialData}
           onConfirm={(data) => {
-            // Note: Each voice action would need its own confirm handler
-            // For now, just close the sidebar
-            console.log('Voice data confirmed:', data);
-            handleSidebarClose();
-            onClose(); // Close the hub modal too
+            if (!activeAction) return;
+            const config = SESSION_TYPE_ROUTES[activeAction.sessionType];
+            if (config) {
+              sessionStorage.setItem(config.storageKey, JSON.stringify({
+                data,
+                sessionId: sidebarInitialData?.sessionId,
+                transcriptId: sidebarInitialData?.transcriptId,
+              }));
+              handleSidebarClose();
+              onClose();
+              router.push(config.route + '?voice=true');
+            }
           }}
         />
       )}

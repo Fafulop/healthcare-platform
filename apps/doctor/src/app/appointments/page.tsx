@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { redirect, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle, Mic } from "lucide-react";
 import CreateSlotsModal from "./CreateSlotsModal";
@@ -72,6 +72,7 @@ interface Booking {
 }
 
 export default function AppointmentsPage() {
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
@@ -163,6 +164,25 @@ export default function AppointmentsPage() {
     setSidebarInitialData(undefined);
     setShowCreateModal(true);
   }, [mapVoiceToFormData]);
+
+  // Load voice data from sessionStorage (hub widget flow)
+  useEffect(() => {
+    if (searchParams.get('voice') === 'true') {
+      const stored = sessionStorage.getItem('voiceAppointmentData');
+      if (stored) {
+        try {
+          const { data } = JSON.parse(stored);
+          const voiceData = data as VoiceAppointmentSlotsData;
+          const mappedData = mapVoiceToFormData(voiceData);
+          setVoiceFormData(mappedData);
+          setShowCreateModal(true);
+          sessionStorage.removeItem('voiceAppointmentData');
+        } catch (e) {
+          console.error('Error parsing voice appointment data:', e);
+        }
+      }
+    }
+  }, [searchParams, mapVoiceToFormData]);
 
   useEffect(() => {
     if (doctorId) {

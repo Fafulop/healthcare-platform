@@ -138,6 +138,22 @@ export default function NewVentaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load voice data from sessionStorage (hub widget flow)
+  useEffect(() => {
+    if (searchParams.get('voice') === 'true') {
+      const stored = sessionStorage.getItem('voiceSaleData');
+      if (stored) {
+        try {
+          const { data } = JSON.parse(stored);
+          handleVoiceConfirm(data);
+          sessionStorage.removeItem('voiceSaleData');
+        } catch (e) {
+          console.error('Error parsing voice sale data:', e);
+        }
+      }
+    }
+  }, [searchParams, clients]);
+
   useEffect(() => {
     const clientIdParam = searchParams.get('clientId');
     if (clientIdParam && clients.length > 0) {

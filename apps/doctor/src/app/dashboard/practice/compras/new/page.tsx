@@ -146,6 +146,22 @@ export default function NewCompraPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load voice data from sessionStorage (hub widget flow)
+  useEffect(() => {
+    if (searchParams.get('voice') === 'true') {
+      const stored = sessionStorage.getItem('voicePurchaseData');
+      if (stored) {
+        try {
+          const { data } = JSON.parse(stored);
+          handleVoiceConfirm(data);
+          sessionStorage.removeItem('voicePurchaseData');
+        } catch (e) {
+          console.error('Error parsing voice purchase data:', e);
+        }
+      }
+    }
+  }, [searchParams, suppliers]);
+
   useEffect(() => {
     const supplierIdParam = searchParams.get('supplierId');
     if (supplierIdParam && suppliers.length > 0) {

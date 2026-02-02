@@ -240,7 +240,7 @@ export async function PUT(
         internalId: internalId?.trim() || existingEntry.internalId,
         bankMovementId: bankMovementId?.trim() || null,
         entryType: entryType,
-        transactionDate: new Date(transactionDate),
+        transactionDate: new Date(transactionDate + 'T12:00:00'),
         area: area.trim(),
         subarea: subarea.trim(),
         porRealizar: porRealizar !== undefined ? porRealizar : existingEntry.porRealizar,

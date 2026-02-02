@@ -257,7 +257,9 @@ export async function POST(request: NextRequest) {
     }
 
     // TransactionDate defaults to today if not provided
-    const finalTransactionDate = transactionDate || new Date().toISOString().split('T')[0];
+    // Extract YYYY-MM-DD portion to avoid timezone shift when parsing
+    const rawTransactionDate = transactionDate || new Date().toISOString().split('T')[0];
+    const finalTransactionDate = rawTransactionDate.split('T')[0];
 
     // Area and subarea are optional - validate format if provided
     if (area !== undefined && area !== null && typeof area !== 'string') {
@@ -357,7 +359,7 @@ export async function POST(request: NextRequest) {
           doctorId: doctor.id,
           clientId: parseInt(clientId),
           saleNumber,
-          saleDate: new Date(finalTransactionDate),
+          saleDate: new Date(finalTransactionDate + 'T12:00:00'),
           status: 'CONFIRMED',
           paymentStatus: paymentStatus,
           amountPaid: amountPaid ? parseFloat(amountPaid) : (paymentStatus === 'PAID' ? amount : 0),
@@ -395,7 +397,7 @@ export async function POST(request: NextRequest) {
           doctorId: doctor.id,
           supplierId: parseInt(supplierId),
           purchaseNumber,
-          purchaseDate: new Date(finalTransactionDate),
+          purchaseDate: new Date(finalTransactionDate + 'T12:00:00'),
           status: 'CONFIRMED',
           paymentStatus: paymentStatus,
           amountPaid: amountPaid ? parseFloat(amountPaid) : (paymentStatus === 'PAID' ? amount : 0),
@@ -435,7 +437,7 @@ export async function POST(request: NextRequest) {
         internalId: finalInternalId,
         bankMovementId: bankMovementId?.trim() || null,
         entryType: entryType,
-        transactionDate: new Date(finalTransactionDate),
+        transactionDate: new Date(finalTransactionDate + 'T12:00:00'),
         area: area?.trim() || null,
         subarea: subarea?.trim() || null,
         porRealizar: porRealizar || false,

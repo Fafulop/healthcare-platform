@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { redirect, useRouter } from "next/navigation";
+import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown, Mic } from "lucide-react";
 import Link from "next/link";
@@ -52,6 +52,7 @@ export default function NewFlujoDeDineroPage() {
   });
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -238,6 +239,23 @@ export default function NewFlujoDeDineroPage() {
     setVoiceSidebarOpen(false);
     setSidebarInitialData(undefined); // Clear after confirmation
   };
+
+  // Load voice data from sessionStorage (hub widget flow)
+  // Handles both single entries (pre-fill form) and batch (direct API creation)
+  useEffect(() => {
+    if (searchParams.get('voice') === 'true') {
+      const stored = sessionStorage.getItem('voiceLedgerData');
+      if (stored) {
+        try {
+          const { data } = JSON.parse(stored);
+          sessionStorage.removeItem('voiceLedgerData');
+          handleVoiceConfirm(data);
+        } catch (e) {
+          console.error('Error parsing voice ledger data:', e);
+        }
+      }
+    }
+  }, [searchParams]);
 
   // Voice Assistant: Handle batch entry creation
   const handleBatchEntryCreation = async (entries: VoiceLedgerEntryData[]) => {

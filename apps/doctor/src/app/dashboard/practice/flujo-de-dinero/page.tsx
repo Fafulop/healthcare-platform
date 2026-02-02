@@ -237,11 +237,17 @@ export default function FlujoDeDineroPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-MX', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    // Parse YYYY-MM-DD portion to avoid UTC timezone shift
+    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    if (year && month && day) {
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+    return dateString;
   };
 
   const cleanConcept = (concept: string) => {
