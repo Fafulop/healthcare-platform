@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, Mic, UserPlus, FileText, Pill, Calendar, DollarSign, ShoppingCart, ShoppingBag, CheckSquare } from 'lucide-react';
 import { VoiceRecordingModal, VoiceChatSidebar } from '@/components/voice-assistant';
-import type { VoiceSessionType } from '@/types/voice-assistant';
+import type { VoiceSessionType, VoiceStructuredData } from '@/types/voice-assistant';
 import type { InitialChatData } from '@/hooks/useChatSession';
 
 interface VoiceAssistantHubModalProps {
@@ -110,9 +110,22 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
     setVoiceModalOpen(true);
   };
 
-  const handleVoiceComplete = (initialData: InitialChatData) => {
+  const handleVoiceComplete = (
+    transcript: string,
+    data: VoiceStructuredData,
+    sessionId: string,
+    transcriptId: string,
+    audioDuration: number,
+  ) => {
     setVoiceModalOpen(false);
-    setSidebarInitialData(initialData);
+    setSidebarInitialData({
+      transcript,
+      structuredData: data,
+      sessionId,
+      transcriptId,
+      audioDuration,
+      fieldsExtracted: Object.keys(data),
+    });
     setVoiceSidebarOpen(true);
   };
 
