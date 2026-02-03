@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import { logSlotDeleted, logSlotOpened, logSlotClosed } from '@/lib/activity-logger';
 
 // Helper function to calculate final price
 function calculateFinalPrice(
@@ -141,6 +142,15 @@ export async function DELETE(
       where: { id },
     });
 
+    // Log activity
+    logSlotDeleted({
+      doctorId: slot.doctorId,
+      slotId: slot.id,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      date: slot.date.toISOString().split('T')[0],
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Slot deleted successfully',
@@ -210,6 +220,26 @@ export async function PATCH(
       where: { id },
       data: { isOpen },
     });
+
+    // Log activity
+    const dateStr = updated.date.toISOString().split('T')[0];
+    if (isOpen) {
+      logSlotOpened({
+        doctorId: updated.doctorId,
+        slotId: updated.id,
+        startTime: updated.startTime,
+        endTime: updated.endTime,
+        date: dateStr,
+      });
+    } else {
+      logSlotClosed({
+        doctorId: updated.doctorId,
+        slotId: updated.id,
+        startTime: updated.startTime,
+        endTime: updated.endTime,
+        date: dateStr,
+      });
+    }
 
     return NextResponse.json({
       success: true,

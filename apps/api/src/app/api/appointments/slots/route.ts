@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
+import { logSlotsCreated } from '@/lib/activity-logger';
 
 // Helper function to calculate final price
 function calculateFinalPrice(
@@ -352,6 +353,18 @@ export async function POST(request: Request) {
         skipDuplicates: false, // Don't skip, we already handled conflicts
       });
 
+      // Log activity
+      logSlotsCreated({
+        doctorId,
+        count: created.count,
+        mode: 'single',
+        date,
+        startTime,
+        endTime,
+        duration,
+        basePrice,
+      });
+
       return NextResponse.json({
         success: true,
         message: `Created ${created.count} slots`,
@@ -522,6 +535,19 @@ export async function POST(request: Request) {
       const created = await prisma.appointmentSlot.createMany({
         data: allSlotsToCreate,
         skipDuplicates: false,
+      });
+
+      // Log activity
+      logSlotsCreated({
+        doctorId,
+        count: created.count,
+        mode: 'recurring',
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        duration,
+        basePrice,
       });
 
       return NextResponse.json({

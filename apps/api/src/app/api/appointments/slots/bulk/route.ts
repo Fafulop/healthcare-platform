@@ -2,6 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import { logSlotsBulkDeleted, logSlotsBulkOpened, logSlotsBulkClosed } from '@/lib/activity-logger';
 
 export async function POST(request: Request) {
   try {
@@ -53,6 +54,12 @@ export async function POST(request: Request) {
         },
       });
 
+      // Log activity
+      const doctorIdForDelete = slotsWithBookings[0]?.doctorId;
+      if (doctorIdForDelete) {
+        logSlotsBulkDeleted({ doctorId: doctorIdForDelete, count: deleted.count });
+      }
+
       return NextResponse.json({
         success: true,
         message: `Deleted ${deleted.count} slots`,
@@ -100,6 +107,12 @@ export async function POST(request: Request) {
         },
       });
 
+      // Log activity
+      const doctorIdForClose = slotsWithBookings[0]?.doctorId;
+      if (doctorIdForClose) {
+        logSlotsBulkClosed({ doctorId: doctorIdForClose, count: updated.count });
+      }
+
       return NextResponse.json({
         success: true,
         message: `Cerrados ${updated.count} horarios`,
@@ -109,6 +122,12 @@ export async function POST(request: Request) {
 
     // Open multiple slots (allow new bookings)
     if (action === 'open') {
+      // Fetch one slot to get doctorId for logging
+      const sampleSlot = await prisma.appointmentSlot.findFirst({
+        where: { id: { in: slotIds } },
+        select: { doctorId: true },
+      });
+
       const updated = await prisma.appointmentSlot.updateMany({
         where: {
           id: { in: slotIds },
@@ -117,6 +136,11 @@ export async function POST(request: Request) {
           isOpen: true,
         },
       });
+
+      // Log activity
+      if (sampleSlot) {
+        logSlotsBulkOpened({ doctorId: sampleSlot.doctorId, count: updated.count });
+      }
 
       return NextResponse.json({
         success: true,

@@ -4,6 +4,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { sendPatientSMS, isSMSConfigured } from '@/lib/sms';
+import {
+  logBookingConfirmed,
+  logBookingCancelled,
+  logBookingCompleted,
+  logBookingNoShow,
+} from '@/lib/activity-logger';
 
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -156,6 +162,20 @@ export async function PATCH(
         }),
       ]);
 
+      // Log activity
+      const slotDateTerminal = currentBooking.slot.date.toISOString().split('T')[0];
+      const bookingLogParams = {
+        doctorId: currentBooking.doctorId,
+        bookingId: currentBooking.id,
+        patientName: currentBooking.patientName,
+        date: slotDateTerminal,
+        time: currentBooking.slot.startTime,
+        confirmationCode: currentBooking.confirmationCode ?? undefined,
+      };
+      if (newStatus === 'CANCELLED') logBookingCancelled(bookingLogParams);
+      else if (newStatus === 'COMPLETED') logBookingCompleted(bookingLogParams);
+      else if (newStatus === 'NO_SHOW') logBookingNoShow(bookingLogParams);
+
       const statusMessages = {
         CANCELLED: 'Booking cancelled successfully',
         COMPLETED: 'Booking marked as completed',
@@ -214,6 +234,18 @@ export async function PATCH(
 
       // TODO: Send confirmation email to patient (future implementation)
       // sendPatientEmail(emailDetails, 'CONFIRMED').catch(...)
+    }
+
+    // Log activity for non-terminal status changes
+    if (newStatus === 'CONFIRMED') {
+      logBookingConfirmed({
+        doctorId: currentBooking.doctorId,
+        bookingId: currentBooking.id,
+        patientName: currentBooking.patientName,
+        date: updatedBooking.slot.date.toISOString().split('T')[0],
+        time: updatedBooking.slot.startTime,
+        confirmationCode: updatedBooking.confirmationCode ?? undefined,
+      });
     }
 
     const statusMessages: Record<string, string> = {

@@ -9,6 +9,11 @@ import {
   ArrowRightLeft,
   Heart,
   Loader2,
+  CalendarPlus,
+  Lock,
+  Unlock,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -42,6 +47,11 @@ const iconMap: Record<string, React.ElementType> = {
   Trash2,
   ArrowRightLeft,
   Heart,
+  CalendarPlus,
+  Lock,
+  Unlock,
+  XCircle,
+  AlertCircle,
 };
 
 const colorMap: Record<string, string> = {
