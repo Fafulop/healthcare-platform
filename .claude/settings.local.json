@@ -17,7 +17,11 @@
       "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -c \"TRUNCATE TABLE public.doctors CASCADE;\")",
       "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -f railway-postgres-backup.sql)",
       "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -c \"SELECT id, doctor_full_name, slug FROM public.doctors ORDER BY created_at;\")",
-      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -c \"SELECT COUNT\\(*\\) as bookings FROM public.bookings;\")"
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" -c \"SELECT COUNT\\(*\\) as bookings FROM public.bookings;\")",
+      "Bash(git push:*)",
+      "Bash(railway variables:*)",
+      "Bash(findstr:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" node:*)"
     ]
   }
 }

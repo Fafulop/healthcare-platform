@@ -3,6 +3,7 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { normalizeDate } from '@/lib/conflict-checker';
+import { logTaskUpdated, logTaskCompleted, logTaskStatusChanged, logTaskDeleted } from '@/lib/activity-logger';
 
 // GET /api/medical-records/tasks/[id]
 export async function GET(
@@ -183,6 +184,40 @@ export async function PUT(
       },
     });
 
+    // Log activity based on what changed
+    const changedFields = Object.keys(updateData).filter(key => key !== 'completedAt');
+    const patientName = task.patient ? `${task.patient.firstName} ${task.patient.lastName}` : undefined;
+
+    // Check if status changed to COMPLETADA
+    if (body.status === 'COMPLETADA' && existing.status !== 'COMPLETADA') {
+      await logTaskCompleted({
+        doctorId,
+        taskId: task.id,
+        taskTitle: task.title,
+        category: task.category,
+        patientName,
+      });
+    }
+    // Check if status changed (but not to COMPLETADA, already handled above)
+    else if (body.status !== undefined && existing.status !== body.status) {
+      await logTaskStatusChanged({
+        doctorId,
+        taskId: task.id,
+        taskTitle: task.title,
+        oldStatus: existing.status,
+        newStatus: body.status,
+      });
+    }
+    // General update (no status change or non-completion status change)
+    else if (changedFields.length > 0) {
+      await logTaskUpdated({
+        doctorId,
+        taskId: task.id,
+        taskTitle: task.title,
+        changedFields,
+      });
+    }
+
     // Return task with optional warning about booked appointments
     const response: Record<string, unknown> = { data: task };
     if (bookedAppointmentWarning) {
@@ -205,7 +240,7 @@ export async function DELETE(
     const { doctorId } = await requireDoctorAuth(request);
     const { id } = await params;
 
-    // Verify ownership
+    // Verify ownership and get task details for logging
     const existing = await prisma.task.findFirst({
       where: { id, doctorId },
     });
@@ -215,6 +250,16 @@ export async function DELETE(
     }
 
     await prisma.task.delete({ where: { id } });
+
+    // Log activity
+    await logTaskDeleted({
+      doctorId,
+      taskId: id,
+      taskTitle: existing.title,
+      priority: existing.priority,
+      category: existing.category,
+      dueDate: existing.dueDate || undefined,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

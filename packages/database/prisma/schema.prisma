@@ -90,6 +90,7 @@ model Doctor {
   bookings           Booking[]
   articles           Article[]
   reviews            Review[]
+  activityLogs       ActivityLog[]
 
   // Practice Management Relations (NEW)
   areas              Area[]
@@ -352,6 +353,45 @@ model Review {
   @@map("reviews")
   @@index([doctorId, approved])
   @@index([bookingId])
+  @@schema("public")
+}
+
+// Activity Log - Recent Activity tracking
+model ActivityLog {
+  id              String   @id @default(cuid())
+  doctorId        String   @map("doctor_id")
+
+  // Action metadata
+  actionType      String   @map("action_type") @db.VarChar(50)
+  // Values: TASK_CREATED, TASK_UPDATED, TASK_COMPLETED, TASK_DELETED,
+  //         TASK_BULK_DELETED, TASK_STATUS_CHANGED, etc.
+
+  entityType      String   @map("entity_type") @db.VarChar(50)
+  // Values: TASK, APPOINTMENT, BOOKING, PRESCRIPTION, PATIENT, etc.
+
+  entityId        String?  @map("entity_id")  // ID of the affected entity
+
+  // Display information
+  displayMessage  String   @map("display_message") @db.VarChar(500)
+  icon            String?  @db.VarChar(50)    // Lucide icon name
+  color           String?  @db.VarChar(20)    // Tailwind color
+
+  // Context data (JSON for flexibility)
+  metadata        Json?    // Store task title, priority, category, patient name, etc.
+
+  // User who performed the action
+  userId          String?  @map("user_id")
+
+  // Timestamp
+  timestamp       DateTime @default(now())
+
+  // Relations
+  doctor          Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, timestamp])
+  @@index([actionType])
+  @@index([entityType])
+  @@map("activity_logs")
   @@schema("public")
 }
 

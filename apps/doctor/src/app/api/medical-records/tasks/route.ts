@@ -3,6 +3,7 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError, validateRequired } from '@/lib/api-error-handler';
 import { normalizeDate } from '@/lib/conflict-checker';
+import { logTaskCreated } from '@/lib/activity-logger';
 
 // GET /api/medical-records/tasks
 export async function GET(request: NextRequest) {
@@ -201,6 +202,17 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+    });
+
+    // Log activity
+    await logTaskCreated({
+      doctorId,
+      taskId: task.id,
+      taskTitle: task.title,
+      priority: task.priority,
+      category: task.category,
+      dueDate: task.dueDate || undefined,
+      patientName: task.patient ? `${task.patient.firstName} ${task.patient.lastName}` : undefined,
     });
 
     // Return task with optional warning about booked appointments

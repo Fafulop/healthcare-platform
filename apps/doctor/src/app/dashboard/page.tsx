@@ -10,6 +10,7 @@ import {
   CheckSquare,
 } from "lucide-react";
 import Link from "next/link";
+import RecentActivityTable from "@/components/RecentActivityTable";
 
 interface StatCardProps {
   icon: React.ElementType;
@@ -153,10 +154,7 @@ export default function DoctorDashboardPage() {
           <h2 className="text-lg font-semibold text-gray-900">Actividad Reciente</h2>
         </div>
         <div className="p-4 sm:p-6">
-          <div className="text-center py-8 text-gray-500">
-            <Heart className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>No hay actividad reciente</p>
-          </div>
+          <RecentActivityTable limit={10} />
         </div>
       </div>
     </div>

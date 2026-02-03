@@ -41,8 +41,8 @@ const VOICE_ACTIONS: VoiceAction[] = [
     description: 'Registrar un nuevo paciente con voz',
     icon: UserPlus,
     sessionType: 'NEW_PATIENT',
-    color: 'bg-blue-100 text-blue-700',
-    hoverColor: 'hover:bg-blue-200',
+    color: 'bg-blue-50 text-blue-600',
+    hoverColor: 'hover:bg-blue-100',
   },
   {
     id: 'new-encounter',
@@ -50,8 +50,8 @@ const VOICE_ACTIONS: VoiceAction[] = [
     description: 'Registrar consulta médica con voz',
     icon: FileText,
     sessionType: 'NEW_ENCOUNTER',
-    color: 'bg-green-100 text-green-700',
-    hoverColor: 'hover:bg-green-200',
+    color: 'bg-blue-50 text-blue-600',
+    hoverColor: 'hover:bg-blue-100',
   },
   {
     id: 'new-prescription',
@@ -59,8 +59,8 @@ const VOICE_ACTIONS: VoiceAction[] = [
     description: 'Crear receta médica con voz',
     icon: Pill,
     sessionType: 'NEW_PRESCRIPTION',
-    color: 'bg-pink-100 text-pink-700',
-    hoverColor: 'hover:bg-pink-200',
+    color: 'bg-blue-50 text-blue-600',
+    hoverColor: 'hover:bg-blue-100',
   },
   {
     id: 'create-appointments',
@@ -68,8 +68,8 @@ const VOICE_ACTIONS: VoiceAction[] = [
     description: 'Programar slots de citas con voz',
     icon: Calendar,
     sessionType: 'CREATE_APPOINTMENT_SLOTS',
-    color: 'bg-purple-100 text-purple-700',
-    hoverColor: 'hover:bg-purple-200',
+    color: 'bg-blue-50 text-blue-600',
+    hoverColor: 'hover:bg-blue-100',
   },
   {
     id: 'new-task',
@@ -77,8 +77,8 @@ const VOICE_ACTIONS: VoiceAction[] = [
     description: 'Crear tarea o pendiente con voz',
     icon: CheckSquare,
     sessionType: 'NEW_TASK',
-    color: 'bg-yellow-100 text-yellow-700',
-    hoverColor: 'hover:bg-yellow-200',
+    color: 'bg-yellow-50 text-yellow-600',
+    hoverColor: 'hover:bg-yellow-100',
   },
   {
     id: 'ledger-entry',
@@ -86,8 +86,8 @@ const VOICE_ACTIONS: VoiceAction[] = [
     description: 'Registrar ingreso o egreso con voz',
     icon: DollarSign,
     sessionType: 'CREATE_LEDGER_ENTRY',
-    color: 'bg-emerald-100 text-emerald-700',
-    hoverColor: 'hover:bg-emerald-200',
+    color: 'bg-gray-100 text-gray-600',
+    hoverColor: 'hover:bg-gray-200',
   },
   {
     id: 'new-sale',
@@ -95,8 +95,8 @@ const VOICE_ACTIONS: VoiceAction[] = [
     description: 'Registrar venta de productos/servicios',
     icon: ShoppingCart,
     sessionType: 'CREATE_SALE',
-    color: 'bg-orange-100 text-orange-700',
-    hoverColor: 'hover:bg-orange-200',
+    color: 'bg-gray-100 text-gray-600',
+    hoverColor: 'hover:bg-gray-200',
   },
   {
     id: 'new-purchase',
@@ -104,8 +104,8 @@ const VOICE_ACTIONS: VoiceAction[] = [
     description: 'Registrar compra a proveedores',
     icon: ShoppingBag,
     sessionType: 'CREATE_PURCHASE',
-    color: 'bg-cyan-100 text-cyan-700',
-    hoverColor: 'hover:bg-cyan-200',
+    color: 'bg-gray-100 text-gray-600',
+    hoverColor: 'hover:bg-gray-200',
   },
 ];
 
@@ -150,27 +150,27 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
         {/* Modal Content */}
-        <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="relative bg-white sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-2xl sm:mx-4 sm:max-h-[90vh] overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4">
+          <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 sm:px-6 sm:py-4 shrink-0">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Mic className="w-6 h-6" />
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                  <Mic className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold">Asistente de Voz</h2>
-                  <p className="text-sm text-purple-100">Crea registros usando tu voz</p>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">Asistente de Voz</h2>
+                  <p className="text-xs sm:text-sm text-gray-500">Crea registros usando tu voz</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-white/20 transition-colors"
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                 title="Cerrar"
               >
                 <X className="w-5 h-5" />
@@ -179,8 +179,8 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
               {VOICE_ACTIONS.map((action) => {
                 const Icon = action.icon;
                 return (
@@ -188,19 +188,19 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
                     key={action.id}
                     onClick={() => handleActionClick(action)}
                     className={`
-                      flex items-start gap-4 p-4 rounded-lg border-2 border-transparent
-                      ${action.color} ${action.hoverColor}
-                      transition-all text-left
-                      hover:border-current hover:shadow-md
-                      active:scale-98
+                      flex items-center gap-3 p-3 sm:p-4 rounded-lg
+                      border border-gray-200 bg-white
+                      hover:border-blue-300 hover:bg-blue-50
+                      transition-colors text-left
+                      active:scale-[0.98]
                     `}
                   >
-                    <div className="flex-shrink-0">
-                      <Icon className="w-6 h-6" />
+                    <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${action.color}`}>
+                      <Icon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm mb-1">{action.title}</h3>
-                      <p className="text-xs opacity-80">{action.description}</p>
+                      <h3 className="font-medium text-sm text-gray-900">{action.title}</h3>
+                      <p className="text-xs text-gray-500 hidden sm:block">{action.description}</p>
                     </div>
                   </button>
                 );
@@ -208,10 +208,10 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
             </div>
 
             {/* Info Box */}
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Tip:</strong> Selecciona una acción y luego graba tu voz describiendo la información.
-                El asistente convertirá tu audio en datos estructurados que podrás revisar y guardar.
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <p className="text-xs sm:text-sm text-gray-600">
+                <span className="font-medium text-gray-700">Tip:</span> Selecciona una acción y graba tu voz.
+                El asistente convertirá tu audio en datos que podrás revisar.
               </p>
             </div>
           </div>

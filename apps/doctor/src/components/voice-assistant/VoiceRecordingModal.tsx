@@ -270,45 +270,45 @@ export function VoiceRecordingModal({
   const error = session.recordingError || session.sessionError;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={handleClose}
       />
 
-      {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+      {/* Modal — full-screen on mobile, centered card on sm+ */}
+      <div className="relative bg-white sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:mx-4 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 bg-gray-50 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg text-blue-600 shrink-0">
               {guide.icon}
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
                 {guide.title} (Voz)
               </h2>
-              <p className="text-sm text-gray-500">Dicte la información del paciente</p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">Dicte la información</p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
+        {/* Content — scrollable */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
           {/* Reference Guide */}
           {(session.sessionStatus === 'idle' || session.sessionStatus === 'recording') && (
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">
+            <div className="mb-4 sm:mb-6">
+              <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
                 Información que puede dictar:
               </h3>
-              <ul className="text-sm text-gray-600 space-y-1">
+              <ul className="text-xs sm:text-sm text-gray-600 space-y-0.5 sm:space-y-1">
                 {guide.items.map((item, index) => (
                   <li key={index} className={item.startsWith('  •') ? 'ml-4' : ''}>
                     {item.startsWith('  •') ? item : `• ${item}`}
@@ -320,21 +320,21 @@ export function VoiceRecordingModal({
 
           {/* Divider */}
           {(session.sessionStatus === 'idle' || session.sessionStatus === 'recording') && (
-            <hr className="my-6 border-gray-200" />
+            <hr className="my-4 sm:my-6 border-gray-200" />
           )}
 
           {/* Recording UI */}
-          <div className="flex flex-col items-center py-4">
+          <div className="flex flex-col items-center py-2 sm:py-4">
             {/* Status: Idle - Ready to record */}
             {session.sessionStatus === 'idle' && !session.audioBlob && (
               <>
                 <button
                   onClick={session.startRecording}
-                  className="w-20 h-20 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors shadow-lg"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors shadow-lg active:scale-95"
                 >
-                  <Mic className="w-8 h-8" />
+                  <Mic className="w-7 h-7 sm:w-8 sm:h-8" />
                 </button>
-                <p className="mt-4 text-sm text-gray-600">
+                <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-600">
                   Presione para comenzar a grabar
                 </p>
               </>
@@ -346,20 +346,20 @@ export function VoiceRecordingModal({
                 <div className="relative">
                   <button
                     onClick={session.stopRecording}
-                    className="w-20 h-20 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center transition-colors shadow-lg animate-pulse"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center transition-colors shadow-lg animate-pulse active:scale-95"
                   >
-                    <Square className="w-8 h-8" />
+                    <Square className="w-7 h-7 sm:w-8 sm:h-8" />
                   </button>
                   {/* Pulse animation - pointer-events-none so clicks pass through to button */}
                   <div className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-25 pointer-events-none" />
                 </div>
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-2xl font-mono font-semibold text-gray-900">
+                <div className="mt-3 sm:mt-4 flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xl sm:text-2xl font-mono font-semibold text-gray-900">
                     {session.recordingDurationFormatted}
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-gray-600">
+                <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-gray-600">
                   {session.isRecording ? 'Grabando... Presione para detener' : 'Iniciando grabación...'}
                 </p>
               </>
@@ -368,25 +368,25 @@ export function VoiceRecordingModal({
             {/* Status: Stopped - Ready to process */}
             {session.sessionStatus === 'idle' && session.audioBlob && (
               <>
-                <div className="w-20 h-20 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                  <CheckCircle className="w-10 h-10" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10" />
                 </div>
-                <p className="mt-4 text-sm text-gray-600">
+                <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-600">
                   Grabación completada ({session.recordingDurationFormatted})
                 </p>
-                <div className="mt-4 flex gap-3">
+                <div className="mt-3 sm:mt-4 flex gap-2 sm:gap-3">
                   <button
                     onClick={handleRetry}
-                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                    className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1.5 sm:gap-2 active:scale-95"
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     Grabar de nuevo
                   </button>
                   <button
                     onClick={session.processRecording}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                    className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5 sm:gap-2 active:scale-95"
                   >
-                    <FileText className="w-4 h-4" />
+                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     Procesar
                   </button>
                 </div>
@@ -396,13 +396,13 @@ export function VoiceRecordingModal({
             {/* Status: Transcribing */}
             {session.sessionStatus === 'transcribing' && (
               <>
-                <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <Loader2 className="w-10 h-10 animate-spin" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 animate-spin" />
                 </div>
-                <p className="mt-4 text-sm text-gray-600 font-medium">
+                <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-600 font-medium">
                   Transcribiendo audio...
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-[11px] sm:text-xs text-gray-500">
                   Esto puede tomar unos segundos
                 </p>
               </>
@@ -411,16 +411,16 @@ export function VoiceRecordingModal({
             {/* Status: Structuring */}
             {session.sessionStatus === 'structuring' && (
               <>
-                <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <Loader2 className="w-10 h-10 animate-spin" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 animate-spin" />
                 </div>
-                <p className="mt-4 text-sm text-gray-600 font-medium">
+                <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-600 font-medium">
                   Estructurando información...
                 </p>
                 {session.transcript && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg max-w-sm">
-                    <p className="text-xs text-gray-500 mb-1">Transcripción:</p>
-                    <p className="text-sm text-gray-700 line-clamp-3">
+                  <div className="mt-3 sm:mt-4 p-2.5 sm:p-3 bg-gray-50 rounded-lg w-full max-w-sm">
+                    <p className="text-[11px] sm:text-xs text-gray-500 mb-1">Transcripción:</p>
+                    <p className="text-xs sm:text-sm text-gray-700 line-clamp-3">
                       {session.transcript}
                     </p>
                   </div>
@@ -431,17 +431,17 @@ export function VoiceRecordingModal({
             {/* Status: Error */}
             {session.sessionStatus === 'error' && (
               <>
-                <div className="w-20 h-20 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
-                  <AlertCircle className="w-10 h-10" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                  <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10" />
                 </div>
-                <p className="mt-4 text-sm text-red-600 font-medium text-center max-w-xs">
+                <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-red-600 font-medium text-center max-w-xs">
                   {error}
                 </p>
                 <button
                   onClick={handleRetry}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  className="mt-3 sm:mt-4 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5 sm:gap-2 active:scale-95"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Intentar de nuevo
                 </button>
               </>
@@ -450,16 +450,16 @@ export function VoiceRecordingModal({
             {/* Status: Draft Ready */}
             {session.sessionStatus === 'draft_ready' && (
               <>
-                <div className="w-20 h-20 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                  <CheckCircle className="w-10 h-10" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10" />
                 </div>
-                <p className="mt-4 text-sm text-green-600 font-medium">
+                <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-green-600 font-medium">
                   ¡Información estructurada!
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-[11px] sm:text-xs text-gray-500">
                   {session.fieldsExtracted.length} campos extraídos • Confianza: {session.confidence}
                 </p>
-                <p className="mt-2 text-sm text-gray-600">
+                <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-gray-600">
                   Abriendo chat...
                 </p>
               </>
@@ -468,14 +468,14 @@ export function VoiceRecordingModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-gray-50 shrink-0">
           <div className="flex justify-between items-center">
-            <p className="text-xs text-gray-500">
-              El audio no se almacena. Solo se usa para transcripción.
+            <p className="text-[11px] sm:text-xs text-gray-500">
+              El audio no se almacena.
             </p>
             <button
               onClick={handleClose}
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-xs sm:text-sm text-gray-600 hover:text-gray-900 active:scale-95"
             >
               Cancelar
             </button>

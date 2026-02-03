@@ -22,8 +22,7 @@ export function VoiceAssistantHubWidget() {
         className="
           fixed bottom-44 right-4 sm:bottom-42 sm:right-6 z-50
           w-12 h-12 sm:w-14 sm:h-14 rounded-full
-          bg-gradient-to-br from-purple-600 to-indigo-600
-          hover:from-purple-700 hover:to-indigo-700
+          bg-blue-600 hover:bg-blue-700
           text-white shadow-lg hover:shadow-xl
           flex items-center justify-center
           transition-all active:scale-95
