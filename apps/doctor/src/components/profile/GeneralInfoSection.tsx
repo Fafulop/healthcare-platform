@@ -12,11 +12,11 @@ export default function GeneralInfoSection({ formData, updateField }: GeneralInf
   return (
     <div className="space-y-6">
       {/* Read-only identity fields */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
         <p className="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wide">
           Datos de identidad (solo editables por administrador)
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-500 mb-1">Nombre Completo</label>
             <p className="px-3 py-2 bg-gray-100 rounded-lg text-gray-700 text-sm">
@@ -145,7 +145,7 @@ export default function GeneralInfoSection({ formData, updateField }: GeneralInf
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Paleta de Colores
         </label>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
           <ColorPaletteSelector
             currentPaletteId={formData.color_palette}
             onSelect={(paletteId) => updateField("color_palette", paletteId)}

@@ -78,7 +78,7 @@ export default function MediaSection({ formData, setFormData }: MediaSectionProp
           <h3 className="text-sm font-semibold text-gray-700 mb-3">
             Multimedia Subida ({formData.carousel_items.length})
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {formData.carousel_items.map((item: any, index: number) => (
               <div key={index} className="border border-gray-200 rounded-lg p-3 space-y-2">
                 <div className="flex justify-between items-start">

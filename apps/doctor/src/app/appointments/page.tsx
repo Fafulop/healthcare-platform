@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { redirect, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
-import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle, Mic } from "lucide-react";
+import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle, Mic, ChevronLeft, ChevronRight } from "lucide-react";
 import CreateSlotsModal from "./CreateSlotsModal";
 import { authFetch } from "@/lib/auth-fetch";
 import {
@@ -87,6 +87,7 @@ export default function AppointmentsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
+  const [bookingDate, setBookingDate] = useState<string>(getLocalDateString(new Date()));
 
   // Voice assistant state
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
@@ -466,6 +467,12 @@ export default function AppointmentsPage() {
     (slot) => slot.date.split('T')[0] === selectedDateStr
   );
 
+  // Filter bookings by selected booking date
+  const filteredBookings = bookings.filter((booking) => {
+    const slotDate = booking.slot.date.split('T')[0];
+    return slotDate === bookingDate;
+  });
+
   // Get dates with slots for calendar highlighting
   const datesWithSlots = new Set(
     slots.map((slot) => slot.date.split('T')[0])
@@ -572,26 +579,64 @@ export default function AppointmentsPage() {
 
       {/* Citas Reservadas */}
       <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
             <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             Citas Reservadas
           </h2>
-          <span className="text-xs sm:text-sm font-medium text-gray-600">
-            {bookings.length} total
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const d = new Date(bookingDate + 'T12:00:00');
+                d.setDate(d.getDate() - 1);
+                setBookingDate(getLocalDateString(d));
+              }}
+              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <input
+              type="date"
+              value={bookingDate}
+              onChange={(e) => setBookingDate(e.target.value)}
+              className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={() => {
+                const d = new Date(bookingDate + 'T12:00:00');
+                d.setDate(d.getDate() + 1);
+                setBookingDate(getLocalDateString(d));
+              }}
+              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setBookingDate(getLocalDateString(new Date()))}
+              className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                bookingDate === getLocalDateString(new Date())
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Hoy
+            </button>
+            <span className="text-xs sm:text-sm font-medium text-gray-500 ml-1">
+              {filteredBookings.length} cita{filteredBookings.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
 
-        {bookings.length === 0 ? (
+        {filteredBookings.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            <User className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Sin reservas aún</p>
+            <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Sin citas para {formatDateString(bookingDate, "es-MX", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
         ) : (
           <>
             {/* Mobile Cards View */}
             <div className="block sm:hidden space-y-3">
-              {bookings.map((booking) => (
+              {filteredBookings.map((booking) => (
                 <div key={booking.id} className="border border-gray-200 rounded-lg p-3">
                   <div className="flex items-start justify-between mb-2">
                     <div>
@@ -686,7 +731,7 @@ export default function AppointmentsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {bookings.map((booking) => (
+                  {filteredBookings.map((booking) => (
                     <tr key={booking.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <div className="flex items-start gap-2">

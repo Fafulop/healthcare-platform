@@ -264,23 +264,23 @@ export default function MiPerfilPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-24 lg:pb-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Editar Mi Perfil</h1>
-        <p className="text-sm text-gray-500 mt-1">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Editar Mi Perfil</h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1">
           Los cambios se aplicaran en tu perfil publico al guardar.
         </p>
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="flex gap-1 overflow-x-auto -mb-px">
+      <div className="border-b border-gray-200 mb-4 sm:mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
+        <nav className="flex gap-0 sm:gap-1 overflow-x-auto -mb-px scrollbar-hide">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              className={`px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-colors flex-shrink-0 ${
                 activeTab === tab.id
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -293,7 +293,7 @@ export default function MiPerfilPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+      <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
         {activeTab === "general" && (
           <GeneralInfoSection formData={formData} updateField={updateField} />
         )}
@@ -314,11 +314,11 @@ export default function MiPerfilPage() {
         )}
       </div>
 
-      {/* Save Bar */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 -mx-4 px-4 flex items-center justify-between gap-4">
+      {/* Save Bar - fixed on mobile above bottom nav, sticky on desktop */}
+      <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:sticky bg-white border-t border-gray-200 p-3 sm:p-4 flex items-center justify-between gap-3 z-40">
         {saveMessage && (
           <p
-            className={`text-sm font-medium ${
+            className={`text-xs sm:text-sm font-medium truncate ${
               saveMessage.type === "success" ? "text-green-700" : "text-red-700"
             }`}
           >
@@ -329,7 +329,7 @@ export default function MiPerfilPage() {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          className="px-5 sm:px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex-shrink-0"
         >
           {isSaving ? "Guardando..." : "Guardar Cambios"}
         </button>

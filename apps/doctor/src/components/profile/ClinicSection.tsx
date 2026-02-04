@@ -86,14 +86,14 @@ export default function ClinicSection({ formData, updateField, setFormData }: Cl
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Horario de Atencion</h3>
         <div className="space-y-3">
           {days.map(({ key, label }) => (
-            <div key={key} className="grid grid-cols-3 gap-3 items-center">
-              <label className="text-sm font-medium text-gray-700">{label}</label>
+            <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+              <label className="text-sm font-medium text-gray-700 sm:w-24 flex-shrink-0">{label}</label>
               <input
                 type="text"
                 value={(formData.clinic_info.hours as any)[key] || ""}
                 onChange={(e) => updateHour(key, e.target.value)}
                 placeholder="9:00 AM - 6:00 PM"
-                className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
               />
             </div>
           ))}
@@ -106,7 +106,7 @@ export default function ClinicSection({ formData, updateField, setFormData }: Cl
       {/* Geo Coordinates */}
       <div className="border-t pt-6">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Coordenadas de Google Maps</h3>
-        <div className="grid grid-cols-2 gap-4 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Latitud</label>
             <input
