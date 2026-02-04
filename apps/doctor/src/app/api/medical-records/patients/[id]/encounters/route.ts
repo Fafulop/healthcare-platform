@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
+import { logEncounterCreated } from '@/lib/activity-logger';
 import {
   handleApiError,
   validateRequired,
@@ -130,6 +131,16 @@ export async function POST(
       resourceType: 'encounter',
       resourceId: encounter.id,
       request
+    });
+
+    // Log activity for dashboard
+    logEncounterCreated({
+      doctorId,
+      encounterId: encounter.id,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      encounterType: body.encounterType,
+      chiefComplaint: body.chiefComplaint,
+      userId,
     });
 
     return NextResponse.json({ data: encounter }, { status: 201 });

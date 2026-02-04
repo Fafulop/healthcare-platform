@@ -1,0 +1,1034 @@
+[
+  {
+    "file": "apps/api/src/app/api/articles/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\articles\\route.ts",
+    "declarations": [
+      {
+        "line": 6,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 11,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 65,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 107,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 120,
+        "text": "console.log(`✅ Article created: ${article.slug} by ${doctor.doctorFullName}`);"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/articles/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\articles\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 8,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 18,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 82,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 187,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 43,
+        "text": "if (article.doctorId !== doctor.id) {"
+      },
+      {
+        "line": 106,
+        "text": "if (existingArticle.doctorId !== doctor.id) {"
+      },
+      {
+        "line": 156,
+        "text": "console.log(`✅ Article updated: ${article.slug} by ${doctor.doctorFullName}`);"
+      },
+      {
+        "line": 211,
+        "text": "if (existingArticle.doctorId !== doctor.id) {"
+      },
+      {
+        "line": 227,
+        "text": "console.log(`✅ Article deleted: ${existingArticle.slug} by ${doctor.doctorFullName}`);"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/areas/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\areas\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 9,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 43,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 12,
+        "text": "where: { doctorId: doctor.id },"
+      },
+      {
+        "line": 66,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/areas/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\areas\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 67,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 155,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 26,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 100,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 170,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/areas/[id]/subareas/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\areas\\[id]\\subareas\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 38,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/areas/[id]/subareas/[subareaId]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\areas\\[id]\\subareas\\[subareaId]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 107,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 39,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 123,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/clients/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\clients\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 9,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 58,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 15,
+        "text": "const where: any = { doctorId: doctor.id };"
+      },
+      {
+        "line": 104,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/clients/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\clients\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 62,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 182,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 26,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 118,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 197,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/compras/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\compras\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 45,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 147,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 55,
+        "text": "const where: any = { doctorId: doctor.id };"
+      },
+      {
+        "line": 183,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 199,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 212,
+        "text": "const purchaseNumber = await generatePurchaseNumber(doctor.id);"
+      },
+      {
+        "line": 250,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 282,
+        "text": "const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'egreso');"
+      },
+      {
+        "line": 285,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/compras/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\compras\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 23,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 89,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 255,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 37,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 105,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 214,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 270,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/cotizaciones/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\cotizaciones\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 9,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 99,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 18,
+        "text": "const where: any = { doctorId: doctor.id };"
+      },
+      {
+        "line": 132,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 144,
+        "text": "const quotationNumber = await generateQuotationNumber(doctor.id);"
+      },
+      {
+        "line": 183,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/cotizaciones/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\cotizaciones\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 71,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 210,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 26,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 87,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 225,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/ledger/balance/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\ledger\\balance\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 9,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 14,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 25,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 37,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 48,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/ledger/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\ledger\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 89,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 207,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 101,
+        "text": "const where: any = { doctorId: doctor.id };"
+      },
+      {
+        "line": 330,
+        "text": "finalInternalId = await generateInternalId(doctor.id, entryType);"
+      },
+      {
+        "line": 336,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 353,
+        "text": "const saleNumber = await generateSaleNumber(doctor.id);"
+      },
+      {
+        "line": 357,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 391,
+        "text": "const purchaseNumber = await generatePurchaseNumber(doctor.id);"
+      },
+      {
+        "line": 395,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 430,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/ledger/[id]/attachments/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\ledger\\[id]\\attachments\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 86,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 27,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 101,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/ledger/[id]/facturas/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\ledger\\[id]\\facturas\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 91,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 27,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 106,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/ledger/[id]/facturas-xml/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\ledger\\[id]\\facturas-xml\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 13,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 149,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 28,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 164,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/ledger/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\ledger\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 23,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 106,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 319,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 408,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 37,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 203,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 218,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 345,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 423,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/product-attributes/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\product-attributes\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 9,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 47,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 13,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 63,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/product-attributes/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\product-attributes\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 99,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 38,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 114,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/product-attributes/[id]/values/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\product-attributes\\[id]\\values\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 38,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/product-attributes/[id]/values/[valueId]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\product-attributes\\[id]\\values\\[valueId]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 111,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 39,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 127,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/products/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\products\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 9,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 76,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 16,
+        "text": "const where: any = { doctorId: doctor.id };"
+      },
+      {
+        "line": 102,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/products/[id]/components/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\products\\[id]\\components\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 75,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 27,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 108,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 139,
+        "text": "if (attributeValue.attribute.doctorId !== doctor.id) {"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/products/[id]/components/[componentId]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\products\\[id]\\components\\[componentId]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 114,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 39,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 130,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/products/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\products\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 74,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 182,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 26,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 110,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 197,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/proveedores/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\proveedores\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 9,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 58,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 15,
+        "text": "const where: any = { doctorId: doctor.id };"
+      },
+      {
+        "line": 104,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/proveedores/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\proveedores\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 62,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 182,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 26,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 118,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 197,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/ventas/from-quotation/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\ventas\\from-quotation\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 12,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 27,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 44,
+        "text": "const saleNumber = await generateSaleNumber(doctor.id);"
+      },
+      {
+        "line": 70,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/ventas/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\ventas\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 45,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 147,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 55,
+        "text": "const where: any = { doctorId: doctor.id };"
+      },
+      {
+        "line": 183,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 199,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 212,
+        "text": "const saleNumber = await generateSaleNumber(doctor.id);"
+      },
+      {
+        "line": 250,
+        "text": "doctorId: doctor.id,"
+      },
+      {
+        "line": 282,
+        "text": "const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'ingreso');"
+      },
+      {
+        "line": 285,
+        "text": "doctorId: doctor.id,"
+      }
+    ]
+  },
+  {
+    "file": "apps/api/src/app/api/practice-management/ventas/[id]/route.ts",
+    "fullPath": "C:\\Users\\52331\\docs-front\\apps\\api\\src\\app\\api\\practice-management\\ventas\\[id]\\route.ts",
+    "declarations": [
+      {
+        "line": 3,
+        "text": "import { getAuthenticatedDoctor } from '@/lib/auth';"
+      },
+      {
+        "line": 23,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 89,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      },
+      {
+        "line": 255,
+        "text": "const { doctor } = await getAuthenticatedDoctor(request);"
+      }
+    ],
+    "unsafeAccesses": [
+      {
+        "line": 37,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 105,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 214,
+        "text": "doctorId: doctor.id"
+      },
+      {
+        "line": 270,
+        "text": "doctorId: doctor.id"
+      }
+    ]
+  }
+]

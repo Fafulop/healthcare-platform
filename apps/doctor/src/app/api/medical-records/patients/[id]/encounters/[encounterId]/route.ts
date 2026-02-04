@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
+import { logEncounterUpdated, logEncounterDeleted } from '@/lib/activity-logger';
 import { handleApiError } from '@/lib/api-error-handler';
 
 // GET /api/medical-records/patients/:id/encounters/:encounterId
@@ -73,6 +74,9 @@ export async function PUT(
         id: encounterId,
         patientId,
         doctorId
+      },
+      include: {
+        patient: { select: { firstName: true, lastName: true } }
       }
     });
 
@@ -139,6 +143,14 @@ export async function PUT(
       request
     });
 
+    // Log activity for dashboard
+    logEncounterUpdated({
+      doctorId,
+      encounterId,
+      patientName: `${existingEncounter.patient.firstName} ${existingEncounter.patient.lastName}`,
+      userId,
+    });
+
     return NextResponse.json({ data: encounter });
   } catch (error) {
     return handleApiError(error, 'PUT /api/medical-records/patients/[id]/encounters/[encounterId]');
@@ -160,6 +172,9 @@ export async function DELETE(
         id: encounterId,
         patientId,
         doctorId
+      },
+      include: {
+        patient: { select: { firstName: true, lastName: true } }
       }
     });
 
@@ -185,6 +200,14 @@ export async function DELETE(
       resourceType: 'encounter',
       resourceId: encounterId,
       request
+    });
+
+    // Log activity for dashboard
+    logEncounterDeleted({
+      doctorId,
+      encounterId,
+      patientName: `${encounter.patient.firstName} ${encounter.patient.lastName}`,
+      userId,
     });
 
     return NextResponse.json({ data: { success: true } });

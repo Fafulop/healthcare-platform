@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { sendPatientSMS, isSMSConfigured } from '@/lib/sms';
+import { sendPatientSMS, isSMSEnabled } from '@/lib/sms';
 import {
   logBookingConfirmed,
   logBookingCancelled,
@@ -210,7 +210,8 @@ export async function PATCH(
     });
 
     // Send confirmation SMS when status changes to CONFIRMED
-    if (newStatus === 'CONFIRMED' && isSMSConfigured()) {
+    const smsEnabled = await isSMSEnabled();
+    if (newStatus === 'CONFIRMED' && smsEnabled) {
       const smsDetails = {
         patientName: updatedBooking.patientName,
         patientPhone: updatedBooking.patientPhone,

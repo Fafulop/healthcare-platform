@@ -21,7 +21,8 @@
       "Bash(git push:*)",
       "Bash(railway variables:*)",
       "Bash(findstr:*)",
-      "Bash(DATABASE_URL=\"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" node:*)"
+      "Bash(DATABASE_URL=\"postgresql://postgres:vax7afoxoyns8umlhkbpehxmq7nty7mv@yamanote.proxy.rlwy.net:51502/railway\" node:*)",
+      "Bash(npx prisma migrate:*)"
     ]
   }
 }

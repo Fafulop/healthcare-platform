@@ -2,6 +2,7 @@
 // Sends appointment confirmation and notification via SMS
 
 import twilio from 'twilio';
+import { prisma } from '@healthcare/database';
 
 // Twilio configuration
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
@@ -172,8 +173,26 @@ Codigo: ${details.confirmationCode}`;
 }
 
 /**
- * Check if SMS service is properly configured
+ * Check if SMS service is properly configured (Twilio credentials present)
  */
 export function isSMSConfigured(): boolean {
   return !!(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_PHONE_NUMBER);
+}
+
+/**
+ * Check if SMS is enabled via admin toggle AND Twilio is configured.
+ * Queries the system_settings table for the sms_enabled flag.
+ */
+export async function isSMSEnabled(): Promise<boolean> {
+  if (!isSMSConfigured()) return false;
+
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: 'sms_enabled' },
+    });
+    return setting?.value === 'true';
+  } catch (error) {
+    console.error('Error checking SMS setting, defaulting to disabled:', error);
+    return false;
+  }
 }

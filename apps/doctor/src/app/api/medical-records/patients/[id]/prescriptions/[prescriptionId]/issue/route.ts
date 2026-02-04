@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
+import { logPrescriptionIssued } from '@/lib/activity-logger';
 import { handleApiError } from '@/lib/api-error-handler';
 
 // POST /api/medical-records/patients/:id/prescriptions/:prescriptionId/issue
@@ -101,6 +102,15 @@ export async function POST(
         issuedAt: new Date().toISOString(),
       },
       request
+    });
+
+    // Log activity for dashboard
+    logPrescriptionIssued({
+      doctorId,
+      prescriptionId,
+      patientName: `${prescription.patient.firstName} ${prescription.patient.lastName}`,
+      medicationCount: existingPrescription.medications.length,
+      userId,
     });
 
     return NextResponse.json({

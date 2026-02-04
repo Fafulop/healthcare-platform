@@ -7,9 +7,10 @@ import crypto from 'crypto';
 import {
   sendPatientSMS,
   sendDoctorSMS,
-  isSMSConfigured,
+  isSMSEnabled,
 } from '@/lib/sms';
 import { validateAuthToken } from '@/lib/auth';
+import { logBookingCreated } from '@/lib/activity-logger';
 
 // Helper to generate confirmation code
 function generateConfirmationCode(): string {
@@ -130,7 +131,8 @@ export async function POST(request: Request) {
     });
 
     // Send SMS notifications (async, non-blocking)
-    if (isSMSConfigured() && bookingWithSlot) {
+    const smsEnabled = await isSMSEnabled();
+    if (smsEnabled && bookingWithSlot) {
       const smsDetails = {
         patientName,
         patientPhone: patientPhone,
@@ -160,6 +162,19 @@ export async function POST(request: Request) {
       // TODO: Send email to patient (future implementation)
       // sendPatientEmail(emailDetails, 'PENDING').catch(...)
     }
+
+    // Log activity (non-blocking)
+    logBookingCreated({
+      doctorId: slot.doctorId,
+      bookingId: booking.id,
+      patientName,
+      patientEmail,
+      patientPhone,
+      date: slot.date.toISOString().split('T')[0],
+      time: `${slot.startTime}-${slot.endTime}`,
+      confirmationCode,
+      finalPrice: Number(slot.finalPrice),
+    });
 
     return NextResponse.json(
       {

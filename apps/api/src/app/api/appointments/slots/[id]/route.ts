@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { logSlotDeleted, logSlotOpened, logSlotClosed } from '@/lib/activity-logger';
+import { logSlotDeleted, logSlotOpened, logSlotClosed, logSlotUpdated } from '@/lib/activity-logger';
 
 // Helper function to calculate final price
 function calculateFinalPrice(
@@ -85,6 +85,26 @@ export async function PUT(
         ...(isOpen !== undefined && { isOpen }),
       },
     });
+
+    // Log activity for field changes (not isOpen toggle — that's handled by PATCH)
+    const changedFields: string[] = [];
+    if (startTime !== undefined && startTime !== existingSlot.startTime) changedFields.push("hora inicio");
+    if (endTime !== undefined && endTime !== existingSlot.endTime) changedFields.push("hora fin");
+    if (duration !== undefined && duration !== existingSlot.duration) changedFields.push("duración");
+    if (basePrice !== undefined && basePrice !== existingSlot.basePrice.toNumber()) changedFields.push("precio");
+    if (discount !== undefined) changedFields.push("descuento");
+    if (discountType !== undefined) changedFields.push("tipo descuento");
+
+    if (changedFields.length > 0) {
+      logSlotUpdated({
+        doctorId: existingSlot.doctorId,
+        slotId: id,
+        startTime: updated.startTime,
+        endTime: updated.endTime,
+        date: updated.date.toISOString().split('T')[0],
+        changedFields,
+      });
+    }
 
     return NextResponse.json({
       success: true,

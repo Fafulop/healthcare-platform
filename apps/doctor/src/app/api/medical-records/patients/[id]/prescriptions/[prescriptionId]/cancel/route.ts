@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
+import { logPrescriptionCancelled } from '@/lib/activity-logger';
 import { handleApiError } from '@/lib/api-error-handler';
 
 // POST /api/medical-records/patients/:id/prescriptions/:prescriptionId/cancel
@@ -96,6 +97,15 @@ export async function POST(
         cancellationReason: body.cancellationReason,
       },
       request
+    });
+
+    // Log activity for dashboard
+    logPrescriptionCancelled({
+      doctorId,
+      prescriptionId,
+      patientName: `${prescription.patient.firstName} ${prescription.patient.lastName}`,
+      reason: body.cancellationReason,
+      userId,
     });
 
     return NextResponse.json({

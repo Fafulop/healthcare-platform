@@ -39,6 +39,16 @@ enum Role {
   @@schema("public")
 }
 
+// System-wide settings (key-value pairs managed by admin)
+model SystemSetting {
+  key       String   @id @db.VarChar(100)
+  value     String   @db.VarChar(500)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+  @@schema("public")
+}
+
 model Doctor {
   id                 String   @id @default(cuid())
   slug               String   @unique

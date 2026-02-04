@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
+import { logPatientUpdated, logPatientArchived } from '@/lib/activity-logger';
 import { handleApiError } from '@/lib/api-error-handler';
 
 // GET /api/medical-records/patients/:id
@@ -147,6 +148,16 @@ export async function PUT(
       request
     });
 
+    // Log activity for dashboard
+    const changedFields = Object.keys(body).filter(k => k !== 'changeReason');
+    logPatientUpdated({
+      doctorId,
+      patientId,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      changedFields,
+      userId,
+    });
+
     return NextResponse.json({ data: patient });
   } catch (error) {
     return handleApiError(error, 'PUT /api/medical-records/patients/[id]');
@@ -190,6 +201,14 @@ export async function DELETE(
       resourceType: 'patient',
       resourceId: patientId,
       request
+    });
+
+    // Log activity for dashboard
+    logPatientArchived({
+      doctorId,
+      patientId,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      userId,
     });
 
     return NextResponse.json({ data: { success: true } });

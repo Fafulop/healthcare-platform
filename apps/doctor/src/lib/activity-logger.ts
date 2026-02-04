@@ -20,12 +20,23 @@ export type ActivityActionType =
   | "SLOT_CLOSED"
   | "SLOTS_BULK_OPENED"
   | "SLOTS_BULK_CLOSED"
+  | "BOOKING_CREATED"
   | "BOOKING_CONFIRMED"
   | "BOOKING_CANCELLED"
   | "BOOKING_COMPLETED"
-  | "BOOKING_NO_SHOW";
+  | "BOOKING_NO_SHOW"
+  | "SLOT_UPDATED"
+  | "PATIENT_CREATED"
+  | "PATIENT_UPDATED"
+  | "PATIENT_ARCHIVED"
+  | "ENCOUNTER_CREATED"
+  | "ENCOUNTER_UPDATED"
+  | "ENCOUNTER_DELETED"
+  | "PRESCRIPTION_CREATED"
+  | "PRESCRIPTION_ISSUED"
+  | "PRESCRIPTION_CANCELLED";
 
-export type ActivityEntityType = "TASK" | "APPOINTMENT" | "BOOKING" | "PRESCRIPTION" | "PATIENT";
+export type ActivityEntityType = "TASK" | "APPOINTMENT" | "BOOKING" | "PRESCRIPTION" | "PATIENT" | "ENCOUNTER";
 
 interface LogActivityParams {
   doctorId: string;
@@ -283,4 +294,261 @@ function getStatusDisplayName(status: string): string {
     CANCELADA: "Cancelada",
   };
   return statusMap[status] || status;
+}
+
+// ─── Medical Records Logger Functions ────────────────────────────────
+
+/**
+ * Log patient creation
+ */
+export async function logPatientCreated(params: {
+  doctorId: string;
+  patientId: string;
+  patientName: string;
+  userId?: string;
+}) {
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "PATIENT_CREATED",
+    entityType: "PATIENT",
+    entityId: params.patientId,
+    displayMessage: `Nuevo paciente: ${params.patientName}`,
+    icon: "UserPlus",
+    color: "blue",
+    metadata: {
+      patientId: params.patientId,
+      patientName: params.patientName,
+    },
+    userId: params.userId,
+  });
+}
+
+/**
+ * Log patient update
+ */
+export async function logPatientUpdated(params: {
+  doctorId: string;
+  patientId: string;
+  patientName: string;
+  changedFields?: string[];
+  userId?: string;
+}) {
+  let message = `Paciente actualizado: ${params.patientName}`;
+  if (params.changedFields && params.changedFields.length > 0) {
+    message += ` (${params.changedFields.join(", ")})`;
+  }
+
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "PATIENT_UPDATED",
+    entityType: "PATIENT",
+    entityId: params.patientId,
+    displayMessage: message,
+    icon: "UserCog",
+    color: "blue",
+    metadata: {
+      patientId: params.patientId,
+      patientName: params.patientName,
+      changedFields: params.changedFields,
+    },
+    userId: params.userId,
+  });
+}
+
+/**
+ * Log patient archived (soft delete)
+ */
+export async function logPatientArchived(params: {
+  doctorId: string;
+  patientId: string;
+  patientName: string;
+  userId?: string;
+}) {
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "PATIENT_ARCHIVED",
+    entityType: "PATIENT",
+    entityId: params.patientId,
+    displayMessage: `Paciente archivado: ${params.patientName}`,
+    icon: "UserX",
+    color: "red",
+    metadata: {
+      patientId: params.patientId,
+      patientName: params.patientName,
+    },
+    userId: params.userId,
+  });
+}
+
+/**
+ * Log encounter creation
+ */
+export async function logEncounterCreated(params: {
+  doctorId: string;
+  encounterId: string;
+  patientName: string;
+  encounterType: string;
+  chiefComplaint: string;
+  userId?: string;
+}) {
+  const typeMap: Record<string, string> = {
+    consultation: "Consulta",
+    "follow-up": "Seguimiento",
+    emergency: "Emergencia",
+    telemedicine: "Telemedicina",
+  };
+  const typeText = typeMap[params.encounterType] || params.encounterType;
+
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "ENCOUNTER_CREATED",
+    entityType: "ENCOUNTER",
+    entityId: params.encounterId,
+    displayMessage: `Nueva consulta (${typeText}): ${params.patientName} - ${params.chiefComplaint}`,
+    icon: "Stethoscope",
+    color: "green",
+    metadata: {
+      encounterId: params.encounterId,
+      patientName: params.patientName,
+      encounterType: params.encounterType,
+      chiefComplaint: params.chiefComplaint,
+    },
+    userId: params.userId,
+  });
+}
+
+/**
+ * Log encounter update
+ */
+export async function logEncounterUpdated(params: {
+  doctorId: string;
+  encounterId: string;
+  patientName: string;
+  userId?: string;
+}) {
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "ENCOUNTER_UPDATED",
+    entityType: "ENCOUNTER",
+    entityId: params.encounterId,
+    displayMessage: `Consulta actualizada: ${params.patientName}`,
+    icon: "Edit",
+    color: "blue",
+    metadata: {
+      encounterId: params.encounterId,
+      patientName: params.patientName,
+    },
+    userId: params.userId,
+  });
+}
+
+/**
+ * Log encounter deletion
+ */
+export async function logEncounterDeleted(params: {
+  doctorId: string;
+  encounterId: string;
+  patientName: string;
+  userId?: string;
+}) {
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "ENCOUNTER_DELETED",
+    entityType: "ENCOUNTER",
+    entityId: params.encounterId,
+    displayMessage: `Consulta eliminada: ${params.patientName}`,
+    icon: "Trash2",
+    color: "red",
+    metadata: {
+      encounterId: params.encounterId,
+      patientName: params.patientName,
+    },
+    userId: params.userId,
+  });
+}
+
+/**
+ * Log prescription creation
+ */
+export async function logPrescriptionCreated(params: {
+  doctorId: string;
+  prescriptionId: string;
+  patientName: string;
+  diagnosis?: string;
+  userId?: string;
+}) {
+  let message = `Nueva receta: ${params.patientName}`;
+  if (params.diagnosis) {
+    message += ` - ${params.diagnosis}`;
+  }
+
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "PRESCRIPTION_CREATED",
+    entityType: "PRESCRIPTION",
+    entityId: params.prescriptionId,
+    displayMessage: message,
+    icon: "FileText",
+    color: "blue",
+    metadata: {
+      prescriptionId: params.prescriptionId,
+      patientName: params.patientName,
+      diagnosis: params.diagnosis,
+    },
+    userId: params.userId,
+  });
+}
+
+/**
+ * Log prescription issued (locked)
+ */
+export async function logPrescriptionIssued(params: {
+  doctorId: string;
+  prescriptionId: string;
+  patientName: string;
+  medicationCount: number;
+  userId?: string;
+}) {
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "PRESCRIPTION_ISSUED",
+    entityType: "PRESCRIPTION",
+    entityId: params.prescriptionId,
+    displayMessage: `Receta emitida: ${params.patientName} (${params.medicationCount} medicamento${params.medicationCount === 1 ? "" : "s"})`,
+    icon: "FileCheck",
+    color: "green",
+    metadata: {
+      prescriptionId: params.prescriptionId,
+      patientName: params.patientName,
+      medicationCount: params.medicationCount,
+    },
+    userId: params.userId,
+  });
+}
+
+/**
+ * Log prescription cancelled
+ */
+export async function logPrescriptionCancelled(params: {
+  doctorId: string;
+  prescriptionId: string;
+  patientName: string;
+  reason: string;
+  userId?: string;
+}) {
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "PRESCRIPTION_CANCELLED",
+    entityType: "PRESCRIPTION",
+    entityId: params.prescriptionId,
+    displayMessage: `Receta cancelada: ${params.patientName}`,
+    icon: "FileX",
+    color: "red",
+    metadata: {
+      prescriptionId: params.prescriptionId,
+      patientName: params.patientName,
+      cancellationReason: params.reason,
+    },
+    userId: params.userId,
+  });
 }

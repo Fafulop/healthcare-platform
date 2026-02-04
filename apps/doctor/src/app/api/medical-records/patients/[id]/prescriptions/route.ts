@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
+import { logPrescriptionCreated } from '@/lib/activity-logger';
 import { handleApiError } from '@/lib/api-error-handler';
 
 /**
@@ -185,6 +186,15 @@ export async function POST(
       resourceType: 'prescription',
       resourceId: prescription.id,
       request
+    });
+
+    // Log activity for dashboard
+    logPrescriptionCreated({
+      doctorId,
+      prescriptionId: prescription.id,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      diagnosis: body.diagnosis,
+      userId,
     });
 
     return NextResponse.json({ data: prescription }, { status: 201 });

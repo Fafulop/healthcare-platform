@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (entityType) {
-      where.entityType = entityType;
+      if (entityType.includes(',')) {
+        where.entityType = { in: entityType.split(',') };
+      } else {
+        where.entityType = entityType;
+      }
     }
 
     // Fetch activities

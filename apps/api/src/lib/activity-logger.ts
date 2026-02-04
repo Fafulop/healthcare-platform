@@ -15,12 +15,23 @@ export type ActivityActionType =
   | "SLOT_CLOSED"
   | "SLOTS_BULK_OPENED"
   | "SLOTS_BULK_CLOSED"
+  | "BOOKING_CREATED"
   | "BOOKING_CONFIRMED"
   | "BOOKING_CANCELLED"
   | "BOOKING_COMPLETED"
-  | "BOOKING_NO_SHOW";
+  | "BOOKING_NO_SHOW"
+  | "SLOT_UPDATED"
+  | "PATIENT_CREATED"
+  | "PATIENT_UPDATED"
+  | "PATIENT_ARCHIVED"
+  | "ENCOUNTER_CREATED"
+  | "ENCOUNTER_UPDATED"
+  | "ENCOUNTER_DELETED"
+  | "PRESCRIPTION_CREATED"
+  | "PRESCRIPTION_ISSUED"
+  | "PRESCRIPTION_CANCELLED";
 
-export type ActivityEntityType = "TASK" | "APPOINTMENT" | "BOOKING" | "PRESCRIPTION" | "PATIENT";
+export type ActivityEntityType = "TASK" | "APPOINTMENT" | "BOOKING" | "PRESCRIPTION" | "PATIENT" | "ENCOUNTER";
 
 interface LogActivityParams {
   doctorId: string;
@@ -314,6 +325,65 @@ export async function logBookingNoShow(params: {
       date: params.date,
       time: params.time,
       confirmationCode: params.confirmationCode,
+    },
+  });
+}
+
+export async function logBookingCreated(params: {
+  doctorId: string;
+  bookingId: string;
+  patientName: string;
+  patientEmail?: string;
+  patientPhone?: string;
+  date: string;
+  time: string;
+  confirmationCode?: string;
+  finalPrice?: number;
+}) {
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "BOOKING_CREATED",
+    entityType: "BOOKING",
+    entityId: params.bookingId,
+    displayMessage: `Nueva reserva: ${params.patientName} - ${params.date} ${params.time}`,
+    icon: "CalendarPlus",
+    color: "purple",
+    metadata: {
+      bookingId: params.bookingId,
+      patientName: params.patientName,
+      patientEmail: params.patientEmail,
+      patientPhone: params.patientPhone,
+      date: params.date,
+      time: params.time,
+      confirmationCode: params.confirmationCode,
+      finalPrice: params.finalPrice,
+    },
+  });
+}
+
+export async function logSlotUpdated(params: {
+  doctorId: string;
+  slotId: string;
+  startTime: string;
+  endTime: string;
+  date: string;
+  changedFields: string[];
+}) {
+  const fieldsText = params.changedFields.join(", ");
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "SLOT_UPDATED",
+    entityType: "APPOINTMENT",
+    entityId: params.slotId,
+    displayMessage: `Horario actualizado: ${params.startTime}-${params.endTime}, ${params.date} (${fieldsText})`,
+    icon: "Edit",
+    color: "blue",
+    metadata: {
+      slotId: params.slotId,
+      startTime: params.startTime,
+      endTime: params.endTime,
+      date: params.date,
+      changedFields: params.changedFields,
     },
   });
 }
