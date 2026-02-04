@@ -17,6 +17,8 @@ import {
   User,
   Phone,
   Mail,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 // Helper function to get local date string (fixes timezone issues)
@@ -121,6 +123,10 @@ export default function PendientesPage() {
 
   // Inline status editing
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+
+  // Day filter state for list view
+  const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
+  const [showAllTasks, setShowAllTasks] = useState(false);
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -250,10 +256,12 @@ export default function PendientesPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === tasks.length) {
+    const target = viewMode === 'list' ? visibleTasks : tasks;
+    const allSelected = target.length > 0 && target.every(t => selectedIds.has(t.id));
+    if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(tasks.map((t) => t.id)));
+      setSelectedIds(new Set(target.map((t) => t.id)));
     }
   };
 
@@ -340,6 +348,13 @@ export default function PendientesPage() {
       return completed >= startOfWeek && completed <= endOfWeek;
     }).length,
   };
+
+  // Filter tasks by selected list date
+  const tasksForListDate = tasks.filter((task) => {
+    if (!task.dueDate) return false;
+    return task.dueDate.split('T')[0] === listDate;
+  });
+  const visibleTasks = showAllTasks ? tasks : tasksForListDate;
 
   if (authStatus === "loading" || loading) {
     return (
@@ -971,14 +986,98 @@ export default function PendientesPage() {
         </div>
       )}
 
+      {/* Day Navigator for List View */}
+      {viewMode === 'list' && (
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+              {showAllTasks ? "Todas las Tareas" : "Tareas del Dia"}
+            </h2>
+            <div className="flex items-center gap-1.5">
+              {!showAllTasks && (
+                <>
+                  <button
+                    onClick={() => {
+                      setListDate(prev => {
+                        const d = new Date(prev + 'T12:00:00');
+                        d.setDate(d.getDate() - 1);
+                        return getLocalDateString(d);
+                      });
+                      setSelectedIds(new Set());
+                    }}
+                    className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <input
+                    type="date"
+                    value={listDate}
+                    onChange={(e) => {
+                      setListDate(e.target.value);
+                      setSelectedIds(new Set());
+                    }}
+                    className="border border-gray-300 rounded-md px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-[140px]"
+                  />
+                  <button
+                    onClick={() => {
+                      setListDate(prev => {
+                        const d = new Date(prev + 'T12:00:00');
+                        d.setDate(d.getDate() + 1);
+                        return getLocalDateString(d);
+                      });
+                      setSelectedIds(new Set());
+                    }}
+                    className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  {listDate !== getLocalDateString(new Date()) && (
+                    <button
+                      onClick={() => {
+                        setListDate(getLocalDateString(new Date()));
+                        setSelectedIds(new Set());
+                      }}
+                      className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                    >
+                      Hoy
+                    </button>
+                  )}
+                </>
+              )}
+              <span className="text-xs sm:text-sm font-medium text-gray-500 ml-1">
+                {visibleTasks.length} tarea{visibleTasks.length !== 1 ? 's' : ''}
+              </span>
+              <button
+                onClick={() => {
+                  setShowAllTasks(prev => !prev);
+                  setSelectedIds(new Set());
+                }}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  showAllTasks
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {showAllTasks ? "Por dia" : "Ver todos"}
+              </button>
+            </div>
+          </div>
+          {!showAllTasks && (
+            <p className="text-sm text-gray-500 capitalize mt-2">
+              {new Date(listDate + 'T12:00:00').toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Task List */}
       {viewMode === 'list' && (
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        {tasks.length === 0 ? (
+        {visibleTasks.length === 0 ? (
           <div className="text-center py-12">
             <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg mb-2">No hay pendientes</p>
-            <p className="text-gray-500 mb-4">Crea tu primera tarea para empezar</p>
+            <p className="text-gray-600 text-lg mb-2">{showAllTasks ? "No hay pendientes" : "No hay tareas para este dia"}</p>
+            <p className="text-gray-500 mb-4">{showAllTasks ? "Crea tu primera tarea para empezar" : "Navega a otro dia o crea una nueva tarea"}</p>
             <button
               onClick={() => router.push("/dashboard/pendientes/new")}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold inline-flex items-center gap-2"
@@ -991,7 +1090,7 @@ export default function PendientesPage() {
           <>
             {/* Mobile Card View */}
             <div className="sm:hidden divide-y divide-gray-200">
-              {tasks.map((task) => (
+              {visibleTasks.map((task) => (
                 <div
                   key={task.id}
                   onClick={() => setViewingTask(task)}
@@ -1016,11 +1115,16 @@ export default function PendientesPage() {
                         <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${CATEGORY_COLORS[task.category] || CATEGORY_COLORS.OTRO}`}>
                           {CATEGORY_LABELS[task.category] || task.category}
                         </span>
-                        {task.dueDate && (
+                        {showAllTasks && task.dueDate && (
                           <span className={`text-xs flex items-center gap-1 ${isOverdue(task) ? "text-red-600 font-semibold" : "text-gray-500"}`}>
                             <Calendar className="w-3 h-3" />
                             {toLocalDate(task.dueDate as string).toLocaleDateString()}
-                            {task.startTime && task.endTime && ` ${task.startTime}-${task.endTime}`}
+                          </span>
+                        )}
+                        {task.startTime && task.endTime && (
+                          <span className="text-xs flex items-center gap-1 text-gray-500">
+                            <Clock className="w-3 h-3" />
+                            {task.startTime}-{task.endTime}
                           </span>
                         )}
                       </div>
@@ -1059,13 +1163,13 @@ export default function PendientesPage() {
                     <th className="px-4 py-3 text-left w-10">
                       <input
                         type="checkbox"
-                        checked={tasks.length > 0 && selectedIds.size === tasks.length}
+                        checked={visibleTasks.length > 0 && visibleTasks.every(t => selectedIds.has(t.id))}
                         onChange={toggleSelectAll}
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                       />
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                    {showAllTasks && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>}
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hora Inicio</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hora Fin</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prioridad</th>
@@ -1076,7 +1180,7 @@ export default function PendientesPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {tasks.map((task) => (
+                  {visibleTasks.map((task) => (
                     <tr
                       key={task.id}
                       onClick={() => setViewingTask(task)}
@@ -1095,15 +1199,17 @@ export default function PendientesPage() {
                           {task.title}
                         </p>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        {task.dueDate ? (
-                          <span className={isOverdue(task) ? "text-red-600 font-semibold" : "text-gray-500"}>
-                            {toLocalDate(task.dueDate as string).toLocaleDateString()}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
+                      {showAllTasks && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                          {task.dueDate ? (
+                            <span className={isOverdue(task) ? "text-red-600 font-semibold" : "text-gray-500"}>
+                              {toLocalDate(task.dueDate as string).toLocaleDateString()}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                         {task.startTime || "—"}
                       </td>

@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const actionType = searchParams.get('actionType');
     const entityType = searchParams.get('entityType');
+    const date = searchParams.get('date'); // YYYY-MM-DD format
 
     // Build where clause
     const where: Record<string, unknown> = { doctorId };
@@ -27,6 +28,12 @@ export async function GET(request: NextRequest) {
       } else {
         where.entityType = entityType;
       }
+    }
+
+    if (date) {
+      const dayStart = new Date(date + 'T00:00:00.000Z');
+      const dayEnd = new Date(date + 'T23:59:59.999Z');
+      where.timestamp = { gte: dayStart, lte: dayEnd };
     }
 
     // Fetch activities

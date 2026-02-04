@@ -21,8 +21,11 @@ import {
   FileText,
   FileCheck,
   FileX,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface ActivityLog {
@@ -87,19 +90,36 @@ const FILTER_TABS = [
 
 type FilterKey = (typeof FILTER_TABS)[number]["key"];
 
-export default function RecentActivityTable({ limit = 10 }: { limit?: number }) {
+function getLocalDateString(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function shiftDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return getLocalDateString(d);
+}
+
+export default function RecentActivityTable({ limit = 50 }: { limit?: number }) {
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString(new Date()));
 
-  const fetchActivities = useCallback(async (filter: FilterKey) => {
+  const todayStr = getLocalDateString(new Date());
+  const isToday = selectedDate === todayStr;
+
+  const fetchActivities = useCallback(async (filter: FilterKey, date: string) => {
     try {
       setLoading(true);
       setError(null);
 
       const tab = FILTER_TABS.find((t) => t.key === filter);
-      const params = new URLSearchParams({ limit: String(limit) });
+      const params = new URLSearchParams({ limit: String(limit), date });
       if (tab?.entityTypes) {
         params.set("entityType", tab.entityTypes);
       }
@@ -121,8 +141,8 @@ export default function RecentActivityTable({ limit = 10 }: { limit?: number }) 
   }, [limit]);
 
   useEffect(() => {
-    fetchActivities(activeFilter);
-  }, [activeFilter, fetchActivities]);
+    fetchActivities(activeFilter, selectedDate);
+  }, [activeFilter, selectedDate, fetchActivities]);
 
   const handleFilterChange = (filter: FilterKey) => {
     if (filter !== activeFilter) {
@@ -130,8 +150,50 @@ export default function RecentActivityTable({ limit = 10 }: { limit?: number }) 
     }
   };
 
+  // Format the selected date for display
+  const displayDate = format(new Date(selectedDate + "T12:00:00"), "EEEE d 'de' MMMM", { locale: es });
+
   return (
     <div>
+      {/* Day navigator */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setSelectedDate(shiftDate(selectedDate, -1))}
+            className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
+            title="Dia anterior"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="relative">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              max={todayStr}
+              className="border border-gray-300 rounded-md px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-[140px]"
+            />
+          </div>
+          <button
+            onClick={() => setSelectedDate(shiftDate(selectedDate, 1))}
+            disabled={isToday}
+            className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Dia siguiente"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          {!isToday && (
+            <button
+              onClick={() => setSelectedDate(todayStr)}
+              className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              Hoy
+            </button>
+          )}
+        </div>
+        <span className="text-xs text-gray-500 capitalize hidden sm:inline">{displayDate}</span>
+      </div>
+
       {/* Filter tabs */}
       <div className="flex gap-1 mb-4 overflow-x-auto pb-1">
         {FILTER_TABS.map((tab) => (
@@ -160,8 +222,8 @@ export default function RecentActivityTable({ limit = 10 }: { limit?: number }) 
         </div>
       ) : activities.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          <Heart className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-          <p>No hay actividad reciente</p>
+          <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+          <p className="text-sm">Sin actividad {isToday ? "hoy" : `el ${displayDate}`}</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -169,13 +231,13 @@ export default function RecentActivityTable({ limit = 10 }: { limit?: number }) 
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acción
+                  Accion
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                   Tipo
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha
+                  Hora
                 </th>
               </tr>
             </thead>
@@ -183,10 +245,7 @@ export default function RecentActivityTable({ limit = 10 }: { limit?: number }) 
               {activities.map((activity) => {
                 const IconComponent = activity.icon ? iconMap[activity.icon] : Heart;
                 const colorClass = activity.color ? colorMap[activity.color] : colorMap.gray;
-                const timeAgo = formatDistanceToNow(new Date(activity.timestamp), {
-                  addSuffix: true,
-                  locale: es,
-                });
+                const time = format(new Date(activity.timestamp), "h:mm a");
 
                 return (
                   <tr key={activity.id} className="hover:bg-gray-50">
@@ -210,7 +269,7 @@ export default function RecentActivityTable({ limit = 10 }: { limit?: number }) 
                       </span>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {timeAgo}
+                      {time}
                     </td>
                   </tr>
                 );

@@ -88,6 +88,8 @@ export default function AppointmentsPage() {
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
   const [bookingDate, setBookingDate] = useState<string>(getLocalDateString(new Date()));
+  const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
+  const [showAllSlots, setShowAllSlots] = useState(false);
 
   // Voice assistant state
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
@@ -411,10 +413,12 @@ export default function AppointmentsPage() {
   };
 
   const toggleAllSlots = () => {
-    if (selectedSlots.size === slots.length) {
+    const visibleSlots = viewMode === "list" ? visibleListSlots : slots;
+    const allSelected = visibleSlots.every(s => selectedSlots.has(s.id));
+    if (allSelected) {
       setSelectedSlots(new Set());
     } else {
-      setSelectedSlots(new Set(slots.map(s => s.id)));
+      setSelectedSlots(new Set(visibleSlots.map(s => s.id)));
     }
   };
 
@@ -472,6 +476,12 @@ export default function AppointmentsPage() {
     const slotDate = booking.slot.date.split('T')[0];
     return slotDate === bookingDate;
   });
+
+  // Filter slots for list view by selected list date
+  const slotsForListDate = slots.filter(
+    (slot) => slot.date.split('T')[0] === listDate
+  );
+  const visibleListSlots = showAllSlots ? slots : slotsForListDate;
 
   // Get dates with slots for calendar highlighting
   const datesWithSlots = new Set(
@@ -1014,8 +1024,87 @@ export default function AppointmentsPage() {
       {/* Vista de Lista */}
       {viewMode === "list" && (
         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Todos los Horarios</h2>
+          {/* Header with day navigator */}
+          <div className="flex flex-col gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+                {showAllSlots ? "Todos los Horarios" : "Horarios del Dia"}
+              </h2>
+              <div className="flex items-center gap-1.5">
+                {!showAllSlots && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setListDate(prev => {
+                          const d = new Date(prev + 'T12:00:00');
+                          d.setDate(d.getDate() - 1);
+                          return getLocalDateString(d);
+                        });
+                        setSelectedSlots(new Set());
+                      }}
+                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="date"
+                      value={listDate}
+                      onChange={(e) => {
+                        setListDate(e.target.value);
+                        setSelectedSlots(new Set());
+                      }}
+                      className="border border-gray-300 rounded-md px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-[140px]"
+                    />
+                    <button
+                      onClick={() => {
+                        setListDate(prev => {
+                          const d = new Date(prev + 'T12:00:00');
+                          d.setDate(d.getDate() + 1);
+                          return getLocalDateString(d);
+                        });
+                        setSelectedSlots(new Set());
+                      }}
+                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    {listDate !== getLocalDateString(new Date()) && (
+                      <button
+                        onClick={() => {
+                          setListDate(getLocalDateString(new Date()));
+                          setSelectedSlots(new Set());
+                        }}
+                        className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                      >
+                        Hoy
+                      </button>
+                    )}
+                  </>
+                )}
+                <span className="text-xs sm:text-sm font-medium text-gray-500 ml-1">
+                  {visibleListSlots.length} horario{visibleListSlots.length !== 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={() => {
+                    setShowAllSlots(prev => !prev);
+                    setSelectedSlots(new Set());
+                  }}
+                  className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    showAllSlots
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {showAllSlots ? "Por dia" : "Ver todos"}
+                </button>
+              </div>
+            </div>
+
+            {!showAllSlots && (
+              <p className="text-sm text-gray-500 capitalize">
+                {formatDateString(listDate, "es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </p>
+            )}
 
             {/* Barra de Acciones Masivas */}
             {selectedSlots.size > 0 && (
@@ -1057,15 +1146,15 @@ export default function AppointmentsPage() {
             )}
           </div>
 
-          {slots.length === 0 ? (
+          {visibleListSlots.length === 0 ? (
             <div className="text-center py-8 sm:py-12 text-gray-500">
               <Calendar className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 opacity-50" />
-              <p className="text-sm sm:text-base">Aún no se han creado horarios de citas</p>
+              <p className="text-sm sm:text-base">{showAllSlots ? "No hay horarios creados" : "No hay horarios para este día"}</p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="mt-3 sm:mt-4 text-blue-600 hover:text-blue-700 font-medium text-sm sm:text-base"
               >
-                Crea tus primeros horarios
+                Crear horarios
               </button>
             </div>
           ) : (
@@ -1077,15 +1166,15 @@ export default function AppointmentsPage() {
                   onClick={toggleAllSlots}
                   className="flex items-center gap-2 mb-3 text-sm text-gray-600"
                 >
-                  {selectedSlots.size === slots.length ? (
+                  {visibleListSlots.length > 0 && visibleListSlots.every(s => selectedSlots.has(s.id)) ? (
                     <CheckSquare className="w-5 h-5 text-blue-600" />
                   ) : (
                     <Square className="w-5 h-5 text-gray-400" />
                   )}
-                  {selectedSlots.size === slots.length ? "Deseleccionar todo" : "Seleccionar todo"}
+                  {visibleListSlots.length > 0 && visibleListSlots.every(s => selectedSlots.has(s.id)) ? "Deseleccionar todo" : "Seleccionar todo"}
                 </button>
 
-                {slots.map((slot) => {
+                {visibleListSlots.map((slot) => {
                   const slotStatus = getSlotStatus(slot);
                   return (
                   <div
@@ -1111,10 +1200,12 @@ export default function AppointmentsPage() {
                     </div>
 
                     <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Fecha:</span>
-                        <span className="font-medium">{formatDateString(slot.date)}</span>
-                      </div>
+                      {showAllSlots && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Fecha:</span>
+                          <span className="font-medium">{formatDateString(slot.date)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-gray-600">Hora:</span>
                         <span className="font-medium">{slot.startTime} - {slot.endTime}</span>
@@ -1169,16 +1260,16 @@ export default function AppointmentsPage() {
                         <button
                           onClick={toggleAllSlots}
                           className="p-1 hover:bg-gray-100 rounded"
-                          title={selectedSlots.size === slots.length ? "Deseleccionar Todo" : "Seleccionar Todo"}
+                          title={visibleListSlots.length > 0 && visibleListSlots.every(s => selectedSlots.has(s.id)) ? "Deseleccionar Todo" : "Seleccionar Todo"}
                         >
-                          {selectedSlots.size === slots.length ? (
+                          {visibleListSlots.length > 0 && visibleListSlots.every(s => selectedSlots.has(s.id)) ? (
                             <CheckSquare className="w-5 h-5 text-blue-600" />
                           ) : (
                             <Square className="w-5 h-5 text-gray-400" />
                           )}
                         </button>
                       </th>
-                      <th className="text-left py-3 px-4">Fecha</th>
+                      {showAllSlots && <th className="text-left py-3 px-4">Fecha</th>}
                       <th className="text-left py-3 px-4">Hora</th>
                       <th className="text-left py-3 px-4">Duración</th>
                       <th className="text-left py-3 px-4">Precio</th>
@@ -1188,7 +1279,7 @@ export default function AppointmentsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {slots.map((slot) => {
+                    {visibleListSlots.map((slot) => {
                       const slotStatus = getSlotStatus(slot);
                       return (
                       <tr key={slot.id} className="border-b hover:bg-gray-50">
@@ -1204,9 +1295,7 @@ export default function AppointmentsPage() {
                             )}
                           </button>
                         </td>
-                        <td className="py-3 px-4">
-                          {formatDateString(slot.date)}
-                        </td>
+                        {showAllSlots && <td className="py-3 px-4">{formatDateString(slot.date)}</td>}
                         <td className="py-3 px-4">{slot.startTime} - {slot.endTime}</td>
                         <td className="py-3 px-4">{slot.duration} min</td>
                         <td className="py-3 px-4">${slot.finalPrice}</td>
