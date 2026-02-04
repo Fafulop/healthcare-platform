@@ -32,6 +32,15 @@ interface Client {
   rfc: string | null;
 }
 
+interface Patient {
+  id: string;
+  internalId: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -75,6 +84,12 @@ export default function NewVentaPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
+
+  // Patients
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [resolvingPatient, setResolvingPatient] = useState(false);
 
   // Form state
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
@@ -134,6 +149,7 @@ export default function NewVentaPage() {
     if (session?.user?.email) {
       fetchClients();
       fetchProducts();
+      fetchPatients();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -152,7 +168,7 @@ export default function NewVentaPage() {
         }
       }
     }
-  }, [searchParams, clients]);
+  }, [searchParams, clients, patients]);
 
   useEffect(() => {
     const clientIdParam = searchParams.get('clientId');
@@ -161,6 +177,7 @@ export default function NewVentaPage() {
       const clientExists = clients.find(c => c.id === clientId);
       if (clientExists) {
         setSelectedClientId(clientId);
+        setSelectedPatient(null);
       }
     }
   }, [searchParams, clients]);
@@ -190,6 +207,85 @@ export default function NewVentaPage() {
       console.error('Error al cargar productos:', err);
     } finally {
       setLoadingProducts(false);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await fetch('/api/medical-records/patients?status=active');
+      if (!response.ok) throw new Error('Error al cargar pacientes');
+      const data = await response.json();
+      setPatients(data.data || []);
+    } catch (err) {
+      console.error('Error al cargar pacientes:', err);
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
+
+  const resolvePatientAsClient = async (patient: Patient) => {
+    setResolvingPatient(true);
+    const fullName = `${patient.firstName} ${patient.lastName}`;
+
+    // Check if a client with this name already exists locally
+    const existing = clients.find(c => c.businessName === fullName);
+    if (existing) {
+      setSelectedClientId(existing.id);
+      setResolvingPatient(false);
+      return;
+    }
+
+    // Auto-create a client from the patient
+    try {
+      const response = await authFetch(`${API_URL}/api/practice-management/clients`, {
+        method: 'POST',
+        body: JSON.stringify({
+          businessName: fullName,
+          contactName: fullName,
+          email: patient.email || null,
+          phone: patient.phone || null,
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setClients(prev => [...prev, result.data]);
+        setSelectedClientId(result.data.id);
+      } else if (response.status === 409) {
+        // Race condition: client was created between our check and POST — re-fetch
+        const refreshResponse = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
+        const refreshResult = await refreshResponse.json();
+        const refreshedClients: Client[] = refreshResult.data || [];
+        setClients(refreshedClients);
+        const found = refreshedClients.find(c => c.businessName === fullName);
+        if (found) setSelectedClientId(found.id);
+      }
+    } catch (err) {
+      console.error('Error al crear cliente desde paciente:', err);
+    } finally {
+      setResolvingPatient(false);
+    }
+  };
+
+  const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (!value) {
+      setSelectedClientId(null);
+      setSelectedPatient(null);
+      return;
+    }
+
+    if (value.startsWith('patient:')) {
+      const patientId = value.slice('patient:'.length);
+      const patient = patients.find(p => p.id === patientId);
+      if (patient) {
+        setSelectedPatient(patient);
+        resolvePatientAsClient(patient);
+      }
+    } else {
+      const clientId = Number(value.slice('client:'.length));
+      setSelectedClientId(clientId);
+      setSelectedPatient(null);
     }
   };
 
@@ -375,9 +471,23 @@ export default function NewVentaPage() {
       );
       if (matchedClient) {
         setSelectedClientId(matchedClient.id);
+        setSelectedPatient(null);
         console.log('[Ventas New] Matched client:', matchedClient.businessName);
       } else {
-        console.log('[Ventas New] No client match found for:', saleData.clientName);
+        // Try matching patients
+        const matchedPatient = patients.find(
+          (p) =>
+            `${p.firstName} ${p.lastName}`.toLowerCase().includes(saleData.clientName!.toLowerCase()) ||
+            p.firstName.toLowerCase().includes(saleData.clientName!.toLowerCase()) ||
+            p.lastName.toLowerCase().includes(saleData.clientName!.toLowerCase())
+        );
+        if (matchedPatient) {
+          setSelectedPatient(matchedPatient);
+          resolvePatientAsClient(matchedPatient);
+          console.log('[Ventas New] Matched patient:', matchedPatient.firstName, matchedPatient.lastName);
+        } else {
+          console.log('[Ventas New] No client or patient match found for:', saleData.clientName);
+        }
       }
     }
 
@@ -512,6 +622,11 @@ export default function NewVentaPage() {
   };
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
+  const selectValue = selectedPatient
+    ? `patient:${selectedPatient.id}`
+    : selectedClientId
+      ? `client:${selectedClientId}`
+      : '';
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
     p.sku?.toLowerCase().includes(productSearch.toLowerCase())
@@ -521,7 +636,7 @@ export default function NewVentaPage() {
   const tax = calculateTax();
   const total = calculateTotal();
 
-  if (status === "loading" || loadingClients || loadingProducts) {
+  if (status === "loading" || loadingClients || loadingProducts || loadingPatients) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -574,38 +689,76 @@ export default function NewVentaPage() {
                   Cliente *
                 </label>
                 <select
-                  value={selectedClientId || ''}
-                  onChange={(e) => setSelectedClientId(Number(e.target.value))}
+                  value={selectValue}
+                  onChange={handleSelectionChange}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
                   <option value="">Seleccionar cliente...</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      {client.businessName} {client.contactName ? `- ${client.contactName}` : ''}
-                    </option>
-                  ))}
+                  {patients.length > 0 && (
+                    <optgroup label="Pacientes">
+                      {patients.map(patient => (
+                        <option key={patient.id} value={`patient:${patient.id}`}>
+                          {patient.firstName} {patient.lastName}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {clients.length > 0 && (
+                    <optgroup label="Otros Clientes">
+                      {clients.map(client => (
+                        <option key={client.id} value={`client:${client.id}`}>
+                          {client.businessName} {client.contactName ? `- ${client.contactName}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
+                {resolvingPatient && (
+                  <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Preparando cliente...
+                  </p>
+                )}
               </div>
 
-              {selectedClient && (
+              {(selectedPatient || selectedClient) && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-start gap-2">
                     <span className="text-blue-600 text-xl">✓</span>
                     <div className="flex-1">
-                      <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
-                      {selectedClient.contactName && (
-                        <div className="text-sm text-gray-600">Contacto: {selectedClient.contactName}</div>
-                      )}
-                      {selectedClient.email && (
-                        <div className="text-sm text-gray-600">📧 {selectedClient.email}</div>
-                      )}
-                      {selectedClient.phone && (
-                        <div className="text-sm text-gray-600">📞 {selectedClient.phone}</div>
-                      )}
-                      {selectedClient.rfc && (
-                        <div className="text-sm text-gray-600">RFC: {selectedClient.rfc}</div>
-                      )}
+                      {selectedPatient ? (
+                        <>
+                          <div className="font-semibold text-gray-900">
+                            {selectedPatient.firstName} {selectedPatient.lastName}
+                          </div>
+                          <div className="text-xs text-blue-600 font-medium mt-0.5">Paciente</div>
+                          {selectedPatient.internalId && (
+                            <div className="text-sm text-gray-600">ID interno: {selectedPatient.internalId}</div>
+                          )}
+                          {selectedPatient.email && (
+                            <div className="text-sm text-gray-600">📧 {selectedPatient.email}</div>
+                          )}
+                          {selectedPatient.phone && (
+                            <div className="text-sm text-gray-600">📞 {selectedPatient.phone}</div>
+                          )}
+                        </>
+                      ) : selectedClient ? (
+                        <>
+                          <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
+                          {selectedClient.contactName && (
+                            <div className="text-sm text-gray-600">Contacto: {selectedClient.contactName}</div>
+                          )}
+                          {selectedClient.email && (
+                            <div className="text-sm text-gray-600">📧 {selectedClient.email}</div>
+                          )}
+                          {selectedClient.phone && (
+                            <div className="text-sm text-gray-600">📞 {selectedClient.phone}</div>
+                          )}
+                          {selectedClient.rfc && (
+                            <div className="text-sm text-gray-600">RFC: {selectedClient.rfc}</div>
+                          )}
+                        </>
+                      ) : null}
                     </div>
                   </div>
                 </div>

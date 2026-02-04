@@ -733,13 +733,8 @@ export default function FlujoDeDineroPage() {
                       </div>
                     )}
 
-                    {/* Footer: Estado badge + Action buttons */}
-                    <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-gray-100">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        entry.porRealizar ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {entry.porRealizar ? 'Por Realizar' : 'Realizado'}
-                      </span>
+                    {/* Footer: Action buttons */}
+                    <div className="flex items-center justify-end mt-2.5 pt-2.5 border-t border-gray-100">
                       <div className="flex gap-1">
                         <Link
                           href={`/dashboard/practice/flujo-de-dinero/${entry.id}/edit`}
@@ -797,9 +792,6 @@ export default function FlujoDeDineroPage() {
                     Saldo
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
@@ -807,7 +799,7 @@ export default function FlujoDeDineroPage() {
               <tbody className="divide-y divide-gray-200">
                 {filteredEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
                       <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                       <p className="text-lg font-medium">
                         {showAllEntries ? "No hay movimientos registrados" : `Sin movimientos para ${formatDate(ledgerDate + 'T00:00:00')}`}
@@ -1025,15 +1017,6 @@ export default function FlujoDeDineroPage() {
                         ) : (
                           <span className="text-xs text-gray-400">-</span>
                         )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          entry.porRealizar
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {entry.porRealizar ? 'Por Realizar' : 'Realizado'}
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <div className="flex items-center justify-center gap-2">
