@@ -138,29 +138,36 @@ export async function PATCH(
       );
     }
 
-    // Terminal statuses (CANCELLED, COMPLETED, NO_SHOW) all free up the slot
+    // Terminal statuses: only CANCELLED frees up the slot
     const isTerminalStatus = ['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(newStatus);
     const wasNotTerminal = !['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(currentStatus);
 
     if (isTerminalStatus && wasNotTerminal) {
-      // Update booking and decrement slot's currentBookings in a transaction
-      const [updatedBooking] = await prisma.$transaction([
+      // Only free up the slot when CANCELLED (patient won't come).
+      // COMPLETED and NO_SHOW keep the slot occupied — the time was used/reserved.
+      const shouldFreeSlot = newStatus === 'CANCELLED';
+
+      const transactionOps = [
         prisma.booking.update({
           where: { id },
           data: {
             status: newStatus,
             ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
-            ...(newStatus === 'CONFIRMED' && { confirmedAt: new Date() }),
           },
         }),
-        prisma.appointmentSlot.update({
-          where: { id: currentBooking.slotId },
-          data: {
-            currentBookings: { decrement: 1 },
-            // Note: We do NOT change isOpen - that's doctor's explicit control
-          },
-        }),
-      ]);
+        ...(shouldFreeSlot
+          ? [
+              prisma.appointmentSlot.update({
+                where: { id: currentBooking.slotId },
+                data: {
+                  currentBookings: { decrement: 1 },
+                },
+              }),
+            ]
+          : []),
+      ];
+
+      const [updatedBooking] = await prisma.$transaction(transactionOps);
 
       // Log activity
       const slotDateTerminal = currentBooking.slot.date.toISOString().split('T')[0];

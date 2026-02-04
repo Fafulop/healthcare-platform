@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree, ChevronLeft, ChevronRight, Calendar, ChevronDown, X } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -106,6 +106,11 @@ export default function FlujoDeDineroPage() {
   const [porRealizarFilter, setPorRealizarFilter] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [showAllEntries, setShowAllEntries] = useState(true);
+  const [ledgerDate, setLedgerDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
 
   // Inline editing state
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
@@ -114,6 +119,8 @@ export default function FlujoDeDineroPage() {
     subarea: string;
   }>({ area: '', subarea: '' });
   const [updatingArea, setUpdatingArea] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [modalEntry, setModalEntry] = useState<LedgerEntry | null>(null);
 
   useEffect(() => {
     if (session?.user?.email) {
@@ -372,7 +379,18 @@ export default function FlujoDeDineroPage() {
 
   const estadoResultados = processEstadoResultados();
 
+  const getLocalDateString = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const todayStr = getLocalDateString(new Date());
+
   const filteredEntries = entries.filter(entry => {
+    // Day filter
+    if (!showAllEntries) {
+      const entryDate = entry.transactionDate.split('T')[0];
+      if (entryDate !== ledgerDate) return false;
+    }
+    // Search filter
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       return entry.concept.toLowerCase().includes(search) ||
@@ -398,24 +416,24 @@ export default function FlujoDeDineroPage() {
     <div className="p-4 sm:p-6">
           {/* Header */}
           <div className="mb-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Flujo de Dinero</h1>
                 <p className="text-gray-600 mt-1">Gestiona tus ingresos y egresos</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <Link
                   href="/dashboard/practice/areas"
-                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2 rounded-md transition-colors"
+                  className="flex items-center gap-1.5 sm:gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-3 sm:px-4 py-2 rounded-md transition-colors text-sm sm:text-base"
                 >
-                  <FolderTree className="w-5 h-5" />
+                  <FolderTree className="w-4 h-4 sm:w-5 sm:h-5" />
                   Áreas
                 </Link>
                 <Link
                   href="/dashboard/practice/flujo-de-dinero/new"
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md transition-colors"
+                  className="flex items-center gap-1.5 sm:gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 sm:px-4 py-2 rounded-md transition-colors text-sm sm:text-base"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                   Nuevo Movimiento
                 </Link>
               </div>
@@ -428,7 +446,7 @@ export default function FlujoDeDineroPage() {
               <div className="flex">
                 <button
                   onClick={() => setActiveTab('movimientos')}
-                  className={`px-6 py-4 font-semibold transition-colors ${
+                  className={`px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-colors text-sm sm:text-base ${
                     activeTab === 'movimientos'
                       ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -438,7 +456,7 @@ export default function FlujoDeDineroPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('estado-resultados')}
-                  className={`px-6 py-4 font-semibold transition-colors ${
+                  className={`px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-colors text-sm sm:text-base ${
                     activeTab === 'estado-resultados'
                       ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -492,13 +510,28 @@ export default function FlujoDeDineroPage() {
           </div>
         </div>
 
+          {/* Mobile Filtros Toggle */}
+          <button
+            onClick={() => setShowFilters(prev => !prev)}
+            className="sm:hidden w-full flex items-center justify-between bg-white rounded-lg shadow px-4 py-3 mb-3"
+          >
+            <div className="flex items-center gap-2">
+              <Filter className="w-5 h-5 text-gray-600" />
+              <span className="text-base font-semibold text-gray-900">Filtros</span>
+              {(searchTerm || entryTypeFilter !== 'all' || porRealizarFilter !== 'all' || startDate || endDate) && (
+                <span className="inline-flex items-center justify-center w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full">●</span>
+              )}
+            </div>
+            <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          </button>
+
           {/* Filters */}
-          <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex items-center gap-2 mb-4">
+          <div className={`bg-white rounded-lg shadow p-4 mb-6 ${!showFilters ? 'hidden sm:block' : 'block'}`}>
+          <div className="hidden sm:flex items-center gap-2 mb-4">
             <Filter className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-900">Filtros</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Buscar
@@ -573,7 +606,163 @@ export default function FlujoDeDineroPage() {
 
           {/* Entries Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Day Navigator */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                {showAllEntries ? "Todos los Movimientos" : "Movimientos del Día"}
+              </h3>
+              <div className="flex items-center gap-1.5">
+                {!showAllEntries && (
+                  <>
+                    <button
+                      onClick={() => {
+                        const d = new Date(ledgerDate + 'T12:00:00');
+                        d.setDate(d.getDate() - 1);
+                        setLedgerDate(getLocalDateString(d));
+                      }}
+                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="date"
+                      value={ledgerDate}
+                      onChange={(e) => setLedgerDate(e.target.value)}
+                      className="border border-gray-300 rounded-md px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-[140px]"
+                    />
+                    <button
+                      onClick={() => {
+                        const d = new Date(ledgerDate + 'T12:00:00');
+                        d.setDate(d.getDate() + 1);
+                        setLedgerDate(getLocalDateString(d));
+                      }}
+                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    {ledgerDate !== todayStr && (
+                      <button
+                        onClick={() => setLedgerDate(todayStr)}
+                        className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                      >
+                        Hoy
+                      </button>
+                    )}
+                  </>
+                )}
+                <span className="text-xs sm:text-sm font-medium text-gray-500 ml-1">
+                  {filteredEntries.length} movimiento{filteredEntries.length !== 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={() => setShowAllEntries(prev => !prev)}
+                  className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    showAllEntries
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {showAllEntries ? "Por dia" : "Ver todos"}
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="sm:hidden p-3 space-y-3">
+              {filteredEntries.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <DollarSign className="w-10 h-10 mx-auto mb-3 text-gray-400" />
+                  <p className="font-medium">
+                    {showAllEntries ? "No hay movimientos" : `Sin movimientos para ${formatDate(ledgerDate + 'T00:00:00')}`}
+                  </p>
+                </div>
+              ) : (
+                filteredEntries.map((entry) => (
+                  <div key={entry.id} className="border border-gray-200 rounded-lg p-3 cursor-pointer active:bg-gray-50" onClick={() => setModalEntry(entry)}>
+                    {/* Amount + Type badge */}
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        entry.entryType === 'ingreso' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {entry.entryType === 'ingreso' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                        {entry.entryType === 'ingreso' ? 'Ingreso' : 'Egreso'}
+                      </span>
+                      <span className={`font-bold text-base ${entry.entryType === 'ingreso' ? 'text-blue-600' : 'text-red-600'}`}>
+                        {entry.entryType === 'ingreso' ? '+' : '-'} {formatCurrency(entry.amount)}
+                      </span>
+                    </div>
+
+                    {/* Concept */}
+                    <p className="text-sm font-medium text-gray-900 mt-1.5 truncate">{cleanConcept(entry.concept)}</p>
+
+                    {/* Date · Area / Subarea */}
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formatDate(entry.transactionDate)} · {entry.area}{entry.subarea ? ` / ${entry.subarea}` : ''}
+                    </p>
+
+                    {/* Transaction type + client/supplier + payment status */}
+                    {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          entry.transactionType === 'VENTA' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {entry.transactionType === 'VENTA' ? 'Venta' : 'Compra'}
+                        </span>
+                        {(entry.client || entry.supplier) && (
+                          <span className="text-xs text-gray-600">{entry.client?.businessName || entry.supplier?.businessName}</span>
+                        )}
+                        {entry.paymentStatus && (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            entry.paymentStatus === 'PAID' ? 'bg-blue-100 text-blue-800' :
+                            entry.paymentStatus === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-orange-100 text-orange-800'
+                          }`}>
+                            {entry.paymentStatus === 'PAID' ? 'Pagado' : entry.paymentStatus === 'PARTIAL' ? 'Parcial' : 'Pendiente'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Pagado / Saldo row for VENTA/COMPRA */}
+                    {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
+                      <div className="flex gap-3 mt-1.5 text-xs text-gray-500">
+                        <span>Pagado: <span className="font-semibold text-blue-600">{formatCurrency(entry.amountPaid || '0')}</span></span>
+                        <span>Saldo: <span className={`font-semibold ${(parseFloat(entry.amount) - parseFloat(entry.amountPaid || '0')) === 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                          {formatCurrency((parseFloat(entry.amount) - parseFloat(entry.amountPaid || '0')).toString())}
+                        </span></span>
+                      </div>
+                    )}
+
+                    {/* Footer: Estado badge + Action buttons */}
+                    <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-gray-100">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        entry.porRealizar ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {entry.porRealizar ? 'Por Realizar' : 'Realizado'}
+                      </span>
+                      <div className="flex gap-1">
+                        <Link
+                          href={`/dashboard/practice/flujo-de-dinero/${entry.id}/edit`}
+                          className="text-blue-600 p-1.5 rounded-lg hover:bg-blue-50"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Link>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(entry.id, entry.internalId); }}
+                          className="text-red-600 p-1.5 rounded-lg hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="overflow-x-auto hidden sm:block">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -620,13 +809,15 @@ export default function FlujoDeDineroPage() {
                   <tr>
                     <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
                       <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                      <p className="text-lg font-medium">No hay movimientos registrados</p>
-                      <p className="text-sm mt-1">Crea tu primer movimiento para comenzar</p>
+                      <p className="text-lg font-medium">
+                        {showAllEntries ? "No hay movimientos registrados" : `Sin movimientos para ${formatDate(ledgerDate + 'T00:00:00')}`}
+                      </p>
+                      {showAllEntries && <p className="text-sm mt-1">Crea tu primer movimiento para comenzar</p>}
                     </td>
                   </tr>
                 ) : (
                   filteredEntries.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={entry.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setModalEntry(entry)}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(entry.transactionDate)}
                       </td>
@@ -646,7 +837,7 @@ export default function FlujoDeDineroPage() {
                           <div className="space-y-2 min-w-[200px]">
                             {/* Area Dropdown */}
                             <select
-                              value={editingAreaData.area}
+                              value={editingAreaData.area ?? ''}
                               onChange={(e) => {
                                 setEditingAreaData({
                                   area: e.target.value,
@@ -671,7 +862,7 @@ export default function FlujoDeDineroPage() {
                               );
                               return selectedArea && selectedArea.subareas.length > 0 ? (
                                 <select
-                                  value={editingAreaData.subarea}
+                                  value={editingAreaData.subarea ?? ''}
                                   onChange={(e) => setEditingAreaData(prev => ({
                                     ...prev,
                                     subarea: e.target.value
@@ -718,7 +909,7 @@ export default function FlujoDeDineroPage() {
                           // VIEW MODE - Show current values with edit trigger
                           <div
                             className="text-gray-600 cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 transition-colors group"
-                            onClick={() => handleStartEditArea(entry)}
+                            onClick={(e) => { e.stopPropagation(); handleStartEditArea(entry); }}
                             title="Click para editar área y subárea"
                           >
                             <div className="flex items-center justify-between">
@@ -850,11 +1041,12 @@ export default function FlujoDeDineroPage() {
                             href={`/dashboard/practice/flujo-de-dinero/${entry.id}/edit`}
                             className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-colors"
                             title="Editar"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Edit2 className="w-4 h-4" />
                           </Link>
                           <button
-                            onClick={() => handleDelete(entry.id, entry.internalId)}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(entry.id, entry.internalId); }}
                             className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
                             title="Eliminar"
                           >
@@ -871,7 +1063,7 @@ export default function FlujoDeDineroPage() {
 
           {/* Summary Footer */}
           {filteredEntries.length > 0 && (
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">
                   Total: <strong>{filteredEntries.length}</strong> movimiento{filteredEntries.length !== 1 ? 's' : ''}
@@ -1102,6 +1294,164 @@ export default function FlujoDeDineroPage() {
               </div>
             </div>
           )}
+
+        {/* Entry Detail Modal */}
+        {modalEntry && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setModalEntry(null)}>
+            <div className="absolute inset-0 bg-black/40" />
+            <div
+              className="relative w-full sm:max-w-lg sm:rounded-xl rounded-t-2xl bg-white shadow-xl max-h-[90vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drag handle (mobile) */}
+              <div className="sm:hidden flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              </div>
+
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-5 pt-2 sm:pt-5 pb-2">
+                <div>
+                  <span className="text-xs font-mono text-gray-500">{modalEntry.internalId}</span>
+                  <h3 className="text-lg font-bold text-gray-900 leading-tight">Detalle del Movimiento</h3>
+                </div>
+                <button onClick={() => setModalEntry(null)} className="text-gray-400 hover:text-gray-600 p-2 -mr-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4 min-h-0">
+                {/* Amount + Type */}
+                <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${
+                    modalEntry.entryType === 'ingreso' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {modalEntry.entryType === 'ingreso' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    {modalEntry.entryType === 'ingreso' ? 'Ingreso' : 'Egreso'}
+                  </span>
+                  <span className={`text-2xl font-bold ${modalEntry.entryType === 'ingreso' ? 'text-blue-600' : 'text-red-600'}`}>
+                    {modalEntry.entryType === 'ingreso' ? '+' : '-'} {formatCurrency(modalEntry.amount)}
+                  </span>
+                </div>
+
+                {/* Concept */}
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Concepto</p>
+                  <p className="text-sm text-gray-900">{modalEntry.concept}</p>
+                </div>
+
+                {/* Grid: Fecha, Estado, Área, Subárea, Forma de Pago, Cuenta */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Fecha</p>
+                    <p className="text-sm text-gray-900">{formatDate(modalEntry.transactionDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Estado</p>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      modalEntry.porRealizar ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {modalEntry.porRealizar ? 'Por Realizar' : 'Realizado'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Área</p>
+                    <p className="text-sm text-gray-900">{modalEntry.area || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Subárea</p>
+                    <p className="text-sm text-gray-900">{modalEntry.subarea || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Forma de Pago</p>
+                    <p className="text-sm text-gray-900 capitalize">{modalEntry.formaDePago}</p>
+                  </div>
+                  {modalEntry.bankAccount && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cuenta Bancaria</p>
+                      <p className="text-sm text-gray-900">{modalEntry.bankAccount}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Transaction block: VENTA / COMPRA */}
+                {(modalEntry.transactionType === 'VENTA' || modalEntry.transactionType === 'COMPRA') && (
+                  <div className="border-t border-gray-200 pt-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                        modalEntry.transactionType === 'VENTA' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        {modalEntry.transactionType === 'VENTA' ? 'Venta' : 'Compra'}
+                      </span>
+                      {modalEntry.paymentStatus && (
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                          modalEntry.paymentStatus === 'PAID' ? 'bg-blue-100 text-blue-800' :
+                          modalEntry.paymentStatus === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-orange-100 text-orange-800'
+                        }`}>
+                          {modalEntry.paymentStatus === 'PAID' ? 'Pagado' : modalEntry.paymentStatus === 'PARTIAL' ? 'Parcial' : 'Pendiente'}
+                        </span>
+                      )}
+                    </div>
+
+                    {(modalEntry.client || modalEntry.supplier) && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          {modalEntry.transactionType === 'VENTA' ? 'Cliente' : 'Proveedor'}
+                        </p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {modalEntry.client?.businessName || modalEntry.supplier?.businessName}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Payment breakdown */}
+                    <div className="bg-blue-50 rounded-lg p-3 space-y-1.5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Total</span>
+                        <span className="font-semibold text-gray-900">{formatCurrency(modalEntry.amount)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Pagado</span>
+                        <span className="font-semibold text-blue-600">{formatCurrency(modalEntry.amountPaid || '0')}</span>
+                      </div>
+                      <div className="flex justify-between text-sm pt-1.5 border-t border-blue-200">
+                        <span className="font-medium text-gray-700">Saldo</span>
+                        <span className={`font-bold ${
+                          (parseFloat(modalEntry.amount) - parseFloat(modalEntry.amountPaid || '0')) === 0 ? 'text-blue-600' : 'text-red-600'
+                        }`}>
+                          {formatCurrency((parseFloat(modalEntry.amount) - parseFloat(modalEntry.amountPaid || '0')).toString())}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Link to sale / purchase */}
+                    {modalEntry.sale && (
+                      <Link href={`/dashboard/practice/ventas/${modalEntry.sale.id}`} className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                        Ver venta {modalEntry.sale.saleNumber} →
+                      </Link>
+                    )}
+                    {modalEntry.purchase && (
+                      <Link href={`/dashboard/practice/compras/${modalEntry.purchase.id}`} className="text-purple-600 hover:text-purple-700 text-sm font-medium">
+                        Ver compra {modalEntry.purchase.purchaseNumber} →
+                      </Link>
+                    )}
+                  </div>
+                )}
+
+              </div>
+
+              {/* Modal Footer — pinned, never scrolls away */}
+              <div className="px-5 py-3 border-t border-gray-200 bg-white">
+                <Link
+                  href={`/dashboard/practice/flujo-de-dinero/${modalEntry.id}/edit`}
+                  className="block w-full text-center px-4 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
+                  Editar
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

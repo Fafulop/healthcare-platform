@@ -90,6 +90,7 @@ export default function AppointmentsPage() {
   const [bookingDate, setBookingDate] = useState<string>(getLocalDateString(new Date()));
   const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
   const [showAllSlots, setShowAllSlots] = useState(false);
+  const [showAllBookings, setShowAllBookings] = useState(false);
 
   // Voice assistant state
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
@@ -472,10 +473,11 @@ export default function AppointmentsPage() {
   );
 
   // Filter bookings by selected booking date
-  const filteredBookings = bookings.filter((booking) => {
+  const bookingsForDate = bookings.filter((booking) => {
     const slotDate = booking.slot.date.split('T')[0];
     return slotDate === bookingDate;
   });
+  const filteredBookings = showAllBookings ? bookings : bookingsForDate;
 
   // Filter slots for list view by selected list date
   const slotsForListDate = slots.filter(
@@ -592,55 +594,67 @@ export default function AppointmentsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
             <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-            Citas Reservadas
+            {showAllBookings ? "Todas las Citas" : "Citas Reservadas"}
           </h2>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const d = new Date(bookingDate + 'T12:00:00');
-                d.setDate(d.getDate() - 1);
-                setBookingDate(getLocalDateString(d));
-              }}
-              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <input
-              type="date"
-              value={bookingDate}
-              onChange={(e) => setBookingDate(e.target.value)}
-              className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={() => {
-                const d = new Date(bookingDate + 'T12:00:00');
-                d.setDate(d.getDate() + 1);
-                setBookingDate(getLocalDateString(d));
-              }}
-              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setBookingDate(getLocalDateString(new Date()))}
-              className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
-                bookingDate === getLocalDateString(new Date())
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              Hoy
-            </button>
+            {!showAllBookings && (
+              <>
+                <button
+                  onClick={() => {
+                    const d = new Date(bookingDate + 'T12:00:00');
+                    d.setDate(d.getDate() - 1);
+                    setBookingDate(getLocalDateString(d));
+                  }}
+                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <input
+                  type="date"
+                  value={bookingDate}
+                  onChange={(e) => setBookingDate(e.target.value)}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={() => {
+                    const d = new Date(bookingDate + 'T12:00:00');
+                    d.setDate(d.getDate() + 1);
+                    setBookingDate(getLocalDateString(d));
+                  }}
+                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                {bookingDate !== getLocalDateString(new Date()) && (
+                  <button
+                    onClick={() => setBookingDate(getLocalDateString(new Date()))}
+                    className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                  >
+                    Hoy
+                  </button>
+                )}
+              </>
+            )}
             <span className="text-xs sm:text-sm font-medium text-gray-500 ml-1">
               {filteredBookings.length} cita{filteredBookings.length !== 1 ? 's' : ''}
             </span>
+            <button
+              onClick={() => setShowAllBookings(prev => !prev)}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                showAllBookings
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {showAllBookings ? "Por dia" : "Ver todos"}
+            </button>
           </div>
         </div>
 
         {filteredBookings.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Sin citas para {formatDateString(bookingDate, "es-MX", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <p className="text-sm">{showAllBookings ? "No hay citas reservadas" : `Sin citas para ${formatDateString(bookingDate, "es-MX", { weekday: "long", day: "numeric", month: "long" })}`}</p>
           </div>
         ) : (
           <>
