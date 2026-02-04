@@ -93,6 +93,57 @@ export const ourFileRouter = {
       console.log("Medical audio uploaded:", file.url);
       return { uploadedBy: "doctor", mediaType: "audio" };
     }),
+  // ============================================================================
+  // DOCTOR PROFILE MEDIA
+  // ============================================================================
+
+  // Hero image uploader (doctor profile photo)
+  doctorHeroImage: f({
+    image: {
+      maxFileSize: "4MB",
+      maxFileCount: 1
+    }
+  })
+    .onUploadComplete(async ({ file }) => {
+      console.log("Hero image uploaded:", file.url);
+      return { uploadedBy: "doctor" };
+    }),
+
+  // Certificate images uploader (diplomas, certifications)
+  doctorCertificates: f({
+    image: {
+      maxFileSize: "16MB",
+      maxFileCount: 20
+    }
+  })
+    .onUploadComplete(async ({ file }) => {
+      console.log("Certificate uploaded:", file.url);
+      return { uploadedBy: "doctor" };
+    }),
+
+  // Clinic photos uploader (clinic interior, equipment)
+  clinicPhotos: f({
+    image: {
+      maxFileSize: "8MB",
+      maxFileCount: 20
+    }
+  })
+    .onUploadComplete(async ({ file }) => {
+      console.log("Clinic photo uploaded:", file.url);
+      return { uploadedBy: "doctor" };
+    }),
+
+  // Video uploader (intro videos, facility tours)
+  doctorVideos: f({
+    video: {
+      maxFileSize: "64MB",
+      maxFileCount: 5
+    }
+  })
+    .onUploadComplete(async ({ file }) => {
+      console.log("Video uploaded:", file.url);
+      return { uploadedBy: "doctor" };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

@@ -80,20 +80,49 @@ export async function PUT(
   try {
     const { slug } = await params;
 
-    // ✅ AUTHENTICATION CHECK - Admin only
-    const { requireAdminAuth } = await import('@/lib/auth');
+    // ✅ AUTHENTICATION CHECK - Admin or owning Doctor
+    const { validateAuthToken } = await import('@/lib/auth');
 
+    let authUser: { email: string; role: string; userId: string; doctorId: string | null };
     try {
-      await requireAdminAuth(request);
+      authUser = await validateAuthToken(request);
     } catch (error) {
       console.error('Authentication failed:', error);
       return NextResponse.json(
         {
           success: false,
           error: 'Unauthorized',
-          message: error instanceof Error ? error.message : 'Admin access required to update doctors',
+          message: error instanceof Error ? error.message : 'Authentication required',
         },
         { status: 401 }
+      );
+    }
+
+    // Ownership check: DOCTOR can only edit their own profile
+    if (authUser.role === 'DOCTOR') {
+      const targetDoctor = await prisma.doctor.findUnique({
+        where: { slug },
+        select: { id: true },
+      });
+
+      if (!targetDoctor || targetDoctor.id !== authUser.doctorId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Forbidden',
+            message: 'No tienes permiso para editar este perfil.',
+          },
+          { status: 403 }
+        );
+      }
+    } else if (authUser.role !== 'ADMIN') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Forbidden',
+          message: 'Admin or Doctor access required',
+        },
+        { status: 403 }
       );
     }
 

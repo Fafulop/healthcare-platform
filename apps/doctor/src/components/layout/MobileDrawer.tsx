@@ -14,6 +14,7 @@ import {
   FileText,
   Video,
   CheckSquare,
+  UserCog,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -116,16 +117,25 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
         <nav className="flex-1 overflow-y-auto">
           <div className="py-2">
             {doctorProfile && (
-              <a
-                href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onClose}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <ExternalLink className="w-5 h-5" />
-                <span className="text-sm font-medium">Perfil Público</span>
-              </a>
+              <>
+                <NavItem
+                  icon={UserCog}
+                  label="Editar Perfil"
+                  href="/dashboard/mi-perfil"
+                  active={pathname?.startsWith("/dashboard/mi-perfil")}
+                  onClick={onClose}
+                />
+                <a
+                  href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={onClose}
+                  className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                  <span className="text-sm font-medium">Perfil Público</span>
+                </a>
+              </>
             )}
             <NavItem
               icon={Video}
