@@ -18,6 +18,15 @@ interface Client {
   rfc: string | null;
 }
 
+interface Patient {
+  id: string;
+  internalId: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -26,6 +35,7 @@ interface Product {
   price: string | null;
   unit: string | null;
   stockQuantity: number | null;
+  type: 'product' | 'service';
 }
 
 interface QuotationItem {
@@ -59,9 +69,15 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
   // Data loading
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingPatients, setLoadingPatients] = useState(true);
   const [loadingQuotation, setLoadingQuotation] = useState(true);
+
+  // Patients
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [resolvingPatient, setResolvingPatient] = useState(false);
 
   // Form state
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
@@ -77,6 +93,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [productTypeFilter, setProductTypeFilter] = useState<'product' | 'service' | null>(null);
 
   // Custom item modal state
   const [customItemType, setCustomItemType] = useState<'product' | 'service'>('service');
@@ -97,6 +114,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
     if (quotationId) {
       fetchClients();
       fetchProducts();
+      fetchPatients();
       fetchQuotation();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,6 +187,85 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
       console.error('Error al cargar productos:', err);
     } finally {
       setLoadingProducts(false);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await fetch('/api/medical-records/patients?status=active');
+      if (!response.ok) throw new Error('Error al cargar pacientes');
+      const data = await response.json();
+      setPatients(data.data || []);
+    } catch (err) {
+      console.error('Error al cargar pacientes:', err);
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
+
+  const resolvePatientAsClient = async (patient: Patient) => {
+    setResolvingPatient(true);
+    const fullName = `${patient.firstName} ${patient.lastName}`;
+
+    // Check if a client with this name already exists locally
+    const existing = clients.find(c => c.businessName === fullName);
+    if (existing) {
+      setSelectedClientId(existing.id);
+      setResolvingPatient(false);
+      return;
+    }
+
+    // Auto-create a client from the patient
+    try {
+      const response = await authFetch(`${API_URL}/api/practice-management/clients`, {
+        method: 'POST',
+        body: JSON.stringify({
+          businessName: fullName,
+          contactName: fullName,
+          email: patient.email || null,
+          phone: patient.phone || null,
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setClients(prev => [...prev, result.data]);
+        setSelectedClientId(result.data.id);
+      } else if (response.status === 409) {
+        // Race condition: client was created between our check and POST — re-fetch
+        const refreshResponse = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
+        const refreshResult = await refreshResponse.json();
+        const refreshedClients: Client[] = refreshResult.data || [];
+        setClients(refreshedClients);
+        const found = refreshedClients.find(c => c.businessName === fullName);
+        if (found) setSelectedClientId(found.id);
+      }
+    } catch (err) {
+      console.error('Error al crear cliente desde paciente:', err);
+    } finally {
+      setResolvingPatient(false);
+    }
+  };
+
+  const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (!value) {
+      setSelectedClientId(null);
+      setSelectedPatient(null);
+      return;
+    }
+
+    if (value.startsWith('patient:')) {
+      const patientId = value.slice('patient:'.length);
+      const patient = patients.find(p => p.id === patientId);
+      if (patient) {
+        setSelectedPatient(patient);
+        resolvePatientAsClient(patient);
+      }
+    } else {
+      const clientId = Number(value.slice('client:'.length));
+      setSelectedClientId(clientId);
+      setSelectedPatient(null);
     }
   };
 
@@ -312,12 +409,12 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
     if (!quotationId) return;
 
     if (!selectedClientId) {
-      alert('Debe seleccionar un cliente');
+      alert('Debe seleccionar un paciente');
       return;
     }
 
     if (items.length === 0) {
-      alert('Debe agregar al menos un producto o servicio');
+      alert('Debe agregar al menos un servicio');
       return;
     }
 
@@ -366,28 +463,37 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
   };
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(productSearch.toLowerCase())
-  );
+  const selectValue = selectedPatient
+    ? `patient:${selectedPatient.id}`
+    : selectedClientId
+      ? `client:${selectedClientId}`
+      : '';
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(productSearch.toLowerCase());
+    const matchesType = productTypeFilter ? p.type === productTypeFilter : true;
+    return matchesSearch && matchesType;
+  });
 
   const subtotal = calculateSubtotal();
   const tax = calculateTax();
   const total = calculateTotal();
 
-  if (status === "loading" || loadingClients || loadingProducts || loadingQuotation) {
+  if (status === "loading" || loadingClients || loadingProducts || loadingPatients || loadingQuotation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Cargando...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href={`/dashboard/practice/cotizaciones/${quotationId}`}
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -395,8 +501,8 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
             <ArrowLeft className="w-4 h-4" />
             Volver a la Cotización
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <FileText className="w-8 h-8 text-green-600" />
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <FileText className="w-8 h-8 text-blue-600" />
             Editar Cotización
           </h1>
           <p className="text-gray-600 mt-2">Modifica la información de la cotización</p>
@@ -405,9 +511,9 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Client & Details */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Client Selection */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Cliente</h2>
+            {/* Patient Selection */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Paciente</h2>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                   {error}
@@ -416,41 +522,84 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cliente *
+                  Paciente *
                 </label>
                 <select
-                  value={selectedClientId || ''}
-                  onChange={(e) => setSelectedClientId(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={selectValue}
+                  onChange={handleSelectionChange}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
-                  <option value="">Seleccionar cliente...</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      {client.businessName} {client.contactName ? `- ${client.contactName}` : ''}
-                    </option>
-                  ))}
+                  <option value="">Seleccionar paciente...</option>
+                  {patients.length > 0 && (
+                    <optgroup label="Pacientes">
+                      {patients.map(patient => (
+                        <option key={patient.id} value={`patient:${patient.id}`}>
+                          {patient.firstName} {patient.lastName}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {(() => {
+                    // Filter out clients that were auto-created from patients
+                    const patientNames = new Set(patients.map(p => `${p.firstName} ${p.lastName}`));
+                    const externalClients = clients.filter(c => !patientNames.has(c.businessName));
+                    return externalClients.length > 0 && (
+                      <optgroup label="Clientes Externos">
+                        {externalClients.map(client => (
+                          <option key={client.id} value={`client:${client.id}`}>
+                            {client.businessName} {client.contactName ? `- ${client.contactName}` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })()}
                 </select>
+                {resolvingPatient && (
+                  <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Preparando datos...
+                  </p>
+                )}
               </div>
 
-              {selectedClient && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              {(selectedPatient || selectedClient) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-start gap-2">
-                    <span className="text-green-600 text-xl">✓</span>
+                    <span className="text-blue-600 text-xl">✓</span>
                     <div className="flex-1">
-                      <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
-                      {selectedClient.contactName && (
-                        <div className="text-sm text-gray-600">Contacto: {selectedClient.contactName}</div>
-                      )}
-                      {selectedClient.email && (
-                        <div className="text-sm text-gray-600">📧 {selectedClient.email}</div>
-                      )}
-                      {selectedClient.phone && (
-                        <div className="text-sm text-gray-600">📞 {selectedClient.phone}</div>
-                      )}
-                      {selectedClient.rfc && (
-                        <div className="text-sm text-gray-600">RFC: {selectedClient.rfc}</div>
-                      )}
+                      {selectedPatient ? (
+                        <>
+                          <div className="font-semibold text-gray-900">
+                            {selectedPatient.firstName} {selectedPatient.lastName}
+                          </div>
+                          <div className="text-xs text-blue-600 font-medium mt-0.5">Paciente</div>
+                          {selectedPatient.internalId && (
+                            <div className="text-sm text-gray-600">ID interno: {selectedPatient.internalId}</div>
+                          )}
+                          {selectedPatient.email && (
+                            <div className="text-sm text-gray-600">📧 {selectedPatient.email}</div>
+                          )}
+                          {selectedPatient.phone && (
+                            <div className="text-sm text-gray-600">📞 {selectedPatient.phone}</div>
+                          )}
+                        </>
+                      ) : selectedClient ? (
+                        <>
+                          <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
+                          {selectedClient.contactName && (
+                            <div className="text-sm text-gray-600">Contacto: {selectedClient.contactName}</div>
+                          )}
+                          {selectedClient.email && (
+                            <div className="text-sm text-gray-600">📧 {selectedClient.email}</div>
+                          )}
+                          {selectedClient.phone && (
+                            <div className="text-sm text-gray-600">📞 {selectedClient.phone}</div>
+                          )}
+                          {selectedClient.rfc && (
+                            <div className="text-sm text-gray-600">RFC: {selectedClient.rfc}</div>
+                          )}
+                        </>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -465,7 +614,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
                     type="date"
                     value={issueDate}
                     onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -477,7 +626,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
                     type="date"
                     value={validUntil}
                     onChange={(e) => setValidUntil(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -490,7 +639,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                   placeholder="Añade notas sobre esta cotización..."
                 />
@@ -503,7 +652,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
                 <textarea
                   value={termsAndConditions}
                   onChange={(e) => setTermsAndConditions(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                   placeholder="Ej: Pago 50% anticipo, 50% contra entrega..."
                 />
@@ -511,14 +660,30 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
             </div>
 
             {/* Items Section */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos y Servicios</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <button
                   type="button"
-                  onClick={() => setShowProductModal(true)}
-                  className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  onClick={() => {
+                    setProductTypeFilter('service');
+                    setProductSearch('');
+                    setShowProductModal(true);
+                  }}
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Agregar Servicio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductTypeFilter('product');
+                    setProductSearch('');
+                    setShowProductModal(true);
+                  }}
+                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors border border-gray-300"
                 >
                   <Plus className="w-5 h-5" />
                   Agregar Producto
@@ -530,22 +695,10 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
                     setCustomUnit('pza');
                     setShowCustomItemModal(true);
                   }}
-                  className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors border border-gray-300"
                 >
                   <Plus className="w-5 h-5" />
-                  Producto Personalizado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomItemType('service');
-                    setCustomUnit('servicio');
-                    setShowCustomItemModal(true);
-                  }}
-                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  Servicio Personalizado
+                  Producto o Servicio Personalizado
                 </button>
               </div>
 
@@ -673,7 +826,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
 
           {/* Right Column - Summary (Sticky) */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+            <div className="bg-white rounded-lg shadow p-6 sticky top-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen</h3>
 
               <div className="space-y-3">
@@ -694,7 +847,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
 
                 <div className="flex justify-between items-center pt-2">
                   <span className="text-gray-900 font-bold text-lg">TOTAL</span>
-                  <span className="font-bold text-green-600 text-xl">${total.toFixed(2)}</span>
+                  <span className="font-bold text-blue-600 text-xl">${total.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -703,7 +856,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
                   onClick={() => handleSubmit('DRAFT')}
                   disabled={submitting || !selectedClientId || items.length === 0}
                   className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                  title={!selectedClientId ? 'Selecciona un cliente' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
+                  title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
                 >
                   {submitting ? (
                     <div className="flex items-center justify-center gap-2">
@@ -717,8 +870,8 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
                 <button
                   onClick={() => handleSubmit('SENT')}
                   disabled={submitting || !selectedClientId || items.length === 0}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-                  title={!selectedClientId ? 'Selecciona un cliente' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
+                  className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
+                  title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
                 >
                   {submitting ? (
                     <>
@@ -740,9 +893,11 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
         {/* Product Selection Modal */}
         {showProductModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
               <div className="p-6 border-b flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">Seleccionar Producto</h3>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {productTypeFilter === 'service' ? 'Seleccionar Servicio' : 'Seleccionar Producto'}
+                </h3>
                 <button
                   onClick={() => {
                     setShowProductModal(false);
@@ -757,10 +912,10 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
               <div className="p-6 border-b">
                 <input
                   type="text"
-                  placeholder="Buscar producto..."
+                  placeholder={productTypeFilter === 'service' ? 'Buscar servicio por nombre...' : 'Buscar producto por nombre o SKU...'}
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
               </div>
@@ -768,7 +923,9 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
               <div className="overflow-y-auto max-h-96 p-6">
                 {filteredProducts.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
-                    No se encontraron productos
+                    {productTypeFilter === 'service'
+                      ? 'No se encontraron servicios. Crea uno en Productos y Servicios.'
+                      : 'No se encontraron productos'}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -776,7 +933,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
                       <div
                         key={product.id}
                         onClick={() => addProductToQuote(product)}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-green-50 hover:border-green-500 cursor-pointer transition-all"
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 hover:border-blue-500 cursor-pointer transition-all"
                       >
                         <div className="font-semibold text-gray-900">{product.name}</div>
                         {product.sku && (
@@ -786,7 +943,7 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
                           <div className="text-sm text-gray-600 mt-1">{product.description}</div>
                         )}
                         <div className="flex items-center justify-between mt-2">
-                          <span className="text-lg font-bold text-green-600">
+                          <span className="text-lg font-bold text-blue-600">
                             ${parseFloat(product.price || '0').toFixed(2)} {product.unit && `/ ${product.unit}`}
                           </span>
                           {product.stockQuantity !== null && (
@@ -807,12 +964,12 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
         {/* Custom Item Modal */}
         {showCustomItemModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
               <div className={`p-6 border-b flex justify-between items-center ${
                 customItemType === 'product' ? 'bg-purple-50' : 'bg-blue-50'
               }`}>
                 <h3 className="text-xl font-bold text-gray-900">
-                  {customItemType === 'product' ? 'Agregar Producto Personalizado' : 'Agregar Servicio Personalizado'}
+                  {customItemType === 'product' ? 'Producto Personalizado' : 'Servicio Personalizado'}
                 </h3>
                 <button
                   onClick={() => setShowCustomItemModal(false)}
@@ -931,7 +1088,6 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

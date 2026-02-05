@@ -605,6 +605,7 @@ model Product {
   name            String   @db.VarChar(255)
   sku             String?  @db.VarChar(100)
   category        String?  @db.VarChar(100)
+  type            String   @default("product") @db.VarChar(20) // 'product' or 'service'
   description     String?  @db.Text
 
   // Pricing
@@ -636,6 +637,7 @@ model Product {
   @@unique([doctorId, name])
   @@index([doctorId, status])
   @@index([doctorId, category])
+  @@index([doctorId, type])
   @@map("products")
   @@schema("practice_management")
 }

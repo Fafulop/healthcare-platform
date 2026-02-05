@@ -26,6 +26,7 @@ interface Product {
   price: string | null;
   unit: string | null;
   stockQuantity: number | null;
+  type: 'product' | 'service';
 }
 
 interface SaleItem {
@@ -84,6 +85,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [productTypeFilter, setProductTypeFilter] = useState<'product' | 'service' | null>(null);
 
   // Custom item modal state
   const [customItemType, setCustomItemType] = useState<'product' | 'service'>('service');
@@ -325,12 +327,12 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
     if (!saleId) return;
 
     if (!selectedClientId) {
-      alert('Debe seleccionar un cliente');
+      alert('Debe seleccionar un paciente');
       return;
     }
 
     if (items.length === 0) {
-      alert('Debe agregar al menos un producto o servicio');
+      alert('Debe agregar al menos un servicio');
       return;
     }
 
@@ -389,10 +391,12 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   };
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(productSearch.toLowerCase())
-  );
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(productSearch.toLowerCase());
+    const matchesType = productTypeFilter ? p.type === productTypeFilter : true;
+    return matchesSearch && matchesType;
+  });
 
   const subtotal = calculateSubtotal();
   const tax = calculateTax();
@@ -431,9 +435,9 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Client & Details */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Client Selection */}
+            {/* Patient Selection */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Cliente</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Paciente</h2>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                   {error}
@@ -442,7 +446,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cliente *
+                  Paciente *
                 </label>
                 <select
                   value={selectedClientId || ''}
@@ -450,7 +454,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
-                  <option value="">Seleccionar cliente...</option>
+                  <option value="">Seleccionar paciente...</option>
                   {clients.map(client => (
                     <option key={client.id} value={client.id}>
                       {client.businessName} {client.contactName ? `- ${client.contactName}` : ''}
@@ -482,31 +486,17 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha de venta *
-                  </label>
-                  <input
-                    type="date"
-                    value={saleDate}
-                    onChange={(e) => setSaleDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha de entrega
-                  </label>
-                  <input
-                    type="date"
-                    value={deliveryDate}
-                    onChange={(e) => setDeliveryDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">(Opcional)</p>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Fecha del servicio *
+                </label>
+                <input
+                  type="date"
+                  value={saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -568,13 +558,29 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
 
             {/* Items Section */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos y Servicios</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Servicios</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <button
                   type="button"
-                  onClick={() => setShowProductModal(true)}
+                  onClick={() => {
+                    setProductTypeFilter('service');
+                    setProductSearch('');
+                    setShowProductModal(true);
+                  }}
                   className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Agregar Servicio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductTypeFilter('product');
+                    setProductSearch('');
+                    setShowProductModal(true);
+                  }}
+                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors border border-gray-300"
                 >
                   <Plus className="w-5 h-5" />
                   Agregar Producto
@@ -586,30 +592,18 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
                     setCustomUnit('pza');
                     setShowCustomItemModal(true);
                   }}
-                  className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors border border-gray-300"
                 >
                   <Plus className="w-5 h-5" />
-                  Producto Personalizado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomItemType('service');
-                    setCustomUnit('servicio');
-                    setShowCustomItemModal(true);
-                  }}
-                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  Servicio Personalizado
+                  Producto o Servicio Personalizado
                 </button>
               </div>
 
               {items.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p>No hay productos o servicios agregados</p>
-                  <p className="text-sm text-gray-400 mt-1">Haz clic en los botones de arriba para agregar items</p>
+                  <p>No hay servicios agregados</p>
+                  <p className="text-sm text-gray-400 mt-1">Haz clic en "Agregar Servicio" para comenzar</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -734,7 +728,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center pb-3 border-b">
-                  <span className="text-gray-600">Productos/Servicios</span>
+                  <span className="text-gray-600">Servicios</span>
                   <span className="font-semibold text-gray-900">{items.length}</span>
                 </div>
 
@@ -774,7 +768,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
                   onClick={() => handleSubmit('PENDING')}
                   disabled={submitting || !selectedClientId || items.length === 0}
                   className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                  title={!selectedClientId ? 'Selecciona un cliente' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
+                  title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
                 >
                   {submitting ? (
                     <div className="flex items-center justify-center gap-2">
@@ -789,7 +783,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
                   onClick={() => handleSubmit('CONFIRMED')}
                   disabled={submitting || !selectedClientId || items.length === 0}
                   className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-                  title={!selectedClientId ? 'Selecciona un cliente' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
+                  title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
                 >
                   {submitting ? (
                     <>
@@ -813,7 +807,9 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
               <div className="p-6 border-b flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">Seleccionar Producto</h3>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {productTypeFilter === 'service' ? 'Seleccionar Servicio' : 'Seleccionar Producto'}
+                </h3>
                 <button
                   onClick={() => {
                     setShowProductModal(false);
@@ -828,7 +824,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
               <div className="p-6 border-b">
                 <input
                   type="text"
-                  placeholder="Buscar producto..."
+                  placeholder={productTypeFilter === 'service' ? 'Buscar servicio por nombre...' : 'Buscar producto por nombre o SKU...'}
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
@@ -839,7 +835,9 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
               <div className="overflow-y-auto max-h-96 p-6">
                 {filteredProducts.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
-                    No se encontraron productos
+                    {productTypeFilter === 'service'
+                      ? 'No se encontraron servicios. Crea uno en Productos y Servicios.'
+                      : 'No se encontraron productos'}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -883,7 +881,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
                 customItemType === 'product' ? 'bg-purple-50' : 'bg-blue-50'
               }`}>
                 <h3 className="text-xl font-bold text-gray-900">
-                  {customItemType === 'product' ? 'Agregar Producto Personalizado' : 'Agregar Servicio Personalizado'}
+                  {customItemType === 'product' ? 'Producto Personalizado' : 'Servicio Personalizado'}
                 </h3>
                 <button
                   onClick={() => setShowCustomItemModal(false)}

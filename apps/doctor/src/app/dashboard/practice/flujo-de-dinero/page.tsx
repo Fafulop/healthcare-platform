@@ -777,7 +777,7 @@ export default function FlujoDeDineroPage() {
                     Tipo Transacción
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cliente/Proveedor
+                    Paciente/Proveedor
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado Pago
@@ -1379,7 +1379,7 @@ export default function FlujoDeDineroPage() {
                     {(modalEntry.client || modalEntry.supplier) && (
                       <div>
                         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                          {modalEntry.transactionType === 'VENTA' ? 'Cliente' : 'Proveedor'}
+                          {modalEntry.transactionType === 'VENTA' ? 'Paciente' : 'Proveedor'}
                         </p>
                         <p className="text-sm font-medium text-gray-900">
                           {modalEntry.client?.businessName || modalEntry.supplier?.businessName}

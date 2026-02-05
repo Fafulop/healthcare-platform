@@ -14,6 +14,7 @@ interface Product {
   name: string;
   sku: string | null;
   category: string | null;
+  type: 'product' | 'service';
   description: string | null;
   price: string | null;
   cost: string | null;
@@ -35,12 +36,13 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, typeFilter]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -50,6 +52,9 @@ export default function ProductsPage() {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
+      }
+      if (typeFilter !== 'all') {
+        params.append('type', typeFilter);
       }
 
       const response = await authFetch(`${API_URL}/api/practice-management/products?${params}`);
@@ -119,9 +124,9 @@ export default function ProductsPage() {
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Productos</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Productos y Servicios</h1>
             <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              Gestiona tu catálogo de productos
+              Gestiona productos e insumos médicos y servicios
             </p>
           </div>
           <div className="flex gap-2">
@@ -137,7 +142,7 @@ export default function ProductsPage() {
               className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-semibold"
             >
               <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Nuevo Producto</span>
+              <span className="hidden sm:inline">Nuevo</span>
             </Link>
           </div>
         </div>
@@ -145,8 +150,8 @@ export default function ProductsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div className="relative">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="relative sm:col-span-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
@@ -156,6 +161,15 @@ export default function ProductsPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Todos los tipos</option>
+            <option value="product">Productos</option>
+            <option value="service">Servicios</option>
+          </select>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -210,7 +224,16 @@ export default function ProductsPage() {
                   {/* Card Header */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-900 truncate">{product.name}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-semibold text-gray-900 truncate">{product.name}</div>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                          product.type === 'service'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {product.type === 'service' ? 'Servicio' : 'Producto'}
+                        </span>
+                      </div>
                       {product.sku && (
                         <div className="text-xs text-gray-500">SKU: {product.sku}</div>
                       )}
@@ -320,7 +343,16 @@ export default function ProductsPage() {
                     return (
                       <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
-                          <div className="font-semibold text-gray-900">{product.name}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-semibold text-gray-900">{product.name}</div>
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                              product.type === 'service'
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {product.type === 'service' ? 'Servicio' : 'Producto'}
+                            </span>
+                          </div>
                           {product.sku && (
                             <div className="text-sm text-gray-500">SKU: {product.sku}</div>
                           )}

@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
     const category = searchParams.get('category'); // rfc field
+    const type = searchParams.get('type'); // 'product' or 'service'
 
     const where: any = { doctorId: doctor.id };
 
@@ -23,6 +24,11 @@ export async function GET(request: NextRequest) {
     // Filter by category
     if (category) {
       where.category = category;
+    }
+
+    // Filter by type
+    if (type) {
+      where.type = type;
     }
 
     // Search across multiple fields
@@ -80,6 +86,7 @@ export async function POST(request: NextRequest) {
       name,
       sku,
       category,
+      type,
       description,
       price,
       cost,
@@ -103,6 +110,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         sku: sku?.trim() || null,
         category: category?.trim() || null,
+        type: type || 'product',
         description: description?.trim() || null,
         price: price ? parseFloat(price.toString()) : null,
         cost: cost ? parseFloat(cost.toString()) : null,

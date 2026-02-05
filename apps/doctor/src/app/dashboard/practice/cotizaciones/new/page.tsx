@@ -18,6 +18,15 @@ interface Client {
   rfc: string | null;
 }
 
+interface Patient {
+  id: string;
+  internalId: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -26,6 +35,7 @@ interface Product {
   price: string | null;
   unit: string | null;
   stockQuantity: number | null;
+  type: 'product' | 'service';
 }
 
 interface QuotationItem {
@@ -59,8 +69,14 @@ export default function NewCotizacionPage() {
   // Data loading
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+
+  // Patients
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [resolvingPatient, setResolvingPatient] = useState(false);
 
   // Form state
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
@@ -76,6 +92,7 @@ export default function NewCotizacionPage() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [productTypeFilter, setProductTypeFilter] = useState<'product' | 'service' | null>(null);
 
   // Custom item modal state
   const [customItemType, setCustomItemType] = useState<'product' | 'service'>('service');
@@ -87,6 +104,7 @@ export default function NewCotizacionPage() {
   useEffect(() => {
     fetchClients();
     fetchProducts();
+    fetchPatients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -135,6 +153,85 @@ export default function NewCotizacionPage() {
       console.error('Error al cargar productos:', err);
     } finally {
       setLoadingProducts(false);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await fetch('/api/medical-records/patients?status=active');
+      if (!response.ok) throw new Error('Error al cargar pacientes');
+      const data = await response.json();
+      setPatients(data.data || []);
+    } catch (err) {
+      console.error('Error al cargar pacientes:', err);
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
+
+  const resolvePatientAsClient = async (patient: Patient) => {
+    setResolvingPatient(true);
+    const fullName = `${patient.firstName} ${patient.lastName}`;
+
+    // Check if a client with this name already exists locally
+    const existing = clients.find(c => c.businessName === fullName);
+    if (existing) {
+      setSelectedClientId(existing.id);
+      setResolvingPatient(false);
+      return;
+    }
+
+    // Auto-create a client from the patient
+    try {
+      const response = await authFetch(`${API_URL}/api/practice-management/clients`, {
+        method: 'POST',
+        body: JSON.stringify({
+          businessName: fullName,
+          contactName: fullName,
+          email: patient.email || null,
+          phone: patient.phone || null,
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setClients(prev => [...prev, result.data]);
+        setSelectedClientId(result.data.id);
+      } else if (response.status === 409) {
+        // Race condition: client was created between our check and POST — re-fetch
+        const refreshResponse = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
+        const refreshResult = await refreshResponse.json();
+        const refreshedClients: Client[] = refreshResult.data || [];
+        setClients(refreshedClients);
+        const found = refreshedClients.find(c => c.businessName === fullName);
+        if (found) setSelectedClientId(found.id);
+      }
+    } catch (err) {
+      console.error('Error al crear cliente desde paciente:', err);
+    } finally {
+      setResolvingPatient(false);
+    }
+  };
+
+  const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (!value) {
+      setSelectedClientId(null);
+      setSelectedPatient(null);
+      return;
+    }
+
+    if (value.startsWith('patient:')) {
+      const patientId = value.slice('patient:'.length);
+      const patient = patients.find(p => p.id === patientId);
+      if (patient) {
+        setSelectedPatient(patient);
+        resolvePatientAsClient(patient);
+      }
+    } else {
+      const clientId = Number(value.slice('client:'.length));
+      setSelectedClientId(clientId);
+      setSelectedPatient(null);
     }
   };
 
@@ -276,12 +373,12 @@ export default function NewCotizacionPage() {
 
   const handleSubmit = async (saveStatus: 'DRAFT' | 'SENT') => {
     if (!selectedClientId) {
-      alert('Debe seleccionar un cliente');
+      alert('Debe seleccionar un paciente');
       return;
     }
 
     if (items.length === 0) {
-      alert('Debe agregar al menos un producto o servicio');
+      alert('Debe agregar al menos un servicio');
       return;
     }
 
@@ -330,16 +427,23 @@ export default function NewCotizacionPage() {
   };
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(productSearch.toLowerCase())
-  );
+  const selectValue = selectedPatient
+    ? `patient:${selectedPatient.id}`
+    : selectedClientId
+      ? `client:${selectedClientId}`
+      : '';
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(productSearch.toLowerCase());
+    const matchesType = productTypeFilter ? p.type === productTypeFilter : true;
+    return matchesSearch && matchesType;
+  });
 
   const subtotal = calculateSubtotal();
   const tax = calculateTax();
   const total = calculateTotal();
 
-  if (status === "loading" || loadingClients || loadingProducts) {
+  if (status === "loading" || loadingClients || loadingProducts || loadingPatients) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -365,15 +469,15 @@ export default function NewCotizacionPage() {
             <FileText className="w-8 h-8 text-blue-600" />
             Nueva Cotización
           </h1>
-          <p className="text-gray-600 mt-2">Crea una cotización profesional para tu cliente</p>
+          <p className="text-gray-600 mt-2">Crea una cotización profesional para tu paciente</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Client & Details */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Client Selection */}
+            {/* Patient Selection */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Cliente</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Paciente</h2>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                   {error}
@@ -382,41 +486,84 @@ export default function NewCotizacionPage() {
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cliente *
+                  Paciente *
                 </label>
                 <select
-                  value={selectedClientId || ''}
-                  onChange={(e) => setSelectedClientId(Number(e.target.value))}
+                  value={selectValue}
+                  onChange={handleSelectionChange}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
-                  <option value="">Seleccionar cliente...</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      {client.businessName} {client.contactName ? `- ${client.contactName}` : ''}
-                    </option>
-                  ))}
+                  <option value="">Seleccionar paciente...</option>
+                  {patients.length > 0 && (
+                    <optgroup label="Pacientes">
+                      {patients.map(patient => (
+                        <option key={patient.id} value={`patient:${patient.id}`}>
+                          {patient.firstName} {patient.lastName}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {(() => {
+                    // Filter out clients that were auto-created from patients
+                    const patientNames = new Set(patients.map(p => `${p.firstName} ${p.lastName}`));
+                    const externalClients = clients.filter(c => !patientNames.has(c.businessName));
+                    return externalClients.length > 0 && (
+                      <optgroup label="Clientes Externos">
+                        {externalClients.map(client => (
+                          <option key={client.id} value={`client:${client.id}`}>
+                            {client.businessName} {client.contactName ? `- ${client.contactName}` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })()}
                 </select>
+                {resolvingPatient && (
+                  <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Preparando datos...
+                  </p>
+                )}
               </div>
 
-              {selectedClient && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              {(selectedPatient || selectedClient) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-start gap-2">
                     <span className="text-blue-600 text-xl">✓</span>
                     <div className="flex-1">
-                      <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
-                      {selectedClient.contactName && (
-                        <div className="text-sm text-gray-600">Contacto: {selectedClient.contactName}</div>
-                      )}
-                      {selectedClient.email && (
-                        <div className="text-sm text-gray-600">📧 {selectedClient.email}</div>
-                      )}
-                      {selectedClient.phone && (
-                        <div className="text-sm text-gray-600">📞 {selectedClient.phone}</div>
-                      )}
-                      {selectedClient.rfc && (
-                        <div className="text-sm text-gray-600">RFC: {selectedClient.rfc}</div>
-                      )}
+                      {selectedPatient ? (
+                        <>
+                          <div className="font-semibold text-gray-900">
+                            {selectedPatient.firstName} {selectedPatient.lastName}
+                          </div>
+                          <div className="text-xs text-blue-600 font-medium mt-0.5">Paciente</div>
+                          {selectedPatient.internalId && (
+                            <div className="text-sm text-gray-600">ID interno: {selectedPatient.internalId}</div>
+                          )}
+                          {selectedPatient.email && (
+                            <div className="text-sm text-gray-600">📧 {selectedPatient.email}</div>
+                          )}
+                          {selectedPatient.phone && (
+                            <div className="text-sm text-gray-600">📞 {selectedPatient.phone}</div>
+                          )}
+                        </>
+                      ) : selectedClient ? (
+                        <>
+                          <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
+                          {selectedClient.contactName && (
+                            <div className="text-sm text-gray-600">Contacto: {selectedClient.contactName}</div>
+                          )}
+                          {selectedClient.email && (
+                            <div className="text-sm text-gray-600">📧 {selectedClient.email}</div>
+                          )}
+                          {selectedClient.phone && (
+                            <div className="text-sm text-gray-600">📞 {selectedClient.phone}</div>
+                          )}
+                          {selectedClient.rfc && (
+                            <div className="text-sm text-gray-600">RFC: {selectedClient.rfc}</div>
+                          )}
+                        </>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -484,8 +631,24 @@ export default function NewCotizacionPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <button
                   type="button"
-                  onClick={() => setShowProductModal(true)}
+                  onClick={() => {
+                    setProductTypeFilter('service');
+                    setProductSearch('');
+                    setShowProductModal(true);
+                  }}
                   className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Agregar Servicio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductTypeFilter('product');
+                    setProductSearch('');
+                    setShowProductModal(true);
+                  }}
+                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors border border-gray-300"
                 >
                   <Plus className="w-5 h-5" />
                   Agregar Producto
@@ -497,22 +660,10 @@ export default function NewCotizacionPage() {
                     setCustomUnit('pza');
                     setShowCustomItemModal(true);
                   }}
-                  className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors border border-gray-300"
                 >
                   <Plus className="w-5 h-5" />
-                  Producto Personalizado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomItemType('service');
-                    setCustomUnit('servicio');
-                    setShowCustomItemModal(true);
-                  }}
-                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  Servicio Personalizado
+                  Producto o Servicio Personalizado
                 </button>
               </div>
 
@@ -671,7 +822,7 @@ export default function NewCotizacionPage() {
                   onClick={() => handleSubmit('DRAFT')}
                   disabled={submitting || !selectedClientId || items.length === 0}
                   className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                  title={!selectedClientId ? 'Selecciona un cliente' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
+                  title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
                 >
                   {submitting ? (
                     <div className="flex items-center justify-center gap-2">
@@ -686,7 +837,7 @@ export default function NewCotizacionPage() {
                   onClick={() => handleSubmit('SENT')}
                   disabled={submitting || !selectedClientId || items.length === 0}
                   className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-                  title={!selectedClientId ? 'Selecciona un cliente' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
+                  title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
                 >
                   {submitting ? (
                     <>
@@ -710,7 +861,9 @@ export default function NewCotizacionPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
               <div className="p-6 border-b flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">Seleccionar Producto</h3>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {productTypeFilter === 'service' ? 'Seleccionar Servicio' : 'Seleccionar Producto'}
+                </h3>
                 <button
                   onClick={() => {
                     setShowProductModal(false);
@@ -725,7 +878,7 @@ export default function NewCotizacionPage() {
               <div className="p-6 border-b">
                 <input
                   type="text"
-                  placeholder="Buscar producto..."
+                  placeholder={productTypeFilter === 'service' ? 'Buscar servicio por nombre...' : 'Buscar producto por nombre o SKU...'}
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
@@ -736,7 +889,9 @@ export default function NewCotizacionPage() {
               <div className="overflow-y-auto max-h-96 p-6">
                 {filteredProducts.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
-                    No se encontraron productos
+                    {productTypeFilter === 'service'
+                      ? 'No se encontraron servicios. Crea uno en Productos y Servicios.'
+                      : 'No se encontraron productos'}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -780,7 +935,7 @@ export default function NewCotizacionPage() {
                 customItemType === 'product' ? 'bg-purple-50' : 'bg-blue-50'
               }`}>
                 <h3 className="text-xl font-bold text-gray-900">
-                  {customItemType === 'product' ? 'Agregar Producto Personalizado' : 'Agregar Servicio Personalizado'}
+                  {customItemType === 'product' ? 'Producto Personalizado' : 'Servicio Personalizado'}
                 </h3>
                 <button
                   onClick={() => setShowCustomItemModal(false)}
