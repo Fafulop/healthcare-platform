@@ -176,7 +176,7 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
           />
           <NavItem
             icon={Package}
-            label="Productos"
+            label="Productos y Servicios"
             href="/dashboard/practice/products"
             active={pathname?.startsWith("/dashboard/practice/products")}
           />

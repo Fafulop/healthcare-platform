@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree, ChevronLeft, ChevronRight, Calendar, ChevronDown, X } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree, ChevronLeft, ChevronRight, Calendar, ChevronDown, X, CheckSquare, Eye } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -121,6 +121,8 @@ export default function FlujoDeDineroPage() {
   const [updatingArea, setUpdatingArea] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [modalEntry, setModalEntry] = useState<LedgerEntry | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [deletingBatch, setDeletingBatch] = useState(false);
 
   useEffect(() => {
     if (session?.user?.email) {
@@ -233,6 +235,59 @@ export default function FlujoDeDineroPage() {
     } catch (err) {
       console.error('Error al eliminar movimiento:', err);
       alert('Error al eliminar movimiento');
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`¿Estás seguro de eliminar ${selectedIds.size} movimiento${selectedIds.size !== 1 ? 's' : ''}?`)) return;
+
+    setDeletingBatch(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const id of selectedIds) {
+      try {
+        const response = await authFetch(`${API_URL}/api/practice-management/ledger/${id}`, {
+          method: 'DELETE'
+        });
+        if (response.ok || response.status === 204) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (err) {
+        errorCount++;
+      }
+    }
+
+    setDeletingBatch(false);
+    setSelectedIds(new Set());
+    fetchEntries();
+    fetchBalance();
+
+    if (errorCount > 0) {
+      alert(`Se eliminaron ${successCount} movimientos. ${errorCount} fallaron.`);
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredEntries.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredEntries.map(e => e.id)));
     }
   };
 
@@ -604,6 +659,35 @@ export default function FlujoDeDineroPage() {
           </div>
         </div>
 
+          {/* Batch Delete Bar */}
+          {selectedIds.size > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
+              <span className="text-sm font-medium text-red-800">
+                {selectedIds.size} movimiento{selectedIds.size !== 1 ? 's' : ''} seleccionado{selectedIds.size !== 1 ? 's' : ''}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-sm text-gray-600 hover:text-gray-800 px-3 py-1.5 rounded-md hover:bg-gray-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleBatchDelete}
+                  disabled={deletingBatch}
+                  className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors"
+                >
+                  {deletingBatch ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Entries Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {/* Day Navigator */}
@@ -669,6 +753,18 @@ export default function FlujoDeDineroPage() {
 
             {/* Mobile Card View */}
             <div className="sm:hidden p-3 space-y-3">
+              {/* Mobile Select All */}
+              {filteredEntries.length > 0 && (
+                <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={filteredEntries.length > 0 && selectedIds.size === filteredEntries.length}
+                    onChange={toggleSelectAll}
+                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-600">Seleccionar todos</span>
+                </div>
+              )}
               {filteredEntries.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <DollarSign className="w-10 h-10 mx-auto mb-3 text-gray-400" />
@@ -678,15 +774,24 @@ export default function FlujoDeDineroPage() {
                 </div>
               ) : (
                 filteredEntries.map((entry) => (
-                  <div key={entry.id} className="border border-gray-200 rounded-lg p-3 cursor-pointer active:bg-gray-50" onClick={() => setModalEntry(entry)}>
-                    {/* Amount + Type badge */}
+                  <div key={entry.id} className={`border rounded-lg p-3 ${selectedIds.has(entry.id) ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}`}>
+                    {/* Checkbox + Amount + Type badge */}
                     <div className="flex items-center justify-between">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        entry.entryType === 'ingreso' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {entry.entryType === 'ingreso' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                        {entry.entryType === 'ingreso' ? 'Ingreso' : 'Egreso'}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(entry.id)}
+                          onChange={() => toggleSelect(entry.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                        />
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          entry.entryType === 'ingreso' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {entry.entryType === 'ingreso' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                          {entry.entryType === 'ingreso' ? 'Ingreso' : 'Egreso'}
+                        </span>
+                      </div>
                       <span className={`font-bold text-base ${entry.entryType === 'ingreso' ? 'text-blue-600' : 'text-red-600'}`}>
                         {entry.entryType === 'ingreso' ? '+' : '-'} {formatCurrency(entry.amount)}
                       </span>
@@ -736,15 +841,20 @@ export default function FlujoDeDineroPage() {
                     {/* Footer: Action buttons */}
                     <div className="flex items-center justify-end mt-2.5 pt-2.5 border-t border-gray-100">
                       <div className="flex gap-1">
+                        <button
+                          onClick={() => setModalEntry(entry)}
+                          className="text-gray-600 p-1.5 rounded-lg hover:bg-gray-100"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                         <Link
                           href={`/dashboard/practice/flujo-de-dinero/${entry.id}/edit`}
                           className="text-blue-600 p-1.5 rounded-lg hover:bg-blue-50"
-                          onClick={(e) => e.stopPropagation()}
                         >
                           <Edit2 className="w-4 h-4" />
                         </Link>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(entry.id, entry.internalId); }}
+                          onClick={() => handleDelete(entry.id, entry.internalId)}
                           className="text-red-600 p-1.5 rounded-lg hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -761,45 +871,53 @@ export default function FlujoDeDineroPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="px-4 py-3 text-center w-12">
+                      <input
+                        type="checkbox"
+                        checked={filteredEntries.length > 0 && selectedIds.size === filteredEntries.length}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Concepto
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Área
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo Transacción
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Paciente/Proveedor
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado Pago
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pagado
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Saldo
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
+                      Fecha
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Acciones
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tipo
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Área
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Concepto
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tipo Transacción
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estado Pago
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Pagado
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Saldo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Paciente/Proveedor
+                    </th>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
                       <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                       <p className="text-lg font-medium">
                         {showAllEntries ? "No hay movimientos registrados" : `Sin movimientos para ${formatDate(ledgerDate + 'T00:00:00')}`}
@@ -809,20 +927,73 @@ export default function FlujoDeDineroPage() {
                   </tr>
                 ) : (
                   filteredEntries.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setModalEntry(entry)}>
+                    <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                      {/* Checkbox */}
+                      <td className="px-4 py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(entry.id)}
+                          onChange={() => toggleSelect(entry.id)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                        />
+                      </td>
+                      {/* Fecha */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(entry.transactionDate)}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-xs truncate" title={cleanConcept(entry.concept)}>
-                          {cleanConcept(entry.concept)}
+                      {/* Acciones */}
+                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => setModalEntry(entry)}
+                            className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-lg transition-colors"
+                            title="Ver detalle"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <Link
+                            href={`/dashboard/practice/flujo-de-dinero/${entry.id}/edit`}
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(entry.id, entry.internalId)}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        {entry.bankAccount && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {entry.bankAccount} • {entry.formaDePago}
-                          </div>
-                        )}
                       </td>
+                      {/* Tipo */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                          entry.entryType === 'ingreso'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {entry.entryType === 'ingreso' ? (
+                            <>
+                              <TrendingUp className="w-3 h-3" />
+                              Ingreso
+                            </>
+                          ) : (
+                            <>
+                              <TrendingDown className="w-3 h-3" />
+                              Egreso
+                            </>
+                          )}
+                        </span>
+                      </td>
+                      {/* Total */}
+                      <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold ${
+                        entry.entryType === 'ingreso' ? 'text-blue-600' : 'text-red-600'
+                      }`}>
+                        {entry.entryType === 'ingreso' ? '+' : '-'} {formatCurrency(entry.amount)}
+                      </td>
+                      {/* Área */}
                       <td className="px-6 py-4 text-sm">
                         {editingAreaId === entry.id ? (
                           // EDIT MODE - Show dropdowns
@@ -901,7 +1072,7 @@ export default function FlujoDeDineroPage() {
                           // VIEW MODE - Show current values with edit trigger
                           <div
                             className="text-gray-600 cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 transition-colors group"
-                            onClick={(e) => { e.stopPropagation(); handleStartEditArea(entry); }}
+                            onClick={() => handleStartEditArea(entry)}
                             title="Click para editar área y subárea"
                           >
                             <div className="flex items-center justify-between">
@@ -914,25 +1085,18 @@ export default function FlujoDeDineroPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-                          entry.entryType === 'ingreso'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {entry.entryType === 'ingreso' ? (
-                            <>
-                              <TrendingUp className="w-3 h-3" />
-                              Ingreso
-                            </>
-                          ) : (
-                            <>
-                              <TrendingDown className="w-3 h-3" />
-                              Egreso
-                            </>
-                          )}
-                        </span>
+                      {/* Concepto */}
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 max-w-xs truncate" title={cleanConcept(entry.concept)}>
+                          {cleanConcept(entry.concept)}
+                        </div>
+                        {entry.bankAccount && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {entry.bankAccount} • {entry.formaDePago}
+                          </div>
+                        )}
                       </td>
+                      {/* Tipo Transacción */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {entry.transactionType === 'VENTA' && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -948,21 +1112,7 @@ export default function FlujoDeDineroPage() {
                           <span className="text-xs text-gray-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {entry.client && (
-                          <div className="max-w-xs truncate" title={entry.client.businessName}>
-                            {entry.client.businessName}
-                          </div>
-                        )}
-                        {entry.supplier && (
-                          <div className="max-w-xs truncate" title={entry.supplier.businessName}>
-                            {entry.supplier.businessName}
-                          </div>
-                        )}
-                        {!entry.client && !entry.supplier && (
-                          <span className="text-xs text-gray-400">-</span>
-                        )}
-                      </td>
+                      {/* Estado Pago */}
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         {entry.paymentStatus === 'PAID' && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -983,13 +1133,7 @@ export default function FlujoDeDineroPage() {
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      {/* Total */}
-                      <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold ${
-                        entry.entryType === 'ingreso' ? 'text-blue-600' : 'text-red-600'
-                      }`}>
-                        {entry.entryType === 'ingreso' ? '+' : '-'} {formatCurrency(entry.amount)}
-                      </td>
-                      {/* Pagado - only for VENTA/COMPRA */}
+                      {/* Pagado */}
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') ? (
                           <span className="font-medium text-blue-600">
@@ -999,7 +1143,7 @@ export default function FlujoDeDineroPage() {
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      {/* Saldo - only for VENTA/COMPRA */}
+                      {/* Saldo */}
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') ? (
                           (() => {
@@ -1018,24 +1162,21 @@ export default function FlujoDeDineroPage() {
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <div className="flex items-center justify-center gap-2">
-                          <Link
-                            href={`/dashboard/practice/flujo-de-dinero/${entry.id}/edit`}
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-colors"
-                            title="Editar"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Link>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(entry.id, entry.internalId); }}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                      {/* Paciente/Proveedor */}
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {entry.client && (
+                          <div className="max-w-xs truncate" title={entry.client.businessName}>
+                            {entry.client.businessName}
+                          </div>
+                        )}
+                        {entry.supplier && (
+                          <div className="max-w-xs truncate" title={entry.supplier.businessName}>
+                            {entry.supplier.businessName}
+                          </div>
+                        )}
+                        {!entry.client && !entry.supplier && (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
                       </td>
                     </tr>
                   ))
