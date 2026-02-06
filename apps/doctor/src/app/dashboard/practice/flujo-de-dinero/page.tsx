@@ -312,12 +312,12 @@ export default function FlujoDeDineroPage() {
 
     // Add header
     doc.setFontSize(18);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Flujo de Dinero - Movimientos', 14, 20);
 
     // Add date
     doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.text(`Generado: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}`, 14, 28);
 
     // Add doctor info if available
@@ -381,7 +381,7 @@ export default function FlujoDeDineroPage() {
     // Add summary
     const yPosition = (doc as any).lastAutoTable.finalY + 10;
     doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text(`Total de movimientos: ${selectedEntries.length}`, 14, yPosition);
 
     // Calculate totals
@@ -701,12 +701,12 @@ export default function FlujoDeDineroPage() {
 
     // Header
     doc.setFontSize(18);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Estado de Resultados', 14, y);
     y += 8;
 
     doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.text(`Generado: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}`, 14, y);
     y += 6;
 
@@ -738,7 +738,7 @@ export default function FlujoDeDineroPage() {
 
     if (ingresosRows.length > 0) {
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Ingresos', 14, y);
       y += 2;
 
@@ -756,13 +756,13 @@ export default function FlujoDeDineroPage() {
 
       if (estadoResultados.cuentasPorCobrar > 0) {
         doc.setFontSize(9);
-        doc.setFont(undefined, 'normal');
+        doc.setFont('helvetica', 'normal');
         doc.text(`Cuentas por Cobrar: ${formatCurrency(estadoResultados.cuentasPorCobrar)}`, 14, y);
         y += 6;
       }
     } else {
       doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.text('No hay ingresos registrados', 14, y);
       y += 8;
     }
@@ -783,7 +783,7 @@ export default function FlujoDeDineroPage() {
 
     if (egresosRows.length > 0) {
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Egresos', 14, y);
       y += 2;
 
@@ -801,13 +801,13 @@ export default function FlujoDeDineroPage() {
 
       if (estadoResultados.cuentasPorPagar > 0) {
         doc.setFontSize(9);
-        doc.setFont(undefined, 'normal');
+        doc.setFont('helvetica', 'normal');
         doc.text(`Cuentas por Pagar: ${formatCurrency(estadoResultados.cuentasPorPagar)}`, 14, y);
         y += 6;
       }
     } else {
       doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.text('No hay egresos registrados', 14, y);
       y += 8;
     }
