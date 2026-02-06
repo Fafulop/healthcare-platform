@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree, ChevronLeft, ChevronRight, Calendar, ChevronDown, X, CheckSquare, Eye } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, DollarSign, Filter, FolderTree, ChevronLeft, ChevronRight, Calendar, ChevronDown, X, CheckSquare, Eye, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -123,6 +123,32 @@ export default function FlujoDeDineroPage() {
   const [modalEntry, setModalEntry] = useState<LedgerEntry | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deletingBatch, setDeletingBatch] = useState(false);
+
+  // Estado de Resultados date filters
+  const [estadoStartDate, setEstadoStartDate] = useState('');
+  const [estadoEndDate, setEstadoEndDate] = useState('');
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Inline editing for Forma de Pago
+  const [editingFormaPagoId, setEditingFormaPagoId] = useState<number | null>(null);
+  const [editingFormaPagoValue, setEditingFormaPagoValue] = useState<string>('');
+  const [updatingFormaPago, setUpdatingFormaPago] = useState(false);
+
+  const formasDePago = [
+    { value: 'efectivo', label: 'Efectivo' },
+    { value: 'transferencia', label: 'Transferencia' },
+    { value: 'tarjeta', label: 'Tarjeta' },
+    { value: 'cheque', label: 'Cheque' },
+    { value: 'deposito', label: 'Depósito' },
+  ];
+
+  // Inline editing for Cobrado/Pagado (amountPaid)
+  const [editingAmountPaidId, setEditingAmountPaidId] = useState<number | null>(null);
+  const [editingAmountPaidValue, setEditingAmountPaidValue] = useState<string>('');
+  const [updatingAmountPaid, setUpdatingAmountPaid] = useState(false);
 
   useEffect(() => {
     if (session?.user?.email) {
@@ -271,6 +297,110 @@ export default function FlujoDeDineroPage() {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (selectedIds.size === 0) return;
+
+    // Dynamic import of jsPDF and autoTable
+    const { default: jsPDF } = await import('jspdf');
+    const autoTable = (await import('jspdf-autotable')).default;
+
+    // Get selected entries
+    const selectedEntries = entries.filter(entry => selectedIds.has(entry.id));
+
+    // Create PDF document
+    const doc = new jsPDF();
+
+    // Add header
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('Flujo de Dinero - Movimientos', 14, 20);
+
+    // Add date
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Generado: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}`, 14, 28);
+
+    // Add doctor info if available
+    if (doctorProfile) {
+      doc.text(`Doctor: ${doctorProfile.primarySpecialty}`, 14, 34);
+    }
+
+    // Prepare table data
+    const tableData = selectedEntries.map(entry => {
+      const amountPaid = parseFloat(entry.amountPaid || '0');
+      const total = parseFloat(entry.amount);
+      const balance = total - amountPaid;
+
+      return [
+        formatDate(entry.transactionDate),
+        entry.entryType === 'ingreso' ? 'Ingreso' : 'Egreso',
+        formatCurrency(entry.amount),
+        entry.area,
+        entry.subarea,
+        cleanConcept(entry.concept).substring(0, 40) + (cleanConcept(entry.concept).length > 40 ? '...' : ''),
+        entry.formaDePago || '-',
+        entry.entryType === 'ingreso' ? formatCurrency(amountPaid) : '-',
+        entry.entryType === 'ingreso' && balance > 0 ? formatCurrency(balance.toString()) : '-',
+        entry.entryType === 'egreso' ? formatCurrency(amountPaid) : '-',
+        entry.entryType === 'egreso' && balance > 0 ? formatCurrency(balance.toString()) : '-',
+      ];
+    });
+
+    // Add table
+    autoTable(doc, {
+      startY: doctorProfile ? 40 : 34,
+      head: [['Fecha', 'Tipo', 'Monto', 'Área', 'Subárea', 'Concepto', 'Forma Pago', 'Cobrado', 'Por Cobrar', 'Pagado', 'Por Pagar']],
+      body: tableData,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        0: { cellWidth: 20 }, // Fecha
+        1: { cellWidth: 18 }, // Tipo
+        2: { cellWidth: 20, halign: 'right' }, // Monto
+        3: { cellWidth: 20 }, // Área
+        4: { cellWidth: 20 }, // Subárea
+        5: { cellWidth: 30 }, // Concepto
+        6: { cellWidth: 18 }, // Forma Pago
+        7: { cellWidth: 18, halign: 'right' }, // Cobrado
+        8: { cellWidth: 18, halign: 'right' }, // Por Cobrar
+        9: { cellWidth: 18, halign: 'right' }, // Pagado
+        10: { cellWidth: 18, halign: 'right' }, // Por Pagar
+      },
+    });
+
+    // Add summary
+    const yPosition = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Total de movimientos: ${selectedEntries.length}`, 14, yPosition);
+
+    // Calculate totals
+    const totalIngresos = selectedEntries
+      .filter(e => e.entryType === 'ingreso')
+      .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const totalEgresos = selectedEntries
+      .filter(e => e.entryType === 'egreso')
+      .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+
+    doc.text(`Total Ingresos: ${formatCurrency(totalIngresos.toString())}`, 14, yPosition + 6);
+    doc.text(`Total Egresos: ${formatCurrency(totalEgresos.toString())}`, 14, yPosition + 12);
+    doc.text(`Balance: ${formatCurrency((totalIngresos - totalEgresos).toString())}`, 14, yPosition + 18);
+
+    // Save PDF
+    const fileName = `flujo-de-dinero-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+  };
+
   const toggleSelect = (id: number) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -388,6 +518,124 @@ export default function FlujoDeDineroPage() {
     }
   };
 
+  const handleStartEditFormaPago = (entry: LedgerEntry) => {
+    setEditingFormaPagoId(entry.id);
+    setEditingFormaPagoValue(entry.formaDePago || '');
+  };
+
+  const handleSaveFormaPago = async (entryId: number) => {
+    if (!session?.user?.email) return;
+
+    setUpdatingFormaPago(true);
+
+    try {
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          formaDePago: editingFormaPagoValue
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar forma de pago');
+      }
+
+      // Update local state
+      setEntries(prevEntries =>
+        prevEntries.map(e =>
+          e.id === entryId
+            ? { ...e, formaDePago: editingFormaPagoValue }
+            : e
+        )
+      );
+
+      // Reset editing state
+      setEditingFormaPagoId(null);
+      setEditingFormaPagoValue('');
+    } catch (err) {
+      console.error('Error updating forma de pago:', err);
+      alert('Error al actualizar la forma de pago');
+    } finally {
+      setUpdatingFormaPago(false);
+    }
+  };
+
+  const handleStartEditAmountPaid = (entry: LedgerEntry) => {
+    setEditingAmountPaidId(entry.id);
+    setEditingAmountPaidValue(entry.amountPaid || '0');
+  };
+
+  const handleSaveAmountPaid = async (entryId: number, totalAmount: string) => {
+    if (!session?.user?.email) return;
+
+    const amountPaid = parseFloat(editingAmountPaidValue) || 0;
+    const total = parseFloat(totalAmount) || 0;
+
+    // Validate amount doesn't exceed total
+    if (amountPaid > total) {
+      alert('El monto pagado no puede ser mayor al total');
+      return;
+    }
+
+    if (amountPaid < 0) {
+      alert('El monto no puede ser negativo');
+      return;
+    }
+
+    setUpdatingAmountPaid(true);
+
+    // Determine payment status based on amount paid
+    let paymentStatus: string;
+    if (amountPaid === 0) {
+      paymentStatus = 'PENDING';
+    } else if (amountPaid >= total) {
+      paymentStatus = 'PAID';
+    } else {
+      paymentStatus = 'PARTIAL';
+    }
+
+    try {
+      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amountPaid: amountPaid,
+          paymentStatus: paymentStatus
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar monto');
+      }
+
+      // Update local state
+      setEntries(prevEntries =>
+        prevEntries.map(e =>
+          e.id === entryId
+            ? { ...e, amountPaid: amountPaid.toString(), paymentStatus: paymentStatus }
+            : e
+        )
+      );
+
+      // Reset editing state
+      setEditingAmountPaidId(null);
+      setEditingAmountPaidValue('');
+
+      // Refresh balance
+      fetchBalance();
+    } catch (err) {
+      console.error('Error updating amount paid:', err);
+      alert('Error al actualizar el monto');
+    } finally {
+      setUpdatingAmountPaid(false);
+    }
+  };
+
   // Process entries for Estado de Resultados
   const processEstadoResultados = () => {
     const result = {
@@ -397,7 +645,17 @@ export default function FlujoDeDineroPage() {
       cuentasPorPagar: 0,
     };
 
-    entries.forEach(entry => {
+    // Filter entries by date range if specified
+    const filteredEntries = entries.filter(entry => {
+      const entryDate = entry.transactionDate.split('T')[0];
+
+      if (estadoStartDate && entryDate < estadoStartDate) return false;
+      if (estadoEndDate && entryDate > estadoEndDate) return false;
+
+      return true;
+    });
+
+    filteredEntries.forEach(entry => {
       const amount = parseFloat(entry.amount);
       const amountPaid = parseFloat(entry.amountPaid || '0');
       const saldo = amount - amountPaid;
@@ -434,27 +692,253 @@ export default function FlujoDeDineroPage() {
 
   const estadoResultados = processEstadoResultados();
 
+  const handleExportEstadoResultadosPDF = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const autoTable = (await import('jspdf-autotable')).default;
+
+    const doc = new jsPDF();
+    let y = 14;
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('Estado de Resultados', 14, y);
+    y += 8;
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Generado: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}`, 14, y);
+    y += 6;
+
+    if (estadoStartDate || estadoEndDate) {
+      const from = estadoStartDate || '...';
+      const to = estadoEndDate || '...';
+      doc.text(`Período: ${from} — ${to}`, 14, y);
+      y += 6;
+    }
+
+    if (doctorProfile) {
+      doc.text(`Doctor: ${doctorProfile.primarySpecialty}`, 14, y);
+      y += 6;
+    }
+
+    y += 2;
+
+    // --- INGRESOS table ---
+    const ingresosRows: (string | number)[][] = [];
+    Object.entries(estadoResultados.ingresos).forEach(([area, subareas]) => {
+      Object.entries(subareas).forEach(([subarea, amount]) => {
+        ingresosRows.push([area, subarea, formatCurrency(amount)]);
+      });
+    });
+
+    const totalIngresos = Object.values(estadoResultados.ingresos)
+      .flatMap(s => Object.values(s))
+      .reduce((sum, val) => sum + val, 0);
+
+    if (ingresosRows.length > 0) {
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('Ingresos', 14, y);
+      y += 2;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Área', 'Subárea', 'Monto']],
+        body: ingresosRows,
+        foot: [['', 'Total Ingresos Realizados', formatCurrency(totalIngresos)]],
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+        footStyles: { fillColor: [219, 234, 254], textColor: [30, 64, 175], fontStyle: 'bold' },
+        columnStyles: { 2: { halign: 'right' } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 4;
+
+      if (estadoResultados.cuentasPorCobrar > 0) {
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Cuentas por Cobrar: ${formatCurrency(estadoResultados.cuentasPorCobrar)}`, 14, y);
+        y += 6;
+      }
+    } else {
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text('No hay ingresos registrados', 14, y);
+      y += 8;
+    }
+
+    y += 4;
+
+    // --- EGRESOS table ---
+    const egresosRows: (string | number)[][] = [];
+    Object.entries(estadoResultados.egresos).forEach(([area, subareas]) => {
+      Object.entries(subareas).forEach(([subarea, amount]) => {
+        egresosRows.push([area, subarea, formatCurrency(amount)]);
+      });
+    });
+
+    const totalEgresos = Object.values(estadoResultados.egresos)
+      .flatMap(s => Object.values(s))
+      .reduce((sum, val) => sum + val, 0);
+
+    if (egresosRows.length > 0) {
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('Egresos', 14, y);
+      y += 2;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Área', 'Subárea', 'Monto']],
+        body: egresosRows,
+        foot: [['', 'Total Egresos Realizados', formatCurrency(totalEgresos)]],
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [220, 38, 38], textColor: 255, fontStyle: 'bold' },
+        footStyles: { fillColor: [254, 226, 226], textColor: [185, 28, 28], fontStyle: 'bold' },
+        columnStyles: { 2: { halign: 'right' } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 4;
+
+      if (estadoResultados.cuentasPorPagar > 0) {
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Cuentas por Pagar: ${formatCurrency(estadoResultados.cuentasPorPagar)}`, 14, y);
+        y += 6;
+      }
+    } else {
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text('No hay egresos registrados', 14, y);
+      y += 8;
+    }
+
+    y += 6;
+
+    // --- Balance General ---
+    autoTable(doc, {
+      startY: y,
+      head: [['Concepto', 'Monto']],
+      body: [
+        ['Total Ingresos Realizados', formatCurrency(totalIngresos)],
+        ['Total Egresos Realizados', formatCurrency(totalEgresos)],
+        ...(estadoResultados.cuentasPorCobrar > 0 ? [['Cuentas por Cobrar', formatCurrency(estadoResultados.cuentasPorCobrar)]] : []),
+        ...(estadoResultados.cuentasPorPagar > 0 ? [['Cuentas por Pagar', formatCurrency(estadoResultados.cuentasPorPagar)]] : []),
+      ],
+      foot: [['Balance Neto', formatCurrency(totalIngresos - totalEgresos)]],
+      styles: { fontSize: 9, cellPadding: 2 },
+      headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
+      footStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: 'bold', fontSize: 11 },
+      columnStyles: { 1: { halign: 'right' } },
+    });
+
+    const fileName = `estado-de-resultados-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+  };
+
   const getLocalDateString = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const todayStr = getLocalDateString(new Date());
 
-  const filteredEntries = entries.filter(entry => {
-    // Day filter
-    if (!showAllEntries) {
-      const entryDate = entry.transactionDate.split('T')[0];
-      if (entryDate !== ledgerDate) return false;
+  // Handle column sorting
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      // Toggle direction if clicking same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new column and default to ascending
+      setSortColumn(column);
+      setSortDirection('asc');
     }
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      return entry.concept.toLowerCase().includes(search) ||
-             entry.internalId.toLowerCase().includes(search) ||
-             entry.area.toLowerCase().includes(search) ||
-             entry.subarea.toLowerCase().includes(search);
+  };
+
+  // Render sort icon for column header
+  const renderSortIcon = (column: string) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="w-3 h-3 ml-1 text-gray-400" />;
     }
-    return true;
-  });
+    return sortDirection === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1 text-blue-600" />
+      : <ArrowDown className="w-3 h-3 ml-1 text-blue-600" />;
+  };
+
+  const filteredEntries = entries
+    .filter(entry => {
+      // Day filter
+      if (!showAllEntries) {
+        const entryDate = entry.transactionDate.split('T')[0];
+        if (entryDate !== ledgerDate) return false;
+      }
+      // Search filter
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        return entry.concept.toLowerCase().includes(search) ||
+               entry.internalId.toLowerCase().includes(search) ||
+               entry.area.toLowerCase().includes(search) ||
+               entry.subarea.toLowerCase().includes(search);
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (!sortColumn) return 0;
+
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortColumn) {
+        case 'fecha':
+          aValue = new Date(a.transactionDate).getTime();
+          bValue = new Date(b.transactionDate).getTime();
+          break;
+        case 'tipo':
+          aValue = a.entryType;
+          bValue = b.entryType;
+          break;
+        case 'monto':
+          aValue = parseFloat(a.amount);
+          bValue = parseFloat(b.amount);
+          break;
+        case 'area':
+          aValue = a.area.toLowerCase();
+          bValue = b.area.toLowerCase();
+          break;
+        case 'concepto':
+          aValue = a.concept.toLowerCase();
+          bValue = b.concept.toLowerCase();
+          break;
+        case 'formaDePago':
+          aValue = (a.formaDePago || '').toLowerCase();
+          bValue = (b.formaDePago || '').toLowerCase();
+          break;
+        case 'cobrado':
+          aValue = parseFloat(a.amountPaid || '0');
+          bValue = parseFloat(b.amountPaid || '0');
+          break;
+        case 'pagado':
+          aValue = parseFloat(a.amountPaid || '0');
+          bValue = parseFloat(b.amountPaid || '0');
+          break;
+        case 'estadoPago':
+          const statusOrder = { 'PAID': 3, 'PARTIAL': 2, 'PENDING': 1 };
+          aValue = statusOrder[a.paymentStatus as keyof typeof statusOrder] || 0;
+          bValue = statusOrder[b.paymentStatus as keyof typeof statusOrder] || 0;
+          break;
+        case 'paciente':
+          aValue = (a.client?.businessName || '').toLowerCase();
+          bValue = (b.client?.businessName || '').toLowerCase();
+          break;
+        case 'proveedor':
+          aValue = (a.supplier?.businessName || '').toLowerCase();
+          bValue = (b.supplier?.businessName || '').toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   if (status === "loading" || loading) {
     return (
@@ -659,10 +1143,10 @@ export default function FlujoDeDineroPage() {
           </div>
         </div>
 
-          {/* Batch Delete Bar */}
+          {/* Batch Action Bar */}
           {selectedIds.size > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
-              <span className="text-sm font-medium text-red-800">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
+              <span className="text-sm font-medium text-blue-800">
                 {selectedIds.size} movimiento{selectedIds.size !== 1 ? 's' : ''} seleccionado{selectedIds.size !== 1 ? 's' : ''}
               </span>
               <div className="flex items-center gap-2">
@@ -673,16 +1157,11 @@ export default function FlujoDeDineroPage() {
                   Cancelar
                 </button>
                 <button
-                  onClick={handleBatchDelete}
-                  disabled={deletingBatch}
-                  className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors"
+                  onClick={handleExportPDF}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors"
                 >
-                  {deletingBatch ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
-                  Eliminar
+                  <Download className="w-4 h-4" />
+                  Exportar PDF
                 </button>
               </div>
             </div>
@@ -853,12 +1332,6 @@ export default function FlujoDeDineroPage() {
                         >
                           <Edit2 className="w-4 h-4" />
                         </Link>
-                        <button
-                          onClick={() => handleDelete(entry.id, entry.internalId)}
-                          className="text-red-600 p-1.5 rounded-lg hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -871,7 +1344,7 @@ export default function FlujoDeDineroPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-center w-12">
+                    <th className="px-4 py-3 text-center w-12 sticky left-0 z-20 bg-gray-50">
                       <input
                         type="checkbox"
                         checked={filteredEntries.length > 0 && selectedIds.size === filteredEntries.length}
@@ -879,45 +1352,120 @@ export default function FlujoDeDineroPage() {
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                       />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors sticky left-[48px] z-20 bg-gray-50"
+                      onClick={() => handleSort('fecha')}
+                    >
+                      <div className="flex items-center">
+                        Fecha
+                        {renderSortIcon('fecha')}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-[152px] z-20 bg-gray-50 border-r border-gray-200">
                       Acciones
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tipo
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('tipo')}
+                    >
+                      <div className="flex items-center">
+                        Tipo
+                        {renderSortIcon('tipo')}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total
+                    <th
+                      className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('monto')}
+                    >
+                      <div className="flex items-center justify-end">
+                        Monto
+                        {renderSortIcon('monto')}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Área
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-amber-50 cursor-pointer hover:bg-amber-100 transition-colors"
+                      onClick={() => handleSort('area')}
+                    >
+                      <div className="flex items-center">
+                        Área
+                        {renderSortIcon('area')}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Concepto
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('concepto')}
+                    >
+                      <div className="flex items-center">
+                        Concepto
+                        {renderSortIcon('concepto')}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tipo Transacción
+                    <th
+                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('estadoPago')}
+                    >
+                      <div className="flex items-center justify-center">
+                        Estado Pago
+                        {renderSortIcon('estadoPago')}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado Pago
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-amber-50 cursor-pointer hover:bg-amber-100 transition-colors"
+                      onClick={() => handleSort('formaDePago')}
+                    >
+                      <div className="flex items-center">
+                        Forma de Pago
+                        {renderSortIcon('formaDePago')}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Pagado
+                    <th
+                      className="px-6 py-3 text-right text-xs font-medium text-blue-600 uppercase tracking-wider bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors"
+                      onClick={() => handleSort('cobrado')}
+                    >
+                      <div className="flex items-center justify-end">
+                        Cobrado
+                        {renderSortIcon('cobrado')}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Saldo
+                    <th className="px-6 py-3 text-right text-xs font-medium text-orange-600 uppercase tracking-wider">
+                      Por Cobrar
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Paciente/Proveedor
+                    <th
+                      className="px-6 py-3 text-right text-xs font-medium text-blue-600 uppercase tracking-wider bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors"
+                      onClick={() => handleSort('pagado')}
+                    >
+                      <div className="flex items-center justify-end">
+                        Pagado
+                        {renderSortIcon('pagado')}
+                      </div>
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">
+                      Por Pagar
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('paciente')}
+                    >
+                      <div className="flex items-center">
+                        Paciente
+                        {renderSortIcon('paciente')}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('proveedor')}
+                    >
+                      <div className="flex items-center">
+                        Proveedor
+                        {renderSortIcon('proveedor')}
+                      </div>
                     </th>
                   </tr>
                 </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={15} className="px-6 py-12 text-center text-gray-500">
                       <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                       <p className="text-lg font-medium">
                         {showAllEntries ? "No hay movimientos registrados" : `Sin movimientos para ${formatDate(ledgerDate + 'T00:00:00')}`}
@@ -927,9 +1475,9 @@ export default function FlujoDeDineroPage() {
                   </tr>
                 ) : (
                   filteredEntries.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={entry.id} className="hover:bg-gray-50 transition-colors group">
                       {/* Checkbox */}
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-4 text-center sticky left-0 z-10 bg-white group-hover:bg-gray-50">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(entry.id)}
@@ -938,11 +1486,11 @@ export default function FlujoDeDineroPage() {
                         />
                       </td>
                       {/* Fecha */}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 sticky left-[48px] z-10 bg-white group-hover:bg-gray-50">
                         {formatDate(entry.transactionDate)}
                       </td>
                       {/* Acciones */}
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium sticky left-[152px] z-10 bg-white group-hover:bg-gray-50 border-r border-gray-200">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => setModalEntry(entry)}
@@ -958,13 +1506,6 @@ export default function FlujoDeDineroPage() {
                           >
                             <Edit2 className="w-4 h-4" />
                           </Link>
-                          <button
-                            onClick={() => handleDelete(entry.id, entry.internalId)}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
                       </td>
                       {/* Tipo */}
@@ -987,14 +1528,14 @@ export default function FlujoDeDineroPage() {
                           )}
                         </span>
                       </td>
-                      {/* Total */}
+                      {/* Monto */}
                       <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold ${
                         entry.entryType === 'ingreso' ? 'text-blue-600' : 'text-red-600'
                       }`}>
                         {entry.entryType === 'ingreso' ? '+' : '-'} {formatCurrency(entry.amount)}
                       </td>
                       {/* Área */}
-                      <td className="px-6 py-4 text-sm">
+                      <td className="px-6 py-4 text-sm bg-amber-50">
                         {editingAreaId === entry.id ? (
                           // EDIT MODE - Show dropdowns
                           <div className="space-y-2 min-w-[200px]">
@@ -1092,24 +1633,8 @@ export default function FlujoDeDineroPage() {
                         </div>
                         {entry.bankAccount && (
                           <div className="text-xs text-gray-500 mt-1">
-                            {entry.bankAccount} • {entry.formaDePago}
+                            {entry.bankAccount}
                           </div>
-                        )}
-                      </td>
-                      {/* Tipo Transacción */}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {entry.transactionType === 'VENTA' && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            Venta
-                          </span>
-                        )}
-                        {entry.transactionType === 'COMPRA' && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            Compra
-                          </span>
-                        )}
-                        {(!entry.transactionType || entry.transactionType === 'N/A') && (
-                          <span className="text-xs text-gray-400">N/A</span>
                         )}
                       </td>
                       {/* Estado Pago */}
@@ -1133,48 +1658,208 @@ export default function FlujoDeDineroPage() {
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      {/* Pagado */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') ? (
-                          <span className="font-medium text-blue-600">
-                            {formatCurrency(entry.amountPaid || '0')}
-                          </span>
+                      {/* Forma de Pago */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm bg-amber-50">
+                        {editingFormaPagoId === entry.id ? (
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={editingFormaPagoValue}
+                              onChange={(e) => setEditingFormaPagoValue(e.target.value)}
+                              className="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              disabled={updatingFormaPago}
+                              autoFocus
+                            >
+                              <option value="">Seleccionar...</option>
+                              {formasDePago.map(fp => (
+                                <option key={fp.value} value={fp.value}>
+                                  {fp.label}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => handleSaveFormaPago(entry.id)}
+                              disabled={updatingFormaPago || !editingFormaPagoValue}
+                              className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {updatingFormaPago ? '...' : '✓'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingFormaPagoId(null);
+                                setEditingFormaPagoValue('');
+                              }}
+                              disabled={updatingFormaPago}
+                              className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            className="text-gray-700 capitalize cursor-pointer hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors group flex items-center justify-between gap-2"
+                            onClick={() => handleStartEditFormaPago(entry)}
+                            title="Click para editar forma de pago"
+                          >
+                            <span>{entry.formaDePago || <span className="text-gray-400">-</span>}</span>
+                            <Edit2 className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        )}
+                      </td>
+                      {/* Cobrado (for ventas/ingresos) */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm bg-blue-50">
+                        {entry.entryType === 'ingreso' ? (
+                          editingAmountPaidId === entry.id ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-gray-500">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max={entry.amount}
+                                value={editingAmountPaidValue}
+                                onChange={(e) => setEditingAmountPaidValue(e.target.value)}
+                                className="w-24 px-2 py-1 text-sm text-right border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                disabled={updatingAmountPaid}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveAmountPaid(entry.id, entry.amount);
+                                  if (e.key === 'Escape') { setEditingAmountPaidId(null); setEditingAmountPaidValue(''); }
+                                }}
+                              />
+                              <button
+                                onClick={() => handleSaveAmountPaid(entry.id, entry.amount)}
+                                disabled={updatingAmountPaid}
+                                className="px-1.5 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {updatingAmountPaid ? '...' : '✓'}
+                              </button>
+                              <button
+                                onClick={() => { setEditingAmountPaidId(null); setEditingAmountPaidValue(''); }}
+                                disabled={updatingAmountPaid}
+                                className="px-1.5 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <div
+                              className="font-medium text-blue-600 cursor-pointer hover:bg-blue-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors group flex items-center justify-end gap-1"
+                              onClick={() => handleStartEditAmountPaid(entry)}
+                              title="Click para editar monto cobrado"
+                            >
+                              <span>{formatCurrency(entry.amountPaid || '0')}</span>
+                              <Edit2 className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          )
                         ) : (
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      {/* Saldo */}
+                      {/* Por Cobrar (for ventas/ingresos) */}
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') ? (
+                        {entry.entryType === 'ingreso' ? (
                           (() => {
                             const total = parseFloat(entry.amount);
                             const paid = parseFloat(entry.amountPaid || '0');
                             const balance = total - paid;
-                            return (
-                              <span className={`font-semibold ${
-                                balance === 0 ? 'text-blue-600' : 'text-red-600'
-                              }`}>
+                            return balance > 0 ? (
+                              <span className="font-semibold text-orange-600">
                                 {formatCurrency(balance.toString())}
                               </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
                             );
                           })()
                         ) : (
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      {/* Paciente/Proveedor */}
+                      {/* Pagado (for compras/egresos) */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm bg-blue-50">
+                        {entry.entryType === 'egreso' ? (
+                          editingAmountPaidId === entry.id ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-gray-500">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max={entry.amount}
+                                value={editingAmountPaidValue}
+                                onChange={(e) => setEditingAmountPaidValue(e.target.value)}
+                                className="w-24 px-2 py-1 text-sm text-right border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                disabled={updatingAmountPaid}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveAmountPaid(entry.id, entry.amount);
+                                  if (e.key === 'Escape') { setEditingAmountPaidId(null); setEditingAmountPaidValue(''); }
+                                }}
+                              />
+                              <button
+                                onClick={() => handleSaveAmountPaid(entry.id, entry.amount)}
+                                disabled={updatingAmountPaid}
+                                className="px-1.5 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {updatingAmountPaid ? '...' : '✓'}
+                              </button>
+                              <button
+                                onClick={() => { setEditingAmountPaidId(null); setEditingAmountPaidValue(''); }}
+                                disabled={updatingAmountPaid}
+                                className="px-1.5 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <div
+                              className="font-medium text-blue-600 cursor-pointer hover:bg-blue-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors group flex items-center justify-end gap-1"
+                              onClick={() => handleStartEditAmountPaid(entry)}
+                              title="Click para editar monto pagado"
+                            >
+                              <span>{formatCurrency(entry.amountPaid || '0')}</span>
+                              <Edit2 className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          )
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      {/* Por Pagar (for compras/egresos) */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                        {entry.entryType === 'egreso' ? (
+                          (() => {
+                            const total = parseFloat(entry.amount);
+                            const paid = parseFloat(entry.amountPaid || '0');
+                            const balance = total - paid;
+                            return balance > 0 ? (
+                              <span className="font-semibold text-red-600">
+                                {formatCurrency(balance.toString())}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            );
+                          })()
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      {/* Paciente */}
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {entry.client && (
+                        {entry.client ? (
                           <div className="max-w-xs truncate" title={entry.client.businessName}>
                             {entry.client.businessName}
                           </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
                         )}
-                        {entry.supplier && (
+                      </td>
+                      {/* Proveedor */}
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {entry.supplier ? (
                           <div className="max-w-xs truncate" title={entry.supplier.businessName}>
                             {entry.supplier.businessName}
                           </div>
-                        )}
-                        {!entry.client && !entry.supplier && (
+                        ) : (
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
@@ -1207,36 +1892,85 @@ export default function FlujoDeDineroPage() {
 
           {/* Estado de Resultados Tab Content */}
           {activeTab === 'estado-resultados' && (
-            <div className="space-y-6">
+            <div className="space-y-4 max-w-2xl mx-auto">
+              {/* Date Filter */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <span className="text-xs font-medium text-gray-700">Período:</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 flex-1">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600 whitespace-nowrap">Desde:</label>
+                      <input
+                        type="date"
+                        value={estadoStartDate}
+                        onChange={(e) => setEstadoStartDate(e.target.value)}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600 whitespace-nowrap">Hasta:</label>
+                      <input
+                        type="date"
+                        value={estadoEndDate}
+                        onChange={(e) => setEstadoEndDate(e.target.value)}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    {(estadoStartDate || estadoEndDate) && (
+                      <button
+                        onClick={() => {
+                          setEstadoStartDate('');
+                          setEstadoEndDate('');
+                        }}
+                        className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded flex items-center gap-1 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                        Limpiar
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleExportEstadoResultadosPDF}
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors ml-auto"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Exportar PDF
+                  </button>
+                </div>
+              </div>
+
               {/* INGRESOS Section */}
               <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="bg-blue-600 px-6 py-4">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <TrendingUp className="w-6 h-6" />
-                  INGRESOS
+                <div className="bg-blue-600 px-4 py-2.5">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2 uppercase tracking-wide">
+                  <TrendingUp className="w-4 h-4" />
+                  Ingresos
                 </h2>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-4 space-y-4">
                 {Object.keys(estadoResultados.ingresos).length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">No hay ingresos registrados</p>
+                  <p className="text-center text-gray-500 py-4 text-sm">No hay ingresos registrados</p>
                 ) : (
                   Object.entries(estadoResultados.ingresos).map(([area, subareas]) => {
                     const areaTotal = Object.values(subareas).reduce((sum, val) => sum + val, 0);
                     return (
-                      <div key={area} className="border-l-4 border-blue-500 pl-4">
-                        <h3 className="font-bold text-lg text-gray-900 mb-3">{area}</h3>
-                        <div className="space-y-2 ml-4">
+                      <div key={area} className="border-l-2 border-blue-400 pl-3">
+                        <h3 className="font-semibold text-sm text-gray-900 mb-2">{area}</h3>
+                        <div className="space-y-1 ml-3">
                           {Object.entries(subareas).map(([subarea, amount]) => (
-                            <div key={subarea} className="flex justify-between items-center py-2 border-b border-gray-100">
-                              <span className="text-gray-700">└── {subarea}</span>
-                              <span className="font-semibold text-blue-700">{formatCurrency(amount)}</span>
+                            <div key={subarea} className="flex justify-between items-center py-1.5 border-b border-gray-100">
+                              <span className="text-gray-600 text-xs">└── {subarea}</span>
+                              <span className="font-medium text-blue-600 text-xs">{formatCurrency(amount)}</span>
                             </div>
                           ))}
                         </div>
-                        <div className="mt-3 pt-3 border-t-2 border-blue-200 flex justify-between items-center">
-                          <span className="font-bold text-gray-900">Total {area}</span>
-                          <span className="font-bold text-blue-700 text-lg">{formatCurrency(areaTotal)}</span>
+                        <div className="mt-2 pt-2 border-t border-blue-200 flex justify-between items-center">
+                          <span className="font-semibold text-gray-900 text-xs">Total {area}</span>
+                          <span className="font-semibold text-blue-600 text-sm">{formatCurrency(areaTotal)}</span>
                         </div>
                       </div>
                     );
@@ -1245,28 +1979,28 @@ export default function FlujoDeDineroPage() {
 
                 {/* Cuentas por Cobrar */}
                 {estadoResultados.cuentasPorCobrar > 0 && (
-                  <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                  <div className="bg-amber-50 border-l-2 border-amber-400 p-3 rounded-r">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-bold text-amber-900 flex items-center gap-2">
+                        <h3 className="font-medium text-amber-900 text-xs flex items-center gap-1.5">
                           💵 Cuentas por Cobrar
                         </h3>
-                        <p className="text-xs text-amber-700 mt-1">Monto pendiente de recibir</p>
+                        <p className="text-[10px] text-amber-700 mt-0.5">Monto pendiente de recibir</p>
                       </div>
-                      <span className="font-bold text-amber-700 text-xl">{formatCurrency(estadoResultados.cuentasPorCobrar)}</span>
+                      <span className="font-semibold text-amber-700 text-sm">{formatCurrency(estadoResultados.cuentasPorCobrar)}</span>
                     </div>
                   </div>
                 )}
 
                 {/* Total Ingresos */}
-                <div className="bg-blue-100 border-2 border-blue-500 p-4 rounded-lg">
+                <div className="bg-blue-50 border border-blue-300 p-3 rounded">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-blue-900 text-lg">TOTAL INGRESOS</span>
-                    <span className="font-bold text-blue-700 text-2xl">
+                    <span className="font-semibold text-blue-900 text-xs uppercase tracking-wide">Total Ingresos Realizados</span>
+                    <span className="font-bold text-blue-700 text-base">
                       {formatCurrency(
                         Object.values(estadoResultados.ingresos)
                           .flatMap(subareas => Object.values(subareas))
-                          .reduce((sum, val) => sum + val, 0) + estadoResultados.cuentasPorCobrar
+                          .reduce((sum, val) => sum + val, 0)
                       )}
                     </span>
                   </div>
@@ -1276,33 +2010,33 @@ export default function FlujoDeDineroPage() {
 
               {/* EGRESOS Section */}
               <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="bg-red-600 px-6 py-4">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <TrendingDown className="w-6 h-6" />
-                  EGRESOS
+                <div className="bg-red-600 px-4 py-2.5">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2 uppercase tracking-wide">
+                  <TrendingDown className="w-4 h-4" />
+                  Egresos
                 </h2>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-4 space-y-4">
                 {Object.keys(estadoResultados.egresos).length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">No hay egresos registrados</p>
+                  <p className="text-center text-gray-500 py-4 text-sm">No hay egresos registrados</p>
                 ) : (
                   Object.entries(estadoResultados.egresos).map(([area, subareas]) => {
                     const areaTotal = Object.values(subareas).reduce((sum, val) => sum + val, 0);
                     return (
-                      <div key={area} className="border-l-4 border-red-500 pl-4">
-                        <h3 className="font-bold text-lg text-gray-900 mb-3">{area}</h3>
-                        <div className="space-y-2 ml-4">
+                      <div key={area} className="border-l-2 border-red-400 pl-3">
+                        <h3 className="font-semibold text-sm text-gray-900 mb-2">{area}</h3>
+                        <div className="space-y-1 ml-3">
                           {Object.entries(subareas).map(([subarea, amount]) => (
-                            <div key={subarea} className="flex justify-between items-center py-2 border-b border-gray-100">
-                              <span className="text-gray-700">└── {subarea}</span>
-                              <span className="font-semibold text-red-700">{formatCurrency(amount)}</span>
+                            <div key={subarea} className="flex justify-between items-center py-1.5 border-b border-gray-100">
+                              <span className="text-gray-600 text-xs">└── {subarea}</span>
+                              <span className="font-medium text-red-600 text-xs">{formatCurrency(amount)}</span>
                             </div>
                           ))}
                         </div>
-                        <div className="mt-3 pt-3 border-t-2 border-red-200 flex justify-between items-center">
-                          <span className="font-bold text-gray-900">Total {area}</span>
-                          <span className="font-bold text-red-700 text-lg">{formatCurrency(areaTotal)}</span>
+                        <div className="mt-2 pt-2 border-t border-red-200 flex justify-between items-center">
+                          <span className="font-semibold text-gray-900 text-xs">Total {area}</span>
+                          <span className="font-semibold text-red-600 text-sm">{formatCurrency(areaTotal)}</span>
                         </div>
                       </div>
                     );
@@ -1311,28 +2045,28 @@ export default function FlujoDeDineroPage() {
 
                 {/* Cuentas por Pagar */}
                 {estadoResultados.cuentasPorPagar > 0 && (
-                  <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-lg">
+                  <div className="bg-orange-50 border-l-2 border-orange-400 p-3 rounded-r">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-bold text-orange-900 flex items-center gap-2">
+                        <h3 className="font-medium text-orange-900 text-xs flex items-center gap-1.5">
                           💳 Cuentas por Pagar
                         </h3>
-                        <p className="text-xs text-orange-700 mt-1">Monto pendiente de pagar</p>
+                        <p className="text-[10px] text-orange-700 mt-0.5">Monto pendiente de pagar</p>
                       </div>
-                      <span className="font-bold text-orange-700 text-xl">{formatCurrency(estadoResultados.cuentasPorPagar)}</span>
+                      <span className="font-semibold text-orange-700 text-sm">{formatCurrency(estadoResultados.cuentasPorPagar)}</span>
                     </div>
                   </div>
                 )}
 
                 {/* Total Egresos */}
-                <div className="bg-red-100 border-2 border-red-500 p-4 rounded-lg">
+                <div className="bg-red-50 border border-red-300 p-3 rounded">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-red-900 text-lg">TOTAL EGRESOS</span>
-                    <span className="font-bold text-red-700 text-2xl">
+                    <span className="font-semibold text-red-900 text-xs uppercase tracking-wide">Total Egresos Realizados</span>
+                    <span className="font-bold text-red-700 text-base">
                       {formatCurrency(
                         Object.values(estadoResultados.egresos)
                           .flatMap(subareas => Object.values(subareas))
-                          .reduce((sum, val) => sum + val, 0) + estadoResultados.cuentasPorPagar
+                          .reduce((sum, val) => sum + val, 0)
                       )}
                     </span>
                   </div>
@@ -1342,17 +2076,17 @@ export default function FlujoDeDineroPage() {
 
               {/* Balance General */}
               <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="bg-blue-600 px-6 py-4">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <DollarSign className="w-6 h-6" />
-                  BALANCE GENERAL
+                <div className="bg-slate-700 px-4 py-2.5">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2 uppercase tracking-wide">
+                  <DollarSign className="w-4 h-4" />
+                  Balance General
                 </h2>
               </div>
 
-              <div className="p-6 space-y-4">
-                <div className="flex justify-between items-center py-3 border-b border-gray-200">
-                  <span className="text-gray-700">Total Ingresos Realizados</span>
-                  <span className="font-bold text-blue-700 text-lg">
+              <div className="p-4 space-y-3">
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-gray-600 text-xs">Total Ingresos Realizados</span>
+                  <span className="font-semibold text-blue-600 text-sm">
                     {formatCurrency(
                       Object.values(estadoResultados.ingresos)
                         .flatMap(subareas => Object.values(subareas))
@@ -1361,9 +2095,9 @@ export default function FlujoDeDineroPage() {
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center py-3 border-b border-gray-200">
-                  <span className="text-gray-700">Total Egresos Realizados</span>
-                  <span className="font-bold text-red-700 text-lg">
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-gray-600 text-xs">Total Egresos Realizados</span>
+                  <span className="font-semibold text-red-600 text-sm">
                     {formatCurrency(
                       Object.values(estadoResultados.egresos)
                         .flatMap(subareas => Object.values(subareas))
@@ -1372,10 +2106,10 @@ export default function FlujoDeDineroPage() {
                   </span>
                 </div>
 
-                <div className="bg-blue-50 border-2 border-blue-500 p-4 rounded-lg mt-4">
+                <div className="bg-slate-50 border border-slate-300 p-3 rounded mt-2">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-blue-900 text-lg">Balance Neto</span>
-                    <span className="font-bold text-blue-700 text-2xl">
+                    <span className="font-semibold text-slate-900 text-sm">Balance Neto</span>
+                    <span className="font-bold text-slate-700 text-base">
                       {formatCurrency(
                         Object.values(estadoResultados.ingresos)
                           .flatMap(subareas => Object.values(subareas))
@@ -1386,28 +2120,28 @@ export default function FlujoDeDineroPage() {
                       )}
                     </span>
                   </div>
-                  <p className="text-xs text-blue-700 mt-2 text-center">Ingresos Realizados - Egresos Realizados</p>
+                  <p className="text-[10px] text-slate-600 mt-1 text-center">Ingresos Realizados - Egresos Realizados</p>
                 </div>
 
                 {(estadoResultados.cuentasPorCobrar > 0 || estadoResultados.cuentasPorPagar > 0) && (
-                  <div className="bg-purple-50 border-2 border-purple-400 p-4 rounded-lg mt-4">
-                    <h3 className="font-bold text-purple-900 mb-3">Flujo Pendiente</h3>
-                    <div className="space-y-2">
+                  <div className="bg-purple-50 border border-purple-300 p-3 rounded mt-2">
+                    <h3 className="font-semibold text-purple-900 text-xs mb-2">Flujo Pendiente</h3>
+                    <div className="space-y-1.5">
                       {estadoResultados.cuentasPorCobrar > 0 && (
                         <div className="flex justify-between items-center">
-                          <span className="text-purple-700">Por Cobrar:</span>
-                          <span className="font-semibold text-amber-700">{formatCurrency(estadoResultados.cuentasPorCobrar)}</span>
+                          <span className="text-purple-700 text-xs">Por Cobrar:</span>
+                          <span className="font-medium text-amber-700 text-xs">{formatCurrency(estadoResultados.cuentasPorCobrar)}</span>
                         </div>
                       )}
                       {estadoResultados.cuentasPorPagar > 0 && (
                         <div className="flex justify-between items-center">
-                          <span className="text-purple-700">Por Pagar:</span>
-                          <span className="font-semibold text-orange-700">{formatCurrency(estadoResultados.cuentasPorPagar)}</span>
+                          <span className="text-purple-700 text-xs">Por Pagar:</span>
+                          <span className="font-medium text-orange-700 text-xs">{formatCurrency(estadoResultados.cuentasPorPagar)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between items-center pt-2 border-t border-purple-300">
-                        <span className="font-bold text-purple-900">Diferencia:</span>
-                        <span className="font-bold text-purple-700">
+                      <div className="flex justify-between items-center pt-1.5 border-t border-purple-300">
+                        <span className="font-semibold text-purple-900 text-xs">Diferencia:</span>
+                        <span className="font-semibold text-purple-700 text-sm">
                           {formatCurrency(estadoResultados.cuentasPorCobrar - estadoResultados.cuentasPorPagar)}
                         </span>
                       </div>

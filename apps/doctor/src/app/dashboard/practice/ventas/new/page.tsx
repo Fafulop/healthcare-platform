@@ -832,32 +832,6 @@ export default function NewVentaPage() {
                   </p>
                 </div>
               </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notas adicionales
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                  placeholder="Añade notas sobre esta venta..."
-                />
-              </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Términos y condiciones
-                </label>
-                <textarea
-                  value={termsAndConditions}
-                  onChange={(e) => setTermsAndConditions(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                  placeholder="Ej: Pago 50% anticipo, 50% contra entrega..."
-                />
-              </div>
             </div>
 
             {/* Items Section */}
@@ -1023,6 +997,37 @@ export default function NewVentaPage() {
                 </div>
               )}
             </div>
+
+            {/* Notes and Terms Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Notas y Términos</h2>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notas adicionales
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Añade notas sobre esta venta..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Términos y condiciones
+                </label>
+                <textarea
+                  value={termsAndConditions}
+                  onChange={(e) => setTermsAndConditions(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Ej: Pago 50% anticipo, 50% contra entrega..."
+                />
+              </div>
+            </div>
           </div>
 
           {/* Right Column - Summary (Sticky) */}
@@ -1065,24 +1070,9 @@ export default function NewVentaPage() {
                 )}
               </div>
 
-              <div className="mt-6 space-y-3">
+              <div className="mt-6">
                 <button
                   onClick={() => handleSubmit('PENDING')}
-                  disabled={submitting || !selectedClientId || items.length === 0}
-                  className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
-                >
-                  {submitting ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Guardando...
-                    </div>
-                  ) : (
-                    'Guardar como Pendiente'
-                  )}
-                </button>
-                <button
-                  onClick={() => handleSubmit('CONFIRMED')}
                   disabled={submitting || !selectedClientId || items.length === 0}
                   className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
                   title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
@@ -1095,7 +1085,7 @@ export default function NewVentaPage() {
                   ) : (
                     <>
                       <Save className="w-5 h-5" />
-                      Confirmar Venta
+                      Guardar Venta
                     </>
                   )}
                 </button>

@@ -15,6 +15,7 @@ import {
   Video,
   CheckSquare,
   UserCog,
+  BarChart3,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -156,6 +157,13 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               label="Pendientes"
               href="/dashboard/pendientes"
               active={pathname?.startsWith("/dashboard/pendientes")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={BarChart3}
+              label="Reportes"
+              href="/dashboard/reportes"
+              active={pathname?.startsWith("/dashboard/reportes")}
               onClick={onClose}
             />
             <NavItem

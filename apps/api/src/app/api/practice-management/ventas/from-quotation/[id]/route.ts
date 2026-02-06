@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 
+// Helper function to generate ledger internal ID
+async function generateLedgerInternalId(doctorId: string, entryType: string): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = entryType === 'ingreso' ? `ING-${year}-` : `EGR-${year}-`;
+
+  const lastEntry = await prisma.ledgerEntry.findFirst({
+    where: {
+      doctorId,
+      internalId: { startsWith: prefix }
+    },
+    orderBy: { internalId: 'desc' }
+  });
+
+  let nextNumber = 1;
+  if (lastEntry) {
+    const parts = lastEntry.internalId.split('-');
+    const lastNumber = parseInt(parts[2]);
+    if (!isNaN(lastNumber)) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+}
+
 // POST /api/practice-management/ventas/from-quotation/:id
 // Convertir cotización a venta
 export async function POST(
@@ -101,6 +126,32 @@ export async function POST(
           },
           orderBy: { order: 'asc' }
         }
+      }
+    });
+
+    // AUTO-CREATE LEDGER ENTRY for the sale (same as direct sale creation)
+    const client = await prisma.client.findUnique({
+      where: { id: quotation.clientId }
+    });
+
+    const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'ingreso');
+    await prisma.ledgerEntry.create({
+      data: {
+        doctorId: doctor.id,
+        amount: total,
+        concept: `Venta ${saleNumber} - Cliente: ${client?.businessName || 'Sin nombre'}`,
+        entryType: 'ingreso',
+        transactionDate: new Date(),
+        area: 'Ventas',
+        subarea: 'Ventas Generales',
+        porRealizar: false,
+        internalId: ledgerInternalId,
+        transactionType: 'VENTA',
+        saleId: sale.id,
+        clientId: quotation.clientId,
+        paymentStatus: 'PENDING',
+        amountPaid: 0,
+        formaDePago: 'transferencia'
       }
     });
 

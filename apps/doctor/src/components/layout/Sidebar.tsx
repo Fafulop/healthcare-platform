@@ -17,6 +17,7 @@ import {
   Video,
   CheckSquare,
   UserCog,
+  BarChart3,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -55,47 +56,33 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
 
   return (
     <aside className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col">
-      {/* Logo/Brand */}
-      <div className="p-6 border-b border-gray-200">
-        <Link href="/dashboard">
-          <h1 className="text-xl font-bold text-gray-900">Portal Médico</h1>
-          <p className="text-sm text-gray-500 mt-1">Plataforma Médica</p>
-        </Link>
-      </div>
-
-      {/* User Info */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center gap-3">
+      {/* Logo/Brand + User Info */}
+      <div className="px-4 py-3 border-b border-gray-200">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
           {session?.user?.image ? (
             <img
               src={session.user.image}
               alt={session.user.name || "User"}
-              className="w-10 h-10 rounded-full object-cover"
+              className="w-8 h-8 rounded-full object-cover"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <User className="w-5 h-5 text-blue-600" />
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+              <User className="w-4 h-4 text-blue-600" />
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {session?.user?.name || "Doctor"}
+            <h1 className="text-sm font-bold text-gray-900 truncate">
+              {session?.user?.name || "Portal Médico"}
+            </h1>
+            <p className="text-xs text-gray-500 truncate">
+              {doctorProfile ? doctorProfile.primarySpecialty : session?.user?.email}
             </p>
-            {doctorProfile ? (
-              <p className="text-xs text-gray-500 truncate">
-                {doctorProfile.primarySpecialty}
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500 truncate">
-                {session?.user?.email}
-              </p>
-            )}
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-2">
         <div className="space-y-1">
           {doctorProfile && (
             <>
@@ -150,6 +137,12 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             label="Pendientes"
             href="/dashboard/pendientes"
             active={pathname?.startsWith("/dashboard/pendientes")}
+          />
+          <NavItem
+            icon={BarChart3}
+            label="Reportes"
+            href="/dashboard/reportes"
+            active={pathname?.startsWith("/dashboard/reportes")}
           />
         </div>
 

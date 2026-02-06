@@ -552,32 +552,6 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                   />
                 </div>
               </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notas adicionales
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                  placeholder="Añade notas sobre esta venta..."
-                />
-              </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Términos y condiciones
-                </label>
-                <textarea
-                  value={termsAndConditions}
-                  onChange={(e) => setTermsAndConditions(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                  placeholder="Ej: Garantía de 30 días, devoluciones aceptadas..."
-                />
-              </div>
             </div>
 
             {/* Items Section */}
@@ -739,6 +713,37 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                 </div>
               )}
             </div>
+
+            {/* Notes and Terms Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Notas y Términos</h2>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notas adicionales
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Añade notas sobre esta compra..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Términos y condiciones
+                </label>
+                <textarea
+                  value={termsAndConditions}
+                  onChange={(e) => setTermsAndConditions(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Ej: Pago 50% anticipo, 50% contra entrega..."
+                />
+              </div>
+            </div>
           </div>
 
           {/* Right Column - Summary (Sticky) */}
@@ -783,24 +788,9 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
                 )}
               </div>
 
-              <div className="mt-6 space-y-2">
+              <div className="mt-6">
                 <button
                   onClick={() => handleSubmit('PENDING')}
-                  disabled={submitting || !selectedSupplierId || items.length === 0}
-                  className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                  title={!selectedSupplierId ? 'Selecciona un proveedor' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}
-                >
-                  {submitting ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Guardando...
-                    </div>
-                  ) : (
-                    'Guardar como Pendiente'
-                  )}
-                </button>
-                <button
-                  onClick={() => handleSubmit('CONFIRMED')}
                   disabled={submitting || !selectedSupplierId || items.length === 0}
                   className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
                   title={!selectedSupplierId ? 'Selecciona un proveedor' : items.length === 0 ? 'Agrega al menos un producto o servicio' : ''}

@@ -68,6 +68,11 @@ export default function VentasPage() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<{ message: string; type: ToastType } | null>(null);
 
+  // Inline editing for Cobrado (amountPaid)
+  const [editingAmountPaidId, setEditingAmountPaidId] = useState<number | null>(null);
+  const [editingAmountPaidValue, setEditingAmountPaidValue] = useState<string>('');
+  const [updatingAmountPaid, setUpdatingAmountPaid] = useState(false);
+
   useEffect(() => {
     if (session?.user?.email) {
       fetchSales();
@@ -175,6 +180,84 @@ export default function VentasPage() {
       setToastMessage({ message: errorMessage, type: 'error' });
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleStartEditAmountPaid = (sale: Sale) => {
+    setEditingAmountPaidId(sale.id);
+    setEditingAmountPaidValue(sale.amountPaid || '0');
+  };
+
+  const handleSaveAmountPaid = async (saleId: number, totalAmount: string) => {
+    if (!session?.user?.email) return;
+
+    const amountPaid = parseFloat(editingAmountPaidValue) || 0;
+    const total = parseFloat(totalAmount) || 0;
+
+    // Validate amount doesn't exceed total
+    if (amountPaid > total) {
+      setToastMessage({ message: 'El monto cobrado no puede ser mayor al total', type: 'error' });
+      return;
+    }
+
+    if (amountPaid < 0) {
+      setToastMessage({ message: 'El monto no puede ser negativo', type: 'error' });
+      return;
+    }
+
+    setUpdatingAmountPaid(true);
+
+    // Determine payment status based on amount paid
+    let paymentStatus: string;
+    if (amountPaid === 0) {
+      paymentStatus = 'PENDING';
+    } else if (amountPaid >= total) {
+      paymentStatus = 'PAID';
+    } else {
+      paymentStatus = 'PARTIAL';
+    }
+
+    try {
+      // Fetch current sale data
+      const fetchResponse = await authFetch(`${API_URL}/api/practice-management/ventas/${saleId}`);
+
+      if (!fetchResponse.ok) {
+        throw new Error('Error al obtener venta');
+      }
+
+      const currentData = await fetchResponse.json();
+
+      // Update with new amountPaid
+      const updateResponse = await authFetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...currentData.data,
+          amountPaid: amountPaid,
+          paymentStatus: paymentStatus
+        })
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error('Error al actualizar monto');
+      }
+
+      // Refresh list
+      await fetchSales();
+      setToastMessage({ message: 'Monto actualizado exitosamente', type: 'success' });
+
+      // Reset editing state
+      setEditingAmountPaidId(null);
+      setEditingAmountPaidValue('');
+    } catch (error: any) {
+      const errorMessage = error.message.includes('permisos')
+        ? 'No tienes permisos para actualizar el monto'
+        : error.message.includes('conectar')
+        ? 'No se pudo conectar. Verifica tu conexión.'
+        : 'Error al actualizar monto. Intenta de nuevo.';
+
+      setToastMessage({ message: errorMessage, type: 'error' });
+    } finally {
+      setUpdatingAmountPaid(false);
     }
   };
 
@@ -444,6 +527,8 @@ export default function VentasPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrega</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-blue-600 uppercase tracking-wider">Cobrado</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-orange-600 uppercase tracking-wider">Por Cobrar</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Pago</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -478,11 +563,65 @@ export default function VentasPage() {
                             </td>
                             <td className="px-6 py-4 text-right">
                               <div className="font-semibold text-gray-900">{formatCurrency(sale.total)}</div>
-                              {parseFloat(sale.amountPaid) > 0 && (
-                                <div className="text-xs text-blue-600">
-                                  Pagado: {formatCurrency(sale.amountPaid)}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              {editingAmountPaidId === sale.id ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-gray-500">$</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max={sale.total}
+                                    value={editingAmountPaidValue}
+                                    onChange={(e) => setEditingAmountPaidValue(e.target.value)}
+                                    className="w-24 px-2 py-1 text-sm text-right border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    disabled={updatingAmountPaid}
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveAmountPaid(sale.id, sale.total);
+                                      if (e.key === 'Escape') { setEditingAmountPaidId(null); setEditingAmountPaidValue(''); }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={() => handleSaveAmountPaid(sale.id, sale.total)}
+                                    disabled={updatingAmountPaid}
+                                    className="px-1.5 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                                  >
+                                    {updatingAmountPaid ? '...' : '✓'}
+                                  </button>
+                                  <button
+                                    onClick={() => { setEditingAmountPaidId(null); setEditingAmountPaidValue(''); }}
+                                    disabled={updatingAmountPaid}
+                                    className="px-1.5 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : (
+                                <div
+                                  className="font-medium text-blue-600 cursor-pointer hover:bg-blue-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors group flex items-center justify-end gap-1"
+                                  onClick={() => handleStartEditAmountPaid(sale)}
+                                  title="Click para editar monto cobrado"
+                                >
+                                  <span>{formatCurrency(sale.amountPaid)}</span>
+                                  <Edit2 className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
                               )}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              {(() => {
+                                const total = parseFloat(sale.total);
+                                const paid = parseFloat(sale.amountPaid || '0');
+                                const balance = total - paid;
+                                return balance > 0 ? (
+                                  <span className="font-semibold text-orange-600">
+                                    {formatCurrency(balance.toString())}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-gray-400">-</span>
+                                );
+                              })()}
                             </td>
                             <td className="px-6 py-4">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${paymentConf.color}`}>

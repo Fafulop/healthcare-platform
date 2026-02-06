@@ -310,7 +310,7 @@ export async function PUT(
 }
 
 // PATCH /api/practice-management/ledger/:id
-// Partial update for inline editing (area/subarea only)
+// Partial update for inline editing (area/subarea/formaDePago/amountPaid)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -328,12 +328,20 @@ export async function PATCH(
       );
     }
 
-    const { area, subarea } = body;
+    const { area, subarea, formaDePago, amountPaid, paymentStatus } = body;
 
     // Validation
     if (area !== undefined && (!area || typeof area !== 'string' || area.trim().length === 0)) {
       return NextResponse.json(
         { error: 'El área es requerida' },
+        { status: 400 }
+      );
+    }
+
+    // Validate formaDePago if provided
+    if (formaDePago !== undefined && formaDePago && !['efectivo', 'transferencia', 'tarjeta', 'cheque', 'deposito'].includes(formaDePago)) {
+      return NextResponse.json(
+        { error: 'Forma de pago inválida' },
         { status: 400 }
       );
     }
@@ -357,6 +365,17 @@ export async function PATCH(
     const updateData: any = {};
     if (area !== undefined) updateData.area = area.trim();
     if (subarea !== undefined) updateData.subarea = subarea ? subarea.trim() : '';
+    if (formaDePago !== undefined) updateData.formaDePago = formaDePago;
+
+    // Handle amountPaid and auto-calculate paymentStatus
+    if (amountPaid !== undefined) {
+      const finalAmountPaid = parseFloat(amountPaid);
+      const totalAmount = parseFloat(existingEntry.amount.toString());
+      updateData.amountPaid = finalAmountPaid;
+      updateData.paymentStatus = calculatePaymentStatus(finalAmountPaid, totalAmount);
+    } else if (paymentStatus !== undefined) {
+      updateData.paymentStatus = paymentStatus;
+    }
 
     // Update only the specified fields
     const updatedEntry = await prisma.ledgerEntry.update({
@@ -379,6 +398,32 @@ export async function PATCH(
         }
       }
     });
+
+    // SYNC: Update linked sale if amountPaid was changed
+    if (amountPaid !== undefined && existingEntry.saleId) {
+      const finalAmountPaid = parseFloat(amountPaid);
+      const totalAmount = parseFloat(existingEntry.amount.toString());
+      await prisma.sale.update({
+        where: { id: existingEntry.saleId },
+        data: {
+          amountPaid: finalAmountPaid,
+          paymentStatus: calculatePaymentStatus(finalAmountPaid, totalAmount)
+        }
+      });
+    }
+
+    // SYNC: Update linked purchase if amountPaid was changed
+    if (amountPaid !== undefined && existingEntry.purchaseId) {
+      const finalAmountPaid = parseFloat(amountPaid);
+      const totalAmount = parseFloat(existingEntry.amount.toString());
+      await prisma.purchase.update({
+        where: { id: existingEntry.purchaseId },
+        data: {
+          amountPaid: finalAmountPaid,
+          paymentStatus: calculatePaymentStatus(finalAmountPaid, totalAmount)
+        }
+      });
+    }
 
     return NextResponse.json({ data: updatedEntry });
   } catch (error: any) {
@@ -431,26 +476,25 @@ export async function DELETE(
       );
     }
 
-    // Use a transaction to ensure all deletions succeed or fail together
-    await prisma.$transaction(async (tx) => {
-      // Delete the ledger entry first (this will set sale/purchase references to null via onDelete: SetNull)
-      await tx.ledgerEntry.delete({
-        where: { id: entryId }
-      });
+    // Block deletion if linked to a sale
+    if (existingEntry.saleId) {
+      return NextResponse.json(
+        { error: 'No se puede eliminar este movimiento porque está vinculado a una venta. Elimina o cancela la venta desde la página de Ventas.' },
+        { status: 400 }
+      );
+    }
 
-      // Then delete associated sale if it exists
-      if (existingEntry.saleId) {
-        await tx.sale.delete({
-          where: { id: existingEntry.saleId }
-        });
-      }
+    // Block deletion if linked to a purchase
+    if (existingEntry.purchaseId) {
+      return NextResponse.json(
+        { error: 'No se puede eliminar este movimiento porque está vinculado a una compra. Elimina o cancela la compra desde la página de Compras.' },
+        { status: 400 }
+      );
+    }
 
-      // And delete associated purchase if it exists
-      if (existingEntry.purchaseId) {
-        await tx.purchase.delete({
-          where: { id: existingEntry.purchaseId }
-        });
-      }
+    // Delete the ledger entry (only if not linked to sale/purchase)
+    await prisma.ledgerEntry.delete({
+      where: { id: entryId }
     });
 
     return NextResponse.json({ success: true }, { status: 200 });

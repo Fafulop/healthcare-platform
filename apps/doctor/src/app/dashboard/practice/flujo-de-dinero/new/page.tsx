@@ -64,7 +64,8 @@ export default function NewFlujoDeDineroPage() {
     bankAccount: "",
     formaDePago: "efectivo",
     bankMovementId: "",
-    porRealizar: false
+    porRealizar: false,
+    paymentOption: "paid" as "paid" | "pending", // New: default to paid
   });
 
   // Voice Assistant state
@@ -309,6 +310,10 @@ export default function NewFlujoDeDineroPage() {
     setError(null);
 
     try {
+      const amount = parseFloat(formData.amount);
+      const amountPaid = formData.paymentOption === 'paid' ? amount : 0;
+      const paymentStatus = formData.paymentOption === 'paid' ? 'PAID' : 'PENDING';
+
       const response = await authFetch(`${API_URL}/api/practice-management/ledger`, {
         method: 'POST',
         headers: {
@@ -316,7 +321,9 @@ export default function NewFlujoDeDineroPage() {
         },
         body: JSON.stringify({
           ...formData,
-          amount: parseFloat(formData.amount)
+          amount: amount,
+          amountPaid: amountPaid,
+          paymentStatus: paymentStatus
         })
       });
 
@@ -567,6 +574,49 @@ export default function NewFlujoDeDineroPage() {
                   <option value="cheque">Cheque</option>
                   <option value="deposito">Depósito</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Payment Status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Estado de Pago *
+              </label>
+              <div className="flex gap-4">
+                <label className={`flex-1 flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  formData.paymentOption === 'paid'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="paymentOption"
+                    value="paid"
+                    checked={formData.paymentOption === 'paid'}
+                    onChange={handleChange}
+                    className="sr-only"
+                  />
+                  <span className={`font-medium ${formData.paymentOption === 'paid' ? 'text-blue-900' : 'text-gray-600'}`}>
+                    {formData.entryType === 'ingreso' ? 'Cobrado' : 'Pagado'}
+                  </span>
+                </label>
+                <label className={`flex-1 flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  formData.paymentOption === 'pending'
+                    ? 'border-orange-500 bg-orange-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="paymentOption"
+                    value="pending"
+                    checked={formData.paymentOption === 'pending'}
+                    onChange={handleChange}
+                    className="sr-only"
+                  />
+                  <span className={`font-medium ${formData.paymentOption === 'pending' ? 'text-orange-900' : 'text-gray-600'}`}>
+                    {formData.entryType === 'ingreso' ? 'Por Cobrar' : 'Por Pagar'}
+                  </span>
+                </label>
               </div>
             </div>
 

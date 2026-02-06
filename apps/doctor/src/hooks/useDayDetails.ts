@@ -64,7 +64,10 @@ export function useDayDetails(date?: Date) {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch day details');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.message || `Error ${response.status}`;
+        console.error('Day details API error:', response.status, errorMessage);
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();

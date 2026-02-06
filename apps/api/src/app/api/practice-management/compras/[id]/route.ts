@@ -207,7 +207,7 @@ export async function PUT(
       }
     });
 
-    // SYNC: Update linked ledger entry if it exists
+    // SYNC: Update or delete linked ledger entry
     const linkedLedgerEntry = await prisma.ledgerEntry.findFirst({
       where: {
         purchaseId: purchaseId,
@@ -216,15 +216,25 @@ export async function PUT(
     });
 
     if (linkedLedgerEntry) {
-      const finalAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingPurchase.amountPaid?.toString() || '0');
-      await prisma.ledgerEntry.update({
-        where: { id: linkedLedgerEntry.id },
-        data: {
-          amount: total,
-          paymentStatus: calculatePaymentStatus(finalAmountPaid, total),
-          amountPaid: finalAmountPaid
-        }
-      });
+      const finalStatus = status || existingPurchase.status;
+
+      // If cancelled, delete the ledger entry
+      if (finalStatus === 'CANCELLED') {
+        await prisma.ledgerEntry.delete({
+          where: { id: linkedLedgerEntry.id }
+        });
+      } else {
+        // Otherwise, sync the ledger entry
+        const finalAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingPurchase.amountPaid?.toString() || '0');
+        await prisma.ledgerEntry.update({
+          where: { id: linkedLedgerEntry.id },
+          data: {
+            amount: total,
+            paymentStatus: calculatePaymentStatus(finalAmountPaid, total),
+            amountPaid: finalAmountPaid
+          }
+        });
+      }
     }
 
     return NextResponse.json({ data: purchase });
@@ -277,6 +287,14 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    // Delete linked ledger entry first
+    await prisma.ledgerEntry.deleteMany({
+      where: {
+        purchaseId: purchaseId,
+        doctorId: doctor.id
+      }
+    });
 
     // Eliminar compra (cascada a items)
     await prisma.purchase.delete({
