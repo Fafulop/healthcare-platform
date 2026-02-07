@@ -9,6 +9,7 @@ import ClinicSection from "@/components/profile/ClinicSection";
 import EducationSection from "@/components/profile/EducationSection";
 import MediaSection from "@/components/profile/MediaSection";
 import FaqsSocialSection from "@/components/profile/FaqsSocialSection";
+import ReviewsSection from "@/components/profile/ReviewsSection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
@@ -19,6 +20,7 @@ const TABS = [
   { id: "education", label: "Formacion" },
   { id: "media", label: "Multimedia" },
   { id: "faqs", label: "FAQs y Social" },
+  { id: "reviews", label: "Opiniones" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -92,6 +94,8 @@ export default function MiPerfilPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [reviews, setReviews] = useState<Array<{ id: string; patientName: string | null; rating: number; comment: string; createdAt: string }>>([]);
+  const [reviewStats, setReviewStats] = useState({ averageRating: 0, reviewCount: 0 });
 
   const slug = doctorProfile?.slug;
 
@@ -178,6 +182,10 @@ export default function MiPerfilPage() {
         },
         color_palette: d.colorPalette || "warm",
       });
+
+      // Load reviews data
+      setReviews(d.reviews || []);
+      setReviewStats(d.reviewStats || { averageRating: 0, reviewCount: 0 });
     } catch (error) {
       console.error("Error loading profile:", error);
       setLoadError(error instanceof Error ? error.message : "Error desconocido");
@@ -188,6 +196,39 @@ export default function MiPerfilPage() {
 
   const updateField = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    try {
+      const response = await authFetch(`${API_URL}/api/reviews/${reviewId}`, {
+        method: "DELETE",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al eliminar");
+      }
+
+      // Remove from local state
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      setReviewStats((prev) => {
+        const newCount = prev.reviewCount - 1;
+        const deletedReview = reviews.find((r) => r.id === reviewId);
+        const newAvg = newCount > 0 && deletedReview
+          ? (prev.averageRating * prev.reviewCount - deletedReview.rating) / newCount
+          : 0;
+        return { averageRating: Number(newAvg.toFixed(1)), reviewCount: newCount };
+      });
+
+      setSaveMessage({ type: "success", text: "Opinion eliminada correctamente." });
+      setTimeout(() => setSaveMessage(null), 4000);
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      setSaveMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Error al eliminar opinion",
+      });
+    }
   };
 
   const handleSave = async () => {
@@ -311,6 +352,9 @@ export default function MiPerfilPage() {
         )}
         {activeTab === "faqs" && (
           <FaqsSocialSection formData={formData} updateField={updateField} setFormData={setFormData} />
+        )}
+        {activeTab === "reviews" && (
+          <ReviewsSection reviews={reviews} reviewStats={reviewStats} onDelete={handleDeleteReview} />
         )}
       </div>
 

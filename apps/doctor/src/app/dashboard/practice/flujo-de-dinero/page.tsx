@@ -1157,6 +1157,14 @@ export default function FlujoDeDineroPage() {
                   Cancelar
                 </button>
                 <button
+                  onClick={handleBatchDelete}
+                  disabled={deletingBatch}
+                  className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors disabled:opacity-50"
+                >
+                  {deletingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  {deletingBatch ? 'Eliminando...' : `Eliminar (${selectedIds.size})`}
+                </button>
+                <button
                   onClick={handleExportPDF}
                   className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors"
                 >
