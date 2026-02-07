@@ -20,6 +20,7 @@ import {
   type VoiceSaleData,
   type VoicePurchaseData,
 } from '@/types/voice-assistant';
+import type { FieldDefinition } from '@/types/custom-encounter';
 import { SaleDataPreview } from './SaleDataPreview';
 import { PurchaseDataPreview } from './PurchaseDataPreview';
 
@@ -49,6 +50,7 @@ interface StructuredDataPreviewProps {
   fieldsExtracted?: string[];
   compact?: boolean;
   showMissing?: boolean; // Show fields that haven't been captured yet
+  customFields?: FieldDefinition[]; // For custom encounter templates
   // For CREATE_SALE session type
   clients?: Client[];
   products?: Product[];
@@ -152,12 +154,43 @@ const LEDGER_ENTRY_GROUPS = {
   },
 };
 
+/**
+ * Generate field groups from custom template fields
+ */
+function generateCustomFieldGroups(customFields: FieldDefinition[]): Record<string, { label: string; fields: string[] }> {
+  // Group by section
+  const sections: Record<string, FieldDefinition[]> = {};
+
+  customFields.forEach(field => {
+    const section = field.section || 'General';
+    if (!sections[section]) {
+      sections[section] = [];
+    }
+    sections[section].push(field);
+  });
+
+  // Convert to group format
+  const groups: Record<string, { label: string; fields: string[] }> = {};
+
+  Object.entries(sections).forEach(([sectionName, fields]) => {
+    // Sort by order
+    const sortedFields = fields.sort((a, b) => a.order - b.order);
+    groups[sectionName] = {
+      label: sectionName,
+      fields: sortedFields.map(f => f.name),
+    };
+  });
+
+  return groups;
+}
+
 export function StructuredDataPreview({
   data,
   sessionType,
   fieldsExtracted = [],
   compact = false,
   showMissing = false,
+  customFields,
   clients = [],
   products = [],
   suppliers = [],
@@ -220,11 +253,22 @@ export function StructuredDataPreview({
     );
   }
 
-  const groups = sessionType === 'NEW_ENCOUNTER'
+  // Use custom field groups if provided for NEW_ENCOUNTER, otherwise use predefined groups
+  const groups = sessionType === 'NEW_ENCOUNTER' && customFields
+    ? generateCustomFieldGroups(customFields)
+    : sessionType === 'NEW_ENCOUNTER'
     ? ENCOUNTER_GROUPS
     : sessionType === 'NEW_TASK'
     ? TASK_GROUPS
     : PATIENT_GROUPS;
+
+  // Build custom label map if custom fields provided
+  const customLabelMap: Record<string, string> = {};
+  if (customFields) {
+    customFields.forEach(field => {
+      customLabelMap[field.name] = field.labelEs || field.label;
+    });
+  }
 
   return (
     <div className={`space-y-3 ${compact ? 'text-sm' : ''}`}>
@@ -265,6 +309,7 @@ export function StructuredDataPreview({
                   isExtracted={fieldsExtracted.includes(field)}
                   isMissing={false}
                   compact={compact}
+                  customLabelMap={customLabelMap}
                 />
               ))}
               {/* Show missing fields */}
@@ -273,6 +318,7 @@ export function StructuredDataPreview({
                   key={field}
                   field={field}
                   value={null}
+                  customLabelMap={customLabelMap}
                   isExtracted={false}
                   isMissing={true}
                   compact={compact}
@@ -295,14 +341,16 @@ function FieldRow({
   isExtracted,
   isMissing,
   compact,
+  customLabelMap = {},
 }: {
   field: string;
   value: any;
   isExtracted: boolean;
   isMissing: boolean;
   compact: boolean;
+  customLabelMap?: Record<string, string>;
 }) {
-  const label = FIELD_LABELS_ES[field] || field;
+  const label = customLabelMap[field] || FIELD_LABELS_ES[field] || field;
   const displayValue = isMissing ? 'Sin capturar' : formatValue(field, value);
 
   return (
@@ -599,6 +647,7 @@ function AppointmentSlotsPreview({
                   isExtracted={fieldsExtracted.includes(field)}
                   isMissing={false}
                   compact={compact}
+                  customLabelMap={customLabelMap}
                 />
               ))}
               {/* Show missing fields */}
@@ -607,6 +656,7 @@ function AppointmentSlotsPreview({
                   key={field}
                   field={field}
                   value={null}
+                  customLabelMap={customLabelMap}
                   isExtracted={false}
                   isMissing={true}
                   compact={compact}
@@ -684,6 +734,7 @@ function LedgerEntryPreview({
                   isExtracted={fieldsExtracted.includes(field)}
                   isMissing={false}
                   compact={compact}
+                  customLabelMap={customLabelMap}
                 />
               ))}
               {/* Show missing fields */}
@@ -692,6 +743,7 @@ function LedgerEntryPreview({
                   key={field}
                   field={field}
                   value={null}
+                  customLabelMap={customLabelMap}
                   isExtracted={false}
                   isMissing={true}
                   compact={compact}

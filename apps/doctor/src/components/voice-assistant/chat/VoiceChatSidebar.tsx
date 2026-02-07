@@ -70,6 +70,7 @@ interface VoiceChatSidebarProps {
   patientId: string;
   doctorId: string;
   context?: VoiceSessionContext;
+  templateId?: string; // For custom encounter templates
   onConfirm: (data: VoiceStructuredData) => void;
   initialData?: InitialChatData; // NEW: Initial voice recording data
   saleContext?: SaleContext; // NEW: For CREATE_SALE session type
@@ -95,6 +96,7 @@ export function VoiceChatSidebar({
   patientId,
   doctorId,
   context,
+  templateId,
   onConfirm,
   initialData,
   saleContext,
@@ -103,6 +105,7 @@ export function VoiceChatSidebar({
   const chat = useChatSession({
     sessionType,
     patientId,
+    templateId,
     doctorId,
     context,
     initialData, // Pass through initial data from voice recording modal
@@ -111,6 +114,22 @@ export function VoiceChatSidebar({
       onClose();
     },
   });
+
+  // Fetch template if templateId provided (for custom field labels)
+  const [customFields, setCustomFields] = useState<any[] | undefined>(undefined);
+
+  useEffect(() => {
+    if (templateId && sessionType === 'NEW_ENCOUNTER') {
+      fetch(`/api/custom-templates/${templateId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data.isCustom && data.data.customFields) {
+            setCustomFields(data.data.customFields);
+          }
+        })
+        .catch(err => console.error('Error fetching template:', err));
+    }
+  }, [templateId, sessionType]);
 
   // Sidebar width state
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -385,6 +404,7 @@ export function VoiceChatSidebar({
                   fieldsExtracted={chat.fieldsExtracted}
                   compact
                   showMissing
+                  customFields={customFields}
                   clients={saleContext?.clients}
                   products={saleContext?.products || purchaseContext?.products}
                   suppliers={purchaseContext?.suppliers}

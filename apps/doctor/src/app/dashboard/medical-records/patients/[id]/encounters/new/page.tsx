@@ -344,6 +344,7 @@ export default function NewEncounterPage() {
         onSubmit={handleSubmit}
         submitLabel="Crear Consulta"
         templateConfig={templateConfig}
+        selectedTemplate={selectedTemplate}
       />
 
       {/* Voice Recording Modal */}
@@ -357,6 +358,7 @@ export default function NewEncounterPage() {
             doctorId: session.user.doctorId,
             doctorName: doctorProfile?.slug || undefined,
           }}
+          templateId={selectedTemplate?.id}
           onComplete={handleModalComplete}
         />
       )}
@@ -374,6 +376,7 @@ export default function NewEncounterPage() {
             doctorId: session.user.doctorId,
             doctorName: doctorProfile?.slug || undefined,
           }}
+          templateId={selectedTemplate?.id}
           initialData={sidebarInitialData}
           onConfirm={handleVoiceConfirm}
         />

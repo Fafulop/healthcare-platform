@@ -40,6 +40,7 @@ interface VoiceRecordingModalProps {
   onClose: () => void;
   sessionType: VoiceSessionType;
   context?: VoiceSessionContext;
+  templateId?: string; // For custom encounter templates
   onComplete: (
     transcript: string,
     data: VoiceStructuredData,
@@ -189,11 +190,13 @@ export function VoiceRecordingModal({
   onClose,
   sessionType,
   context,
+  templateId,
   onComplete,
 }: VoiceRecordingModalProps) {
   const session = useVoiceSession({
     sessionType,
     context,
+    templateId,
     onComplete: (data) => {
       // Will be called when structuring is complete
     },

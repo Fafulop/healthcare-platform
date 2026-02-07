@@ -1210,6 +1210,10 @@ model ClinicalEncounter {
   patientId       String   @map("patient_id")
   doctorId        String   @map("doctor_id")
 
+  // Template Reference (NEW)
+  templateId      String?  @map("template_id")  // Reference to encounter template used
+  customData      Json?    @map("custom_data")   // For custom template encounters - stores all field values
+
   // Encounter metadata
   encounterDate   DateTime @map("encounter_date")
   encounterType   String   @map("encounter_type") @db.VarChar(50)  // consultation, follow-up, emergency, telemedicine
@@ -1252,7 +1256,8 @@ model ClinicalEncounter {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient         Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  template        EncounterTemplate?   @relation(fields: [templateId], references: [id], onDelete: SetNull)
   versions        EncounterVersion[]
   media           PatientMedia[]
   prescriptions   Prescription[]
@@ -1260,6 +1265,7 @@ model ClinicalEncounter {
   @@index([patientId, encounterDate])
   @@index([doctorId, encounterDate])
   @@index([doctorId, status])
+  @@index([templateId])
   @@map("clinical_encounters")
   @@schema("medical_records")
 }
@@ -1477,6 +1483,10 @@ model EncounterTemplate {
   fieldVisibility Json     @map("field_visibility")  // Which fields to show
   defaultValues   Json     @map("default_values")    // Pre-filled values
 
+  // Custom Template Configuration (NEW)
+  isCustom        Boolean  @default(false) @map("is_custom")  // Distinguish custom vs standard templates
+  customFields    Json?    @map("custom_fields")              // Array of FieldDefinition for custom templates
+
   // Settings
   useSOAPMode     Boolean  @default(false) @map("use_soap_mode")
   isDefault       Boolean  @default(false) @map("is_default")
@@ -1491,10 +1501,12 @@ model EncounterTemplate {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  doctor          Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor          Doctor              @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  encounters      ClinicalEncounter[] // Encounters using this template
 
   @@unique([doctorId, name])
   @@index([doctorId, isActive])
+  @@index([doctorId, isCustom])
   @@map("encounter_templates")
   @@schema("medical_records")
 }

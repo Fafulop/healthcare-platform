@@ -54,12 +54,13 @@ export interface UseVoiceSessionReturn {
 interface UseVoiceSessionOptions {
   sessionType: VoiceSessionType;
   context?: VoiceSessionContext;
+  templateId?: string; // For custom encounter templates
   onComplete?: (data: VoiceStructuredData) => void;
   onError?: (error: string) => void;
 }
 
 export function useVoiceSession(options: UseVoiceSessionOptions): UseVoiceSessionReturn {
-  const { sessionType, context, onComplete, onError } = options;
+  const { sessionType, context, templateId, onComplete, onError } = options;
 
   // Recording hook
   const recording = useVoiceRecording({
@@ -146,6 +147,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions): UseVoiceSessio
           transcriptId: transcribeData.data.transcriptId,
           sessionType,
           context,
+          ...(templateId && { templateId }),
         }),
       });
 
@@ -175,7 +177,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions): UseVoiceSessio
       setSessionStatus('error');
       onError?.(errorMsg);
     }
-  }, [recording.audioBlob, sessionType, context, onComplete, onError]);
+  }, [recording.audioBlob, sessionType, context, templateId, onComplete, onError]);
 
   // Reset everything
   const reset = useCallback(() => {

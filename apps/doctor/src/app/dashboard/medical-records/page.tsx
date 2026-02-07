@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, Loader2 } from 'lucide-react';
+import { Plus, Users, Loader2, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
@@ -84,13 +84,22 @@ export default function PatientsPage() {
               Gestiona los expedientes de tus pacientes
             </p>
           </div>
-          <Link
-            href="/dashboard/medical-records/patients/new"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Nuevo Paciente
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/medical-records/custom-templates"
+              className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              <FileText className="w-5 h-5" />
+              Plantillas Personalizadas
+            </Link>
+            <Link
+              href="/dashboard/medical-records/patients/new"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Nuevo Paciente
+            </Link>
+          </div>
         </div>
       </div>
 

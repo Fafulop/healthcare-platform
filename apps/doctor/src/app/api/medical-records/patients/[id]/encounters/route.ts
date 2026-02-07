@@ -111,6 +111,8 @@ export async function POST(
         vitalsOther: body.vitalsOther,
         followUpDate: body.followUpDate ? new Date(body.followUpDate) : null,
         followUpNotes: body.followUpNotes,
+        templateId: body.templateId || null,
+        customData: body.customData || null,
         createdBy: userId,
       }
     });

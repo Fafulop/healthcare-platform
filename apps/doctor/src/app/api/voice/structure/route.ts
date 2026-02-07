@@ -10,15 +10,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { prisma } from '@healthcare/database';
 import OpenAI from 'openai';
 
 import { getSystemPrompt, getUserPrompt } from '@/lib/voice-assistant/prompts';
+import {
+  generateCustomTemplateSystemPrompt,
+  getCustomTemplateFields,
+} from '@/lib/voice-assistant/custom-template-prompts';
 import {
   type VoiceSessionType,
   type VoiceSessionContext,
   type VoiceStructuredData,
   EXTRACTABLE_FIELDS,
 } from '@/types/voice-assistant';
+import type { FieldDefinition } from '@/types/custom-encounter';
 
 // Lazy-initialize OpenAI client to avoid build-time crash
 let _openai: OpenAI;
@@ -38,6 +44,7 @@ interface StructureRequestBody {
   transcriptId: string;
   sessionType: VoiceSessionType;
   context?: VoiceSessionContext;
+  templateId?: string; // For custom encounter templates
 }
 
 export async function POST(request: NextRequest) {
@@ -47,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body: StructureRequestBody = await request.json();
-    const { transcript, transcriptId, sessionType, context } = body;
+    const { transcript, transcriptId, sessionType, context, templateId } = body;
 
     // 3. Validate required fields
     if (!transcript || typeof transcript !== 'string') {
@@ -94,9 +101,54 @@ export async function POST(request: NextRequest) {
     // 5. Generate session ID for audit trail
     const sessionId = crypto.randomUUID();
 
-    // 6. Get appropriate system prompt with current date context
-    const systemPrompt = getSystemPrompt(sessionType);
-    const userPrompt = getUserPrompt(transcript, new Date());
+    // 6. Check if using template (custom or system)
+    let template: any = null;
+    let extractableFields: string[] = [];
+
+    if (templateId && sessionType === 'NEW_ENCOUNTER') {
+      // Fetch template (could be custom or system)
+      template = await prisma.encounterTemplate.findFirst({
+        where: {
+          id: templateId,
+          doctorId,
+          isActive: true,
+        },
+      });
+
+      if (!template) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'TEMPLATE_NOT_FOUND',
+              message: 'Plantilla no encontrada',
+            },
+          },
+          { status: 404 }
+        );
+      }
+    }
+
+    // 7. Get appropriate system prompt with current date context
+    let systemPrompt: string;
+    let userPrompt: string;
+
+    if (template && template.isCustom && template.customFields) {
+      // Use dynamic prompt for custom template
+      const fields = template.customFields as FieldDefinition[];
+      systemPrompt = generateCustomTemplateSystemPrompt(
+        template.name,
+        template.description,
+        fields
+      );
+      userPrompt = getUserPrompt(transcript, new Date());
+      extractableFields = getCustomTemplateFields(fields);
+    } else {
+      // Use standard prompts (system templates or no template)
+      systemPrompt = getSystemPrompt(sessionType);
+      userPrompt = getUserPrompt(transcript, new Date());
+      extractableFields = EXTRACTABLE_FIELDS[sessionType];
+    }
 
     // Debug: Log the date context being sent to LLM
     // Extract just the date lines from the prompt for clearer logging
@@ -161,16 +213,16 @@ export async function POST(request: NextRequest) {
     }
 
     // 11. Calculate which fields were extracted vs empty
-    const allFields = EXTRACTABLE_FIELDS[sessionType];
-    const { fieldsExtracted, fieldsEmpty } = analyzeExtractedFields(structuredData, allFields);
+    const { fieldsExtracted, fieldsEmpty } = analyzeExtractedFields(structuredData, extractableFields);
 
     // 12. Calculate confidence based on extraction ratio
-    const confidence = calculateConfidence(fieldsExtracted.length, allFields.length, sessionType);
+    const confidence = calculateConfidence(fieldsExtracted.length, extractableFields.length, sessionType);
 
     // 13. Log for audit (in production, store in database)
     console.log(
       `[Voice Structure] Doctor: ${doctorId}, SessionID: ${sessionId}, ` +
-        `Type: ${sessionType}, Extracted: ${fieldsExtracted.length}/${allFields.length}, Confidence: ${confidence}`
+        `Type: ${sessionType}${template ? ` (Template: ${template.name}, Custom: ${template.isCustom})` : ''}, ` +
+        `Extracted: ${fieldsExtracted.length}/${extractableFields.length}, Confidence: ${confidence}`
     );
 
     // 14. Return success response

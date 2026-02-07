@@ -5,7 +5,9 @@ import { Save } from 'lucide-react';
 import Link from 'next/link';
 import { VitalsInput, type VitalsData } from './VitalsInput';
 import { SOAPNoteEditor, type SOAPNoteData } from './SOAPNoteEditor';
+import { DynamicFieldRenderer } from './DynamicFieldRenderer';
 import type { FieldVisibility, DefaultValues } from '@/types/encounter-template';
+import type { CustomEncounterTemplate } from '@/types/custom-encounter';
 import { DEFAULT_FIELD_VISIBILITY } from '@/constants/encounter-fields';
 
 export interface EncounterFormData {
@@ -28,6 +30,8 @@ export interface EncounterFormData {
   followUpDate?: string;
   followUpNotes?: string;
   status: string;
+  customData?: Record<string, any>; // For custom template fields
+  templateId?: string; // Reference to the template used
 }
 
 // Template configuration for conditional rendering
@@ -45,6 +49,7 @@ interface EncounterFormProps {
   cancelHref?: string;
   isEditing?: boolean;
   templateConfig?: TemplateConfig; // Template-based configuration
+  selectedTemplate?: CustomEncounterTemplate | null; // For custom templates
 }
 
 export function EncounterForm({
@@ -55,9 +60,18 @@ export function EncounterForm({
   cancelHref,
   isEditing = false,
   templateConfig,
+  selectedTemplate,
 }: EncounterFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Check if using custom template
+  const isCustomTemplate = selectedTemplate?.isCustom === true;
+
+  // State for custom field values
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>(
+    initialData?.customData || {}
+  );
 
   // Field visibility from template or show all by default
   const fieldVisibility = templateConfig?.fieldVisibility || DEFAULT_FIELD_VISIBILITY;
@@ -161,13 +175,27 @@ export function EncounterForm({
     });
   };
 
+  const handleCustomFieldChange = (fieldName: string, value: any) => {
+    setCustomFieldValues((prev) => ({
+      ...prev,
+      [fieldName]: value,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      await onSubmit(formData);
+      const submitData: EncounterFormData = {
+        ...formData,
+        ...(isCustomTemplate && {
+          customData: customFieldValues,
+          templateId: selectedTemplate?.id,
+        }),
+      };
+      await onSubmit(submitData);
     } catch (err: any) {
       setError(err.message || 'Error al guardar consulta');
       setLoading(false);
@@ -185,74 +213,93 @@ export function EncounterForm({
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Información Básica</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha de Consulta <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                name="encounterDate"
-                value={formData.encounterDate}
-                onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+        {/* Custom Template Fields */}
+        {isCustomTemplate && selectedTemplate?.customFields ? (
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                {selectedTemplate.name}
+              </h2>
+              {selectedTemplate.description && (
+                <p className="text-sm text-gray-600">{selectedTemplate.description}</p>
+              )}
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo de Consulta <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="encounterType"
-                value={formData.encounterType}
-                onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="consultation">Consulta</option>
-                <option value="follow-up">Seguimiento</option>
-                <option value="emergency">Emergencia</option>
-                <option value="telemedicine">Telemedicina</option>
-              </select>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Motivo de Consulta <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                name="chiefComplaint"
-                value={formData.chiefComplaint}
-                onChange={handleChange}
-                required
-                rows={3}
-                placeholder="¿Por qué acude el paciente?"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {fieldVisibility.location && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ubicación
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  placeholder="Consultorio, En línea, etc."
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            )}
+            <DynamicFieldRenderer
+              fields={selectedTemplate.customFields}
+              values={customFieldValues}
+              onChange={handleCustomFieldChange}
+            />
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Basic Information */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Información Básica</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha de Consulta <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="encounterDate"
+                    value={formData.encounterDate}
+                    onChange={handleChange}
+                    required
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de Consulta <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="encounterType"
+                    value={formData.encounterType}
+                    onChange={handleChange}
+                    required
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="consultation">Consulta</option>
+                    <option value="follow-up">Seguimiento</option>
+                    <option value="emergency">Emergencia</option>
+                    <option value="telemedicine">Telemedicina</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Motivo de Consulta <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    name="chiefComplaint"
+                    value={formData.chiefComplaint}
+                    onChange={handleChange}
+                    required
+                    rows={3}
+                    placeholder="¿Por qué acude el paciente?"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {fieldVisibility.location && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Ubicación
+                    </label>
+                    <input
+                      type="text"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleChange}
+                      placeholder="Consultorio, En línea, etc."
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
 
         {/* Vitals Section - Show if any vitals field is visible */}
         {(fieldVisibility.vitalsBloodPressure ||
@@ -386,6 +433,8 @@ export function EncounterForm({
               )}
             </div>
           </div>
+        )}
+          </>
         )}
 
         {/* Actions */}

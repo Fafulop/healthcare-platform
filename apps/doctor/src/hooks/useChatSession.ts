@@ -63,6 +63,7 @@ interface UseChatSessionOptions {
   patientId: string;
   doctorId: string;
   context?: VoiceSessionContext;
+  templateId?: string; // For custom encounter templates
   onConfirm?: (data: VoiceStructuredData) => void;
   initialData?: InitialChatData; // NEW: Seed session with initial voice recording
 }
@@ -235,7 +236,7 @@ function calculateExtractedFields(data: VoiceStructuredData | null): string[] {
 }
 
 export function useChatSession(options: UseChatSessionOptions): UseChatSessionReturn {
-  const { sessionType, patientId, doctorId, context, onConfirm, initialData } = options;
+  const { sessionType, patientId, doctorId, context, templateId, onConfirm, initialData } = options;
 
   // Persistence hook
   const { saveSession, loadSession, clearSession } = useChatPersistence();
@@ -421,6 +422,7 @@ export function useChatSession(options: UseChatSessionOptions): UseChatSessionRe
             messages: apiMessages,
             currentData: session.currentData,
             context,
+            ...(templateId && { templateId }),
           }),
         });
 
@@ -519,6 +521,7 @@ export function useChatSession(options: UseChatSessionOptions): UseChatSessionRe
             messages: apiMessages,
             currentData: session.currentData,
             context,
+            ...(templateId && { templateId }),
           }),
         });
 

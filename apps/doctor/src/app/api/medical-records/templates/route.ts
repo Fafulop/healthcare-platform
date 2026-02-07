@@ -19,11 +19,12 @@ export async function GET(request: NextRequest) {
   try {
     const authContext = await requireDoctorAuth(request);
 
-    // Get all active templates for this doctor
+    // Get all active non-custom templates for this doctor
     const templates = await prisma.encounterTemplate.findMany({
       where: {
         doctorId: authContext.doctorId,
         isActive: true,
+        isCustom: false, // Only system templates (isCustom has default false, never null)
       },
       orderBy: [
         { isDefault: 'desc' }, // Default template first

@@ -11,9 +11,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { prisma } from '@healthcare/database';
 import OpenAI from 'openai';
 
 import { getChatSystemPrompt } from '@/lib/voice-assistant/prompts';
+import {
+  generateCustomTemplateSystemPrompt,
+  getCustomTemplateFields,
+} from '@/lib/voice-assistant/custom-template-prompts';
 import {
   type VoiceSessionType,
   type VoiceSessionContext,
@@ -21,6 +26,7 @@ import {
   type ChatRequest,
   EXTRACTABLE_FIELDS,
 } from '@/types/voice-assistant';
+import type { FieldDefinition } from '@/types/custom-encounter';
 
 // Lazy-initialize OpenAI client to avoid build-time crash
 let _openai: OpenAI;
@@ -40,8 +46,8 @@ export async function POST(request: NextRequest) {
     const { doctorId } = await requireDoctorAuth(request);
 
     // 2. Parse request body
-    const body: ChatRequest = await request.json();
-    const { sessionType, messages, currentData, context } = body;
+    const body: ChatRequest & { templateId?: string } = await request.json();
+    const { sessionType, messages, currentData, context, templateId } = body;
 
     // 3. Validate session type
     const validSessionTypes: VoiceSessionType[] = ['NEW_PATIENT', 'NEW_ENCOUNTER', 'NEW_PRESCRIPTION', 'CREATE_APPOINTMENT_SLOTS', 'CREATE_LEDGER_ENTRY', 'CREATE_SALE', 'CREATE_PURCHASE', 'NEW_TASK'];
@@ -72,8 +78,82 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Build system prompt with current data context and date
-    const systemPrompt = getChatSystemPrompt(sessionType, currentData, new Date());
+    // 5. Check if using template (custom or system)
+    let template: any = null;
+    let extractableFields: string[] = [];
+
+    if (templateId && sessionType === 'NEW_ENCOUNTER') {
+      // Fetch template (could be custom or system)
+      template = await prisma.encounterTemplate.findFirst({
+        where: {
+          id: templateId,
+          doctorId,
+          isActive: true,
+        },
+      });
+
+      if (!template) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'TEMPLATE_NOT_FOUND',
+              message: 'Plantilla no encontrada',
+            },
+          },
+          { status: 404 }
+        );
+      }
+    }
+
+    // 6. Build system prompt with current data context and date
+    let systemPrompt: string;
+
+    if (template && template.isCustom && template.customFields) {
+      // Use dynamic chat prompt for custom template
+      const fields = template.customFields as FieldDefinition[];
+      const basePrompt = generateCustomTemplateSystemPrompt(
+        template.name,
+        template.description,
+        fields
+      );
+
+      // Add chat-specific instructions
+      systemPrompt = `${basePrompt}
+
+## CONVERSATIONAL MODE
+
+You are now in CONVERSATIONAL mode. The doctor can refine and update the data through conversation.
+
+### CURRENT DATA CONTEXT
+${currentData ? `The following data has been extracted so far:\n\`\`\`json\n${JSON.stringify(currentData, null, 2)}\n\`\`\`` : 'No data extracted yet.'}
+
+### YOUR RESPONSE FORMAT
+Return a JSON object with this structure:
+{
+  "message": string,              // Your response to the doctor (in Spanish)
+  "structuredData": object | null, // Updated structured data (merge with current data)
+  "isComplete": boolean           // true if all required fields are filled
+}
+
+### CONVERSATIONAL RULES
+1. **Be concise and helpful** - Keep responses brief and medical-professional
+2. **Extract updates** - If the doctor mentions new information, add it to structuredData
+3. **Clarify missing fields** - If required fields are empty, ask about them naturally
+4. **Confirm completeness** - Set isComplete:true only when all required fields have values
+5. **Natural Spanish** - Respond in professional Mexican Spanish medical tone
+
+### CURRENT DATE
+Today is ${new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+Current time: ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+`;
+
+      extractableFields = getCustomTemplateFields(fields);
+    } else {
+      // Use standard chat prompt
+      systemPrompt = getChatSystemPrompt(sessionType, currentData, new Date());
+      extractableFields = EXTRACTABLE_FIELDS[sessionType];
+    }
 
     // Log for debugging
     console.log('[Voice Chat] Request:', {
@@ -153,7 +233,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 11. Calculate extracted fields
-    const fieldsExtracted = analyzeExtractedFields(parsed.structuredData, sessionType);
+    const fieldsExtracted = analyzeExtractedFields(parsed.structuredData, extractableFields);
 
     // 12. Log for audit
     console.log(
@@ -210,11 +290,10 @@ export async function POST(request: NextRequest) {
  */
 function analyzeExtractedFields(
   data: VoiceStructuredData | null,
-  sessionType: VoiceSessionType
+  allFields: string[]
 ): string[] {
   if (!data) return [];
 
-  const allFields = EXTRACTABLE_FIELDS[sessionType];
   const extracted: string[] = [];
 
   for (const field of allFields) {

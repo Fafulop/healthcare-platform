@@ -71,20 +71,58 @@ export function TemplateSelector({
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/medical-records/templates');
-      const data = await res.json();
 
-      if (data.success) {
-        setTemplates(data.data);
+      // Fetch both system templates and custom templates in parallel
+      const [systemRes, customRes] = await Promise.all([
+        fetch('/api/medical-records/templates'),
+        fetch('/api/custom-templates'),
+      ]);
+
+      const systemData = await systemRes.json();
+      const customData = await customRes.json();
+
+      if (systemData.success || customData.success) {
+        const systemTemplates = systemData.success ? systemData.data : [];
+        const customTemplates = customData.success ? customData.data : [];
+
+        // Combine and deduplicate by ID (custom templates take precedence)
+        const templateMap = new Map<string, EncounterTemplate>();
+
+        // Add system templates first
+        systemTemplates.forEach((t: EncounterTemplate) => {
+          if (!t.isCustom) {  // Only include non-custom templates from system API
+            templateMap.set(t.id, t);
+          }
+        });
+
+        // Add custom templates (will override any duplicates)
+        customTemplates.forEach((t: EncounterTemplate) => {
+          templateMap.set(t.id, t);
+        });
+
+        const allTemplates = Array.from(templateMap.values());
+
+        // Extra safety: ensure no duplicates by ID
+        const uniqueTemplates = allTemplates.filter((template, index, self) =>
+          index === self.findIndex((t) => t.id === template.id)
+        );
+
+        console.log('[TemplateSelector] System templates:', systemTemplates.length);
+        console.log('[TemplateSelector] Custom templates:', customTemplates.length);
+        console.log('[TemplateSelector] After dedup:', uniqueTemplates.length);
+        console.log('[TemplateSelector] Template IDs:', uniqueTemplates.map(t => t.id));
+
+        setTemplates(uniqueTemplates);
+
         // Auto-select default template if none selected
-        if (!selectedTemplateId && data.data.length > 0) {
-          const defaultTemplate = data.data.find((t: EncounterTemplate) => t.isDefault);
+        if (!selectedTemplateId && allTemplates.length > 0) {
+          const defaultTemplate = allTemplates.find((t: EncounterTemplate) => t.isDefault);
           if (defaultTemplate) {
             onSelect(defaultTemplate);
           }
         }
       } else {
-        setError(data.error || 'Error al cargar plantillas');
+        setError(systemData.error || customData.error || 'Error al cargar plantillas');
       }
     } catch (err) {
       setError('Error al cargar plantillas');
@@ -163,50 +201,109 @@ export function TemplateSelector({
             leaveTo="opacity-0"
           >
             <Listbox.Options className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-              {templates.map((template) => (
-                <Listbox.Option
-                  key={template.id}
-                  className={({ active }) =>
-                    `relative cursor-pointer select-none py-2 pl-3 pr-10 ${
-                      active ? 'bg-blue-50 text-blue-900' : 'text-gray-900'
-                    }`
-                  }
-                  value={template}
-                >
-                  {({ selected }) => (
-                    <>
-                      <span className="flex items-center gap-3">
-                        {renderIcon(template)}
-                        <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
-                          {template.name}
-                        </span>
-                        {template.isDefault && (
-                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+              {/* System Templates */}
+              {templates.filter((t) => !t.isCustom).length > 0 && (
+                <>
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Plantillas del Sistema
+                  </div>
+                  {templates
+                    .filter((t) => !t.isCustom)
+                    .map((template) => (
+                      <Listbox.Option
+                        key={template.id}
+                        className={({ active }) =>
+                          `relative cursor-pointer select-none py-2 pl-3 pr-10 ${
+                            active ? 'bg-blue-50 text-blue-900' : 'text-gray-900'
+                          }`
+                        }
+                        value={template}
+                      >
+                        {({ selected }) => (
+                          <>
+                            <span className="flex items-center gap-3">
+                              {renderIcon(template)}
+                              <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
+                                {template.name}
+                              </span>
+                              {template.isDefault && (
+                                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                              )}
+                            </span>
+                            {template.description && (
+                              <span className="block truncate text-sm text-gray-500 ml-11">
+                                {template.description}
+                              </span>
+                            )}
+                            {selected && (
+                              <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-blue-600">
+                                <Check className="h-5 w-5" aria-hidden="true" />
+                              </span>
+                            )}
+                          </>
                         )}
-                      </span>
-                      {template.description && (
-                        <span className="block truncate text-sm text-gray-500 ml-11">
-                          {template.description}
-                        </span>
-                      )}
-                      {selected && (
-                        <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-blue-600">
-                          <Check className="h-5 w-5" aria-hidden="true" />
-                        </span>
-                      )}
-                    </>
+                      </Listbox.Option>
+                    ))}
+                </>
+              )}
+
+              {/* Custom Templates */}
+              {templates.filter((t) => t.isCustom).length > 0 && (
+                <>
+                  {templates.filter((t) => !t.isCustom).length > 0 && (
+                    <div className="border-t border-gray-100 my-1" />
                   )}
-                </Listbox.Option>
-              ))}
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Plantillas Personalizadas
+                  </div>
+                  {templates
+                    .filter((t) => t.isCustom)
+                    .map((template) => (
+                      <Listbox.Option
+                        key={template.id}
+                        className={({ active }) =>
+                          `relative cursor-pointer select-none py-2 pl-3 pr-10 ${
+                            active ? 'bg-blue-50 text-blue-900' : 'text-gray-900'
+                          }`
+                        }
+                        value={template}
+                      >
+                        {({ selected }) => (
+                          <>
+                            <span className="flex items-center gap-3">
+                              {renderIcon(template)}
+                              <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
+                                {template.name}
+                              </span>
+                              {template.isDefault && (
+                                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                              )}
+                            </span>
+                            {template.description && (
+                              <span className="block truncate text-sm text-gray-500 ml-11">
+                                {template.description}
+                              </span>
+                            )}
+                            {selected && (
+                              <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-blue-600">
+                                <Check className="h-5 w-5" aria-hidden="true" />
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </Listbox.Option>
+                    ))}
+                </>
+              )}
 
               {/* Manage templates link */}
               <div className="border-t border-gray-100 mt-1 pt-1">
                 <Link
-                  href="/dashboard/medical-records/templates"
+                  href="/dashboard/medical-records/custom-templates"
                   className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 >
                   <Settings className="w-4 h-4" />
-                  Administrar plantillas
+                  Gestionar plantillas personalizadas
                 </Link>
               </div>
             </Listbox.Options>
