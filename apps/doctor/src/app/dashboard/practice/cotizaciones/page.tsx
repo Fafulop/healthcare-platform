@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, FileText, Eye, Users, ShoppingCart } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, FileText, Eye, Users, ShoppingCart, Download, CheckSquare } from "lucide-react";
 import InlineStatusSelect from "@/components/practice/InlineStatusSelect";
 import Toast, { ToastType } from "@/components/ui/Toast";
 import { validateQuotationTransition, QuotationStatus } from "@/lib/practice/statusTransitions";
@@ -65,11 +65,29 @@ export default function CotizacionesPage() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<{ message: string; type: ToastType } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [doctorProfile, setDoctorProfile] = useState<{ id: string; slug: string; primarySpecialty: string } | null>(null);
 
   useEffect(() => {
     fetchQuotations();
+    if (session?.user?.doctorId) {
+      fetchDoctorProfile(session.user.doctorId);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) setDoctorProfile(doctor);
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchQuotations = async () => {
     setLoading(true);
@@ -195,6 +213,84 @@ export default function CotizacionesPage() {
     quotation.quotationNumber.toLowerCase().includes(search.toLowerCase()) ||
     quotation.client.businessName.toLowerCase().includes(search.toLowerCase())
   );
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredQuotations.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredQuotations.map(q => q.id)));
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (selectedIds.size === 0) return;
+
+    const { default: jsPDF } = await import('jspdf');
+    const autoTable = (await import('jspdf-autotable')).default;
+
+    const selectedQuotations = filteredQuotations.filter(q => selectedIds.has(q.id));
+
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Cotizaciones', 14, 20);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generado: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}`, 14, 28);
+
+    if (doctorProfile) {
+      doc.text(`Doctor: ${doctorProfile.primarySpecialty}`, 14, 34);
+    }
+
+    // Table data
+    const tableData = selectedQuotations.map(q => {
+      const config = statusConfig[q.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+      return [
+        q.quotationNumber,
+        q.client.businessName,
+        formatDate(q.issueDate),
+        formatDate(q.validUntil),
+        formatCurrency(q.total),
+        config.label,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: doctorProfile ? 40 : 34,
+      head: [['Folio', 'Paciente', 'Fecha', 'Válida hasta', 'Total', 'Estado']],
+      body: tableData,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        4: { halign: 'right' },
+      },
+    });
+
+    // Summary
+    const yPosition = (doc as any).lastAutoTable.finalY + 10;
+    const totalCotizaciones = selectedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total de cotizaciones: ${selectedQuotations.length}`, 14, yPosition);
+    doc.text(`Total: ${formatCurrency(totalCotizaciones.toString())}`, 14, yPosition + 6);
+
+    const fileName = `cotizaciones-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -324,6 +420,29 @@ export default function CotizacionesPage() {
           </div>
         ) : (
           <>
+            {/* Batch Actions Bar */}
+            {selectedIds.size > 0 && (
+              <div className="mb-4 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                <CheckSquare className="w-5 h-5 text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">
+                  {selectedIds.size} cotización{selectedIds.size !== 1 ? 'es' : ''} seleccionada{selectedIds.size !== 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={handleExportPDF}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-md transition-colors text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportar PDF
+                </button>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-sm text-gray-600 hover:text-gray-800 ml-auto"
+                >
+                  Deseleccionar
+                </button>
+              </div>
+            )}
+
             {/* Mobile Card View */}
             <div className="lg:hidden space-y-3">
               {filteredQuotations.map(quotation => {
@@ -336,13 +455,21 @@ export default function CotizacionesPage() {
                     key={quotation.id}
                     className={`bg-white rounded-lg shadow p-4 ${
                       expired ? 'border-l-4 border-red-500' : expiringSoon ? 'border-l-4 border-yellow-500' : ''
-                    }`}
+                    } ${selectedIds.has(quotation.id) ? 'ring-2 ring-blue-400' : ''}`}
                   >
                     {/* Card Header */}
                     <div className="flex items-start justify-between mb-3">
-                      <div>
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(quotation.id)}
+                          onChange={() => toggleSelect(quotation.id)}
+                          className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div>
                         <div className="font-semibold text-gray-900">{quotation.quotationNumber}</div>
                         <div className="text-xs text-gray-500">{quotation.items.length} item(s)</div>
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="font-bold text-gray-900">{formatCurrency(quotation.total)}</div>
@@ -352,7 +479,7 @@ export default function CotizacionesPage() {
                     {/* Client */}
                     <div className="mb-3">
                       <div className="text-sm font-medium text-gray-900">{quotation.client.businessName}</div>
-                      {quotation.client.contactName && (
+                      {quotation.client.contactName && quotation.client.contactName !== quotation.client.businessName && (
                         <div className="text-xs text-gray-500">{quotation.client.contactName}</div>
                       )}
                     </div>
@@ -427,6 +554,14 @@ export default function CotizacionesPage() {
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
+                      <th className="px-3 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          checked={filteredQuotations.length > 0 && selectedIds.size === filteredQuotations.length}
+                          onChange={toggleSelectAll}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Folio
                       </th>
@@ -460,16 +595,24 @@ export default function CotizacionesPage() {
                         <tr
                           key={quotation.id}
                           className={`hover:bg-gray-50 transition-colors ${
-                            expired ? 'bg-red-50' : expiringSoon ? 'bg-yellow-50' : ''
+                            selectedIds.has(quotation.id) ? 'bg-blue-50' : expired ? 'bg-red-50' : expiringSoon ? 'bg-yellow-50' : ''
                           }`}
                         >
+                          <td className="px-3 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(quotation.id)}
+                              onChange={() => toggleSelect(quotation.id)}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
                           <td className="px-6 py-4">
-                            <div className="font-semibold text-gray-900">{quotation.quotationNumber}</div>
+                            <div className="text-sm text-gray-900">{quotation.quotationNumber}</div>
                             <div className="text-xs text-gray-500">{quotation.items.length} item(s)</div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="font-medium text-gray-900">{quotation.client.businessName}</div>
-                            {quotation.client.contactName && (
+                            {quotation.client.contactName && quotation.client.contactName !== quotation.client.businessName && (
                               <div className="text-sm text-gray-500">{quotation.client.contactName}</div>
                             )}
                           </td>

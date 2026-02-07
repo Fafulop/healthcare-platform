@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, ShoppingCart, Eye, FileText, Users } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Loader2, ShoppingCart, Eye, FileText, Users, Download, CheckSquare } from "lucide-react";
 import InlineStatusSelect, { StatusOption } from "@/components/practice/InlineStatusSelect";
 import Toast, { ToastType } from "@/components/ui/Toast";
 import { validateSaleTransition, SaleStatus } from "@/lib/practice/statusTransitions";
@@ -68,6 +68,9 @@ export default function VentasPage() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<{ message: string; type: ToastType } | null>(null);
 
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [doctorProfile, setDoctorProfile] = useState<{ id: string; slug: string; primarySpecialty: string } | null>(null);
+
   // Inline editing for Cobrado (amountPaid)
   const [editingAmountPaidId, setEditingAmountPaidId] = useState<number | null>(null);
   const [editingAmountPaidValue, setEditingAmountPaidValue] = useState<string>('');
@@ -76,9 +79,25 @@ export default function VentasPage() {
   useEffect(() => {
     if (session?.user?.email) {
       fetchSales();
+      if (session.user?.doctorId) {
+        fetchDoctorProfile(session.user.doctorId);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, paymentFilter]);
+
+  const fetchDoctorProfile = async (doctorId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/doctors`);
+      const result = await response.json();
+      if (result.success) {
+        const doctor = result.data.find((d: any) => d.id === doctorId);
+        if (doctor) setDoctorProfile(doctor);
+      }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
   const fetchSales = async () => {
     setLoading(true);
@@ -261,6 +280,97 @@ export default function VentasPage() {
     }
   };
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredSales.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredSales.map(s => s.id)));
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (selectedIds.size === 0) return;
+
+    const { default: jsPDF } = await import('jspdf');
+    const autoTable = (await import('jspdf-autotable')).default;
+
+    const selectedSales = filteredSales.filter(s => selectedIds.has(s.id));
+
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Ventas en Firme', 14, 20);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generado: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}`, 14, 28);
+
+    if (doctorProfile) {
+      doc.text(`Doctor: ${doctorProfile.primarySpecialty}`, 14, 34);
+    }
+
+    // Table data
+    const tableData = selectedSales.map(sale => {
+      const total = parseFloat(sale.total);
+      const paid = parseFloat(sale.amountPaid || '0');
+      const pending = total - paid;
+      const statusConf = statusConfig[sale.status as keyof typeof statusConfig] || statusConfig.PENDING;
+      const paymentConf = paymentStatusConfig[sale.paymentStatus as keyof typeof paymentStatusConfig] || paymentStatusConfig.PENDING;
+
+      return [
+        sale.saleNumber,
+        sale.client.businessName,
+        formatDate(sale.saleDate),
+        formatCurrency(sale.total),
+        formatCurrency(sale.amountPaid),
+        pending > 0 ? formatCurrency(pending.toString()) : '-',
+        paymentConf.label,
+        statusConf.label,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: doctorProfile ? 40 : 34,
+      head: [['Folio', 'Paciente', 'Fecha', 'Total', 'Cobrado', 'Por Cobrar', 'Estado Pago', 'Estado']],
+      body: tableData,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'right' },
+      },
+    });
+
+    // Summary
+    const yPosition = (doc as any).lastAutoTable.finalY + 10;
+    const totalVentas = selectedSales.reduce((sum, s) => sum + parseFloat(s.total), 0);
+    const totalCobrado = selectedSales.reduce((sum, s) => sum + parseFloat(s.amountPaid || '0'), 0);
+    const totalPorCobrar = totalVentas - totalCobrado;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total de ventas: ${selectedSales.length}`, 14, yPosition);
+    doc.text(`Total: ${formatCurrency(totalVentas.toString())}`, 14, yPosition + 6);
+    doc.text(`Cobrado: ${formatCurrency(totalCobrado.toString())}`, 14, yPosition + 12);
+    doc.text(`Por Cobrar: ${formatCurrency(totalPorCobrar.toString())}`, 14, yPosition + 18);
+
+    const fileName = `ventas-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+  };
+
   // Fix: Parse date components directly to avoid UTC timezone shift
   const formatDate = (dateString: string) => {
     try {
@@ -423,6 +533,29 @@ export default function VentasPage() {
             </div>
           ) : (
             <>
+              {/* Batch Actions Bar */}
+              {selectedIds.size > 0 && (
+                <div className="mb-4 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                  <CheckSquare className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-800">
+                    {selectedIds.size} venta{selectedIds.size !== 1 ? 's' : ''} seleccionada{selectedIds.size !== 1 ? 's' : ''}
+                  </span>
+                  <button
+                    onClick={handleExportPDF}
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-md transition-colors text-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    Exportar PDF
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="text-sm text-gray-600 hover:text-gray-800 ml-auto"
+                  >
+                    Deseleccionar
+                  </button>
+                </div>
+              )}
+
               {/* Mobile Card View */}
               <div className="lg:hidden space-y-3">
                 {filteredSales.map((sale) => {
@@ -430,14 +563,22 @@ export default function VentasPage() {
                   const paymentConf = paymentStatusConfig[sale.paymentStatus as keyof typeof paymentStatusConfig] || paymentStatusConfig.PENDING;
 
                   return (
-                    <div key={sale.id} className="bg-white rounded-lg shadow p-4">
+                    <div key={sale.id} className={`bg-white rounded-lg shadow p-4 ${selectedIds.has(sale.id) ? 'ring-2 ring-blue-400' : ''}`}>
                       {/* Card Header */}
                       <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div className="font-semibold text-gray-900">{sale.saleNumber}</div>
-                          {sale.quotation && (
-                            <div className="text-xs text-gray-500">De: {sale.quotation.quotationNumber}</div>
-                          )}
+                        <div className="flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(sale.id)}
+                            onChange={() => toggleSelect(sale.id)}
+                            className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div>
+                            <div className="font-semibold text-gray-900">{sale.saleNumber}</div>
+                            {sale.quotation && (
+                              <div className="text-xs text-gray-500">De: {sale.quotation.quotationNumber}</div>
+                            )}
+                          </div>
                         </div>
                         <div className="text-right">
                           <div className="font-bold text-gray-900">{formatCurrency(sale.total)}</div>
@@ -450,7 +591,7 @@ export default function VentasPage() {
                       {/* Client */}
                       <div className="mb-3">
                         <div className="text-sm font-medium text-gray-900">{sale.client.businessName}</div>
-                        {sale.client.contactName && (
+                        {sale.client.contactName && sale.client.contactName !== sale.client.businessName && (
                           <div className="text-xs text-gray-500">{sale.client.contactName}</div>
                         )}
                       </div>
@@ -522,10 +663,17 @@ export default function VentasPage() {
                   <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
+                        <th className="px-3 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={filteredSales.length > 0 && selectedIds.size === filteredSales.length}
+                            onChange={toggleSelectAll}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Folio</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paciente</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrega</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-blue-600 uppercase tracking-wider">Cobrado</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-orange-600 uppercase tracking-wider">Por Cobrar</th>
@@ -540,10 +688,18 @@ export default function VentasPage() {
                         const paymentConf = paymentStatusConfig[sale.paymentStatus as keyof typeof paymentStatusConfig] || paymentStatusConfig.PENDING;
 
                         return (
-                          <tr key={sale.id} className="hover:bg-gray-50">
+                          <tr key={sale.id} className={`hover:bg-gray-50 ${selectedIds.has(sale.id) ? 'bg-blue-50' : ''}`}>
+                            <td className="px-3 py-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.has(sale.id)}
+                                onChange={() => toggleSelect(sale.id)}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                            </td>
                             <td className="px-6 py-4">
                               <div className="flex flex-col">
-                                <span className="font-medium text-gray-900">{sale.saleNumber}</span>
+                                <span className="text-sm text-gray-900">{sale.saleNumber}</span>
                                 {sale.quotation && (
                                   <span className="text-xs text-gray-500">
                                     De: {sale.quotation.quotationNumber}
@@ -553,14 +709,11 @@ export default function VentasPage() {
                             </td>
                             <td className="px-6 py-4">
                               <div className="font-medium text-gray-900">{sale.client.businessName}</div>
-                              {sale.client.contactName && (
+                              {sale.client.contactName && sale.client.contactName !== sale.client.businessName && (
                                 <div className="text-sm text-gray-500">{sale.client.contactName}</div>
                               )}
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-900">{formatDate(sale.saleDate)}</td>
-                            <td className="px-6 py-4 text-sm text-gray-900">
-                              {sale.deliveryDate ? formatDate(sale.deliveryDate) : '-'}
-                            </td>
                             <td className="px-6 py-4 text-right">
                               <div className="font-semibold text-gray-900">{formatCurrency(sale.total)}</div>
                             </td>

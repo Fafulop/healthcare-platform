@@ -65,6 +65,8 @@ interface SaleItem {
   subtotal: number;
   taxRate: number;
   taxAmount: number;
+  taxRate2: number;
+  taxAmount2: number;
 }
 
 export default function NewVentaPage() {
@@ -108,6 +110,8 @@ export default function NewVentaPage() {
 
   // Items state
   const [items, setItems] = useState<SaleItem[]>([]);
+  const [taxColumnLabel, setTaxColumnLabel] = useState('RTP %');
+  const [taxColumnLabel2, setTaxColumnLabel2] = useState('Imp. 2 %');
 
   // Auto-set amountPaid based on paymentStatus
   useEffect(() => {
@@ -313,6 +317,8 @@ export default function NewVentaPage() {
       discountRate,
       taxRate,
       taxAmount,
+      taxRate2: 0,
+      taxAmount2: 0,
       subtotal
     };
 
@@ -346,6 +352,8 @@ export default function NewVentaPage() {
       discountRate,
       taxRate,
       taxAmount,
+      taxRate2: 0,
+      taxAmount2: 0,
       subtotal
     };
 
@@ -370,7 +378,8 @@ export default function NewVentaPage() {
         const discountAmount = baseAmount * item.discountRate;
         const subtotal = baseAmount - discountAmount;
         const taxAmount = subtotal * item.taxRate;
-        return { ...item, quantity, subtotal, taxAmount };
+        const taxAmount2 = subtotal * item.taxRate2;
+        return { ...item, quantity, subtotal, taxAmount, taxAmount2 };
       }
       return item;
     }));
@@ -383,7 +392,8 @@ export default function NewVentaPage() {
         const discountAmount = baseAmount * item.discountRate;
         const subtotal = baseAmount - discountAmount;
         const taxAmount = subtotal * item.taxRate;
-        return { ...item, unitPrice, subtotal, taxAmount };
+        const taxAmount2 = subtotal * item.taxRate2;
+        return { ...item, unitPrice, subtotal, taxAmount, taxAmount2 };
       }
       return item;
     }));
@@ -396,7 +406,8 @@ export default function NewVentaPage() {
         const discountAmount = baseAmount * discountRate;
         const subtotal = baseAmount - discountAmount;
         const taxAmount = subtotal * item.taxRate;
-        return { ...item, discountRate, subtotal, taxAmount };
+        const taxAmount2 = subtotal * item.taxRate2;
+        return { ...item, discountRate, subtotal, taxAmount, taxAmount2 };
       }
       return item;
     }));
@@ -412,6 +423,16 @@ export default function NewVentaPage() {
     }));
   };
 
+  const updateItemTaxRate2 = (tempId: string, taxRate2: number) => {
+    setItems(items.map(item => {
+      if (item.tempId === tempId) {
+        const taxAmount2 = item.subtotal * taxRate2;
+        return { ...item, taxRate2, taxAmount2 };
+      }
+      return item;
+    }));
+  };
+
   const calculateSubtotal = () => {
     return items.reduce((sum, item) => sum + item.subtotal, 0);
   };
@@ -420,10 +441,15 @@ export default function NewVentaPage() {
     return items.reduce((sum, item) => sum + item.taxAmount, 0);
   };
 
+  const calculateTax2 = () => {
+    return items.reduce((sum, item) => sum + item.taxAmount2, 0);
+  };
+
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
     const tax = calculateTax();
-    return subtotal + tax;
+    const tax2 = calculateTax2();
+    return subtotal + tax + tax2;
   };
 
   const handleVoiceModalComplete = (
@@ -552,6 +578,8 @@ export default function NewVentaPage() {
           discountRate,
           taxRate,
           taxAmount,
+          taxRate2: 0,
+          taxAmount2: 0,
           subtotal,
         };
       });
@@ -598,7 +626,9 @@ export default function NewVentaPage() {
           unitPrice: item.unitPrice,
           discountRate: item.discountRate,
           taxRate: item.taxRate,
-          taxAmount: item.taxAmount
+          taxAmount: item.taxAmount,
+          taxRate2: item.taxRate2,
+          taxAmount2: item.taxAmount2
         })),
         notes,
         termsAndConditions,
@@ -638,6 +668,7 @@ export default function NewVentaPage() {
 
   const subtotal = calculateSubtotal();
   const tax = calculateTax();
+  const tax2 = calculateTax2();
   const total = calculateTotal();
 
   if (status === "loading" || loadingClients || loadingProducts || loadingPatients) {
@@ -893,7 +924,24 @@ export default function NewVentaPage() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unidad</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P. Unit.</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Desc. %</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IVA %</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                          <input
+                            type="text"
+                            value={taxColumnLabel}
+                            onChange={(e) => setTaxColumnLabel(e.target.value)}
+                            className="w-24 text-xs font-medium text-blue-600 uppercase bg-blue-50 border border-dashed border-blue-300 rounded px-1 py-0.5 focus:border-blue-500 focus:bg-blue-100 focus:outline-none cursor-text"
+                            placeholder="IVA %"
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                          <input
+                            type="text"
+                            value={taxColumnLabel2}
+                            onChange={(e) => setTaxColumnLabel2(e.target.value)}
+                            className="w-24 text-xs font-medium text-blue-600 uppercase bg-blue-50 border border-dashed border-blue-300 rounded px-1 py-0.5 focus:border-blue-500 focus:bg-blue-100 focus:outline-none cursor-text"
+                            placeholder="Imp. 2 %"
+                          />
+                        </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
                       </tr>
@@ -948,36 +996,28 @@ export default function NewVentaPage() {
                             />
                           </td>
                           <td className="px-4 py-3">
-                            <div className="space-y-1">
-                              <select
-                                value={item.taxRate === 0 ? '0' : item.taxRate === 0.16 ? '0.16' : 'custom'}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === '0') {
-                                    updateItemTaxRate(item.tempId, 0);
-                                  } else if (val === '0.16') {
-                                    updateItemTaxRate(item.tempId, 0.16);
-                                  }
-                                }}
-                                className="border border-gray-300 rounded px-2 py-1 text-sm w-full"
-                              >
-                                <option value="0">0%</option>
-                                <option value="0.16">16%</option>
-                                <option value="custom">Personalizado</option>
-                              </select>
-                              {(item.taxRate !== 0 && item.taxRate !== 0.16) && (
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.01"
-                                  value={(item.taxRate * 100).toFixed(2)}
-                                  onChange={(e) => updateItemTaxRate(item.tempId, parseFloat(e.target.value) / 100 || 0)}
-                                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                                  placeholder="% IVA"
-                                />
-                              )}
-                            </div>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={(item.taxRate * 100).toFixed(2)}
+                              onChange={(e) => updateItemTaxRate(item.tempId, parseFloat(e.target.value) / 100 || 0)}
+                              className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={(item.taxRate2 * 100).toFixed(2)}
+                              onChange={(e) => updateItemTaxRate2(item.tempId, parseFloat(e.target.value) / 100 || 0)}
+                              className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
+                              placeholder="0"
+                            />
                           </td>
                           <td className="px-4 py-3 font-semibold text-gray-900">
                             ${item.subtotal.toFixed(2)}
@@ -1047,9 +1087,16 @@ export default function NewVentaPage() {
                 </div>
 
                 <div className="flex justify-between items-center pb-3 border-b">
-                  <span className="text-gray-600">IVA Total</span>
+                  <span className="text-gray-600">{taxColumnLabel || 'IVA %'} Total</span>
                   <span className="font-semibold text-gray-900">${tax.toFixed(2)}</span>
                 </div>
+
+                {tax2 > 0 && (
+                  <div className="flex justify-between items-center pb-3 border-b">
+                    <span className="text-gray-600">{taxColumnLabel2 || 'Imp. 2 %'} Total</span>
+                    <span className="font-semibold text-gray-900">${tax2.toFixed(2)}</span>
+                  </div>
+                )}
 
                 <div className="flex justify-between items-center pt-2">
                   <span className="text-gray-900 font-bold text-lg">TOTAL</span>

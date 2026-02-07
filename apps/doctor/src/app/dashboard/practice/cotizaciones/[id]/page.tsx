@@ -77,6 +77,7 @@ export default function ViewQuotationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   useEffect(() => {
     if (quotationId) {
@@ -102,6 +103,191 @@ export default function ViewQuotationPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportPDF = async () => {
+    if (!quotation) return;
+    setExportingPDF(true);
+
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Blue header bar
+      doc.setFillColor(37, 99, 235); // blue-600
+      doc.rect(0, 0, pageWidth, 35, 'F');
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('COTIZACIÓN', pageWidth / 2, 18, { align: 'center' });
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Folio: ${quotation.quotationNumber}`, pageWidth / 2, 28, { align: 'center' });
+
+      // Reset text color
+      doc.setTextColor(0, 0, 0);
+      let y = 45;
+
+      // Status badge
+      const config = statusConfig[quotation.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Estado: ${config.label}`, 14, y);
+      y += 10;
+
+      // Dates
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Fecha de emisión', 14, y);
+      doc.text('Válida hasta', 100, y);
+      y += 5;
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text(pdfFormatDate(quotation.issueDate), 14, y);
+      doc.text(pdfFormatDate(quotation.validUntil), 100, y);
+      y += 10;
+
+      // Client box
+      doc.setFillColor(249, 250, 251); // gray-50
+      doc.roundedRect(14, y, pageWidth - 28, 40, 2, 2, 'F');
+      y += 7;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CLIENTE', 18, y);
+      y += 6;
+      doc.setFontSize(12);
+      doc.text(quotation.client.businessName, 18, y);
+      y += 5;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      if (quotation.client.contactName) { doc.text(`Contacto: ${quotation.client.contactName}`, 18, y); y += 4; }
+      if (quotation.client.email) { doc.text(`Email: ${quotation.client.email}`, 18, y); y += 4; }
+      if (quotation.client.phone) { doc.text(`Tel: ${quotation.client.phone}`, 18, y); y += 4; }
+      if (quotation.client.rfc) { doc.text(`RFC: ${quotation.client.rfc}`, 18, y); y += 4; }
+      if (quotation.client.street) {
+        doc.text(`${quotation.client.street}, ${quotation.client.city}, ${quotation.client.state} ${quotation.client.postalCode}`, 18, y);
+        y += 4;
+      }
+      doc.setTextColor(0, 0, 0);
+
+      y = Math.max(y + 6, y + 2);
+
+      // Items table
+      const tableData = quotation.items.map((item, index) => [
+        (index + 1).toString(),
+        item.description + (item.sku ? `\nSKU: ${item.sku}` : ''),
+        parseFloat(item.quantity).toFixed(2),
+        item.unit || '-',
+        formatCurrency(item.unitPrice),
+        item.discountRate ? `${(parseFloat(item.discountRate) * 100).toFixed(0)}%` : '-',
+        item.taxRate ? `${(parseFloat(item.taxRate) * 100).toFixed(0)}%` : '16%',
+        formatCurrency(item.subtotal),
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Descripción', 'Cant.', 'Unidad', 'P. Unit.', 'Desc.%', 'IVA%', 'Total']],
+        body: tableData,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [243, 244, 246], textColor: [55, 65, 81], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [255, 255, 255] },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 10 },
+          2: { halign: 'center', cellWidth: 15 },
+          3: { halign: 'center', cellWidth: 18 },
+          4: { halign: 'right', cellWidth: 25 },
+          5: { halign: 'center', cellWidth: 15 },
+          6: { halign: 'center', cellWidth: 15 },
+          7: { halign: 'right', cellWidth: 25 },
+        },
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 10;
+
+      // Totals section (right-aligned)
+      const totalsX = pageWidth - 80;
+      const valuesX = pageWidth - 14;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Subtotal:', totalsX, y);
+      doc.text(formatCurrency(quotation.subtotal), valuesX, y, { align: 'right' });
+      y += 6;
+
+      doc.text('IVA Total:', totalsX, y);
+      doc.text(formatCurrency(quotation.tax || 0), valuesX, y, { align: 'right' });
+      y += 8;
+
+      // Total line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(totalsX - 5, y - 3, valuesX, y - 3);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TOTAL:', totalsX, y);
+      doc.setTextColor(22, 163, 74); // green-600
+      doc.text(formatCurrency(quotation.total), valuesX, y, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+      y += 12;
+
+      // Notes and Terms
+      if (quotation.notes || quotation.termsAndConditions) {
+        if (y > 250) { doc.addPage(); y = 20; }
+
+        if (quotation.notes) {
+          // Blue-tinted background for notes (matching bg-blue-50)
+          doc.setFillColor(239, 246, 255);
+          const noteLines = doc.splitTextToSize(quotation.notes, pageWidth - 36);
+          const noteBoxHeight = noteLines.length * 4 + 14;
+          doc.roundedRect(14, y, pageWidth - 28, noteBoxHeight, 2, 2, 'F');
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.text('NOTAS', 18, y + 7);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text(noteLines, 18, y + 13);
+          y += noteBoxHeight + 6;
+        }
+
+        if (quotation.termsAndConditions) {
+          if (y > 260) { doc.addPage(); y = 20; }
+          // Gray background for terms (matching bg-gray-50)
+          doc.setFillColor(249, 250, 251);
+          const termLines = doc.splitTextToSize(quotation.termsAndConditions, pageWidth - 36);
+          const termBoxHeight = termLines.length * 4 + 14;
+          doc.roundedRect(14, y, pageWidth - 28, termBoxHeight, 2, 2, 'F');
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.text('TÉRMINOS Y CONDICIONES', 18, y + 7);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text(termLines, 18, y + 13);
+        }
+      }
+
+      doc.save(`cotizacion-${quotation.quotationNumber}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Error al generar el PDF');
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
+  const pdfFormatDate = (dateString: string) => {
+    try {
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      if (year && month && day) {
+        const date = new Date(year, month - 1, day);
+        return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+      return dateString;
+    } catch { return dateString; }
   };
 
   const formatDate = (dateString: string) => {
@@ -146,20 +332,20 @@ export default function ViewQuotationPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
       </div>
     );
   }
 
   if (error || !quotation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Cotización no encontrada</h2>
           <Link
             href="/dashboard/practice/cotizaciones"
-            className="text-green-600 hover:text-green-700"
+            className="text-blue-600 hover:text-blue-700"
           >
             Volver a Cotizaciones
           </Link>
@@ -171,10 +357,9 @@ export default function ViewQuotationPage() {
   const config = statusConfig[quotation.status as keyof typeof statusConfig] || statusConfig.DRAFT;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8 px-4">
-      <div className="max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
           <Link
             href="/dashboard/practice/cotizaciones"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -185,8 +370,8 @@ export default function ViewQuotationPage() {
 
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <FileText className="w-8 h-8 text-green-600" />
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                <FileText className="w-8 h-8 text-blue-600" />
                 Cotización {quotation.quotationNumber}
               </h1>
               <div className="mt-2">
@@ -200,7 +385,7 @@ export default function ViewQuotationPage() {
               <button
                 onClick={handleConvertToSale}
                 disabled={converting}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {converting ? (
                   <>
@@ -222,10 +407,12 @@ export default function ViewQuotationPage() {
                 Editar
               </Link>
               <button
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                title="Descargar PDF (próximamente)"
+                onClick={handleExportPDF}
+                disabled={exportingPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                title="Descargar PDF"
               >
-                <Download className="w-4 h-4" />
+                {exportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 PDF
               </button>
             </div>
@@ -233,12 +420,12 @@ export default function ViewQuotationPage() {
         </div>
 
         {/* Quotation Document */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-hidden">
           {/* Document Header */}
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-8">
+          <div className="bg-blue-600 text-white p-8">
             <div className="text-center">
-              <h2 className="text-3xl font-bold">COTIZACIÓN</h2>
-              <p className="text-green-100 mt-2">Folio: {quotation.quotationNumber}</p>
+              <h2 className="text-2xl font-bold">COTIZACIÓN</h2>
+              <p className="text-blue-100 mt-2">Folio: {quotation.quotationNumber}</p>
             </div>
           </div>
 
@@ -338,7 +525,7 @@ export default function ViewQuotationPage() {
                   </div>
                   <div className="flex justify-between py-3 border-t-2 border-gray-300">
                     <span className="text-lg font-bold text-gray-900">TOTAL:</span>
-                    <span className="text-2xl font-bold text-green-600">{formatCurrency(quotation.total)}</span>
+                    <span className="text-lg font-bold text-green-600">{formatCurrency(quotation.total)}</span>
                   </div>
                 </div>
               </div>
@@ -364,7 +551,6 @@ export default function ViewQuotationPage() {
             )}
           </div>
         </div>
-      </div>
     </div>
   );
 }

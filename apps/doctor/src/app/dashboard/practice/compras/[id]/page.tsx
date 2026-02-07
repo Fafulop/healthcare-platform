@@ -98,6 +98,7 @@ export default function ViewPurchasePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   useEffect(() => {
     if (session?.user?.doctorId) {
@@ -145,6 +146,205 @@ export default function ViewPurchasePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportPDF = async () => {
+    if (!purchase) return;
+    setExportingPDF(true);
+
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Header bar
+      doc.setFillColor(37, 99, 235); // blue-600
+      doc.rect(0, 0, pageWidth, 35, 'F');
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('ORDEN DE COMPRA', pageWidth / 2, 18, { align: 'center' });
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Folio: ${purchase.purchaseNumber}`, pageWidth / 2, 28, { align: 'center' });
+
+      doc.setTextColor(0, 0, 0);
+      let y = 45;
+
+      // Status badges
+      const sConf = statusConfig[purchase.status as keyof typeof statusConfig] || statusConfig.PENDING;
+      const pConf = paymentStatusConfig[purchase.paymentStatus as keyof typeof paymentStatusConfig] || paymentStatusConfig.PENDING;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Estado: ${sConf.label}`, 14, y);
+      doc.text(`Pago: ${pConf.label}`, 100, y);
+      y += 10;
+
+      // Dates
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Fecha de compra', 14, y);
+      doc.text('Fecha de entrega', 100, y);
+      y += 5;
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text(pdfFormatDate(purchase.purchaseDate), 14, y);
+      doc.text(purchase.deliveryDate ? pdfFormatDate(purchase.deliveryDate) : 'No especificada', 100, y);
+      y += 10;
+
+      // Supplier box
+      doc.setFillColor(249, 250, 251);
+      doc.roundedRect(14, y, pageWidth - 28, 40, 2, 2, 'F');
+      y += 7;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('PROVEEDOR', 18, y);
+      y += 6;
+      doc.setFontSize(12);
+      doc.text(purchase.supplier.businessName, 18, y);
+      y += 5;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      if (purchase.supplier.contactName) { doc.text(`Contacto: ${purchase.supplier.contactName}`, 18, y); y += 4; }
+      if (purchase.supplier.email) { doc.text(`Email: ${purchase.supplier.email}`, 18, y); y += 4; }
+      if (purchase.supplier.phone) { doc.text(`Tel: ${purchase.supplier.phone}`, 18, y); y += 4; }
+      if (purchase.supplier.rfc) { doc.text(`RFC: ${purchase.supplier.rfc}`, 18, y); y += 4; }
+      if (purchase.supplier.street) {
+        doc.text(`${purchase.supplier.street}, ${purchase.supplier.city}, ${purchase.supplier.state} ${purchase.supplier.postalCode}`, 18, y);
+        y += 4;
+      }
+      doc.setTextColor(0, 0, 0);
+
+      y = Math.max(y + 6, y + 2);
+
+      // Items table
+      const tableData = purchase.items.map((item, index) => [
+        (index + 1).toString(),
+        item.description + (item.sku ? `\nSKU: ${item.sku}` : ''),
+        parseFloat(item.quantity).toFixed(2),
+        item.unit || '-',
+        formatCurrency(item.unitPrice),
+        item.discountRate ? `${(parseFloat(item.discountRate) * 100).toFixed(0)}%` : '-',
+        item.taxRate ? `${(parseFloat(item.taxRate) * 100).toFixed(0)}%` : '16%',
+        formatCurrency(item.subtotal),
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Descripción', 'Cant.', 'Unidad', 'P. Unit.', 'Desc.%', 'IVA%', 'Total']],
+        body: tableData,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [243, 244, 246], textColor: [55, 65, 81], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [255, 255, 255] },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 10 },
+          2: { halign: 'center', cellWidth: 15 },
+          3: { halign: 'center', cellWidth: 18 },
+          4: { halign: 'right', cellWidth: 25 },
+          5: { halign: 'center', cellWidth: 15 },
+          6: { halign: 'center', cellWidth: 15 },
+          7: { halign: 'right', cellWidth: 25 },
+        },
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 10;
+
+      // Totals
+      const totalsX = pageWidth - 80;
+      const valuesX = pageWidth - 14;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Subtotal:', totalsX, y);
+      doc.text(formatCurrency(purchase.subtotal), valuesX, y, { align: 'right' });
+      y += 6;
+
+      doc.text('IVA Total:', totalsX, y);
+      doc.text(formatCurrency(purchase.tax || 0), valuesX, y, { align: 'right' });
+      y += 8;
+
+      doc.setDrawColor(200, 200, 200);
+      doc.line(totalsX - 5, y - 3, valuesX, y - 3);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TOTAL:', totalsX, y);
+      doc.setTextColor(22, 163, 74);
+      doc.text(formatCurrency(purchase.total), valuesX, y, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+      y += 10;
+
+      // Payment info
+      const amountPaid = parseFloat(purchase.amountPaid);
+      if (amountPaid > 0) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Monto Pagado:', totalsX, y);
+        doc.setTextColor(22, 163, 74);
+        doc.text(formatCurrency(purchase.amountPaid), valuesX, y, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+        y += 6;
+
+        const balance = parseFloat(purchase.total) - amountPaid;
+        doc.text('Saldo Pendiente:', totalsX, y);
+        if (balance > 0) doc.setTextColor(220, 38, 38);
+        else doc.setTextColor(22, 163, 74);
+        doc.text(formatCurrency(balance), valuesX, y, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+        y += 10;
+      }
+
+      // Notes and Terms
+      if (purchase.notes || purchase.termsAndConditions) {
+        if (y > 250) { doc.addPage(); y = 20; }
+
+        if (purchase.notes) {
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Notas:', 14, y);
+          y += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          const noteLines = doc.splitTextToSize(purchase.notes, pageWidth - 28);
+          doc.text(noteLines, 14, y);
+          y += noteLines.length * 4 + 6;
+        }
+
+        if (purchase.termsAndConditions) {
+          if (y > 260) { doc.addPage(); y = 20; }
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Términos y Condiciones:', 14, y);
+          y += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          const termLines = doc.splitTextToSize(purchase.termsAndConditions, pageWidth - 28);
+          doc.text(termLines, 14, y);
+        }
+      }
+
+      doc.save(`compra-${purchase.purchaseNumber}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Error al generar el PDF');
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
+  const pdfFormatDate = (dateString: string) => {
+    try {
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      if (year && month && day) {
+        const date = new Date(year, month - 1, day);
+        return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+      return dateString;
+    } catch { return dateString; }
   };
 
   // Fix: Parse date components directly to avoid UTC timezone shift
@@ -251,10 +451,12 @@ export default function ViewPurchasePage() {
                 Editar
               </Link>
               <button
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                title="Descargar PDF (próximamente)"
+                onClick={handleExportPDF}
+                disabled={exportingPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                title="Descargar PDF"
               >
-                <Download className="w-4 h-4" />
+                {exportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 PDF
               </button>
             </div>
