@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, Loader2, FileText } from 'lucide-react';
+import { Plus, Users, Loader2, FileText, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
@@ -85,6 +85,13 @@ export default function PatientsPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/medical-records/templates"
+              className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              <Settings2 className="w-5 h-5" />
+              Plantillas del Sistema
+            </Link>
             <Link
               href="/dashboard/medical-records/custom-templates"
               className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
