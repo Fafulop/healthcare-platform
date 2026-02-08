@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Save } from 'lucide-react';
 import Link from 'next/link';
 import { VitalsInput, type VitalsData } from './VitalsInput';
@@ -50,6 +50,12 @@ interface EncounterFormProps {
   isEditing?: boolean;
   templateConfig?: TemplateConfig; // Template-based configuration
   selectedTemplate?: CustomEncounterTemplate | null; // For custom templates
+  onFormDataChange?: (data: EncounterFormData) => void; // Notify parent of form data changes
+  onCustomFieldValuesChange?: (values: Record<string, any>) => void; // Notify parent of custom field changes
+  /** Incremental field updates from AI chat panel - merged directly into formData */
+  chatFieldUpdates?: { version: number; updates: Partial<EncounterFormData> } | null;
+  /** Incremental custom field updates from AI chat panel */
+  chatCustomFieldUpdates?: { version: number; updates: Record<string, any> } | null;
 }
 
 export function EncounterForm({
@@ -61,6 +67,10 @@ export function EncounterForm({
   isEditing = false,
   templateConfig,
   selectedTemplate,
+  onFormDataChange,
+  onCustomFieldValuesChange,
+  chatFieldUpdates,
+  chatCustomFieldUpdates,
 }: EncounterFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -153,6 +163,34 @@ export function EncounterForm({
       }
     }
   }, [initialData]);
+
+  // Notify parent of form data changes
+  useEffect(() => {
+    onFormDataChange?.(formData);
+  }, [formData, onFormDataChange]);
+
+  // Notify parent of custom field value changes
+  useEffect(() => {
+    onCustomFieldValuesChange?.(customFieldValues);
+  }, [customFieldValues, onCustomFieldValuesChange]);
+
+  // Apply chat field updates directly to formData (bypasses initialData chain)
+  const lastChatVersionRef = useRef(0);
+  useEffect(() => {
+    if (chatFieldUpdates && chatFieldUpdates.version > lastChatVersionRef.current) {
+      lastChatVersionRef.current = chatFieldUpdates.version;
+      setFormData((prev) => ({ ...prev, ...chatFieldUpdates.updates }));
+    }
+  }, [chatFieldUpdates]);
+
+  // Apply chat custom field updates directly
+  const lastCustomChatVersionRef = useRef(0);
+  useEffect(() => {
+    if (chatCustomFieldUpdates && chatCustomFieldUpdates.version > lastCustomChatVersionRef.current) {
+      lastCustomChatVersionRef.current = chatCustomFieldUpdates.version;
+      setCustomFieldValues((prev) => ({ ...prev, ...chatCustomFieldUpdates.updates }));
+    }
+  }, [chatCustomFieldUpdates]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({

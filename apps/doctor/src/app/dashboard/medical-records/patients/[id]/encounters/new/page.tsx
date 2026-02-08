@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Loader2, Mic } from 'lucide-react';
+import { ArrowLeft, Loader2, Mic, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterForm, type EncounterFormData, type TemplateConfig } from '@/components/medical-records/EncounterForm';
 import { TemplateSelector } from '@/components/medical-records/TemplateSelector';
@@ -13,6 +13,8 @@ import {
   VoiceChatSidebar,
   VoiceRecordingModal,
 } from '@/components/voice-assistant';
+import { EncounterChatPanel } from '@/components/medical-records/EncounterChatPanel';
+import type { TemplateInfo } from '@/hooks/useEncounterChat';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoiceEncounterData, VoiceStructuredData } from '@/types/voice-assistant';
 import type { EncounterTemplate, FieldVisibility, DefaultValues } from '@/types/encounter-template';
@@ -93,6 +95,14 @@ export default function NewEncounterPage() {
     fieldsEmpty: string[];
     confidence: 'high' | 'medium' | 'low';
   } | null>(null);
+
+  // AI Chat panel state
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
+  const [currentFormData, setCurrentFormData] = useState<EncounterFormData | null>(null);
+  const [currentCustomFieldValues, setCurrentCustomFieldValues] = useState<Record<string, any>>({});
+  const [chatFieldUpdates, setChatFieldUpdates] = useState<{ version: number; updates: Partial<EncounterFormData> } | null>(null);
+  const [chatCustomFieldUpdates, setChatCustomFieldUpdates] = useState<{ version: number; updates: Record<string, any> } | null>(null);
+  const chatVersionRef = useRef(0);
 
   // Load voice data from sessionStorage
   useEffect(() => {
@@ -224,6 +234,37 @@ export default function NewEncounterPage() {
     setSelectedTemplate(template);
   }, []);
 
+  // Handle form data updates from chat panel — push directly to form via versioned updates
+  const handleChatUpdateForm = useCallback((updates: Partial<EncounterFormData>) => {
+    chatVersionRef.current += 1;
+    setChatFieldUpdates({ version: chatVersionRef.current, updates });
+  }, []);
+
+  const handleChatUpdateCustomFields = useCallback((updates: Record<string, any>) => {
+    chatVersionRef.current += 1;
+    setChatCustomFieldUpdates({ version: chatVersionRef.current, updates });
+  }, []);
+
+  // Build templateInfo for the chat panel
+  const chatTemplateInfo: TemplateInfo = selectedTemplate
+    ? selectedTemplate.isCustom
+      ? {
+          type: 'custom',
+          name: selectedTemplate.name,
+          customFields: (selectedTemplate as any).customFields?.map((f: any) => ({
+            name: f.name,
+            label: f.label || f.labelEs,
+            type: f.type,
+            options: f.options,
+          })),
+        }
+      : {
+          type: 'standard',
+          name: selectedTemplate.name,
+          fieldVisibility: selectedTemplate.fieldVisibility as Record<string, boolean>,
+        }
+    : { type: 'standard' };
+
   // Build template config for the form
   const templateConfig: TemplateConfig | undefined = selectedTemplate
     ? {
@@ -301,16 +342,30 @@ export default function NewEncounterPage() {
             <h1 className="text-2xl font-bold text-gray-900">Nueva Consulta</h1>
             <p className="text-gray-600 mt-1">Registre los detalles de la consulta</p>
           </div>
-          {/* Voice Assistant Button - hidden after data is confirmed */}
-          {!voiceInitialData && (
+          <div className="flex items-center gap-2">
+            {/* AI Chat Panel Button */}
             <button
-              onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => setChatPanelOpen((prev) => !prev)}
+              className={`inline-flex items-center gap-2 px-4 py-2 font-medium rounded-lg transition-colors ${
+                chatPanelOpen
+                  ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              }`}
             >
-              <Mic className="w-5 h-5" />
-              Asistente de Voz
+              <Sparkles className="w-5 h-5" />
+              Chat IA
             </button>
-          )}
+            {/* Voice Assistant Button - hidden after data is confirmed */}
+            {!voiceInitialData && (
+              <button
+                onClick={() => setModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Mic className="w-5 h-5" />
+                Asistente de Voz
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -345,6 +400,10 @@ export default function NewEncounterPage() {
         submitLabel="Crear Consulta"
         templateConfig={templateConfig}
         selectedTemplate={selectedTemplate}
+        onFormDataChange={setCurrentFormData}
+        onCustomFieldValuesChange={setCurrentCustomFieldValues}
+        chatFieldUpdates={chatFieldUpdates}
+        chatCustomFieldUpdates={chatCustomFieldUpdates}
       />
 
       {/* Voice Recording Modal */}
@@ -360,6 +419,17 @@ export default function NewEncounterPage() {
           }}
           templateId={selectedTemplate?.id}
           onComplete={handleModalComplete}
+        />
+      )}
+
+      {/* AI Chat Panel */}
+      {chatPanelOpen && currentFormData && (
+        <EncounterChatPanel
+          onClose={() => setChatPanelOpen(false)}
+          currentFormData={currentFormData}
+          onUpdateForm={handleChatUpdateForm}
+          templateInfo={chatTemplateInfo}
+          onUpdateCustomFields={handleChatUpdateCustomFields}
         />
       )}
 
