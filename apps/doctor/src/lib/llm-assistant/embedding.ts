@@ -1,31 +1,16 @@
 /**
- * OpenAI Embedding Client for LLM Assistant
+ * Embedding Client for LLM Assistant
+ * Uses provider-agnostic abstraction layer
  */
 
-import OpenAI from 'openai';
-import {
-  EMBEDDING_MODEL,
-  EMBEDDING_BATCH_SIZE,
-  EMBEDDING_RATE_LIMIT_MS,
-} from './constants';
-
-let _openai: OpenAI;
-function getOpenAI() {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
-}
+import { getEmbeddingProvider } from '@/lib/ai';
+import { EMBEDDING_BATCH_SIZE } from './constants';
 
 /**
  * Generate embedding for a single text string.
- * Returns a 1536-dimensional vector.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await getOpenAI().embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: text,
-  });
-
-  return response.data[0].embedding;
+  return getEmbeddingProvider().generateEmbedding(text);
 }
 
 /**
@@ -35,27 +20,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 export async function generateEmbeddingsBatch(
   texts: string[]
 ): Promise<number[][]> {
-  const results: number[][] = [];
-
-  for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
-    const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
-
-    const response = await getOpenAI().embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: batch,
-    });
-
-    for (const item of response.data) {
-      results.push(item.embedding);
-    }
-
-    // Rate limit between batches
-    if (i + EMBEDDING_BATCH_SIZE < texts.length) {
-      await new Promise(resolve => setTimeout(resolve, EMBEDDING_RATE_LIMIT_MS));
-    }
-  }
-
-  return results;
+  return getEmbeddingProvider().generateEmbeddingsBatch(texts, EMBEDDING_BATCH_SIZE);
 }
 
 /**

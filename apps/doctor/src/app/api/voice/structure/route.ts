@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { prisma } from '@healthcare/database';
-import OpenAI from 'openai';
+import { getChatProvider } from '@/lib/ai';
 
 import { getSystemPrompt, getUserPrompt } from '@/lib/voice-assistant/prompts';
 import {
@@ -25,13 +25,6 @@ import {
   EXTRACTABLE_FIELDS,
 } from '@/types/voice-assistant';
 import type { FieldDefinition } from '@/types/custom-encounter';
-
-// Lazy-initialize OpenAI client to avoid build-time crash
-let _openai: OpenAI;
-function getOpenAI() {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
-}
 
 // Configuration
 const MODEL = 'gpt-4o'; // Use GPT-4o for best accuracy with medical content
@@ -155,35 +148,21 @@ export async function POST(request: NextRequest) {
     const dateContextMatch = userPrompt.match(/## CURRENT DATE CONTEXT[\s\S]*?(?=\n\nTRANSCRIPT)/);
     console.log('[Voice Structure] Date context:', dateContextMatch ? dateContextMatch[0] : 'NOT FOUND');
 
-    // 7. Call OpenAI API
-    const completion = await getOpenAI().chat.completions.create({
-      model: MODEL,
-      temperature: TEMPERATURE,
-      max_tokens: MAX_TOKENS,
-      messages: [
+    // 7. Call AI provider
+    const responseText = await getChatProvider().chatCompletion(
+      [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      response_format: { type: 'json_object' },
-    });
+      {
+        model: MODEL,
+        temperature: TEMPERATURE,
+        maxTokens: MAX_TOKENS,
+        jsonMode: true,
+      }
+    );
 
-    // 8. Extract response
-    const responseText = completion.choices[0]?.message?.content;
-
-    if (!responseText) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'STRUCTURING_FAILED',
-            message: 'No se recibió respuesta del modelo',
-          },
-        },
-        { status: 500 }
-      );
-    }
-
-    // 9. Parse JSON response
+    // 8. Parse JSON response
     let structuredData: VoiceStructuredData;
     try {
       structuredData = JSON.parse(responseText);

@@ -12,15 +12,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
-import OpenAI from 'openai';
+import { getChatProvider } from '@/lib/ai';
+import type { ChatMessage } from '@/lib/ai';
 import { ENCOUNTER_FIELDS } from '@/constants/encounter-fields';
-
-// Lazy-initialize OpenAI client to avoid build-time crash
-let _openai: OpenAI;
-function getOpenAI() {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
-}
 
 const MODEL = 'gpt-4o';
 const MAX_TOKENS = 4096;
@@ -141,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = buildSystemPrompt(currentFormData, templateInfo);
 
-    const openaiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    const chatMessages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
       // Few-shot example to enforce bullet formatting from the first turn
       { role: 'user', content: 'que campos tiene el formulario?' },
@@ -164,22 +158,12 @@ export async function POST(request: NextRequest) {
       lastMessage: messages[messages.length - 1]?.content?.substring(0, 100),
     });
 
-    const completion = await getOpenAI().chat.completions.create({
+    const responseText = await getChatProvider().chatCompletion(chatMessages, {
       model: MODEL,
       temperature: TEMPERATURE,
-      max_tokens: MAX_TOKENS,
-      messages: openaiMessages,
-      response_format: { type: 'json_object' },
+      maxTokens: MAX_TOKENS,
+      jsonMode: true,
     });
-
-    const responseText = completion.choices[0]?.message?.content;
-
-    if (!responseText) {
-      return NextResponse.json(
-        { success: false, error: { code: 'CHAT_FAILED', message: 'No se recibio respuesta del modelo' } },
-        { status: 500 }
-      );
-    }
 
     let parsed: {
       message: string;
