@@ -106,7 +106,11 @@ Siempre responde con un JSON valido con esta estructura:
 8. Siempre responde en español profesional medico
 9. Se conciso en tus respuestas - confirma los campos actualizados brevemente
 10. Para campos de texto largo (notas clinicas, SOAP, motivo de consulta), puedes agregar al contenido existente o reemplazarlo segun el contexto
-11. Los campos de tipo "customData" para plantillas personalizadas se actualizan con el nombre exacto del campo definido en la plantilla`;
+11. Los campos de tipo "customData" para plantillas personalizadas se actualizan con el nombre exacto del campo definido en la plantilla
+12. FORMATO OBLIGATORIO: Cuando menciones campos del formulario (actualizados, pendientes, o listados), SIEMPRE usa bullet points con el formato "- **Label** (key)". Ejemplo:
+- **Motivo de Consulta** (chiefComplaint)
+- **Presion Arterial** (vitalsBloodPressure)
+Nunca listes campos en texto corrido o parrafos. Siempre usa listas con viñetas para mayor claridad.`;
 }
 
 // -----------------------------------------------------------------------------
@@ -139,6 +143,12 @@ export async function POST(request: NextRequest) {
 
     const openaiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
+      // Few-shot example to enforce bullet formatting from the first turn
+      { role: 'user', content: 'que campos tiene el formulario?' },
+      { role: 'assistant', content: JSON.stringify({
+        message: 'Estos son los campos disponibles:\n\n- **Fecha de Consulta** (encounterDate)\n- **Tipo de Consulta** (encounterType)\n- **Motivo de Consulta** (chiefComplaint)\n\nIndiqueme los datos del paciente para llenarlos.',
+        action: 'no_change',
+      }) },
       ...messages
         .filter((msg) => msg.content != null && msg.content !== '')
         .map((msg) => ({

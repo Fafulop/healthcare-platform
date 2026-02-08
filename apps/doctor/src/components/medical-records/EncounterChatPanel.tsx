@@ -122,6 +122,47 @@ export function EncounterChatPanel({
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Draggable panel height (mobile only)
+  const [panelHeight, setPanelHeight] = useState(60); // vh
+  const isDragging = useRef(false);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(60);
+
+  const onDragStart = (clientY: number) => {
+    isDragging.current = true;
+    dragStartY.current = clientY;
+    dragStartHeight.current = panelHeight;
+  };
+
+  const onDragMove = (clientY: number) => {
+    if (!isDragging.current) return;
+    const deltaVh = ((dragStartY.current - clientY) / window.innerHeight) * 100;
+    const newHeight = Math.min(90, Math.max(25, dragStartHeight.current + deltaVh));
+    setPanelHeight(newHeight);
+  };
+
+  const onDragEnd = () => {
+    isDragging.current = false;
+  };
+
+  // Touch handlers for the drag handle
+  const handleTouchStart = (e: React.TouchEvent) => onDragStart(e.touches[0].clientY);
+  const handleTouchMove = (e: React.TouchEvent) => onDragMove(e.touches[0].clientY);
+  const handleTouchEnd = () => onDragEnd();
+
+  // Mouse handlers (for desktop testing)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    onDragStart(e.clientY);
+    const onMouseMove = (ev: MouseEvent) => onDragMove(ev.clientY);
+    const onMouseUp = () => {
+      onDragEnd();
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
   // Auto-scroll on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -153,9 +194,23 @@ export function EncounterChatPanel({
   const isBusy = isLoading || isTranscribing;
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 w-80 sm:w-96 bg-white border-l border-gray-200 z-50 flex flex-col shadow-xl">
+    <div
+      className="fixed inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:!h-auto bg-white border-t sm:border-t-0 sm:border-l border-gray-200 z-50 flex flex-col shadow-xl rounded-t-2xl sm:rounded-none sm:w-96"
+      style={{ height: `${panelHeight}vh` }}
+    >
+      {/* Drag handle (mobile) */}
+      <div
+        className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing sm:hidden"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+      >
+        <div className="w-10 h-1 rounded-full bg-gray-300" />
+      </div>
+
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-indigo-50">
+      <div className="flex items-center justify-between px-4 py-2 sm:py-3 border-b border-gray-200 bg-indigo-50 sm:rounded-none">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-indigo-600" />
           <span className="text-sm font-semibold text-indigo-900">Chat IA</span>
