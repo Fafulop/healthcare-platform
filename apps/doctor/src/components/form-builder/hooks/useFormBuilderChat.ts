@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useFormBuilder } from '../FormBuilderProvider';
+import { useVoiceRecording, formatDuration } from '@/hooks/useVoiceRecording';
 import type { FieldDefinition } from '@/types/custom-encounter';
 
 // -----------------------------------------------------------------------------
@@ -58,9 +59,15 @@ export function useFormBuilderChat() {
 
   const [messages, setMessages] = useState<FormBuilderChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   // Conversation history sent to the API (excludes action summaries, etc.)
   const conversationRef = useRef<ApiConversationMessage[]>([]);
+  const sendMessageRef = useRef<(text: string) => Promise<void>>();
+  const shouldAutoSendRef = useRef(false);
+
+  // Voice recording
+  const voice = useVoiceRecording({ maxDuration: 120 });
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -200,10 +207,83 @@ export function useFormBuilderChat() {
     [isLoading, state.fields, state.metadata, setFields, updateField, removeField, setMetadata]
   );
 
+  // Keep a ref to latest sendMessage so processVoiceMessage can call it
+  sendMessageRef.current = sendMessage;
+
+  // Process voice recording: transcribe audio blob then send as text
+  const processVoiceMessage = useCallback(async (audioBlob: Blob) => {
+    setIsTranscribing(true);
+    try {
+      const fd = new FormData();
+      fd.append('audio', audioBlob, 'recording.webm');
+
+      const res = await fetch('/api/voice/transcribe', {
+        method: 'POST',
+        body: fd,
+      });
+      const json = await res.json();
+
+      if (json.success && json.data?.transcript) {
+        await sendMessageRef.current?.(json.data.transcript);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: generateId(),
+            role: 'assistant',
+            content: json.error?.message || 'No se pudo transcribir el audio. Intente de nuevo o escriba su mensaje.',
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: generateId(),
+          role: 'assistant',
+          content: 'Error al transcribir el audio. Intente de nuevo.',
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
+      setIsTranscribing(false);
+      voice.resetRecording();
+    }
+  }, [voice.resetRecording]);
+
+  // Auto-send when recording stops
+  useEffect(() => {
+    if (voice.status === 'stopped' && voice.audioBlob && shouldAutoSendRef.current) {
+      shouldAutoSendRef.current = false;
+      processVoiceMessage(voice.audioBlob);
+    }
+  }, [voice.status, voice.audioBlob, processVoiceMessage]);
+
+  // Stop recording and flag for auto-send
+  const handleVoiceStop = useCallback(() => {
+    shouldAutoSendRef.current = true;
+    voice.stopRecording();
+  }, [voice.stopRecording]);
+
   const clearChat = useCallback(() => {
     setMessages([]);
     conversationRef.current = [];
   }, []);
 
-  return { messages, isLoading, sendMessage, clearChat };
+  return {
+    messages,
+    isLoading,
+    isTranscribing,
+    sendMessage,
+    clearChat,
+    voice: {
+      isRecording: voice.isRecording,
+      isProcessing: isTranscribing,
+      duration: formatDuration(voice.duration),
+      startRecording: voice.startRecording,
+      stopRecording: handleVoiceStop,
+      cancelRecording: voice.resetRecording,
+    },
+  };
 }

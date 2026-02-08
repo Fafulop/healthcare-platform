@@ -195,7 +195,7 @@ export function EncounterChatPanel({
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:!h-auto bg-white border-t sm:border-t-0 sm:border-l border-gray-200 z-50 flex flex-col shadow-xl rounded-t-2xl sm:rounded-none sm:w-96"
+      className="fixed inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:!h-auto bg-white border-t sm:border-t-0 sm:border-l border-gray-200 z-[60] flex flex-col shadow-xl rounded-t-2xl sm:rounded-none sm:w-96"
       style={{ height: `${panelHeight}vh` }}
     >
       {/* Drag handle (mobile) */}

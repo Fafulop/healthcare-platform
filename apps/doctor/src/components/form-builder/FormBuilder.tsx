@@ -143,14 +143,14 @@ function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
 
               {/* Config Panel */}
               <ConfigPanel />
-
-              {/* AI Chat Panel */}
-              {showAIChat && (
-                <AIChatPanel onClose={() => setShowAIChat(false)} />
-              )}
             </>
           ) : (
             <PreviewMode />
+          )}
+
+          {/* AI Chat Panel — inside main area so it doesn't cover the toolbar */}
+          {showAIChat && (
+            <AIChatPanel onClose={() => setShowAIChat(false)} />
           )}
         </div>
 

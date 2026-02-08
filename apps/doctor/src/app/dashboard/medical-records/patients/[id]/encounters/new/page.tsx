@@ -355,15 +355,14 @@ export default function NewEncounterPage() {
               <Sparkles className="w-5 h-5" />
               Chat IA
             </button>
-            {/* Voice Assistant Button - hidden after data is confirmed */}
+            {/* Voice Assistant Button - disabled */}
             {!voiceInitialData && (
-              <button
-                onClick={() => setModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              <span
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 border border-gray-200 font-medium rounded-lg cursor-not-allowed"
               >
                 <Mic className="w-5 h-5" />
                 Asistente de Voz
-              </button>
+              </span>
             )}
           </div>
         </div>
