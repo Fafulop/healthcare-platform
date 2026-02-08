@@ -13,6 +13,7 @@ import {
   AlertCircle,
   CheckCircle,
   Settings,
+  ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { CustomEncounterTemplate } from '@/types/custom-encounter';
@@ -108,6 +109,17 @@ export default function CustomTemplatesPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      {/* Back link */}
+      <div className="mb-4">
+        <Link
+          href="/dashboard/medical-records"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver a Expedientes
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">

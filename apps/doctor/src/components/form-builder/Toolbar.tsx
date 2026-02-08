@@ -1,6 +1,6 @@
 'use client';
 
-import { Save, Eye, Pencil, Loader2 } from 'lucide-react';
+import { Save, Eye, Pencil, Loader2, Sparkles } from 'lucide-react';
 import { useFormBuilder } from './FormBuilderProvider';
 import { IconPicker } from './IconPicker';
 import { ColorPicker } from './ColorPicker';
@@ -9,9 +9,11 @@ import { ValidationDisplay } from './ValidationDisplay';
 interface ToolbarProps {
   onSave: () => void;
   saving: boolean;
+  onToggleAIChat?: () => void;
+  showAIChat?: boolean;
 }
 
-export function Toolbar({ onSave, saving }: ToolbarProps) {
+export function Toolbar({ onSave, saving, onToggleAIChat, showAIChat }: ToolbarProps) {
   const { state, setMetadata, setMode, hasErrors } = useFormBuilder();
   const { metadata, mode, validationErrors } = state;
 
@@ -79,6 +81,23 @@ export function Toolbar({ onSave, saving }: ToolbarProps) {
             Vista previa
           </button>
         </div>
+
+        {/* AI Chat toggle */}
+        {state.mode === 'edit' && onToggleAIChat && (
+          <button
+            type="button"
+            onClick={onToggleAIChat}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              showAIChat
+                ? 'bg-indigo-600 text-white'
+                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+            }`}
+            title="Asistente IA"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">IA</span>
+          </button>
+        )}
 
         {/* Save */}
         <button

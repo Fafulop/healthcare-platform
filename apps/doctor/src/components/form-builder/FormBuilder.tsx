@@ -22,6 +22,7 @@ import { FieldPalette } from './FieldPalette';
 import { Canvas } from './Canvas';
 import { ConfigPanel } from './ConfigPanel';
 import { PreviewMode } from './PreviewMode';
+import { AIChatPanel } from './AIChatPanel';
 import { FieldTypeIcon, getFieldTypeLabel } from './FieldTypeIcon';
 
 // =============================================================================
@@ -41,6 +42,7 @@ interface FormBuilderInnerProps {
 function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
   const { state, addField, reorderField, validateNow } = useFormBuilder();
   const [saving, setSaving] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
   const [dragActiveType, setDragActiveType] = useState<FieldType | null>(null);
 
   const sensors = useSensors(
@@ -120,10 +122,15 @@ function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
         </div>
 
         {/* Toolbar */}
-        <Toolbar onSave={handleSave} saving={saving} />
+        <Toolbar
+          onSave={handleSave}
+          saving={saving}
+          onToggleAIChat={() => setShowAIChat((v) => !v)}
+          showAIChat={showAIChat}
+        />
 
         {/* Main area */}
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 relative">
           {state.mode === 'edit' ? (
             <>
               {/* Palette (hidden on small screens) */}
@@ -136,6 +143,11 @@ function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
 
               {/* Config Panel */}
               <ConfigPanel />
+
+              {/* AI Chat Panel */}
+              {showAIChat && (
+                <AIChatPanel onClose={() => setShowAIChat(false)} />
+              )}
             </>
           ) : (
             <PreviewMode />
