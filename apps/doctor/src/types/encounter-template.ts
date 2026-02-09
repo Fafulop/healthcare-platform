@@ -128,6 +128,7 @@ export interface EncounterTemplate {
   fieldVisibility: FieldVisibility;
   defaultValues: DefaultValues;
   useSOAPMode: boolean;
+  isCustom: boolean;
   isDefault: boolean;
   isActive: boolean;
   displayOrder: number;
