@@ -63,7 +63,7 @@ export function useFormBuilderChat() {
 
   // Conversation history sent to the API (excludes action summaries, etc.)
   const conversationRef = useRef<ApiConversationMessage[]>([]);
-  const sendMessageRef = useRef<(text: string) => Promise<void>>();
+  const sendMessageRef = useRef<(text: string) => Promise<void>>(undefined);
   const shouldAutoSendRef = useRef(false);
 
   // Voice recording
