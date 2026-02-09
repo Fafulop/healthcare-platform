@@ -647,7 +647,7 @@ function AppointmentSlotsPreview({
                   isExtracted={fieldsExtracted.includes(field)}
                   isMissing={false}
                   compact={compact}
-                  customLabelMap={customLabelMap}
+
                 />
               ))}
               {/* Show missing fields */}
@@ -656,7 +656,7 @@ function AppointmentSlotsPreview({
                   key={field}
                   field={field}
                   value={null}
-                  customLabelMap={customLabelMap}
+
                   isExtracted={false}
                   isMissing={true}
                   compact={compact}
@@ -734,7 +734,7 @@ function LedgerEntryPreview({
                   isExtracted={fieldsExtracted.includes(field)}
                   isMissing={false}
                   compact={compact}
-                  customLabelMap={customLabelMap}
+
                 />
               ))}
               {/* Show missing fields */}
@@ -743,7 +743,7 @@ function LedgerEntryPreview({
                   key={field}
                   field={field}
                   value={null}
-                  customLabelMap={customLabelMap}
+
                   isExtracted={false}
                   isMissing={true}
                   compact={compact}
