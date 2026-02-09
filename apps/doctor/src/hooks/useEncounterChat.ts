@@ -81,7 +81,7 @@ export function useEncounterChat({
   const [isTranscribing, setIsTranscribing] = useState(false);
 
   const conversationRef = useRef<ApiConversationMessage[]>([]);
-  const sendMessageRef = useRef<(text: string) => Promise<void>>();
+  const sendMessageRef = useRef<(text: string) => Promise<void>>(undefined);
   const shouldAutoSendRef = useRef(false);
 
   // Voice recording
