@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
-import { Sparkles, X, Bot, User, Loader2, Send } from 'lucide-react';
+import { Sparkles, X, Bot, User, Loader2, Send, Minus, ChevronUp } from 'lucide-react';
 import { VoiceRecordButton } from '@/components/voice-assistant/chat/VoiceRecordButton';
 import { useFormBuilderChat, type FormBuilderChatMessage } from './hooks/useFormBuilderChat';
 
@@ -103,6 +103,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   // Draggable panel height (mobile only)
   const [panelHeight, setPanelHeight] = useState(60); // vh
@@ -177,28 +178,43 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:!h-auto bg-white border-t sm:border-t-0 sm:border-l border-gray-200 z-[60] flex flex-col shadow-xl rounded-t-2xl sm:rounded-none sm:w-96"
-      style={{ height: `${panelHeight}vh` }}
+      className={`fixed z-[60] flex flex-col shadow-xl transition-all duration-300 ease-in-out ${
+        collapsed
+          ? 'inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:bottom-0 sm:top-auto sm:w-96 h-auto'
+          : 'inset-x-0 bottom-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:!h-auto sm:w-96 rounded-t-2xl sm:rounded-none'
+      } bg-white border-t sm:border-t-0 sm:border-l border-gray-200`}
+      style={collapsed ? undefined : { height: `${panelHeight}vh` }}
     >
-      {/* Drag handle (mobile) */}
-      <div
-        className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing sm:hidden"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleMouseDown}
-      >
-        <div className="w-10 h-1 rounded-full bg-gray-300" />
-      </div>
+      {/* Drag handle (mobile, only when expanded) */}
+      {!collapsed && (
+        <div
+          className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing sm:hidden"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 sm:py-3 border-b border-gray-200 bg-indigo-50 sm:rounded-none">
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
           <Sparkles className="w-4 h-4 text-indigo-600" />
           <span className="text-sm font-semibold text-indigo-900">Asistente IA</span>
-        </div>
+          {collapsed && messages.length > 0 && (
+            <span className="ml-1 w-5 h-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center">
+              {messages.length}
+            </span>
+          )}
+        </button>
         <div className="flex items-center gap-1">
-          {messages.length > 0 && (
+          {messages.length > 0 && !collapsed && (
             <button
               type="button"
               onClick={clearChat}
@@ -209,6 +225,14 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
           )}
           <button
             type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-1 rounded hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors"
+            title={collapsed ? 'Expandir' : 'Minimizar'}
+          >
+            {collapsed ? <ChevronUp className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
+          </button>
+          <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors"
           >
@@ -217,96 +241,100 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
         </div>
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
-        {messages.length === 0 ? (
-          /* Empty state */
-          <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-3">
-              <Sparkles className="w-6 h-6 text-indigo-500" />
-            </div>
-            <p className="text-sm font-medium text-gray-700 mb-1">
-              Describe tu plantilla
-            </p>
-            <p className="text-xs text-gray-500 mb-4">
-              Dime qué campos necesitas y los creo automaticamente en el canvas.
-            </p>
-            <div className="flex flex-col gap-2 w-full">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleSuggestion(s)}
-                  className="text-xs text-left px-3 py-2 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-colors"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <>
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
-            {(isLoading || isTranscribing) && (
-              <div className="flex gap-2">
-                <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-3.5 h-3.5 text-indigo-600" />
+      {/* Messages & Input — hidden when collapsed */}
+      {!collapsed && (
+        <>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
+            {messages.length === 0 ? (
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-3">
+                  <Sparkles className="w-6 h-6 text-indigo-500" />
                 </div>
-                <div className="px-3 py-2 rounded-2xl rounded-bl-md bg-gray-100 text-gray-500 text-sm flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {isTranscribing ? 'Transcribiendo...' : 'Pensando...'}
+                <p className="text-sm font-medium text-gray-700 mb-1">
+                  Describe tu plantilla
+                </p>
+                <p className="text-xs text-gray-500 mb-4">
+                  Dime qué campos necesitas y los creo automaticamente en el canvas.
+                </p>
+                <div className="flex flex-col gap-2 w-full">
+                  {SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => handleSuggestion(s)}
+                      className="text-xs text-left px-3 py-2 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-colors"
+                    >
+                      {s}
+                    </button>
+                  ))}
                 </div>
               </div>
+            ) : (
+              <>
+                {messages.map((msg) => (
+                  <MessageBubble key={msg.id} message={msg} />
+                ))}
+                {(isLoading || isTranscribing) && (
+                  <div className="flex gap-2">
+                    <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-3.5 h-3.5 text-indigo-600" />
+                    </div>
+                    <div className="px-3 py-2 rounded-2xl rounded-bl-md bg-gray-100 text-gray-500 text-sm flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {isTranscribing ? 'Transcribiendo...' : 'Pensando...'}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* Input with voice */}
-      <div className="border-t border-gray-200 p-2 sm:p-3 bg-white">
-        <div className="flex items-center gap-2">
-          <VoiceRecordButton
-            isRecording={voice.isRecording}
-            isProcessing={voice.isProcessing}
-            duration={voice.duration}
-            disabled={isBusy}
-            onStartRecording={voice.startRecording}
-            onStopRecording={voice.stopRecording}
-            onCancel={voice.cancelRecording}
-          />
-          <input
-            ref={inputRef}
-            type="text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Describe los campos que necesitas..."
-            disabled={isBusy}
-            className={`
-              flex-1 px-3 sm:px-4 py-2.5 sm:py-2 rounded-full border border-gray-200
-              focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400
-              text-sm placeholder:text-gray-400
-              ${isBusy ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}
-            `}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!canSend}
-            className={`
-              w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0
-              ${canSend
-                ? 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
-                : 'bg-gray-100 text-gray-300 cursor-not-allowed'
-              }
-            `}
-            title="Enviar mensaje"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+          {/* Input with voice */}
+          <div className="border-t border-gray-200 p-2 sm:p-3 bg-white">
+            <div className="flex items-center gap-2">
+              <VoiceRecordButton
+                isRecording={voice.isRecording}
+                isProcessing={voice.isProcessing}
+                duration={voice.duration}
+                disabled={isBusy}
+                onStartRecording={voice.startRecording}
+                onStopRecording={voice.stopRecording}
+                onCancel={voice.cancelRecording}
+              />
+              <input
+                ref={inputRef}
+                type="text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe los campos que necesitas..."
+                disabled={isBusy}
+                className={`
+                  flex-1 px-3 sm:px-4 py-2.5 sm:py-2 rounded-full border border-gray-200
+                  focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400
+                  text-sm placeholder:text-gray-400
+                  ${isBusy ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}
+                `}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!canSend}
+                className={`
+                  w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0
+                  ${canSend
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
+                    : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                  }
+                `}
+                title="Enviar mensaje"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

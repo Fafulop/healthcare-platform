@@ -66,8 +66,13 @@ export async function POST(
       );
     }
 
-    // Validate required fields
-    validateRequired(body, ['encounterDate', 'encounterType', 'chiefComplaint']);
+    // Validate required fields - chiefComplaint is only required for standard templates
+    // Custom templates use customData with their own field definitions
+    const isCustomTemplate = !!body.customData;
+    const requiredFields = isCustomTemplate
+      ? ['encounterDate', 'encounterType']
+      : ['encounterDate', 'encounterType', 'chiefComplaint'];
+    validateRequired(body, requiredFields);
 
     // Validate encounter date
     const encounterDate = validateEncounterDate(body.encounterDate);
