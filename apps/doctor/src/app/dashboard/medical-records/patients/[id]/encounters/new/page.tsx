@@ -261,7 +261,7 @@ export default function NewEncounterPage() {
       : {
           type: 'standard',
           name: selectedTemplate.name,
-          fieldVisibility: selectedTemplate.fieldVisibility as Record<string, boolean>,
+          fieldVisibility: selectedTemplate.fieldVisibility as unknown as Record<string, boolean>,
         }
     : { type: 'standard' };
 
