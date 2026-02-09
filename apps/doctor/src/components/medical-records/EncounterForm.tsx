@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { VitalsInput, type VitalsData } from './VitalsInput';
 import { SOAPNoteEditor, type SOAPNoteData } from './SOAPNoteEditor';
 import { DynamicFieldRenderer } from './DynamicFieldRenderer';
-import type { FieldVisibility, DefaultValues } from '@/types/encounter-template';
+import type { FieldVisibility, DefaultValues, EncounterTemplate } from '@/types/encounter-template';
 import type { CustomEncounterTemplate } from '@/types/custom-encounter';
 import { DEFAULT_FIELD_VISIBILITY } from '@/constants/encounter-fields';
 
@@ -49,7 +49,7 @@ interface EncounterFormProps {
   cancelHref?: string;
   isEditing?: boolean;
   templateConfig?: TemplateConfig; // Template-based configuration
-  selectedTemplate?: CustomEncounterTemplate | null; // For custom templates
+  selectedTemplate?: EncounterTemplate | CustomEncounterTemplate | null; // For standard or custom templates
   onFormDataChange?: (data: EncounterFormData) => void; // Notify parent of form data changes
   onCustomFieldValuesChange?: (values: Record<string, any>) => void; // Notify parent of custom field changes
   /** Incremental field updates from AI chat panel - merged directly into formData */
@@ -252,7 +252,7 @@ export function EncounterForm({
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Custom Template Fields */}
-        {isCustomTemplate && selectedTemplate?.customFields ? (
+        {isCustomTemplate && selectedTemplate && 'customFields' in selectedTemplate && selectedTemplate.customFields ? (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="mb-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-1">
@@ -263,7 +263,7 @@ export function EncounterForm({
               )}
             </div>
             <DynamicFieldRenderer
-              fields={selectedTemplate.customFields}
+              fields={(selectedTemplate as CustomEncounterTemplate).customFields}
               values={customFieldValues}
               onChange={handleCustomFieldChange}
             />
