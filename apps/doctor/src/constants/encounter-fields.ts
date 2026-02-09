@@ -281,6 +281,7 @@ export const DEFAULT_TEMPLATE: Omit<EncounterTemplate, 'id' | 'doctorId' | 'crea
     encounterType: 'consultation',
   },
   useSOAPMode: true,
+  isCustom: false,
   isDefault: true,
   isActive: true,
   displayOrder: 0,
