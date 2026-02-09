@@ -233,6 +233,67 @@ Script executed successfully.
 
 ---
 
+### Push Full Schema to Railway via CLI (Step by Step)
+
+When you want to sync your entire `schema.prisma` to the deployed Railway database:
+
+#### 1. Make sure Railway CLI is installed and you're logged in
+
+```powershell
+railway --version
+railway whoami
+```
+
+If not logged in, run:
+```powershell
+railway login
+```
+
+#### 2. Verify you're linked to the correct project
+
+```powershell
+railway status
+```
+
+Expected output:
+```
+Project: DOCTORES-SEO-PACIENTE-MGMT
+Environment: production
+Service: @healthcare/doctor
+```
+
+#### 3. Navigate to the database package
+
+```powershell
+cd packages/database
+```
+
+#### 4. Set the DATABASE_URL to the Railway **public** URL and push
+
+```powershell
+$env:DATABASE_URL="postgresql://postgres:PASSWORD@yamanote.proxy.rlwy.net:51502/railway"; npx prisma db push
+```
+
+> **Important:** You MUST use the **public** Railway URL (`yamanote.proxy.rlwy.net`).
+> Do NOT use `railway run npx prisma db push` — it injects the **internal** URL (`pgvector.railway.internal`) which is only accessible between Railway services, not from your local machine.
+
+#### 5. Verify success
+
+Expected output:
+```
+Datasource "db": PostgreSQL database "railway", schemas "llm_assistant, medical_records, practice_management, public" at "yamanote.proxy.rlwy.net:51502"
+
+Your database is now in sync with your Prisma schema. Done in 6.10s
+```
+
+The Prisma Client will also be regenerated automatically.
+
+**Get the Railway public URL from:**
+- `packages/database/.env` → `LLM_DATABASE_URL`
+- Or Railway Dashboard → pgvector service → Variables → `DATABASE_PUBLIC_URL`
+
+---
+
 ### Important Notes
 
 - **Always test locally first** before pushing to Railway
