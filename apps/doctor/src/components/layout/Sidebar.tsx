@@ -94,7 +94,7 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
                 active={pathname?.startsWith("/dashboard/mi-perfil")}
               />
               <a
-                href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
+                href={`${process.env.NEXT_PUBLIC_PUBLIC_URL || "http://localhost:3000"}/doctores/${doctorProfile.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"

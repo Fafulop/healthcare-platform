@@ -128,7 +128,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
                   onClick={onClose}
                 />
                 <a
-                  href={`http://localhost:3000/doctors/${doctorProfile.slug}`}
+                  href={`${process.env.NEXT_PUBLIC_PUBLIC_URL || "http://localhost:3000"}/doctores/${doctorProfile.slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={onClose}
