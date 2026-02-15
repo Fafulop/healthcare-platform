@@ -18,6 +18,7 @@ import {
   CheckSquare,
   UserCog,
   BarChart3,
+  HelpCircle,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -172,6 +173,12 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             label="Productos y Servicios"
             href="/dashboard/practice/products"
             active={pathname?.startsWith("/dashboard/practice/products")}
+          />
+          <NavItem
+            icon={HelpCircle}
+            label="Ayuda"
+            href="/dashboard/ayuda"
+            active={pathname?.startsWith("/dashboard/ayuda")}
           />
         </div>
       </nav>

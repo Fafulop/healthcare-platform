@@ -8,6 +8,11 @@ import {
   Heart,
   DollarSign,
   CheckSquare,
+  Sparkles,
+  UserPlus,
+  ShoppingCart,
+  ShoppingBag,
+  FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
 import RecentActivityTable from "@/components/RecentActivityTable";
@@ -86,62 +91,109 @@ export default function DoctorDashboardPage() {
         />
       </div>
 
-      {/* Acciones Rápidas */}
+      {/* Acciones Rápidas - Chat IA */}
       <div className="bg-white rounded-lg shadow mb-6">
         <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Acciones Rápidas</h2>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Acciones Rápidas</h2>
+          </div>
         </div>
         <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <Link
-              href="/dashboard/medical-records/patients/new"
-              className="flex items-center gap-3 p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+              href="/dashboard/medical-records/patients/new?chat=true"
+              className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
             >
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <Users className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                <UserPlus className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Nuevo Paciente</p>
-                <p className="text-sm text-gray-600 hidden sm:block">Agregar expediente</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-medium text-gray-900">Crear Paciente</p>
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+                <p className="text-sm text-gray-600 hidden sm:block">Registrar con Chat IA</p>
               </div>
             </Link>
 
             <Link
-              href="/dashboard/medical-records"
-              className="flex items-center gap-3 p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+              href="/dashboard/pendientes/new?chat=true"
+              className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
             >
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <ClipboardList className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                <CheckSquare className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Nueva Consulta</p>
-                <p className="text-sm text-gray-600 hidden sm:block">Crear consulta</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-medium text-gray-900">Nuevo Pendiente</p>
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+                <p className="text-sm text-gray-600 hidden sm:block">Crear tarea con Chat IA</p>
               </div>
             </Link>
 
             <Link
-              href="/appointments"
-              className="flex items-center gap-3 p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+              href="/dashboard/practice/flujo-de-dinero/new?chat=true"
+              className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
             >
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <Calendar className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Agenda</p>
-                <p className="text-sm text-gray-600 hidden sm:block">Gestionar citas</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-medium text-gray-900">Movimiento de Efectivo</p>
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+                <p className="text-sm text-gray-600 hidden sm:block">Registrar ingreso o egreso</p>
               </div>
             </Link>
 
             <Link
-              href="/dashboard/pendientes/new"
-              className="flex items-center gap-3 p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+              href="/dashboard/practice/ventas/new?chat=true"
+              className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
             >
-              <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center flex-shrink-0">
-                <CheckSquare className="w-5 h-5 text-yellow-600" />
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                <ShoppingCart className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Nueva Pendiente</p>
-                <p className="text-sm text-gray-600 hidden sm:block">Crear tarea</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-medium text-gray-900">Nueva Venta</p>
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+                <p className="text-sm text-gray-600 hidden sm:block">Registrar venta con Chat IA</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/practice/cotizaciones/new?chat=true"
+              className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-medium text-gray-900">Nueva Cotización</p>
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+                <p className="text-sm text-gray-600 hidden sm:block">Crear cotización con Chat IA</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/practice/compras/new?chat=true"
+              className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                <ShoppingBag className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-medium text-gray-900">Nueva Compra</p>
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+                <p className="text-sm text-gray-600 hidden sm:block">Registrar compra con Chat IA</p>
               </div>
             </Link>
           </div>

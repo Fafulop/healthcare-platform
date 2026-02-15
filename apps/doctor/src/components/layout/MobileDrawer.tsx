@@ -16,6 +16,7 @@ import {
   CheckSquare,
   UserCog,
   BarChart3,
+  HelpCircle,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -185,6 +186,13 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               label="Productos y Servicios"
               href="/dashboard/practice/products"
               active={pathname?.startsWith("/dashboard/practice/products")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={HelpCircle}
+              label="Ayuda"
+              href="/dashboard/ayuda"
+              active={pathname?.startsWith("/dashboard/ayuda")}
               onClick={onClose}
             />
           </div>
