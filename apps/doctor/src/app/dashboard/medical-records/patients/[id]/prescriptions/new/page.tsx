@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Save, Loader2, Mic } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Mic, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList, type Medication } from '@/components/medical-records/MedicationList';
 import {
@@ -12,6 +12,8 @@ import {
   VoiceChatSidebar,
   VoiceRecordingModal,
 } from '@/components/voice-assistant';
+import { PrescriptionChatPanel } from '@/components/medical-records/PrescriptionChatPanel';
+import type { PrescriptionFormData } from '@/hooks/usePrescriptionChat';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoicePrescriptionData, VoiceStructuredData } from '@/types/voice-assistant';
 
@@ -86,6 +88,9 @@ export default function NewPrescriptionPage() {
   // Voice chat sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
+
+  // Chat IA panel state
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
 
   // Voice assistant result state
   const [showAIBanner, setShowAIBanner] = useState(false);
@@ -232,6 +237,31 @@ export default function NewPrescriptionPage() {
       order: 0,
     }
   ]);
+
+  // Computed form data for Chat IA
+  const currentFormData: PrescriptionFormData = useMemo(() => ({
+    prescriptionDate,
+    diagnosis,
+    clinicalNotes,
+    doctorFullName,
+    doctorLicense,
+    expiresAt,
+    medications,
+  }), [prescriptionDate, diagnosis, clinicalNotes, doctorFullName, doctorLicense, expiresAt, medications]);
+
+  // Chat IA callbacks
+  const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
+    if (updates.prescriptionDate) setPrescriptionDate(updates.prescriptionDate);
+    if (updates.diagnosis) setDiagnosis(updates.diagnosis);
+    if (updates.clinicalNotes) setClinicalNotes(updates.clinicalNotes);
+    if (updates.doctorFullName) setDoctorFullName(updates.doctorFullName);
+    if (updates.doctorLicense) setDoctorLicense(updates.doctorLicense);
+    if (updates.expiresAt) setExpiresAt(updates.expiresAt);
+  }, []);
+
+  const handleChatMedicationUpdates = useCallback((meds: Medication[]) => {
+    setMedications(meds);
+  }, []);
 
   // Load voice data from sessionStorage
   useEffect(() => {
@@ -446,16 +476,26 @@ export default function NewPrescriptionPage() {
               </p>
             )}
           </div>
-          {/* Voice Assistant Button - hidden after data is loaded */}
-          {!voiceDataLoaded && !showAIBanner && (
+          <div className="flex items-center gap-2">
+            {/* Chat IA Button */}
             <button
-              onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => setChatPanelOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              <Mic className="w-5 h-5" />
-              Asistente de Voz
+              <Sparkles className="w-5 h-5" />
+              Chat IA
             </button>
-          )}
+            {/* Voice Assistant Button - disabled */}
+            {!voiceDataLoaded && !showAIBanner && (
+              <button
+                disabled
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg opacity-50 cursor-not-allowed"
+              >
+                <Mic className="w-5 h-5" />
+                Asistente de Voz
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -658,6 +698,16 @@ export default function NewPrescriptionPage() {
           }}
           initialData={sidebarInitialData}
           onConfirm={handleVoiceConfirm}
+        />
+      )}
+
+      {/* Chat IA Panel */}
+      {chatPanelOpen && (
+        <PrescriptionChatPanel
+          onClose={() => setChatPanelOpen(false)}
+          currentFormData={currentFormData}
+          onUpdateFields={handleChatFieldUpdates}
+          onUpdateMedications={handleChatMedicationUpdates}
         />
       )}
     </div>

@@ -2,8 +2,8 @@
 
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, Loader2, Save, Mic } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { ArrowLeft, Loader2, Save, Mic, Sparkles } from "lucide-react";
 import Link from "next/link";
 import {
   AIDraftBanner,
@@ -12,24 +12,15 @@ import {
 } from '@/components/voice-assistant';
 // ConflictDialog no longer needed - simplified to inline dialog
 import type { InitialChatData } from '@/hooks/useChatSession';
-import type { VoiceStructuredData } from '@/types/voice-assistant';
+import type { VoiceStructuredData, VoiceTaskData } from '@/types/voice-assistant';
+import { TaskChatPanel } from '@/components/tasks/TaskChatPanel';
+import type { TaskFormData } from '@/hooks/useTaskChat';
 
 interface PatientOption {
   id: string;
   firstName: string;
   lastName: string;
   internalId: string;
-}
-
-interface VoiceTaskData {
-  title?: string;
-  description?: string;
-  dueDate?: string;
-  startTime?: string;
-  endTime?: string;
-  priority?: "ALTA" | "MEDIA" | "BAJA";
-  category?: string;
-  patientId?: string;
 }
 
 // Helper to get local date string (fixes timezone issues)
@@ -94,6 +85,10 @@ export default function NewTaskPage() {
     confidence: 'high' | 'medium' | 'low';
   } | null>(null);
 
+  // Chat IA state
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
+  const [accumulatedTasks, setAccumulatedTasks] = useState<VoiceTaskData[]>([]);
+
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -122,6 +117,33 @@ export default function NewTaskPage() {
       // non-critical
     }
   };
+
+  // Computed form data for chat panel
+  const chatFormData: TaskFormData = useMemo(() => ({
+    title: form.title,
+    description: form.description,
+    dueDate: form.dueDate,
+    startTime: form.startTime,
+    endTime: form.endTime,
+    priority: form.priority,
+    category: form.category,
+  }), [form.title, form.description, form.dueDate, form.startTime, form.endTime, form.priority, form.category]);
+
+  // Chat IA callbacks
+  const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
+    setForm(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  const handleChatTaskUpdates = useCallback((tasks: VoiceTaskData[]) => {
+    setAccumulatedTasks(tasks);
+  }, []);
+
+  const handleChatBatchCreate = useCallback(() => {
+    if (accumulatedTasks.length === 0) return;
+    executeBatchCreation(accumulatedTasks);
+    setAccumulatedTasks([]);
+    setChatPanelOpen(false);
+  }, [accumulatedTasks]);
 
   // Handle modal completion - transition to sidebar with initial data
   const handleModalComplete = useCallback((
@@ -402,15 +424,25 @@ export default function NewTaskPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Nueva Tarea</h1>
             <p className="text-gray-600 mt-1">Crea una nueva tarea pendiente</p>
           </div>
-          {/* Voice Assistant Button - hidden after data is applied */}
+          {/* Action buttons */}
           {!voiceDataApplied && (
-            <button
-              onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Mic className="w-5 h-5" />
-              Asistente de Voz
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setChatPanelOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Sparkles className="w-5 h-5" />
+                Chat IA
+              </button>
+              <button
+                onClick={() => setModalOpen(true)}
+                disabled
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Mic className="w-5 h-5" />
+                Asistente de Voz
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -679,6 +711,18 @@ export default function NewTaskPage() {
           }}
           initialData={sidebarInitialData}
           onConfirm={handleVoiceConfirm}
+        />
+      )}
+
+      {/* Task Chat IA Panel */}
+      {chatPanelOpen && (
+        <TaskChatPanel
+          onClose={() => setChatPanelOpen(false)}
+          currentFormData={chatFormData}
+          accumulatedTasks={accumulatedTasks}
+          onUpdateFields={handleChatFieldUpdates}
+          onUpdateTasks={handleChatTaskUpdates}
+          onCreateBatch={handleChatBatchCreate}
         />
       )}
     </div>
