@@ -149,6 +149,13 @@ export default function NewVentaPage() {
   // Chat IA state
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
 
+  // Auto-open chat panel from hub widget
+  useEffect(() => {
+    if (searchParams.get('chat') === 'true') {
+      setChatPanelOpen(true);
+    }
+  }, [searchParams]);
+
   // Computed form data for chat panel
   const chatFormData: SaleFormData = useMemo(() => {
     const selectedClient = clients.find(c => c.id === selectedClientId);

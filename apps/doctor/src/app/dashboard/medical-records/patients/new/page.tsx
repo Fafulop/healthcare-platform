@@ -75,6 +75,13 @@ export default function NewPatientPage() {
   const [chatFieldUpdates, setChatFieldUpdates] = useState<Record<string, string>>({});
   const [chatFieldUpdatesVersion, setChatFieldUpdatesVersion] = useState(0);
 
+  // Auto-open chat panel from hub widget
+  useEffect(() => {
+    if (searchParams.get('chat') === 'true') {
+      setChatPanelOpen(true);
+    }
+  }, [searchParams]);
+
   // Voice assistant result state
   const [voiceInitialData, setVoiceInitialData] = useState<Partial<PatientFormData> | undefined>(undefined);
   const [showAIBanner, setShowAIBanner] = useState(false);

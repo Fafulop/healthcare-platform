@@ -80,6 +80,13 @@ export default function NewFlujoDeDineroPage() {
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [accumulatedEntries, setAccumulatedEntries] = useState<LedgerEntryData[]>([]);
 
+  // Auto-open chat panel from hub widget
+  useEffect(() => {
+    if (searchParams.get('chat') === 'true') {
+      setChatPanelOpen(true);
+    }
+  }, [searchParams]);
+
   // Computed form data for chat panel
   const chatFormData: LedgerFormData = useMemo(() => ({
     entryType: formData.entryType,

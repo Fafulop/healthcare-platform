@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Mic } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { VoiceAssistantHubModal } from './VoiceAssistantHubModal';
 import { useSession } from 'next-auth/react';
 
@@ -22,15 +22,15 @@ export function VoiceAssistantHubWidget() {
         className="
           fixed bottom-44 right-4 sm:bottom-42 sm:right-6 z-50
           w-12 h-12 sm:w-14 sm:h-14 rounded-full
-          bg-blue-600 hover:bg-blue-700
+          bg-indigo-600 hover:bg-indigo-700
           text-white shadow-lg hover:shadow-xl
           flex items-center justify-center
           transition-all active:scale-95
           lg:bottom-42 lg:right-6
         "
-        title="Asistente de Voz"
+        title="Asistente IA"
       >
-        <Mic className="w-6 h-6 sm:w-7 sm:h-7" />
+        <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" />
       </button>
 
       {/* Modal */}

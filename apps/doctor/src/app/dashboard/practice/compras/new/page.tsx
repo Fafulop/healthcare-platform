@@ -139,6 +139,13 @@ export default function NewCompraPage() {
   // Chat IA state
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
 
+  // Auto-open chat panel from hub widget
+  useEffect(() => {
+    if (searchParams.get('chat') === 'true') {
+      setChatPanelOpen(true);
+    }
+  }, [searchParams]);
+
   // Custom item modal state
   const [customItemType, setCustomItemType] = useState<'product' | 'service'>('service');
   const [customDescription, setCustomDescription] = useState('');

@@ -2,15 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Mic, UserPlus, FileText, Pill, Calendar, DollarSign, ShoppingCart, ShoppingBag, CheckSquare } from 'lucide-react';
+import { X, Mic, Sparkles, UserPlus, Calendar, DollarSign, ShoppingCart, ShoppingBag, CheckSquare, FileSpreadsheet } from 'lucide-react';
 import { VoiceRecordingModal, VoiceChatSidebar } from '@/components/voice-assistant';
 import type { VoiceSessionType, VoiceStructuredData } from '@/types/voice-assistant';
 import type { InitialChatData } from '@/hooks/useChatSession';
 
 const SESSION_TYPE_ROUTES: Record<VoiceSessionType, { route: string; storageKey: string }> = {
   NEW_PATIENT: { route: '/dashboard/medical-records/patients/new', storageKey: 'voicePatientData' },
-  NEW_ENCOUNTER: { route: '/dashboard/medical-records/patients/new', storageKey: 'voicePatientData' },
-  NEW_PRESCRIPTION: { route: '/dashboard/medical-records/patients/new', storageKey: 'voicePatientData' },
   NEW_TASK: { route: '/dashboard/pendientes/new', storageKey: 'voiceTaskData' },
   CREATE_APPOINTMENT_SLOTS: { route: '/appointments', storageKey: 'voiceAppointmentData' },
   CREATE_SALE: { route: '/dashboard/practice/ventas/new', storageKey: 'voiceSaleData' },
@@ -32,37 +30,22 @@ interface VoiceAction {
   sessionType: VoiceSessionType;
   color: string;
   hoverColor: string;
+  /** If set, navigates to this route with ?chat=true instead of opening voice recording */
+  chatRoute?: string;
 }
 
 const VOICE_ACTIONS: VoiceAction[] = [
   {
     id: 'new-patient',
     title: 'Crear Paciente',
-    description: 'Registrar un nuevo paciente con voz',
+    description: 'Registrar un nuevo paciente con Chat IA',
     icon: UserPlus,
     sessionType: 'NEW_PATIENT',
-    color: 'bg-blue-50 text-blue-600',
-    hoverColor: 'hover:bg-blue-100',
+    color: 'bg-indigo-50 text-indigo-600',
+    hoverColor: 'hover:bg-indigo-100',
+    chatRoute: '/dashboard/medical-records/patients/new',
   },
-  {
-    id: 'new-encounter',
-    title: 'Nueva Consulta',
-    description: 'Registrar consulta médica con voz',
-    icon: FileText,
-    sessionType: 'NEW_ENCOUNTER',
-    color: 'bg-blue-50 text-blue-600',
-    hoverColor: 'hover:bg-blue-100',
-  },
-  {
-    id: 'new-prescription',
-    title: 'Nueva Receta',
-    description: 'Crear receta médica con voz',
-    icon: Pill,
-    sessionType: 'NEW_PRESCRIPTION',
-    color: 'bg-blue-50 text-blue-600',
-    hoverColor: 'hover:bg-blue-100',
-  },
-  {
+{
     id: 'create-appointments',
     title: 'Crear Citas',
     description: 'Programar slots de citas con voz',
@@ -74,38 +57,52 @@ const VOICE_ACTIONS: VoiceAction[] = [
   {
     id: 'new-task',
     title: 'Nuevo Pendiente',
-    description: 'Crear tarea o pendiente con voz',
+    description: 'Crear tarea o pendiente con Chat IA',
     icon: CheckSquare,
     sessionType: 'NEW_TASK',
-    color: 'bg-yellow-50 text-yellow-600',
-    hoverColor: 'hover:bg-yellow-100',
+    color: 'bg-indigo-50 text-indigo-600',
+    hoverColor: 'hover:bg-indigo-100',
+    chatRoute: '/dashboard/pendientes/new',
   },
   {
     id: 'ledger-entry',
     title: 'Movimiento de Efectivo',
-    description: 'Registrar ingreso o egreso con voz',
+    description: 'Registrar ingreso o egreso con Chat IA',
     icon: DollarSign,
     sessionType: 'CREATE_LEDGER_ENTRY',
-    color: 'bg-gray-100 text-gray-600',
-    hoverColor: 'hover:bg-gray-200',
+    color: 'bg-indigo-50 text-indigo-600',
+    hoverColor: 'hover:bg-indigo-100',
+    chatRoute: '/dashboard/practice/flujo-de-dinero/new',
   },
   {
     id: 'new-sale',
     title: 'Nueva Venta',
-    description: 'Registrar venta de productos/servicios',
+    description: 'Registrar venta con Chat IA',
     icon: ShoppingCart,
     sessionType: 'CREATE_SALE',
-    color: 'bg-gray-100 text-gray-600',
-    hoverColor: 'hover:bg-gray-200',
+    color: 'bg-indigo-50 text-indigo-600',
+    hoverColor: 'hover:bg-indigo-100',
+    chatRoute: '/dashboard/practice/ventas/new',
+  },
+  {
+    id: 'new-quotation',
+    title: 'Nueva Cotización',
+    description: 'Crear cotización con Chat IA',
+    icon: FileSpreadsheet,
+    sessionType: 'CREATE_SALE',
+    color: 'bg-indigo-50 text-indigo-600',
+    hoverColor: 'hover:bg-indigo-100',
+    chatRoute: '/dashboard/practice/cotizaciones/new',
   },
   {
     id: 'new-purchase',
     title: 'Nueva Compra',
-    description: 'Registrar compra a proveedores',
+    description: 'Registrar compra con Chat IA',
     icon: ShoppingBag,
     sessionType: 'CREATE_PURCHASE',
-    color: 'bg-gray-100 text-gray-600',
-    hoverColor: 'hover:bg-gray-200',
+    color: 'bg-indigo-50 text-indigo-600',
+    hoverColor: 'hover:bg-indigo-100',
+    chatRoute: '/dashboard/practice/compras/new',
   },
 ];
 
@@ -119,6 +116,11 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
   if (!isOpen) return null;
 
   const handleActionClick = (action: VoiceAction) => {
+    if (action.chatRoute) {
+      onClose();
+      router.push(action.chatRoute + '?chat=true');
+      return;
+    }
     setActiveAction(action);
     setVoiceModalOpen(true);
   };
@@ -160,12 +162,12 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
           <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 sm:px-6 sm:py-4 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5 sm:gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                  <Mic className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-blue-600" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">Asistente de Voz</h2>
-                  <p className="text-xs sm:text-sm text-gray-500">Crea registros usando tu voz</p>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">Asistente IA</h2>
+                  <p className="text-xs sm:text-sm text-gray-500">Crea registros con Chat IA o voz</p>
                 </div>
               </div>
               <button
@@ -183,23 +185,28 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
               {VOICE_ACTIONS.map((action) => {
                 const Icon = action.icon;
+                const isChatIA = !!action.chatRoute;
                 return (
                   <button
                     key={action.id}
                     onClick={() => handleActionClick(action)}
                     className={`
                       flex items-center gap-3 p-3 sm:p-4 rounded-lg
-                      border border-gray-200 bg-white
-                      hover:border-blue-300 hover:bg-blue-50
-                      transition-colors text-left
-                      active:scale-[0.98]
+                      border bg-white transition-colors text-left active:scale-[0.98]
+                      ${isChatIA
+                        ? 'border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50'
+                        : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                      }
                     `}
                   >
                     <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${action.color}`}>
                       <Icon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-sm text-gray-900">{action.title}</h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-medium text-sm text-gray-900">{action.title}</h3>
+                        {isChatIA && <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />}
+                      </div>
                       <p className="text-xs text-gray-500 hidden sm:block">{action.description}</p>
                     </div>
                   </button>
@@ -210,8 +217,8 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
             {/* Info Box */}
             <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 border border-gray-200 rounded-lg">
               <p className="text-xs sm:text-sm text-gray-600">
-                <span className="font-medium text-gray-700">Tip:</span> Selecciona una acción y graba tu voz.
-                El asistente convertirá tu audio en datos que podrás revisar.
+                <span className="font-medium text-gray-700">Tip:</span> Las acciones con <Sparkles className="w-3 h-3 text-indigo-500 inline" /> usan Chat IA para llenar formularios con texto o voz.
+                Las demás usan el asistente de voz clásico.
               </p>
             </div>
           </div>

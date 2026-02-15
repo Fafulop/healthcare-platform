@@ -89,6 +89,13 @@ export default function NewTaskPage() {
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [accumulatedTasks, setAccumulatedTasks] = useState<VoiceTaskData[]>([]);
 
+  // Auto-open chat panel from hub widget
+  useEffect(() => {
+    if (searchParams.get('chat') === 'true') {
+      setChatPanelOpen(true);
+    }
+  }, [searchParams]);
+
   const [form, setForm] = useState({
     title: "",
     description: "",
