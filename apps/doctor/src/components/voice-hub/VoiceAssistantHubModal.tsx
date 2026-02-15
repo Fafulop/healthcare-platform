@@ -7,7 +7,7 @@ import { VoiceRecordingModal, VoiceChatSidebar } from '@/components/voice-assist
 import type { VoiceSessionType, VoiceStructuredData } from '@/types/voice-assistant';
 import type { InitialChatData } from '@/hooks/useChatSession';
 
-const SESSION_TYPE_ROUTES: Record<VoiceSessionType, { route: string; storageKey: string }> = {
+const SESSION_TYPE_ROUTES: Partial<Record<VoiceSessionType, { route: string; storageKey: string }>> = {
   NEW_PATIENT: { route: '/dashboard/medical-records/patients/new', storageKey: 'voicePatientData' },
   NEW_TASK: { route: '/dashboard/pendientes/new', storageKey: 'voiceTaskData' },
   CREATE_APPOINTMENT_SLOTS: { route: '/appointments', storageKey: 'voiceAppointmentData' },
