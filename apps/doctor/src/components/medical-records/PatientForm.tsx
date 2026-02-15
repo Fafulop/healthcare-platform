@@ -33,6 +33,9 @@ interface PatientFormProps {
   submitLabel?: string;
   cancelHref?: string;
   isEditing?: boolean;
+  onFormChange?: (data: Record<string, string>) => void;
+  chatFieldUpdates?: Record<string, string>;
+  chatFieldUpdatesVersion?: number;
 }
 
 export function PatientForm({
@@ -40,7 +43,10 @@ export function PatientForm({
   onSubmit,
   submitLabel = 'Crear Paciente',
   cancelHref = '/dashboard/medical-records',
-  isEditing = false
+  isEditing = false,
+  onFormChange,
+  chatFieldUpdates,
+  chatFieldUpdatesVersion,
 }: PatientFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -102,6 +108,18 @@ export function PatientForm({
       [e.target.name]: e.target.value
     });
   };
+
+  // Report form state changes to parent (for chat panel)
+  useEffect(() => {
+    onFormChange?.(formData);
+  }, [formData, onFormChange]);
+
+  // Merge chat field updates into form state when version changes
+  useEffect(() => {
+    if (chatFieldUpdatesVersion && chatFieldUpdatesVersion > 0 && chatFieldUpdates) {
+      setFormData((prev) => ({ ...prev, ...chatFieldUpdates }));
+    }
+  }, [chatFieldUpdatesVersion]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

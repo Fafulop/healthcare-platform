@@ -2,14 +2,16 @@
 
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown, Mic } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown, Mic, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { VoiceRecordingModal } from "@/components/voice-assistant/VoiceRecordingModal";
 import { VoiceChatSidebar } from "@/components/voice-assistant/chat/VoiceChatSidebar";
 import type { InitialChatData } from "@/hooks/useChatSession";
 import type { VoiceStructuredData, VoiceLedgerEntryData, VoiceLedgerEntryBatch } from "@/types/voice-assistant";
+import { LedgerChatPanel } from "@/components/practice/LedgerChatPanel";
+import type { LedgerFormData, LedgerEntryData } from "@/hooks/useLedgerChat";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -73,6 +75,52 @@ export default function NewFlujoDeDineroPage() {
   const [voiceSidebarOpen, setVoiceSidebarOpen] = useState(false);
   const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
   const [voiceFormData, setVoiceFormData] = useState<Partial<typeof formData> | null>(null);
+
+  // Chat IA state
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
+  const [accumulatedEntries, setAccumulatedEntries] = useState<LedgerEntryData[]>([]);
+
+  // Computed form data for chat panel
+  const chatFormData: LedgerFormData = useMemo(() => ({
+    entryType: formData.entryType,
+    amount: formData.amount,
+    concept: formData.concept,
+    transactionDate: formData.transactionDate,
+    area: formData.area,
+    subarea: formData.subarea,
+    bankAccount: formData.bankAccount,
+    formaDePago: formData.formaDePago,
+    bankMovementId: formData.bankMovementId,
+    paymentOption: formData.paymentOption,
+  }), [formData.entryType, formData.amount, formData.concept, formData.transactionDate, formData.area, formData.subarea, formData.bankAccount, formData.formaDePago, formData.bankMovementId, formData.paymentOption]);
+
+  // Chat IA callbacks
+  const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
+    setFormData(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  const handleChatEntryUpdates = useCallback((entries: LedgerEntryData[]) => {
+    setAccumulatedEntries(entries);
+  }, []);
+
+  const handleChatBatchCreate = useCallback(async () => {
+    if (accumulatedEntries.length === 0) return;
+    const mapped: VoiceLedgerEntryData[] = accumulatedEntries.map(e => ({
+      entryType: (e.entryType as 'ingreso' | 'egreso') || undefined,
+      amount: e.amount ?? undefined,
+      concept: e.concept || undefined,
+      transactionDate: e.transactionDate || undefined,
+      area: e.area || undefined,
+      subarea: e.subarea || undefined,
+      bankAccount: e.bankAccount || undefined,
+      formaDePago: (e.formaDePago as VoiceLedgerEntryData['formaDePago']) || undefined,
+      bankMovementId: e.bankMovementId || undefined,
+      paymentOption: e.paymentOption || undefined,
+    }));
+    await handleBatchEntryCreation(mapped);
+    setAccumulatedEntries([]);
+    setChatPanelOpen(false);
+  }, [accumulatedEntries]);
 
   useEffect(() => {
     if (session?.user?.email) {
@@ -375,14 +423,25 @@ export default function NewFlujoDeDineroPage() {
               <h1 className="text-2xl font-bold text-gray-900">Nuevo Movimiento</h1>
               <p className="text-gray-600 mt-1">Registra un nuevo ingreso o egreso</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setVoiceModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <Mic className="w-4 h-4" />
-              Asistente de Voz
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setChatPanelOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                Chat IA
+              </button>
+              <button
+                type="button"
+                onClick={() => setVoiceModalOpen(true)}
+                disabled
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Mic className="w-4 h-4" />
+                Asistente de Voz
+              </button>
+            </div>
           </div>
         </div>
 
@@ -685,6 +744,18 @@ export default function NewFlujoDeDineroPage() {
           doctorId={session.user.doctorId}
           onConfirm={handleVoiceConfirm}
           initialData={sidebarInitialData}
+        />
+      )}
+
+      {/* Ledger Chat IA Panel */}
+      {chatPanelOpen && (
+        <LedgerChatPanel
+          onClose={() => setChatPanelOpen(false)}
+          currentFormData={chatFormData}
+          accumulatedEntries={accumulatedEntries}
+          onUpdateFields={handleChatFieldUpdates}
+          onUpdateEntries={handleChatEntryUpdates}
+          onCreateBatch={handleChatBatchCreate}
         />
       )}
     </div>

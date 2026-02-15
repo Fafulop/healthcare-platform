@@ -3,10 +3,11 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Loader2, Mic } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { ArrowLeft, Loader2, Mic, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { PatientForm, type PatientFormData } from '@/components/medical-records/PatientForm';
+import { PatientChatPanel } from '@/components/medical-records/PatientChatPanel';
 import {
   AIDraftBanner,
   VoiceChatSidebar,
@@ -67,6 +68,12 @@ export default function NewPatientPage() {
   // Voice chat sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
+
+  // Chat IA panel state
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
+  const [currentFormSnapshot, setCurrentFormSnapshot] = useState<Record<string, string>>({});
+  const [chatFieldUpdates, setChatFieldUpdates] = useState<Record<string, string>>({});
+  const [chatFieldUpdatesVersion, setChatFieldUpdatesVersion] = useState(0);
 
   // Voice assistant result state
   const [voiceInitialData, setVoiceInitialData] = useState<Partial<PatientFormData> | undefined>(undefined);
@@ -206,6 +213,36 @@ export default function NewPatientPage() {
     console.log('[Page] Form should now be filled with voice data');
   }, []);
 
+  // Chat IA: handle field updates from chat
+  const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
+    setChatFieldUpdates(updates as Record<string, string>);
+    setChatFieldUpdatesVersion((v) => v + 1);
+  }, []);
+
+  // Chat IA: memoized form data for the chat panel
+  const chatFormData = useMemo(() => ({
+    firstName: currentFormSnapshot.firstName || '',
+    lastName: currentFormSnapshot.lastName || '',
+    dateOfBirth: currentFormSnapshot.dateOfBirth || '',
+    sex: currentFormSnapshot.sex || '',
+    bloodType: currentFormSnapshot.bloodType || '',
+    internalId: currentFormSnapshot.internalId || '',
+    phone: currentFormSnapshot.phone || '',
+    email: currentFormSnapshot.email || '',
+    address: currentFormSnapshot.address || '',
+    city: currentFormSnapshot.city || '',
+    state: currentFormSnapshot.state || '',
+    postalCode: currentFormSnapshot.postalCode || '',
+    emergencyContactName: currentFormSnapshot.emergencyContactName || '',
+    emergencyContactPhone: currentFormSnapshot.emergencyContactPhone || '',
+    emergencyContactRelation: currentFormSnapshot.emergencyContactRelation || '',
+    currentAllergies: currentFormSnapshot.currentAllergies || '',
+    currentChronicConditions: currentFormSnapshot.currentChronicConditions || '',
+    currentMedications: currentFormSnapshot.currentMedications || '',
+    generalNotes: currentFormSnapshot.generalNotes || '',
+    tags: currentFormSnapshot.tags || '',
+  }), [currentFormSnapshot]);
+
   const handleSubmit = async (formData: PatientFormData) => {
     const res = await fetch('/api/medical-records/patients', {
       method: 'POST',
@@ -257,16 +294,28 @@ export default function NewPatientPage() {
             <h1 className="text-2xl font-bold text-gray-900">Nuevo Paciente</h1>
             <p className="text-gray-600 mt-1">Complete la información del paciente</p>
           </div>
-          {/* Voice Assistant Button - hidden after data is confirmed */}
-          {!voiceInitialData && !showAIBanner && (
+          <div className="flex items-center gap-2">
+            {/* Chat IA Button */}
             <button
-              onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => setChatPanelOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              <Mic className="w-5 h-5" />
-              Asistente de Voz
+              <Sparkles className="w-5 h-5" />
+              Chat IA
             </button>
-          )}
+            {/* Voice Assistant Button - disabled */}
+            {!voiceInitialData && !showAIBanner && (
+              <button
+                onClick={() => setModalOpen(true)}
+                disabled
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-500 font-medium rounded-lg cursor-not-allowed"
+                title="Asistente de Voz (deshabilitado)"
+              >
+                <Mic className="w-5 h-5" />
+                Asistente de Voz
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -285,6 +334,9 @@ export default function NewPatientPage() {
         onSubmit={handleSubmit}
         submitLabel="Crear Paciente"
         cancelHref="/dashboard/medical-records"
+        onFormChange={setCurrentFormSnapshot}
+        chatFieldUpdates={chatFieldUpdates}
+        chatFieldUpdatesVersion={chatFieldUpdatesVersion}
       />
 
       {/* Voice Recording Modal */}
@@ -317,6 +369,15 @@ export default function NewPatientPage() {
           }}
           initialData={sidebarInitialData}
           onConfirm={handleVoiceConfirm}
+        />
+      )}
+
+      {/* Chat IA Panel */}
+      {chatPanelOpen && (
+        <PatientChatPanel
+          onClose={() => setChatPanelOpen(false)}
+          currentFormData={chatFormData}
+          onUpdateFields={handleChatFieldUpdates}
         />
       )}
     </div>

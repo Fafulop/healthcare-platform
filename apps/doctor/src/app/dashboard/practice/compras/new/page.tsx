@@ -2,13 +2,15 @@
 
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X, Mic } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X, Mic, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import dynamic from 'next/dynamic';
 import type { VoiceStructuredData, VoicePurchaseData } from '@/types/voice-assistant';
 import type { InitialChatData } from '@/hooks/useChatSession';
+import { PurchaseChatPanel } from '@/components/practice/PurchaseChatPanel';
+import type { PurchaseFormData, PurchaseChatItem, PurchaseItemAction } from '@/hooks/usePurchaseChat';
 
 // Dynamically import voice assistant components (client-side only)
 const VoiceRecordingModal = dynamic(
@@ -133,6 +135,9 @@ export default function NewCompraPage() {
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showVoiceSidebar, setShowVoiceSidebar] = useState(false);
   const [voiceInitialData, setVoiceInitialData] = useState<any>(null);
+
+  // Chat IA state
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
 
   // Custom item modal state
   const [customItemType, setCustomItemType] = useState<'product' | 'service'>('service');
@@ -504,6 +509,140 @@ export default function NewCompraPage() {
     setShowVoiceSidebar(false);
   };
 
+  // Chat IA: current form data for the chat hook
+  const chatFormData: PurchaseFormData = useMemo(() => ({
+    supplierName: selectedSupplierId
+      ? suppliers.find(s => s.id === selectedSupplierId)?.businessName || ''
+      : '',
+    purchaseDate,
+    deliveryDate,
+    paymentStatus,
+    amountPaid,
+    notes,
+    termsAndConditions,
+    itemCount: items.length,
+    items: items.map(it => ({
+      description: it.description,
+      itemType: it.itemType,
+      quantity: it.quantity,
+      unit: it.unit,
+      unitPrice: it.unitPrice,
+      discountRate: it.discountRate,
+      taxRate: it.taxRate,
+    })),
+  }), [selectedSupplierId, suppliers, purchaseDate, deliveryDate, paymentStatus, amountPaid, notes, termsAndConditions, items]);
+
+  const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
+    if (updates.supplierName && typeof updates.supplierName === 'string') {
+      const name = updates.supplierName.toLowerCase();
+      const match = suppliers.find(
+        s => s.businessName.toLowerCase().includes(name) ||
+             s.contactName?.toLowerCase().includes(name)
+      );
+      if (match) setSelectedSupplierId(match.id);
+    }
+    if (updates.purchaseDate) setPurchaseDate(updates.purchaseDate);
+    if (updates.deliveryDate) setDeliveryDate(updates.deliveryDate);
+    if (updates.paymentStatus) setPaymentStatus(updates.paymentStatus);
+    if (updates.amountPaid !== undefined) setAmountPaid(Number(updates.amountPaid) || 0);
+    if (updates.notes) setNotes(updates.notes);
+    if (updates.termsAndConditions) setTermsAndConditions(updates.termsAndConditions);
+  }, [suppliers]);
+
+  const handleChatItemActions = useCallback((actions: PurchaseItemAction[]) => {
+    setItems(prev => {
+      let result = [...prev];
+      for (const action of actions) {
+        switch (action.type) {
+          case 'add': {
+            if (!action.item) break;
+            const ai = action.item;
+            const quantity = ai.quantity || 1;
+            const unitPrice = ai.unitPrice || 0;
+            const discountRate = ai.discountRate || 0;
+            const taxRate = ai.taxRate !== undefined ? ai.taxRate : 0.16;
+            const baseAmount = quantity * unitPrice;
+            const discountAmount = baseAmount * discountRate;
+            const subtotal = baseAmount - discountAmount;
+            const taxAmount = subtotal * taxRate;
+            result.push({
+              tempId: `chat-${Date.now()}-${result.length}`,
+              productId: null,
+              itemType: ai.itemType || 'product',
+              description: ai.description || '',
+              sku: null,
+              quantity,
+              unit: ai.unit || 'pza',
+              unitPrice,
+              discountRate,
+              taxRate,
+              taxAmount,
+              taxRate2: 0,
+              taxAmount2: 0,
+              subtotal,
+            });
+            break;
+          }
+          case 'update': {
+            if (action.index === undefined || !action.updates) break;
+            const idx = action.index;
+            if (idx >= 0 && idx < result.length) {
+              const old = result[idx];
+              const merged = { ...old, ...action.updates };
+              const q = merged.quantity;
+              const up = merged.unitPrice;
+              const dr = merged.discountRate;
+              const tr = merged.taxRate;
+              const base = q * up;
+              const disc = base * dr;
+              const sub = base - disc;
+              const tax = sub * tr;
+              result[idx] = { ...merged, subtotal: sub, taxAmount: tax, taxAmount2: old.subtotal * old.taxRate2 };
+            }
+            break;
+          }
+          case 'remove': {
+            if (action.index !== undefined && action.index >= 0 && action.index < result.length) {
+              result = result.filter((_, i) => i !== action.index);
+            }
+            break;
+          }
+          case 'replace_all': {
+            if (!action.items) break;
+            result = action.items.map((ai, i) => {
+              const quantity = ai.quantity || 1;
+              const unitPrice = ai.unitPrice || 0;
+              const discountRate = ai.discountRate || 0;
+              const taxRate = ai.taxRate !== undefined ? ai.taxRate : 0.16;
+              const baseAmount = quantity * unitPrice;
+              const discountAmount = baseAmount * discountRate;
+              const subtotal = baseAmount - discountAmount;
+              const taxAmount = subtotal * taxRate;
+              return {
+                tempId: `chat-${Date.now()}-${i}`,
+                productId: null,
+                itemType: ai.itemType || 'product',
+                description: ai.description || '',
+                sku: null,
+                quantity,
+                unit: ai.unit || 'pza',
+                unitPrice,
+                discountRate,
+                taxRate,
+                taxAmount,
+                taxRate2: 0,
+                taxAmount2: 0,
+                subtotal,
+              };
+            });
+            break;
+          }
+        }
+      }
+      return result;
+    });
+  }, []);
+
   const handleSubmit = async (saveStatus: 'PENDING' | 'CONFIRMED') => {
     if (!selectedSupplierId) {
       alert('Debe seleccionar un proveedor');
@@ -597,14 +736,25 @@ export default function NewCompraPage() {
               <ArrowLeft className="w-4 h-4" />
               Volver a Compras
             </Link>
-            <button
-              onClick={() => setShowVoiceModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-              title="Asistente de Voz"
-            >
-              <Mic className="w-4 h-4" />
-              Asistente de Voz
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setChatPanelOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                title="Chat IA"
+              >
+                <Sparkles className="w-4 h-4" />
+                Chat IA
+              </button>
+              <button
+                onClick={() => setShowVoiceModal(true)}
+                disabled
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-400 text-white rounded-lg cursor-not-allowed opacity-60"
+                title="Asistente de Voz (Usa Chat IA)"
+              >
+                <Mic className="w-4 h-4" />
+                Asistente de Voz
+              </button>
+            </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Nueva Compra</h1>
           <p className="text-gray-600 mt-1">Registra una nueva compra</p>
@@ -1170,6 +1320,16 @@ export default function NewCompraPage() {
             </div>
           </div>
         )}
+
+      {/* Chat IA Panel */}
+      {chatPanelOpen && (
+        <PurchaseChatPanel
+          onClose={() => setChatPanelOpen(false)}
+          currentFormData={chatFormData}
+          onUpdateFields={handleChatFieldUpdates}
+          onUpdateItems={handleChatItemActions}
+        />
+      )}
 
       {/* Voice Assistant Modal */}
       {showVoiceModal && session?.user?.email && (

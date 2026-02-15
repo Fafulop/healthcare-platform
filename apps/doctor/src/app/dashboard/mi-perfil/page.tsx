@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { authFetch } from "@/lib/auth-fetch";
 import GeneralInfoSection from "@/components/profile/GeneralInfoSection";
@@ -265,23 +266,12 @@ export default function MiPerfilPage() {
   };
 
   // Loading / error states
-  if (!doctorProfile) {
+  if (!doctorProfile || isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-          <p className="mt-3 text-gray-500 text-sm">Cargando perfil...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-          <p className="mt-3 text-gray-500 text-sm">Cargando datos del perfil...</p>
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">Cargando perfil...</p>
         </div>
       </div>
     );
