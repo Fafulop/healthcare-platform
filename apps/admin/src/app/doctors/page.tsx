@@ -18,6 +18,7 @@ interface Doctor {
   city: string;
   heroImage: string;
   colorPalette: string;
+  googleAdsId: string | null;
   createdAt: string;
 }
 
@@ -29,6 +30,10 @@ export default function DoctorsListPage() {
   const [paletteModalOpen, setPaletteModalOpen] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [updatingPalette, setUpdatingPalette] = useState(false);
+  const [adsModalOpen, setAdsModalOpen] = useState(false);
+  const [adsDoctor, setAdsDoctor] = useState<Doctor | null>(null);
+  const [adsIdInput, setAdsIdInput] = useState("");
+  const [updatingAds, setUpdatingAds] = useState(false);
 
   useEffect(() => {
     fetchDoctors();
@@ -169,6 +174,136 @@ export default function DoctorsListPage() {
     }
   };
 
+  const handleOpenAdsModal = (doctor: Doctor) => {
+    setAdsDoctor(doctor);
+    setAdsIdInput(doctor.googleAdsId || "");
+    setAdsModalOpen(true);
+  };
+
+  const handleCloseAdsModal = () => {
+    setAdsModalOpen(false);
+    setAdsDoctor(null);
+    setAdsIdInput("");
+  };
+
+  const handleUpdateAdsId = async () => {
+    if (!adsDoctor) return;
+
+    const trimmed = adsIdInput.trim();
+
+    // Validate format if not empty
+    if (trimmed && !trimmed.match(/^AW-\d+$/)) {
+      alert("El formato debe ser AW- seguido de números (ej: AW-1234567890)");
+      return;
+    }
+
+    setUpdatingAds(true);
+    try {
+      // Fetch full doctor data first (same pattern as palette update)
+      const fetchResponse = await authFetch(`${API_URL}/api/doctors/${adsDoctor.slug}`);
+      const fetchResult = await fetchResponse.json();
+
+      if (!fetchResult.success) {
+        throw new Error("Failed to fetch doctor data");
+      }
+
+      const doctor = fetchResult.data;
+
+      // Build full update payload with new google_ads_id
+      const updateData = {
+        doctor_full_name: doctor.doctorFullName,
+        last_name: doctor.lastName,
+        slug: doctor.slug,
+        primary_specialty: doctor.primarySpecialty,
+        subspecialties: doctor.subspecialties || [],
+        cedula_profesional: doctor.cedulaProfesional || "",
+        hero_image: doctor.heroImage,
+        location_summary: doctor.locationSummary,
+        city: doctor.city,
+        services_list: (doctor.services || []).map((s: any) => ({
+          service_name: s.serviceName,
+          short_description: s.shortDescription,
+          duration_minutes: s.durationMinutes,
+          price: s.price,
+        })),
+        conditions: doctor.conditions || [],
+        procedures: doctor.procedures || [],
+        short_bio: doctor.shortBio,
+        long_bio: doctor.longBio || "",
+        years_experience: doctor.yearsExperience,
+        education_items: (doctor.educationItems || []).map((e: any) => ({
+          institution: e.institution,
+          program: e.program,
+          year: e.year,
+          notes: e.notes || "",
+        })),
+        certificate_images: (doctor.certificates || []).map((c: any) => ({
+          src: c.src,
+          alt: c.alt,
+          issued_by: c.issuedBy,
+          year: c.year,
+        })),
+        clinic_info: {
+          address: doctor.clinicAddress,
+          phone: doctor.clinicPhone,
+          whatsapp: doctor.clinicWhatsapp || "",
+          hours: doctor.clinicHours || {},
+          geo: {
+            lat: doctor.clinicGeoLat || 0,
+            lng: doctor.clinicGeoLng || 0,
+          },
+        },
+        faqs: (doctor.faqs || []).map((f: any) => ({
+          question: f.question,
+          answer: f.answer,
+        })),
+        carousel_items: (doctor.carouselItems || []).map((item: any) => ({
+          type: item.type,
+          src: item.src,
+          alt: item.alt,
+          caption: item.caption || "",
+        })),
+        appointment_modes: doctor.appointmentModes || [],
+        next_available_date: doctor.nextAvailableDate
+          ? new Date(doctor.nextAvailableDate).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0],
+        social_links: {
+          linkedin: doctor.socialLinkedin,
+          twitter: doctor.socialTwitter,
+        },
+        color_palette: doctor.colorPalette || "warm",
+        google_ads_id: trimmed || null,
+      };
+
+      const response = await authFetch(`${API_URL}/api/doctors/${adsDoctor.slug}`, {
+        method: "PUT",
+        body: JSON.stringify(updateData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setDoctors((prev) =>
+          prev.map((d) =>
+            d.slug === adsDoctor.slug ? { ...d, googleAdsId: trimmed || null } : d
+          )
+        );
+        alert(trimmed
+          ? `Google Ads ID actualizado a "${trimmed}"`
+          : "Google Ads ID eliminado"
+        );
+        handleCloseAdsModal();
+      } else {
+        throw new Error(result.error || "Failed to update Google Ads ID");
+      }
+    } catch (err) {
+      console.error("Error updating Google Ads ID:", err);
+      alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setUpdatingAds(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
@@ -260,6 +395,9 @@ export default function DoctorsListPage() {
                       Paleta
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Google Ads
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Fecha Creación
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -303,6 +441,25 @@ export default function DoctorsListPage() {
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleOpenAdsModal(doctor)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium transition ${
+                            doctor.googleAdsId
+                              ? "bg-green-50 hover:bg-green-100 text-green-700 border border-green-200"
+                              : "bg-gray-100 hover:bg-gray-200 text-gray-500"
+                          }`}
+                        >
+                          {doctor.googleAdsId ? (
+                            <>
+                              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                              {doctor.googleAdsId}
+                            </>
+                          ) : (
+                            "Sin Ads"
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {new Date(doctor.createdAt).toLocaleDateString('es-MX')}
                         </div>
@@ -330,6 +487,77 @@ export default function DoctorsListPage() {
             </div>
           )}
         </div>
+
+        {/* Google Ads Modal */}
+        {adsModalOpen && adsDoctor && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      Google Ads ID
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {adsDoctor.doctorFullName}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCloseAdsModal}
+                    disabled={updatingAds}
+                    className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ID de cuenta Google Ads
+                    </label>
+                    <input
+                      type="text"
+                      value={adsIdInput}
+                      onChange={(e) => setAdsIdInput(e.target.value)}
+                      placeholder="AW-1234567890"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-mono"
+                      disabled={updatingAds}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Formato: AW- seguido de números. Dejar vacío para desactivar.
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-xs text-blue-800">
+                      Este ID se usa para rastrear conversiones (clics de contacto y reservas) en la cuenta de Google Ads del doctor.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleUpdateAdsId}
+                      disabled={updatingAds}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
+                    >
+                      {updatingAds ? "Guardando..." : "Guardar"}
+                    </button>
+                    <button
+                      onClick={handleCloseAdsModal}
+                      disabled={updatingAds}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Palette Modal */}
         {paletteModalOpen && selectedDoctor && (
