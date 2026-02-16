@@ -100,6 +100,9 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
 
     // Color Palette (for personalized branding)
     color_palette: doctor.colorPalette || 'warm',
+
+    // Google Ads - Per-doctor Ads account ID
+    google_ads_id: doctor.googleAdsId || undefined,
   };
 }
 

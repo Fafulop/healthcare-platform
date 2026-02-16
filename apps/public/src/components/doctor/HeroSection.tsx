@@ -11,9 +11,10 @@ import type { DoctorProfile } from '@/types/doctor';
 interface HeroSectionProps {
   doctor: DoctorProfile;
   onBookingClick?: () => void;
+  googleAdsId?: string;
 }
 
-export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps) {
+export default function HeroSection({ doctor, onBookingClick, googleAdsId }: HeroSectionProps) {
 
   return (
     <section id="inicio" className="relative overflow-hidden bg-[var(--color-bg-yellow-light)] py-12 md:py-16">
@@ -121,6 +122,7 @@ export default function HeroSection({ doctor, onBookingClick }: HeroSectionProps
               doctorSlug={doctor.slug}
               whatsappNumber={doctor.clinic_info.whatsapp}
               onBookingClick={onBookingClick}
+              googleAdsId={googleAdsId}
             />
           </div>
         </div>

@@ -41,7 +41,8 @@ export function trackProfileView(doctorSlug: string, doctorName: string, special
 export function trackContactClick(
   doctorSlug: string,
   contactMethod: 'whatsapp' | 'phone' | 'email',
-  location: 'hero' | 'sidebar' | 'mobile_cta' | 'blog_sidebar'
+  location: 'hero' | 'sidebar' | 'mobile_cta' | 'blog_sidebar',
+  googleAdsId?: string
 ) {
   gtag('event', 'contact_click', {
     doctor_slug: doctorSlug,
@@ -49,10 +50,11 @@ export function trackContactClick(
     click_location: location,
   });
 
-  // Also fire as Google Ads conversion
-  if (GOOGLE_ADS_ID) {
+  // Fire as Google Ads conversion (per-doctor ID with global fallback)
+  const adsId = googleAdsId || GOOGLE_ADS_ID;
+  if (adsId) {
     gtag('event', 'conversion', {
-      send_to: `${GOOGLE_ADS_ID}/contact_click`,
+      send_to: `${adsId}/contact_click`,
       doctor_slug: doctorSlug,
       contact_method: contactMethod,
     });
@@ -87,7 +89,7 @@ export function trackSlotSelected(doctorSlug: string, slotDate: string, slotTime
 }
 
 // Appointment booking completed successfully
-export function trackBookingComplete(doctorSlug: string, slotDate: string, price: number) {
+export function trackBookingComplete(doctorSlug: string, slotDate: string, price: number, googleAdsId?: string) {
   gtag('event', 'booking_complete', {
     doctor_slug: doctorSlug,
     slot_date: slotDate,
@@ -95,10 +97,11 @@ export function trackBookingComplete(doctorSlug: string, slotDate: string, price
     currency: 'MXN',
   });
 
-  // Fire as Google Ads conversion
-  if (GOOGLE_ADS_ID) {
+  // Fire as Google Ads conversion (per-doctor ID with global fallback)
+  const adsId = googleAdsId || GOOGLE_ADS_ID;
+  if (adsId) {
     gtag('event', 'conversion', {
-      send_to: `${GOOGLE_ADS_ID}/booking_complete`,
+      send_to: `${adsId}/booking_complete`,
       doctor_slug: doctorSlug,
       value: price,
       currency: 'MXN',

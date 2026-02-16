@@ -89,6 +89,9 @@ model Doctor {
   // Color palette for personalized branding
   colorPalette       String    @default("warm") @map("color_palette")
 
+  // Google Ads - Per-doctor Ads account ID
+  googleAdsId        String?   @map("google_ads_id")
+
   // Relations
   user               User?     // 1:1 relation - optional (can have doctors without user accounts)
   services           Service[]

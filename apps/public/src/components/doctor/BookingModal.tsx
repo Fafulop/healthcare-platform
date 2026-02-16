@@ -9,9 +9,10 @@ interface BookingModalProps {
   onClose: () => void;
   doctorSlug: string;
   initialDate?: string | null;
+  googleAdsId?: string;
 }
 
-export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null }: BookingModalProps) {
+export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null, googleAdsId }: BookingModalProps) {
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -95,7 +96,7 @@ export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate 
 
         {/* Content */}
         <div style={{ padding: '24px' }}>
-          <BookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} />
+          <BookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} />
         </div>
       </div>
     </div>

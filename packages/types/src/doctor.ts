@@ -126,6 +126,9 @@ export interface DoctorProfile {
   // Color Palette (for personalized branding)
   color_palette?: string; // ID of the color palette (warm, blue, green, etc.)
 
+  // Google Ads - Per-doctor Ads account ID
+  google_ads_id?: string;
+
   // Reviews
   reviews?: Review[];
   reviewStats?: ReviewStats;

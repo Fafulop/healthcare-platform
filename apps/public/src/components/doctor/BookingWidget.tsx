@@ -38,9 +38,10 @@ interface BookingWidgetProps {
   isModal?: boolean;
   onDayClick?: (dateStr: string) => void;
   initialDate?: string | null;
+  googleAdsId?: string;
 }
 
-export default function BookingWidget({ doctorSlug, isModal = false, onDayClick, initialDate = null }: BookingWidgetProps) {
+export default function BookingWidget({ doctorSlug, isModal = false, onDayClick, initialDate = null, googleAdsId }: BookingWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (initialDate && typeof initialDate === 'string' && initialDate.includes('-')) {
       const [y, m] = initialDate.split('-').map(Number);
@@ -146,7 +147,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
       const data = await response.json();
 
       if (data.success) {
-        trackBookingComplete(doctorSlug, selectedSlot.date, selectedSlot.finalPrice);
+        trackBookingComplete(doctorSlug, selectedSlot.date, selectedSlot.finalPrice, googleAdsId);
         setConfirmationCode(data.data.confirmationCode);
         setBookingStep("success");
         // Reset form

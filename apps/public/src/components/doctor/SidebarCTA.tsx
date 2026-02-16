@@ -8,12 +8,13 @@ interface SidebarCTAProps {
   doctorSlug?: string;
   onBookingClick?: () => void;
   whatsappNumber?: string;
+  googleAdsId?: string;
 }
 
-export default function SidebarCTA({ doctorSlug, onBookingClick, whatsappNumber }: SidebarCTAProps) {
+export default function SidebarCTA({ doctorSlug, onBookingClick, whatsappNumber, googleAdsId }: SidebarCTAProps) {
   const handleWhatsAppClick = () => {
     if (whatsappNumber) {
-      if (doctorSlug) trackContactClick(doctorSlug, 'whatsapp', 'sidebar');
+      if (doctorSlug) trackContactClick(doctorSlug, 'whatsapp', 'sidebar', googleAdsId);
       const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '');
       window.open(`https://wa.me/${cleanNumber}`, '_blank');
     }

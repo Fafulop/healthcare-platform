@@ -10,12 +10,13 @@ interface HeroButtonsProps {
   doctorSlug: string;
   whatsappNumber?: string | null;
   onBookingClick?: () => void;
+  googleAdsId?: string;
 }
 
-export default function HeroButtons({ doctorSlug, whatsappNumber, onBookingClick }: HeroButtonsProps) {
+export default function HeroButtons({ doctorSlug, whatsappNumber, onBookingClick, googleAdsId }: HeroButtonsProps) {
   const handleWhatsAppClick = () => {
     if (whatsappNumber) {
-      trackContactClick(doctorSlug, 'whatsapp', 'hero');
+      trackContactClick(doctorSlug, 'whatsapp', 'hero', googleAdsId);
       const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '');
       window.open(`https://wa.me/${cleanNumber}`, '_blank');
     }

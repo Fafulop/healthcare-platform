@@ -201,6 +201,7 @@ export async function PUT(
           socialLinkedin: body.social_links?.linkedin,
           socialTwitter: body.social_links?.twitter,
           colorPalette: body.color_palette || 'warm',
+          googleAdsId: body.google_ads_id !== undefined ? (body.google_ads_id || null) : undefined,
           // Create new related services
           services: {
             create: (body.services_list || []).map((service: any) => ({

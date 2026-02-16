@@ -31,10 +31,15 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  // Track profile view on mount
+  // Track profile view on mount + configure per-doctor Google Ads
   useEffect(() => {
     trackProfileView(doctor.slug, doctor.doctor_full_name, doctor.primary_specialty || '');
-  }, [doctor.slug, doctor.doctor_full_name, doctor.primary_specialty]);
+
+    // Configure per-doctor Google Ads account if available
+    if (doctor.google_ads_id && typeof window !== 'undefined' && window.gtag) {
+      window.gtag('config', doctor.google_ads_id);
+    }
+  }, [doctor.slug, doctor.doctor_full_name, doctor.primary_specialty, doctor.google_ads_id]);
 
   const openBookingModal = (dateStr?: string) => {
     if (dateStr) {
@@ -56,7 +61,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
           {/* LEFT COLUMN - Main Content (Optimized SEO + UX Order) */}
           <div className="profile-left-column">
             {/* 1. Hero - Identity + primary SEO anchor */}
-            <HeroSection doctor={doctor} onBookingClick={openBookingModal} />
+            <HeroSection doctor={doctor} onBookingClick={openBookingModal} googleAdsId={doctor.google_ads_id} />
 
             {/* Quick Navigation - Jump to sections */}
             <QuickNav />
@@ -109,7 +114,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
             <div className="flex flex-col h-screen">
               {/* Appointment Booking Widget - Scrollable */}
               <div className="flex-1 overflow-y-auto">
-                <DynamicBookingWidget doctorSlug={doctor.slug} onDayClick={openBookingModal} />
+                <DynamicBookingWidget doctorSlug={doctor.slug} onDayClick={openBookingModal} googleAdsId={doctor.google_ads_id} />
               </div>
 
               {/* Fixed Bottom Section - CTA Buttons & Contact */}
@@ -119,6 +124,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
                   doctorSlug={doctor.slug}
                   onBookingClick={openBookingModal}
                   whatsappNumber={doctor.clinic_info.whatsapp}
+                  googleAdsId={doctor.google_ads_id}
                 />
 
                 {/* Contact Information - Quick access (Desktop Only) */}
@@ -133,6 +139,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
           doctorSlug={doctor.slug}
           whatsappNumber={doctor.clinic_info.whatsapp}
           onBookingClick={openBookingModal}
+          googleAdsId={doctor.google_ads_id}
         />
       </main>
 
@@ -142,6 +149,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
         onClose={closeBookingModal}
         doctorSlug={doctor.slug}
         initialDate={selectedDate}
+        googleAdsId={doctor.google_ads_id}
       />
     </>
   );

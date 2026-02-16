@@ -8,12 +8,13 @@ interface StickyMobileCTAProps {
   doctorSlug?: string;
   whatsappNumber?: string | null;
   onBookingClick?: () => void;
+  googleAdsId?: string;
 }
 
-export default function StickyMobileCTA({ doctorSlug, whatsappNumber, onBookingClick }: StickyMobileCTAProps) {
+export default function StickyMobileCTA({ doctorSlug, whatsappNumber, onBookingClick, googleAdsId }: StickyMobileCTAProps) {
   const handleWhatsAppClick = () => {
     if (whatsappNumber) {
-      if (doctorSlug) trackContactClick(doctorSlug, 'whatsapp', 'mobile_cta');
+      if (doctorSlug) trackContactClick(doctorSlug, 'whatsapp', 'mobile_cta', googleAdsId);
       const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '');
       window.open(`https://wa.me/${cleanNumber}`, '_blank');
     }
