@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCircle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { trackSlotSelected, trackBookingComplete } from "@/lib/analytics";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -120,6 +121,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
   };
 
   const handleSlotSelect = (slot: Slot) => {
+    trackSlotSelected(doctorSlug, slot.date, slot.startTime, slot.finalPrice);
     setSelectedSlot(slot);
     setBookingStep("form");
   };
@@ -144,6 +146,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
       const data = await response.json();
 
       if (data.success) {
+        trackBookingComplete(doctorSlug, selectedSlot.date, selectedSlot.finalPrice);
         setConfirmationCode(data.data.confirmationCode);
         setBookingStep("success");
         // Reset form

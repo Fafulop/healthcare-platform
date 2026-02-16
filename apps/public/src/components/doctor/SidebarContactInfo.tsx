@@ -1,16 +1,23 @@
 // Sidebar Contact Info - Compact contact details for sticky sidebar
+'use client';
 import React from 'react';
 import { Navigation } from 'lucide-react';
 import Card from '../ui/Card';
+import { trackMapClick } from '@/lib/analytics';
 import type { ClinicInfo } from '@/types/doctor';
 
 interface SidebarContactInfoProps {
+  doctorSlug?: string;
   clinicInfo: ClinicInfo;
 }
 
-export default function SidebarContactInfo({ clinicInfo }: SidebarContactInfoProps) {
+export default function SidebarContactInfo({ doctorSlug, clinicInfo }: SidebarContactInfoProps) {
   // Generate Google Maps URL
   const googleMapsUrl = `https://www.google.com/maps?q=${clinicInfo.geo.lat},${clinicInfo.geo.lng}`;
+
+  const handleMapClick = () => {
+    if (doctorSlug) trackMapClick(doctorSlug, 'sidebar');
+  };
 
   return (
     <div className="px-4 pb-6">
@@ -20,6 +27,7 @@ export default function SidebarContactInfo({ clinicInfo }: SidebarContactInfoPro
           href={googleMapsUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleMapClick}
           className="flex items-start gap-4 p-4 rounded-lg hover:bg-[var(--color-neutral-light)] transition-colors bg-blue-50 border border-blue-200"
         >
           <div className="flex-shrink-0 w-12 h-12 bg-[var(--color-secondary)] bg-opacity-20 rounded-full flex items-center justify-center">

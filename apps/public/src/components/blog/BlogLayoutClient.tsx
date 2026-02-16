@@ -64,12 +64,13 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, children }: B
               <div className="flex-shrink-0 bg-white border-t border-gray-200">
                 {/* CTA Buttons - Action buttons (Desktop Only) */}
                 <SidebarCTA
+                  doctorSlug={doctorSlug}
                   onBookingClick={openBookingModal}
                   whatsappNumber={clinicInfo.whatsapp}
                 />
 
                 {/* Contact Information - Quick access (Desktop Only) */}
-                <SidebarContactInfo clinicInfo={clinicInfo} />
+                <SidebarContactInfo doctorSlug={doctorSlug} clinicInfo={clinicInfo} />
               </div>
             </div>
           </aside>

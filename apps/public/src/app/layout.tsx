@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import Script from "next/script";
+import { Suspense } from "react";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 import "./globals.css";
+
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || '';
+const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || '';
 
 export const metadata: Metadata = {
   title: "Doctor Profile | Medical Services",
@@ -19,6 +25,11 @@ export default function RootLayout({
         <link rel="preconnect" href="https://utfs.io" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+
+        {/* Preconnect to Google Analytics */}
+        {GA_MEASUREMENT_ID && (
+          <link rel="preconnect" href="https://www.googletagmanager.com" />
+        )}
 
         {/* Preload critical fonts - improves FCP */}
         <link
@@ -42,6 +53,33 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif' }}>
+        {/* Google Analytics 4 */}
+        {GA_MEASUREMENT_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_MEASUREMENT_ID}', {
+                  page_path: window.location.pathname,
+                  send_page_view: true
+                });
+                ${GOOGLE_ADS_ID ? `gtag('config', '${GOOGLE_ADS_ID}');` : ''}
+              `}
+            </Script>
+          </>
+        )}
+
+        {/* Track route changes */}
+        <Suspense fallback={null}>
+          <GoogleAnalytics />
+        </Suspense>
+
         {children}
       </body>
     </html>

@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { FileText } from 'lucide-react';
 import Button from '../ui/Button';
+import { trackContactClick, trackAppointmentClick } from '@/lib/analytics';
 
 interface HeroButtonsProps {
   doctorSlug: string;
@@ -14,14 +15,20 @@ interface HeroButtonsProps {
 export default function HeroButtons({ doctorSlug, whatsappNumber, onBookingClick }: HeroButtonsProps) {
   const handleWhatsAppClick = () => {
     if (whatsappNumber) {
+      trackContactClick(doctorSlug, 'whatsapp', 'hero');
       const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '');
       window.open(`https://wa.me/${cleanNumber}`, '_blank');
     }
   };
 
+  const handleBookingClick = () => {
+    trackAppointmentClick(doctorSlug, 'hero');
+    onBookingClick?.();
+  };
+
   return (
     <div className="hidden md:flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-      <Button variant="primary" size="lg" className="sm:min-w-[240px]" onClick={onBookingClick}>
+      <Button variant="primary" size="lg" className="sm:min-w-[240px]" onClick={handleBookingClick}>
         Agendar Cita
       </Button>
       <Button variant="secondary" size="lg" className="sm:min-w-[240px]" onClick={handleWhatsAppClick}>

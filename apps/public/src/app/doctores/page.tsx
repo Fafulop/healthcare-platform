@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { MapPin, Stethoscope } from 'lucide-react';
 import { getAllDoctors } from '@/lib/data';
 import BlobDecoration from '@/components/ui/BlobDecoration';
+import DoctorCardTracked from '@/components/doctor/DoctorCardTracked';
 import type { DoctorProfile } from '@/types/doctor';
 
 export const metadata = {
@@ -54,8 +55,10 @@ export default async function DoctorsPage() {
         {/* Doctors Grid */}
         {doctors.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {doctors.map((doctor) => (
-              <DoctorCard key={doctor.slug} doctor={doctor} />
+            {doctors.map((doctor, index) => (
+              <DoctorCardTracked key={doctor.slug} doctorSlug={doctor.slug} doctorName={doctor.doctor_full_name} position={index + 1}>
+                <DoctorCard doctor={doctor} />
+              </DoctorCardTracked>
             ))}
           </div>
         ) : (

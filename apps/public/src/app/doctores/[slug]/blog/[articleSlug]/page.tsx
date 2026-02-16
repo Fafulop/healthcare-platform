@@ -7,6 +7,7 @@ import { generateBlogPostingSchema } from '@/lib/structured-data';
 import Link from 'next/link';
 import { Calendar, Eye, ArrowLeft } from 'lucide-react';
 import BlogLayoutClient from '@/components/blog/BlogLayoutClient';
+import BlogViewTracker from '@/components/blog/BlogViewTracker';
 import { ArticleContent } from '@/components/blog/ArticleContent';
 import ColorPaletteProvider from '@/components/ui/ColorPaletteProvider';
 
@@ -95,6 +96,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingSchema) }}
         strategy="beforeInteractive"
       />
+
+      <BlogViewTracker doctorSlug={slug} articleSlug={articleSlug} articleTitle={article.title} />
 
       <BlogLayoutClient doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info}>
       <div className="max-w-3xl mx-auto px-4 py-6">

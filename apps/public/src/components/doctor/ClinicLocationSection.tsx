@@ -1,20 +1,26 @@
 // Clinic Information & Map - Local SEO signal
+'use client';
 import React from 'react';
 import { MapPin, Clock, ExternalLink } from 'lucide-react';
 import Card from '../ui/Card';
-import BlobDecoration from '../ui/BlobDecoration';
+import { trackMapClick } from '@/lib/analytics';
 import type { ClinicInfo} from '@/types/doctor';
 
 interface ClinicLocationSectionProps {
+  doctorSlug?: string;
   clinicInfo: ClinicInfo;
   id?: string;
 }
 
-export default function ClinicLocationSection({ clinicInfo, id }: ClinicLocationSectionProps) {
+export default function ClinicLocationSection({ doctorSlug, clinicInfo, id }: ClinicLocationSectionProps) {
   // Generate Google Maps URL - Use coordinates if available, otherwise use address
   const googleMapsUrl = (clinicInfo.geo.lat !== 0 && clinicInfo.geo.lng !== 0)
     ? `https://www.google.com/maps?q=${clinicInfo.geo.lat},${clinicInfo.geo.lng}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clinicInfo.address)}`;
+
+  const handleMapClick = () => {
+    if (doctorSlug) trackMapClick(doctorSlug, 'clinic_section');
+  };
 
   // Translate day names to Spanish
   const translateDay = (day: string): string => {
@@ -61,6 +67,7 @@ export default function ClinicLocationSection({ clinicInfo, id }: ClinicLocation
                   href={googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={handleMapClick}
                   className="inline-flex items-center gap-2 text-[var(--color-secondary)] hover:text-[var(--color-secondary-hover)] font-semibold"
                 >
                   <ExternalLink className="w-5 h-5" />

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { DoctorProfile } from "@/types/doctor";
+import { trackProfileView } from "@/lib/analytics";
 
 // Import server-rendered components
 import HeroSection from "./HeroSection";
@@ -29,6 +30,11 @@ interface DoctorProfileClientProps {
 export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Track profile view on mount
+  useEffect(() => {
+    trackProfileView(doctor.slug, doctor.doctor_full_name, doctor.primary_specialty || '');
+  }, [doctor.slug, doctor.doctor_full_name, doctor.primary_specialty]);
 
   const openBookingModal = (dateStr?: string) => {
     if (dateStr) {
@@ -86,7 +92,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
             />
 
             {/* 7. Clinic Location - Local SEO signal */}
-            <ClinicLocationSection id="location" clinicInfo={doctor.clinic_info} />
+            <ClinicLocationSection id="location" doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} />
 
             {/* 8. Education - E-E-A-T proof */}
             <EducationSection id="education" educationItems={doctor.education_items} />
@@ -110,12 +116,13 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
               <div className="flex-shrink-0 bg-white border-t border-gray-200">
                 {/* CTA Buttons - Action buttons (Desktop Only) */}
                 <SidebarCTA
+                  doctorSlug={doctor.slug}
                   onBookingClick={openBookingModal}
                   whatsappNumber={doctor.clinic_info.whatsapp}
                 />
 
                 {/* Contact Information - Quick access (Desktop Only) */}
-                <SidebarContactInfo clinicInfo={doctor.clinic_info} />
+                <SidebarContactInfo doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} />
               </div>
             </div>
           </aside>
@@ -123,6 +130,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
 
         {/* Sticky Mobile CTA - Bottom action bar (Mobile Only) */}
         <StickyMobileCTA
+          doctorSlug={doctor.slug}
           whatsappNumber={doctor.clinic_info.whatsapp}
           onBookingClick={openBookingModal}
         />
