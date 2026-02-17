@@ -237,7 +237,7 @@ export async function getDoctorsRanking(
         },
       },
       orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
-      limit: limit,
+      limit: String(limit),
     },
   });
 
