@@ -531,10 +531,36 @@ export default function DoctorsListPage() {
                     </p>
                   </div>
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-xs text-blue-800">
-                      Este ID se usa para rastrear conversiones (clics de contacto y reservas) en la cuenta de Google Ads del doctor.
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <p className="text-sm font-semibold text-amber-900 mb-2">
+                      Checklist de onboarding Google Ads
                     </p>
+                    <ul className="space-y-1.5 text-xs text-amber-800">
+                      <li className="flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0">1.</span>
+                        <span>Obtener el <strong>Customer ID</strong> de la cuenta Google Ads del doctor (formato: <code className="bg-amber-100 px-1 rounded">AW-1234567890</code>). Se encuentra en Google Ads &rarr; Settings &rarr; Account settings.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0">2.</span>
+                        <span>En la cuenta Google Ads del doctor, crear <strong>2 acciones de conversion</strong> (Goals &rarr; Conversions &rarr; New conversion action &rarr; Website):</span>
+                      </li>
+                      <li className="ml-5 flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0">&bull;</span>
+                        <span><code className="bg-amber-100 px-1 rounded">contact_click</code> &mdash; Cuando un paciente hace clic en WhatsApp o telefono</span>
+                      </li>
+                      <li className="ml-5 flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0">&bull;</span>
+                        <span><code className="bg-amber-100 px-1 rounded">booking_complete</code> &mdash; Cuando un paciente confirma una cita</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0">3.</span>
+                        <span>Verificar que los <strong>conversion labels</strong> en Google Ads coincidan exactamente con los nombres de arriba.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0">4.</span>
+                        <span>Pegar el ID aqui y guardar. Las conversiones se rastrearan automaticamente.</span>
+                      </li>
+                    </ul>
                   </div>
 
                   <div className="flex gap-3">
