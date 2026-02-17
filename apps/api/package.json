@@ -14,6 +14,7 @@
     "@healthcare/database": "workspace:*",
     "@healthcare/types": "workspace:*",
     "@types/jsonwebtoken": "^9.0.10",
+    "googleapis": "^171.4.0",
     "jsonwebtoken": "^9.0.3",
     "next": "16.0.10",
     "next-auth": "^5.0.0-beta.25",

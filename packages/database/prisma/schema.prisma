@@ -9,7 +9,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "practice_management", "medical_records", "llm_assistant"]
+  schemas  = ["public", "practice_management", "medical_records", "llm_assistant", "analytics"]
 }
 
 // User authentication model for staff (doctors + admins)
@@ -1668,4 +1668,26 @@ model LlmDocsFileHash {
   @@index([moduleId])
   @@map("llm_docs_file_hashes")
   @@schema("llm_assistant")
+}
+
+// ==========================================
+// Analytics Schema
+// ==========================================
+
+model AnalyticsCache {
+  id         Int      @id @default(autoincrement())
+  cacheKey   String   @unique @map("cache_key") @db.VarChar(255)
+  cacheType  String   @map("cache_type") @db.VarChar(50)
+  doctorSlug String?  @map("doctor_slug") @db.VarChar(100)
+  dateRange  String   @map("date_range") @db.VarChar(20)
+  response   String   @db.Text
+  hitCount   Int      @default(0) @map("hit_count")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([cacheType, doctorSlug, dateRange])
+  @@index([expiresAt])
+  @@map("analytics_cache")
+  @@schema("analytics")
 }

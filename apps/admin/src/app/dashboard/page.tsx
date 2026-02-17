@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Calendar, Settings } from "lucide-react";
+import { Calendar, Settings, BarChart3 } from "lucide-react";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession({
@@ -77,6 +77,14 @@ export default function DashboardPage() {
             className="block w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg text-center transition"
           >
             Gestionar Usuarios
+          </Link>
+
+          <Link
+            href="/analytics"
+            className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            <BarChart3 className="w-5 h-5" />
+            Analytics
           </Link>
 
           <Link
