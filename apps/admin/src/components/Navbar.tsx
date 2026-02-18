@@ -22,6 +22,12 @@ export default function Navbar() {
             Ver Doctores
           </Link>
           <Link
+            href="/guides"
+            className="text-gray-700 hover:text-blue-600 font-medium transition"
+          >
+            Guías
+          </Link>
+          <Link
             href="/settings"
             className="text-gray-700 hover:text-blue-600 font-medium transition"
           >

@@ -15,19 +15,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }))
 
-  // Create sitemap entries for all blog listing pages
-  const blogListingPages: MetadataRoute.Sitemap = doctorSlugs.map((slug) => ({
-    url: `${baseUrl}/doctores/${slug}/blog`,
-    lastModified: new Date(),
-    changeFrequency: 'weekly',
-    priority: 0.7,
-  }))
-
   // Fetch all blog articles for all doctors
+  // Blog listing page is only included when the doctor has at least one article
+  const blogListingPages: MetadataRoute.Sitemap = []
   const articlePages: MetadataRoute.Sitemap = []
   for (const slug of doctorSlugs) {
     try {
       const articles = await getArticlesByDoctorSlug(slug)
+      if (articles.length === 0) continue
+
+      // Doctor has articles — include their blog listing page
+      blogListingPages.push({
+        url: `${baseUrl}/doctores/${slug}/blog`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly',
+        priority: 0.7,
+      })
+
       articles.forEach((article) => {
         articlePages.push({
           url: `${baseUrl}/doctores/${slug}/blog/${article.slug}`,
