@@ -25,8 +25,9 @@ export const authConfig: NextAuthConfig = {
     },
 
     async jwt({ token, user, account, trigger }: any) {
-      // On sign in, fetch user info from API
-      if (user || trigger === "update") {
+      // On sign in, on explicit update, or when doctorId is missing (user may
+      // have been linked to a doctor profile after their initial login)
+      if (user || trigger === "update" || !token.doctorId) {
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 

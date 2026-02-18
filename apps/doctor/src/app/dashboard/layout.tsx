@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { DoctorProfileProvider } from "@/contexts/DoctorProfileContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -14,12 +15,23 @@ export default function DashboardRootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { status } = useSession({
+  const { status, data: session, update } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
     },
   });
+
+  const hasRefreshed = useRef(false);
+
+  // If the user logged in before being linked to a doctor profile, the session
+  // cookie will have doctorId: null. Auto-refresh once to pick up the link.
+  useEffect(() => {
+    if (status === "authenticated" && !session?.user?.doctorId && !hasRefreshed.current) {
+      hasRefreshed.current = true;
+      update();
+    }
+  }, [status, session?.user?.doctorId, update]);
 
   if (status === "loading") {
     return (
