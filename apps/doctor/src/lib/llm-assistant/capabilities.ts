@@ -424,6 +424,15 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             notes:
               'Igual que en ventas: editable inline. No puede exceder el total ni ser negativo.',
           },
+
+          'eliminar o modificar desde Flujo de Dinero': {
+            blockedIf:
+              'Siempre — los movimientos de compras en Flujo de Dinero son registros automáticos ' +
+              'de solo lectura. No se pueden eliminar ni editar desde esa vista.',
+            resolution:
+              'Ve al módulo de Compras (Gestión de Consultorio > Compras) para gestionar ' +
+              'la compra original: cambiar estado, editar monto pagado, o cancelarla.',
+          },
         },
       },
 

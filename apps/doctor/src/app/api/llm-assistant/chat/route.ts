@@ -12,13 +12,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { processQuery } from '@/lib/llm-assistant/query/pipeline';
 import { isLLMAssistantError, toErrorResponse } from '@/lib/llm-assistant/errors';
+import { CHAT_RATE_LIMIT_REQUESTS, CHAT_RATE_LIMIT_WINDOW_MS } from '@/lib/llm-assistant/constants';
+
+// In-memory rate limiter (per userId, resets on server restart)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + CHAT_RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+
+  if (entry.count >= CHAT_RATE_LIMIT_REQUESTS) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
 
 export async function POST(request: NextRequest) {
   try {
     // 1. Authentication check
     const { userId } = await requireDoctorAuth(request);
 
-    // 2. Parse request body
+    // 2. Rate limit check
+    if (!checkRateLimit(userId)) {
+      return NextResponse.json(
+        { success: false, error: 'Demasiadas solicitudes. Por favor espera un momento.', code: 'RATE_LIMITED' },
+        { status: 429 }
+      );
+    }
+
+    // 3. Parse request body
     const body = await request.json();
     const { question, sessionId, uiContext } = body;
 
@@ -36,7 +65,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Process query through RAG + capability map pipeline
+    // 4. Process query through RAG + capability map pipeline
     const result = await processQuery({
       question,
       sessionId,

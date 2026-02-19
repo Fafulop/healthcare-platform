@@ -25,7 +25,6 @@ import {
 import type { UserQuery, AssistantResponse } from '../types';
 
 const MAX_QUESTION_TOKENS = 200;
-const MIN_CHUNKS_THRESHOLD = 2;
 
 /**
  * Process a user query through the full RAG + capability map pipeline.

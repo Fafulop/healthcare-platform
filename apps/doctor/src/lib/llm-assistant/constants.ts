@@ -19,7 +19,7 @@ export const CHUNK_OVERLAP_TOKENS = 50;
 
 // --- Retrieval ---
 export const RETRIEVAL_TOP_K = 10;
-export const RETRIEVAL_SIMILARITY_THRESHOLD = 0.5;
+export const RETRIEVAL_SIMILARITY_THRESHOLD = 0.40;
 export const MODULE_DETECTION_THRESHOLD = 0.3;
 export const MAX_CONTEXT_TOKENS = 3000;
 
@@ -57,3 +57,5 @@ export const DOCS_SKIP_FILES = [
 
 // --- Rate Limiting ---
 export const EMBEDDING_RATE_LIMIT_MS = 100;
+export const CHAT_RATE_LIMIT_REQUESTS = 20; // max requests per window per user
+export const CHAT_RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
