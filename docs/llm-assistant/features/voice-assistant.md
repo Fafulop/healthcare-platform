@@ -10,19 +10,20 @@ Permite crear registros usando inteligencia artificial mediante conversación en
 
 ---
 
-## Acciones disponibles
+## Qué puedo crear con el Chat IA
 
-| Acción | Modo | Batch |
-|--------|------|-------|
-| Crear Paciente | Chat IA | No |
-| Crear Citas | Voz clásica (único caso) | Sí |
-| Nuevo Pendiente | Chat IA | **Sí** |
-| Movimiento de Efectivo | Chat IA | **Sí** |
-| Nueva Venta | Chat IA | No |
-| Nueva Cotización | Chat IA | No |
-| Nueva Compra | Chat IA | No |
+Con el Chat IA puedes crear los siguientes registros desde el hub ✨:
 
-Las acciones con ✨ junto al título en el modal usan Chat IA. La única excepción es "Crear Citas", que usa grabación de voz clásica en lugar de Chat IA — todas las demás acciones del hub sí usan Chat IA.
+- **Paciente** — usando el chat de texto.
+- **Pendiente** — usando el chat de texto. Soporta creación en lote.
+- **Movimiento de Efectivo** — usando el chat de texto. Soporta creación en lote.
+- **Venta** — usando el chat de texto.
+- **Cotización** — usando el chat de texto.
+- **Compra** — usando el chat de texto.
+
+La única excepción es **Crear Citas**, que usa grabación de voz clásica (no Chat IA). Todas las demás acciones del hub usan Chat IA.
+
+Las **Consultas y Recetas** no están en el hub — tienen sus propios botones "Chat IA" directamente en sus páginas de creación.
 
 ---
 
@@ -36,23 +37,33 @@ Las acciones con ✨ junto al título en el modal usan Chat IA. La única excepc
 6. Revisar y hacer click en **"Confirmar"**
 7. Verificar datos y guardar
 
-### Creación en lote (Pendientes y Movimientos de Efectivo)
+### Creación en lote
 
-Al describir múltiples registros en un mensaje, el panel acumula los items en una lista y muestra el botón **"Crear N [items]"** para crearlos todos de una vez.
+Para Pendientes y Movimientos de Efectivo, el panel detecta múltiples registros en un solo mensaje y muestra el botón **"Crear N [items]"** para crearlos todos de una vez.
 
-**Ejemplo:**
-> "Registra 3 movimientos: consulta 3000 pesos efectivo, laboratorio 1500 transferencia, limpieza 800 efectivo"
-
----
-
-## Consultas y Recetas
-
-No están en el hub. Tienen sus propios botones **"Chat IA"** directamente en sus páginas de creación.
+Ejemplo: "Registra 3 movimientos: consulta 3000 pesos efectivo, laboratorio 1500 transferencia, limpieza 800 efectivo"
 
 ---
 
-## Solución de Problemas
+## Preguntas Frecuentes
 
-**El panel Chat IA no se abre:** verifica que la URL tenga `?chat=true` y recarga la página.
+**¿Qué puedo crear con el Chat IA?**
+Pacientes, Pendientes, Movimientos de Efectivo, Ventas, Cotizaciones y Compras. La única excepción es Crear Citas, que usa voz clásica. Consultas y Recetas tienen su propio Chat IA en sus páginas.
 
-**Datos incorrectos:** escribe en el chat para corregir, o usa el botón **"Limpiar"** para empezar de nuevo.
+**¿El Chat IA y el Asistente de Voz son lo mismo?**
+Sí. "Chat IA", "Asistente IA" y "Asistente de Voz" son el mismo hub. Se llama "Asistente de Voz" porque acepta dictado por micrófono dentro del chat, pero la interfaz principal es un chat de texto.
+
+**¿Puedo crear ventas con el Chat IA?**
+Sí. Selecciona "Nueva Venta" en el hub ✨ y dicta o escribe la información en el panel Chat IA.
+
+**¿Puedo crear compras con el Chat IA?**
+Sí. Selecciona "Nueva Compra" en el hub ✨ y dicta o escribe la información.
+
+**¿Puedo crear cotizaciones con el Chat IA?**
+Sí. Selecciona "Nueva Cotización" en el hub ✨.
+
+**¿Por qué el panel no se abre?**
+Verifica que la URL tenga `?chat=true` y recarga la página.
+
+**¿Cómo corrijo datos incorrectos?**
+Escribe en el chat para corregir, o usa el botón **"Limpiar"** para empezar de nuevo.
