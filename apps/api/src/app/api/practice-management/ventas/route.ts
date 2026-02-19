@@ -243,8 +243,9 @@ export async function POST(request: NextRequest) {
 
     // Crear venta con retry para manejar race conditions en sale_number
     let sale: any = null;
+    let saleNumber = '';
     for (let attempt = 0; attempt < 10; attempt++) {
-      const saleNumber = await generateSaleNumber();
+      saleNumber = await generateSaleNumber();
       try {
         sale = await prisma.sale.create({
           data: {
