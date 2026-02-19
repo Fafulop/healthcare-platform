@@ -25,10 +25,17 @@ export interface RetrievedChunk extends DocumentChunk {
 
 // --- Query Types ---
 
+export interface UIContext {
+  /** Current URL path, e.g. "/appointments" or "/dashboard/practice/ventas" */
+  currentPath: string;
+}
+
 export interface UserQuery {
   question: string;
   sessionId: string;
   userId: string;
+  /** Optional: where the user is in the app when they ask the question */
+  uiContext?: UIContext;
 }
 
 export interface AssistantResponse {

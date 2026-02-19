@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json();
-    const { question, sessionId } = body;
+    const { question, sessionId, uiContext } = body;
 
     if (!question || typeof question !== 'string') {
       return NextResponse.json(
@@ -36,11 +36,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Process query through RAG pipeline
+    // 3. Process query through RAG + capability map pipeline
     const result = await processQuery({
       question,
       sessionId,
       userId,
+      uiContext: uiContext && typeof uiContext.currentPath === 'string'
+        ? { currentPath: uiContext.currentPath }
+        : undefined,
     });
 
     return NextResponse.json({

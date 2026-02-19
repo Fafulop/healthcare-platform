@@ -1,6 +1,10 @@
 /**
  * Prompt Assembler
- * Builds the message array for the LLM call
+ * Builds the message array for the LLM call.
+ *
+ * Structure:
+ *   [system]  role + rules + app modules + capability map + memory + UI context
+ *   [user]    retrieved docs + question
  */
 
 import { MODULE_DEFINITIONS } from '../modules';
@@ -9,37 +13,43 @@ import {
   TOKEN_BUDGET_MEMORY,
   TOKEN_BUDGET_DOCS,
   TOKEN_BUDGET_QUESTION,
+  TOKEN_BUDGET_CAPABILITIES,
 } from '../constants';
-import type { PromptMessage, RetrievedChunk, ConversationMemory, SourceReference } from '../types';
+import type {
+  PromptMessage,
+  RetrievedChunk,
+  ConversationMemory,
+  SourceReference,
+  UIContext,
+} from '../types';
 import { formatMemoryForPrompt } from './memory';
 
 /**
  * Build the system prompt with role definition and rules.
  */
 export function buildSystemPrompt(): string {
-  return `Eres un asistente de ayuda integrado en el Portal Médico. Tu propósito es guiar a los usuarios sobre cómo usar la aplicación.
+  return `Eres un asistente experto integrado en el Portal Médico. Tu función es guiar a los usuarios con precisión sobre cómo usar la aplicación.
 
-REGLAS:
-1. SOLO responde con información de la documentación proporcionada. Si no tienes información, di "No tengo información sobre eso en este momento."
-2. Responde SIEMPRE en español (México).
-3. Sé conciso y directo. Usa listas cuando sea apropiado.
-4. Si el usuario pregunta sobre una funcionalidad específica, incluye la ruta de navegación (ej: "Ve a Menú > Expedientes Médicos > Pacientes").
-5. NO inventes funcionalidades que no estén en la documentación.
-6. NO ejecutes acciones en la aplicación. Solo guías al usuario.
-7. Si la pregunta es ambigua, pide clarificación.
-8. Menciona el módulo o sección relevante para que el usuario sepa dónde encontrar la información.`;
+REGLAS DE COMPORTAMIENTO:
+1. Para preguntas sobre qué está permitido o bloqueado, usa PRIMERO las "REGLAS DE LA APLICACIÓN" si están disponibles. Son la fuente de verdad determinista.
+2. Para explicaciones de flujos y procedimientos, usa la documentación proporcionada.
+3. Responde SIEMPRE en español (México).
+4. Sé directo y concreto. Usa listas numeradas para pasos, viñetas para opciones.
+5. Incluye la ruta de navegación exacta cuando sea relevante (ej: "Ve a Citas > Lista > selecciona el horario").
+6. Si algo está bloqueado, explica POR QUÉ y cómo resolverlo paso a paso.
+7. NO inventes funcionalidades. Si no tienes información, dilo: "No tengo información sobre eso en este momento."
+8. NO ejecutes acciones en la aplicación. Solo guías al usuario.`;
 }
 
 /**
- * Build static context about the application.
+ * Build static context about the application modules.
  */
 export function buildStaticContext(): string {
   const moduleList = MODULE_DEFINITIONS
     .map(m => `- ${m.name}: ${m.description}`)
     .join('\n');
 
-  return `INFORMACIÓN DE LA APLICACIÓN:
-El Portal Médico es una plataforma web para médicos con los siguientes módulos:
+  return `MÓDULOS DEL PORTAL MÉDICO:
 ${moduleList}
 
 La aplicación está en español (México) y es responsive (escritorio, tablet, móvil).`;
@@ -66,7 +76,7 @@ export function formatRetrievedDocs(chunks: RetrievedChunk[]): string {
     return `${header}\n${chunk.content}`;
   });
 
-  return `DOCUMENTACIÓN RELEVANTE:\n\n${sections.join('\n\n---\n\n')}`;
+  return `DOCUMENTACIÓN DE REFERENCIA:\n\n${sections.join('\n\n---\n\n')}`;
 }
 
 /**
@@ -93,24 +103,43 @@ export function extractSources(chunks: RetrievedChunk[]): SourceReference[] {
 }
 
 /**
+ * Format the UI context as a short prompt section.
+ */
+function buildUIContextSection(uiContext: UIContext): string {
+  return `CONTEXTO ACTUAL DEL USUARIO:\nEl usuario está en la página: ${uiContext.currentPath}`;
+}
+
+/**
  * Assemble the complete prompt message array for the LLM.
  */
 export function assemblePrompt(params: {
   question: string;
   chunks: RetrievedChunk[];
   memory: ConversationMemory | null;
+  capabilityMapText?: string;
+  uiContext?: UIContext;
 }): PromptMessage[] {
-  const { question, chunks, memory } = params;
+  const { question, chunks, memory, capabilityMapText, uiContext } = params;
 
   const messages: PromptMessage[] = [];
 
-  // 1. System prompt
+  // 1. System prompt: role + rules
   const systemParts = [buildSystemPrompt(), buildStaticContext()];
 
-  // 2. Memory context (if available)
+  // 2. Capability map (injected before docs — highest priority)
+  if (capabilityMapText) {
+    systemParts.push(truncateToTokens(capabilityMapText, TOKEN_BUDGET_CAPABILITIES));
+  }
+
+  // 3. Conversation memory
   const memoryText = formatMemoryForPrompt(memory);
   if (memoryText) {
     systemParts.push(truncateToTokens(memoryText, TOKEN_BUDGET_MEMORY));
+  }
+
+  // 4. UI context (where the user is right now)
+  if (uiContext) {
+    systemParts.push(buildUIContextSection(uiContext));
   }
 
   messages.push({
@@ -118,13 +147,13 @@ export function assemblePrompt(params: {
     content: systemParts.join('\n\n'),
   });
 
-  // 3. Documentation context + user question
+  // 5. Documentation + user question (user turn)
   const docsText = truncateToTokens(
     formatRetrievedDocs(chunks),
     TOKEN_BUDGET_DOCS
   );
 
-  const userContent = `${docsText}\n\nPREGUNTA DEL USUARIO:\n${truncateToTokens(question, TOKEN_BUDGET_QUESTION)}`;
+  const userContent = `${docsText}\n\nPREGUNTA:\n${truncateToTokens(question, TOKEN_BUDGET_QUESTION)}`;
 
   messages.push({
     role: 'user',

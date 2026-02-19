@@ -4,9 +4,13 @@
  * useLlmChat Hook
  * Manages chat messages, API calls, session, and loading state
  * for the LLM help assistant.
+ *
+ * Passes the current URL path as UI context so the assistant knows
+ * which module the user is working in.
  */
 
 import { useState, useCallback, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 
 export interface ChatMessage {
   id: string;
@@ -40,13 +44,13 @@ export function useLlmChat(): UseLlmChatReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionIdRef = useRef(generateSessionId());
+  const currentPath = usePathname();
 
   const sendMessage = useCallback(async (question: string) => {
     if (!question.trim() || isLoading) return;
 
     setError(null);
 
-    // Add user message
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}-user`,
       role: 'user',
@@ -64,6 +68,7 @@ export function useLlmChat(): UseLlmChatReturn {
         body: JSON.stringify({
           question: question.trim(),
           sessionId: sessionIdRef.current,
+          uiContext: currentPath ? { currentPath } : undefined,
         }),
       });
 
@@ -88,7 +93,6 @@ export function useLlmChat(): UseLlmChatReturn {
       const errorMsg = err instanceof Error ? err.message : 'Error desconocido';
       setError(errorMsg);
 
-      // Add error message as assistant response
       const errorMessage: ChatMessage = {
         id: `msg-${Date.now()}-error`,
         role: 'assistant',
@@ -99,10 +103,9 @@ export function useLlmChat(): UseLlmChatReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading]);
+  }, [isLoading, currentPath]);
 
   const clearChat = useCallback(() => {
-    // Clear memory on server
     fetch(`/api/llm-assistant/memory?sessionId=${sessionIdRef.current}`, {
       method: 'DELETE',
     }).catch(() => {});

@@ -39,12 +39,21 @@ export const MAX_MODULES_PER_QUERY = 3;
 export const TOKEN_BUDGET_SYSTEM = 500;
 export const TOKEN_BUDGET_STATIC = 200;
 export const TOKEN_BUDGET_MEMORY = 300;
-export const TOKEN_BUDGET_DOCS = 3000;
+export const TOKEN_BUDGET_CAPABILITIES = 700;
+export const TOKEN_BUDGET_DOCS = 2500;
 export const TOKEN_BUDGET_QUESTION = 200;
 
 // --- Docs Path ---
 export const DOCS_BASE_PATH = 'docs/llm-assistant';
-export const DOCS_SKIP_FILES = ['TECHNICAL_SPEC.md'];
+// Skip developer/setup docs — not useful for end-user RAG answers
+export const DOCS_SKIP_FILES = [
+  'TECHNICAL_SPEC.md',
+  'IMPLEMENTATION_STATUS.md',
+  'pgvector-railway-setup.md',
+  'dual-database-architecture.md',
+  'railway-db-migration-plan.md',
+  'database-management-guide.md',
+];
 
 // --- Rate Limiting ---
 export const EMBEDDING_RATE_LIMIT_MS = 100;
