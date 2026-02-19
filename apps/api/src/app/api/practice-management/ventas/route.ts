@@ -208,9 +208,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generar número de venta
-    const saleNumber = await generateSaleNumber(doctor.id);
-
     // Calcular totales
     let subtotal = 0;
     let totalTax = 0;
@@ -244,39 +241,52 @@ export async function POST(request: NextRequest) {
     const taxRateValue = taxRate !== undefined ? parseFloat(taxRate) : 0.16;
     const total = subtotal + totalTax;
 
-    // Crear venta
-    const sale = await prisma.sale.create({
-      data: {
-        doctorId: doctor.id,
-        clientId: parseInt(clientId),
-        quotationId: quotationId ? parseInt(quotationId) : null,
-        saleNumber,
-        saleDate: saleDate ? new Date(saleDate) : new Date(),
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
-        status: status || 'PENDING',
-        paymentStatus: calculatePaymentStatus(amountPaid ? parseFloat(amountPaid) : 0, total),
-        amountPaid: amountPaid ? parseFloat(amountPaid) : 0,
-        subtotal,
-        taxRate: taxRateValue,
-        tax: totalTax,
-        total,
-        notes: notes?.trim() || null,
-        termsAndConditions: termsAndConditions?.trim() || null,
-        items: {
-          create: saleItems
-        }
-      },
-      include: {
-        client: true,
-        quotation: true,
-        items: {
-          include: {
-            product: true
+    // Crear venta con retry para manejar race conditions en sale_number
+    let sale: any = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const saleNumber = await generateSaleNumber();
+      try {
+        sale = await prisma.sale.create({
+          data: {
+            doctorId: doctor.id,
+            clientId: parseInt(clientId),
+            quotationId: quotationId ? parseInt(quotationId) : null,
+            saleNumber,
+            saleDate: saleDate ? new Date(saleDate) : new Date(),
+            deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
+            status: status || 'PENDING',
+            paymentStatus: calculatePaymentStatus(amountPaid ? parseFloat(amountPaid) : 0, total),
+            amountPaid: amountPaid ? parseFloat(amountPaid) : 0,
+            subtotal,
+            taxRate: taxRateValue,
+            tax: totalTax,
+            total,
+            notes: notes?.trim() || null,
+            termsAndConditions: termsAndConditions?.trim() || null,
+            items: {
+              create: saleItems
+            }
           },
-          orderBy: { order: 'asc' }
+          include: {
+            client: true,
+            quotation: true,
+            items: {
+              include: {
+                product: true
+              },
+              orderBy: { order: 'asc' }
+            }
+          }
+        });
+        break;
+      } catch (e: any) {
+        if (e.code === 'P2002' && e.meta?.target?.includes('sale_number')) {
+          continue;
         }
+        throw e;
       }
-    });
+    }
+    if (!sale) throw new Error('No se pudo generar un número de venta único');
 
     // AUTO-CREATE LEDGER ENTRY for the sale
     const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'ingreso');
@@ -320,14 +330,13 @@ export async function POST(request: NextRequest) {
 }
 
 // Función auxiliar para generar número de venta
-async function generateSaleNumber(doctorId: string): Promise<string> {
+// Queries globally (not per-doctor) since sale_number has a global unique constraint
+async function generateSaleNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `VTA-${year}-`;
 
-  // Obtener última venta del año
   const lastSale = await prisma.sale.findFirst({
     where: {
-      doctorId,
       saleNumber: {
         startsWith: prefix
       }
@@ -340,7 +349,7 @@ async function generateSaleNumber(doctorId: string): Promise<string> {
   let nextNumber = 1;
   if (lastSale) {
     const lastNumber = parseInt(lastSale.saleNumber.split('-')[2]);
-    nextNumber = lastNumber + 1;
+    if (!isNaN(lastNumber)) nextNumber = lastNumber + 1;
   }
 
   return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
