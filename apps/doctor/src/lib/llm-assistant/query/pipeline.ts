@@ -101,8 +101,8 @@ export async function processQuery(query: UserQuery): Promise<AssistantResponse>
     moduleIds.length > 0 ? moduleIds : undefined
   );
 
-  // Fallback to unfiltered if too few results
-  if (chunks.length < MIN_CHUNKS_THRESHOLD && moduleIds.length > 0) {
+  // Fallback to unfiltered only if no results at all
+  if (chunks.length === 0 && moduleIds.length > 0) {
     chunks = await retrieveChunksUnfiltered(queryEmbedding);
   }
 
