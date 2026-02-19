@@ -342,7 +342,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                     {/* Footer */}
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 rounded-b-lg">
                       <span className="text-xs text-purple-600 hover:text-purple-800 font-medium">
-                        Ver galería completa →
+                        Ver documentos y galería →
                       </span>
                     </div>
                   </div>

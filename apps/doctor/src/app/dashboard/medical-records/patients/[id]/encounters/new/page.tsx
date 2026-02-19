@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Loader2, Mic, Sparkles } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterForm, type EncounterFormData, type TemplateConfig } from '@/components/medical-records/EncounterForm';
 import { TemplateSelector } from '@/components/medical-records/TemplateSelector';
@@ -355,15 +355,6 @@ export default function NewEncounterPage() {
               <Sparkles className="w-5 h-5" />
               Chat IA
             </button>
-            {/* Voice Assistant Button - disabled */}
-            {!voiceInitialData && (
-              <span
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 border border-gray-200 font-medium rounded-lg cursor-not-allowed"
-              >
-                <Mic className="w-5 h-5" />
-                Asistente de Voz
-              </span>
-            )}
           </div>
         </div>
       </div>

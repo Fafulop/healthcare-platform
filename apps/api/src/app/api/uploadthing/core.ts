@@ -93,6 +93,18 @@ export const ourFileRouter = {
       console.log("Medical audio uploaded:", file.url);
       return { uploadedBy: "doctor", mediaType: "audio" };
     }),
+
+  // Medical documents (PDFs: lab results, reports, referrals, etc.)
+  medicalDocuments: f({
+    pdf: {
+      maxFileSize: "32MB",
+      maxFileCount: 10
+    }
+  })
+    .onUploadComplete(async ({ file }) => {
+      console.log("Medical document uploaded:", file.url);
+      return { uploadedBy: "doctor", mediaType: "document" };
+    }),
   // ============================================================================
   // DOCTOR PROFILE MEDIA
   // ============================================================================

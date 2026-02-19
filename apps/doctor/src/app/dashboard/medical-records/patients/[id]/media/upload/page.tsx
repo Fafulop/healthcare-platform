@@ -106,7 +106,7 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
           className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Volver a la Galería
+          Volver a Documentos y Galería
         </Link>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-2">

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Save, Loader2, Mic, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList, type Medication } from '@/components/medical-records/MedicationList';
 import {
@@ -485,16 +485,6 @@ export default function NewPrescriptionPage() {
               <Sparkles className="w-5 h-5" />
               Chat IA
             </button>
-            {/* Voice Assistant Button - disabled */}
-            {!voiceDataLoaded && !showAIBanner && (
-              <button
-                disabled
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg opacity-50 cursor-not-allowed"
-              >
-                <Mic className="w-5 h-5" />
-                Asistente de Voz
-              </button>
-            )}
           </div>
         </div>
       </div>

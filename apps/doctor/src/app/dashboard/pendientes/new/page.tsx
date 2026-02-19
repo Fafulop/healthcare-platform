@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { ArrowLeft, Loader2, Save, Mic, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Sparkles } from "lucide-react";
 import Link from "next/link";
 import {
   AIDraftBanner,
@@ -440,14 +440,6 @@ export default function NewTaskPage() {
               >
                 <Sparkles className="w-5 h-5" />
                 Chat IA
-              </button>
-              <button
-                onClick={() => setModalOpen(true)}
-                disabled
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Mic className="w-5 h-5" />
-                Asistente de Voz
               </button>
             </div>
           )}

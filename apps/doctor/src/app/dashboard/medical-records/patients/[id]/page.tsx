@@ -208,10 +208,10 @@ export default function PatientProfilePage() {
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/media`}
               className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
-              title="Galería"
+              title="Documentos y Galería"
             >
               <Image className="w-4 h-4" />
-              <span className="hidden sm:inline">Galería</span>
+              <span className="hidden sm:inline">Docs y Galería</span>
             </Link>
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/prescriptions`}

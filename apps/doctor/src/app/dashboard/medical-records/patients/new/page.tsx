@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowLeft, Loader2, Mic, Sparkles } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { PatientForm, type PatientFormData } from '@/components/medical-records/PatientForm';
 import { PatientChatPanel } from '@/components/medical-records/PatientChatPanel';
@@ -310,18 +310,6 @@ export default function NewPatientPage() {
               <Sparkles className="w-5 h-5" />
               Chat IA
             </button>
-            {/* Voice Assistant Button - disabled */}
-            {!voiceInitialData && !showAIBanner && (
-              <button
-                onClick={() => setModalOpen(true)}
-                disabled
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-500 font-medium rounded-lg cursor-not-allowed"
-                title="Asistente de Voz (deshabilitado)"
-              >
-                <Mic className="w-5 h-5" />
-                Asistente de Voz
-              </button>
-            )}
           </div>
         </div>
       </div>

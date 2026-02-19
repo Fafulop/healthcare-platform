@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X, Mic, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Plus, Trash2, Package, X, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import dynamic from 'next/dynamic';
@@ -751,15 +751,6 @@ export default function NewCompraPage() {
               >
                 <Sparkles className="w-4 h-4" />
                 Chat IA
-              </button>
-              <button
-                onClick={() => setShowVoiceModal(true)}
-                disabled
-                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-400 text-white rounded-lg cursor-not-allowed opacity-60"
-                title="Asistente de Voz (Usa Chat IA)"
-              >
-                <Mic className="w-4 h-4" />
-                Asistente de Voz
               </button>
             </div>
           </div>

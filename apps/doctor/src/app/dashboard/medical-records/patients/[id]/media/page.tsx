@@ -101,7 +101,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
       setMedia(mediaData.data);
     } catch (error) {
       console.error('Error fetching data:', error);
-      alert('Error al cargar galería de medios');
+      alert('Error al cargar documentos y galería');
     } finally {
       setIsLoading(false);
     }
@@ -159,7 +159,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Galería de Medios
+              Documentos y Galería
             </h1>
             <p className="text-gray-600">
               {patient.firstName} {patient.lastName} (ID: {patient.internalId})

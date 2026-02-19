@@ -261,10 +261,10 @@ export default function EditFlujoDeDineroPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex items-center justify-center py-24">
         <div className="text-center">
-          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Cargando movimiento...</p>
+          <Loader2 className="inline-block h-10 w-10 animate-spin text-slate-400" />
+          <p className="mt-3 text-gray-500 text-sm">Cargando movimiento...</p>
         </div>
       </div>
     );
@@ -272,12 +272,12 @@ export default function EditFlujoDeDineroPage() {
 
   if (!entry) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex items-center justify-center py-24">
         <div className="text-center">
-          <p className="text-red-600 font-medium">Movimiento no encontrado</p>
+          <p className="text-red-600 font-medium text-sm">Movimiento no encontrado</p>
           <Link
             href="/dashboard/practice/flujo-de-dinero"
-            className="text-blue-600 hover:text-blue-700 mt-4 inline-block"
+            className="text-blue-600 hover:text-blue-700 mt-3 inline-block text-sm"
           >
             Volver a Flujo de Dinero
           </Link>
@@ -287,39 +287,39 @@ export default function EditFlujoDeDineroPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+    <div className="p-3 sm:p-6 max-w-4xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-3 sm:mb-6">
           <Link
             href="/dashboard/practice/flujo-de-dinero"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3"
           >
             <ArrowLeft className="w-4 h-4" />
             Volver a Flujo de Dinero
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Editar Movimiento</h1>
-          <p className="text-gray-600 mt-1">
-            ID Interno: <span className="font-mono font-semibold">{entry.internalId}</span>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Editar Movimiento</h1>
+          <p className="text-gray-500 mt-0.5 text-xs sm:text-sm">
+            ID: <span className="font-mono">{entry.internalId}</span>
           </p>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-3 sm:mb-6 text-sm">
             {error}
           </div>
         )}
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="bg-white rounded-lg shadow p-6 space-y-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Entry Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tipo de Movimiento *
               </label>
-              <div className="flex gap-4">
-                <label className={`flex-1 flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+              <div className="flex gap-3">
+                <label className={`flex-1 flex items-center justify-center gap-2 p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all ${
                   formData.entryType === 'ingreso'
                     ? 'border-green-500 bg-green-50'
                     : 'border-gray-200 hover:border-gray-300'
@@ -332,12 +332,12 @@ export default function EditFlujoDeDineroPage() {
                     onChange={handleChange}
                     className="sr-only"
                   />
-                  <TrendingUp className={`w-5 h-5 ${formData.entryType === 'ingreso' ? 'text-green-600' : 'text-gray-400'}`} />
-                  <span className={`font-medium ${formData.entryType === 'ingreso' ? 'text-green-900' : 'text-gray-600'}`}>
+                  <TrendingUp className={`w-4 h-4 sm:w-5 sm:h-5 ${formData.entryType === 'ingreso' ? 'text-green-600' : 'text-gray-400'}`} />
+                  <span className={`font-medium text-sm sm:text-base ${formData.entryType === 'ingreso' ? 'text-green-900' : 'text-gray-600'}`}>
                     Ingreso
                   </span>
                 </label>
-                <label className={`flex-1 flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                <label className={`flex-1 flex items-center justify-center gap-2 p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all ${
                   formData.entryType === 'egreso'
                     ? 'border-red-500 bg-red-50'
                     : 'border-gray-200 hover:border-gray-300'
@@ -350,8 +350,8 @@ export default function EditFlujoDeDineroPage() {
                     onChange={handleChange}
                     className="sr-only"
                   />
-                  <TrendingDown className={`w-5 h-5 ${formData.entryType === 'egreso' ? 'text-red-600' : 'text-gray-400'}`} />
-                  <span className={`font-medium ${formData.entryType === 'egreso' ? 'text-red-900' : 'text-gray-600'}`}>
+                  <TrendingDown className={`w-4 h-4 sm:w-5 sm:h-5 ${formData.entryType === 'egreso' ? 'text-red-600' : 'text-gray-400'}`} />
+                  <span className={`font-medium text-sm sm:text-base ${formData.entryType === 'egreso' ? 'text-red-900' : 'text-gray-600'}`}>
                     Egreso
                   </span>
                 </label>
@@ -359,13 +359,13 @@ export default function EditFlujoDeDineroPage() {
             </div>
 
             {/* Amount and Date */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Monto (MXN) *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">
                     $
                   </span>
                   <input
@@ -375,7 +375,7 @@ export default function EditFlujoDeDineroPage() {
                     onChange={handleChange}
                     step="0.01"
                     min="0"
-                    className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     placeholder="0.00"
                     required
                   />
@@ -383,15 +383,15 @@ export default function EditFlujoDeDineroPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Fecha de Transacción *
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Fecha *
                 </label>
                 <input
                   type="date"
                   name="transactionDate"
                   value={formData.transactionDate}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   required
                 />
               </div>
@@ -399,41 +399,41 @@ export default function EditFlujoDeDineroPage() {
 
             {/* Concept */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Concepto *
               </label>
               <textarea
                 name="concept"
                 value={formData.concept}
                 onChange={handleChange}
-                rows={3}
+                rows={2}
                 maxLength={500}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
                 placeholder="Descripción del movimiento..."
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.concept.length}/500 caracteres
+              <p className="text-xs text-gray-400 mt-0.5">
+                {formData.concept.length}/500
               </p>
             </div>
 
             {/* Transaction Information (Read-only) */}
             {entry && (entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-blue-900 mb-3">Información de Transacción (Solo lectura)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                <h3 className="text-sm font-semibold text-blue-900 mb-2">Información de Transacción (Solo lectura)</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-blue-700 mb-1">
-                      Tipo de Transacción
+                      Tipo
                     </label>
                     <div className="text-sm text-blue-900">
                       {entry.transactionType === 'VENTA' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                           Venta {entry.sale && `- ${entry.sale.saleNumber}`}
                         </span>
                       )}
                       {entry.transactionType === 'COMPRA' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                           Compra {entry.purchase && `- ${entry.purchase.purchaseNumber}`}
                         </span>
                       )}
@@ -444,7 +444,7 @@ export default function EditFlujoDeDineroPage() {
                     <label className="block text-xs font-medium text-blue-700 mb-1">
                       {entry.transactionType === 'VENTA' ? 'Cliente' : 'Proveedor'}
                     </label>
-                    <div className="text-sm text-blue-900 font-medium">
+                    <div className="text-sm text-blue-900 font-medium truncate">
                       {entry.client && entry.client.businessName}
                       {entry.supplier && entry.supplier.businessName}
                     </div>
@@ -456,41 +456,40 @@ export default function EditFlujoDeDineroPage() {
                     </label>
                     <div className="text-sm text-blue-900">
                       {entry.paymentStatus === 'PAID' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           Pagado
                         </span>
                       )}
                       {entry.paymentStatus === 'PARTIAL' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                           Parcial
                         </span>
                       )}
                       {entry.paymentStatus === 'PENDING' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                           Pendiente
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-blue-600 mt-3">
-                  Esta información no puede ser modificada porque está vinculada a un registro de {entry.transactionType === 'VENTA' ? 'venta' : 'compra'}.
-                  Para cambiarla, edite el registro correspondiente en {entry.transactionType === 'VENTA' ? 'Ventas' : 'Compras'}.
+                <p className="text-xs text-blue-600 mt-2">
+                  Vinculado a {entry.transactionType === 'VENTA' ? 'venta' : 'compra'}. Edita el registro original para cambiarlo.
                 </p>
               </div>
             )}
 
             {/* Area and Subarea */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Área *
                 </label>
                 <select
                   name="area"
                   value={formData.area}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   required
                 >
                   <option value="">Seleccione un área</option>
@@ -503,14 +502,14 @@ export default function EditFlujoDeDineroPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Subárea *
                 </label>
                 <select
                   name="subarea"
                   value={formData.subarea}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   disabled={!formData.area}
                   required
                 >
@@ -525,9 +524,9 @@ export default function EditFlujoDeDineroPage() {
             </div>
 
             {/* Bank and Payment Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Cuenta Bancaria
                 </label>
                 <input
@@ -535,20 +534,20 @@ export default function EditFlujoDeDineroPage() {
                   name="bankAccount"
                   value={formData.bankAccount}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   placeholder="Ej: BBVA Empresarial"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Forma de Pago *
                 </label>
                 <select
                   name="formaDePago"
                   value={formData.formaDePago}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   required
                 >
                   <option value="efectivo">Efectivo</option>
@@ -562,11 +561,11 @@ export default function EditFlujoDeDineroPage() {
 
             {/* Payment Status */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Estado de Pago *
               </label>
-              <div className="flex gap-4">
-                <label className={`flex-1 flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+              <div className="flex gap-3">
+                <label className={`flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
                   formData.paymentOption === 'paid'
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300'
@@ -579,11 +578,11 @@ export default function EditFlujoDeDineroPage() {
                     onChange={handleChange}
                     className="sr-only"
                   />
-                  <span className={`font-medium ${formData.paymentOption === 'paid' ? 'text-blue-900' : 'text-gray-600'}`}>
+                  <span className={`font-medium text-sm ${formData.paymentOption === 'paid' ? 'text-blue-900' : 'text-gray-600'}`}>
                     {formData.entryType === 'ingreso' ? 'Cobrado' : 'Pagado'}
                   </span>
                 </label>
-                <label className={`flex-1 flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                <label className={`flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
                   formData.paymentOption === 'pending'
                     ? 'border-orange-500 bg-orange-50'
                     : 'border-gray-200 hover:border-gray-300'
@@ -596,7 +595,7 @@ export default function EditFlujoDeDineroPage() {
                     onChange={handleChange}
                     className="sr-only"
                   />
-                  <span className={`font-medium ${formData.paymentOption === 'pending' ? 'text-orange-900' : 'text-gray-600'}`}>
+                  <span className={`font-medium text-sm ${formData.paymentOption === 'pending' ? 'text-orange-900' : 'text-gray-600'}`}>
                     {formData.entryType === 'ingreso' ? 'Por Cobrar' : 'Por Pagar'}
                   </span>
                 </label>
@@ -604,9 +603,9 @@ export default function EditFlujoDeDineroPage() {
             </div>
 
             {/* Bank Movement ID and Internal ID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   ID de Movimiento Bancario
                 </label>
                 <input
@@ -614,13 +613,13 @@ export default function EditFlujoDeDineroPage() {
                   name="bankMovementId"
                   value={formData.bankMovementId}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   placeholder="Ej: REF123456"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   ID Interno *
                 </label>
                 <input
@@ -628,53 +627,38 @@ export default function EditFlujoDeDineroPage() {
                   name="internalId"
                   value={formData.internalId}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 text-sm"
                   placeholder="ING-2026-001"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Debe ser único. Formato: ING-YYYY-NNN o EGR-YYYY-NNN
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Formato: ING-YYYY-NNN o EGR-YYYY-NNN
                 </p>
               </div>
             </div>
 
-            {/* Por Realizar */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="porRealizar"
-                name="porRealizar"
-                checked={formData.porRealizar}
-                onChange={handleChange}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="porRealizar" className="ml-2 block text-sm text-gray-700">
-                Marcar como <strong>Por Realizar</strong> (transacción pendiente que no afecta el balance actual)
-              </label>
-            </div>
-
             {/* Action Buttons */}
-            <div className="flex gap-4 pt-4">
+            <div className="flex gap-3 pt-2">
               <Link
                 href="/dashboard/practice/flujo-de-dinero"
-                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-center"
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-center text-sm"
               >
                 Cancelar
               </Link>
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Actualizando...
                   </>
                 ) : (
                   <>
-                    <Save className="w-5 h-5" />
-                    Actualizar Movimiento
+                    <Save className="w-4 h-4" />
+                    Actualizar
                   </>
                 )}
               </button>

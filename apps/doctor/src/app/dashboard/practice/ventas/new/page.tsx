@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { ArrowLeft, Save, Loader2, Plus, Trash2, ShoppingCart, X, Mic, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Plus, Trash2, ShoppingCart, X, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import dynamic from 'next/dynamic';
@@ -865,15 +865,6 @@ export default function NewVentaPage() {
                 >
                   <Sparkles className="w-4 h-4" />
                   Chat IA
-                </button>
-                <button
-                  onClick={() => setShowVoiceModal(true)}
-                  disabled
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Asistente de Voz"
-                >
-                  <Mic className="w-4 h-4" />
-                  Asistente de Voz
                 </button>
               </div>
             </div>

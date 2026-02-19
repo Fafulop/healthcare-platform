@@ -2,10 +2,6 @@
 
 import { useSession } from "next-auth/react";
 import {
-  Calendar,
-  Users,
-  ClipboardList,
-  Heart,
   DollarSign,
   CheckSquare,
   Sparkles,
@@ -17,32 +13,6 @@ import {
 import Link from "next/link";
 import RecentActivityTable from "@/components/RecentActivityTable";
 
-interface StatCardProps {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  iconColor: string;
-  iconBg: string;
-}
-
-function StatCard({ icon: Icon, label, value, iconColor, iconBg }: StatCardProps) {
-  return (
-    <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">{label}</p>
-          <p className="text-xl sm:text-2xl font-bold text-gray-900">{value}</p>
-        </div>
-        <div
-          className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: iconBg }}
-        >
-          <Icon className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: iconColor }} />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function DoctorDashboardPage() {
   const { data: session } = useSession();
@@ -57,38 +27,6 @@ export default function DoctorDashboardPage() {
         <p className="text-gray-600 mt-1 text-sm sm:text-base">
           Esto es lo que está pasando en tu consultorio hoy
         </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6">
-        <StatCard
-          icon={Users}
-          label="Total de Pacientes"
-          value="—"
-          iconColor="#2563eb"
-          iconBg="#dbeafe"
-        />
-        <StatCard
-          icon={Calendar}
-          label="Citas de Hoy"
-          iconColor="#10b981"
-          iconBg="#d1fae5"
-          value="—"
-        />
-        <StatCard
-          icon={ClipboardList}
-          label="Consultas Pendientes"
-          value="—"
-          iconColor="#f59e0b"
-          iconBg="#fef3c7"
-        />
-        <StatCard
-          icon={DollarSign}
-          label="Ingresos Este Mes"
-          value="—"
-          iconColor="#8b5cf6"
-          iconBg="#ede9fe"
-        />
       </div>
 
       {/* Acciones Rápidas - Chat IA */}

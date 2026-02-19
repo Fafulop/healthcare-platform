@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Upload, X, Image as ImageIcon, Video, Mic, Loader2 } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Video, Mic, FileText, Loader2 } from 'lucide-react';
 import { useUploadThing } from '@/lib/uploadthing';
 
 // Helper to format date string for display (fixes timezone issues)
@@ -25,7 +25,7 @@ interface MediaUploaderProps {
   onCancel?: () => void;
 }
 
-type MediaType = 'image' | 'video' | 'audio';
+type MediaType = 'image' | 'video' | 'audio' | 'document';
 
 interface Encounter {
   id: string;
@@ -76,6 +76,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
   const { startUpload: uploadImages } = useUploadThing('medicalImages');
   const { startUpload: uploadVideos } = useUploadThing('medicalVideos');
   const { startUpload: uploadAudio } = useUploadThing('medicalAudio');
+  const { startUpload: uploadDocuments } = useUploadThing('medicalDocuments');
 
   // Fetch patient encounters for linking
   useEffect(() => {
@@ -106,6 +107,8 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
       setMediaType('video');
     } else if (firstFile.type.startsWith('audio/')) {
       setMediaType('audio');
+    } else if (firstFile.type === 'application/pdf') {
+      setMediaType('document');
     }
 
     setSelectedFiles(files);
@@ -132,8 +135,10 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
         uploadedFiles = await uploadImages(selectedFiles);
       } else if (mediaType === 'video') {
         uploadedFiles = await uploadVideos(selectedFiles);
-      } else {
+      } else if (mediaType === 'audio') {
         uploadedFiles = await uploadAudio(selectedFiles);
+      } else {
+        uploadedFiles = await uploadDocuments(selectedFiles);
       }
 
       if (!uploadedFiles || uploadedFiles.length === 0) {
@@ -197,11 +202,13 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
   const acceptedFileTypes =
     mediaType === 'image' ? 'image/*' :
     mediaType === 'video' ? 'video/*' :
-    'audio/*';
+    mediaType === 'audio' ? 'audio/*' :
+    'application/pdf';
 
   const MediaIcon = mediaType === 'image' ? ImageIcon :
                     mediaType === 'video' ? Video :
-                    Mic;
+                    mediaType === 'audio' ? Mic :
+                    FileText;
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
@@ -228,9 +235,10 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
               Haz clic para subir o arrastra y suelta
             </p>
             <p className="text-xs text-gray-500">
-              {mediaType === 'image' && 'Imágenes hasta 10MB'}
-              {mediaType === 'video' && 'Videos hasta 100MB'}
-              {mediaType === 'audio' && 'Audio hasta 20MB'}
+              {mediaType === 'image' && 'Imágenes hasta 16MB'}
+              {mediaType === 'video' && 'Videos hasta 128MB'}
+              {mediaType === 'audio' && 'Audio hasta 32MB'}
+              {mediaType === 'document' && 'PDF hasta 32MB'}
             </p>
           </label>
         </div>
