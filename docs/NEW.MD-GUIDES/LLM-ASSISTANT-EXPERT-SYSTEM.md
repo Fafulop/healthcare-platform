@@ -1,7 +1,7 @@
 # LLM Assistant — Expert System Architecture
 
-**Status:** Phases 1, 2 & 3 Complete · Pending: pgvector re-ingestion
-**Last Updated:** 2026-02-18
+**Status:** Phases 1, 2, 3 & 4 Complete
+**Last Updated:** 2026-02-19
 **Scope:** Transforms the LLM help assistant from a "doc reader chatbot" into a deterministic, context-aware in-product expert
 
 ---
@@ -12,11 +12,12 @@
 2. [Architecture Overview — 3-Layer Knowledge Model](#2-architecture-overview--3-layer-knowledge-model)
 3. [What Was Built (Phase 1 & 2)](#3-what-was-built-phase-1--2)
 4. [What Was Built (Phase 3)](#4-what-was-built-phase-3)
-5. [File-by-File Reference](#5-file-by-file-reference)
-6. [How the System Works End-to-End](#6-how-the-system-works-end-to-end)
-7. [The Capability Map — Full Reference](#7-the-capability-map--full-reference)
-8. [Re-Ingestion Instructions](#8-re-ingestion-instructions)
-9. [Future Roadmap (Post Phase 3)](#9-future-roadmap-post-phase-3)
+5. [What Was Built (Phase 4)](#5-what-was-built-phase-4)
+6. [File-by-File Reference](#6-file-by-file-reference)
+7. [How the System Works End-to-End](#7-how-the-system-works-end-to-end)
+8. [The Capability Map — Full Reference](#8-the-capability-map--full-reference)
+9. [Re-Ingestion Instructions](#9-re-ingestion-instructions)
+10. [Future Roadmap (Post Phase 4)](#10-future-roadmap-post-phase-4)
 
 ---
 
@@ -265,20 +266,139 @@ This makes `pnpm docs:sync-all --force` fully operational.
 
 ---
 
-## 5. File-by-File Reference
+## 5. What Was Built (Phase 4)
+
+Phase 4 fixed two independent failure modes discovered in production testing: (1) the LLM ignoring the capability map when RAG returned zero chunks, and (2) markdown tables embedding poorly for capability queries.
+
+---
+
+### 5A — Prompt Fix: Capability Map Decoupled from RAG
+
+**Problem:** When a user asked something like "puedo eliminar una compra desde flujo de dinero", RAG returned 0 chunks (no doc closely matched). The system prompt's Rule 7 ("Di 'No tengo información' si no encuentras información") triggered as if the capability map didn't exist — even though the capability map had the exact answer. The LLM was treating zero RAG chunks as total ignorance.
+
+**Root cause:** The system prompt established a single knowledge pipeline:
+```
+capability map + docs → if empty → "no tengo información"
+```
+The "no docs found" signal overrode the capability map.
+
+**Fix (two parts):**
+
+1. **`query/prompt-assembler.ts` — `buildSystemPrompt()`**: Restructured the preamble to establish two *independent* sources of truth:
+   ```
+   FUENTES DE INFORMACIÓN (en orden de prioridad):
+   1. REGLAS DE LA APLICACIÓN — fuente de verdad absoluta. Responde directamente
+      aunque no haya documentación adicional.
+   2. DOCUMENTACIÓN DE REFERENCIA — complementa las reglas cuando está disponible.
+
+   REGLA 7: Di "No tengo información" SOLO si NINGUNA de las dos fuentes responde.
+   ```
+
+2. **`query/prompt-assembler.ts` — `formatRetrievedDocs()`** empty-case message changed from:
+   > "No se encontraron documentos relevantes."
+
+   to:
+   > "No se encontraron documentos de referencia para esta pregunta. Si las REGLAS DE LA APLICACIÓN contienen la respuesta, úsalas directamente."
+
+**Result:** The LLM now answers from the capability map even with zero RAG chunks.
+
+---
+
+### 5B — Similarity Threshold Lowered
+
+**File:** `apps/doctor/src/lib/llm-assistant/constants.ts`
+
+```typescript
+// Before:
+export const RETRIEVAL_SIMILARITY_THRESHOLD = 0.5;
+
+// After:
+export const RETRIEVAL_SIMILARITY_THRESHOLD = 0.40;
+```
+
+Short queries (1–3 words like "chat ai", "voz") produce lower-magnitude embeddings, making cosine similarity inherently lower. 0.5 filtered out valid chunks. 0.40 recovers them without introducing irrelevant noise.
+
+---
+
+### 5C — In-Memory Rate Limiter Added
+
+**File:** `apps/doctor/src/app/api/llm-assistant/chat/route.ts`
+
+**Constants added to `constants.ts`:**
+```typescript
+export const CHAT_RATE_LIMIT_REQUESTS = 20;
+export const CHAT_RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+```
+
+**Implementation:** `Map<userId, { count, resetAt }>` checked before body parsing. Returns `429` with `code: 'RATE_LIMITED'` when exceeded. Suitable for a single Railway instance.
+
+---
+
+### 5D — Capability Map: New Rule Added
+
+**File:** `apps/doctor/src/lib/llm-assistant/capabilities.ts`
+
+Added to `practice-management` → `Compra` entity:
+```typescript
+'eliminar o modificar desde Flujo de Dinero': {
+  blockedIf:
+    'Siempre — los movimientos de compras en Flujo de Dinero son registros automáticos ' +
+    'de solo lectura. No se pueden eliminar ni editar desde esa vista.',
+  resolution:
+    'Ve al módulo de Compras (Gestión de Consultorio > Compras) para gestionar ' +
+    'la compra original: cambiar estado, editar monto pagado, o cancelarla.',
+},
+```
+
+---
+
+### 5E — RAG Docs: Embedding Format Fix
+
+**Problem:** Markdown tables do not embed well for capability queries. A table row like:
+
+```
+| Nueva Venta | Chat IA | No |
+```
+
+Has very low cosine similarity to "que puedo crear con chat ai" because there is no semantic context in the row alone — the column headers are in a different chunk entirely.
+
+**Affected docs — rewritten:**
+- `docs/llm-assistant/features/voice-assistant.md`
+- `docs/llm-assistant/modules/medical-records/overview.md`
+- `docs/llm-assistant/modules/practice-management/overview.md`
+
+**Pattern that works — prose + FAQ:**
+```markdown
+Con el Chat IA puedes crear:
+- **Paciente** — usando el chat de texto.
+- **Venta** — usando el chat de texto.
+- **Compra** — usando el chat de texto.
+[...]
+
+**¿Puedo crear ventas con el Chat IA?**
+Sí. Selecciona "Nueva Venta" en el hub ✨ y dicta o escribe la información.
+```
+
+**Why it works:** The FAQ question text ("¿Puedo crear ventas...") closely matches how users actually phrase queries. The answer is in the same chunk as the question, so the similarity search retrieves the full Q→A pair.
+
+**When tables are fine:** Tables that describe UI details (field names, form sections, state machine transitions) are not affected. The problem only occurs when a table is used to summarize *capabilities* across entities — where users query "what can I do with X?".
+
+---
+
+## 6. File-by-File Reference
 
 ```
 apps/doctor/src/lib/llm-assistant/
 │
-├── capabilities.ts              ← CREATED (Ph1) + UPDATED (Ph3) — primary source of truth
+├── capabilities.ts              ← CREATED (Ph1) + UPDATED (Ph3, Ph4) — primary source of truth
 ├── sync.ts                      ← CREATED (Ph3) — CLI sync functions
 ├── types.ts                     ← MODIFIED (Ph2) — added UIContext, extended UserQuery
-├── constants.ts                 ← MODIFIED (Ph2) — TOKEN_BUDGET_CAPABILITIES, DOCS_SKIP_FILES
+├── constants.ts                 ← MODIFIED (Ph2, Ph4) — TOKEN_BUDGET_CAPABILITIES, DOCS_SKIP_FILES, threshold 0.40, rate limit
 ├── modules.ts                   ← MODIFIED (Ph3) — added pendientes, profile, bookings, areas, quotations
 │
 ├── query/
-│   ├── pipeline.ts              ← MODIFIED (Ph2) — threads UIContext, builds capability map
-│   ├── prompt-assembler.ts      ← MODIFIED (Ph2) — injects capability map + UI context
+│   ├── pipeline.ts              ← MODIFIED (Ph2, Ph4) — threads UIContext, builds capability map; removed dead code
+│   ├── prompt-assembler.ts      ← MODIFIED (Ph2, Ph4) — injects capability map + UI context; capability map decoupled from RAG
 │   ├── retriever.ts             ← unchanged
 │   ├── module-detector.ts       ← unchanged
 │   ├── cache.ts                 ← unchanged
@@ -289,21 +409,21 @@ apps/doctor/src/lib/llm-assistant/
     └── pipeline.ts              ← unchanged
 
 apps/doctor/src/
-├── app/api/llm-assistant/chat/route.ts   ← MODIFIED (Ph2) — accepts uiContext
+├── app/api/llm-assistant/chat/route.ts   ← MODIFIED (Ph2, Ph4) — accepts uiContext; rate limiter added
 └── hooks/useLlmChat.ts                   ← MODIFIED (Ph2) — sends currentPath
 
 docs/llm-assistant/
 ├── index.md                              ← unchanged
 ├── faq.md                                ← unchanged
 ├── features/
-│   ├── voice-assistant.md                ← unchanged (accurate)
+│   ├── voice-assistant.md                ← REWRITTEN (Ph4) — replaced capability table with prose + FAQ
 │   └── navigation.md                     ← UPDATED (Ph3) — full URL list + sidebar structure
 ├── modules/
 │   ├── blog.md                           ← REWRITTEN (Ph3)
 │   ├── pendientes.md                     ← CREATED (Ph3)
 │   ├── profile.md                        ← CREATED (Ph3)
 │   ├── medical-records/
-│   │   ├── overview.md                   ← UPDATED (Ph3) — fixed timeline description
+│   │   ├── overview.md                   ← REWRITTEN (Ph4) — replaced capability table with prose + FAQ
 │   │   ├── encounters.md                 ← REWRITTEN (Ph3)
 │   │   ├── prescriptions.md              ← REWRITTEN (Ph3)
 │   │   ├── patients.md                   ← REWRITTEN (Ph3)
@@ -314,7 +434,7 @@ docs/llm-assistant/
 │   │   ├── bookings.md                   ← REWRITTEN (Ph3)
 │   │   └── create-slots.md               ← CREATED (Ph3)
 │   └── practice-management/
-│       ├── overview.md                   ← UPDATED (Ph3) — added areas, quotations
+│       ├── overview.md                   ← REWRITTEN (Ph4) — replaced capability table with prose + FAQ
 │       ├── sales.md                      ← REWRITTEN (Ph3)
 │       ├── purchases.md                  ← REWRITTEN (Ph3)
 │       ├── cash-flow.md                  ← REWRITTEN (Ph3)
@@ -327,7 +447,7 @@ docs/llm-assistant/
 
 ---
 
-## 6. How the System Works End-to-End
+## 7. How the System Works End-to-End
 
 ### Request Flow
 
@@ -352,7 +472,7 @@ docs/llm-assistant/
    │           - pathModules = getModulesFromPath(currentPath)
    │           - detectedModules = hybrid keyword + embedding detection
    │           - merged = [...pathModules, ...detectedModules] (path first)
-   ├── Step 5: Retrieve chunks (pgvector HNSW cosine, threshold 0.5, top 10)
+   ├── Step 5: Retrieve chunks (pgvector HNSW cosine, threshold 0.40, top 10)
    ├── Step 6: Deduplicate chunks
    ├── Step 7: Load memory (last 2 turns from DB)
    ├── Step 8: Build capability map
@@ -395,7 +515,7 @@ Same question on different pages gets separate cache entries, allowing context-a
 
 ---
 
-## 7. The Capability Map — Full Reference
+## 8. The Capability Map — Full Reference
 
 **File:** `apps/doctor/src/lib/llm-assistant/capabilities.ts`
 
@@ -475,6 +595,8 @@ Estados: Disponible (isOpen=true, sin reservas) | Lleno (isOpen=true, reservas a
 
 ### RAG Doc Writing Guidelines
 
+#### Accuracy (Phase 3)
+
 Every doc should have field-level accuracy:
 - Exact current UI button labels and field names
 - All form fields with required/optional status and validation rules
@@ -482,9 +604,48 @@ Every doc should have field-level accuracy:
 - Step-by-step flows using real navigation paths
 - No duplicate rules (rules live in `capabilities.ts` — docs explain the *why* and the *how*)
 
+#### Embedding Format (Phase 4) — Critical for Retrieval Quality
+
+**Problem discovered:** Markdown tables do not embed well for capability queries. A table row like `| Nueva Venta | Chat IA | No |` carries no semantic meaning without its column headers, which are in a different chunk. The cosine similarity between such a row and "que puedo crear con chat ai" is far below 0.40.
+
+**Rule: Do not use tables to summarize what a module CAN do.**
+
+Use tables only for reference data (field specs, state machine transitions, configuration options).
+
+**❌ Bad — capability summary as table:**
+```markdown
+| Acción         | Disponible | Chat IA |
+|----------------|-----------|---------|
+| Nueva Venta    | ✅        | Sí      |
+| Nueva Compra   | ✅        | Sí      |
+```
+
+**✅ Good — capability summary as prose:**
+```markdown
+Con el Chat IA puedes crear:
+- **Venta** — usando el chat de texto.
+- **Compra** — usando el chat de texto.
+```
+
+**Rule: Include FAQ Q&A pairs for common "can I...?" questions.**
+
+The FAQ pattern directly matches how users phrase queries. The question and answer are always in the same chunk, so the retrieval is reliable regardless of question phrasing variations.
+
+```markdown
+**¿Puedo crear ventas con el Chat IA?**
+Sí. Selecciona "Nueva Venta" en el hub ✨ y dicta o escribe la información.
+
+**¿Puedo eliminar una compra?**
+Desde la lista de Compras sí. No es posible eliminar compras desde Flujo de Dinero — esos movimientos son automáticos y de solo lectura.
+```
+
+**Docs that require these patterns:** any `overview.md` file and any doc that covers multiple entities/actions at a high level.
+
+**Docs where tables are fine:** detail docs like `sales.md`, `prescriptions.md` — their tables describe field specs and state machines, not capability summaries.
+
 ---
 
-## 8. Re-Ingestion Instructions
+## 9. Re-Ingestion Instructions
 
 After any doc changes, re-ingest to rebuild the pgvector index.
 
@@ -535,10 +696,14 @@ Test these questions in the chat widget:
 | "¿Dónde están las cotizaciones?" | RAG: navigation.md + quotations.md |
 | "¿Puedo cambiar el tipo de un área?" | Capability map: areas entity |
 | "¿Cómo agrego una tarea pendiente?" | RAG: pendientes.md |
+| "chat ai" | Capability map + RAG: voice-assistant.md |
+| "que puedo crear con chat ai" | RAG: voice-assistant.md (full list) |
+| "puedo eliminar una compra desde flujo de dinero" | Capability map: Compra entity (no RAG needed) |
+| "asistente de voz" | RAG: voice-assistant.md |
 
 ---
 
-## 9. Future Roadmap (Post Phase 3)
+## 10. Future Roadmap (Post Phase 4)
 
 ### 9.1 — Entity-Level UI Context
 
@@ -601,17 +766,15 @@ When the app shows an error toast, the chat widget automatically offers help:
 | Module ID | Display Name | Routes | Capability Map | RAG Docs |
 |-----------|-------------|--------|----------------|----------|
 | `appointments` | Citas | `/appointments` | ✅ Complete | ✅ Rewritten (Ph3) |
-| `medical-records` | Expedientes Médicos | `/dashboard/medical-records/*` | ✅ Complete | ✅ Rewritten (Ph3) |
-| `practice-management` | Gestión de Consultorio | `/dashboard/practice/*` | ✅ Complete | ✅ Rewritten (Ph3) |
+| `medical-records` | Expedientes Médicos | `/dashboard/medical-records/*` | ✅ Complete | ✅ Rewritten (Ph3), overview rewritten (Ph4) |
+| `practice-management` | Gestión de Consultorio | `/dashboard/practice/*` | ✅ Complete + Ph4 rule | ✅ Rewritten (Ph3), overview rewritten (Ph4) |
 | `pendientes` | Pendientes | `/dashboard/pendientes` | ✅ Added (Ph3) | ✅ Created (Ph3) |
 | `profile` | Mi Perfil | `/dashboard/mi-perfil` | ✅ Added (Ph3) | ✅ Created (Ph3) |
 | `blog` | Blog | `/dashboard/blog` | ⚠️ RAG only | ✅ Rewritten (Ph3) |
-| `voice-assistant` | Asistente de Voz | (global feature) | ⚠️ RAG only | ✅ Accurate |
+| `voice-assistant` | Asistente de Voz | (global feature) | ⚠️ RAG only | ✅ Rewritten (Ph4) |
 | `navigation` | Navegación | (global) | ⚠️ RAG only | ✅ Updated (Ph3) |
 | `general` | General | (global) | ⚠️ RAG only | ✅ Accurate |
 
-**⏳ Pending:** Run `pnpm docs:sync-all --force` to re-ingest all Phase 3 docs into pgvector.
-
 ---
 
-*Document maintained by engineering. Update after every significant change to the capability map or RAG documents.*
+*Document maintained by engineering. Update after every significant change to the capability map, RAG documents, or query pipeline.*
