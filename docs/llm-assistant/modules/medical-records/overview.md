@@ -4,75 +4,57 @@
 
 El módulo de **Expedientes Médicos** permite al médico gestionar toda la información clínica de sus pacientes de manera organizada y segura.
 
-## Acceso
-
 **Ruta:** Menú lateral > Expedientes Médicos > Expedientes de Pacientes
-
 **URL:** `/dashboard/medical-records`
 
 ---
 
-## Funcionalidades Incluidas
+## Qué puedo hacer en Expedientes Médicos
 
-### 1. Gestión de Pacientes
-- Crear nuevos pacientes
-- Editar información de pacientes existentes
-- Buscar pacientes por nombre
-- Filtrar pacientes por estado (activo/inactivo)
-- Ver lista de todos los pacientes
+Con el módulo de Expedientes Médicos puedes:
 
-### 2. Consultas (Encounters)
-- Documentar cada visita médica
-- Usar formato SOAP para notas clínicas
-- Registrar signos vitales
-- Ver historial de versiones de la consulta
-
-### 3. Recetas Médicas
-- Crear prescripciones con medicamentos
-- Especificar dosis, frecuencia e instrucciones
-- Ver historial de recetas del paciente
-
-### 4. Multimedia
-- Subir fotos clínicas
-- Almacenar documentos del paciente
-- Ver galería de archivos
-
-### 5. Línea de Tiempo
-- Ver cronología de todas las interacciones con el paciente
-- Solo lectura — generada automáticamente por el sistema
+- **Pacientes** — crear pacientes nuevos, editar su información, buscarlos por nombre y filtrarlos por estado (activo/inactivo). No es posible eliminar pacientes, solo desactivarlos.
+- **Consultas** — documentar cada visita médica usando formato SOAP, registrar signos vitales y ver el historial de versiones. Las consultas no se pueden eliminar, son permanentes.
+- **Recetas** — crear prescripciones con medicamentos, especificar dosis, frecuencia e instrucciones, y descargar PDF al emitirlas.
+- **Multimedia** — subir fotos clínicas, imágenes y documentos del paciente; ver la galería de archivos.
+- **Línea de Tiempo** — ver la cronología de todas las interacciones con el paciente. Es solo lectura, se genera automáticamente.
 
 ---
 
-## Lo que el Usuario PUEDE Hacer
+## Lo que NO puedes hacer
 
-| Acción | Disponible | Notas |
-|--------|------------|-------|
-| Crear paciente | Sí | Con o sin asistente de voz |
-| Editar paciente | Sí | Solo información básica y médica |
-| Eliminar paciente | No | No disponible en la interfaz |
-| Crear consulta | Sí | Requiere paciente existente |
-| Editar consulta | Sí | Se guarda historial de versiones |
-| Eliminar consulta | No | No disponible en la interfaz |
-| Crear receta | Sí | Requiere paciente existente |
-| Subir archivos | Sí | Imágenes y documentos |
+- **Eliminar pacientes** — no existe la opción. Solo se pueden desactivar (marcar como inactivos).
+- **Eliminar consultas** — las consultas son permanentes. Puedes editarlas; el sistema guarda historial de versiones.
+- **Compartir expedientes** — no hay función para compartir con otros médicos.
+- **Exportar datos** — no hay exportación a PDF o Excel desde la lista de pacientes.
+- **Importar pacientes** — no hay importación masiva.
 
 ---
 
-## Lo que el Usuario NO PUEDE Hacer
+## Chat IA disponible
 
-- **Eliminar pacientes** - No hay opción de borrado, solo desactivación
-- **Eliminar consultas** - Las consultas son permanentes
-- **Compartir expedientes** - No hay función de compartir con otros médicos
-- **Exportar datos** - No hay exportación a PDF o Excel
-- **Importar pacientes** - No hay importación masiva
+El Chat IA (botón ✨) está disponible para crear:
+- Nuevos pacientes
+- Consultas y Recetas (tienen su propio panel Chat IA en sus páginas de creación)
 
 ---
 
-## Asistente de Voz Disponible
+## Preguntas Frecuentes
 
-Este módulo soporta el **asistente de voz** para:
-- Crear nuevos pacientes por dictado
-- Documentar consultas por voz
-- Crear recetas por dictado
+**¿Puedo eliminar un paciente?**
+No. Los pacientes no se pueden eliminar. Solo puedes marcarlos como inactivos desde su perfil.
 
-Ver [Asistente de Voz](../../features/voice-assistant.md) para más detalles.
+**¿Puedo eliminar una consulta?**
+No. Las consultas son permanentes. Puedes editarlas en cualquier estado; el sistema guarda automáticamente el historial de versiones.
+
+**¿Puedo editar una consulta ya guardada?**
+Sí, puedes editar una consulta en cualquier momento. Cada edición guarda la versión anterior en el historial.
+
+**¿Cómo agrego fotos a un paciente?**
+Ve al perfil del paciente > pestaña Multimedia > botón "Subir Archivo". Acepta imágenes, video y audio.
+
+**¿Puedo compartir expedientes con otro médico?**
+No. Actualmente no hay función de compartir expedientes entre usuarios.
+
+**¿El paciente puede ver su expediente?**
+No. En esta versión los pacientes no tienen acceso directo a sus expedientes.

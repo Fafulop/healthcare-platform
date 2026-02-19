@@ -2,122 +2,78 @@
 
 ## Propósito
 
-El módulo de **Gestión de Consultorio** permite al médico administrar las operaciones financieras y comerciales de su práctica médica, incluyendo ventas, compras y flujo de dinero.
-
-## Acceso
+El módulo de **Gestión de Consultorio** permite administrar las operaciones financieras y comerciales de la práctica médica: ventas, compras, flujo de dinero, productos, clientes, proveedores y cotizaciones.
 
 **Ruta:** Menú lateral > Gestión de Consultorio
 
 ---
 
-## Módulos Incluidos
+## Qué puedo hacer en Gestión de Consultorio
 
-### 1. Flujo de Dinero
-Registro de ingresos y egresos del consultorio.
-- **URL:** `/dashboard/practice/flujo-de-dinero`
-- Movimientos bancarios
-- Categorización por áreas
-- Estado de resultados
+El módulo incluye los siguientes submódulos:
 
-### 2. Ventas
-Gestión de ventas a clientes.
-- **URL:** `/dashboard/practice/ventas`
-- Registro de transacciones
-- Seguimiento de pagos
-- Estados de venta
-
-### 3. Compras
-Gestión de compras a proveedores.
-- **URL:** `/dashboard/practice/compras`
-- Registro de adquisiciones
-- Control de pagos
-- Estados de compra
-
-### 4. Productos
-Catálogo de productos.
-- **URL:** `/dashboard/practice/products`
-- Inventario
-- Precios
-
-### 5. Clientes
-Base de datos de clientes comerciales.
-- **URL:** `/dashboard/practice/clients`
-- Datos de contacto
-- Historial de transacciones
-
-### 6. Proveedores
-Base de datos de proveedores.
-- **URL:** `/dashboard/practice/proveedores`
-- Datos de contacto
-- Historial de compras
-
-### 7. Cotizaciones
-Propuestas comerciales formales con conversión directa a venta.
-- **URL:** `/dashboard/practice/cotizaciones`
-- Estados: Borrador → Enviada → Aprobada / Rechazada / Vencida / Cancelada
-- Convertir a venta con un clic
-- Exportar a PDF
-
-### 8. Áreas y Subáreas
-Categorías para clasificar los movimientos de flujo de dinero.
-- **URL:** `/dashboard/practice/areas`
-- Tipo INGRESO o EGRESO (inmutable tras creación)
-- Cada área puede tener múltiples subáreas
+- **Flujo de Dinero** — registrar ingresos y egresos del consultorio, ver el estado de resultados agrupado por áreas. URL: `/dashboard/practice/flujo-de-dinero`
+- **Ventas** — registrar ventas a clientes, dar seguimiento a pagos y cambiar estados. URL: `/dashboard/practice/ventas`
+- **Compras** — registrar adquisiciones a proveedores, controlar pagos y estados. URL: `/dashboard/practice/compras`
+- **Cotizaciones** — crear propuestas comerciales y convertirlas a venta con un clic. URL: `/dashboard/practice/cotizaciones`
+- **Productos** — gestionar el catálogo de productos y servicios del consultorio. URL: `/dashboard/practice/products`
+- **Clientes** — mantener la base de datos de clientes comerciales. URL: `/dashboard/practice/clients`
+- **Proveedores** — mantener la base de datos de proveedores. URL: `/dashboard/practice/proveedores`
+- **Áreas y Subáreas** — configurar las categorías para clasificar movimientos de dinero. URL: `/dashboard/practice/areas`
 
 ---
 
-## Conceptos Clave
+## Chat IA disponible
 
-### Áreas y Subáreas
-Los movimientos de dinero se categorizan en **áreas** (categorías principales) y **subáreas** (subcategorías).
+El Chat IA (botón ✨) puede crear registros en:
+- **Flujo de Dinero** — movimientos de ingresos y egresos (soporta lote)
+- **Ventas** — registros de venta
+- **Compras** — registros de compra
+- **Cotizaciones** — propuestas comerciales
 
-**Ejemplo:**
-- Área: "Ingresos por Consultas"
-  - Subárea: "Consultas Generales"
-  - Subárea: "Procedimientos"
-
-### Estados de Venta
-Las ventas siguen un flujo de estados:
-```
-PENDIENTE → CONFIRMADA → EN PROCESO → ENVIADA → ENTREGADA
-                                              ↘ CANCELADA
-```
-
-### Estados de Compra
-Las compras siguen un flujo similar:
-```
-PENDIENTE → CONFIRMADA → EN PROCESO → ENVIADA → RECIBIDA
-                                              ↘ CANCELADA
-```
-
-### Estados de Pago
-Tanto ventas como compras tienen estado de pago:
-- **PENDIENTE:** Sin pago recibido
-- **PARCIAL:** Pago parcial recibido
-- **PAGADA:** Totalmente pagada
+Productos, Clientes, Proveedores y Áreas no tienen Chat IA — se crean manualmente.
 
 ---
 
-## Resumen de Funcionalidades
+## Conceptos clave
 
-| Módulo | Crear | Editar | Eliminar | Voz |
-|--------|-------|--------|----------|-----|
-| Flujo de Dinero | Sí | Sí | Sí | Sí |
-| Ventas | Sí | Sí | Sí | Sí |
-| Compras | Sí | Sí | Sí | Sí |
-| Productos | Sí | Sí | Sí | No |
-| Clientes | Sí | Sí | Sí | No |
-| Proveedores | Sí | Sí | Sí | No |
-| Cotizaciones | Sí | Sí | Sí | No |
-| Áreas | Sí | Sí | Sí (cascada) | No |
+**Estados de Venta:** PENDIENTE → CONFIRMADA → EN PROCESO → ENVIADA → ENTREGADA (o CANCELADA en cualquier punto)
+
+**Estados de Compra:** PENDIENTE → CONFIRMADA → EN PROCESO → ENVIADA → RECIBIDA (o CANCELADA en cualquier punto)
+
+**Estado de Pago** (ventas y compras): PENDIENTE (sin pago) / PARCIAL (pago parcial) / PAGADA (monto completo)
+
+**Áreas y Subáreas:** Las áreas son de tipo INGRESO o EGRESO — ese tipo es inmutable después de crearse. Eliminar un área elimina también todas sus subáreas.
+
+**Movimientos automáticos:** Al crear una Venta o Compra, el sistema genera automáticamente un movimiento en Flujo de Dinero.
 
 ---
 
-## Asistente de Voz Disponible
+## Preguntas Frecuentes
 
-El asistente de voz está disponible para:
-- **Flujo de Dinero:** Crear movimientos (ingresos/egresos)
-- **Ventas:** Crear registros de venta
-- **Compras:** Crear registros de compra
+**¿Qué puedo hacer en Gestión de Consultorio?**
+Registrar ventas, compras, cotizaciones, movimientos de dinero, y gestionar productos, clientes y proveedores.
 
-Ver documentación específica de cada módulo para detalles.
+**¿Puedo crear ventas con el Chat IA?**
+Sí. Selecciona "Nueva Venta" en el hub ✨ y dicta o escribe la información.
+
+**¿Puedo crear compras con el Chat IA?**
+Sí. Selecciona "Nueva Compra" en el hub ✨.
+
+**¿Las ventas y compras aparecen en Flujo de Dinero?**
+Sí, automáticamente. Al crear una venta se genera un ingreso; al crear una compra se genera un egreso.
+
+**¿Puedo eliminar una venta?**
+Sí, desde la lista de Ventas. Requiere confirmación.
+
+**¿Puedo eliminar una compra?**
+Desde la lista de Compras sí. No es posible eliminar compras desde la vista de Flujo de Dinero — los movimientos de compras ahí son automáticos y de solo lectura.
+
+**¿Puedo convertir una cotización en venta?**
+Sí. Desde la lista de Cotizaciones, usa el botón de carrito (ShoppingCart) para crear una venta automáticamente con los mismos datos.
+
+**¿Puedo cambiar el tipo de un área de INGRESO a EGRESO?**
+No. El tipo de área es inmutable después de su creación. Debes eliminar el área y crear una nueva con el tipo correcto.
+
+**¿Puedo facturar desde la aplicación?**
+No. La aplicación no genera facturas fiscales (CFDI). La facturación debe hacerse externamente.
