@@ -3,8 +3,9 @@
 import { useSession } from "next-auth/react";
 import { redirect, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
-import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle, Mic, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle, Mic, ChevronLeft, ChevronRight, CalendarPlus } from "lucide-react";
 import CreateSlotsModal from "./CreateSlotsModal";
+import BookPatientModal from "./BookPatientModal";
 import { authFetch } from "@/lib/auth-fetch";
 import {
   VoiceRecordingModal,
@@ -91,6 +92,20 @@ export default function AppointmentsPage() {
   const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
   const [showAllSlots, setShowAllSlots] = useState(false);
   const [showAllBookings, setShowAllBookings] = useState(false);
+
+  // Book patient modal state
+  const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
+  const [bookPatientPreSlot, setBookPatientPreSlot] = useState<AppointmentSlot | null>(null);
+
+  const openBookModal = () => {
+    setBookPatientPreSlot(null);
+    setBookPatientModalOpen(true);
+  };
+
+  const openBookModalWithSlot = (slot: AppointmentSlot) => {
+    setBookPatientPreSlot(slot);
+    setBookPatientModalOpen(true);
+  };
 
   // Voice assistant state
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
@@ -546,8 +561,17 @@ export default function AppointmentsPage() {
               className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
             >
               <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">Asistente de Voz</span>
-              <span className="sm:hidden">Voz</span>
+              <span className="hidden sm:inline">Chat IA</span>
+              <span className="sm:hidden">Chat IA</span>
+            </button>
+            {/* Book Patient Button */}
+            <button
+              onClick={openBookModal}
+              className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
+            >
+              <CalendarPlus className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Agendar Cita</span>
+              <span className="sm:hidden">Agendar</span>
             </button>
             {/* Manual Create Button */}
             <button
@@ -1006,6 +1030,16 @@ export default function AppointmentsPage() {
                     </div>
 
                     <div className="flex gap-1 sm:gap-2 mt-1 sm:mt-2">
+                      {slot.isOpen && slot.currentBookings < slot.maxBookings && (
+                        <button
+                          onClick={() => openBookModalWithSlot(slot)}
+                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded text-[10px] sm:text-xs"
+                          title="Agendar cita para paciente"
+                        >
+                          <CalendarPlus className="w-3 h-3" />
+                          <span className="hidden sm:inline">Agendar</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => toggleOpenSlot(slot.id, slot.isOpen)}
                         className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-[10px] sm:text-xs"
@@ -1020,7 +1054,6 @@ export default function AppointmentsPage() {
                       <button
                         onClick={() => deleteSlot(slot.id)}
                         className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-[10px] sm:text-xs"
-
                         title="Eliminar"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -1235,6 +1268,15 @@ export default function AppointmentsPage() {
                     </div>
 
                     <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100">
+                      {slot.isOpen && slot.currentBookings < slot.maxBookings && (
+                        <button
+                          onClick={() => openBookModalWithSlot(slot)}
+                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs font-medium"
+                        >
+                          <CalendarPlus className="w-3 h-3" />
+                          Agendar
+                        </button>
+                      )}
                       <button
                         onClick={() => toggleOpenSlot(slot.id, slot.isOpen)}
                         className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs font-medium"
@@ -1254,7 +1296,6 @@ export default function AppointmentsPage() {
                       <button
                         onClick={() => deleteSlot(slot.id)}
                         className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs font-medium"
-
                       >
                         <Trash2 className="w-3 h-3" />
                         Eliminar
@@ -1323,6 +1364,15 @@ export default function AppointmentsPage() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex gap-2 justify-end">
+                            {slot.isOpen && slot.currentBookings < slot.maxBookings && (
+                              <button
+                                onClick={() => openBookModalWithSlot(slot)}
+                                className="p-2 hover:bg-green-100 rounded"
+                                title="Agendar cita para paciente"
+                              >
+                                <CalendarPlus className="w-4 h-4 text-green-600" />
+                              </button>
+                            )}
                             <button
                               onClick={() => toggleOpenSlot(slot.id, slot.isOpen)}
                               className="p-2 hover:bg-gray-200 rounded"
@@ -1337,7 +1387,6 @@ export default function AppointmentsPage() {
                             <button
                               onClick={() => deleteSlot(slot.id)}
                               className="p-2 hover:bg-red-100 rounded"
-
                             >
                               <Trash2 className="w-4 h-4 text-red-600" />
                             </button>
@@ -1352,6 +1401,23 @@ export default function AppointmentsPage() {
             </>
           )}
         </div>
+      )}
+
+      {/* Book Patient Modal */}
+      {doctorId && (
+        <BookPatientModal
+          isOpen={bookPatientModalOpen}
+          onClose={() => {
+            setBookPatientModalOpen(false);
+            setBookPatientPreSlot(null);
+          }}
+          doctorId={doctorId}
+          onSuccess={() => {
+            fetchBookings();
+            fetchSlots();
+          }}
+          preSelectedSlot={bookPatientPreSlot}
+        />
       )}
 
       {/* Create Slots Modal */}
