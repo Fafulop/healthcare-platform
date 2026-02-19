@@ -10,7 +10,7 @@
  *   pnpm docs:history [moduleId]     — Show version history
  */
 
-import { syncModule, syncAll, listModules, getStatus, showHistory, purgeAll } from '../apps/doctor/src/lib/llm-assistant/sync';
+import { syncModule, syncAll, listModules, getStatus, showHistory, purgeAll, clearCache } from '../apps/doctor/src/lib/llm-assistant/sync';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -87,6 +87,14 @@ async function main() {
       break;
     }
 
+    case 'cache-clear': {
+      console.log('Clearing query cache...');
+      const result = await clearCache();
+      console.log(`  Deleted ${result.entriesDeleted} cache entries`);
+      console.log('Done. Next queries will run through the full pipeline.');
+      break;
+    }
+
     default:
       console.log('LLM Assistant Docs Sync CLI\n');
       console.log('Commands:');
@@ -96,6 +104,7 @@ async function main() {
       console.log('  status                       Show sync status');
       console.log('  history [moduleId]           Show version history');
       console.log('  purge                        Delete all chunks (then re-ingest)');
+      console.log('  cache-clear                  Delete all cached query responses');
       process.exit(0);
   }
 }

@@ -1,215 +1,138 @@
-# Asistente de Voz
+# Asistente IA / Asistente de Voz (Hub de Creación)
+
+**También conocido como:** Asistente de Voz, Chat IA, dictado por voz, asistente de dictado.
 
 ## Descripción
 
-El **Asistente de Voz** es una funcionalidad que permite al médico dictar información en lugar de escribirla manualmente. La aplicación transcribe el audio y usa inteligencia artificial para extraer datos estructurados del dictado.
+El **Asistente IA** (antes llamado Asistente de Voz) es un hub flotante disponible en todas las páginas de la aplicación (dashboard y citas). Se accede con el botón flotante con ícono ✨ (Sparkles) en la esquina inferior derecha.
+
+Al abrirlo, muestra el modal **"Asistente IA"** con acciones rápidas de creación usando **Chat IA** o **dictado por voz**. Cada acción usa uno de dos modos: **Chat IA** o **Voz Clásica**.
 
 ---
 
-## Módulos que Soportan Asistente de Voz
+## Modos de Creación
 
-| Módulo | Función | Descripción |
-|--------|---------|-------------|
-| Pacientes | Crear paciente | Dictar datos del nuevo paciente |
-| Consultas | Nueva consulta | Dictar notas clínicas |
-| Recetas | Nueva receta | Dictar medicamentos y dosis |
-| Citas | Crear espacios | Dictar horarios disponibles |
-| Flujo de Dinero | Nuevo movimiento | Dictar ingresos/egresos (múltiples) |
-| Ventas | Nueva venta | Dictar transacción de venta |
-| Compras | Nueva compra | Dictar transacción de compra |
+### Chat IA (modo principal — 6 de 7 acciones)
 
----
+Navega al formulario correspondiente con un panel lateral de chat abierto. El médico puede:
+- **Escribir** en el chat para describir el registro
+- **Usar el botón de micrófono** dentro del chat para dictar (transcripción directa al campo de texto, sin modal separado)
 
-## Cómo Funciona
+La IA extrae los datos del mensaje y llena los campos del formulario en tiempo real.
 
-### Flujo General
+**Algunos módulos soportan creación en lote (batch):** al describir múltiples registros en el mismo mensaje, el chat acumula los items en una lista visible y muestra un botón **"Crear N [items]"** para crearlos todos de una vez.
 
-```
-1. Click en botón "Asistente de Voz" (ícono de micrófono)
-          ↓
-2. Se abre el modal de grabación
-          ↓
-3. Dictar la información de forma natural
-          ↓
-4. Click en "Detener" para finalizar grabación
-          ↓
-5. El sistema transcribe el audio
-          ↓
-6. La IA extrae datos estructurados
-          ↓
-7. Se abre panel lateral para revisar
-          ↓
-8. Ajustar mediante chat si es necesario
-          ↓
-9. Click en "Confirmar" para llenar formulario
-          ↓
-10. Verificar datos y guardar
-```
+### Voz Clásica (solo Crear Citas)
+
+Flujo de grabación de audio completo con modal de grabación separado:
+1. Se abre un modal de grabación dedicado
+2. El médico dicta los horarios
+3. El sistema transcribe y extrae datos estructurados
+4. Se abre panel lateral para revisar y corregir mediante chat
+5. Al confirmar, navega a `/appointments?voice=true` y llena el formulario automáticamente
 
 ---
 
-## Paso a Paso Detallado
+## Acciones del Hub
 
-### 1. Iniciar Grabación
+| Acción | Modo | Batch | Destino |
+|--------|------|-------|---------|
+| Crear Paciente | Chat IA | No | `/dashboard/medical-records/patients/new?chat=true` |
+| Crear Citas | Voz Clásica | Sí — múltiples slots | Modal de grabación → `/appointments?voice=true` |
+| Nuevo Pendiente | Chat IA | **Sí — múltiples pendientes** | `/dashboard/pendientes/new?chat=true` |
+| Movimiento de Efectivo | Chat IA | **Sí — múltiples movimientos** | `/dashboard/practice/flujo-de-dinero/new?chat=true` |
+| Nueva Venta | Chat IA | No | `/dashboard/practice/ventas/new?chat=true` |
+| Nueva Cotización | Chat IA | No | `/dashboard/practice/cotizaciones/new?chat=true` |
+| Nueva Compra | Chat IA | No | `/dashboard/practice/compras/new?chat=true` |
 
-1. En la página correspondiente (ej: Nuevo Paciente), busca el botón **"Asistente de Voz"** con ícono de micrófono
-2. Click en el botón
-3. Se abre el modal de grabación
-4. El navegador puede pedir permiso para usar el micrófono - **Permite el acceso**
-
-### 2. Dictar Información
-
-1. Cuando veas que está grabando (indicador visual), comienza a hablar
-2. Habla de forma clara y natural
-3. No es necesario usar comandos especiales
-4. Puedes dictar la información en cualquier orden
-
-### 3. Finalizar Grabación
-
-1. Cuando termines de dictar, click en **"Detener"**
-2. Espera mientras el sistema procesa:
-   - Transcripción del audio
-   - Extracción de datos por IA
-
-### 4. Revisar Datos Extraídos
-
-1. Se abre el **panel lateral** de chat
-2. Verás:
-   - Tu transcripción original
-   - Los datos extraídos por la IA
-   - Indicador de campos completados vs vacíos
-
-### 5. Ajustar si es Necesario
-
-Si la IA no extrajo algo correctamente:
-1. Escribe en el chat para corregir
-   - Ejemplo: "El apellido es García, no Garcías"
-   - Ejemplo: "La dosis es 500mg, no 50mg"
-2. La IA actualizará los datos
-3. Repite hasta que estén correctos
-
-### 6. Confirmar y Llenar Formulario
-
-1. Cuando los datos estén correctos, click en **"Confirmar"**
-2. El panel lateral se cierra
-3. El formulario se llena automáticamente con los datos extraídos
-4. Aparece un banner indicando que fue llenado por IA
-
-### 7. Verificar y Guardar
-
-1. Revisa todos los campos del formulario
-2. Completa cualquier campo faltante
-3. Corrige si es necesario
-4. Click en el botón de guardar
+Las acciones con **Chat IA** muestran el ícono ✨ junto al título dentro del modal.
 
 ---
 
-## Consejos para Mejor Precisión
+## Flujo Chat IA — Paso a Paso
 
-### Habla Clara y Pausada
-- Pronuncia claramente, especialmente nombres y números
-- Haz pausas breves entre datos diferentes
+1. Click en el botón flotante ✨ (esquina inferior derecha)
+2. Seleccionar la acción deseada
+3. El modal se cierra y la app navega al formulario con `?chat=true`
+4. Se abre automáticamente el **panel Chat IA** (lateral en desktop, bottom sheet en móvil)
+5. Escribir o dictar la información
+6. La IA llena los campos del formulario en tiempo real
+7. Revisar campos llenados — el panel puede minimizarse con el botón **"—"**
+8. Click en **"Confirmar"** (o **"Crear N [items]"** en batch) en el panel
+9. Verificar datos y guardar el formulario
 
-### Sé Específico
-- Incluye unidades: "quinientos miligramos" en vez de solo "quinientos"
-- Especifica fechas completas: "veinte de enero de dos mil veintiséis"
+### Creación en Lote (Batch) — Pendientes y Movimientos
 
-### Usa Contexto Natural
-- "El paciente se llama Juan Pérez García, tiene 45 años, nació el 15 de marzo de 1980"
-- "Receta: Paracetamol 500mg cada 8 horas por 5 días, Omeprazol 20mg una vez al día en ayunas"
+Al describir múltiples items en un mensaje:
+- El chat muestra una lista de los items acumulados debajo de los mensajes
+- Cada item puede eliminarse individualmente con el botón de borrar
+- Aparece el botón **"Crear N Pendientes"** / **"Crear N Movimientos"**
+- Al hacer click, todos los registros se crean de una vez
 
-### Verifica Números
-- Los números son propensos a errores de transcripción
-- Siempre verifica cantidades, dosis, fechas y precios
+**Ejemplo — Movimientos en lote:**
+> "Registra 3 movimientos: consulta 3000 pesos efectivo, laboratorio 1500 transferencia, limpieza 800 efectivo"
 
----
-
-## Ejemplos de Dictado
-
-### Nuevo Paciente
-> "Nuevo paciente, se llama María López Hernández, tiene 35 años, fecha de nacimiento 10 de junio de 1990, sexo femenino, tipo de sangre O positivo. Su teléfono es 55 1234 5678, correo maria.lopez@email.com. Dirección Calle Reforma 123, Colonia Centro, Ciudad de México, código postal 06000. Contacto de emergencia su esposo Pedro Ramírez, teléfono 55 8765 4321. Es alérgica a la penicilina, tiene hipertensión controlada, toma Losartán 50mg diario."
-
-### Nueva Consulta
-> "Consulta de seguimiento, el paciente refiere que el dolor de rodilla ha disminuido un 70%, todavía presenta molestia al subir escaleras. Signos vitales: presión arterial 120 sobre 80, frecuencia cardíaca 72, temperatura 36.5, peso 75 kilos. Al examen físico, rodilla derecha con rango de movimiento mejorado, sin edema, ligera crepitación. Diagnóstico: osteoartritis de rodilla en mejoría. Plan: continuar fisioterapia 2 veces por semana, mantener analgésico solo si hay dolor, control en 4 semanas."
-
-### Nueva Receta
-> "Receta para el señor García. Metformina 850 miligramos, una tableta después del desayuno y una después de la cena, por tiempo indefinido. Losartán 50 miligramos, una tableta en la mañana, uso continuo. Atorvastatina 20 miligramos, una tableta por la noche antes de dormir."
-
-### Espacios de Cita
-> "Abrir citas para la próxima semana. Lunes 20 de enero, 9 de la mañana, 10, 11 y 12. Martes 21, mismo horario. Todas de 30 minutos a 500 pesos."
-
-### Movimientos de Flujo de Dinero
-> "Registrar los movimientos de hoy. Ingreso de 2500 pesos por consulta particular, área consultas médicas. Ingreso de 3000 pesos por procedimiento, área procedimientos. Egreso de 500 pesos por material de curación, área insumos médicos. Egreso de 1200 pesos por renta, área gastos fijos."
+**Ejemplo — Pendientes en lote:**
+> "Crea 3 tareas: seguimiento López mañana a las 10, revisar radiografía el viernes, llamar farmacia el lunes"
 
 ---
 
-## Creación en Lote (Batch)
+## Flujo Voz Clásica (Crear Citas) — Paso a Paso
 
-Algunos módulos permiten crear **múltiples registros** de una sola dictada:
+1. Click en el botón flotante ✨
+2. Seleccionar **"Crear Citas"**
+3. Se abre el **modal de grabación** (único caso con modal separado)
+4. El navegador puede pedir permiso de micrófono — **Permitir el acceso**
+5. Dictar los horarios de forma natural
+6. Click en **"Detener"** para finalizar
+7. El sistema transcribe y extrae los slots (soporta múltiples slots en un dictado)
+8. Se abre el **panel lateral** con los datos extraídos
+9. Ajustar mediante chat si algo no quedó bien
+10. Click en **"Confirmar"** → el formulario de citas se llena automáticamente
 
-| Módulo | Batch Disponible |
-|--------|------------------|
-| Citas (Espacios) | Sí - múltiples horarios |
-| Flujo de Dinero | Sí - múltiples movimientos |
-| Recetas (Medicamentos) | Sí - múltiples medicamentos |
-
-### Ejemplo de Batch
-Al dictar:
-> "Crear citas para el lunes: 9am, 10am, 11am, 12pm"
-
-El sistema creará **4 espacios de cita** independientes.
+**Ejemplo:**
+> "Abrir citas para el lunes 20 de enero: 9 de la mañana, 10, 11 y 12. Todas de 30 minutos a 500 pesos."
 
 ---
 
-## Indicador de Confianza
+## Consultas y Recetas
 
-Después de la extracción, verás:
-- **Alta confianza:** Muchos campos extraídos correctamente
-- **Media confianza:** Algunos campos extraídos
-- **Baja confianza:** Pocos campos extraídos
-
-Esto te indica cuánta revisión manual puede necesitar.
+Las consultas y recetas **no están en el hub**. Tienen sus propios paneles Chat IA embebidos directamente en sus formularios de creación (`EncounterChatPanel`, `PrescriptionChatPanel`), accesibles con el botón **"Chat IA"** dentro de cada página.
 
 ---
 
 ## Banner de IA
 
-Cuando el formulario se llena por voz, aparece un **banner azul** indicando:
-- Que los datos fueron generados por IA
-- Cuántos campos se llenaron
-- Cuántos campos quedaron vacíos
+Cuando el formulario se llena por Chat IA o Voz, aparece un **banner azul** indicando que los datos fueron generados por IA y cuántos campos se llenaron.
 
 **Importante:** Siempre verifica los datos antes de guardar.
 
 ---
 
-## Limitaciones
+## Consejos para Mejor Precisión
 
-- **Requiere internet:** El procesamiento se hace en la nube
-- **Solo español:** Optimizado para español mexicano
-- **Puede tener errores:** Especialmente con nombres propios, números y tecnicismos
-- **No entiende contexto complejo:** Mantén las instrucciones simples
-- **Un dictado a la vez:** No puedes grabar mientras se procesa otro
+- Incluye toda la información relevante en un solo mensaje
+- Especifica unidades: "500mg", "$500 pesos", "30 minutos"
+- Para batch, separa los items claramente en el mensaje
+- Si un campo quedó mal, escríbelo en el chat para corregirlo: "El monto es 1500, no 500"
+- Los números y fechas son los más propensos a errores — siempre verifica
 
 ---
 
 ## Solución de Problemas
 
-### "No se escucha mi voz"
-- Verifica que el micrófono esté conectado
-- Asegúrate de haber dado permiso al navegador
-- Habla más cerca del micrófono
+### "El panel de chat no se abre"
+- Verifica que la URL tenga `?chat=true`
+- Recarga la página
 
 ### "Los datos extraídos están incorrectos"
-- Usa el chat para corregir
-- Intenta ser más específico en el dictado
-- Verifica manualmente antes de guardar
+- Escribe en el chat para corregir campos específicos
+- Usa el botón **"Limpiar"** del panel para empezar de nuevo
 
-### "El botón de voz no aparece"
-- No todos los formularios tienen asistente de voz
-- Verifica que estés en una página que lo soporte
+### "No se escucha mi voz" (solo Voz Clásica — Citas)
+- Verifica que el micrófono tenga permiso en el navegador
+- Habla más cerca del micrófono
 
 ### "Error al procesar"
-- Puede ser problema de conexión
-- Intenta de nuevo
+- Puede ser problema de conexión — intenta de nuevo
 - Si persiste, ingresa los datos manualmente

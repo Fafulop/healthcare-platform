@@ -139,6 +139,18 @@ export async function getStatus(): Promise<AssistantStatus> {
 }
 
 /**
+ * Clear all query cache entries.
+ * Use after re-ingesting docs to force fresh pipeline runs.
+ */
+export async function clearCache(): Promise<{ entriesDeleted: number }> {
+  const [res] = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
+    `SELECT COUNT(*) AS count FROM llm_assistant.llm_query_cache`
+  );
+  await prisma.$executeRawUnsafe(`DELETE FROM llm_assistant.llm_query_cache`);
+  return { entriesDeleted: Number(res.count) };
+}
+
+/**
  * Purge all chunks and file hashes from the database.
  * Use before a full re-ingest to guarantee a clean slate.
  */
