@@ -1,6 +1,6 @@
 # Database Architecture Guide
 
-**Last Updated:** 2026-02-02
+**Last Updated:** 2026-02-19
 
 ---
 
@@ -335,6 +335,102 @@ For LLM tables in the `llm_assistant` schema (with vector types):
 - Run the command from PowerShell or VS Code terminal
 - Ensure Node.js is installed and in your PATH
 
+**Error: `500 Internal Server Error` on a POST that writes to multiple tables**
+- A new field was added to `schema.prisma` but the SQL migration was never run against Railway
+- The Prisma client was built with the new fields, but the actual DB columns don't exist yet
+- Fix: create and run a SQL migration with `ADD COLUMN IF NOT EXISTS` before deploying the code
+- See the "Production Deployment Checklist" section below
+
+---
+
+## ⚠️ Production Deployment Checklist
+
+> This checklist exists because of a real incident (2026-02-19) where the ventas feature
+> caused cascading 500 errors in production. Root cause: fields added to `schema.prisma`
+> were never migrated to the Railway database before the code was deployed.
+
+### What happened
+
+The `LedgerEntry` model had these fields added to `schema.prisma`:
+
+```
+transactionType, saleId, purchaseId, clientId, supplierId, paymentStatus, amountPaid
+```
+
+No SQL migration files were created for them. The code was deployed and every POST to
+`/api/practice-management/ventas` failed with a 500 because Prisma tried to insert into
+columns that didn't exist in the production database.
+
+Additionally, because `sale.create()` runs **before** `ledgerEntry.create()` in the handler,
+each failed attempt left behind an orphaned `Sale` record. This caused a secondary failure:
+a unique constraint violation on `sale_number` on every subsequent attempt.
+
+### The rule: schema changes MUST reach the DB before the code
+
+```
+WRONG order:                        CORRECT order:
+1. Add fields to schema.prisma  →   1. Add fields to schema.prisma
+2. Write code that uses them    →   2. Create SQL migration file
+3. git push + Railway deploys   →   3. Run migration against Railway DB  ← do this first
+4. 500 errors in production     →   4. git push + Railway deploys
+                                →   5. Works
+```
+
+### Checklist before every deploy that touches schema.prisma
+
+- [ ] Every new field or table in `schema.prisma` has a corresponding SQL migration file
+- [ ] The migration file uses `ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS` (safe to re-run)
+- [ ] The migration has been executed against Railway **before** pushing the code:
+  ```powershell
+  npx prisma db execute --file packages/database/prisma/migrations/your-file.sql --url "postgresql://postgres:PASSWORD@yamanote.proxy.rlwy.net:51502/railway"
+  ```
+- [ ] The migration file is committed to git alongside the code change
+
+### Adding columns to an existing table
+
+When adding fields to an existing model (not a new table), the SQL is simpler:
+
+```sql
+-- Migration: Add new columns to existing_table
+-- Purpose: Brief description
+-- Date: YYYY-MM-DD
+
+ALTER TABLE "schema_name"."table_name"
+  ADD COLUMN IF NOT EXISTS "column_one" VARCHAR(20) DEFAULT 'default_value',
+  ADD COLUMN IF NOT EXISTS "column_two" INTEGER,
+  ADD COLUMN IF NOT EXISTS "column_three" DECIMAL(12,2) DEFAULT 0;
+
+-- Add foreign keys if needed (wrapped in DO block so it's safe to re-run)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'table_fk_name'
+  ) THEN
+    ALTER TABLE "schema_name"."table_name"
+      ADD CONSTRAINT "table_fk_name"
+      FOREIGN KEY ("column_two") REFERENCES "schema_name"."other_table"("id")
+      ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END$$;
+```
+
+### If you forgot and already deployed (recovery steps)
+
+1. **Identify missing columns** — look at the 500 error in Railway Deploy Logs for the Prisma field name
+2. **Create the migration SQL** with `ADD COLUMN IF NOT EXISTS`
+3. **Run it against Railway** before doing anything else
+4. **Clean up orphaned records** if the failed handler created partial data:
+   ```sql
+   -- Example: delete sales with no corresponding ledger entry
+   DELETE FROM practice_management.sales
+   WHERE id IN (
+     SELECT s.id FROM practice_management.sales s
+     LEFT JOIN practice_management.ledger_entries le ON le.sale_id = s.id
+     WHERE le.id IS NULL
+   );
+   ```
+5. **Redeploy** — Railway will pick up the new code, which will now find the columns
+
 ---
 
 ## Quick Reference
@@ -343,5 +439,6 @@ For LLM tables in the `llm_assistant` schema (with vector types):
 |---|---|
 | Push schema to local DB | `cd packages/database && pnpm prisma db push` |
 | Push schema to Railway | `$env:DATABASE_URL="RAILWAY_URL"; cd packages/database; npx prisma db push` |
+| Run migration on Railway | `npx prisma db execute --file packages/database/prisma/migrations/file.sql --url "RAILWAY_URL"` |
 | Regenerate Prisma client | `pnpm db:generate` |
 | View current schema | `packages/database/prisma/schema.prisma` |
