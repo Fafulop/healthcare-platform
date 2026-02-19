@@ -1,6 +1,6 @@
 # LLM Assistant — Expert System Architecture
 
-**Status:** Phase 1 & 2 Complete · Phase 3 Pending
+**Status:** Phases 1, 2 & 3 Complete · Pending: pgvector re-ingestion
 **Last Updated:** 2026-02-18
 **Scope:** Transforms the LLM help assistant from a "doc reader chatbot" into a deterministic, context-aware in-product expert
 
@@ -11,13 +11,12 @@
 1. [The Problem We Solved](#1-the-problem-we-solved)
 2. [Architecture Overview — 3-Layer Knowledge Model](#2-architecture-overview--3-layer-knowledge-model)
 3. [What Was Built (Phase 1 & 2)](#3-what-was-built-phase-1--2)
-4. [File-by-File Reference](#4-file-by-file-reference)
-5. [How the System Works End-to-End](#5-how-the-system-works-end-to-end)
-6. [The Capability Map — Full Reference](#6-the-capability-map--full-reference)
-7. [What Still Needs to Be Built (Phase 3)](#7-what-still-needs-to-be-built-phase-3)
-8. [RAG Doc Rewrite Spec — Module by Module](#8-rag-doc-rewrite-spec--module-by-module)
-9. [Re-Ingestion Instructions](#9-re-ingestion-instructions)
-10. [Future Roadmap (Post Phase 3)](#10-future-roadmap-post-phase-3)
+4. [What Was Built (Phase 3)](#4-what-was-built-phase-3)
+5. [File-by-File Reference](#5-file-by-file-reference)
+6. [How the System Works End-to-End](#6-how-the-system-works-end-to-end)
+7. [The Capability Map — Full Reference](#7-the-capability-map--full-reference)
+8. [Re-Ingestion Instructions](#8-re-ingestion-instructions)
+9. [Future Roadmap (Post Phase 3)](#9-future-roadmap-post-phase-3)
 
 ---
 
@@ -122,6 +121,8 @@ A TypeScript file (not a database table, not markdown) containing a structured m
 | `appointments` | Horario (Slot), Reservación (Booking) | 9 actions |
 | `medical-records` | Paciente, Consulta, Prescripción, Multimedia, Plantilla | 14 actions |
 | `practice-management` | Venta, Cotización, Compra, Movimiento (Flujo), Área, Producto, Cliente/Proveedor | 16 actions |
+| `pendientes` | Tarea (Pendiente) | 5 actions |
+| `profile` | Perfil Público | 3 actions |
 
 **Helper functions also in `capabilities.ts`:**
 - `formatCapabilityMapForPrompt(moduleIds[])` — formats the map as a readable prompt block for the LLM
@@ -145,7 +146,7 @@ Extended `UserQuery` with optional `uiContext?: UIContext`.
 #### `constants.ts`
 - Added `TOKEN_BUDGET_CAPABILITIES = 700` (capability map gets 700 tokens in the system prompt)
 - Reduced `TOKEN_BUDGET_DOCS` from 3000 → 2500 (to make room)
-- Updated `DOCS_SKIP_FILES` to exclude 6 developer-facing setup docs that should never be used as RAG content for end users
+- Updated `DOCS_SKIP_FILES` to exclude 6 developer-facing setup docs
 
 #### `query/prompt-assembler.ts`
 Fully rewritten. New system prompt structure:
@@ -155,66 +156,178 @@ Fully rewritten. New system prompt structure:
 4. Memory (last 2 turns)
 5. **UI context** (new — "User is on: /appointments")
 
-User turn: RAG docs + question (unchanged structure, reduced token budget)
-
 #### `query/pipeline.ts`
 Fully rewritten. Key changes:
 - Accepts and threads `uiContext` through the pipeline
-- **Cache key now includes current path** (`[/appointments] question text`) so the same question on different pages can return different answers
+- **Cache key now includes current path** (`[/appointments] question text`)
 - Path-based modules are **prepended** to detected modules (higher priority)
 - Capability map is built for ALL relevant modules (path + detected + RAG-retrieved)
-- Passes `capabilityMapText` and `uiContext` to `assemblePrompt`
 
 #### `app/api/llm-assistant/chat/route.ts`
 - Reads `uiContext` from request body
-- Validates `uiContext.currentPath` is a string before passing to pipeline
+- Validates `uiContext.currentPath` is a string
 
 #### `hooks/useLlmChat.ts`
 - Added `usePathname()` from Next.js
 - Sends `uiContext: { currentPath }` with every API request
-- `currentPath` updates automatically on every page navigation
 
 ---
 
-## 4. File-by-File Reference
+## 4. What Was Built (Phase 3)
+
+Phase 3 overhauled all RAG documentation with field-level accuracy verified against source code, and created the missing CLI sync module.
+
+### 4A — `modules.ts` Updated
+
+**File:** `apps/doctor/src/lib/llm-assistant/modules.ts`
+
+Added/updated:
+
+| Module | Change |
+|--------|--------|
+| `appointments` | Added `bookings` and `create-slots` submodules + file paths |
+| `practice-management` | Added `quotations` and `areas` submodules + file paths |
+| `pendientes` | **NEW** — full module registration with keywords and file path |
+| `profile` | **NEW** — full module registration with keywords and file path |
+
+---
+
+### 4B — `capabilities.ts` Updated
+
+**File:** `apps/doctor/src/lib/llm-assistant/capabilities.ts`
+
+- Added `pendientes` module with `Tarea (Pendiente)` entity
+- Added `profile` module with `Perfil Público` entity
+- Fixed `cotizaciones` → `'convertir a venta'` rule (direct POST button, not a modal flow)
+- Added `'exportar PDF'` action to Cotización
+- Updated `getModulesFromPath()` — added `/dashboard/pendientes` and `/dashboard/mi-perfil`
+
+---
+
+### 4C — RAG Docs Rewritten
+
+All docs verified against source code for field names, error messages, and business rules.
+
+#### Medical Records
+
+| File | Key Changes |
+|------|-------------|
+| `encounters.md` | SOAP fields with exact hints, all 7 vital sign fields with units, SOAP↔Simple toggle, Chat IA button, follow-up fields, removed non-existent "Diagnósticos" section |
+| `prescriptions.md` | **Full rewrite** — state machine (draft/issued/cancelled/expired), exact medication required fields (name+dosage+frequency+instructions), exact error messages, confirmation dialog wording, cancel requires reason, PDF only on issued |
+| `patients.md` | All 4 form sections, etiquetas system, ID Interno immutability, patient profile tabs |
+| `media.md` | File types (JPG/PNG/GIF/PDF only — no video), permanent delete, no linking to encounters |
+| `timeline.md` | Read-only, auto-generated only, no filtering |
+
+#### Practice Management
+
+| File | Key Changes |
+|------|-------------|
+| `sales.md` | Full 6-state machine (PENDING→CONFIRMED→EN PROCESO→ENVIADA→ENTREGADA/CANCELADA), 3 payment states, strict sequential transitions |
+| `purchases.md` | Mirror of sales with RECIBIDA as final state instead of ENTREGADA |
+| `cash-flow.md` | Two tabs (Movimientos + Estado de Resultados), 5 payment methods, "Por Realizar" concept, voice batch creation |
+| `clients.md` | Distinct from patients, RFC field, no consolidated history |
+| `suppliers.md` | Mirror of clients for purchase side |
+| `products.md` | No inventory tracking, single price, no categories |
+| `areas.md` | **NEW** — INGRESO/EGRESO type immutable after creation, cascade delete to subareas, exact confirmation text |
+| `quotations.md` | **NEW** — 6 states (DRAFT/SENT/APPROVED/REJECTED/EXPIRED/CANCELLED), "por vencer" warning (<7 days), PDF batch export, direct "convertir a venta" button |
+
+#### Other Modules
+
+| File | Key Changes |
+|------|-------------|
+| `blog.md` | DRAFT/PUBLISHED states, slug locked after publishing, TipTap editor, stats widget |
+| `pendientes.md` | **NEW** — due date is REQUIRED, 30-min time increments, exact error messages, conflict dialog wording ("⚠️ Conflicto de Horario"), 7 categories with colors, 4 statuses, calendar+list views |
+| `profile.md` | **NEW** — 7 tabs, identity fields read-only (admin-only), conditions/procedures in Clínica tab (not Servicios), bio max 300 chars, experience 1–60, service duration 1–480 min |
+
+#### Features
+
+| File | Key Changes |
+|------|-------------|
+| `features/navigation.md` | Full sidebar structure with pendientes and mi-perfil; all 35+ URLs documented |
+| `modules/medical-records/overview.md` | Removed false "filter by event type" for timeline |
+| `modules/practice-management/overview.md` | Added cotizaciones and areas to module list and capability matrix |
+
+---
+
+### 4D — `sync.ts` Created
+
+**File:** `apps/doctor/src/lib/llm-assistant/sync.ts`
+
+The CLI script `scripts/docs-sync.ts` was importing from this file but it didn't exist. Created it with:
+
+- `syncAll(options?)` — wraps `runIngestionPipeline`, groups results by module
+- `syncModule(moduleId, options?)` — syncs a single module
+- `listModules()` — queries DB for chunk/file counts per module
+- `getStatus()` — aggregate stats (total chunks, files, modules, cache entries)
+- `showHistory(moduleId?)` — version history from `llm_docs_versions` table
+
+This makes `pnpm docs:sync-all --force` fully operational.
+
+---
+
+## 5. File-by-File Reference
 
 ```
 apps/doctor/src/lib/llm-assistant/
 │
-├── capabilities.ts              ← NEW — the capability map (primary source of truth)
-├── types.ts                     ← MODIFIED — added UIContext, extended UserQuery
-├── constants.ts                 ← MODIFIED — TOKEN_BUDGET_CAPABILITIES, DOCS_SKIP_FILES
+├── capabilities.ts              ← CREATED (Ph1) + UPDATED (Ph3) — primary source of truth
+├── sync.ts                      ← CREATED (Ph3) — CLI sync functions
+├── types.ts                     ← MODIFIED (Ph2) — added UIContext, extended UserQuery
+├── constants.ts                 ← MODIFIED (Ph2) — TOKEN_BUDGET_CAPABILITIES, DOCS_SKIP_FILES
+├── modules.ts                   ← MODIFIED (Ph3) — added pendientes, profile, bookings, areas, quotations
 │
 ├── query/
-│   ├── pipeline.ts              ← MODIFIED — threads UIContext, builds capability map
-│   ├── prompt-assembler.ts      ← MODIFIED — injects capability map + UI context
+│   ├── pipeline.ts              ← MODIFIED (Ph2) — threads UIContext, builds capability map
+│   ├── prompt-assembler.ts      ← MODIFIED (Ph2) — injects capability map + UI context
 │   ├── retriever.ts             ← unchanged
 │   ├── module-detector.ts       ← unchanged
-│   ├── cache.ts                 ← unchanged (cache key logic moved to pipeline)
+│   ├── cache.ts                 ← unchanged
 │   ├── deduplicator.ts          ← unchanged
 │   └── memory.ts                ← unchanged
 │
-├── ingestion/
-│   └── pipeline.ts              ← unchanged
-│
-├── sync/
-│   └── index.ts                 ← unchanged
-│
-├── embedding.ts                 ← unchanged
-├── llm-client.ts                ← unchanged
-├── db.ts                        ← unchanged
-├── modules.ts                   ← unchanged (see Phase 3 — needs new modules added)
-├── tokenizer.ts                 ← unchanged
-└── errors.ts                    ← unchanged
+└── ingestion/
+    └── pipeline.ts              ← unchanged
 
 apps/doctor/src/
-├── app/api/llm-assistant/chat/route.ts   ← MODIFIED — accepts uiContext
-└── hooks/useLlmChat.ts                   ← MODIFIED — sends currentPath
+├── app/api/llm-assistant/chat/route.ts   ← MODIFIED (Ph2) — accepts uiContext
+└── hooks/useLlmChat.ts                   ← MODIFIED (Ph2) — sends currentPath
+
+docs/llm-assistant/
+├── index.md                              ← unchanged
+├── faq.md                                ← unchanged
+├── features/
+│   ├── voice-assistant.md                ← unchanged (accurate)
+│   └── navigation.md                     ← UPDATED (Ph3) — full URL list + sidebar structure
+├── modules/
+│   ├── blog.md                           ← REWRITTEN (Ph3)
+│   ├── pendientes.md                     ← CREATED (Ph3)
+│   ├── profile.md                        ← CREATED (Ph3)
+│   ├── medical-records/
+│   │   ├── overview.md                   ← UPDATED (Ph3) — fixed timeline description
+│   │   ├── encounters.md                 ← REWRITTEN (Ph3)
+│   │   ├── prescriptions.md              ← REWRITTEN (Ph3)
+│   │   ├── patients.md                   ← REWRITTEN (Ph3)
+│   │   ├── media.md                      ← REWRITTEN (Ph3)
+│   │   └── timeline.md                   ← REWRITTEN (Ph3)
+│   ├── appointments/
+│   │   ├── slots.md                      ← REWRITTEN (Ph3)
+│   │   ├── bookings.md                   ← REWRITTEN (Ph3)
+│   │   └── create-slots.md               ← CREATED (Ph3)
+│   └── practice-management/
+│       ├── overview.md                   ← UPDATED (Ph3) — added areas, quotations
+│       ├── sales.md                      ← REWRITTEN (Ph3)
+│       ├── purchases.md                  ← REWRITTEN (Ph3)
+│       ├── cash-flow.md                  ← REWRITTEN (Ph3)
+│       ├── clients.md                    ← REWRITTEN (Ph3)
+│       ├── suppliers.md                  ← REWRITTEN (Ph3)
+│       ├── products.md                   ← REWRITTEN (Ph3)
+│       ├── areas.md                      ← CREATED (Ph3)
+│       └── quotations.md                 ← CREATED (Ph3)
 ```
 
 ---
 
-## 5. How the System Works End-to-End
+## 6. How the System Works End-to-End
 
 ### Request Flow
 
@@ -261,30 +374,40 @@ apps/doctor/src/
 System prompt:
   Role + rules          ~300 tokens
   Module list           ~200 tokens
-  Capability map        ≤700 tokens  ← new
+  Capability map        ≤700 tokens
   Memory                ≤300 tokens
-  UI context            ~20 tokens   ← new
+  UI context            ~20 tokens
 
 User turn:
-  RAG docs              ≤2500 tokens (was 3000)
+  RAG docs              ≤2500 tokens
   Question              ≤200 tokens
 
 Total:                  ~4220 tokens  (gpt-4o-mini: 128K context, no issue)
 Output:                 ≤1024 tokens
 ```
 
-### Cache Key Change
+### Cache Key
 
 **Before:** `SHA256("¿por qué no puedo cerrar el horario?")`
 **After:** `SHA256("[/appointments] ¿por qué no puedo cerrar el horario?")`
 
-Same question on `/appointments` vs `/dashboard/medical-records` now gets separate cache entries, allowing context-appropriate answers.
+Same question on different pages gets separate cache entries, allowing context-appropriate answers.
 
 ---
 
-## 6. The Capability Map — Full Reference
+## 7. The Capability Map — Full Reference
 
 **File:** `apps/doctor/src/lib/llm-assistant/capabilities.ts`
+
+### Modules Covered
+
+| Module ID | Display Name | Routes | Entities |
+|-----------|-------------|--------|----------|
+| `appointments` | Citas | `/appointments` | Horario (Slot), Reservación (Booking) |
+| `medical-records` | Expedientes Médicos | `/dashboard/medical-records/*` | Paciente, Consulta, Prescripción, Multimedia |
+| `practice-management` | Gestión de Consultorio | `/dashboard/practice/*` | Venta, Cotización, Compra, Movimiento, Área, Producto, Cliente/Proveedor |
+| `pendientes` | Pendientes | `/dashboard/pendientes` | Tarea (Pendiente) |
+| `profile` | Mi Perfil | `/dashboard/mi-perfil` | Perfil Público |
 
 ### How to Add a New Module
 
@@ -313,22 +436,6 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
 };
 ```
 
-### How to Add a New Entity to an Existing Module
-
-Find the module in `CAPABILITY_MAP` and add a new key to `entities`:
-
-```typescript
-'medical-records': {
-  entities: {
-    // existing entities...
-    'New Entity': {
-      states: '...',
-      actions: { ... },
-    },
-  },
-},
-```
-
 ### How to Add a New URL → Module Mapping
 
 Update `getModulesFromPath()` at the bottom of `capabilities.ts`:
@@ -339,7 +446,8 @@ export function getModulesFromPath(path: string): string[] {
   if (path.startsWith('/dashboard/medical-records')) return ['medical-records'];
   if (path.startsWith('/dashboard/practice')) return ['practice-management'];
   if (path.startsWith('/dashboard/blog')) return ['blog'];
-  if (path.startsWith('/dashboard/pendientes')) return ['pendientes'];  // ← add new
+  if (path.startsWith('/dashboard/pendientes')) return ['pendientes'];
+  if (path.startsWith('/dashboard/mi-perfil')) return ['profile'];
   return [];
 }
 ```
@@ -363,289 +471,76 @@ Estados: Disponible (isOpen=true, sin reservas) | Lleno (isOpen=true, reservas a
     ❌ BLOQUEADO: El horario tiene reservas activas (currentBookings > 0).
     → SOLUCIÓN: Primero cancela las reservas activas desde "Citas Reservadas", luego ciérralo.
     ℹ Mensaje exacto: "No se puede cerrar este horario porque tiene N reserva(s) activa(s). Por favor cancela las reservas primero."
-
-[Reservación (Booking)]
-Transiciones: PENDING → Confirmar o Cancelar | CONFIRMED → Completada, No Asistió, o Cancelar | COMPLETED/CANCELLED/NO_SHOW → sin acciones
-  · cancelar:
-    ✅ Desde PENDING o CONFIRMED.
-    ❌ BLOQUEADO: Estado es COMPLETED, CANCELLED o NO_SHOW.
-    ℹ Al cancelar la reservación el horario vuelve a estado Disponible.
 ```
 
----
+### RAG Doc Writing Guidelines
 
-## 7. What Still Needs to Be Built (Phase 3)
-
-Phase 3 has two components that must both be done for the system to reach full expert quality:
-
-### 3A — Update `modules.ts` (Add Missing Modules)
-
-The module list drives keyword detection AND determines which RAG docs get retrieved. These modules exist in the app but have no entries in `modules.ts` or docs in `docs/llm-assistant/`:
-
-| Missing Module | Routes | What it covers |
-|----------------|--------|----------------|
-| `pendientes` | `/dashboard/pendientes` | Task management — PENDIENTE/EN_PROGRESO/COMPLETADA/CANCELADA, priority (ALTA/MEDIA/BAJA), linked patients, time conflicts |
-| `profile` | `/dashboard/profile` (implied) | Doctor public profile — general info, clinic, education, services, FAQs, social links, color palette, reviews, media |
-| `audiovisual` | `/dashboard/contenido-audiovisual` | Audiovisual content management |
-| `dashboard` | `/` | Home dashboard — recent activity table, day details widget, stats |
-
-**How to add to `modules.ts`:**
-```typescript
-{
-  id: 'pendientes',
-  name: 'Pendientes y Tareas',
-  description: 'Gestión de tareas y pendientes del consultorio con prioridades y fechas límite',
-  keywords: [
-    'pendiente', 'tarea', 'tareas', 'pendientes', 'recordatorio',
-    'prioridad', 'alta', 'media', 'baja', 'completar', 'vencimiento',
-    'EN_PROGRESO', 'COMPLETADA', 'CANCELADA',
-  ],
-  submodules: [],
-  filePaths: ['docs/llm-assistant/modules/pendientes.md'],
-},
-```
-
-Also add to `CAPABILITY_MAP` in `capabilities.ts`:
-```typescript
-pendientes: {
-  name: 'Pendientes',
-  routes: ['/dashboard/pendientes'],
-  entities: {
-    'Tarea (Pendiente)': {
-      states: 'PENDIENTE | EN_PROGRESO | COMPLETADA | CANCELADA',
-      actions: {
-        crear: { allowedIf: 'Siempre.' },
-        editar: { allowedIf: 'Siempre.' },
-        eliminar: { allowedIf: 'Siempre — requiere confirmación.' },
-        'vincular a paciente': { notes: 'Opcional. Aparece en el perfil del paciente vinculado.' },
-        'conflicto de horario': {
-          notes:
-            'El DayDetailsModal detecta automáticamente conflictos entre pendientes y citas reservadas en el mismo horario. ' +
-            'Es solo una advertencia informativa — no bloquea ninguna acción.',
-        },
-      },
-    },
-  },
-},
-```
-
----
-
-### 3B — Rewrite RAG Documentation (Module by Module)
-
-The existing docs in `docs/llm-assistant/modules/` are outdated and too generic. They need to be rewritten with:
-
-- Exact current UI labels and button names
-- All current form fields with validation rules
-- All error messages (exact text)
+Every doc should have field-level accuracy:
+- Exact current UI button labels and field names
+- All form fields with required/optional status and validation rules
+- Exact error messages (copy-pasted from source, not paraphrased)
 - Step-by-step flows using real navigation paths
-- Edge cases and common points of confusion
-- No duplicate rules (rules live in `capabilities.ts` — docs explain the *why* and the *how*, not the *what is allowed*)
-
-**Priority order for rewrite (highest impact first):**
-
-| # | File | Why high priority | Current quality |
-|---|------|-------------------|-----------------|
-| 1 | `appointments/slots.md` | Most user confusion | OK but missing bulk actions, voice flow, conflict on create |
-| 2 | `appointments/bookings.md` | Critical flows | OK but missing NO_SHOW, booking → encounter link |
-| 3 | `medical-records/encounters.md` | Complex — SOAP, templates, versions | Outdated — missing AI chat, template system details |
-| 4 | `medical-records/prescriptions.md` | High stakes — PDF, status lifecycle | Outdated — missing AI chat, cancel flow details |
-| 5 | `practice-management/sales.md` | Daily use | Outdated — missing inline edit, bulk PDF export |
-| 6 | `practice-management/cash-flow.md` | Complex areas/subareas | Outdated — missing voice batch, area type constraint |
-| 7 | `medical-records/patients.md` | Foundation | Mostly OK |
-| 8 | `practice-management/purchases.md` | Similar to sales | Outdated |
-| 9 | `practice-management/clients.md` | Mostly simple | OK |
-| 10 | `practice-management/suppliers.md` | Mostly simple | OK |
-| 11 | `medical-records/media.md` | Media constraints | Missing file size limits, body areas |
-| 12 | `blog.md` | Lower traffic | Unknown state |
-| 13 | `features/voice-assistant.md` | Cross-module | Missing new flows |
-| 14 | `features/navigation.md` | Cross-module | May be OK |
-
-**NEW docs that need to be created (don't exist yet):**
-
-| File to create | Content |
-|----------------|---------|
-| `modules/pendientes.md` | Full pendientes module — statuses, priority system, time conflict detection, patient linking |
-| `modules/profile.md` | Doctor profile sections — general info, clinic, education, services, FAQs, social, colors, media, reviews |
-| `modules/appointments/create-slots.md` | Deep dive into CreateSlotsModal — single vs recurring, break config, conflict detection on create, voice flow |
-| `modules/practice-management/quotations.md` | Cotizaciones — status machine, create from client, link to sale |
-| `modules/practice-management/areas.md` | Areas and subareas — immutable type rule, cascade delete, subarea management |
+- No duplicate rules (rules live in `capabilities.ts` — docs explain the *why* and the *how*)
 
 ---
 
-### 3C — Spec for Each Doc Rewrite
+## 8. Re-Ingestion Instructions
 
-#### `appointments/slots.md` — What to add/fix
+After any doc changes, re-ingest to rebuild the pgvector index.
 
-**Currently missing:**
-- Bulk actions (Cerrar/Abrir/Eliminar múltiples) and their constraints
-- Voice assistant flow for creating slots (VoiceRecordingModal → VoiceChatSidebar → CreateSlotsModal)
-- CreateSlotsModal: Single Day vs Recurring mode distinction
-- Recurring: day-of-week picker, date range, preview count
-- Break configuration in CreateSlotsModal
-- Conflict detection on create: what happens when a conflicting slot exists (409 response, option to replace)
-- Discount types: PERCENTAGE vs FIXED
-- `finalPrice` calculation formula
-- `maxBookings` field — a slot can have multiple bookings (not just 1)
-- Calendar dots indicate days with slots
-- List view vs Calendar view differences
-- "Ver todos" toggle (show all months vs single day)
-
-#### `appointments/bookings.md` — What to add/fix
-
-**Currently missing:**
-- All 5 booking statuses: PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW
-- Exact status transitions and available action buttons per status
-- `patientWhatsapp` field in booking data
-- `confirmationCode` format and use
-- Day Details Modal shows bookings alongside tasks — conflict detection
-- DayDetailsWidget floating button with badge count
-- After attending a booking — no automatic link to medical records, must create encounter manually
-
-#### `medical-records/encounters.md` — What to add/fix
-
-**Currently missing:**
-- AI Chat panel (indigo "Chat IA" button) — real-time field suggestions from AI
-- Voice assistant for encounters (currently shown as disabled on new encounter page)
-- Full SOAP field structure: S (Subjetivo), O (Objetivo), A (Evaluación), P (Plan) with exact hints
-- Vitals: all 7 fields, their units, valid ranges (e.g., temperature 30-45°C, O2 0-100%)
-- BMI auto-calculation from weight + height, with categories
-- Template system: useSOAPMode toggle, fieldVisibility object — which template shows which fields
-- Custom templates vs standard templates — different required fields
-- Version history: auto-created on every edit, accessible from /versions page
-- Encounter updates patient's `lastVisitDate` automatically
-- `encounterType` options: consultation, follow-up, emergency, telemedicine
-
-#### `medical-records/prescriptions.md` — What to add/fix
-
-**Currently missing:**
-- AI Chat panel for prescriptions
-- Medication validation rules: needs drugName + dosage + frequency + instructions to be "valid"
-- Cancellation flow requires a reason (mandatory text field)
-- `expiresAt` field — prescription can expire automatically
-- `encounterId` optional link to encounter
-- PDF opens in new browser tab (window.open '_blank')
-- Status badges: exact colors (yellow=draft, green=issued, red=cancelled, gray=expired)
-- `doctorLicense` is labeled "Cédula Profesional" in the UI
-
-#### `practice-management/sales.md` — What to add/fix
-
-**Currently missing:**
-- Inline amount editing (click the Cobrado column value to edit)
-- Payment status auto-calculation: 0=PENDING, partial=PARTIAL, full=PAID
-- PDF export requires checkbox selection first
-- All 6 sale statuses and exact transitions
-- Item types: "service" (default) vs "product"
-- Item unit options: servicio, pza, kg, lt, hora, sesion
-- AI chat panel for creating/editing sales
-- Voice batch creation for multiple sales at once
-
-#### `practice-management/cash-flow.md` — What to add/fix
-
-**Currently missing:**
-- Area type is immutable — this is the most important rule and must be prominent
-- Deleting an area cascades to all subareas
-- 5 payment methods: efectivo, transferencia, tarjeta, cheque, depósito
-- Voice batch entry — multiple movements detected in one dictation
-- Batch entry preview UI (BatchEntryList component)
-- Filtering: by entry type, por realizar, date range
-- Concept max 500 characters
-- transactionType field (inferred from context: "Sale", "Purchase", "N/A")
-
----
-
-## 8. RAG Doc Rewrite Spec
-
-### Writing Guidelines for All Docs
-
-Every rewritten doc should follow this structure:
-
-```markdown
-# [Module Name] — [Entity/Feature]
-
-## Qué es
-One paragraph explaining what this is and why it exists.
-
-## Acceso
-Exact navigation path: Menu item → Submenu → Page name
-URL: /exact/url/path
-
-## Estados [if entity has states]
-| Estado | Color/Badge | Significado | Acciones disponibles |
-|--------|-------------|-------------|---------------------|
-| ...    | ...         | ...         | ...                 |
-
-## Flujos principales
-
-### [Flow 1 Name]
-Step by step using exact UI button labels.
-Note any preconditions.
-Note what happens after (side effects).
-
-### [Flow 2 Name]
-...
-
-## Campos del formulario [for create/edit forms]
-| Campo | Tipo | Requerido | Validación | Placeholder/Ejemplo |
-|-------|------|-----------|-----------|---------------------|
-| ...   | ...  | ...       | ...       | ...                 |
-
-## Mensajes de error
-List every error message the user can see (exact text).
-
-## Preguntas frecuentes
-Q&A format for the top 5-8 questions users will actually ask.
-
-## Lo que NO es posible
-Explicit list of limitations (things users try and can't do).
-```
-
-### What NOT to Put in Docs
-
-- Do not duplicate rules that are already in `capabilities.ts` — the LLM will use the capability map for those
-- Do not say "you cannot delete a reserved slot" without also explaining the flow to fix it (that's the capability map's job)
-- Do not put developer notes, API specs, or database details — user-facing content only
-
----
-
-## 9. Re-Ingestion Instructions
-
-After completing Phase 3 doc rewrites, re-ingest the updated docs into pgvector:
-
-### Development (Local Machine → Railway pgvector)
+### CLI (recommended)
 
 ```bash
-# Ensure LLM_DATABASE_URL is set in apps/doctor/.env.local
-# Then hit the ingest endpoint (requires admin auth):
-curl -X POST http://localhost:3000/api/llm-assistant/ingest \
-  -H "Content-Type: application/json" \
-  -H "Cookie: [admin session cookie]"
+# Force full re-sync of all modules (ignores hash cache):
+pnpm docs:sync-all --force
+
+# Sync only one module after targeted edits:
+pnpm docs:sync medical-records
+pnpm docs:sync pendientes
+
+# Check current status:
+pnpm docs:status
+
+# List all modules with chunk counts:
+pnpm docs:list
 ```
 
-Or trigger from the admin panel if one exists.
+### API Endpoint (alternative — requires admin auth)
+
+```bash
+curl -X POST http://localhost:3001/api/llm-assistant/ingest \
+  -H "Content-Type: application/json" \
+  -H "Cookie: [admin session cookie]" \
+  -d '{"force": true}'
+```
 
 ### What the Ingestion Does
 
-1. Scans all files in `docs/llm-assistant/` (skips `DOCS_SKIP_FILES`)
+1. Scans all `.md` files in `docs/llm-assistant/` (skips `DOCS_SKIP_FILES`)
 2. For each file: checks SHA-256 hash against `llm_docs_file_hashes` table
-3. If changed: deletes old chunks, generates new embeddings, inserts new chunks
-4. If unchanged: skips (incremental sync)
+3. If changed: deletes old chunks, generates new embeddings (OpenAI `text-embedding-3-small`), inserts new chunks in `llm_docs_chunks`
+4. Updates `llm_module_summaries` embeddings for all modules in `MODULE_DEFINITIONS`
+5. Unchanged files are skipped (incremental — fast)
 
-### After Ingestion
+### Verify After Ingestion
 
-Verify with a few test questions in the chat widget:
-- "¿Cómo creo una receta?" → should describe the full prescription creation flow
-- "¿Por qué no puedo editar esta receta?" → capability map should answer (no RAG needed)
-- "¿Qué es el SOAP?" → RAG should answer
-- "¿Por qué no puedo cerrar el horario?" → capability map answer + RAG for context
+Test these questions in the chat widget:
+
+| Question | Expected source |
+|----------|----------------|
+| "¿Cómo creo una receta?" | RAG: prescriptions.md |
+| "¿Por qué no puedo editar esta receta?" | Capability map (no RAG needed) |
+| "¿Qué es el SOAP?" | RAG: encounters.md |
+| "¿Por qué no puedo cerrar el horario?" | Capability map + RAG |
+| "¿Dónde están las cotizaciones?" | RAG: navigation.md + quotations.md |
+| "¿Puedo cambiar el tipo de un área?" | Capability map: areas entity |
+| "¿Cómo agrego una tarea pendiente?" | RAG: pendientes.md |
 
 ---
 
-## 10. Future Roadmap (Post Phase 3)
+## 9. Future Roadmap (Post Phase 3)
 
-These are ideas from the original design brief that go beyond the current implementation. Listed in order of impact:
-
-### 10.1 — Entity-Level UI Context
+### 9.1 — Entity-Level UI Context
 
 Currently we send `currentPath: "/appointments"` — the module level.
 
@@ -655,75 +550,67 @@ The next level is entity-level context: "User is viewing slot #42, which has sta
 > "¿Por qué no puedo cerrar ESTE horario?" → "Porque el horario que tienes seleccionado tiene 2 reservas activas. Para cerrarlo debes cancelar la reserva de [PatientName] primero."
 
 **How to implement:**
-1. When user opens a slot/booking/sale detail, capture the entity state
-2. Pass it in `uiContext`:
-   ```typescript
-   uiContext: {
-     currentPath: '/appointments',
-     entity: {
-       type: 'slot',
-       id: slot.id,
-       status: slot.isOpen ? (slot.currentBookings > 0 ? 'booked' : 'open') : 'closed',
-       currentBookings: slot.currentBookings,
-     }
-   }
-   ```
-3. Update `UIContext` type in `types.ts`
-4. Format in `prompt-assembler.ts`: "Usuario está viendo: Horario del 15 Feb 10:00-11:00 — Estado: Reservado (2 reservas activas)"
+```typescript
+uiContext: {
+  currentPath: '/appointments',
+  entity: {
+    type: 'slot',
+    id: slot.id,
+    status: slot.isOpen ? (slot.currentBookings > 0 ? 'booked' : 'open') : 'closed',
+    currentBookings: slot.currentBookings,
+  }
+}
+```
 
-### 10.2 — Action Agent (Execute, Don't Just Guide)
+### 9.2 — Action Agent (Execute, Don't Just Guide)
 
-Currently the assistant only explains. The next evolution is an agent that can actually take actions:
+Currently the assistant only explains. The next evolution is an agent that can take actions:
 
 ```
 User: "Cancela la reservación de María García"
-Agent: [looks up booking] → [calls PATCH /api/appointments/bookings/{id} with status CANCELLED]
+Agent: [looks up booking] → [PATCH /api/appointments/bookings/{id}]
        "Listo, cancelé la reservación de María García para el 15 de febrero."
 ```
 
-**Requires:**
-- New system prompt mode: "agent" vs "guide"
-- Tool calling via OpenAI function calling
-- The `CAPABILITY_MAP` becomes the permission system for the agent (if `blockedIf` conditions are met, agent refuses)
-- Careful confirmation flows before destructive actions
+**Requires:** Tool calling via OpenAI function calling. The `CAPABILITY_MAP` becomes the permission system — `blockedIf` conditions prevent the agent from taking forbidden actions.
 
-### 10.3 — Proactive Suggestions
+### 9.3 — Proactive Suggestions
 
-When the user navigates to a page with blocked actions, the assistant could proactively surface a tip:
+When the user navigates to a page with blocked actions, the assistant proactively surfaces a tip:
 
 > "Veo que tienes 3 horarios con reservaciones activas. Si quieres cerrarlos, primero cancela las reservas."
 
-**Requires:** Page-level hooks that check state and trigger pre-emptive messages.
-
-### 10.4 — Onboarding Flows
+### 9.4 — Onboarding Flows
 
 Use the capability map + UI context to guide new doctors through setup:
 
 > "Veo que aún no has creado horarios. ¿Quieres que te guíe? Es fácil: 1. Abre Citas → 2. Click en Crear Horarios..."
 
-### 10.5 — Error Message Interception
+### 9.5 — Error Message Interception
 
-When the app shows an error toast (e.g., "No se puede cerrar este horario..."), the chat widget could automatically offer help:
+When the app shows an error toast, the chat widget automatically offers help:
 
 > "Veo que tuviste un error. ¿Quieres que te explique cómo resolverlo?"
 
-**Requires:** Error event system that communicates from the app to the ChatWidget.
+**Requires:** Error event system communicating from the app to the ChatWidget.
 
 ---
 
-## Quick Reference — Capability Map Modules
+## Quick Reference — All Modules
 
-| Module ID | Display Name | Routes | Status |
-|-----------|-------------|--------|--------|
-| `appointments` | Citas | `/appointments` | ✅ Complete |
-| `medical-records` | Expedientes Médicos | `/dashboard/medical-records/*` | ✅ Complete |
-| `practice-management` | Gestión de Consultorio | `/dashboard/practice/*` | ✅ Complete |
-| `blog` | Blog | `/dashboard/blog` | ⚠️ Not in capability map |
-| `pendientes` | Pendientes | `/dashboard/pendientes` | ❌ Missing — Phase 3 |
-| `profile` | Perfil del Médico | `/dashboard/profile` | ❌ Missing — Phase 3 |
-| `audiovisual` | Contenido Audiovisual | `/dashboard/contenido-audiovisual` | ❌ Missing — Phase 3 |
-| `navigation` | Navegación | (global) | ⚠️ RAG only — no rules needed |
-| `general` | General | (global) | ⚠️ RAG only — no rules needed |
+| Module ID | Display Name | Routes | Capability Map | RAG Docs |
+|-----------|-------------|--------|----------------|----------|
+| `appointments` | Citas | `/appointments` | ✅ Complete | ✅ Rewritten (Ph3) |
+| `medical-records` | Expedientes Médicos | `/dashboard/medical-records/*` | ✅ Complete | ✅ Rewritten (Ph3) |
+| `practice-management` | Gestión de Consultorio | `/dashboard/practice/*` | ✅ Complete | ✅ Rewritten (Ph3) |
+| `pendientes` | Pendientes | `/dashboard/pendientes` | ✅ Added (Ph3) | ✅ Created (Ph3) |
+| `profile` | Mi Perfil | `/dashboard/mi-perfil` | ✅ Added (Ph3) | ✅ Created (Ph3) |
+| `blog` | Blog | `/dashboard/blog` | ⚠️ RAG only | ✅ Rewritten (Ph3) |
+| `voice-assistant` | Asistente de Voz | (global feature) | ⚠️ RAG only | ✅ Accurate |
+| `navigation` | Navegación | (global) | ⚠️ RAG only | ✅ Updated (Ph3) |
+| `general` | General | (global) | ⚠️ RAG only | ✅ Accurate |
+
+**⏳ Pending:** Run `pnpm docs:sync-all --force` to re-ingest all Phase 3 docs into pgvector.
 
 ---
 

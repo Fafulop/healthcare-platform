@@ -1,97 +1,87 @@
 # Clientes
 
-## Propósito
+## Qué es
 
-Permite gestionar la base de datos de clientes comerciales del consultorio, para uso en ventas y cotizaciones.
+El módulo de Clientes gestiona la base de datos de clientes comerciales del consultorio — empresas o personas a quienes el médico vende productos o servicios. Son distintos de los **pacientes** (expedientes médicos).
 
 ## Acceso
 
-**Ruta:** Menú lateral > Gestión de Consultorio > Ventas > Botón "Clientes"
-
+**Ruta:** Menú lateral > Gestión de Consultorio > Ventas > botón "Clientes"
 **URL:** `/dashboard/practice/clients`
 
 ---
 
-## Funcionalidades
+## Ver Lista de Clientes
 
-### 1. Ver Lista de Clientes
-
-**URL:** `/dashboard/practice/clients`
-
-**Información por cliente:**
-- Razón Social / Nombre del negocio
-- Nombre de contacto
-- Email
-- Teléfono
-- RFC (si aplica)
+**Información visible por cliente:**
+| Campo | Descripción |
+|-------|-------------|
+| Razón Social | Nombre del negocio o persona |
+| Nombre de Contacto | Persona de contacto en el cliente |
+| Email | Correo electrónico |
+| Teléfono | Número de contacto |
+| RFC | Registro Federal de Contribuyentes (si se capturó) |
 
 **Acciones disponibles:**
-- Buscar clientes
+- Buscar clientes por nombre
 - Editar cliente
 - Eliminar cliente
 
 ---
 
-### 2. Crear Nuevo Cliente
+## Crear Nuevo Cliente
 
 **URL:** `/dashboard/practice/clients/new`
 
-#### Campos del Formulario
+### Campos del Formulario
 
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Razón Social | **Sí** | Nombre del negocio o persona |
-| Nombre de Contacto | No | Persona de contacto |
-| Email | No | Correo electrónico |
-| Teléfono | No | Número de contacto |
-| RFC | No | Registro Federal de Contribuyentes |
-| Dirección | No | Dirección fiscal |
+| Razón Social | Sí | Nombre del negocio o persona física |
+| Nombre de Contacto | No | Persona de contacto dentro del cliente |
+| Email | No | Correo electrónico de contacto |
+| Teléfono | No | Número de teléfono |
+| RFC | No | Para datos fiscales y facturación externa |
+| Dirección | No | Calle y número |
 | Ciudad | No | Ciudad |
-| Estado | No | Estado/Provincia |
-| Código Postal | No | CP |
-| Notas | No | Notas adicionales |
+| Estado/Provincia | No | Estado o provincia |
+| Código Postal | No | Código postal |
+| Notas | No | Notas adicionales sobre el cliente |
 
-#### Paso a Paso
+### Paso a Paso
 
-1. Ir a **Clientes** (desde el módulo de Ventas)
-2. Click en **"Nuevo Cliente"**
-3. Ingresar la razón social
+1. Ir a **Clientes** (desde Ventas en el menú lateral)
+2. Clic en **"Nuevo Cliente"**
+3. Ingresar la razón social (obligatorio)
 4. Completar datos de contacto
-5. Opcionalmente agregar datos fiscales
-6. Click en **"Crear Cliente"**
+5. Opcionalmente agregar datos fiscales (RFC, dirección)
+6. Clic en **"Crear Cliente"**
 
 ---
 
-### 3. Editar Cliente
+## Editar Cliente
 
 **URL:** `/dashboard/practice/clients/[id]/edit`
 
-#### Paso a Paso
-
-1. En la lista de clientes, click en **"Editar"**
+1. En la lista, clic en **"Editar"** del cliente
 2. Modificar los campos necesarios
-3. Click en **"Guardar Cambios"**
+3. Clic en **"Guardar Cambios"**
 
 ---
 
-### 4. Eliminar Cliente
+## Eliminar Cliente
 
-#### Paso a Paso
-
-1. En la lista de clientes, localizar el cliente
-2. Click en el botón de eliminar (papelera)
-3. Confirmar la eliminación
-
-**Precaución:** Si el cliente tiene ventas asociadas, podría afectar el historial.
+1. En la lista, clic en el ícono de papelera
+2. Confirmar la eliminación
+3. **Precaución:** Si el cliente tiene ventas asociadas, puede afectar el historial de esas ventas
 
 ---
 
 ## Uso de Clientes
 
-Los clientes registrados se utilizan al:
-- Crear ventas (seleccionar cliente)
-- Crear cotizaciones (seleccionar cliente)
-- Ver historial de transacciones
+Los clientes se seleccionan al:
+- Crear una nueva venta (campo "Cliente" — obligatorio)
+- Crear una cotización (campo "Cliente" — obligatorio)
 
 ---
 
@@ -99,42 +89,37 @@ Los clientes registrados se utilizan al:
 
 | Aspecto | Clientes | Pacientes |
 |---------|----------|-----------|
-| Propósito | Transacciones comerciales | Atención médica |
-| Ubicación | Gestión de Consultorio | Expedientes Médicos |
-| Datos | Fiscales y comerciales | Médicos y personales |
-| Uso | Ventas, Compras | Consultas, Recetas |
+| Propósito | Transacciones comerciales | Atención médica clínica |
+| Módulo | Gestión de Consultorio | Expedientes Médicos |
+| Datos capturados | Fiscales, comerciales | Médicos, personales |
+| Uso en | Ventas, Cotizaciones | Consultas, Recetas |
 
-Un **paciente** puede también ser **cliente** si le vendes productos o servicios facturables. Son registros separados.
+Un paciente puede también ser cliente si le vendes productos o servicios. Son registros **separados** — no están vinculados automáticamente.
 
 ---
 
-## Lo que el Usuario PUEDE Hacer
+## Restricciones del Sistema
 
-- Crear clientes ilimitados
-- Editar información de clientes
-- Eliminar clientes
-- Usar clientes en ventas y cotizaciones
-
-## Lo que el Usuario NO PUEDE Hacer
-
-- **Ver historial de compras del cliente** - No hay vista consolidada
-- **Enviar comunicaciones** - No hay función de email/mensaje
-- **Importar clientes** - No hay importación masiva
-- **Asignar vendedor** - No hay gestión de vendedores
-- **Límites de crédito** - No hay control de crédito
+| Acción | Estado |
+|--------|--------|
+| Ver historial completo de ventas de un cliente | ❌ Sin vista consolidada (filtrar en Ventas) |
+| Enviar comunicaciones al cliente desde la app | ❌ Sin función de mensajería |
+| Importar clientes desde Excel/CSV | ❌ Sin importación masiva |
+| Control de límites de crédito | ❌ No disponible |
+| Múltiples contactos por cliente | ❌ Solo un contacto (usar campo Notas para más) |
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Puedo crear una venta sin cliente?
-No, toda venta requiere un cliente. Primero crea el cliente y luego la venta.
+**¿Puedo crear una venta sin cliente?**
+No. Toda venta requiere un cliente existente. Si es nuevo, créalo primero.
 
-### ¿Los clientes son los mismos que los pacientes?
-No, son registros separados. Los clientes están en Gestión de Consultorio (para ventas) y los pacientes en Expedientes Médicos (para atención clínica).
+**¿Los clientes son los mismos que los pacientes?**
+No. Son registros completamente separados en módulos distintos.
 
-### ¿Puedo ver todas las ventas de un cliente?
-No directamente, pero puedes filtrar las ventas por nombre del cliente en la lista de ventas.
+**¿Puedo ver todas las ventas de un cliente?**
+No hay una vista consolidada por cliente. Puedes filtrar la lista de Ventas por nombre del cliente.
 
-### ¿Necesito el RFC del cliente?
+**¿Necesito el RFC del cliente?**
 No es obligatorio, pero es útil si necesitas datos fiscales para facturación externa.

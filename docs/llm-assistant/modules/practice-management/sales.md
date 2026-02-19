@@ -1,164 +1,143 @@
 # Ventas
 
-## Propósito
+## Qué es
 
-Permite registrar y dar seguimiento a las ventas realizadas a clientes, incluyendo estado de entrega y pagos.
+El módulo de Ventas permite registrar transacciones comerciales con clientes — venta de productos o servicios del consultorio. Cada venta tiene un folio, productos/servicios con precios, estado de entrega y estado de pago.
 
 ## Acceso
 
 **Ruta:** Menú lateral > Gestión de Consultorio > Ventas
-
 **URL:** `/dashboard/practice/ventas`
 
 ---
 
-## Funcionalidades
+## Panel de Resumen
 
-### 1. Ver Lista de Ventas
+En la parte superior de la lista de ventas:
 
-**URL:** `/dashboard/practice/ventas`
+| Tarjeta | Descripción |
+|---------|-------------|
+| Total Ventas | Suma de todas las ventas |
+| Cobrado | Total de pagos ya recibidos |
+| Pendiente | Monto por cobrar |
 
-**Panel de Resumen (parte superior):**
-- Total Ventas: Suma de todas las ventas
-- Cobrado: Total de pagos recibidos
-- Pendiente: Monto por cobrar
+---
+
+## Ver Lista de Ventas
+
+**Vistas:** Tabla (desktop) / Tarjetas (móvil)
 
 **Información por venta:**
-- Folio (número de venta)
-- Cliente
-- Fecha de venta
-- Fecha de entrega
-- Total
-- Estado de pago
-- Estado de venta
+| Campo | Descripción |
+|-------|-------------|
+| Folio | Número de venta generado automáticamente |
+| Cliente | Nombre del cliente |
+| Fecha de venta | Fecha de la transacción |
+| Fecha de entrega | Fecha estimada de entrega (si aplica) |
+| Total | Monto total de la venta |
+| Estado de pago | PENDIENTE / PARCIAL / PAGADA |
+| Estado de venta | Ver estados de venta abajo |
 
 **Filtros disponibles:**
-- Búsqueda por folio o cliente
+- Búsqueda por folio o nombre de cliente
 - Filtro por estado de venta
 - Filtro por estado de pago
 
-**Vistas:**
-- Desktop: Tabla completa
-- Móvil: Tarjetas
-
 ---
 
-### 2. Crear Nueva Venta
+## Crear Nueva Venta
 
 **URL:** `/dashboard/practice/ventas/new`
 
-#### Campos del Formulario
+### Campos del Formulario
 
-##### Información General
+#### Información General
+
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Cliente | **Sí** | Seleccionar de lista de clientes |
-| Fecha de Venta | **Sí** | Fecha de la transacción |
-| Fecha de Entrega | No | Fecha estimada de entrega |
-| Cotización | No | Vincular a cotización existente |
+| Cliente | Sí | Seleccionar de la lista de clientes existentes |
+| Fecha de Venta | Sí | Fecha de la transacción |
+| Fecha de Entrega | No | Fecha estimada de entrega al cliente |
+| Cotización | No | Vincular a una cotización existente |
 
-##### Productos/Servicios
-Para cada línea:
+#### Líneas de Productos/Servicios
+
+Para cada línea (una o más):
+
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Producto/Servicio | **Sí** | Descripción del ítem |
-| Cantidad | **Sí** | Número de unidades |
-| Precio Unitario | **Sí** | Precio por unidad |
-| Subtotal | Auto | Cantidad × Precio |
+| Producto/Servicio | Sí | Descripción del ítem vendido |
+| Cantidad | Sí | Número de unidades |
+| Precio Unitario | Sí | Precio por unidad |
+| Subtotal | Calculado | Cantidad × Precio Unitario |
 
-##### Totales
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Subtotal | Auto | Suma de líneas |
-| Impuesto (IVA) | No | Porcentaje de impuesto |
-| Total | Auto | Subtotal + Impuesto |
+**Botón "Agregar Línea":** añade una línea nueva al pedido.
 
-##### Pago
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Monto Pagado | No | Cantidad recibida |
-| Estado de Pago | Auto | Calculado según monto pagado |
+#### Totales
 
-#### Paso a Paso: Crear Venta Manualmente
+| Campo | Descripción |
+|-------|-------------|
+| Subtotal | Suma de todas las líneas |
+| Impuesto (IVA) | Porcentaje de impuesto (opcional) |
+| Total | Subtotal + Impuesto |
+
+#### Pago
+
+| Campo | Descripción |
+|-------|-------------|
+| Monto Pagado | Cantidad ya recibida (puede ser parcial o total) |
+| Estado de Pago | Calculado automáticamente según monto pagado |
+
+---
+
+## Crear Venta — Paso a Paso
+
+### Manual
 
 1. Ir a **Ventas** en el menú lateral
-2. Click en **"Nueva Venta"**
+2. Clic en **"Nueva Venta"**
 3. Seleccionar el cliente
 4. Establecer la fecha de venta
 5. Agregar productos/servicios con cantidades y precios
 6. Verificar totales
 7. Registrar monto pagado si aplica
-8. Click en **"Crear Venta"**
+8. Clic en **"Crear Venta"**
 
-#### Paso a Paso: Crear Venta con Asistente de Voz
+### Con Asistente de Voz
 
-1. Ir a **Ventas**
-2. Click en **"Nueva Venta"**
-3. Click en el botón **"Asistente de Voz"**
-4. Dictar la información de la venta
-   - Ejemplo: "Venta para cliente Farmacia López, 10 cajas de guantes a 150 pesos cada una, 5 paquetes de gasas a 80 pesos, total con IVA"
-5. Revisar los datos extraídos
-6. Corregir si es necesario
-7. Click en **"Confirmar"**
-8. Completar información faltante
-9. Click en **"Crear Venta"**
+1. Ir a **Ventas** > **"Nueva Venta"**
+2. Clic en **"Asistente de Voz"**
+3. Dictar la información:
+   > *"Venta para Farmacia López, 10 cajas de guantes a 150 pesos, 5 paquetes de gasas a 80 pesos, total con IVA"*
+4. Revisar los datos extraídos y corregir si es necesario
+5. Clic en **"Confirmar"** → se pre-llena el formulario
+6. Completar información faltante
+7. Clic en **"Crear Venta"**
 
 ---
 
-### 3. Ver Detalle de Venta
+## Estados de la Venta
 
-**URL:** `/dashboard/practice/ventas/[id]`
+Los estados siguen un flujo secuencial **estricto** — no se pueden saltar estados.
 
-**Información mostrada:**
-- Datos del cliente
-- Folio de venta
-- Todas las líneas de productos
-- Totales desglosados
-- Historial de pagos
-- Estado actual
+| Estado | Descripción | Transiciones válidas |
+|--------|-------------|----------------------|
+| PENDIENTE | Venta registrada, sin confirmar | → CONFIRMADA, CANCELADA |
+| CONFIRMADA | Venta confirmada | → EN PROCESO, CANCELADA |
+| EN PROCESO | Preparando el pedido | → ENVIADA, CANCELADA |
+| ENVIADA | Pedido en camino al cliente | → ENTREGADA |
+| ENTREGADA | Pedido recibido por el cliente | Estado final — sin acciones |
+| CANCELADA | Venta cancelada | Estado final — sin acciones |
 
----
+**Cambiar estado:** Desde la lista de ventas usando el selector de estado por fila.
 
-### 4. Editar Venta
-
-**URL:** `/dashboard/practice/ventas/[id]/edit`
-
-**Campos editables:** Todos los campos de la venta
-
----
-
-### 5. Cambiar Estado de Venta
-
-Puedes cambiar el estado directamente desde la lista usando el selector de estado.
-
-#### Estados Disponibles
-
-| Estado | Descripción | Siguiente Estado Válido |
-|--------|-------------|------------------------|
-| PENDIENTE | Venta registrada, sin confirmar | CONFIRMADA, CANCELADA |
-| CONFIRMADA | Venta confirmada | EN PROCESO, CANCELADA |
-| EN PROCESO | Preparando pedido | ENVIADA, CANCELADA |
-| ENVIADA | Pedido en camino | ENTREGADA |
-| ENTREGADA | Pedido recibido por cliente | (Final) |
-| CANCELADA | Venta cancelada | (Final) |
-
-**Importante:** El sistema valida las transiciones. No puedes saltar estados (ej: de PENDIENTE directo a ENVIADA).
-
----
-
-### 6. Eliminar Venta
-
-#### Paso a Paso
-
-1. En la lista de ventas, localizar la venta
-2. Click en el botón de eliminar (papelera)
-3. Confirmar la eliminación
-
-**Nota:** Esta acción es permanente.
+**Restricción:** No puedes ir de PENDIENTE directamente a ENVIADA — el sistema valida las transiciones.
 
 ---
 
 ## Estados de Pago
+
+Se calculan automáticamente según el monto pagado vs. el total:
 
 | Estado | Condición |
 |--------|-----------|
@@ -166,50 +145,62 @@ Puedes cambiar el estado directamente desde la lista usando el selector de estad
 | PARCIAL | 0 < Monto pagado < Total |
 | PAGADA | Monto pagado = Total |
 
----
-
-## Accesos Rápidos
-
-Desde la página de ventas puedes acceder rápidamente a:
-- **Clientes:** Para gestionar base de clientes
-- **Cotizaciones:** Para ver cotizaciones y convertirlas en ventas
+Para registrar un pago adicional: editar la venta y actualizar el campo "Monto Pagado".
 
 ---
 
-## Lo que el Usuario PUEDE Hacer
+## Ver Detalle de Venta
 
-- Crear ventas manuales o por voz
-- Editar ventas existentes
-- Cambiar estado de venta
-- Registrar pagos parciales o totales
-- Eliminar ventas
-- Filtrar y buscar ventas
-- Vincular ventas a cotizaciones
+**URL:** `/dashboard/practice/ventas/[id]`
 
-## Lo que el Usuario NO PUEDE Hacer
+Muestra:
+- Datos del cliente
+- Folio de venta
+- Todas las líneas de productos con cantidades y precios
+- Totales desglosados (subtotal, IVA, total)
+- Historial de pagos
+- Estado actual de venta y pago
 
-- **Facturar desde la app** - No hay generación de CFDI
-- **Enviar factura al cliente** - No hay función de envío
-- **Procesar pagos online** - Solo registro manual
-- **Generar reportes de ventas** - No hay exportación
-- **Duplicar ventas** - Debe crear cada una individualmente
-- **Saltar estados** - Debe seguir el flujo definido
+---
+
+## Eliminar Venta
+
+1. En la lista de ventas, clic en el ícono de papelera
+2. Confirmar la eliminación
+3. La acción es **permanente**
+
+---
+
+## Relación con Flujo de Dinero
+
+Al crear una venta, el sistema genera **automáticamente** un registro en el módulo de Flujo de Dinero como ingreso. El estado de pago se refleja en ese registro.
+
+---
+
+## Restricciones del Sistema
+
+| Acción | Estado |
+|--------|--------|
+| Facturar electrónicamente (CFDI) | ❌ No disponible |
+| Enviar factura al cliente por email | ❌ No disponible |
+| Procesar pagos online | ❌ Solo registro manual |
+| Exportar lista de ventas | ❌ Sin exportación |
+| Duplicar ventas | ❌ Debe crear cada una individualmente |
+| Saltar estados de venta | ❌ Flujo secuencial obligatorio |
+| Cancelar venta ENTREGADA | ❌ Estado final, sin acciones |
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Puedo crear una venta sin cliente?
-No, debes seleccionar un cliente existente. Si es nuevo, primero créalo en el módulo de Clientes.
+**¿Puedo crear una venta sin cliente?**
+No. Debes seleccionar un cliente existente. Si es cliente nuevo, primero créalo en el módulo de Clientes.
 
-### ¿Cómo registro un pago parcial?
-Al editar la venta, actualiza el campo "Monto Pagado" con la cantidad recibida. El estado de pago se actualizará automáticamente.
+**¿Cómo registro un pago parcial?**
+Al editar la venta, actualiza el campo "Monto Pagado" con el monto recibido hasta el momento.
 
-### ¿Puedo cancelar una venta entregada?
-No, una vez que la venta está en estado ENTREGADA es final y no se puede cancelar.
+**¿Las ventas se reflejan en el flujo de dinero?**
+Sí, automáticamente al crear la venta.
 
-### ¿Las ventas se reflejan en el flujo de dinero?
-Sí, al crear una venta se genera automáticamente un registro en el flujo de dinero como ingreso.
-
-### ¿Puedo cambiar el cliente de una venta?
-Sí, mientras editas la venta puedes cambiar el cliente seleccionado.
+**¿Puedo vincular una venta a una cotización previa?**
+Sí, al crear la venta puedes seleccionar una cotización existente para vincularla.

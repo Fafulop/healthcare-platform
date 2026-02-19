@@ -3,7 +3,7 @@
  * Uses provider-agnostic abstraction layer
  */
 
-import { getEmbeddingProvider } from '@/lib/ai';
+import { getEmbeddingProvider } from '../ai';
 import { EMBEDDING_BATCH_SIZE } from './constants';
 
 /**

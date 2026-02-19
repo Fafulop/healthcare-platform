@@ -1,190 +1,218 @@
 # Consultas Médicas (Encounters)
 
-## Propósito
+## Qué es
 
-Permite documentar cada visita o consulta médica del paciente, incluyendo notas clínicas, signos vitales y diagnósticos.
+Una consulta es el registro clínico de una visita o atención médica del paciente. Documenta síntomas, examen físico, diagnóstico y plan de tratamiento usando el formato SOAP estándar. Las consultas son **permanentes** — no se pueden eliminar por razones médico-legales.
 
 ## Acceso
 
-**Ruta:** Perfil del Paciente > Consultas > Nueva Consulta
+**Ruta:** Menú lateral > Expedientes Médicos > Pacientes > [Nombre del paciente]
+**URL:** `/dashboard/medical-records/patients/[id]`
 
-**URL:** `/dashboard/medical-records/patients/[id]/encounters/new`
+Las consultas están en la sección **"Consultas"** dentro del perfil del paciente.
 
 ---
 
-## Funcionalidades
+## Ver Lista de Consultas
 
-### 1. Ver Lista de Consultas
-
-**Ubicación:** Perfil del paciente > Sección de Consultas
-
-**Información mostrada por consulta:**
+En el perfil del paciente, la sección "Consultas" muestra:
 - Fecha de la consulta
 - Tipo de consulta
 - Motivo de consulta (resumen)
 - Diagnóstico principal
 
-**Acciones disponibles:**
-- Click para ver detalle completo
+**Acciones por consulta:**
+- Ver detalle completo → URL: `/dashboard/medical-records/patients/[id]/encounters/[encounterId]`
 - Editar consulta
 - Ver versiones anteriores
 
 ---
 
-### 2. Crear Nueva Consulta
+## Crear Nueva Consulta
 
+**Botón:** "Nueva Consulta" dentro del perfil del paciente
 **URL:** `/dashboard/medical-records/patients/[id]/encounters/new`
 
-#### Campos del Formulario
+### Campos del Formulario
 
-##### Información General
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Fecha | **Sí** | Fecha de la consulta |
-| Tipo de Consulta | **Sí** | Consulta, Seguimiento, Emergencia, Telemedicina |
-| Motivo de Consulta | **Sí** | Razón principal de la visita |
+#### Información General
 
-##### Signos Vitales
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Presión Arterial | No | Formato: 120/80 mmHg |
-| Frecuencia Cardíaca | No | Latidos por minuto |
-| Temperatura | No | En grados Celsius |
-| Peso | No | En kilogramos |
-| Altura | No | En centímetros |
-| Saturación de Oxígeno | No | Porcentaje (SpO2) |
+| Campo | Tipo | Requerido | Opciones / Notas |
+|-------|------|-----------|-------------------|
+| Fecha | date | Sí | Fecha de la consulta (puede ser pasada) |
+| Tipo de Consulta | select | Sí | Consulta \| Seguimiento \| Emergencia \| Telemedicina |
+| Motivo de Consulta | textarea | Sí | Razón principal de la visita |
 
-##### Notas Clínicas (Formato SOAP)
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| **S** - Subjetivo | No | Lo que el paciente reporta (síntomas, historia) |
-| **O** - Objetivo | No | Hallazgos del examen físico |
-| **A** - Evaluación | No | Diagnóstico o impresión clínica |
-| **P** - Plan | No | Plan de tratamiento, estudios, seguimiento |
+#### Signos Vitales (todos opcionales)
 
-##### Diagnósticos
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Diagnóstico Principal | No | Diagnóstico CIE-10 principal |
-| Diagnósticos Secundarios | No | Otros diagnósticos relevantes |
+| Campo | Unidad | Formato / Ejemplo |
+|-------|--------|-------------------|
+| Presión Arterial | mmHg | `120/80` |
+| Frecuencia Cardíaca | lpm | `78` |
+| Temperatura | °C | `36.5` |
+| Peso | kg | `70.5` |
+| Altura | cm | `175` |
+| Saturación de Oxígeno (SpO2) | % | `98` |
 
-#### Paso a Paso: Crear Consulta Manualmente
+#### Notas Clínicas — Formato SOAP
 
-1. Ir al perfil del paciente
-2. Click en **"Nueva Consulta"**
-3. Seleccionar la fecha y tipo de consulta
-4. Ingresar el motivo de consulta
-5. Registrar signos vitales (opcional)
-6. Documentar usando formato SOAP
-7. Agregar diagnósticos si aplica
-8. Click en **"Guardar Consulta"**
+Todos los campos SOAP son opcionales pero recomendados.
 
-#### Paso a Paso: Crear Consulta con Asistente de Voz
+| Sección | Significado | Qué captura |
+|---------|-------------|-------------|
+| **S — Subjetivo** | Lo que el paciente reporta | Síntomas, quejas, historia de la enfermedad actual |
+| **O — Objetivo** | Lo que el médico observa | Hallazgos del examen físico, signos vitales, resultados |
+| **A — Evaluación** | Impresión diagnóstica | Diagnóstico o diagnóstico diferencial |
+| **P — Plan** | Tratamiento y seguimiento | Medicamentos, estudios, indicaciones, próxima cita |
 
-1. Ir al perfil del paciente
-2. Click en **"Nueva Consulta"**
-3. Click en el botón **"Asistente de Voz"**
-4. Dictar las notas de la consulta de forma natural
-5. El sistema estructura la información en formato SOAP
-6. Revisar y ajustar en el panel lateral
-7. Click en **"Confirmar"** para llenar el formulario
-8. Completar campos adicionales si es necesario
-9. Click en **"Guardar Consulta"**
+**Ejemplo S:** *"Paciente refiere dolor de cabeza desde hace 3 días, localizado en la frente, intensidad 7/10, acompañado de náuseas."*
+
+**Ejemplo O:** *"PA: 130/85 mmHg. FC: 78 lpm. Temperatura: 36.5°C. Paciente alerta, orientado en tiempo y espacio."*
+
+**Ejemplo A:** *"Cefalea tensional. Hipertensión arterial estadio 1."*
+
+**Ejemplo P:** *"1. Paracetamol 500mg c/8h PRN. 2. Reducir estrés y mejorar hábitos de sueño. 3. Cita de control en 2 semanas."*
+
+#### Campos adicionales (visibilidad según plantilla)
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| Ubicación | text | Ej: "Consultorio", "En línea" |
+| Notas Clínicas | textarea | Notas libres en lugar de SOAP (modo simple) |
+| Fecha de Seguimiento | date | Próxima cita de control |
+| Instrucciones de Seguimiento | textarea | Qué debe hacer el paciente hasta el seguimiento |
+
+**Toggle SOAP / Notas Simples:** El formulario permite cambiar entre modo SOAP (S/O/A/P) y modo de notas simples (un solo campo de "Notas Clínicas"). Ambas opciones capturan la misma consulta, solo cambia la estructura.
+
+**Chat IA:** Botón "Chat IA" (ícono de estrella) abre un panel de chat lateral donde el médico puede describir la consulta y la IA llena los campos del formulario. Complementa al asistente de voz.
 
 ---
 
-### 3. Ver Detalle de Consulta
+## Crear Consulta — Paso a Paso
+
+### Manual
+
+1. Ir al perfil del paciente
+2. Clic en **"Nueva Consulta"**
+3. Seleccionar fecha y tipo de consulta
+4. Ingresar el motivo de consulta
+5. Registrar signos vitales (opcional)
+6. Documentar notas en formato SOAP
+7. Agregar diagnósticos si aplica
+8. Clic en **"Guardar Consulta"**
+
+### Con Asistente de Voz
+
+1. Ir al perfil del paciente
+2. Clic en **"Nueva Consulta"**
+3. Clic en el botón **"Asistente de Voz"** dentro del formulario
+4. Dictar las notas de la consulta en lenguaje natural
+5. El sistema transcribe y estructura automáticamente en formato SOAP
+6. Se abre el panel lateral con los datos extraídos
+7. Revisar y ajustar si es necesario
+8. Clic en **"Confirmar"** → el formulario se pre-llena con los datos de voz
+9. Completar campos adicionales si es necesario
+10. Clic en **"Guardar Consulta"**
+
+---
+
+## Ver Detalle de Consulta
 
 **URL:** `/dashboard/medical-records/patients/[id]/encounters/[encounterId]`
 
-**Información mostrada:**
+Muestra:
 - Todos los datos de la consulta
 - Signos vitales registrados
 - Notas SOAP completas
 - Diagnósticos
 
-**Acciones disponibles:**
-- Editar consulta
-- Ver historial de versiones
+**Acciones disponibles desde el detalle:**
+- **Editar** — abre el formulario de edición
+- **Ver historial de versiones** — muestra todas las versiones guardadas
 
 ---
 
-### 4. Editar Consulta
+## Editar Consulta
 
 **URL:** `/dashboard/medical-records/patients/[id]/encounters/[encounterId]/edit`
 
-**Importante:** Cada vez que se edita una consulta, se crea una nueva versión. El historial de versiones se conserva.
+- Se puede editar en cualquier momento después de creada
+- **Cada edición crea una nueva versión automáticamente** — el historial no se pierde
+- Los mismos campos del formulario de creación están disponibles
 
-#### Paso a Paso
-
-1. Ir al detalle de la consulta
-2. Click en **"Editar"**
-3. Realizar las modificaciones necesarias
-4. Click en **"Guardar Cambios"**
-5. Se crea automáticamente una nueva versión
+**Paso a paso:**
+1. Desde el detalle de la consulta, clic en **"Editar"**
+2. Realizar las modificaciones
+3. Clic en **"Guardar Cambios"**
+4. Se crea una nueva versión — la consulta anterior queda en el historial
 
 ---
 
-### 5. Ver Historial de Versiones
+## Historial de Versiones
 
 **URL:** `/dashboard/medical-records/patients/[id]/encounters/[encounterId]/versions`
 
-**Información mostrada:**
-- Lista de todas las versiones
-- Fecha de cada versión
-- Quién hizo el cambio
-- Comparación de cambios
+Muestra:
+- Lista de todas las versiones guardadas
+- Fecha y hora de cada versión
+- Quién realizó el cambio
+- Diferencias entre versiones (comparación de cambios)
+
+**Restricción:** No se pueden eliminar versiones. El historial es permanente.
 
 ---
 
 ## Tipos de Consulta
 
-| Tipo | Descripción |
+| Tipo | Cuándo usar |
 |------|-------------|
 | Consulta | Visita regular al consultorio |
-| Seguimiento | Control posterior a tratamiento |
-| Emergencia | Atención de urgencia |
-| Telemedicina | Consulta remota por video |
+| Seguimiento | Control posterior a tratamiento o procedimiento |
+| Emergencia | Atención de urgencia o emergencia |
+| Telemedicina | Consulta remota (video llamada o similar) |
 
 ---
 
-## Formato SOAP Explicado
+## Restricciones del Sistema
 
-El formato **SOAP** es un método estándar para documentar notas clínicas:
-
-- **S (Subjetivo):** Lo que el paciente dice. Síntomas, quejas, historia de la enfermedad actual.
-  - Ejemplo: "El paciente refiere dolor de cabeza desde hace 3 días, localizado en la frente, intensidad 7/10."
-
-- **O (Objetivo):** Lo que el médico observa. Signos vitales, examen físico.
-  - Ejemplo: "PA: 130/85 mmHg. FC: 78 lpm. Temperatura: 36.5°C. Paciente alerta, orientado."
-
-- **A (Evaluación/Assessment):** Diagnóstico o impresión diagnóstica.
-  - Ejemplo: "Cefalea tensional. Hipertensión arterial estadio 1."
-
-- **P (Plan):** Tratamiento, estudios, indicaciones, seguimiento.
-  - Ejemplo: "1. Paracetamol 500mg c/8h PRN. 2. Reducir estrés. 3. Cita de control en 2 semanas."
+| Acción | Estado | Motivo |
+|--------|--------|--------|
+| Eliminar consulta | ❌ No permitido | Las consultas son permanentes por razones médico-legales |
+| Eliminar versiones | ❌ No permitido | El historial de versiones se conserva siempre |
+| Crear consulta sin paciente | ❌ No permitido | Debe existir un expediente de paciente primero |
+| Editar consulta | ✅ Siempre permitido | Con historial de versiones automático |
+| Ver consultas de otros médicos | ❌ No permitido | Cada médico solo ve sus propios pacientes |
 
 ---
 
-## Lo que el Usuario NO PUEDE Hacer
+## Relación con Otros Módulos
 
-- **Eliminar consultas** - Las consultas son permanentes por razones médico-legales
-- **Eliminar versiones** - El historial de versiones se conserva
-- **Antedatar consultas** - La fecha debe ser actual o pasada reciente
-- **Crear consultas sin paciente** - Debe existir un expediente de paciente primero
+**Citas (Appointments):** Las consultas **no se crean automáticamente** cuando el paciente asiste a una cita. El flujo manual es:
+1. Marcar la cita como "Completada" en el módulo de Citas
+2. Ir a Expedientes Médicos y crear la consulta manualmente
+
+**Prescripciones:** Se crean por separado en el módulo de Prescripciones — no están vinculadas directamente al formulario de consulta.
+
+**Multimedia:** Los archivos adjuntos (estudios, imágenes) se suben en la sección "Multimedia" del perfil del paciente, no dentro de la consulta.
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Puedo editar una consulta después de guardarla?
-Sí, puedes editar en cualquier momento. Cada edición crea una nueva versión para mantener el historial.
+**¿Puedo editar una consulta después de guardarla?**
+Sí, en cualquier momento. Cada edición crea una versión nueva para mantener el historial completo.
 
-### ¿Es obligatorio usar el formato SOAP?
-No es obligatorio, pero es recomendado para mantener notas organizadas y profesionales.
+**¿Es obligatorio el formato SOAP?**
+No es obligatorio, pero es el formato recomendado para notas organizadas y profesionales.
 
-### ¿Puedo adjuntar archivos a una consulta?
-No directamente a la consulta, pero puedes subir archivos en la sección de Multimedia del paciente.
+**¿Puedo adjuntar archivos a una consulta?**
+No directamente a la consulta. Los archivos se suben en la sección "Multimedia" del perfil del paciente.
 
-### ¿El asistente de voz entiende terminología médica?
-Sí, el asistente está entrenado para reconocer terminología médica común en español.
+**¿El asistente de voz entiende terminología médica?**
+Sí, el asistente procesa terminología médica en español y estructura las notas en formato SOAP automáticamente.
+
+**¿Puedo ver las consultas de pacientes de otro médico?**
+No. Solo tienes acceso a los expedientes y consultas de tus propios pacientes.
+
+**¿Qué diferencia hay entre Motivo de Consulta y Subjetivo (S)?**
+El motivo de consulta es un resumen breve de la razón de la visita. El Subjetivo (S) es la descripción detallada de lo que el paciente reporta, incluyendo historia de la enfermedad actual.

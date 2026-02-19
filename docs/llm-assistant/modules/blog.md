@@ -1,164 +1,148 @@
 # Mi Blog
 
-## Propósito
+## Qué es
 
-Permite al médico crear y publicar artículos en su blog personal, visible en su perfil público para pacientes y visitantes.
+El blog permite al médico publicar artículos en su perfil público. Los artículos son visibles para pacientes y visitantes en el perfil público del médico, y sirven para posicionamiento, educación del paciente o comunicación de novedades.
 
 ## Acceso
 
 **Ruta:** Menú lateral > Perfil y Público > Mi Blog
-
 **URL:** `/dashboard/blog`
 
 ---
 
-## Funcionalidades
+## Panel de Estadísticas
 
-### 1. Ver Lista de Artículos
+En la parte superior de la lista de artículos:
 
-**URL:** `/dashboard/blog`
+| Tarjeta | Descripción |
+|---------|-------------|
+| Total de artículos | Todos los artículos creados |
+| Artículos publicados | Los visibles en el perfil público |
+| Borradores | Artículos guardados pero no publicados |
+| Total de vistas | Suma de todas las visitas a artículos publicados |
 
-**Panel de Estadísticas:**
-- Total de artículos
-- Artículos publicados
-- Borradores
-- Total de vistas
+---
 
-**Información por artículo:**
-- Título
-- Fecha de publicación/creación
-- Estado (Publicado/Borrador)
-- Número de vistas
-- Imagen miniatura (si tiene)
+## Ver Lista de Artículos
 
-**Filtros disponibles:**
+**Información visible por artículo:**
+| Campo | Descripción |
+|-------|-------------|
+| Título | Título del artículo |
+| Fecha | Fecha de publicación o creación |
+| Estado | Publicado / Borrador |
+| Vistas | Número de visitas |
+| Miniatura | Imagen destacada (si tiene) |
+
+**Filtros:**
 - Todos los artículos
 - Solo publicados
 - Solo borradores
 
 ---
 
-### 2. Crear Nuevo Artículo
+## Crear Nuevo Artículo
 
 **URL:** `/dashboard/blog/new`
 
-#### Campos del Formulario
+### Campos del Formulario
 
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Título | **Sí** | Título del artículo |
-| Contenido | **Sí** | Cuerpo del artículo (editor de texto) |
-| Extracto | No | Resumen corto para la lista |
-| Imagen | No | Imagen destacada/miniatura |
-| Estado | **Sí** | Publicado o Borrador |
+| Título | Sí | Título del artículo |
+| Contenido | Sí | Cuerpo del artículo — editor de texto enriquecido |
+| Extracto | No | Resumen corto para mostrar en la lista |
+| Imagen destacada | No | Imagen miniatura del artículo |
+| Estado | Sí | **Publicado** (visible) o **Borrador** (solo visible para el médico) |
 
-#### Paso a Paso
+### Editor de Contenido
+
+El editor permite formato enriquecido:
+- Negritas y cursivas
+- Encabezados (H1, H2, H3)
+- Listas numeradas y con viñetas
+- Links / hipervínculos
+- Citas
+
+### Paso a Paso
 
 1. Ir a **Mi Blog** en el menú lateral
-2. Click en **"Nuevo Artículo"**
+2. Clic en **"Nuevo Artículo"**
 3. Escribir el título
 4. Redactar el contenido usando el editor
-5. Opcionalmente agregar extracto e imagen
+5. Agregar extracto e imagen si se desea
 6. Seleccionar estado:
-   - **Borrador:** Solo visible para ti
-   - **Publicado:** Visible en tu perfil público
-7. Click en **"Crear Artículo"**
+   - **Borrador:** Solo visible en tu dashboard
+   - **Publicado:** Visible en tu perfil público para todos
+7. Clic en **"Crear Artículo"**
 
 ---
 
-### 3. Editar Artículo
+## Editar Artículo
 
 **URL:** `/dashboard/blog/[id]/edit`
 
-#### Paso a Paso
-
-1. En la lista de artículos, click en el artículo
-2. Click en **"Editar"**
-3. Modificar contenido, título o estado
-4. Click en **"Guardar Cambios"**
+1. En la lista, clic en el artículo
+2. Clic en **"Editar"**
+3. Modificar contenido, título, imagen o estado
+4. Clic en **"Guardar Cambios"**
 
 ---
 
-### 4. Publicar/Despublicar Artículo
+## Publicar y Despublicar
 
-Puedes cambiar el estado de un artículo entre Borrador y Publicado.
-
-#### Para Publicar
-
+### Publicar un borrador
 1. Editar el artículo
 2. Cambiar estado a **"Publicado"**
-3. Guardar cambios
-4. El artículo aparece en tu perfil público
+3. Guardar — el artículo aparece inmediatamente en el perfil público
 
-#### Para Despublicar
-
+### Despublicar un artículo publicado
 1. Editar el artículo
 2. Cambiar estado a **"Borrador"**
-3. Guardar cambios
-4. El artículo se oculta del perfil público (pero no se elimina)
+3. Guardar — el artículo se oculta del perfil público (no se elimina)
 
 ---
 
-### 5. Eliminar Artículo
+## Visibilidad
 
-**Nota:** Verifica si esta función está disponible en la interfaz.
-
----
-
-## Editor de Contenido
-
-El editor permite dar formato al contenido:
-- **Negritas** y *cursivas*
-- Encabezados (H1, H2, H3)
-- Listas numeradas y con viñetas
-- Links
-- Citas
+| Estado | Quién puede verlo |
+|--------|-------------------|
+| Borrador | Solo el médico desde su dashboard |
+| Publicado | Cualquier visitante del perfil público del médico |
 
 ---
 
-## Visibilidad del Blog
+## Restricciones del Sistema
 
-| Estado | Dónde se ve |
-|--------|-------------|
-| Borrador | Solo en tu dashboard |
-| Publicado | Perfil público + dashboard |
-
-Los artículos publicados aparecen en tu **Perfil Público**, donde los pacientes pueden verlos.
-
----
-
-## Lo que el Usuario PUEDE Hacer
-
-- Crear artículos ilimitados
-- Editar artículos existentes
-- Publicar y despublicar artículos
-- Ver estadísticas de vistas
-- Agregar imágenes destacadas
-
-## Lo que el Usuario NO PUEDE Hacer
-
-- **Programar publicaciones** - No hay función de programación
-- **Categorizar artículos** - No hay categorías o tags
-- **Comentarios** - No hay sistema de comentarios
-- **Compartir en redes** - No hay integración con redes sociales
-- **SEO avanzado** - No hay configuración de metadatos
-- **Múltiples autores** - Solo el médico puede publicar
+| Acción | Estado |
+|--------|--------|
+| Programar publicación futura | ❌ No disponible |
+| Categorías o etiquetas de artículos | ❌ Sin categorización |
+| Sistema de comentarios | ❌ No disponible |
+| Compartir en redes sociales directamente | ❌ Sin integración |
+| Configuración SEO (metadatos, meta description) | ❌ Sin opciones SEO avanzadas |
+| Múltiples autores | ❌ Solo el médico puede publicar |
+| Exportar artículos | ❌ Sin exportación |
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Dónde ven los pacientes mi blog?
-En tu perfil público. El link se encuentra en el menú lateral como "Perfil Público".
+**¿Dónde ven los pacientes mi blog?**
+En tu perfil público del médico. El enlace al perfil público está en el menú lateral.
 
-### ¿Puedo guardar un artículo sin publicarlo?
+**¿Puedo guardar un artículo sin publicarlo?**
 Sí, guárdalo como "Borrador". Solo tú podrás verlo hasta que lo publiques.
 
-### ¿Las vistas se cuentan en tiempo real?
-Las estadísticas se actualizan periódicamente y muestran las vistas totales de tus artículos publicados.
+**¿Las vistas se cuentan en tiempo real?**
+Las estadísticas de vistas se actualizan periódicamente — muestran las visitas totales acumuladas.
 
-### ¿Puedo agregar videos a mis artículos?
-Depende del editor disponible. Generalmente puedes incrustar videos usando enlaces.
+**¿Puedo agregar videos a los artículos?**
+Depende del editor disponible. Puedes incrustar videos mediante enlaces en el contenido.
 
-### ¿Hay límite de artículos?
+**¿Hay límite de artículos?**
 No hay límite en la cantidad de artículos que puedes crear.
+
+**¿Puedo ver cuántas personas leyeron cada artículo?**
+Sí, cada artículo en la lista muestra su contador de vistas.

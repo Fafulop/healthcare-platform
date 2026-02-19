@@ -1,103 +1,89 @@
 # Línea de Tiempo del Paciente
 
-## Propósito
+## Qué es
 
-Muestra una vista cronológica de todas las interacciones y eventos del paciente, facilitando el seguimiento de su historial.
+La Línea de Tiempo es una vista cronológica de todas las interacciones registradas del paciente — consultas, recetas y archivos multimedia — ordenadas de la más reciente a la más antigua. Es una forma rápida de ver la historia clínica completa del paciente.
 
 ## Acceso
 
-**Ruta:** Perfil del Paciente > Línea de Tiempo
-
+**Ruta:** Perfil del Paciente > pestaña "Línea de Tiempo"
 **URL:** `/dashboard/medical-records/patients/[id]/timeline`
 
 ---
 
-## Funcionalidades
+## Tipos de Eventos
 
-### 1. Ver Línea de Tiempo
-
-**Vista cronológica que muestra:**
-- Consultas médicas
-- Recetas emitidas
-- Archivos subidos
-- Otros eventos relevantes
-
-**Información por evento:**
-- Fecha y hora
-- Tipo de evento (ícono distintivo)
-- Resumen del evento
-- Link al detalle
+| Tipo | Ícono | Qué muestra |
+|------|-------|-------------|
+| Consulta | Portapapeles | Tipo de consulta y resumen/diagnóstico |
+| Receta | Documento | Número de medicamentos prescritos |
+| Archivo subido | Imagen/Archivo | Nombre del archivo multimedia |
+| Registro | Usuario | Creación del expediente del paciente |
 
 ---
 
-### 2. Navegar la Línea de Tiempo
+## Información por Evento
 
-**Ordenamiento:** Los eventos más recientes aparecen primero
-
-**Interacción:**
-- Scroll para ver eventos anteriores
-- Click en cualquier evento para ver detalle completo
+Cada evento en la línea de tiempo muestra:
+- **Fecha y hora** del evento
+- **Tipo de evento** (ícono diferenciador)
+- **Resumen** del evento
+- **Enlace** para ver el detalle completo
 
 ---
 
-## Tipos de Eventos en la Línea de Tiempo
+## Cómo Navegar
 
-| Tipo | Descripción | Ícono |
-|------|-------------|-------|
-| Consulta | Visita médica documentada | Portapapeles |
-| Receta | Prescripción emitida | Documento |
-| Archivo | Imagen o documento subido | Imagen/Archivo |
-| Registro | Creación del expediente | Usuario |
+- Los eventos más recientes aparecen **primero** (orden descendente)
+- Scroll hacia abajo para ver eventos más antiguos
+- Clic en cualquier evento para ver su detalle completo
 
 ---
 
 ## Ejemplo de Línea de Tiempo
 
 ```
-15 Ene 2026 - Consulta de Seguimiento
+15 Ene 2026 — Consulta de Seguimiento
 "Control de diabetes. Niveles de glucosa estables."
 
-10 Ene 2026 - Receta Emitida
+10 Ene 2026 — Receta Emitida
 "3 medicamentos: Metformina, Losartán, Aspirina"
 
-05 Ene 2026 - Archivo Subido
+05 Ene 2026 — Archivo Subido
 "resultado-laboratorio.pdf"
 
-01 Ene 2026 - Consulta
+01 Ene 2026 — Consulta
 "Primera consulta. Diagnóstico: Diabetes tipo 2"
 
-28 Dic 2025 - Paciente Registrado
+28 Dic 2025 — Paciente Registrado
 "Expediente creado"
 ```
 
 ---
 
-## Lo que el Usuario PUEDE Hacer
+## Restricciones
 
-- Ver historial completo del paciente en orden cronológico
-- Navegar a cualquier evento desde la línea de tiempo
-- Identificar rápidamente el tipo de cada evento
-
-## Lo que el Usuario NO PUEDE Hacer
-
-- **Filtrar por tipo de evento** - Se muestran todos los eventos
-- **Filtrar por rango de fechas** - Se muestra el historial completo
-- **Exportar línea de tiempo** - No hay función de exportación
-- **Agregar notas a la línea de tiempo** - Los eventos se generan automáticamente
-- **Eliminar eventos** - Los eventos son permanentes
+| Acción | Estado |
+|--------|--------|
+| Filtrar por tipo de evento | ❌ Se muestran todos los eventos |
+| Filtrar por rango de fechas | ❌ Se muestra el historial completo |
+| Exportar línea de tiempo | ❌ Sin función de exportación |
+| Agregar eventos manualmente | ❌ Los eventos se generan automáticamente |
+| Eliminar eventos | ❌ Los eventos son permanentes |
+| Ver línea de tiempo de múltiples pacientes | ❌ Solo una a la vez |
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Los eventos se agregan automáticamente?
-Sí, cada vez que creas una consulta, receta o subes un archivo, se agrega automáticamente a la línea de tiempo.
+**¿Los eventos se agregan automáticamente?**
+Sí. Cada vez que creas una consulta, emites una receta o subes un archivo, se agrega automáticamente un evento a la línea de tiempo.
 
-### ¿Puedo agregar eventos manualmente?
-No, la línea de tiempo solo muestra eventos del sistema (consultas, recetas, archivos).
+**¿Puedo agregar eventos manualmente a la línea de tiempo?**
+No. La línea de tiempo solo muestra eventos generados por el sistema.
 
-### ¿La línea de tiempo muestra quién hizo cada acción?
-Actualmente muestra el evento pero no detalla el usuario que lo creó (asumiendo que es el médico dueño del expediente).
+**¿La línea de tiempo muestra quién realizó cada acción?**
+Actualmente muestra el evento pero no el usuario específico (asume que es el médico dueño del expediente).
 
-### ¿Puedo ver la línea de tiempo de varios pacientes a la vez?
-No, la línea de tiempo es individual por paciente.
+**¿Puedo filtrar solo las consultas?**
+No. La línea de tiempo muestra todos los tipos de eventos sin opción de filtrar por tipo.

@@ -41,13 +41,18 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
       'cita', 'citas', 'horario', 'horarios', 'agenda', 'disponibilidad',
       'espacio', 'espacios', 'slot', 'slots', 'reservación', 'reservaciones',
       'booking', 'agendar', 'programar', 'cancelar cita', 'confirmar',
-      'precio', 'descuento', 'duración',
+      'precio', 'descuento', 'duración', 'crear horarios', 'bloquear',
+      'asistente de voz citas', 'calendario citas', 'vista lista',
     ],
     submodules: [
-      { id: 'slots', name: 'Espacios de Cita', keywords: ['espacio', 'slot', 'horario', 'disponibilidad'] },
+      { id: 'slots', name: 'Espacios de Cita', keywords: ['espacio', 'slot', 'horario', 'disponibilidad', 'crear horario'] },
+      { id: 'bookings', name: 'Reservaciones', keywords: ['reservación', 'booking', 'confirmar', 'paciente agendó', 'completada', 'no asistió'] },
+      { id: 'create-slots', name: 'Crear Horarios', keywords: ['crear horarios', 'modal crear', 'recurrente', 'día único', 'descanso'] },
     ],
     filePaths: [
       'docs/llm-assistant/modules/appointments/slots.md',
+      'docs/llm-assistant/modules/appointments/bookings.md',
+      'docs/llm-assistant/modules/appointments/create-slots.md',
     ],
   },
   {
@@ -64,10 +69,12 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
     submodules: [
       { id: 'sales', name: 'Ventas', keywords: ['venta', 'ventas', 'vender', 'cobrar'] },
       { id: 'purchases', name: 'Compras', keywords: ['compra', 'compras', 'comprar', 'proveedor'] },
-      { id: 'cash-flow', name: 'Flujo de Dinero', keywords: ['flujo', 'dinero', 'ingreso', 'egreso', 'cash flow'] },
+      { id: 'cash-flow', name: 'Flujo de Dinero', keywords: ['flujo', 'dinero', 'ingreso', 'egreso', 'cash flow', 'estado de resultados'] },
       { id: 'products', name: 'Productos', keywords: ['producto', 'productos', 'inventario', 'catálogo'] },
       { id: 'clients', name: 'Clientes', keywords: ['cliente', 'clientes', 'CRM'] },
       { id: 'suppliers', name: 'Proveedores', keywords: ['proveedor', 'proveedores', 'supplier'] },
+      { id: 'quotations', name: 'Cotizaciones', keywords: ['cotización', 'cotizaciones', 'cotizar', 'propuesta'] },
+      { id: 'areas', name: 'Áreas y Subáreas', keywords: ['área', 'áreas', 'subárea', 'categoría', 'clasificar movimiento'] },
     ],
     filePaths: [
       'docs/llm-assistant/modules/practice-management/overview.md',
@@ -77,6 +84,37 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
       'docs/llm-assistant/modules/practice-management/products.md',
       'docs/llm-assistant/modules/practice-management/clients.md',
       'docs/llm-assistant/modules/practice-management/suppliers.md',
+      'docs/llm-assistant/modules/practice-management/quotations.md',
+      'docs/llm-assistant/modules/practice-management/areas.md',
+    ],
+  },
+  {
+    id: 'pendientes',
+    name: 'Pendientes',
+    description: 'Gestión de tareas, recordatorios y seguimientos clínicos o administrativos',
+    keywords: [
+      'pendiente', 'pendientes', 'tarea', 'tareas', 'recordatorio', 'seguimiento',
+      'to-do', 'todo', 'agenda personal', 'vencida', 'prioridad', 'urgente',
+      'laboratorio', 'referencia', 'administrativo',
+    ],
+    submodules: [],
+    filePaths: [
+      'docs/llm-assistant/modules/pendientes.md',
+    ],
+  },
+  {
+    id: 'profile',
+    name: 'Mi Perfil',
+    description: 'Configuración del perfil público del médico: servicios, clínica, formación, redes sociales',
+    keywords: [
+      'perfil', 'mi perfil', 'perfil público', 'slug', 'foto de perfil',
+      'especialidad', 'biografía', 'servicios del médico', 'clínica',
+      'horario de atención', 'redes sociales', 'linkedin', 'twitter',
+      'FAQs', 'reseñas', 'opiniones', 'formación', 'educación', 'cédula',
+    ],
+    submodules: [],
+    filePaths: [
+      'docs/llm-assistant/modules/profile.md',
     ],
   },
   {

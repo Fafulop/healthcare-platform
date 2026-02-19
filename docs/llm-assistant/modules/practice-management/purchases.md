@@ -1,159 +1,132 @@
 # Compras
 
-## Propósito
+## Qué es
 
-Permite registrar y dar seguimiento a las compras realizadas a proveedores, incluyendo estado de recepción y pagos.
+El módulo de Compras permite registrar las adquisiciones realizadas a proveedores — insumos, materiales, equipos o servicios para el consultorio. Cada compra tiene un folio, proveedor, productos/servicios, estado de recepción y estado de pago.
 
 ## Acceso
 
 **Ruta:** Menú lateral > Gestión de Consultorio > Compras
-
 **URL:** `/dashboard/practice/compras`
 
 ---
 
-## Funcionalidades
+## Panel de Resumen
 
-### 1. Ver Lista de Compras
+En la parte superior de la lista de compras:
 
-**URL:** `/dashboard/practice/compras`
+| Tarjeta | Descripción |
+|---------|-------------|
+| Total Compras | Suma de todas las compras |
+| Pagado | Total ya pagado a proveedores |
+| Pendiente | Monto por pagar |
 
-**Panel de Resumen (parte superior):**
-- Total Compras: Suma de todas las compras
-- Pagado: Total de pagos realizados
-- Pendiente: Monto por pagar
+---
+
+## Ver Lista de Compras
+
+**Vistas:** Tabla (desktop) / Tarjetas (móvil)
 
 **Información por compra:**
-- Folio (número de compra)
-- Proveedor
-- Fecha de compra
-- Fecha de recepción
-- Total
-- Estado de pago
-- Estado de compra
+| Campo | Descripción |
+|-------|-------------|
+| Folio | Número de compra generado automáticamente |
+| Proveedor | Nombre del proveedor |
+| Fecha de compra | Fecha de la transacción |
+| Fecha de recepción | Fecha estimada de recepción (si aplica) |
+| Total | Monto total de la compra |
+| Estado de pago | PENDIENTE / PARCIAL / PAGADA |
+| Estado de compra | Ver estados abajo |
 
 **Filtros disponibles:**
-- Búsqueda por folio o proveedor
+- Búsqueda por folio o nombre de proveedor
 - Filtro por estado de compra
 - Filtro por estado de pago
 
-**Vistas:**
-- Desktop: Tabla completa
-- Móvil: Tarjetas
-
 ---
 
-### 2. Crear Nueva Compra
+## Crear Nueva Compra
 
 **URL:** `/dashboard/practice/compras/new`
 
-#### Campos del Formulario
+### Campos del Formulario
 
-##### Información General
+#### Información General
+
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Proveedor | **Sí** | Seleccionar de lista de proveedores |
-| Fecha de Compra | **Sí** | Fecha de la transacción |
-| Fecha de Recepción | No | Fecha estimada de recepción |
+| Proveedor | Sí | Seleccionar de la lista de proveedores existentes |
+| Fecha de Compra | Sí | Fecha de la transacción |
+| Fecha de Recepción | No | Fecha estimada de recepción del pedido |
 
-##### Productos/Servicios
+#### Líneas de Productos/Servicios
+
 Para cada línea:
+
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Producto/Servicio | **Sí** | Descripción del ítem |
-| Cantidad | **Sí** | Número de unidades |
-| Precio Unitario | **Sí** | Precio por unidad |
-| Subtotal | Auto | Cantidad × Precio |
+| Producto/Servicio | Sí | Descripción del ítem comprado |
+| Cantidad | Sí | Número de unidades |
+| Precio Unitario | Sí | Precio por unidad |
+| Subtotal | Calculado | Cantidad × Precio Unitario |
 
-##### Totales
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Subtotal | Auto | Suma de líneas |
-| Impuesto (IVA) | No | Porcentaje de impuesto |
-| Total | Auto | Subtotal + Impuesto |
+#### Totales
 
-##### Pago
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Monto Pagado | No | Cantidad pagada al proveedor |
-| Estado de Pago | Auto | Calculado según monto pagado |
+| Campo | Descripción |
+|-------|-------------|
+| Subtotal | Suma de todas las líneas |
+| Impuesto (IVA) | Porcentaje de impuesto (opcional) |
+| Total | Subtotal + Impuesto |
 
-#### Paso a Paso: Crear Compra Manualmente
+#### Pago
+
+| Campo | Descripción |
+|-------|-------------|
+| Monto Pagado | Cantidad ya pagada al proveedor (puede ser anticipo o pago total) |
+| Estado de Pago | Calculado automáticamente |
+
+---
+
+## Crear Compra — Paso a Paso
+
+### Manual
 
 1. Ir a **Compras** en el menú lateral
-2. Click en **"Nueva Compra"**
+2. Clic en **"Nueva Compra"**
 3. Seleccionar el proveedor
 4. Establecer la fecha de compra
 5. Agregar productos/servicios con cantidades y precios
 6. Verificar totales
 7. Registrar monto pagado si aplica
-8. Click en **"Crear Compra"**
+8. Clic en **"Crear Compra"**
 
-#### Paso a Paso: Crear Compra con Asistente de Voz
+### Con Asistente de Voz
 
-1. Ir a **Compras**
-2. Click en **"Nueva Compra"**
-3. Click en el botón **"Asistente de Voz"**
-4. Dictar la información de la compra
-   - Ejemplo: "Compra a Distribuidora Médica del Norte, 20 cajas de jeringas a 200 pesos, 10 litros de alcohol a 50 pesos, pagué 2000 pesos de anticipo"
-5. Revisar los datos extraídos
-6. Corregir si es necesario
-7. Click en **"Confirmar"**
-8. Completar información faltante
-9. Click en **"Crear Compra"**
+1. Ir a **Compras** > **"Nueva Compra"**
+2. Clic en **"Asistente de Voz"**
+3. Dictar la información:
+   > *"Compra a Distribuidora Médica del Norte, 20 cajas de jeringas a 200 pesos, 10 litros de alcohol a 50 pesos, pagué 2000 pesos de anticipo"*
+4. Revisar los datos extraídos y corregir si es necesario
+5. Clic en **"Confirmar"** → se pre-llena el formulario
+6. Completar información faltante
+7. Clic en **"Crear Compra"**
 
 ---
 
-### 3. Ver Detalle de Compra
+## Estados de la Compra
 
-**URL:** `/dashboard/practice/compras/[id]`
+Los estados siguen un flujo secuencial **estricto** — no se pueden saltar estados.
 
-**Información mostrada:**
-- Datos del proveedor
-- Folio de compra
-- Todas las líneas de productos
-- Totales desglosados
-- Historial de pagos
-- Estado actual
+| Estado | Descripción | Transiciones válidas |
+|--------|-------------|----------------------|
+| PENDIENTE | Compra registrada, sin confirmar | → CONFIRMADA, CANCELADA |
+| CONFIRMADA | Compra confirmada con el proveedor | → EN PROCESO, CANCELADA |
+| EN PROCESO | Proveedor preparando el pedido | → ENVIADA, CANCELADA |
+| ENVIADA | Pedido en tránsito | → RECIBIDA |
+| RECIBIDA | Pedido recibido en el consultorio | Estado final — sin acciones |
+| CANCELADA | Compra cancelada | Estado final — sin acciones |
 
----
-
-### 4. Editar Compra
-
-**URL:** `/dashboard/practice/compras/[id]/edit`
-
-**Campos editables:** Todos los campos de la compra
-
----
-
-### 5. Cambiar Estado de Compra
-
-Puedes cambiar el estado directamente desde la lista usando el selector de estado.
-
-#### Estados Disponibles
-
-| Estado | Descripción | Siguiente Estado Válido |
-|--------|-------------|------------------------|
-| PENDIENTE | Compra registrada, sin confirmar | CONFIRMADA, CANCELADA |
-| CONFIRMADA | Compra confirmada con proveedor | EN PROCESO, CANCELADA |
-| EN PROCESO | Proveedor preparando pedido | ENVIADA, CANCELADA |
-| ENVIADA | Pedido en tránsito | RECIBIDA |
-| RECIBIDA | Pedido recibido en consultorio | (Final) |
-| CANCELADA | Compra cancelada | (Final) |
-
-**Importante:** El sistema valida las transiciones. No puedes saltar estados.
-
----
-
-### 6. Eliminar Compra
-
-#### Paso a Paso
-
-1. En la lista de compras, localizar la compra
-2. Click en el botón de eliminar (papelera)
-3. Confirmar la eliminación
-
-**Nota:** Esta acción es permanente.
+**Cambiar estado:** Desde la lista de compras usando el selector de estado por fila.
 
 ---
 
@@ -167,39 +140,35 @@ Puedes cambiar el estado directamente desde la lista usando el selector de estad
 
 ---
 
-## Lo que el Usuario PUEDE Hacer
+## Relación con Flujo de Dinero
 
-- Crear compras manuales o por voz
-- Editar compras existentes
-- Cambiar estado de compra
-- Registrar pagos parciales o totales
-- Eliminar compras
-- Filtrar y buscar compras
+Al crear una compra, el sistema genera **automáticamente** un registro en el módulo de Flujo de Dinero como egreso. El estado de pago se refleja en ese registro.
 
-## Lo que el Usuario NO PUEDE Hacer
+---
 
-- **Solicitar factura al proveedor** - Gestión externa
-- **Adjuntar factura recibida** - No hay función de archivos adjuntos
-- **Generar reportes de compras** - No hay exportación
-- **Duplicar compras** - Debe crear cada una individualmente
-- **Saltar estados** - Debe seguir el flujo definido
-- **Crear órdenes de compra** - Solo registro de compras realizadas
+## Restricciones del Sistema
+
+| Acción | Estado |
+|--------|--------|
+| Adjuntar factura del proveedor | ❌ Sin función de archivos adjuntos |
+| Enviar órdenes de compra al proveedor | ❌ No disponible |
+| Exportar lista de compras | ❌ Sin exportación |
+| Duplicar compras | ❌ Debe crear cada una individualmente |
+| Saltar estados de compra | ❌ Flujo secuencial obligatorio |
+| Cancelar compra RECIBIDA | ❌ Estado final, sin acciones |
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Puedo crear una compra sin proveedor?
-No, debes seleccionar un proveedor existente. Si es nuevo, primero créalo en el módulo de Proveedores.
+**¿Puedo crear una compra sin proveedor?**
+No. Debes seleccionar un proveedor existente. Si es nuevo, primero créalo en el módulo de Proveedores.
 
-### ¿Cómo registro un pago parcial?
-Al editar la compra, actualiza el campo "Monto Pagado" con la cantidad pagada. El estado de pago se actualizará automáticamente.
+**¿Cómo registro un anticipo o pago parcial?**
+Al editar la compra, actualiza el campo "Monto Pagado" con la cantidad pagada hasta el momento.
 
-### ¿Puedo cancelar una compra recibida?
-No, una vez que la compra está en estado RECIBIDA es final y no se puede cancelar.
+**¿Las compras se reflejan en el flujo de dinero?**
+Sí, automáticamente al crear la compra.
 
-### ¿Las compras se reflejan en el flujo de dinero?
-Sí, al crear una compra se genera automáticamente un registro en el flujo de dinero como egreso.
-
-### ¿Puedo agregar gastos de envío?
-Puedes agregarlo como una línea adicional en los productos/servicios de la compra.
+**¿Puedo agregar gastos de envío?**
+Sí, agrega una línea adicional con "Gastos de envío" como producto/servicio.

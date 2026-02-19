@@ -51,6 +51,19 @@ Base de datos de proveedores.
 - Datos de contacto
 - Historial de compras
 
+### 7. Cotizaciones
+Propuestas comerciales formales con conversión directa a venta.
+- **URL:** `/dashboard/practice/cotizaciones`
+- Estados: Borrador → Enviada → Aprobada / Rechazada / Vencida / Cancelada
+- Convertir a venta con un clic
+- Exportar a PDF
+
+### 8. Áreas y Subáreas
+Categorías para clasificar los movimientos de flujo de dinero.
+- **URL:** `/dashboard/practice/areas`
+- Tipo INGRESO o EGRESO (inmutable tras creación)
+- Cada área puede tener múltiples subáreas
+
 ---
 
 ## Conceptos Clave
@@ -95,6 +108,8 @@ Tanto ventas como compras tienen estado de pago:
 | Productos | Sí | Sí | Sí | No |
 | Clientes | Sí | Sí | Sí | No |
 | Proveedores | Sí | Sí | Sí | No |
+| Cotizaciones | Sí | Sí | Sí | No |
+| Áreas | Sí | Sí | Sí (cascada) | No |
 
 ---
 

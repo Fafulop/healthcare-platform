@@ -1,166 +1,194 @@
 # Gestión de Pacientes
 
-## Propósito
+## Qué es
 
-Permite crear y mantener los expedientes de pacientes con toda su información personal, de contacto y médica.
+Los pacientes son el eje central del módulo de Expedientes Médicos. Cada paciente tiene un expediente con datos personales, médicos, contacto de emergencia y sus registros clínicos (consultas, recetas, multimedia). Los pacientes **no se pueden eliminar**.
 
 ## Acceso
 
 **Ruta:** Menú lateral > Expedientes Médicos > Expedientes de Pacientes
-
 **URL:** `/dashboard/medical-records`
 
 ---
 
-## Funcionalidades
+## Ver Lista de Pacientes
 
-### 1. Ver Lista de Pacientes
+**URL:** `/dashboard/medical-records`
 
-**Ubicación:** Página principal de expedientes médicos
+Muestra la lista de todos los pacientes del médico.
 
-**Información mostrada:**
-- Nombre completo del paciente
-- ID interno
-- Edad
-- Teléfono
-- Estado (activo/inactivo)
-- Etiquetas asignadas
+**Información visible por paciente:**
+| Campo | Descripción |
+|-------|-------------|
+| Nombre completo | Nombres + Apellidos |
+| ID Interno | Identificador único del expediente |
+| Edad | Calculada desde fecha de nacimiento |
+| Teléfono | Número de contacto principal |
+| Estado | Activo o Inactivo |
+| Etiquetas | Palabras clave del paciente (ej: diabético, hipertenso) |
 
-**Acciones disponibles:**
-- Buscar por nombre
-- Filtrar por estado
-- Click en paciente para ver detalle
+**Búsqueda y filtros:**
+- Buscar por nombre o apellido (barra de búsqueda)
+- Filtrar por estado: Todos / Activos / Inactivos
 
 ---
 
-### 2. Crear Nuevo Paciente
+## Crear Nuevo Paciente
 
-**Ruta:** Botón "Nuevo Paciente" o Acceso Rápido en Dashboard
-
+**Botón:** "Nuevo Paciente" en la página principal de Expedientes Médicos
 **URL:** `/dashboard/medical-records/patients/new`
 
-#### Campos del Formulario
+### Campos del Formulario
 
-##### Sección: Identificación
+#### Sección: Identificación
+
+| Campo | Requerido | Notas |
+|-------|-----------|-------|
+| ID Interno | No | Se genera automáticamente si no se proporciona. **No editable** después de creación |
+| Nombres | Sí | Nombres del paciente |
+| Apellidos | Sí | Apellidos del paciente |
+| Fecha de Nacimiento | Sí | Formato: DD/MM/AAAA |
+| Sexo | Sí | Masculino \| Femenino \| Otro |
+| Tipo de Sangre | No | A+, A-, B+, B-, AB+, AB-, O+, O- |
+
+#### Sección: Información de Contacto
+
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| ID Interno | No | Se genera automáticamente si no se proporciona |
-| Nombres | **Sí** | Nombres del paciente |
-| Apellidos | **Sí** | Apellidos del paciente |
-| Fecha de Nacimiento | **Sí** | Formato: DD/MM/AAAA |
-| Sexo | **Sí** | Opciones: Masculino, Femenino, Otro |
-| Tipo de Sangre | No | Ejemplo: A+, O-, AB+ |
-
-##### Sección: Información de Contacto
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Teléfono | No | Número de teléfono |
+| Teléfono | No | Número de teléfono principal |
 | Email | No | Correo electrónico |
 | Dirección | No | Calle y número |
 | Ciudad | No | Ciudad de residencia |
-| Estado | No | Estado/Provincia |
-| Código Postal | No | CP de la dirección |
+| Estado/Provincia | No | Estado o provincia |
+| Código Postal | No | Código postal de la dirección |
 
-##### Sección: Contacto de Emergencia
+#### Sección: Contacto de Emergencia
+
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Nombre | No | Nombre del contacto de emergencia |
-| Teléfono | No | Teléfono del contacto |
-| Relación | No | Ej: Madre, Padre, Hermano, Esposo |
+| Nombre | No | Nombre completo del contacto |
+| Teléfono | No | Teléfono del contacto de emergencia |
+| Relación | No | Madre, Padre, Hermano, Esposo, Amigo, etc. |
 
-##### Sección: Información Médica
+#### Sección: Información Médica
+
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Alergias | No | Lista de alergias conocidas |
-| Condiciones Crónicas | No | Ej: Diabetes, hipertensión |
+| Alergias | No | Lista de alergias conocidas (texto libre) |
+| Condiciones Crónicas | No | Enfermedades crónicas: Diabetes, Hipertensión, etc. |
 | Medicamentos Actuales | No | Medicamentos que toma actualmente |
-| Notas Generales | No | Cualquier nota adicional |
-| Etiquetas | No | Separadas por comas. Ej: diabético, hipertenso |
-
-#### Paso a Paso: Crear Paciente Manualmente
-
-1. Ir a **Expedientes Médicos** en el menú lateral
-2. Click en el botón **"Nuevo Paciente"**
-3. Completar los campos obligatorios (marcados con *)
-4. Opcionalmente completar información adicional
-5. Click en **"Crear Paciente"**
-6. El sistema redirige al perfil del nuevo paciente
-
-#### Paso a Paso: Crear Paciente con Asistente de Voz
-
-1. Ir a **Expedientes Médicos** en el menú lateral
-2. Click en el botón **"Nuevo Paciente"**
-3. Click en el botón **"Asistente de Voz"** (ícono de micrófono)
-4. Dictar la información del paciente de forma natural
-5. El sistema transcribe y extrae los datos automáticamente
-6. Revisar los datos extraídos en el panel lateral
-7. Hacer correcciones si es necesario mediante chat
-8. Click en **"Confirmar"** para llenar el formulario
-9. Verificar y completar campos faltantes
-10. Click en **"Crear Paciente"**
+| Notas Generales | No | Cualquier nota adicional relevante |
+| Etiquetas | No | Palabras clave separadas por comas. Ej: `diabético, hipertenso, embarazada` |
 
 ---
 
-### 3. Ver Perfil de Paciente
+## Crear Paciente — Paso a Paso
+
+### Manual
+
+1. Ir a **Expedientes Médicos** en el menú lateral
+2. Clic en **"Nuevo Paciente"**
+3. Completar campos obligatorios: Nombres, Apellidos, Fecha de Nacimiento, Sexo
+4. Completar información adicional según necesidad
+5. Clic en **"Crear Paciente"**
+6. El sistema redirige al perfil del nuevo paciente
+
+### Con Asistente de Voz
+
+1. Ir a **Expedientes Médicos**
+2. Clic en **"Nuevo Paciente"**
+3. Clic en el botón **"Asistente de Voz"** (ícono de micrófono)
+4. Dictar la información del paciente en lenguaje natural:
+   > *"Paciente María García López, 35 años, sexo femenino, tipo de sangre O positivo, teléfono 555-1234, alérgica a la penicilina, diabética tipo 2"*
+5. El sistema extrae los datos automáticamente
+6. Revisar en el panel lateral — corregir mediante chat si es necesario
+7. Clic en **"Confirmar"** → se pre-llena el formulario
+8. Verificar y completar campos faltantes
+9. Clic en **"Crear Paciente"**
+
+---
+
+## Ver Perfil del Paciente
 
 **URL:** `/dashboard/medical-records/patients/[id]`
 
-**Información mostrada:**
-- Datos personales completos
-- Información de contacto
-- Contacto de emergencia
-- Información médica base
-- Etiquetas asignadas
+El perfil del paciente tiene **pestañas de navegación**:
 
-**Acciones disponibles desde el perfil:**
+| Pestaña | Contenido |
+|---------|-----------|
+| Información | Datos personales, contacto, emergencia, médicos |
+| Consultas | Lista de consultas + botón "Nueva Consulta" |
+| Recetas | Lista de recetas + botón "Nueva Receta" |
+| Multimedia | Galería de fotos y documentos |
+| Línea de Tiempo | Vista cronológica de toda la actividad |
+
+**Acciones rápidas desde el perfil:**
 - Editar información del paciente
-- Ver consultas del paciente
-- Ver recetas del paciente
-- Ver multimedia (fotos/documentos)
-- Ver línea de tiempo
 - Crear nueva consulta
 - Crear nueva receta
+- Subir archivos multimedia
 
 ---
 
-### 4. Editar Paciente
+## Editar Paciente
 
 **URL:** `/dashboard/medical-records/patients/[id]/edit`
 
-**Campos editables:** Todos excepto el ID Interno (bloqueado después de creación)
+- Todos los campos son editables **excepto el ID Interno** (bloqueado permanentemente después de la creación)
+- No hay historial de versiones en los datos del paciente
 
-#### Paso a Paso
-
-1. Ir al perfil del paciente
-2. Click en **"Editar"**
-3. Modificar los campos necesarios
-4. Click en **"Guardar Cambios"**
+**Paso a paso:**
+1. Desde el perfil del paciente, clic en **"Editar"**
+2. Modificar los campos necesarios
+3. Clic en **"Guardar Cambios"**
 
 ---
 
-## Lo que el Usuario NO PUEDE Hacer
+## Acceso Rápido desde Dashboard
 
-- **Eliminar pacientes** - No existe esta función
-- **Cambiar el ID Interno** después de creado
-- **Fusionar pacientes duplicados** - No hay función de merge
-- **Importar pacientes desde Excel/CSV** - No disponible
-- **Exportar lista de pacientes** - No disponible
+El dashboard principal muestra un acceso rápido a "Nuevo Paciente" en la sección de acciones rápidas.
+
+---
+
+## Restricciones del Sistema
+
+| Acción | Estado | Motivo |
+|--------|--------|--------|
+| Eliminar paciente | ❌ No disponible | Expedientes son permanentes |
+| Cambiar ID Interno después de creación | ❌ Bloqueado | El ID es inmutable |
+| Fusionar pacientes duplicados | ❌ No disponible | Sin función de merge |
+| Importar desde Excel/CSV | ❌ No disponible | Creación manual o por voz |
+| Exportar lista de pacientes | ❌ No disponible | Sin función de exportación |
+| Ver pacientes de otro médico | ❌ No permitido | Cada médico ve solo sus pacientes |
+
+---
+
+## Etiquetas
+
+Las etiquetas son palabras clave para categorizar pacientes:
+- Se ingresan separadas por comas: `diabético, hipertenso, embarazada`
+- Aparecen como badges en la lista de pacientes
+- Útiles para búsqueda visual rápida
+- No hay sistema de filtrado por etiquetas (solo búsqueda por nombre)
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Cómo busco un paciente?
-Usa la barra de búsqueda en la parte superior de la lista de pacientes. Puedes buscar por nombre o apellido.
+**¿Cómo busco un paciente?**
+Usa la barra de búsqueda en la lista de pacientes. Puedes buscar por nombre o apellido.
 
-### ¿Puedo filtrar pacientes?
-Sí, puedes filtrar por estado (Todos, Activos, Inactivos).
+**¿Puedo filtrar pacientes por etiqueta?**
+No hay filtro por etiqueta. Solo puedes filtrar por estado (Activo/Inactivo) o buscar por nombre.
 
-### ¿Qué son las etiquetas?
-Las etiquetas son palabras clave que ayudan a categorizar pacientes. Por ejemplo: "diabético", "embarazada", "post-operatorio". Se separan por comas al ingresarlas.
+**¿Qué pasa si creo un paciente duplicado?**
+No hay detección automática de duplicados. Debes identificarlo manualmente y optar por uno de los dos expedientes.
 
-### ¿Puedo agregar fotos del paciente?
-Sí, desde el perfil del paciente puedes ir a la sección de Multimedia y subir fotos o documentos.
+**¿Puedo agregar fotos del paciente?**
+No una foto de perfil, pero puedes subir imágenes clínicas en la sección "Multimedia" del perfil del paciente.
 
-### ¿El asistente de voz funciona para crear pacientes?
-Sí, puedes dictar toda la información del paciente y el sistema la extraerá automáticamente.
+**¿El asistente de voz funciona para crear pacientes?**
+Sí, puedes dictar toda la información y el sistema la extraerá y pre-llenará el formulario.
+
+**¿Qué es la Línea de Tiempo?**
+Es una vista cronológica que muestra todas las consultas y recetas del paciente en orden de fecha, útil para ver la historia clínica completa de un vistazo.

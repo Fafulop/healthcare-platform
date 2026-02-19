@@ -1,256 +1,207 @@
 # Flujo de Dinero
 
-## Propósito
+## Qué es
 
-Permite registrar y dar seguimiento a todos los movimientos financieros del consultorio, categorizados como ingresos o egresos.
+El módulo de Flujo de Dinero registra todos los movimientos financieros del consultorio — ingresos y egresos. Incluye un Estado de Resultados que agrupa los movimientos por áreas y muestra el balance neto.
 
 ## Acceso
 
 **Ruta:** Menú lateral > Gestión de Consultorio > Flujo de Dinero
-
 **URL:** `/dashboard/practice/flujo-de-dinero`
 
 ---
 
-## Funcionalidades
+## Pestañas Principales
 
-### 1. Ver Movimientos
+### Pestaña "Movimientos"
 
-**URL:** `/dashboard/practice/flujo-de-dinero`
+Lista de todos los movimientos financieros con filtros y panel de resumen.
 
-#### Pestañas Disponibles
-
-**Pestaña "Movimientos":**
-Vista de lista de todos los movimientos financieros.
-
-**Pestaña "Estado de Resultados":**
-Resumen financiero agrupado por áreas y subáreas.
-
-#### Panel de Resumen (Pestaña Movimientos)
-
+**Panel de Resumen:**
 | Tarjeta | Descripción |
 |---------|-------------|
-| Balance Actual | Ingresos - Egresos realizados |
-| Total Ingresos | Suma de ingresos realizados |
-| Total Egresos | Suma de egresos realizados |
+| Balance Actual | Ingresos realizados − Egresos realizados |
+| Total Ingresos | Suma de todos los ingresos realizados |
+| Total Egresos | Suma de todos los egresos realizados |
 
-#### Filtros Disponibles
-
+**Filtros disponibles:**
 | Filtro | Opciones |
 |--------|----------|
-| Buscar | Por concepto o ID |
-| Tipo | Todos, Ingresos, Egresos |
-| Estado | Todos, Realizados, Por Realizar |
-| Fecha Inicio | Fecha desde |
-| Fecha Fin | Fecha hasta |
+| Buscar | Por concepto o ID del movimiento |
+| Tipo | Todos \| Ingresos \| Egresos |
+| Estado | Todos \| Realizados \| Por Realizar |
+| Fecha Inicio | Desde esta fecha |
+| Fecha Fin | Hasta esta fecha |
 
-#### Información por Movimiento
+**Información por movimiento:**
+| Campo | Descripción |
+|-------|-------------|
+| Fecha | Fecha de la transacción |
+| Concepto | Descripción del movimiento |
+| Área | Categoría principal (ej: Consultas Médicas) |
+| Subárea | Subcategoría (ej: Consulta General) |
+| Tipo | Ingreso o Egreso |
+| Tipo de Transacción | Venta / Compra / N/A |
+| Cliente/Proveedor | Si aplica (movimientos de ventas/compras) |
+| Estado de Pago | Pagado / Parcial / Pendiente |
+| Total | Monto total |
+| Pagado | Monto ya cobrado/pagado |
+| Saldo | Total − Pagado |
+| Estado | Realizado / Por Realizar |
 
-- Fecha de transacción
-- Concepto
-- Área y Subárea
-- Tipo (Ingreso/Egreso)
-- Tipo de Transacción (Venta/Compra/N/A)
-- Cliente/Proveedor (si aplica)
-- Estado de Pago
-- Total
-- Pagado
-- Saldo
-- Estado (Realizado/Por Realizar)
+### Pestaña "Estado de Resultados"
 
----
+Resumen financiero agrupado por áreas:
 
-### 2. Crear Nuevo Movimiento
-
-**URL:** `/dashboard/practice/flujo-de-dinero/new`
-
-#### Campos del Formulario
-
-| Campo | Requerido | Descripción |
-|-------|-----------|-------------|
-| Tipo de Movimiento | **Sí** | Ingreso o Egreso |
-| Concepto | **Sí** | Descripción del movimiento |
-| Monto | **Sí** | Cantidad en MXN |
-| Fecha | **Sí** | Fecha de la transacción |
-| Área | **Sí** | Categoría principal |
-| Subárea | No | Subcategoría |
-| Forma de Pago | No | Efectivo, Transferencia, Tarjeta, Cheque, Depósito |
-| Cuenta Bancaria | No | Cuenta donde se registra |
-| Por Realizar | No | Si es un movimiento futuro/pendiente |
-
-#### Formas de Pago
-
-| Opción | Descripción |
-|--------|-------------|
-| Efectivo | Pago en efectivo |
-| Transferencia | Transferencia bancaria |
-| Tarjeta | Pago con tarjeta |
-| Cheque | Pago con cheque |
-| Depósito | Depósito bancario |
-
-#### Paso a Paso: Crear Movimiento Manualmente
-
-1. Ir a **Flujo de Dinero** en el menú lateral
-2. Click en **"Nuevo Movimiento"**
-3. Seleccionar tipo (Ingreso o Egreso)
-4. Ingresar el concepto
-5. Establecer el monto
-6. Seleccionar fecha
-7. Elegir área y subárea
-8. Opcionalmente completar forma de pago y cuenta
-9. Click en **"Crear Movimiento"**
-
-#### Paso a Paso: Crear Movimientos con Asistente de Voz
-
-1. Ir a **Flujo de Dinero**
-2. Click en **"Nuevo Movimiento"**
-3. Click en el botón **"Asistente de Voz"**
-4. Dictar los movimientos
-   - Ejemplo: "Ingreso de 5000 pesos por consulta del día de hoy, área consultas médicas. Egreso de 800 pesos por material de oficina, área gastos administrativos"
-5. El sistema puede crear **múltiples movimientos** de una sola dictada
-6. Revisar los movimientos propuestos
-7. Corregir si es necesario
-8. Click en **"Confirmar"** para crear todos
-
----
-
-### 3. Estado de Resultados
-
-**Ubicación:** Pestaña "Estado de Resultados"
-
-Muestra un resumen financiero profesional:
-
-#### Sección Ingresos
+**Sección Ingresos:**
 - Agrupados por área
 - Desglose por subárea
 - Total por área
 - Total general de ingresos
 - Cuentas por Cobrar (montos pendientes de ventas)
 
-#### Sección Egresos
+**Sección Egresos:**
 - Agrupados por área
 - Desglose por subárea
 - Total por área
 - Total general de egresos
 - Cuentas por Pagar (montos pendientes de compras)
 
-#### Balance General
+**Balance General:**
 - Total Ingresos Realizados
 - Total Egresos Realizados
-- Balance Neto (Ingresos - Egresos)
+- Balance Neto (Ingresos − Egresos)
 - Flujo Pendiente (Por Cobrar vs Por Pagar)
 
 ---
 
-### 4. Editar Área de un Movimiento
+## Crear Nuevo Movimiento
 
-Puedes cambiar el área y subárea de un movimiento directamente desde la lista.
+**URL:** `/dashboard/practice/flujo-de-dinero/new`
 
-#### Paso a Paso
+### Campos del Formulario
 
-1. En la lista, click en la celda de Área del movimiento
+| Campo | Requerido | Descripción |
+|-------|-----------|-------------|
+| Tipo de Movimiento | Sí | Ingreso o Egreso |
+| Concepto | Sí | Descripción del movimiento |
+| Monto | Sí | Cantidad en MXN |
+| Fecha | Sí | Fecha de la transacción |
+| Área | Sí | Categoría principal del movimiento |
+| Subárea | No | Subcategoría dentro del área |
+| Forma de Pago | No | Efectivo \| Transferencia \| Tarjeta \| Cheque \| Depósito |
+| Cuenta Bancaria | No | Cuenta donde se registra el movimiento |
+| Por Realizar | No | Checkbox: marcar si es movimiento futuro/pendiente |
+
+---
+
+## Crear Movimiento — Paso a Paso
+
+### Manual
+
+1. Ir a **Flujo de Dinero** en el menú lateral
+2. Clic en **"Nuevo Movimiento"**
+3. Seleccionar tipo: Ingreso o Egreso
+4. Ingresar el concepto
+5. Establecer el monto y fecha
+6. Elegir área (y subárea si aplica)
+7. Seleccionar forma de pago si se conoce
+8. Clic en **"Crear Movimiento"**
+
+### Con Asistente de Voz — Múltiples Movimientos
+
+El asistente de voz puede crear **varios movimientos en una sola dictada**:
+
+1. Ir a **Flujo de Dinero** > **"Nuevo Movimiento"**
+2. Clic en **"Asistente de Voz"**
+3. Dictar todos los movimientos:
+   > *"Ingreso de 5000 pesos por consulta del día de hoy, área consultas médicas. Egreso de 800 pesos por material de oficina, área gastos administrativos. Ingreso de 2500 pesos por procedimiento, área procedimientos"*
+4. El sistema detecta múltiples movimientos y los lista
+5. Revisar cada movimiento propuesto
+6. Corregir si es necesario
+7. Clic en **"Confirmar"** → se crean todos juntos
+
+---
+
+## Cambiar Área de un Movimiento
+
+Desde la lista, sin ir a editar:
+
+1. Clic en la celda de Área del movimiento en la tabla
 2. Seleccionar nueva área del dropdown
 3. Seleccionar nueva subárea (si hay disponibles)
-4. Click en **"Guardar"**
-
----
-
-### 5. Gestionar Áreas
-
-**URL:** `/dashboard/practice/areas`
-
-Las áreas categorizan los movimientos. Puedes:
-- Ver áreas existentes
-- Crear nuevas áreas
-- Crear subáreas dentro de áreas
-- Definir si el área es para ingresos o egresos
-
----
-
-### 6. Eliminar Movimiento
-
-#### Paso a Paso
-
-1. En la lista, localizar el movimiento
-2. Click en el botón de eliminar (papelera)
-3. Confirmar la eliminación
-
----
-
-## Áreas Predefinidas (Ejemplos)
-
-### Para Ingresos
-- Consultas Médicas
-  - Consulta General
-  - Consulta Especializada
-  - Procedimientos
-- Ventas de Productos
-- Otros Ingresos
-
-### Para Egresos
-- Gastos de Personal
-  - Salarios
-  - Prestaciones
-- Gastos Administrativos
-  - Renta
-  - Servicios
-  - Material de Oficina
-- Compras de Insumos
-- Impuestos
+4. Clic en **"Guardar"**
 
 ---
 
 ## Movimientos Automáticos
 
-Cuando creas una **Venta** o **Compra**, el sistema automáticamente genera un movimiento en el flujo de dinero:
+Cuando creas una Venta o Compra, el sistema genera automáticamente un movimiento:
 
-| Origen | Tipo | Vinculación |
-|--------|------|-------------|
-| Venta | Ingreso | Muestra cliente y número de venta |
-| Compra | Egreso | Muestra proveedor y número de compra |
+| Origen | Tipo generado | Datos incluidos |
+|--------|---------------|-----------------|
+| Venta nueva | Ingreso | Cliente, número de venta, monto |
+| Compra nueva | Egreso | Proveedor, número de compra, monto |
 
-Estos movimientos muestran el estado de pago real (Pagado, Parcial, Pendiente).
+El estado de pago de estos movimientos se sincroniza con el estado de pago de la venta/compra.
 
 ---
 
-## Lo que el Usuario PUEDE Hacer
+## Movimiento "Por Realizar"
 
-- Crear movimientos manuales individuales
-- Crear múltiples movimientos por voz (batch)
-- Editar movimientos existentes
-- Cambiar área/subárea directamente en la lista
-- Eliminar movimientos
-- Filtrar por tipo, estado, fechas
-- Ver estado de resultados
-- Gestionar áreas y subáreas
+Un movimiento "Por Realizar" es uno futuro o pendiente de ejecutarse. Ejemplos:
+- Un pago al proveedor programado para la próxima semana
+- Un ingreso esperado que aún no se ha recibido
 
-## Lo que el Usuario NO PUEDE Hacer
+Los movimientos "Por Realizar" **no se incluyen** en el Balance Actual — solo los "Realizados" cuentan.
 
-- **Exportar a Excel/PDF** - No hay función de exportación
-- **Conciliar con banco** - No hay conciliación bancaria
-- **Generar reportes automáticos** - Solo vista de estado de resultados
-- **Programar movimientos recurrentes** - Debe crear cada uno
-- **Adjuntar comprobantes** - No hay función de archivos
-- **Integrar con sistema contable** - No hay integración externa
+---
+
+## Restricciones del Sistema
+
+| Acción | Estado |
+|--------|--------|
+| Exportar a Excel/PDF | ❌ Sin función de exportación |
+| Conciliar con estado de cuenta bancario | ❌ Sin conciliación bancaria |
+| Programar movimientos recurrentes | ❌ Debe crear cada uno manualmente |
+| Adjuntar comprobantes/facturas | ❌ Sin archivos adjuntos |
+| Integrar con sistema contable externo | ❌ Sin integración |
+
+---
+
+## Áreas y Subáreas
+
+Las áreas categorizan los movimientos en el Estado de Resultados. Se configuran en `/dashboard/practice/areas`.
+
+**Áreas típicas de ingreso:**
+- Consultas Médicas (subáreas: Consulta General, Especializada, Procedimientos)
+- Ventas de Productos
+- Otros Ingresos
+
+**Áreas típicas de egreso:**
+- Gastos de Personal (subáreas: Salarios, Prestaciones)
+- Gastos Administrativos (subáreas: Renta, Servicios, Material de Oficina)
+- Compras de Insumos
+- Impuestos
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Qué significa "Por Realizar"?
-Es un movimiento futuro o programado que aún no se ha ejecutado. Por ejemplo, un pago que harás la próxima semana.
+**¿Qué significa "Por Realizar"?**
+Es un movimiento futuro o programado que aún no se ha ejecutado. No afecta el Balance Actual hasta que se marque como realizado.
 
-### ¿Las ventas y compras aparecen automáticamente?
-Sí, cuando creas una venta o compra, se genera automáticamente un registro en el flujo de dinero.
+**¿Las ventas y compras aparecen automáticamente en el flujo?**
+Sí, al crear una venta o compra se genera automáticamente el movimiento correspondiente.
 
-### ¿Puedo editar movimientos automáticos de ventas/compras?
-Sí, puedes editar el área y subárea, pero el monto se sincroniza con la venta/compra original.
+**¿Puedo crear múltiples movimientos de una sola vez?**
+Sí, usando el asistente de voz puedes dictar varios movimientos en una sola grabación.
 
-### ¿Cómo creo múltiples movimientos rápidamente?
-Usa el asistente de voz. Puedes dictar varios movimientos en una sola grabación y se crearán todos juntos.
+**¿Cómo configuro las áreas?**
+Desde la página de Flujo de Dinero, clic en el botón "Áreas" para ir a la configuración.
 
-### ¿Dónde configuro las áreas?
-Click en el botón "Áreas" en la parte superior de la página para ir a la configuración de áreas y subáreas.
+**¿El Estado de Resultados se actualiza en tiempo real?**
+Sí, refleja los movimientos actuales según los filtros de fecha aplicados.
 
-### ¿El estado de resultados se actualiza en tiempo real?
-Sí, refleja los movimientos actuales según los filtros aplicados.
+**¿Puedo editar el área de un movimiento automático (de venta/compra)?**
+Sí, puedes cambiar el área y subárea desde la lista. El monto se sincroniza con la venta/compra original.

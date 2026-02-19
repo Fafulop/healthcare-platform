@@ -28,7 +28,8 @@
     "docs:sync-all": "tsx --env-file .env scripts/docs-sync.ts sync-all",
     "docs:list": "tsx --env-file .env scripts/docs-sync.ts list",
     "docs:status": "tsx --env-file .env scripts/docs-sync.ts status",
-    "docs:history": "tsx --env-file .env scripts/docs-sync.ts history"
+    "docs:history": "tsx --env-file .env scripts/docs-sync.ts history",
+    "docs:purge": "tsx --env-file .env scripts/docs-sync.ts purge"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

@@ -10,7 +10,7 @@
  *   pnpm docs:history [moduleId]     — Show version history
  */
 
-import { syncModule, syncAll, listModules, getStatus, showHistory } from '../apps/doctor/src/lib/llm-assistant/sync';
+import { syncModule, syncAll, listModules, getStatus, showHistory, purgeAll } from '../apps/doctor/src/lib/llm-assistant/sync';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -78,6 +78,15 @@ async function main() {
       break;
     }
 
+    case 'purge': {
+      console.log('Purging all chunks and file hashes...');
+      const result = await purgeAll();
+      console.log(`  Deleted ${result.chunksDeleted} chunks`);
+      console.log(`  Deleted ${result.filesDeleted} file hashes`);
+      console.log('Done. Run docs:sync-all --force to re-ingest.');
+      break;
+    }
+
     default:
       console.log('LLM Assistant Docs Sync CLI\n');
       console.log('Commands:');
@@ -86,6 +95,7 @@ async function main() {
       console.log('  list                         List all modules');
       console.log('  status                       Show sync status');
       console.log('  history [moduleId]           Show version history');
+      console.log('  purge                        Delete all chunks (then re-ingest)');
       process.exit(0);
   }
 }

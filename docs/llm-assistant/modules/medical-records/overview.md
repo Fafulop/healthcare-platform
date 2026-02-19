@@ -38,8 +38,8 @@ El módulo de **Expedientes Médicos** permite al médico gestionar toda la info
 - Ver galería de archivos
 
 ### 5. Línea de Tiempo
-- Ver cronología de todas las interacciones
-- Filtrar por tipo de evento
+- Ver cronología de todas las interacciones con el paciente
+- Solo lectura — generada automáticamente por el sistema
 
 ---
 

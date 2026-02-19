@@ -1,163 +1,160 @@
 # Reservaciones (Bookings)
 
-## Propósito
+## Qué es
 
-Permite al médico ver y gestionar las citas que los pacientes han agendado en sus espacios disponibles.
+Una reservación es el registro de un paciente que agendó una cita en un horario disponible del médico. El médico no puede crear reservaciones directamente — solo los pacientes pueden agendar desde el perfil público del médico. El médico gestiona las reservaciones: las confirma, marca como completadas o las cancela.
 
 ## Acceso
 
-**Ruta:** Menú lateral > Citas > Click en espacio reservado
+**Ruta:** Menú lateral > Citas
+**URL:** `/appointments`
 
-**URL:** `/appointments` (vista integrada)
-
----
-
-## Funcionalidades
-
-### 1. Ver Reservaciones
-
-Las reservaciones se muestran en los espacios de cita que tienen pacientes agendados.
-
-**Información de cada reservación:**
-- Nombre del paciente
-- Teléfono de contacto
-- Email
-- Código de confirmación
-- Estado de pago
-- Motivo de la consulta
-- Fecha y hora de la cita
-- Notas del paciente
+Las reservaciones se muestran en la sección **"Citas Reservadas"** en la parte superior de la página.
 
 ---
 
-### 2. Ver Detalle de Reservación
+## Estados de una Reservación
 
-#### Paso a Paso
-
-1. En el calendario o lista, click en un espacio con reservación (color azul)
-2. Se abre el panel de detalles
-3. Ver toda la información del paciente y la cita
-
-**Información mostrada:**
-- Datos completos del paciente
-- Código de confirmación único
-- Estado de pago (Pendiente, Pagado)
-- Motivo de consulta ingresado por el paciente
-- Fecha de creación de la reservación
+| Estado | Color | Significado | Acciones disponibles |
+|--------|-------|-------------|---------------------|
+| PENDING | Amarillo | El paciente agendó — el médico aún no confirma | Confirmar, Cancelar |
+| CONFIRMED | Azul | El médico confirmó la asistencia | Marcar Completada, No Asistió, Cancelar |
+| COMPLETED | Azul | El paciente asistió a la cita | — (sin acciones) |
+| CANCELLED | Rojo | La cita fue cancelada | — (sin acciones) |
+| NO_SHOW | Gris | El paciente no se presentó | — (sin acciones) |
 
 ---
 
-### 3. Confirmar Asistencia
+## Transiciones de Estado
 
-Cuando el paciente llega a la consulta, puedes marcar la cita como atendida.
+```
+PENDING ──→ CONFIRMED   (botón "Confirmar")
+        └─→ CANCELLED   (botón "Cancelar")
 
-#### Paso a Paso
+CONFIRMED ──→ COMPLETED  (botón "Completada")
+          ├─→ NO_SHOW    (botón "No asistió")
+          └─→ CANCELLED  (botón "Cancelar")
 
-1. Abrir detalle de la reservación
-2. Click en **"Confirmar Asistencia"**
-3. El estado cambia a "Atendido"
-
----
-
-### 4. Cancelar Reservación
-
-Si necesitas cancelar una cita agendada por un paciente.
-
-#### Paso a Paso
-
-1. Abrir detalle de la reservación
-2. Click en **"Cancelar Reservación"**
-3. Confirmar la cancelación
-4. El espacio vuelve a estar disponible
-5. (El paciente debería ser notificado - según configuración del sistema)
-
-**Importante:** Considera contactar al paciente antes de cancelar para reagendar.
+COMPLETED, CANCELLED, NO_SHOW → sin acciones disponibles (estado final)
+```
 
 ---
 
-## Estados de Pago
+## Ver Reservaciones
 
-| Estado | Descripción |
-|--------|-------------|
-| Pendiente | El paciente no ha pagado |
-| Pagado | El pago fue procesado |
+### Por día (modo default)
+- Selector de fecha con flechas ◀ ▶ para navegar día a día
+- Botón "Hoy" aparece cuando no se está viendo el día actual
+- Contador: *"N cita(s)"*
 
-**Nota:** El sistema muestra el estado de pago pero el cobro se maneja externamente a la aplicación.
+### Ver todas
+- Toggle "Ver todos" muestra todas las reservaciones de todos los meses
+- Toggle "Por día" regresa a la vista filtrada por día
+
+### Información mostrada por reservación
+
+| Campo | Descripción |
+|-------|-------------|
+| Fecha y hora | Fecha de la cita + rango horario (inicio - fin) |
+| Nombre del paciente | Nombre completo |
+| Email | Email del paciente |
+| Teléfono | Teléfono de contacto |
+| WhatsApp | WhatsApp (puede ser nulo) |
+| Estado | Badge con color y ícono |
+| Precio | Precio final de la cita |
+| Código de confirmación | Código alfanumérico único (`monospace`) |
+
+---
+
+## Acciones
+
+### Confirmar (PENDING → CONFIRMED)
+Solo disponible desde estado PENDING.
+
+Pasos:
+1. Localiza la reservación en la tabla/tarjetas
+2. Clic en **"Confirmar"** (botón verde)
+3. El estado cambia a CONFIRMED
+
+### Cancelar (PENDING o CONFIRMED → CANCELLED)
+Disponible desde PENDING o CONFIRMED.
+
+Pasos:
+1. Clic en **"Cancelar"** (botón rojo)
+2. Confirmación: *"¿Estás seguro de que quieres cancelar esta cita?"*
+3. Al confirmar → estado cambia a CANCELLED y el horario vuelve a estado Disponible
+
+### Marcar como Completada (CONFIRMED → COMPLETED)
+Solo disponible desde estado CONFIRMED.
+
+Pasos:
+1. Clic en **"Completada"** (botón azul)
+2. Estado cambia a COMPLETED
+
+### Marcar No Asistió (CONFIRMED → NO_SHOW)
+Solo disponible desde estado CONFIRMED.
+
+Pasos:
+1. Clic en **"No asistió"** (botón gris)
+2. Estado cambia a NO_SHOW
 
 ---
 
 ## Código de Confirmación
 
-Cada reservación genera un código único de confirmación.
+Cada reservación tiene un código alfanumérico único generado automáticamente.
 
-**Uso del código:**
-- El paciente lo recibe al agendar
-- Sirve para identificar la cita
-- Se puede usar para verificar la reservación
-
-**Formato:** Alfanumérico (ejemplo: ABC123)
+- El paciente recibe este código al agendar
+- Se muestra en la tabla en formato monospace
+- Útil para verificar la reservación cuando el paciente llama por teléfono
 
 ---
 
-## Lo que el Usuario PUEDE Hacer
+## Contactar al Paciente
 
-| Acción | Disponible | Notas |
-|--------|------------|-------|
-| Ver reservaciones | Sí | En calendario y lista |
-| Ver detalles del paciente | Sí | Datos de contacto completos |
-| Confirmar asistencia | Sí | Marcar como atendido |
-| Cancelar reservación | Sí | Libera el espacio |
-| Ver código de confirmación | Sí | Para verificar con el paciente |
-
-## Lo que el Usuario NO PUEDE Hacer
-
-- **Crear reservaciones directamente** - Solo los pacientes pueden agendar
-- **Modificar datos del paciente** - La información viene del paciente
-- **Procesar pagos** - El cobro es externo a la app
-- **Enviar recordatorios** - No hay sistema de mensajería integrado
-- **Reprogramar automáticamente** - Debe cancelar y el paciente reagenda
-- **Ver historial de cancelaciones** - No hay registro histórico
+La app no tiene sistema de mensajería. Para contactar al paciente:
+- Usa el email o teléfono visibles en la tabla
+- El WhatsApp se muestra si el paciente lo proporcionó
 
 ---
 
-## Flujo de una Reservación
+## Relación con Expedientes Médicos
 
-```
-1. Médico crea espacio disponible
-         ↓
-2. Paciente ve disponibilidad en perfil público
-         ↓
-3. Paciente selecciona horario y agenda
-         ↓
-4. Se genera código de confirmación
-         ↓
-5. Médico ve la reservación en su calendario
-         ↓
-6. Día de la cita: paciente asiste
-         ↓
-7. Médico confirma asistencia
-         ↓
-8. Médico documenta consulta en expedientes
-```
+Las reservaciones **no se sincronizan automáticamente** con el módulo de expedientes médicos.
+
+Flujo recomendado después de atender al paciente:
+1. Marcar la reservación como **Completada** en Citas
+2. Ir a **Expedientes Médicos > Pacientes**
+3. Buscar el paciente y crear manualmente una nueva **Consulta**
+
+---
+
+## Lo que el Médico NO Puede Hacer
+
+| Acción | Por qué no es posible |
+|--------|----------------------|
+| Crear una reservación directamente | Solo los pacientes pueden agendar desde el perfil público |
+| Modificar los datos del paciente en la reservación | Los datos vienen del paciente y no son editables |
+| Reprogramar automáticamente | Debe cancelar y el paciente vuelve a agendar |
+| Enviar recordatorios desde la app | No hay sistema de mensajería integrado |
+| Ver historial de cancelaciones antiguas | No hay registro histórico filtrable |
+| Cobrar desde la app | El cobro es externo |
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Cómo sé si tengo nuevas reservaciones?
-Revisa tu calendario regularmente. Los espacios reservados aparecen en color diferente (azul).
+**¿Cómo sé cuando llega una nueva reservación?**
+El color del horario en el calendario cambia (muestra punto azul con reservaciones). Revisa la sección "Citas Reservadas" regularmente o consulta el widget flotante del dashboard que muestra un badge con el conteo del día.
 
-### ¿El paciente recibe confirmación automática?
-Sí, al agendar el paciente recibe un código de confirmación.
+**¿Qué pasa con el horario cuando cancelo una reservación?**
+Al cancelar, `currentBookings` disminuye. Si el horario estaba en estado "Lleno", vuelve a "Disponible" y los pacientes pueden agendar de nuevo.
 
-### ¿Puedo bloquear a un paciente problemático?
-No hay función de bloqueo de pacientes específicos.
+**¿Puedo tener varias reservaciones en el mismo horario?**
+Sí, si el horario tiene `maxBookings > 1`. El estado "Lleno" se activa cuando se alcanza el máximo.
 
-### ¿Qué pasa si el paciente no llega?
-Puedes dejar la cita sin confirmar o cancelarla para liberar tu historial.
+**¿El paciente recibe notificación si cancelo su cita?**
+Depende de la configuración del sistema. La cancelación se registra en la app pero no hay confirmación de que se envíe notificación automática al paciente.
 
-### ¿Puedo contactar al paciente desde la app?
-No directamente, pero puedes ver su teléfono y email para contactarlo externamente.
-
-### ¿Las reservaciones se sincronizan con el módulo de expedientes?
-No automáticamente. Debes crear la consulta manualmente en el expediente del paciente después de atenderlo.
+**¿Qué diferencia hay entre CANCELLED y NO_SHOW?**
+CANCELLED: la cita se canceló (por médico o paciente) antes o después del horario. NO_SHOW: el paciente simplemente no llegó a la cita confirmada.

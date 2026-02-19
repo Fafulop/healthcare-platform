@@ -393,9 +393,17 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           },
 
           'convertir a venta': {
+            allowedIf: 'Siempre — botón de carrito (ShoppingCart) por cada cotización en la lista.',
             notes:
-              'No existe conversión automática. La venta debe crearse manualmente. ' +
-              'Una venta puede referenciar una cotización mediante el campo de vinculación.',
+              'Crea una venta automáticamente copiando los ítems, precios y cliente de la cotización. ' +
+              'Confirmación: "¿Convertir la cotización \'COT-XXX\' en una venta?" ' +
+              'Al confirmar, redirige al detalle de la nueva venta. La cotización original no se elimina.',
+          },
+
+          'exportar PDF': {
+            allowedIf: 'Solo cuando hay cotizaciones seleccionadas con los checkboxes.',
+            blockedIf: 'Ninguna cotización está seleccionada.',
+            resolution: 'Marca los checkboxes de las cotizaciones a exportar.',
           },
         },
       },
@@ -482,6 +490,87 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
       },
     },
   },
+
+  // ─────────────────────────────────────────────────────────────
+  // PENDIENTES (TASKS)
+  // ─────────────────────────────────────────────────────────────
+  pendientes: {
+    name: 'Pendientes',
+    routes: ['/dashboard/pendientes'],
+    entities: {
+
+      'Tarea (Pendiente)': {
+        states:
+          'PENDIENTE (por hacer) | EN_PROGRESO (en proceso) | ' +
+          'COMPLETADA (terminada) | CANCELADA (cancelada)',
+        actions: {
+
+          crear: {
+            allowedIf: 'Siempre.',
+            notes:
+              'Campos requeridos: título, prioridad (ALTA/MEDIA/BAJA), categoría. ' +
+              'Categorías disponibles: SEGUIMIENTO, ADMINISTRATIVO, LABORATORIO, RECETA, REFERENCIA, PERSONAL, OTRO. ' +
+              'Opcionales: descripción, fecha de vencimiento, hora inicio, hora fin, paciente vinculado.',
+          },
+
+          'cambiar estado': {
+            notes:
+              'Inline desde la lista: clic en el badge de estado para abrir el selector. ' +
+              'Todas las transiciones entre estados son permitidas.',
+          },
+
+          eliminar: {
+            allowedIf: 'Siempre — requiere confirmación: "¿Eliminar \'título\'?"',
+          },
+
+          'eliminar masivo': {
+            notes:
+              'Selecciona tareas con checkboxes → barra masiva → Eliminar. ' +
+              'Confirmación: "¿Eliminar N tarea(s) seleccionada(s)?"',
+          },
+
+          'vencida (overdue)': {
+            blockedIf: 'No es una acción bloqueada — es un estado visual.',
+            notes:
+              'Una tarea es "vencida" cuando tiene fecha de vencimiento pasada y no está COMPLETADA ni CANCELADA. ' +
+              'Se muestra en rojo en la tabla. Para resolverla: completar o cancelar la tarea.',
+          },
+        },
+      },
+    },
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // PROFILE (MI PERFIL)
+  // ─────────────────────────────────────────────────────────────
+  profile: {
+    name: 'Mi Perfil',
+    routes: ['/dashboard/mi-perfil'],
+    entities: {
+
+      'Perfil Público': {
+        actions: {
+
+          editar: {
+            allowedIf: 'Siempre — cada pestaña tiene su propio botón de guardado.',
+            notes:
+              'Pestañas editables: Info General, Servicios, Clínica, Formación, Multimedia, FAQs y Social. ' +
+              'La pestaña "Opiniones" es solo lectura (reseñas de pacientes).',
+          },
+
+          'eliminar reseña': {
+            blockedIf: 'Siempre — las reseñas de pacientes no pueden ser eliminadas por el médico.',
+          },
+
+          'cambiar slug': {
+            notes:
+              'El slug puede editarse pero cambiar la URL del perfil público puede romper links existentes. ' +
+              'Proceder con cuidado.',
+          },
+        },
+      },
+    },
+  },
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -541,5 +630,7 @@ export function getModulesFromPath(path: string): string[] {
   if (path.startsWith('/dashboard/medical-records')) return ['medical-records'];
   if (path.startsWith('/dashboard/practice')) return ['practice-management'];
   if (path.startsWith('/dashboard/blog')) return ['blog'];
+  if (path.startsWith('/dashboard/pendientes')) return ['pendientes'];
+  if (path.startsWith('/dashboard/mi-perfil')) return ['profile'];
   return [];
 }

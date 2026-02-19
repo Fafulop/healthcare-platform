@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "baseUrl": "apps/doctor/src",
+    "paths": {
+      "@/*": ["*"]
+    },
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  }
+}

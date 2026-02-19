@@ -1,122 +1,108 @@
 # Productos
 
-## Propósito
+## Qué es
 
-Permite gestionar el catálogo de productos del consultorio, para uso en ventas y control de inventario.
+El catálogo de Productos registra los artículos que el consultorio vende o compra. Los productos sirven como referencia al crear ventas y compras — facilitan el llenado de líneas sin tener que escribir el mismo producto cada vez.
 
 ## Acceso
 
 **Ruta:** Menú lateral > Gestión de Consultorio > Productos
-
 **URL:** `/dashboard/practice/products`
 
 ---
 
-## Funcionalidades
+## Ver Lista de Productos
 
-### 1. Ver Lista de Productos
-
-**URL:** `/dashboard/practice/products`
-
-**Información por producto:**
-- Nombre del producto
-- Descripción
-- Precio
-- Unidad de medida
-- Stock disponible (si se maneja)
+**Información visible por producto:**
+| Campo | Descripción |
+|-------|-------------|
+| Nombre | Nombre del producto |
+| Descripción | Descripción detallada (si se capturó) |
+| Precio | Precio de venta en MXN |
+| Unidad de medida | Pieza, caja, litro, etc. |
+| Código/SKU | Código interno (si se capturó) |
 
 **Acciones disponibles:**
-- Buscar productos
+- Buscar productos por nombre
 - Editar producto
 - Eliminar producto
 
 ---
 
-### 2. Crear Nuevo Producto
+## Crear Nuevo Producto
 
 **URL:** `/dashboard/practice/products/new`
 
-#### Campos del Formulario
+### Campos del Formulario
 
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Nombre | **Sí** | Nombre del producto |
+| Nombre | Sí | Nombre del producto |
 | Descripción | No | Descripción detallada |
-| Precio | **Sí** | Precio de venta en MXN |
-| Unidad | No | Pieza, caja, litro, etc. |
-| Código/SKU | No | Código interno del producto |
+| Precio | Sí | Precio de venta en MXN |
+| Unidad de medida | No | Pieza, caja, litro, etc. |
+| Código/SKU | No | Identificador interno del producto |
 
-#### Paso a Paso
+### Paso a Paso
 
 1. Ir a **Productos** en el menú lateral
-2. Click en **"Nuevo Producto"**
-3. Ingresar el nombre del producto
-4. Establecer el precio
-5. Opcionalmente agregar descripción y unidad
-6. Click en **"Crear Producto"**
+2. Clic en **"Nuevo Producto"**
+3. Ingresar el nombre (obligatorio)
+4. Establecer el precio (obligatorio)
+5. Completar descripción y unidad (opcional)
+6. Clic en **"Crear Producto"**
 
 ---
 
-### 3. Editar Producto
+## Editar Producto
 
 **URL:** `/dashboard/practice/products/[id]/edit`
 
-#### Paso a Paso
-
-1. En la lista de productos, click en **"Editar"**
+1. En la lista, clic en **"Editar"** del producto
 2. Modificar los campos necesarios
-3. Click en **"Guardar Cambios"**
+3. Clic en **"Guardar Cambios"**
 
 ---
 
-### 4. Eliminar Producto
+## Eliminar Producto
 
-#### Paso a Paso
-
-1. En la lista de productos, localizar el producto
-2. Click en el botón de eliminar (papelera)
-3. Confirmar la eliminación
-
-**Nota:** Esta acción es permanente.
+1. En la lista, clic en el ícono de papelera
+2. Confirmar la eliminación
+3. La acción es **permanente**
 
 ---
 
-## Uso de Productos
+## Uso en Ventas y Compras
 
-Los productos registrados pueden usarse al:
-- Crear ventas (seleccionar productos del catálogo)
-- Crear compras (registrar productos adquiridos)
+Los productos del catálogo pueden seleccionarse al crear:
+- **Ventas:** para agregar líneas de productos con precio ya configurado
+- **Compras:** para registrar los ítems adquiridos
 
 ---
 
-## Lo que el Usuario PUEDE Hacer
+## Restricciones del Sistema
 
-- Crear productos ilimitados
-- Editar información de productos
-- Eliminar productos
-- Usar productos en ventas y compras
-
-## Lo que el Usuario NO PUEDE Hacer
-
-- **Control de inventario automático** - No hay tracking de stock
-- **Alertas de bajo inventario** - No hay notificaciones
-- **Categorizar productos** - No hay categorías
-- **Importar productos** - No hay importación masiva
-- **Código de barras** - No hay escaneo
-- **Precios variables** - Un solo precio por producto
+| Acción | Estado |
+|--------|--------|
+| Control de inventario automático | ❌ Sin tracking de stock |
+| Alertas de bajo inventario | ❌ Sin notificaciones |
+| Categorías de productos | ❌ Sin categorización |
+| Importar desde Excel/CSV | ❌ Sin importación masiva |
+| Escaneo de código de barras | ❌ No disponible |
+| Múltiples precios (listas de precios) | ❌ Un solo precio por producto |
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Puedo manejar inventario?
-El sistema no tiene control de inventario automático. Debes llevar el control manualmente.
+**¿Puedo manejar inventario con este módulo?**
+No. El sistema no tiene control de inventario automático. Debes llevar el control manualmente.
 
-### ¿Los productos se usan en las ventas?
-Sí, al crear una venta puedes seleccionar productos del catálogo para agregar a la transacción.
+**¿Los productos aparecen al crear ventas?**
+Sí, al crear una venta puedes seleccionar productos del catálogo en las líneas de pedido.
 
-### ¿Puedo tener productos con diferentes presentaciones?
-Debes crear cada presentación como un producto separado (ej: "Paracetamol 500mg" y "Paracetamol 1g").
+**¿Puedo tener el mismo producto en diferentes presentaciones?**
+Sí, crea un producto separado por presentación. Ejemplo: "Paracetamol 500mg" y "Paracetamol 1g" como dos productos distintos.
 
-### ¿Hay función de búsqueda?
-Sí, puedes buscar productos por nombre en la lista.
+**¿Hay límite de productos?**
+No, puedes crear tantos productos como necesites.

@@ -1,126 +1,112 @@
 # Proveedores
 
-## Propósito
+## Qué es
 
-Permite gestionar la base de datos de proveedores del consultorio, para uso en compras y control de gastos.
+El módulo de Proveedores gestiona la base de datos de proveedores del consultorio — empresas o personas de quienes el médico adquiere productos o servicios. Se usan al registrar compras.
 
 ## Acceso
 
-**Ruta:** Menú lateral > Gestión de Consultorio > (desde Compras o configuración)
-
+**Ruta:** Menú lateral > Gestión de Consultorio > (desde Compras o acceso directo)
 **URL:** `/dashboard/practice/proveedores`
 
 ---
 
-## Funcionalidades
+## Ver Lista de Proveedores
 
-### 1. Ver Lista de Proveedores
-
-**URL:** `/dashboard/practice/proveedores`
-
-**Información por proveedor:**
-- Razón Social / Nombre del negocio
-- Nombre de contacto
-- Email
-- Teléfono
-- RFC (si aplica)
+**Información visible por proveedor:**
+| Campo | Descripción |
+|-------|-------------|
+| Razón Social | Nombre del negocio o persona |
+| Nombre de Contacto | Persona de contacto en el proveedor |
+| Email | Correo electrónico |
+| Teléfono | Número de contacto |
+| RFC | Registro Federal de Contribuyentes (si se capturó) |
 
 **Acciones disponibles:**
-- Buscar proveedores
+- Buscar proveedores por nombre
 - Editar proveedor
 - Eliminar proveedor
 
 ---
 
-### 2. Crear Nuevo Proveedor
+## Crear Nuevo Proveedor
 
 **URL:** `/dashboard/practice/proveedores/new`
 
-#### Campos del Formulario
+### Campos del Formulario
 
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Razón Social | **Sí** | Nombre del negocio o persona |
-| Nombre de Contacto | No | Persona de contacto |
-| Email | No | Correo electrónico |
-| Teléfono | No | Número de contacto |
-| RFC | No | Registro Federal de Contribuyentes |
-| Dirección | No | Dirección del proveedor |
+| Razón Social | Sí | Nombre del negocio o persona física |
+| Nombre de Contacto | No | Persona de contacto dentro del proveedor |
+| Email | No | Correo electrónico del proveedor |
+| Teléfono | No | Número de teléfono |
+| RFC | No | Para datos fiscales y deducción de gastos |
+| Dirección | No | Calle y número |
 | Ciudad | No | Ciudad |
-| Estado | No | Estado/Provincia |
-| Código Postal | No | CP |
-| Notas | No | Notas adicionales |
+| Estado/Provincia | No | Estado o provincia |
+| Código Postal | No | Código postal |
+| Notas | No | Notas adicionales sobre el proveedor |
 
-#### Paso a Paso
+### Paso a Paso
 
 1. Ir a **Proveedores**
-2. Click en **"Nuevo Proveedor"**
-3. Ingresar la razón social
+2. Clic en **"Nuevo Proveedor"**
+3. Ingresar la razón social (obligatorio)
 4. Completar datos de contacto
-5. Opcionalmente agregar datos fiscales
-6. Click en **"Crear Proveedor"**
+5. Opcionalmente agregar datos fiscales (RFC, dirección)
+6. Clic en **"Crear Proveedor"**
 
 ---
 
-### 3. Editar Proveedor
+## Editar Proveedor
 
 **URL:** `/dashboard/practice/proveedores/[id]/edit`
 
-#### Paso a Paso
-
-1. En la lista de proveedores, click en **"Editar"**
+1. En la lista, clic en **"Editar"** del proveedor
 2. Modificar los campos necesarios
-3. Click en **"Guardar Cambios"**
+3. Clic en **"Guardar Cambios"**
 
 ---
 
-### 4. Eliminar Proveedor
+## Eliminar Proveedor
 
-#### Paso a Paso
-
-1. En la lista de proveedores, localizar el proveedor
-2. Click en el botón de eliminar (papelera)
-3. Confirmar la eliminación
-
-**Precaución:** Si el proveedor tiene compras asociadas, podría afectar el historial.
+1. En la lista, clic en el ícono de papelera
+2. Confirmar la eliminación
+3. **Precaución:** Si el proveedor tiene compras asociadas, puede afectar el historial de esas compras
 
 ---
 
 ## Uso de Proveedores
 
-Los proveedores registrados se utilizan al:
-- Crear compras (seleccionar proveedor)
-- Ver historial de adquisiciones
+Los proveedores se seleccionan al:
+- Crear una nueva compra (campo "Proveedor" — obligatorio)
 
 ---
 
-## Lo que el Usuario PUEDE Hacer
+## Restricciones del Sistema
 
-- Crear proveedores ilimitados
-- Editar información de proveedores
-- Eliminar proveedores
-- Usar proveedores en compras
-
-## Lo que el Usuario NO PUEDE Hacer
-
-- **Ver historial de compras al proveedor** - No hay vista consolidada
-- **Enviar órdenes de compra** - No hay función de envío
-- **Importar proveedores** - No hay importación masiva
-- **Evaluar proveedores** - No hay sistema de calificación
-- **Comparar precios** - No hay comparador de proveedores
+| Acción | Estado |
+|--------|--------|
+| Ver historial completo de compras a un proveedor | ❌ Sin vista consolidada (filtrar en Compras) |
+| Enviar órdenes de compra al proveedor | ❌ Sin función de envío |
+| Importar proveedores desde Excel/CSV | ❌ Sin importación masiva |
+| Sistema de evaluación/calificación | ❌ No disponible |
+| Comparar precios entre proveedores | ❌ No disponible |
+| Múltiples contactos por proveedor | ❌ Solo un contacto (usar campo Notas para más) |
 
 ---
 
 ## Preguntas Frecuentes
 
-### ¿Puedo crear una compra sin proveedor?
-No, toda compra requiere un proveedor. Primero crea el proveedor y luego la compra.
+**¿Puedo crear una compra sin proveedor?**
+No. Toda compra requiere un proveedor existente. Si es nuevo, créalo primero.
 
-### ¿Puedo ver todas las compras a un proveedor?
-No directamente, pero puedes filtrar las compras por nombre del proveedor en la lista de compras.
+**¿Puedo ver todas las compras a un proveedor?**
+No hay una vista consolidada. Puedes filtrar la lista de Compras por nombre del proveedor.
 
-### ¿Necesito el RFC del proveedor?
-No es obligatorio, pero es útil si necesitas datos fiscales para deducción de gastos.
+**¿Necesito el RFC del proveedor?**
+No es obligatorio, pero es útil para deducción de gastos e impuestos.
 
-### ¿Puedo tener varios contactos por proveedor?
-No, solo hay un campo de contacto. Puedes usar el campo de notas para agregar contactos adicionales.
+**¿Puedo tener varios contactos por proveedor?**
+No, solo hay un campo de contacto principal. Usa el campo "Notas" para registrar contactos adicionales.

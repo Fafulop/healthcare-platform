@@ -13,21 +13,26 @@ El menú lateral (sidebar) contiene todas las secciones principales:
 ```
 Portal Médico
 │
-├── 👤 Perfil y Público
-│   ├── Mi Blog ────────────► /dashboard/blog
-│   ├── Citas ──────────────► /appointments
-│   └── Perfil Público ─────► (enlace externo)
-│
 ├── 📋 Expedientes Médicos
-│   ├── Expedientes de Pacientes ► /dashboard/medical-records
-│   ├── Nueva Consulta ──────────► /dashboard/medical-records
-│   └── Reportes ────────────────► /dashboard/medical-records
+│   └── Expedientes de Pacientes ► /dashboard/medical-records
+│
+├── 📅 Citas ────────────────────► /appointments
 │
 ├── 🏥 Gestión de Consultorio
-│   ├── Productos ───────────► /dashboard/practice/products
-│   ├── Flujo de Dinero ─────► /dashboard/practice/flujo-de-dinero
-│   ├── Ventas ──────────────► /dashboard/practice/ventas
-│   └── Compras ─────────────► /dashboard/practice/compras
+│   ├── Flujo de Dinero ─────────► /dashboard/practice/flujo-de-dinero
+│   ├── Ventas ──────────────────► /dashboard/practice/ventas
+│   ├── Compras ─────────────────► /dashboard/practice/compras
+│   ├── Clientes ────────────────► /dashboard/practice/clients
+│   ├── Proveedores ─────────────► /dashboard/practice/proveedores
+│   ├── Cotizaciones ────────────► /dashboard/practice/cotizaciones
+│   ├── Productos ───────────────► /dashboard/practice/products
+│   └── Áreas ───────────────────► /dashboard/practice/areas
+│
+├── ✅ Pendientes ───────────────► /dashboard/pendientes
+│
+├── 👤 Mi Perfil ────────────────► /dashboard/mi-perfil
+│
+├── ✍️ Mi Blog ──────────────────► /dashboard/blog
 │
 └── 🚪 Cerrar Sesión
 ```
@@ -37,19 +42,13 @@ Portal Médico
 ## Páginas y URLs
 
 ### Dashboard Principal
+
 | Página | URL |
 |--------|-----|
 | Inicio | `/dashboard` |
 
-### Perfil y Público
-| Página | URL |
-|--------|-----|
-| Mi Blog | `/dashboard/blog` |
-| Nuevo Artículo | `/dashboard/blog/new` |
-| Editar Artículo | `/dashboard/blog/[id]/edit` |
-| Citas | `/appointments` |
-
 ### Expedientes Médicos
+
 | Página | URL |
 |--------|-----|
 | Lista de Pacientes | `/dashboard/medical-records` |
@@ -60,20 +59,26 @@ Portal Médico
 | Ver Consulta | `/dashboard/medical-records/patients/[id]/encounters/[encounterId]` |
 | Editar Consulta | `/dashboard/medical-records/patients/[id]/encounters/[encounterId]/edit` |
 | Versiones de Consulta | `/dashboard/medical-records/patients/[id]/encounters/[encounterId]/versions` |
-| Recetas | `/dashboard/medical-records/patients/[id]/prescriptions` |
+| Recetas del Paciente | `/dashboard/medical-records/patients/[id]/prescriptions` |
 | Nueva Receta | `/dashboard/medical-records/patients/[id]/prescriptions/new` |
+| Editar Receta | `/dashboard/medical-records/patients/[id]/prescriptions/[prescriptionId]/edit` |
 | Multimedia | `/dashboard/medical-records/patients/[id]/media` |
 | Subir Archivo | `/dashboard/medical-records/patients/[id]/media/upload` |
 | Línea de Tiempo | `/dashboard/medical-records/patients/[id]/timeline` |
 
-### Gestión de Consultorio
+### Citas
+
 | Página | URL |
 |--------|-----|
-| Productos | `/dashboard/practice/products` |
-| Nuevo Producto | `/dashboard/practice/products/new` |
+| Agenda (Citas) | `/appointments` |
+
+### Gestión de Consultorio
+
+| Página | URL |
+|--------|-----|
 | Flujo de Dinero | `/dashboard/practice/flujo-de-dinero` |
 | Nuevo Movimiento | `/dashboard/practice/flujo-de-dinero/new` |
-| Áreas | `/dashboard/practice/areas` |
+| Áreas y Subáreas | `/dashboard/practice/areas` |
 | Ventas | `/dashboard/practice/ventas` |
 | Nueva Venta | `/dashboard/practice/ventas/new` |
 | Ver Venta | `/dashboard/practice/ventas/[id]` |
@@ -84,9 +89,39 @@ Portal Médico
 | Editar Compra | `/dashboard/practice/compras/[id]/edit` |
 | Clientes | `/dashboard/practice/clients` |
 | Nuevo Cliente | `/dashboard/practice/clients/new` |
+| Editar Cliente | `/dashboard/practice/clients/[id]/edit` |
 | Proveedores | `/dashboard/practice/proveedores` |
 | Nuevo Proveedor | `/dashboard/practice/proveedores/new` |
+| Editar Proveedor | `/dashboard/practice/proveedores/[id]/edit` |
 | Cotizaciones | `/dashboard/practice/cotizaciones` |
+| Nueva Cotización | `/dashboard/practice/cotizaciones/new` |
+| Ver Cotización | `/dashboard/practice/cotizaciones/[id]` |
+| Editar Cotización | `/dashboard/practice/cotizaciones/[id]/edit` |
+| Productos | `/dashboard/practice/products` |
+| Nuevo Producto | `/dashboard/practice/products/new` |
+| Editar Producto | `/dashboard/practice/products/[id]/edit` |
+
+### Pendientes
+
+| Página | URL |
+|--------|-----|
+| Lista de Pendientes | `/dashboard/pendientes` |
+| Nueva Tarea | `/dashboard/pendientes/new` |
+| Editar Tarea | `/dashboard/pendientes/[id]/edit` |
+
+### Mi Perfil
+
+| Página | URL |
+|--------|-----|
+| Mi Perfil | `/dashboard/mi-perfil` |
+
+### Blog
+
+| Página | URL |
+|--------|-----|
+| Mi Blog | `/dashboard/blog` |
+| Nuevo Artículo | `/dashboard/blog/new` |
+| Editar Artículo | `/dashboard/blog/[id]/edit` |
 
 ---
 
@@ -97,62 +132,67 @@ Desde el **Dashboard Principal** (`/dashboard`) tienes accesos rápidos a:
 | Acción | Destino |
 |--------|---------|
 | Nuevo Paciente | `/dashboard/medical-records/patients/new` |
-| Nueva Consulta | `/dashboard/medical-records` |
+| Nueva Consulta | Desde el perfil del paciente |
 | Gestionar Citas | `/appointments` |
+
+El botón flotante índigo (esquina inferior derecha con ícono de calendario) en el dashboard muestra:
+- Conteo de citas reservadas + pendientes programados para hoy
+- Al hacer clic: abre el panel "Detalles del Día"
 
 ---
 
 ## Navegación Contextual
 
-Dentro de ciertas secciones hay navegación adicional:
-
 ### Dentro del Perfil de Paciente
-Tabs o enlaces para:
+
+Pestañas disponibles:
 - Información General
-- Consultas
+- Consultas (Encounters)
 - Recetas
 - Multimedia
 - Línea de Tiempo
 
-### Dentro de Ventas
-Botones rápidos para:
-- Clientes
-- Cotizaciones
-- Nueva Venta
+### Dentro de Gestión de Consultorio
 
-### Dentro de Flujo de Dinero
-Tabs para:
-- Movimientos
-- Estado de Resultados
-Botón para:
-- Áreas
+- **Ventas** tiene botones rápidos para: Clientes, Cotizaciones, Nueva Venta
+- **Flujo de Dinero** tiene dos pestañas: Movimientos y Estado de Resultados; botón de acceso rápido a Áreas
+
+### Dentro de Citas
+
+- Vista Calendario (mensual)
+- Vista Lista
+
+### Dentro de Pendientes
+
+- Vista Lista (Por Día / Ver Todos)
+- Vista Calendario
+
+### Dentro de Mi Perfil
+
+7 pestañas: Info General, Servicios, Clínica, Formación, Multimedia, FAQs y Social, Opiniones
 
 ---
 
 ## Navegación Móvil
 
-En dispositivos móviles:
-
 ### Menú
-- El menú lateral se oculta automáticamente
+
+- El menú lateral se oculta automáticamente en pantallas pequeñas
 - Se accede tocando el **ícono de hamburguesa** (☰) en la esquina superior
 - Se abre como un drawer deslizable
 - Toca fuera del menú para cerrarlo
 
 ### Vistas Adaptadas
+
 - Las tablas se convierten en tarjetas apiladas
 - Los botones de acción se agrupan
 - Los filtros pueden colapsarse
-
-### Navegación Inferior (Bottom Nav)
-Algunas secciones pueden tener navegación en la parte inferior para acceso rápido a funciones principales.
 
 ---
 
 ## Breadcrumbs y Navegación "Atrás"
 
-### Botón Volver
-En páginas de detalle o formularios, hay un enlace **"Volver a..."** en la parte superior que te regresa a la lista anterior.
+En páginas de detalle o formularios, hay un enlace **"Volver a..."** en la parte superior que regresa a la lista anterior.
 
 Ejemplos:
 - En "Nuevo Paciente" → "Volver a Pacientes"
@@ -164,9 +204,11 @@ Ejemplos:
 ## Indicadores de Ubicación
 
 ### Menú Lateral
-La sección actual se resalta en el menú (color diferente, fondo destacado).
+
+La sección actual se resalta (color diferente, fondo destacado).
 
 ### Título de Página
+
 Cada página muestra su título en la parte superior.
 
 ---
@@ -174,21 +216,10 @@ Cada página muestra su título en la parte superior.
 ## Sesión y Autenticación
 
 ### Cerrar Sesión
+
 - Ubicación: Parte inferior del menú lateral
-- Click en **"Cerrar Sesión"**
-- Te redirige a la página de login
+- Click en **"Cerrar Sesión"** → redirige al login
 
 ### Sesión Expirada
-Si tu sesión expira:
-- Serás redirigido automáticamente al login
-- Inicia sesión nuevamente para continuar
 
----
-
-## Consejos de Navegación
-
-1. **Usa el menú lateral** para moverte entre secciones principales
-2. **Usa los botones de acción** en cada página para tareas específicas
-3. **Usa el botón "Volver"** para regresar a listas
-4. **En móvil**, el menú está en el ícono de hamburguesa
-5. **El dashboard** es un buen punto de inicio con accesos rápidos
+Si la sesión expira, el sistema redirige automáticamente al login.
