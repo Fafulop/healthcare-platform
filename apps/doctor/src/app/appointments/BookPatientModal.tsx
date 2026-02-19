@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Loader2,
   ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -31,6 +32,11 @@ function formatDateStr(
   } catch {
     return dateStr;
   }
+}
+
+function todayStr(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
 }
 
 interface AppointmentSlot {
@@ -58,6 +64,8 @@ interface BookPatientModalProps {
 
 type Step = "slot" | "form" | "success";
 
+const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
 export default function BookPatientModal({
   isOpen,
   onClose,
@@ -68,11 +76,17 @@ export default function BookPatientModal({
   const initialStep: Step = preSelectedSlot ? "form" : "slot";
 
   const [step, setStep] = useState<Step>(initialStep);
-  const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(
-    preSelectedSlot
-  );
+  const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(preSelectedSlot);
+
+  // Calendar state
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
+  const [calendarDate, setCalendarDate] = useState<string | null>(null);
+
+  // Slots data
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+
+  // Form state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState("");
   const [error, setError] = useState("");
@@ -89,19 +103,12 @@ export default function BookPatientModal({
     if (isOpen) {
       setStep(preSelectedSlot ? "form" : "slot");
       setSelectedSlot(preSelectedSlot);
+      setCalendarDate(null);
+      setCurrentMonth(new Date());
       setError("");
       setConfirmationCode("");
-      setFormData({
-        patientName: "",
-        patientEmail: "",
-        patientPhone: "",
-        patientWhatsapp: "",
-        notes: "",
-      });
-
-      if (!preSelectedSlot) {
-        fetchAvailableSlots();
-      }
+      setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
+      if (!preSelectedSlot) fetchAvailableSlots();
     }
   }, [isOpen, preSelectedSlot]);
 
@@ -109,22 +116,19 @@ export default function BookPatientModal({
     setLoadingSlots(true);
     try {
       const today = new Date();
-      const todayStr = today.toISOString().split("T")[0];
+      const todayIso = today.toISOString().split("T")[0];
       const future = new Date(today);
       future.setDate(future.getDate() + 90);
-      const futureStr = future.toISOString().split("T")[0];
+      const futureIso = future.toISOString().split("T")[0];
 
-      const startDate = new Date(todayStr + "T00:00:00Z").toISOString();
-      const endDate = new Date(futureStr + "T23:59:59Z").toISOString();
+      const startDate = new Date(todayIso + "T00:00:00Z").toISOString();
+      const endDate = new Date(futureIso + "T23:59:59Z").toISOString();
 
       const res = await authFetch(
         `${API_URL}/api/appointments/slots?doctorId=${doctorId}&startDate=${startDate}&endDate=${endDate}`
       );
       const data = await res.json();
-
-      if (data.success) {
-        setSlots(data.data);
-      }
+      if (data.success) setSlots(data.data);
     } catch (err) {
       console.error("Error fetching slots:", err);
     } finally {
@@ -134,21 +138,16 @@ export default function BookPatientModal({
 
   // Available slots: open, not full, today or later
   const availableSlots = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const today = todayStr();
     return slots
-      .filter(
-        (s) =>
-          s.isOpen &&
-          s.currentBookings < s.maxBookings &&
-          s.date.split("T")[0] >= todayStr
-      )
+      .filter((s) => s.isOpen && s.currentBookings < s.maxBookings && s.date.split("T")[0] >= today)
       .sort((a, b) => {
         const d = a.date.localeCompare(b.date);
         return d !== 0 ? d : a.startTime.localeCompare(b.startTime);
       });
   }, [slots]);
 
-  // Group by date
+  // Group by date key
   const slotsByDate = useMemo(() => {
     const groups: Record<string, AppointmentSlot[]> = {};
     for (const slot of availableSlots) {
@@ -159,7 +158,26 @@ export default function BookPatientModal({
     return groups;
   }, [availableSlots]);
 
-  const sortedDates = Object.keys(slotsByDate).sort();
+  const availableDateSet = useMemo(() => new Set(Object.keys(slotsByDate)), [slotsByDate]);
+
+  // Calendar grid data
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startDayOfWeek = new Date(year, month, 1).getDay();
+
+  const calendarDays: (number | null)[] = [];
+  for (let i = 0; i < startDayOfWeek; i++) calendarDays.push(null);
+  for (let d = 1; d <= daysInMonth; d++) calendarDays.push(d);
+
+  const today = todayStr();
+
+  const slotsForCalendarDate = calendarDate ? slotsByDate[calendarDate] ?? [] : [];
+
+  const handleDateClick = (dateKey: string) => {
+    if (!availableDateSet.has(dateKey)) return;
+    setCalendarDate(dateKey === calendarDate ? null : dateKey);
+  };
 
   const handleSlotSelect = (slot: AppointmentSlot) => {
     setSelectedSlot(slot);
@@ -189,7 +207,6 @@ export default function BookPatientModal({
       });
 
       const bookingData = await bookingRes.json();
-
       if (!bookingData.success) {
         setError(bookingData.error || "Error al crear la cita");
         return;
@@ -204,10 +221,7 @@ export default function BookPatientModal({
         { method: "PATCH", body: JSON.stringify({ status: "CONFIRMED" }) }
       );
       const confirmData = await confirmRes.json();
-
-      if (!confirmData.success) {
-        console.error("Auto-confirm failed:", confirmData.error);
-      }
+      if (!confirmData.success) console.error("Auto-confirm failed:", confirmData.error);
 
       setConfirmationCode(code);
       setStep("success");
@@ -222,15 +236,11 @@ export default function BookPatientModal({
   const handleClose = () => {
     setStep(initialStep);
     setSelectedSlot(preSelectedSlot);
+    setCalendarDate(null);
+    setCurrentMonth(new Date());
     setError("");
     setConfirmationCode("");
-    setFormData({
-      patientName: "",
-      patientEmail: "",
-      patientPhone: "",
-      patientWhatsapp: "",
-      notes: "",
-    });
+    setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
     onClose();
   };
 
@@ -239,33 +249,23 @@ export default function BookPatientModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b shrink-0">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Agendar Cita</h2>
             {step === "slot" && (
-              <p className="text-sm text-gray-500">
-                Selecciona un horario disponible
-              </p>
+              <p className="text-sm text-gray-500">Selecciona una fecha y horario</p>
             )}
             {step === "form" && selectedSlot && (
               <p className="text-sm text-gray-500">
-                {formatDateStr(selectedSlot.date, {
-                  weekday: "short",
-                  day: "numeric",
-                  month: "short",
-                })}{" "}
-                · {selectedSlot.startTime} – {selectedSlot.endTime}
+                {formatDateStr(selectedSlot.date, { weekday: "short", day: "numeric", month: "short" })}
+                {" · "}{selectedSlot.startTime} – {selectedSlot.endTime}
               </p>
             )}
-            {step === "success" && (
-              <p className="text-sm text-gray-500">Cita confirmada</p>
-            )}
+            {step === "success" && <p className="text-sm text-gray-500">Cita confirmada</p>}
           </div>
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
-          >
+          <button onClick={handleClose} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -273,15 +273,11 @@ export default function BookPatientModal({
         {/* Step indicator */}
         {step !== "success" && (
           <div className="flex items-center gap-2 px-5 pt-3 pb-0 text-xs shrink-0">
-            <span
-              className={`font-semibold ${step === "slot" ? "text-blue-600" : "text-gray-400"}`}
-            >
+            <span className={`font-semibold ${step === "slot" ? "text-blue-600" : "text-gray-400"}`}>
               1. Horario
             </span>
             <ChevronRight className="w-3 h-3 text-gray-300" />
-            <span
-              className={`font-semibold ${step === "form" ? "text-blue-600" : "text-gray-400"}`}
-            >
+            <span className={`font-semibold ${step === "form" ? "text-blue-600" : "text-gray-400"}`}>
               2. Datos del paciente
             </span>
           </div>
@@ -289,7 +285,8 @@ export default function BookPatientModal({
 
         {/* Scrollable content */}
         <div className="overflow-y-auto flex-1 p-5">
-          {/* STEP 1: Slot picker */}
+
+          {/* ── STEP 1: Calendar picker ── */}
           {step === "slot" && (
             <>
               {loadingSlots ? (
@@ -297,62 +294,123 @@ export default function BookPatientModal({
                   <Loader2 className="w-6 h-6 animate-spin mr-2" />
                   <span className="text-sm">Cargando horarios...</span>
                 </div>
-              ) : sortedDates.length === 0 ? (
+              ) : availableDateSet.size === 0 ? (
                 <div className="text-center py-14 text-gray-500">
                   <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                  <p className="font-medium text-gray-700">
-                    Sin horarios disponibles
-                  </p>
-                  <p className="text-sm mt-1 text-gray-500">
-                    Crea horarios abiertos para poder agendar citas
-                  </p>
+                  <p className="font-medium text-gray-700">Sin horarios disponibles</p>
+                  <p className="text-sm mt-1 text-gray-500">Crea horarios abiertos para poder agendar citas</p>
                 </div>
               ) : (
-                <div className="space-y-5">
-                  {sortedDates.map((dateKey) => (
-                    <div key={dateKey}>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 capitalize">
-                        {formatDateStr(dateKey, {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "long",
-                        })}
+                <div className="space-y-4">
+                  {/* Month navigation */}
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => {
+                        setCurrentMonth(new Date(year, month - 1));
+                        setCalendarDate(null);
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <span className="font-semibold text-gray-800 capitalize text-sm">
+                      {currentMonth.toLocaleDateString("es-MX", { month: "long", year: "numeric" })}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setCurrentMonth(new Date(year, month + 1));
+                        setCalendarDate(null);
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Day headers */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {DAY_LABELS.map((d) => (
+                      <div key={d} className="text-center text-xs font-semibold text-gray-400 py-1">
+                        {d}
+                      </div>
+                    ))}
+
+                    {/* Calendar cells */}
+                    {calendarDays.map((day, idx) => {
+                      if (day === null) {
+                        return <div key={`empty-${idx}`} />;
+                      }
+
+                      const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                      const isAvailable = availableDateSet.has(dateKey);
+                      const isPast = dateKey < today;
+                      const isToday = dateKey === today;
+                      const isSelected = dateKey === calendarDate;
+
+                      return (
+                        <button
+                          key={day}
+                          disabled={!isAvailable || isPast}
+                          onClick={() => handleDateClick(dateKey)}
+                          className={`
+                            aspect-square flex flex-col items-center justify-center rounded-lg text-sm font-medium transition-all
+                            ${isSelected
+                              ? "bg-blue-600 text-white shadow-md"
+                              : isAvailable && !isPast
+                              ? "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 cursor-pointer"
+                              : isToday
+                              ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                              : "text-gray-300 cursor-not-allowed"
+                            }
+                          `}
+                        >
+                          {day}
+                          {isAvailable && !isPast && !isSelected && (
+                            <span className="w-1 h-1 rounded-full bg-blue-400 mt-0.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Slots for selected date */}
+                  {calendarDate && (
+                    <div className="border-t pt-4">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 capitalize">
+                        {formatDateStr(calendarDate, { weekday: "long", day: "numeric", month: "long" })}
                       </p>
-                      <div className="space-y-2">
-                        {slotsByDate[dateKey].map((slot) => (
+                      <div className="grid grid-cols-2 gap-2">
+                        {slotsForCalendarDate.map((slot) => (
                           <button
                             key={slot.id}
                             onClick={() => handleSlotSelect(slot)}
-                            className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left group"
+                            className="flex flex-col items-start p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left group"
                           >
-                            <div className="flex items-center gap-3">
-                              <Clock className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
-                              <div>
-                                <span className="font-semibold text-gray-900 text-sm">
-                                  {slot.startTime} – {slot.endTime}
-                                </span>
-                                <span className="text-xs text-gray-400 ml-2">
-                                  ({slot.duration} min)
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-semibold text-gray-700">
-                                ${slot.finalPrice}
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500" />
+                              <span className="font-semibold text-gray-900 text-sm">
+                                {slot.startTime}
                               </span>
-                              <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500" />
                             </div>
+                            <span className="text-xs text-gray-400">{slot.startTime} – {slot.endTime}</span>
+                            <span className="text-xs font-semibold text-gray-700 mt-1">${slot.finalPrice}</span>
                           </button>
                         ))}
                       </div>
                     </div>
-                  ))}
+                  )}
+
+                  {!calendarDate && (
+                    <p className="text-center text-xs text-gray-400 pt-1">
+                      Selecciona una fecha resaltada para ver los horarios
+                    </p>
+                  )}
                 </div>
               )}
             </>
           )}
 
-          {/* STEP 2: Patient form */}
+          {/* ── STEP 2: Patient form ── */}
           {step === "form" && (
             <form id="book-patient-form" onSubmit={handleSubmit} className="space-y-4">
               {!preSelectedSlot && (
@@ -366,9 +424,7 @@ export default function BookPatientModal({
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre completo *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
@@ -376,9 +432,7 @@ export default function BookPatientModal({
                     required
                     autoFocus
                     value={formData.patientName}
-                    onChange={(e) =>
-                      setFormData((p) => ({ ...p, patientName: e.target.value }))
-                    }
+                    onChange={(e) => setFormData((p) => ({ ...p, patientName: e.target.value }))}
                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Juan García"
                   />
@@ -386,21 +440,14 @@ export default function BookPatientModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="email"
                     required
                     value={formData.patientEmail}
-                    onChange={(e) =>
-                      setFormData((p) => ({
-                        ...p,
-                        patientEmail: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setFormData((p) => ({ ...p, patientEmail: e.target.value }))}
                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="juan@email.com"
                   />
@@ -408,21 +455,14 @@ export default function BookPatientModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono *</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="tel"
                     required
                     value={formData.patientPhone}
-                    onChange={(e) =>
-                      setFormData((p) => ({
-                        ...p,
-                        patientPhone: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setFormData((p) => ({ ...p, patientPhone: e.target.value }))}
                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="5512345678"
                   />
@@ -431,20 +471,14 @@ export default function BookPatientModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  WhatsApp{" "}
-                  <span className="text-gray-400 font-normal">(opcional)</span>
+                  WhatsApp <span className="text-gray-400 font-normal">(opcional)</span>
                 </label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="tel"
                     value={formData.patientWhatsapp}
-                    onChange={(e) =>
-                      setFormData((p) => ({
-                        ...p,
-                        patientWhatsapp: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setFormData((p) => ({ ...p, patientWhatsapp: e.target.value }))}
                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="5512345678"
                   />
@@ -453,16 +487,13 @@ export default function BookPatientModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notas{" "}
-                  <span className="text-gray-400 font-normal">(opcional)</span>
+                  Notas <span className="text-gray-400 font-normal">(opcional)</span>
                 </label>
                 <div className="relative">
                   <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <textarea
                     value={formData.notes}
-                    onChange={(e) =>
-                      setFormData((p) => ({ ...p, notes: e.target.value }))
-                    }
+                    onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))}
                     rows={3}
                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     placeholder="Motivo de consulta, observaciones..."
@@ -478,35 +509,24 @@ export default function BookPatientModal({
             </form>
           )}
 
-          {/* STEP 3: Success */}
+          {/* ── STEP 3: Success ── */}
           {step === "success" && (
             <div className="text-center py-6">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-9 h-9 text-green-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-1">
-                Cita Confirmada
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                La cita ha sido agendada y confirmada exitosamente
-              </p>
+              <h3 className="text-xl font-bold text-gray-900 mb-1">Cita Confirmada</h3>
+              <p className="text-sm text-gray-500 mb-6">La cita ha sido agendada y confirmada exitosamente</p>
 
               <div className="bg-gray-50 rounded-xl p-5 text-left space-y-3 mb-6">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Paciente</span>
-                  <span className="font-semibold text-gray-900">
-                    {formData.patientName}
-                  </span>
+                  <span className="font-semibold text-gray-900">{formData.patientName}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Fecha</span>
                   <span className="font-semibold text-gray-900 capitalize">
-                    {selectedSlot &&
-                      formatDateStr(selectedSlot.date, {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                      })}
+                    {selectedSlot && formatDateStr(selectedSlot.date, { weekday: "long", day: "numeric", month: "long" })}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -519,9 +539,7 @@ export default function BookPatientModal({
                   <span className="text-gray-500 flex items-center gap-1">
                     <DollarSign className="w-3 h-3" /> Precio
                   </span>
-                  <span className="font-semibold text-gray-900">
-                    ${selectedSlot?.finalPrice}
-                  </span>
+                  <span className="font-semibold text-gray-900">${selectedSlot?.finalPrice}</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between items-center">
                   <span className="text-gray-500 text-sm">Código</span>
