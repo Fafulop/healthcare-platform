@@ -5,6 +5,13 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Doctor Portal - Healthcare Platform",
   description: "Portal for doctors to manage their profiles and appointments",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Doctor Portal",
+  },
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({

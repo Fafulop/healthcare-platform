@@ -1,0 +1,22 @@
+{
+  "name": "Doctor Portal",
+  "short_name": "Doctor Portal",
+  "description": "Portal para doctores - Healthcare Platform",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2563eb",
+  "background_color": "#f9fafb",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
