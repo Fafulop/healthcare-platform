@@ -30,11 +30,27 @@ export class OpenAIChatProvider implements ChatProvider {
   ): Promise<ChatCompletionResult> {
     const { model = 'gpt-4o', temperature = 0, maxTokens = 4096, jsonMode = false } = options;
 
+    // Inject current date into the system prompt so the model always knows today's date.
+    const today = new Date().toLocaleDateString('es-MX', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'America/Mexico_City',
+    });
+    const dateContext = `\n\nFecha y hora actual: ${today}.`;
+
+    const enrichedMessages = messages.map((m, i) =>
+      m.role === 'system' && i === 0
+        ? { ...m, content: m.content + dateContext }
+        : m
+    );
+
     const completion = await getOpenAI().chat.completions.create({
       model,
       temperature,
       max_tokens: maxTokens,
-      messages: messages.map((m) => ({
+      messages: enrichedMessages.map((m) => ({
         role: m.role,
         content: m.content,
       })),
