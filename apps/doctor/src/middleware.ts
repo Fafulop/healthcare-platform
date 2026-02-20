@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Protect all routes except static files
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    // Protect all routes except static assets and PWA files
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icon.svg|apple-icon|api/pwa-icon).*)",
   ],
 };
