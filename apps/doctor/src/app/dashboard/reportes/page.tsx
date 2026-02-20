@@ -138,11 +138,11 @@ export default function ReportesPage() {
             <KpiCard title="Vistas de blog" value={data.events.blog_view} icon={<BookOpen className="w-5 h-5" />} />
           </div>
 
-          {/* Daily Chart */}
-          <DailyChart data={data.dailyPageViews} />
-
-          {/* Traffic Sources */}
-          <TrafficSourcesChart data={data.trafficSources} />
+          {/* Daily Chart + Traffic Sources side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <DailyChart data={data.dailyPageViews} />
+            <TrafficSourcesChart data={data.trafficSources} />
+          </div>
 
           {/* Search Console Tables */}
           <SearchQueriesTable queries={data.searchConsole.queries} pages={data.searchConsole.pages} />

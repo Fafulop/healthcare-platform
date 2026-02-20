@@ -24,7 +24,7 @@ export default function DailyChart({ data }: DailyChartProps) {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Visitas diarias</h3>
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={220}>
         <LineChart data={formatted}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" fontSize={12} />
