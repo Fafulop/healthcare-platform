@@ -7,6 +7,7 @@
 
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
+import { createElement } from 'react';
 
 export const runtime = 'edge';
 
@@ -19,42 +20,40 @@ export async function GET(request: NextRequest) {
   const crossLen = size - pad * 2;
 
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#2563eb',
-        }}
-      >
-        {/* Vertical bar of cross */}
-        <div
-          style={{
-            position: 'absolute',
-            top: pad,
-            left: (size - crossThick) / 2,
-            width: crossThick,
-            height: crossLen,
-            background: 'white',
-            borderRadius: crossThick * 0.2,
-          }}
-        />
-        {/* Horizontal bar of cross */}
-        <div
-          style={{
-            position: 'absolute',
-            top: (size - crossThick) / 2,
-            left: pad,
-            width: crossLen,
-            height: crossThick,
-            background: 'white',
-            borderRadius: crossThick * 0.2,
-          }}
-        />
-      </div>
+    createElement('div', {
+      style: {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#2563eb',
+      },
+    },
+      // Vertical bar
+      createElement('div', {
+        style: {
+          position: 'absolute',
+          top: pad,
+          left: (size - crossThick) / 2,
+          width: crossThick,
+          height: crossLen,
+          background: 'white',
+          borderRadius: crossThick * 0.2,
+        },
+      }),
+      // Horizontal bar
+      createElement('div', {
+        style: {
+          position: 'absolute',
+          top: (size - crossThick) / 2,
+          left: pad,
+          width: crossLen,
+          height: crossThick,
+          background: 'white',
+          borderRadius: crossThick * 0.2,
+        },
+      })
     ),
     { width: size, height: size }
   );
