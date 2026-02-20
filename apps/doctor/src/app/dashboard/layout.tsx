@@ -2,8 +2,8 @@
 
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { useEffect, useRef } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, ChevronRight, ChevronLeft } from "lucide-react";
 import { DoctorProfileProvider } from "@/contexts/DoctorProfileContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
@@ -15,6 +15,8 @@ export default function DashboardRootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [widgetsCollapsed, setWidgetsCollapsed] = useState(false);
+
   const { status, data: session, update } = useSession({
     required: true,
     onUnauthenticated() {
@@ -47,9 +49,29 @@ export default function DashboardRootLayout({
   return (
     <DoctorProfileProvider>
       <DashboardLayout>{children}</DashboardLayout>
-      <VoiceAssistantHubWidget />
-      <DayDetailsWidget />
-      <ChatWidget />
+
+      {/* Collapse/expand tab — always visible on the right edge */}
+      <button
+        onClick={() => setWidgetsCollapsed((c) => !c)}
+        className="fixed bottom-32 right-0 sm:bottom-24 z-[51]
+          bg-white border border-gray-300 border-r-0 rounded-l-lg shadow-md
+          w-5 h-12 flex items-center justify-center
+          text-gray-400 hover:text-gray-600 hover:bg-gray-50
+          transition-colors"
+        title={widgetsCollapsed ? "Mostrar herramientas" : "Ocultar herramientas"}
+      >
+        {widgetsCollapsed
+          ? <ChevronLeft className="w-3 h-3" />
+          : <ChevronRight className="w-3 h-3" />
+        }
+      </button>
+
+      {/* Widget buttons — hidden when collapsed (display:none cascades to fixed children) */}
+      <div className={widgetsCollapsed ? "hidden" : ""}>
+        <VoiceAssistantHubWidget />
+        <DayDetailsWidget />
+        <ChatWidget />
+      </div>
     </DoctorProfileProvider>
   );
 }
