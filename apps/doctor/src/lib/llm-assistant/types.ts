@@ -34,6 +34,7 @@ export interface UserQuery {
   question: string;
   sessionId: string;
   userId: string;
+  doctorId?: string;
   /** Optional: where the user is in the app when they ask the question */
   uiContext?: UIContext;
 }

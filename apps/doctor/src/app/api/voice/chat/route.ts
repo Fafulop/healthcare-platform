@@ -14,6 +14,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { prisma } from '@healthcare/database';
 import { getChatProvider } from '@/lib/ai';
 import type { ChatMessage } from '@/lib/ai';
+import { logTokenUsage } from '@/lib/ai/log-token-usage';
 
 import { getChatSystemPrompt } from '@/lib/voice-assistant/prompts';
 import {
@@ -168,11 +169,18 @@ Current time: ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute
     ];
 
     // 7. Call AI provider
-    const responseText = await getChatProvider().chatCompletion(chatMessages, {
+    const { content: responseText, usage } = await getChatProvider().chatCompletion(chatMessages, {
       model: MODEL,
       temperature: TEMPERATURE,
       maxTokens: MAX_TOKENS,
       jsonMode: true,
+    });
+    logTokenUsage({
+      doctorId,
+      endpoint: 'voice-chat',
+      model: MODEL,
+      provider: process.env.LLM_PROVIDER || 'openai',
+      usage,
     });
 
     // 8. Parse JSON response

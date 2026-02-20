@@ -14,6 +14,7 @@ import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { getChatProvider } from '@/lib/ai';
 import type { ChatMessage } from '@/lib/ai';
+import { logTokenUsage } from '@/lib/ai/log-token-usage';
 import type { FieldDefinition } from '@/types/custom-encounter';
 
 const MODEL = 'gpt-4o';
@@ -127,11 +128,18 @@ export async function POST(request: NextRequest) {
       lastMessage: messages[messages.length - 1]?.content?.substring(0, 100),
     });
 
-    const responseText = await getChatProvider().chatCompletion(chatMessages, {
+    const { content: responseText, usage } = await getChatProvider().chatCompletion(chatMessages, {
       model: MODEL,
       temperature: TEMPERATURE,
       maxTokens: MAX_TOKENS,
       jsonMode: true,
+    });
+    logTokenUsage({
+      doctorId,
+      endpoint: 'form-builder-chat',
+      model: MODEL,
+      provider: process.env.LLM_PROVIDER || 'openai',
+      usage,
     });
 
     let parsed: {

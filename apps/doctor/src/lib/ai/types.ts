@@ -14,11 +14,22 @@ export interface ChatCompletionOptions {
   jsonMode?: boolean;
 }
 
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface ChatCompletionResult {
+  content: string;
+  usage: TokenUsage;
+}
+
 export interface ChatProvider {
   chatCompletion(
     messages: ChatMessage[],
     options?: ChatCompletionOptions
-  ): Promise<string>;
+  ): Promise<ChatCompletionResult>;
 }
 
 export interface EmbeddingProvider {

@@ -121,6 +121,9 @@ model Doctor {
   encounterTemplates EncounterTemplate[]
   tasks              Task[]
 
+  // LLM Usage Tracking
+  llmTokenUsages     LlmTokenUsage[]
+
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -1668,6 +1671,31 @@ model LlmDocsFileHash {
   @@index([moduleId])
   @@map("llm_docs_file_hashes")
   @@schema("llm_assistant")
+}
+
+// -----------------------------------------------------------------------------
+// TOKEN USAGE TRACKING (per doctor, per LLM call)
+// -----------------------------------------------------------------------------
+
+model LlmTokenUsage {
+  id               String   @id @default(cuid())
+  doctorId         String   @map("doctor_id")
+  endpoint         String   @db.VarChar(100)  // "encounter-chat", "voice-chat", etc.
+  model            String   @db.VarChar(100)  // "gpt-4o", "gpt-4o-mini", "whisper-1"
+  provider         String   @db.VarChar(50)   // "openai", "anthropic"
+  promptTokens     Int      @map("prompt_tokens")
+  completionTokens Int      @map("completion_tokens")
+  totalTokens      Int      @map("total_tokens")
+  durationSeconds  Float?   @map("duration_seconds") // For Whisper (no token counts)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@index([doctorId, createdAt])
+  @@index([createdAt])
+  @@map("llm_token_usage")
+  @@schema("public")
 }
 
 // ==========================================

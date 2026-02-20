@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { logTokenUsage } from '@/lib/ai/log-token-usage';
 import OpenAI, { toFile } from 'openai';
 import fs from 'fs';
 import path from 'path';
@@ -161,8 +162,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 10. Log for audit (in production, store in database)
+    // 10. Log for audit
     console.log(`[Voice Transcribe] Doctor: ${doctorId}, TranscriptID: ${transcriptId}, Duration: ${duration}s`);
+    logTokenUsage({
+      doctorId,
+      endpoint: 'voice-transcribe',
+      model: 'whisper-1',
+      provider: 'openai',
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      durationSeconds: duration,
+    });
 
     // 11. Return success response
     return NextResponse.json({

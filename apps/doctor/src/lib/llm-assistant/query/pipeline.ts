@@ -11,6 +11,8 @@
 import { generateEmbedding } from '../embedding';
 import { callLLM } from '../llm-client';
 import { createError } from '../errors';
+import { logTokenUsage } from '../../ai/log-token-usage';
+import { LLM_MODEL } from '../constants';
 import { countTokens } from '../tokenizer';
 import { checkCache, saveToCache } from './cache';
 import { detectModulesWithText } from './module-detector';
@@ -44,7 +46,7 @@ const MAX_QUESTION_TOKENS = 200;
  * 12. Update memory
  */
 export async function processQuery(query: UserQuery): Promise<AssistantResponse> {
-  const { question, sessionId, userId, uiContext } = query;
+  const { question, sessionId, userId, doctorId, uiContext } = query;
 
   // --- Step 1: Validate ---
   const trimmed = question.trim();
@@ -134,7 +136,17 @@ export async function processQuery(query: UserQuery): Promise<AssistantResponse>
   // --- Step 10: Call LLM ---
   let answer: string;
   try {
-    answer = await callLLM(messages);
+    const result = await callLLM(messages);
+    answer = result.content;
+    if (doctorId) {
+      logTokenUsage({
+        doctorId,
+        endpoint: 'llm-assistant',
+        model: LLM_MODEL,
+        provider: process.env.LLM_PROVIDER || 'openai',
+        usage: result.usage,
+      });
+    }
   } catch (err) {
     console.error('LLM call failed:', err);
     throw createError('LLM_FAILED');

@@ -12,6 +12,7 @@ import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { prisma } from '@healthcare/database';
 import { getChatProvider } from '@/lib/ai';
+import { logTokenUsage } from '@/lib/ai/log-token-usage';
 
 import { getSystemPrompt, getUserPrompt } from '@/lib/voice-assistant/prompts';
 import {
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
     console.log('[Voice Structure] Date context:', dateContextMatch ? dateContextMatch[0] : 'NOT FOUND');
 
     // 7. Call AI provider
-    const responseText = await getChatProvider().chatCompletion(
+    const { content: responseText, usage } = await getChatProvider().chatCompletion(
       [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -161,6 +162,13 @@ export async function POST(request: NextRequest) {
         jsonMode: true,
       }
     );
+    logTokenUsage({
+      doctorId,
+      endpoint: 'voice-structure',
+      model: MODEL,
+      provider: process.env.LLM_PROVIDER || 'openai',
+      usage,
+    });
 
     // 8. Parse JSON response
     let structuredData: VoiceStructuredData;

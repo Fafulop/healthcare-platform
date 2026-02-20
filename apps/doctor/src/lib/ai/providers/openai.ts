@@ -5,6 +5,7 @@
 import OpenAI from 'openai';
 import type {
   ChatProvider,
+  ChatCompletionResult,
   EmbeddingProvider,
   ChatMessage,
   ChatCompletionOptions,
@@ -26,7 +27,7 @@ export class OpenAIChatProvider implements ChatProvider {
   async chatCompletion(
     messages: ChatMessage[],
     options: ChatCompletionOptions = {}
-  ): Promise<string> {
+  ): Promise<ChatCompletionResult> {
     const { model = 'gpt-4o', temperature = 0, maxTokens = 4096, jsonMode = false } = options;
 
     const completion = await getOpenAI().chat.completions.create({
@@ -45,7 +46,14 @@ export class OpenAIChatProvider implements ChatProvider {
       throw new Error('Empty response from LLM');
     }
 
-    return content;
+    return {
+      content,
+      usage: {
+        promptTokens: completion.usage?.prompt_tokens ?? 0,
+        completionTokens: completion.usage?.completion_tokens ?? 0,
+        totalTokens: completion.usage?.total_tokens ?? 0,
+      },
+    };
   }
 }
 

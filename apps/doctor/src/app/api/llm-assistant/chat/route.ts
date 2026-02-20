@@ -37,7 +37,7 @@ function checkRateLimit(userId: string): boolean {
 export async function POST(request: NextRequest) {
   try {
     // 1. Authentication check
-    const { userId } = await requireDoctorAuth(request);
+    const { userId, doctorId } = await requireDoctorAuth(request);
 
     // 2. Rate limit check
     if (!checkRateLimit(userId)) {
@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       question,
       sessionId,
       userId,
+      doctorId: doctorId ?? undefined,
       uiContext: uiContext && typeof uiContext.currentPath === 'string'
         ? { currentPath: uiContext.currentPath }
         : undefined,

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Eye, Phone, CalendarCheck, BookOpen, Loader2, BarChart3 } from "lucide-react";
+import { Eye, Phone, CalendarCheck, BookOpen, Loader2, BarChart3, Bot, Zap, MessageSquare } from "lucide-react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { authFetch } from "@/lib/auth-fetch";
 import type { DateRange, DoctorAnalytics } from "@healthcare/types";
@@ -14,6 +14,26 @@ import TrafficSourcesChart from "@/components/analytics/TrafficSourcesChart";
 import SearchQueriesTable from "@/components/analytics/SearchQueriesTable";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
+
+interface LlmUsageData {
+  range: string;
+  totalTokens: number;
+  totalRequests: number;
+  promptTokens: number;
+  completionTokens: number;
+  byEndpoint: Array<{
+    endpoint: string;
+    totalTokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    requests: number;
+  }>;
+  daily: Array<{
+    date: string;
+    tokens: number;
+    requests: number;
+  }>;
+}
 
 export default function ReportesPage() {
   const { status } = useSession({
@@ -30,6 +50,10 @@ export default function ReportesPage() {
   const [data, setData] = useState<DoctorAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [llmData, setLlmData] = useState<LlmUsageData | null>(null);
+  const [llmLoading, setLlmLoading] = useState(true);
+  const [llmError, setLlmError] = useState<string | null>(null);
 
   const fetchAnalytics = useCallback(async () => {
     if (!slug) return;
@@ -49,9 +73,30 @@ export default function ReportesPage() {
     }
   }, [slug, range]);
 
+  const fetchLlmUsage = useCallback(async () => {
+    setLlmLoading(true);
+    setLlmError(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/llm-usage/my?range=${range}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Error ${res.status}`);
+      }
+      setLlmData(await res.json());
+    } catch (err) {
+      setLlmError(err instanceof Error ? err.message : "Error al cargar datos de IA");
+    } finally {
+      setLlmLoading(false);
+    }
+  }, [range]);
+
   useEffect(() => {
     if (slug) fetchAnalytics();
   }, [slug, fetchAnalytics]);
+
+  useEffect(() => {
+    fetchLlmUsage();
+  }, [fetchLlmUsage]);
 
   if (status === "loading" || !slug) {
     return (
@@ -133,6 +178,100 @@ export default function ReportesPage() {
           </div>
         </>
       ) : null}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Uso de Inteligencia Artificial                                       */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="pt-4 border-t">
+        <div className="flex items-center gap-2 mb-4">
+          <Bot className="w-5 h-5 text-purple-600" />
+          <h2 className="text-xl font-bold text-gray-900">Uso de Inteligencia Artificial</h2>
+        </div>
+
+        {llmError && (
+          <div className="bg-red-50 text-red-700 rounded-lg p-4">
+            {llmError}
+            <button onClick={fetchLlmUsage} className="ml-3 underline">Reintentar</button>
+          </div>
+        )}
+
+        {llmLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+          </div>
+        ) : llmData ? (
+          <>
+            {/* KPI cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 text-purple-600 mb-1">
+                  <Zap className="w-4 h-4" />
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tokens totales</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{llmData.totalTokens.toLocaleString()}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {llmData.promptTokens.toLocaleString()} entrada · {llmData.completionTokens.toLocaleString()} salida
+                </p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 text-purple-600 mb-1">
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Solicitudes</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{llmData.totalRequests.toLocaleString()}</p>
+                <p className="text-xs text-gray-500 mt-1">en los ultimos {range === '7d' ? '7 dias' : range === '28d' ? '28 dias' : '90 dias'}</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 text-purple-600 mb-1">
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Promedio por solicitud</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {llmData.totalRequests > 0 ? Math.round(llmData.totalTokens / llmData.totalRequests).toLocaleString() : '—'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">tokens / solicitud</p>
+              </div>
+            </div>
+
+            {/* By endpoint table */}
+            {llmData.byEndpoint.length > 0 ? (
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="p-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-900">Uso por funcionalidad</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-gray-600 font-medium">Funcionalidad</th>
+                        <th className="px-4 py-3 text-right text-gray-600 font-medium">Solicitudes</th>
+                        <th className="px-4 py-3 text-right text-gray-600 font-medium">Tokens entrada</th>
+                        <th className="px-4 py-3 text-right text-gray-600 font-medium">Tokens salida</th>
+                        <th className="px-4 py-3 text-right text-gray-600 font-medium">Total tokens</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {llmData.byEndpoint.map((row) => (
+                        <tr key={row.endpoint} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-900 font-medium">{row.endpoint}</td>
+                          <td className="px-4 py-3 text-right text-gray-700">{row.requests.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right text-gray-500">{row.promptTokens.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right text-gray-500">{row.completionTokens.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-900">{row.totalTokens.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow p-8 text-center text-gray-400">
+                Sin uso de IA registrado en este periodo
+              </div>
+            )}
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@
 
 import type {
   ChatProvider,
+  ChatCompletionResult,
   EmbeddingProvider,
   ChatMessage,
   ChatCompletionOptions,
@@ -16,10 +17,17 @@ export class AnthropicChatProvider implements ChatProvider {
   async chatCompletion(
     _messages: ChatMessage[],
     _options: ChatCompletionOptions = {}
-  ): Promise<string> {
+  ): Promise<ChatCompletionResult> {
     // TODO: implement with @anthropic-ai/sdk
     // const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    // Separate system message from conversation messages, etc.
+    // return {
+    //   content: response.content[0].text,
+    //   usage: {
+    //     promptTokens: response.usage.input_tokens,
+    //     completionTokens: response.usage.output_tokens,
+    //     totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+    //   },
+    // };
     throw new Error(
       'Anthropic chat provider is not yet implemented. Set LLM_PROVIDER=openai or implement this class.'
     );
