@@ -205,7 +205,7 @@ export default function NewFlujoDeDineroPage() {
       bankAccount: ledgerData.bankAccount || null,
       formaDePago: ledgerData.formaDePago || null,
       bankMovementId: ledgerData.bankMovementId || null,
-      paymentOption: ledgerData.paymentOption || null,
+      paymentOption: null,
     }]);
     setVoiceSidebarOpen(false);
     setSidebarInitialData(undefined);
