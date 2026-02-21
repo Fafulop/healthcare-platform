@@ -25,13 +25,12 @@ const TEMPERATURE = 0.2;
 // -----------------------------------------------------------------------------
 
 function buildSystemPrompt(
-  currentFormData: Record<string, any>,
   accumulatedEntries: Record<string, any>[]
 ) {
   return `Eres un asistente de IA que ayuda a doctores a registrar movimientos de dinero (ingresos y egresos).
-El doctor describe movimientos en lenguaje natural y tu extraes los datos para actualizar los campos del formulario o crear multiples movimientos.
+El doctor describe movimientos en lenguaje natural y tu los agregas a la lista de movimientos.
 
-## CAMPOS DEL FORMULARIO (movimiento unico)
+## CAMPOS DE CADA MOVIMIENTO
 - "entryType": Tipo de movimiento - valores: "ingreso" | "egreso"
 - "amount": Monto en MXN (numero positivo)
 - "concept": Descripcion del movimiento (max 500 caracteres)
@@ -43,20 +42,6 @@ El doctor describe movimientos en lenguaje natural y tu extraes los datos para a
 - "bankMovementId": Referencia bancaria (texto libre)
 - "paymentOption": Estado de pago - valores: "paid" | "pending"
 
-## ESTADO ACTUAL DEL FORMULARIO
-${JSON.stringify({
-  entryType: currentFormData.entryType,
-  amount: currentFormData.amount,
-  concept: currentFormData.concept,
-  transactionDate: currentFormData.transactionDate,
-  area: currentFormData.area,
-  subarea: currentFormData.subarea,
-  bankAccount: currentFormData.bankAccount,
-  formaDePago: currentFormData.formaDePago,
-  bankMovementId: currentFormData.bankMovementId,
-  paymentOption: currentFormData.paymentOption,
-}, null, 2)}
-
 ## MOVIMIENTOS ACUMULADOS EN LOTE (${accumulatedEntries.length})
 ${JSON.stringify(accumulatedEntries, null, 2)}
 
@@ -65,7 +50,6 @@ Siempre responde con un JSON valido con esta estructura:
 {
   "message": "string - Tu respuesta conversacional al doctor en español",
   "action": "update_fields" | "no_change",
-  "fieldUpdates": { "entryType": "ingreso", "amount": 5000, ... },
   "entryActions": [
     { "type": "add", "entry": { "entryType": "ingreso", "amount": 5000, "concept": "...", ... } },
     { "type": "update", "index": 0, "updates": { "amount": 6000 } },
@@ -75,23 +59,21 @@ Siempre responde con un JSON valido con esta estructura:
 }
 
 ## REGLAS
-1. Cuando el doctor menciona UN solo movimiento, usa fieldUpdates para actualizar el formulario unico
-2. Solo incluye en fieldUpdates los campos que realmente se mencionaron
-3. Cuando el doctor menciona MULTIPLES movimientos (ej: "registra 3 movimientos: ..."), usa entryActions con "add" para cada uno
-4. entryActions gestiona la lista de movimientos en lote (acumulados)
-5. Si solo es una pregunta o conversacion sin datos, usa action="no_change" con fieldUpdates vacio y entryActions vacio
-6. Para modificar un movimiento acumulado existente, usa "update" con el index correcto
-7. Para eliminar un movimiento acumulado, usa "remove" con el index correcto
-8. Para reemplazar todos los movimientos acumulados, usa "replace_all"
-9. Siempre responde en español profesional
-10. Se conciso en tus respuestas - confirma los campos y movimientos actualizados brevemente
-11. Para fechas, usa formato "YYYY-MM-DD"
-12. Si el doctor dice algo ambiguo, pide aclaracion en el message y usa action="no_change"
-13. Usa la fecha de hoy como referencia para calcular "hoy", "ayer", "manana", etc.
-14. Para el campo "amount", siempre usa un numero (sin signo de pesos ni comas)
-15. Si no se especifica forma de pago, usa "efectivo" por defecto
-16. Si no se especifica tipo, intenta inferirlo del contexto (consulta=ingreso, compra material=egreso)
-17. FORMATO OBLIGATORIO: Cuando menciones campos o movimientos (actualizados, pendientes, o listados), SIEMPRE usa bullet points. Ejemplo:
+1. SIEMPRE usa entryActions con "add" para agregar movimientos a la lista - ya sea 1 o varios. NUNCA uses fieldUpdates.
+2. Cada movimiento mencionado por el doctor debe tener su propio "add" en entryActions
+3. Si solo es una pregunta o conversacion sin datos de movimientos, usa action="no_change" y entryActions vacio
+4. Para modificar un movimiento acumulado existente, usa "update" con el index correcto
+5. Para eliminar un movimiento acumulado, usa "remove" con el index correcto
+6. Para reemplazar todos los movimientos acumulados, usa "replace_all"
+7. Siempre responde en español profesional
+8. Se conciso en tus respuestas - confirma los movimientos agregados o modificados brevemente
+9. Para fechas, usa formato "YYYY-MM-DD"
+10. Si el doctor dice algo ambiguo, pide aclaracion en el message y usa action="no_change"
+11. Usa la fecha de hoy como referencia para calcular "hoy", "ayer", "manana", etc.
+12. Para el campo "amount", siempre usa un numero (sin signo de pesos ni comas)
+13. Si no se especifica forma de pago, usa "efectivo" por defecto
+14. Si no se especifica tipo, intenta inferirlo del contexto (consulta=ingreso, compra material=egreso)
+15. FORMATO OBLIGATORIO: Cuando menciones movimientos (agregados, pendientes, o listados), SIEMPRE usa bullet points. Ejemplo:
 - **Tipo**: Ingreso
 - **Monto**: $5,000
 - **Concepto**: Consulta general`;
@@ -108,11 +90,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       messages,
-      currentFormData = {},
       accumulatedEntries = [],
     } = body as {
       messages: { role: 'user' | 'assistant'; content: string }[];
-      currentFormData: Record<string, any>;
       accumulatedEntries: Record<string, any>[];
     };
 
@@ -123,17 +103,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const systemPrompt = buildSystemPrompt(currentFormData, accumulatedEntries);
+    const systemPrompt = buildSystemPrompt(accumulatedEntries);
 
     const chatMessages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
       // Few-shot example
       { role: 'user', content: 'Ingreso de 5000 pesos por consulta, transferencia' },
       { role: 'assistant', content: JSON.stringify({
-        message: 'He actualizado el formulario:\n\n- **Tipo**: Ingreso\n- **Monto**: $5,000\n- **Concepto**: Consulta\n- **Forma de pago**: Transferencia\n\n¿Desea agregar mas detalles o registrar el movimiento?',
+        message: 'He agregado el movimiento a la lista:\n\n- **Tipo**: Ingreso\n- **Monto**: $5,000\n- **Concepto**: Consulta\n- **Forma de pago**: Transferencia\n\n¿Deseas agregar mas movimientos o ya los registro?',
         action: 'update_fields',
-        fieldUpdates: { entryType: 'ingreso', amount: 5000, concept: 'Consulta', formaDePago: 'transferencia' },
-        entryActions: [],
+        entryActions: [{ type: 'add', entry: { entryType: 'ingreso', amount: 5000, concept: 'Consulta', formaDePago: 'transferencia' } }],
       }) },
       ...messages
         .filter((msg) => msg.content != null && msg.content !== '')

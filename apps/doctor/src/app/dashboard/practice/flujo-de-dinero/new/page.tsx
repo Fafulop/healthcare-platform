@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
@@ -11,7 +11,7 @@ import { VoiceChatSidebar } from "@/components/voice-assistant/chat/VoiceChatSid
 import type { InitialChatData } from "@/hooks/useChatSession";
 import type { VoiceStructuredData, VoiceLedgerEntryData, VoiceLedgerEntryBatch } from "@/types/voice-assistant";
 import { LedgerChatPanel } from "@/components/practice/LedgerChatPanel";
-import type { LedgerFormData, LedgerEntryData } from "@/hooks/useLedgerChat";
+import type { LedgerEntryData } from "@/hooks/useLedgerChat";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -74,7 +74,6 @@ export default function NewFlujoDeDineroPage() {
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [voiceSidebarOpen, setVoiceSidebarOpen] = useState(false);
   const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
-  const [voiceFormData, setVoiceFormData] = useState<Partial<typeof formData> | null>(null);
 
   // Chat IA state
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
@@ -87,25 +86,7 @@ export default function NewFlujoDeDineroPage() {
     }
   }, [searchParams]);
 
-  // Computed form data for chat panel
-  const chatFormData: LedgerFormData = useMemo(() => ({
-    entryType: formData.entryType,
-    amount: formData.amount,
-    concept: formData.concept,
-    transactionDate: formData.transactionDate,
-    area: formData.area,
-    subarea: formData.subarea,
-    bankAccount: formData.bankAccount,
-    formaDePago: formData.formaDePago,
-    bankMovementId: formData.bankMovementId,
-    paymentOption: formData.paymentOption,
-  }), [formData.entryType, formData.amount, formData.concept, formData.transactionDate, formData.area, formData.subarea, formData.bankAccount, formData.formaDePago, formData.bankMovementId, formData.paymentOption]);
-
   // Chat IA callbacks
-  const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
-    setFormData(prev => ({ ...prev, ...updates }));
-  }, []);
-
   const handleChatEntryUpdates = useCallback((entries: LedgerEntryData[]) => {
     setAccumulatedEntries(entries);
   }, []);
@@ -170,21 +151,6 @@ export default function NewFlujoDeDineroPage() {
     }
   };
 
-  // Voice Assistant: Convert voice data to form format
-  const mapVoiceToFormData = (voiceData: VoiceLedgerEntryData): Partial<typeof formData> => {
-    return {
-      entryType: voiceData.entryType || undefined,
-      amount: voiceData.amount !== null && voiceData.amount !== undefined ? String(voiceData.amount) : undefined,
-      concept: voiceData.concept || undefined,
-      transactionDate: voiceData.transactionDate || undefined,
-      area: voiceData.area || undefined,
-      subarea: voiceData.subarea || undefined,
-      bankAccount: voiceData.bankAccount || undefined,
-      formaDePago: voiceData.formaDePago || undefined,
-      bankMovementId: voiceData.bankMovementId || undefined
-    };
-  };
-
   // Voice Assistant: Handle recording modal completion
   const handleVoiceModalComplete = (
     transcript: string,
@@ -227,12 +193,22 @@ export default function NewFlujoDeDineroPage() {
       return;
     }
 
-    // Single entry - populate form as usual
+    // Single entry - add to accumulated list
     const ledgerData = data as VoiceLedgerEntryData;
-    const mappedData = mapVoiceToFormData(ledgerData);
-    setVoiceFormData(mappedData);
+    setAccumulatedEntries(prev => [...prev, {
+      entryType: ledgerData.entryType || null,
+      amount: ledgerData.amount ?? null,
+      concept: ledgerData.concept || null,
+      transactionDate: ledgerData.transactionDate || null,
+      area: ledgerData.area || null,
+      subarea: ledgerData.subarea || null,
+      bankAccount: ledgerData.bankAccount || null,
+      formaDePago: ledgerData.formaDePago || null,
+      bankMovementId: ledgerData.bankMovementId || null,
+      paymentOption: ledgerData.paymentOption || null,
+    }]);
     setVoiceSidebarOpen(false);
-    setSidebarInitialData(undefined); // Clear after confirmation
+    setSidebarInitialData(undefined);
   };
 
   // Load voice data from sessionStorage (hub widget flow)
@@ -312,19 +288,6 @@ export default function NewFlujoDeDineroPage() {
       setSubmitting(false);
     }
   };
-
-  // Voice Assistant: Apply voice data to form when confirmed
-  useEffect(() => {
-    if (voiceFormData) {
-      setFormData((prev) => ({
-        ...prev,
-        ...Object.fromEntries(
-          Object.entries(voiceFormData).filter(([_, v]) => v !== undefined)
-        ),
-      }));
-      setVoiceFormData(null); // Clear after applying
-    }
-  }, [voiceFormData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -749,9 +712,7 @@ export default function NewFlujoDeDineroPage() {
       {chatPanelOpen && (
         <LedgerChatPanel
           onClose={() => setChatPanelOpen(false)}
-          currentFormData={chatFormData}
           accumulatedEntries={accumulatedEntries}
-          onUpdateFields={handleChatFieldUpdates}
           onUpdateEntries={handleChatEntryUpdates}
           onCreateBatch={handleChatBatchCreate}
         />

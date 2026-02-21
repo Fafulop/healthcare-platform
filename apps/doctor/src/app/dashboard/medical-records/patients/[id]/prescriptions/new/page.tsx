@@ -356,18 +356,8 @@ export default function NewPrescriptionPage() {
     setError('');
 
     try {
-      // Validate medications
-      console.log('[Submit] All medications:', medications);
-      const validMedications = medications.filter(
-        (med) => med.drugName && med.dosage && med.frequency && med.instructions
-      );
-      console.log('[Submit] Valid medications:', validMedications);
-      console.log('[Submit] Validation details:', medications.map(med => ({
-        drugName: !!med.drugName,
-        dosage: !!med.dosage,
-        frequency: !!med.frequency,
-        instructions: !!med.instructions,
-      })));
+      // Validate medications — only exclude completely empty slots (no drugName)
+      const validMedications = medications.filter((med) => med.drugName.trim());
 
       if (validMedications.length === 0) {
         throw new Error('Debe agregar al menos un medicamento válido');

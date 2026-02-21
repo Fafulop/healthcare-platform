@@ -13,18 +13,6 @@ export interface LedgerChatMessage {
   actionSummary?: string;
 }
 
-export interface LedgerFormData {
-  entryType: string;
-  amount: string;
-  concept: string;
-  transactionDate: string;
-  area: string;
-  subarea: string;
-  bankAccount: string;
-  formaDePago: string;
-  bankMovementId: string;
-  paymentOption: string;
-}
 
 export interface LedgerEntryData {
   entryType: string | null;
@@ -64,9 +52,7 @@ interface ApiResponse {
 }
 
 interface UseLedgerChatOptions {
-  currentFormData: LedgerFormData;
   accumulatedEntries: LedgerEntryData[];
-  onUpdateFields: (updates: Record<string, any>) => void;
   onUpdateEntries: (entries: LedgerEntryData[]) => void;
 }
 
@@ -140,9 +126,7 @@ function applyEntryActions(
 // -----------------------------------------------------------------------------
 
 export function useLedgerChat({
-  currentFormData,
   accumulatedEntries,
-  onUpdateFields,
   onUpdateEntries,
 }: UseLedgerChatOptions) {
   const [messages, setMessages] = useState<LedgerChatMessage[]>([]);
@@ -178,7 +162,6 @@ export function useLedgerChat({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: conversationRef.current,
-            currentFormData,
             accumulatedEntries,
           }),
         });
@@ -198,41 +181,20 @@ export function useLedgerChat({
           return;
         }
 
-        const { message = '', action, fieldUpdates, entryActions } = json.data;
+        const { message = '', action, entryActions } = json.data;
 
-        let fieldCount = 0;
-        let entryCount = 0;
-
-        const hasFieldUpdates = fieldUpdates && Object.keys(fieldUpdates).length > 0;
         const hasEntryActions = entryActions && entryActions.length > 0;
 
-        if (action !== 'no_change' || hasFieldUpdates || hasEntryActions) {
-          // Apply flat field updates
-          if (hasFieldUpdates) {
-            // Convert amount to string for form compatibility
-            const updates = { ...fieldUpdates };
-            if (updates.amount !== undefined) {
-              updates.amount = String(updates.amount);
-            }
-            onUpdateFields(updates);
-            fieldCount = Object.keys(fieldUpdates).length;
-          }
-
-          // Apply entry actions
+        if (action !== 'no_change' || hasEntryActions) {
           if (hasEntryActions) {
             const newEntries = applyEntryActions(accumulatedEntries, entryActions);
             onUpdateEntries(newEntries);
-            entryCount = entryActions.length;
           }
         }
 
-        let actionSummary: string | undefined;
-        if (fieldCount > 0 || entryCount > 0) {
-          const parts: string[] = [];
-          if (fieldCount > 0) parts.push(`${fieldCount} campo${fieldCount !== 1 ? 's' : ''}`);
-          if (entryCount > 0) parts.push(`${entryCount} movimiento${entryCount !== 1 ? 's' : ''}`);
-          actionSummary = `Se actualizaron ${parts.join(' y ')}`;
-        }
+        const actionSummary: string | undefined = hasEntryActions
+          ? `Se actualizaron ${entryActions.length} movimiento${entryActions.length !== 1 ? 's' : ''}`
+          : undefined;
 
         const assistantMsg: LedgerChatMessage = {
           id: generateId(),
@@ -259,7 +221,7 @@ export function useLedgerChat({
         setIsLoading(false);
       }
     },
-    [isLoading, currentFormData, accumulatedEntries, onUpdateFields, onUpdateEntries]
+    [isLoading, accumulatedEntries, onUpdateEntries]
   );
 
   // Keep a ref to latest sendMessage so processVoiceMessage can call it

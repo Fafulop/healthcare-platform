@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { Sparkles, X, Bot, User, Loader2, Send, Minus, ChevronUp, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 import { VoiceRecordButton } from '@/components/voice-assistant/chat/VoiceRecordButton';
-import { useLedgerChat, type LedgerChatMessage, type LedgerFormData, type LedgerEntryData } from '@/hooks/useLedgerChat';
+import { useLedgerChat, type LedgerChatMessage, type LedgerEntryData } from '@/hooks/useLedgerChat';
 
 // -----------------------------------------------------------------------------
 // Markdown-like renderer (same pattern as TaskChatPanel)
@@ -158,26 +158,20 @@ function MessageBubble({ message }: { message: LedgerChatMessage }) {
 
 interface LedgerChatPanelProps {
   onClose: () => void;
-  currentFormData: LedgerFormData;
   accumulatedEntries: LedgerEntryData[];
-  onUpdateFields: (updates: Record<string, any>) => void;
   onUpdateEntries: (entries: LedgerEntryData[]) => void;
   onCreateBatch: () => void;
 }
 
 export function LedgerChatPanel({
   onClose,
-  currentFormData,
   accumulatedEntries,
-  onUpdateFields,
   onUpdateEntries,
   onCreateBatch,
 }: LedgerChatPanelProps) {
   const { messages, isLoading, isTranscribing, sendMessage, clearChat, voice } =
     useLedgerChat({
-      currentFormData,
       accumulatedEntries,
-      onUpdateFields,
       onUpdateEntries,
     });
 

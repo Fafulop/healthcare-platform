@@ -25,13 +25,12 @@ const TEMPERATURE = 0.2;
 // -----------------------------------------------------------------------------
 
 function buildSystemPrompt(
-  currentFormData: Record<string, any>,
   accumulatedTasks: Record<string, any>[]
 ) {
   return `Eres un asistente de IA que ayuda a doctores a crear tareas pendientes.
-El doctor describe tareas en lenguaje natural y tu extraes los datos para actualizar los campos del formulario o crear multiples tareas.
+El doctor describe tareas en lenguaje natural y tu las agregas a la lista de pendientes.
 
-## CAMPOS DEL FORMULARIO (tarea unica)
+## CAMPOS DE CADA TAREA
 - "title": Titulo de la tarea (obligatorio)
 - "description": Descripcion detallada
 - "dueDate": Fecha de vencimiento (formato YYYY-MM-DD)
@@ -39,17 +38,6 @@ El doctor describe tareas en lenguaje natural y tu extraes los datos para actual
 - "endTime": Hora de fin (formato HH:mm)
 - "priority": Prioridad - valores: ALTA, MEDIA (default), BAJA
 - "category": Categoria - valores: SEGUIMIENTO, ADMINISTRATIVO, LABORATORIO, RECETA, REFERENCIA, PERSONAL, OTRO (default)
-
-## ESTADO ACTUAL DEL FORMULARIO
-${JSON.stringify({
-  title: currentFormData.title,
-  description: currentFormData.description,
-  dueDate: currentFormData.dueDate,
-  startTime: currentFormData.startTime,
-  endTime: currentFormData.endTime,
-  priority: currentFormData.priority,
-  category: currentFormData.category,
-}, null, 2)}
 
 ## TAREAS ACUMULADAS EN LOTE (${accumulatedTasks.length})
 ${JSON.stringify(accumulatedTasks, null, 2)}
@@ -59,7 +47,6 @@ Siempre responde con un JSON valido con esta estructura:
 {
   "message": "string - Tu respuesta conversacional al doctor en español",
   "action": "update_fields" | "no_change",
-  "fieldUpdates": { "title": "valor", ... },
   "taskActions": [
     { "type": "add", "task": { "title": "...", "dueDate": "...", ... } },
     { "type": "update", "index": 0, "updates": { "title": "..." } },
@@ -69,20 +56,18 @@ Siempre responde con un JSON valido con esta estructura:
 }
 
 ## REGLAS
-1. Cuando el doctor menciona UNA sola tarea, usa fieldUpdates para actualizar el formulario unico
-2. Solo incluye en fieldUpdates los campos que realmente se mencionaron
-3. Cuando el doctor menciona MULTIPLES tareas (ej: "crea 3 tareas: ..."), usa taskActions con "add" para cada una
-4. taskActions gestiona la lista de tareas en lote (acumuladas)
-5. Si solo es una pregunta o conversacion sin datos, usa action="no_change" con fieldUpdates vacio y taskActions vacio
-6. Para modificar una tarea acumulada existente, usa "update" con el index correcto
-7. Para eliminar una tarea acumulada, usa "remove" con el index correcto
-8. Para reemplazar todas las tareas acumuladas, usa "replace_all"
-9. Siempre responde en español profesional
-10. Se conciso en tus respuestas - confirma los campos y tareas actualizados brevemente
-11. Para fechas, usa formato "YYYY-MM-DD". Para horas, usa formato "HH:mm"
-12. Si el doctor dice algo ambiguo, pide aclaracion en el message y usa action="no_change"
-13. Usa la fecha de hoy como referencia para calcular "manana", "el viernes", etc.
-14. FORMATO OBLIGATORIO: Cuando menciones campos o tareas (actualizados, pendientes, o listados), SIEMPRE usa bullet points. Ejemplo:
+1. SIEMPRE usa taskActions con "add" para agregar tareas a la lista - ya sea 1 o muchas. NUNCA uses fieldUpdates.
+2. Cada tarea mencionada por el doctor debe tener su propio "add" en taskActions
+3. Si solo es una pregunta o conversacion sin datos de tareas, usa action="no_change" y taskActions vacio
+4. Para modificar una tarea acumulada existente, usa "update" con el index correcto
+5. Para eliminar una tarea acumulada, usa "remove" con el index correcto
+6. Para reemplazar todas las tareas acumuladas, usa "replace_all"
+7. Siempre responde en español profesional
+8. Se conciso en tus respuestas - confirma las tareas agregadas o modificadas brevemente
+9. Para fechas, usa formato "YYYY-MM-DD". Para horas, usa formato "HH:mm"
+10. Si el doctor dice algo ambiguo, pide aclaracion en el message y usa action="no_change"
+11. Usa la fecha de hoy como referencia para calcular "manana", "el viernes", etc.
+12. FORMATO OBLIGATORIO: Cuando menciones tareas (agregadas, pendientes, o listadas), SIEMPRE usa bullet points. Ejemplo:
 - **Titulo**: Revisar resultados
 - **Fecha**: 2025-01-15
 - **Prioridad**: ALTA`;
@@ -99,11 +84,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       messages,
-      currentFormData = {},
       accumulatedTasks = [],
     } = body as {
       messages: { role: 'user' | 'assistant'; content: string }[];
-      currentFormData: Record<string, any>;
       accumulatedTasks: Record<string, any>[];
     };
 
@@ -114,17 +97,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const systemPrompt = buildSystemPrompt(currentFormData, accumulatedTasks);
+    const systemPrompt = buildSystemPrompt(accumulatedTasks);
 
     const chatMessages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
       // Few-shot example
       { role: 'user', content: 'Revisar resultados de laboratorio manana a las 10' },
       { role: 'assistant', content: JSON.stringify({
-        message: 'He actualizado el formulario:\n\n- **Titulo**: Revisar resultados de laboratorio\n- **Categoria**: LABORATORIO\n- **Hora de inicio**: 10:00\n\n¿Desea agregar mas detalles o crear la tarea?',
+        message: 'He agregado el pendiente a la lista:\n\n- **Titulo**: Revisar resultados de laboratorio\n- **Categoria**: LABORATORIO\n- **Hora de inicio**: 10:00\n\n¿Deseas agregar mas pendientes o ya los creo?',
         action: 'update_fields',
-        fieldUpdates: { title: 'Revisar resultados de laboratorio', category: 'LABORATORIO', startTime: '10:00' },
-        taskActions: [],
+        taskActions: [{ type: 'add', task: { title: 'Revisar resultados de laboratorio', category: 'LABORATORIO', startTime: '10:00' } }],
       }) },
       ...messages
         .filter((msg) => msg.content != null && msg.content !== '')

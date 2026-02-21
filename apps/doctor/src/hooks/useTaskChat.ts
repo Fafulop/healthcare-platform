@@ -14,15 +14,6 @@ export interface TaskChatMessage {
   actionSummary?: string;
 }
 
-export interface TaskFormData {
-  title: string;
-  description: string;
-  dueDate: string;
-  startTime: string;
-  endTime: string;
-  priority: string;
-  category: string;
-}
 
 interface TaskAction {
   type: 'add' | 'update' | 'remove' | 'replace_all';
@@ -49,9 +40,7 @@ interface ApiResponse {
 }
 
 interface UseTaskChatOptions {
-  currentFormData: TaskFormData;
   accumulatedTasks: VoiceTaskData[];
-  onUpdateFields: (updates: Record<string, any>) => void;
   onUpdateTasks: (tasks: VoiceTaskData[]) => void;
 }
 
@@ -123,9 +112,7 @@ function applyTaskActions(
 // -----------------------------------------------------------------------------
 
 export function useTaskChat({
-  currentFormData,
   accumulatedTasks,
-  onUpdateFields,
   onUpdateTasks,
 }: UseTaskChatOptions) {
   const [messages, setMessages] = useState<TaskChatMessage[]>([]);
@@ -161,7 +148,6 @@ export function useTaskChat({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: conversationRef.current,
-            currentFormData,
             accumulatedTasks,
           }),
         });
@@ -181,36 +167,20 @@ export function useTaskChat({
           return;
         }
 
-        const { message = '', action, fieldUpdates, taskActions } = json.data;
+        const { message = '', action, taskActions } = json.data;
 
-        let fieldCount = 0;
-        let taskCount = 0;
-
-        const hasFieldUpdates = fieldUpdates && Object.keys(fieldUpdates).length > 0;
         const hasTaskActions = taskActions && taskActions.length > 0;
 
-        if (action !== 'no_change' || hasFieldUpdates || hasTaskActions) {
-          // Apply flat field updates
-          if (hasFieldUpdates) {
-            onUpdateFields(fieldUpdates);
-            fieldCount = Object.keys(fieldUpdates).length;
-          }
-
-          // Apply task actions
+        if (action !== 'no_change' || hasTaskActions) {
           if (hasTaskActions) {
             const newTasks = applyTaskActions(accumulatedTasks, taskActions);
             onUpdateTasks(newTasks);
-            taskCount = taskActions.length;
           }
         }
 
-        let actionSummary: string | undefined;
-        if (fieldCount > 0 || taskCount > 0) {
-          const parts: string[] = [];
-          if (fieldCount > 0) parts.push(`${fieldCount} campo${fieldCount !== 1 ? 's' : ''}`);
-          if (taskCount > 0) parts.push(`${taskCount} tarea${taskCount !== 1 ? 's' : ''}`);
-          actionSummary = `Se actualizaron ${parts.join(' y ')}`;
-        }
+        const actionSummary: string | undefined = hasTaskActions
+          ? `Se actualizaron ${taskActions.length} tarea${taskActions.length !== 1 ? 's' : ''}`
+          : undefined;
 
         const assistantMsg: TaskChatMessage = {
           id: generateId(),
@@ -237,7 +207,7 @@ export function useTaskChat({
         setIsLoading(false);
       }
     },
-    [isLoading, currentFormData, accumulatedTasks, onUpdateFields, onUpdateTasks]
+    [isLoading, accumulatedTasks, onUpdateTasks]
   );
 
   // Keep a ref to latest sendMessage so processVoiceMessage can call it

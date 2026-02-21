@@ -2,11 +2,10 @@
 
 import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, Loader2, Save, Sparkles } from "lucide-react";
 import Link from "next/link";
 import {
-  AIDraftBanner,
   VoiceChatSidebar,
   VoiceRecordingModal,
 } from '@/components/voice-assistant';
@@ -14,7 +13,6 @@ import {
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoiceStructuredData, VoiceTaskData } from '@/types/voice-assistant';
 import { TaskChatPanel } from '@/components/tasks/TaskChatPanel';
-import type { TaskFormData } from '@/hooks/useTaskChat';
 
 interface PatientOption {
   id: string;
@@ -31,19 +29,6 @@ function getLocalDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-// Helper to map voice data to form data
-function mapVoiceToFormData(voiceData: VoiceTaskData) {
-  return {
-    title: voiceData.title || '',
-    description: voiceData.description || '',
-    dueDate: voiceData.dueDate || '',
-    startTime: voiceData.startTime || '',
-    endTime: voiceData.endTime || '',
-    priority: voiceData.priority || 'MEDIA',
-    category: voiceData.category || 'OTRO',
-    patientId: voiceData.patientId || '',
-  };
-}
 
 // Simplified conflict handling - server-side only
 interface TaskConflictData {
@@ -75,15 +60,6 @@ export default function NewTaskPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
-  const [voiceDataApplied, setVoiceDataApplied] = useState(false);
-  const [showAIBanner, setShowAIBanner] = useState(false);
-  const [aiMetadata, setAIMetadata] = useState<{
-    sessionId: string;
-    transcriptId: string;
-    fieldsExtracted: string[];
-    fieldsEmpty: string[];
-    confidence: 'high' | 'medium' | 'low';
-  } | null>(null);
 
   // Chat IA state
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
@@ -125,22 +101,7 @@ export default function NewTaskPage() {
     }
   };
 
-  // Computed form data for chat panel
-  const chatFormData: TaskFormData = useMemo(() => ({
-    title: form.title,
-    description: form.description,
-    dueDate: form.dueDate,
-    startTime: form.startTime,
-    endTime: form.endTime,
-    priority: form.priority,
-    category: form.category,
-  }), [form.title, form.description, form.dueDate, form.startTime, form.endTime, form.priority, form.category]);
-
   // Chat IA callbacks
-  const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
-    setForm(prev => ({ ...prev, ...updates }));
-  }, []);
-
   const handleChatTaskUpdates = useCallback((tasks: VoiceTaskData[]) => {
     setAccumulatedTasks(tasks);
   }, []);
@@ -202,26 +163,9 @@ export default function NewTaskPage() {
       return;
     }
 
-    // Single task: populate form
+    // Single task: add to accumulated list (same as batch)
     const voiceData = data as VoiceTaskData;
-    const mappedData = mapVoiceToFormData(voiceData);
-
-    setForm(mappedData);
-    setVoiceDataApplied(true);
-
-    const allFields = Object.keys(voiceData);
-    const extracted = allFields.filter(k => voiceData[k as keyof VoiceTaskData] != null && voiceData[k as keyof VoiceTaskData] !== '');
-    const empty = allFields.filter(k => voiceData[k as keyof VoiceTaskData] == null || voiceData[k as keyof VoiceTaskData] === '');
-
-    setAIMetadata({
-      sessionId: crypto.randomUUID(),
-      transcriptId: crypto.randomUUID(),
-      fieldsExtracted: extracted,
-      fieldsEmpty: empty,
-      confidence: extracted.length > 4 ? 'high' : extracted.length > 2 ? 'medium' : 'low',
-    });
-
-    setShowAIBanner(true);
+    setAccumulatedTasks(prev => [...prev, voiceData]);
     setSidebarOpen(false);
     setSidebarInitialData(undefined);
   }, [router]);
@@ -432,29 +376,17 @@ export default function NewTaskPage() {
             <p className="text-gray-600 mt-1">Crea una nueva tarea pendiente</p>
           </div>
           {/* Action buttons */}
-          {!voiceDataApplied && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setChatPanelOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                <Sparkles className="w-5 h-5" />
-                Chat IA
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setChatPanelOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              <Sparkles className="w-5 h-5" />
+              Chat IA
+            </button>
+          </div>
         </div>
       </div>
-
-      {/* AI Draft Banner */}
-      {showAIBanner && aiMetadata && (
-        <AIDraftBanner
-          confidence={aiMetadata.confidence}
-          fieldsExtracted={aiMetadata.fieldsExtracted}
-          fieldsEmpty={aiMetadata.fieldsEmpty}
-          onDismiss={() => setShowAIBanner(false)}
-        />
-      )}
 
       {/* Error */}
       {error && (
@@ -717,9 +649,7 @@ export default function NewTaskPage() {
       {chatPanelOpen && (
         <TaskChatPanel
           onClose={() => setChatPanelOpen(false)}
-          currentFormData={chatFormData}
           accumulatedTasks={accumulatedTasks}
-          onUpdateFields={handleChatFieldUpdates}
           onUpdateTasks={handleChatTaskUpdates}
           onCreateBatch={handleChatBatchCreate}
         />

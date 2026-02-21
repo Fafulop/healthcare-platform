@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { Sparkles, X, Bot, User, Loader2, Send, Minus, ChevronUp } from 'lucide-react';
 import { VoiceRecordButton } from '@/components/voice-assistant/chat/VoiceRecordButton';
 import { BatchTaskList } from '@/components/voice-assistant/chat/BatchTaskList';
-import { useTaskChat, type TaskChatMessage, type TaskFormData } from '@/hooks/useTaskChat';
+import { useTaskChat, type TaskChatMessage } from '@/hooks/useTaskChat';
 import type { VoiceTaskData } from '@/types/voice-assistant';
 
 // -----------------------------------------------------------------------------
@@ -98,26 +98,20 @@ function MessageBubble({ message }: { message: TaskChatMessage }) {
 
 interface TaskChatPanelProps {
   onClose: () => void;
-  currentFormData: TaskFormData;
   accumulatedTasks: VoiceTaskData[];
-  onUpdateFields: (updates: Record<string, any>) => void;
   onUpdateTasks: (tasks: VoiceTaskData[]) => void;
   onCreateBatch: () => void;
 }
 
 export function TaskChatPanel({
   onClose,
-  currentFormData,
   accumulatedTasks,
-  onUpdateFields,
   onUpdateTasks,
   onCreateBatch,
 }: TaskChatPanelProps) {
   const { messages, isLoading, isTranscribing, sendMessage, clearChat, voice } =
     useTaskChat({
-      currentFormData,
       accumulatedTasks,
-      onUpdateFields,
       onUpdateTasks,
     });
 
