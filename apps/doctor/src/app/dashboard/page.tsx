@@ -12,9 +12,11 @@ import {
   FileSpreadsheet,
   Clock,
   CalendarCheck,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import RecentActivityTable from "@/components/RecentActivityTable";
+import { DayDetailsSection } from "@/components/day-details/DayDetailsSection";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -25,22 +27,39 @@ export default function DoctorDashboardPage() {
 
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [confirmedCount, setConfirmedCount] = useState<number | null>(null);
+  const [ventasTotal, setVentasTotal] = useState<number | null>(null);
+  const [activityCollapsed, setActivityCollapsed] = useState(true);
+
+  const now = new Date();
+  const monthName = now.toLocaleDateString("es-MX", { month: "long" });
+  const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
 
   useEffect(() => {
     if (!doctorId) return;
-    const fetchCounts = async () => {
-      const [pendingRes, confirmedRes] = await Promise.all([
+    const fetchData = async () => {
+      const [pendingRes, confirmedRes, ventasRes] = await Promise.all([
         authFetch(`${API_URL}/api/appointments/bookings?doctorId=${doctorId}&status=PENDING`),
         authFetch(`${API_URL}/api/appointments/bookings?doctorId=${doctorId}&status=CONFIRMED`),
+        authFetch(`${API_URL}/api/practice-management/ventas?startDate=${startDate}&endDate=${endDate}`),
       ]);
-      const [pendingData, confirmedData] = await Promise.all([
+      const [pendingData, confirmedData, ventasData] = await Promise.all([
         pendingRes.json(),
         confirmedRes.json(),
+        ventasRes.json(),
       ]);
       if (pendingData.success) setPendingCount(pendingData.count);
       if (confirmedData.success) setConfirmedCount(confirmedData.count);
+      if (ventasData.data) {
+        const total = (ventasData.data as { total: string }[]).reduce(
+          (sum, sale) => sum + parseFloat(sale.total || "0"),
+          0
+        );
+        setVentasTotal(total);
+      }
     };
-    fetchCounts();
+    fetchData();
   }, [doctorId]);
 
   return (
@@ -55,37 +74,54 @@ export default function DoctorDashboardPage() {
         </p>
       </div>
 
-      {/* Citas counters */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+      {/* Summary counters */}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
         <Link
           href="/appointments"
-          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-4 hover:shadow-md transition-shadow"
+          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
         >
-          <div className="w-11 h-11 rounded-lg bg-yellow-50 flex items-center justify-center flex-shrink-0">
-            <Clock className="w-5 h-5 text-yellow-500" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-yellow-50 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
           </div>
-          <div>
-            <p className="text-2xl font-bold text-gray-900">
+          <div className="min-w-0">
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">
               {pendingCount === null ? "—" : pendingCount}
             </p>
-            <p className="text-sm text-gray-500">Por confirmar</p>
+            <p className="text-xs sm:text-sm text-gray-500 truncate">Citas por confirmar</p>
           </div>
         </Link>
         <Link
           href="/appointments"
-          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-4 hover:shadow-md transition-shadow"
+          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
         >
-          <div className="w-11 h-11 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-            <CalendarCheck className="w-5 h-5 text-blue-500" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
           </div>
-          <div>
-            <p className="text-2xl font-bold text-gray-900">
+          <div className="min-w-0">
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">
               {confirmedCount === null ? "—" : confirmedCount}
             </p>
-            <p className="text-sm text-gray-500">Por completar</p>
+            <p className="text-xs sm:text-sm text-gray-500 truncate">Citas agendadas</p>
+          </div>
+        </Link>
+        <Link
+          href="/dashboard/practice/ventas"
+          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
+        >
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+            <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">
+              {ventasTotal === null ? "—" : `$${ventasTotal.toLocaleString("es-MX", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+            </p>
+            <p className="text-xs sm:text-sm text-gray-500 truncate">Ventas {monthLabel}</p>
           </div>
         </Link>
       </div>
+
+      {/* Detalles del día */}
+      <DayDetailsSection />
 
       {/* Acciones Rápidas - Chat IA */}
       <div className="bg-white rounded-lg shadow mb-6">
@@ -198,12 +234,18 @@ export default function DoctorDashboardPage() {
 
       {/* Actividad Reciente */}
       <div className="bg-white rounded-lg shadow">
-        <div className="p-4 sm:p-6 border-b border-gray-200">
+        <button
+          onClick={() => setActivityCollapsed(prev => !prev)}
+          className="w-full flex items-center justify-between p-4 sm:p-6 text-left"
+        >
           <h2 className="text-lg font-semibold text-gray-900">Actividad Reciente</h2>
-        </div>
-        <div className="p-4 sm:p-6">
-          <RecentActivityTable limit={10} />
-        </div>
+          <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${activityCollapsed ? "-rotate-90" : ""}`} />
+        </button>
+        {!activityCollapsed && (
+          <div className="px-4 pb-4 sm:px-6 sm:pb-6">
+            <RecentActivityTable limit={10} />
+          </div>
+        )}
       </div>
     </div>
   );

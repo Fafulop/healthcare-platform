@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Clock, AlertCircle, User, Phone, Mail, Calendar as CalendarIcon } from 'lucide-react';
+import { X, Clock, AlertCircle, User, Phone, Mail, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MiniCalendar } from './MiniCalendar';
 
 interface Task {
@@ -222,25 +222,47 @@ export function DayDetailsModal({ isOpen, onClose, tasks, slots, selectedDate, o
           </div>
 
           {/* Date Display and Calendar Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              {selectedDate.toLocaleDateString('es-MX', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-              })}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  const prev = new Date(selectedDate);
+                  prev.setDate(prev.getDate() - 1);
+                  onDateChange(prev);
+                }}
+                className="p-1 rounded-lg hover:bg-gray-200 transition-colors text-gray-500"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm text-gray-700 capitalize">
+                {selectedDate.toLocaleDateString('es-MX', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                })}
+              </span>
+              <button
+                onClick={() => {
+                  const next = new Date(selectedDate);
+                  next.setDate(next.getDate() + 1);
+                  onDateChange(next);
+                }}
+                className="p-1 rounded-lg hover:bg-gray-200 transition-colors text-gray-500"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
             <button
               onClick={() => setShowCalendar(!showCalendar)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex-shrink-0 ${
                 showCalendar
                   ? 'bg-indigo-100 text-indigo-700'
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
               <CalendarIcon className="w-4 h-4" />
-              {showCalendar ? 'Ocultar calendario' : 'Cambiar fecha'}
+              {showCalendar ? 'Ocultar' : 'Fecha'}
             </button>
           </div>
         </div>
