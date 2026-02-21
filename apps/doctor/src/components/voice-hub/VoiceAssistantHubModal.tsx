@@ -66,7 +66,7 @@ const VOICE_ACTIONS: VoiceAction[] = [
   },
   {
     id: 'ledger-entry',
-    title: 'Movimiento de Efectivo',
+    title: 'Registro Ingreso/Egreso',
     description: 'Registrar ingreso o egreso con Chat IA',
     icon: DollarSign,
     sessionType: 'CREATE_LEDGER_ENTRY',

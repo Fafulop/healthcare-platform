@@ -261,9 +261,9 @@ export default function EditFlujoDeDineroPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="flex items-center justify-center py-24">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="inline-block h-10 w-10 animate-spin text-slate-400" />
+          <Loader2 className="inline-block h-10 w-10 animate-spin text-blue-600" />
           <p className="mt-3 text-gray-500 text-sm">Cargando movimiento...</p>
         </div>
       </div>

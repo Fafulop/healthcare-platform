@@ -174,7 +174,7 @@ export default function DoctorDashboardPage() {
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <p className="font-medium text-gray-900">Movimiento de Efectivo</p>
+                  <p className="font-medium text-gray-900">Registro Ingreso/Egreso</p>
                   <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
                 </div>
                 <p className="text-sm text-gray-600 hidden sm:block">Registrar ingreso o egreso</p>
