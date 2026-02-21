@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { redirect, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
-import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle, Mic, ChevronLeft, ChevronRight, CalendarPlus } from "lucide-react";
+import { Calendar, Clock, DollarSign, Plus, Trash2, Lock, Unlock, Loader2, CheckSquare, Square, User, Phone, Mail, CheckCircle, XCircle, AlertCircle, Sparkles, ChevronLeft, ChevronRight, ChevronDown, CalendarPlus } from "lucide-react";
 import CreateSlotsModal from "./CreateSlotsModal";
 import BookPatientModal from "./BookPatientModal";
 import { authFetch } from "@/lib/auth-fetch";
@@ -28,7 +28,7 @@ function getLocalDateString(date: Date): string {
 // Helper function to format date string for display (fixes timezone issues)
 function formatDateString(dateStr: string, locale: string = 'es-MX', options?: Intl.DateTimeFormatOptions): string {
   try {
-    const [year, month, day] = dateStr.split('-').map(Number);
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
     if (year && month && day) {
       const date = new Date(year, month - 1, day); // month is 0-indexed
       return date.toLocaleDateString(locale, options);
@@ -91,7 +91,7 @@ export default function AppointmentsPage() {
   const [bookingDate, setBookingDate] = useState<string>(getLocalDateString(new Date()));
   const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
   const [showAllSlots, setShowAllSlots] = useState(false);
-  const [showAllBookings, setShowAllBookings] = useState(false);
+  const [bookingsCollapsed, setBookingsCollapsed] = useState(false);
 
   // Book patient modal state
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
@@ -492,7 +492,7 @@ export default function AppointmentsPage() {
     const slotDate = booking.slot.date.split('T')[0];
     return slotDate === bookingDate;
   });
-  const filteredBookings = showAllBookings ? bookings : bookingsForDate;
+  const filteredBookings = bookings;
 
   // Filter slots for list view by selected list date
   const slotsForListDate = slots.filter(
@@ -560,7 +560,7 @@ export default function AppointmentsPage() {
               onClick={() => setVoiceModalOpen(true)}
               className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
             >
-              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden sm:inline">Chat IA</span>
               <span className="sm:hidden">Chat IA</span>
             </button>
@@ -613,72 +613,30 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      {/* Citas Reservadas */}
+      {/* Todas las Citas */}
       <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
             <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-            {showAllBookings ? "Todas las Citas" : "Citas Reservadas"}
+            Todas las Citas
           </h2>
           <div className="flex items-center gap-2">
-            {!showAllBookings && (
-              <>
-                <button
-                  onClick={() => {
-                    const d = new Date(bookingDate + 'T12:00:00');
-                    d.setDate(d.getDate() - 1);
-                    setBookingDate(getLocalDateString(d));
-                  }}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <input
-                  type="date"
-                  value={bookingDate}
-                  onChange={(e) => setBookingDate(e.target.value)}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={() => {
-                    const d = new Date(bookingDate + 'T12:00:00');
-                    d.setDate(d.getDate() + 1);
-                    setBookingDate(getLocalDateString(d));
-                  }}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                {bookingDate !== getLocalDateString(new Date()) && (
-                  <button
-                    onClick={() => setBookingDate(getLocalDateString(new Date()))}
-                    className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                  >
-                    Hoy
-                  </button>
-                )}
-              </>
-            )}
             <span className="text-xs sm:text-sm font-medium text-gray-500 ml-1">
               {filteredBookings.length} cita{filteredBookings.length !== 1 ? 's' : ''}
             </span>
             <button
-              onClick={() => setShowAllBookings(prev => !prev)}
-              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                showAllBookings
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
+              onClick={() => setBookingsCollapsed(prev => !prev)}
+              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
             >
-              {showAllBookings ? "Por dia" : "Ver todos"}
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${bookingsCollapsed ? "-rotate-90" : ""}`} />
             </button>
           </div>
         </div>
 
-        {filteredBookings.length === 0 ? (
+        {!bookingsCollapsed && (filteredBookings.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">{showAllBookings ? "No hay citas reservadas" : `Sin citas para ${formatDateString(bookingDate, "es-MX", { weekday: "long", day: "numeric", month: "long" })}`}</p>
+            <p className="text-sm">No hay citas reservadas</p>
           </div>
         ) : (
           <>
@@ -885,7 +843,7 @@ export default function AppointmentsPage() {
               </table>
             </div>
           </>
-        )}
+        ))}
       </div>
 
       {/* Calendar View */}

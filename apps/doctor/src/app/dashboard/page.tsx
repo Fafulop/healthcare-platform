@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 import {
   DollarSign,
   CheckSquare,
@@ -9,13 +10,38 @@ import {
   ShoppingCart,
   ShoppingBag,
   FileSpreadsheet,
+  Clock,
+  CalendarCheck,
 } from "lucide-react";
 import Link from "next/link";
 import RecentActivityTable from "@/components/RecentActivityTable";
+import { authFetch } from "@/lib/auth-fetch";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function DoctorDashboardPage() {
   const { data: session } = useSession();
+  const doctorId = session?.user?.doctorId;
+
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [confirmedCount, setConfirmedCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!doctorId) return;
+    const fetchCounts = async () => {
+      const [pendingRes, confirmedRes] = await Promise.all([
+        authFetch(`${API_URL}/api/appointments/bookings?doctorId=${doctorId}&status=PENDING`),
+        authFetch(`${API_URL}/api/appointments/bookings?doctorId=${doctorId}&status=CONFIRMED`),
+      ]);
+      const [pendingData, confirmedData] = await Promise.all([
+        pendingRes.json(),
+        confirmedRes.json(),
+      ]);
+      if (pendingData.success) setPendingCount(pendingData.count);
+      if (confirmedData.success) setConfirmedCount(confirmedData.count);
+    };
+    fetchCounts();
+  }, [doctorId]);
 
   return (
     <div className="p-4 sm:p-6">
@@ -27,6 +53,38 @@ export default function DoctorDashboardPage() {
         <p className="text-gray-600 mt-1 text-sm sm:text-base">
           Esto es lo que está pasando en tu consultorio hoy
         </p>
+      </div>
+
+      {/* Citas counters */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+        <Link
+          href="/appointments"
+          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-4 hover:shadow-md transition-shadow"
+        >
+          <div className="w-11 h-11 rounded-lg bg-yellow-50 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-5 h-5 text-yellow-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-gray-900">
+              {pendingCount === null ? "—" : pendingCount}
+            </p>
+            <p className="text-sm text-gray-500">Por confirmar</p>
+          </div>
+        </Link>
+        <Link
+          href="/appointments"
+          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-4 hover:shadow-md transition-shadow"
+        >
+          <div className="w-11 h-11 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <CalendarCheck className="w-5 h-5 text-blue-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-gray-900">
+              {confirmedCount === null ? "—" : confirmedCount}
+            </p>
+            <p className="text-sm text-gray-500">Por completar</p>
+          </div>
+        </Link>
       </div>
 
       {/* Acciones Rápidas - Chat IA */}

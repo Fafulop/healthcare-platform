@@ -212,16 +212,7 @@ export default function BookPatientModal({
         return;
       }
 
-      const bookingId = bookingData.data.id;
       const code = bookingData.data.confirmationCode;
-
-      // 2. Auto-confirm (authenticated)
-      const confirmRes = await authFetch(
-        `${API_URL}/api/appointments/bookings/${bookingId}`,
-        { method: "PATCH", body: JSON.stringify({ status: "CONFIRMED" }) }
-      );
-      const confirmData = await confirmRes.json();
-      if (!confirmData.success) console.error("Auto-confirm failed:", confirmData.error);
 
       setConfirmationCode(code);
       setStep("success");
