@@ -144,6 +144,7 @@ export default function EducationSection({ formData, setFormData }: EducationSec
 
         <UploadDropzone
           endpoint="doctorCertificates"
+          config={{ mode: "auto" }}
           onClientUploadComplete={(res) => {
             const newCerts = res.map((file) => ({
               src: file.url,
