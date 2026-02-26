@@ -39,6 +39,9 @@ interface Encounter {
   // Follow-up
   followUpDate?: string;
   followUpNotes?: string;
+  // Custom template
+  templateId?: string;
+  customData?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
   patient: {
@@ -64,6 +67,7 @@ export default function EncounterDetailPage() {
   });
 
   const [encounter, setEncounter] = useState<Encounter | null>(null);
+  const [customTemplate, setCustomTemplate] = useState<any | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -114,10 +118,27 @@ export default function EncounterDetailPage() {
       }
 
       setEncounter(data.data);
+
+      // If created with a custom template, fetch it to get field labels for display
+      if (data.data.templateId) {
+        fetchCustomTemplate(data.data.templateId);
+      }
     } catch (err: any) {
       setError(err.message || 'Error loading encounter');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCustomTemplate = async (templateId: string) => {
+    try {
+      const res = await fetch(`/api/custom-templates/${templateId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setCustomTemplate(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching custom template:', err);
     }
   };
 
@@ -344,6 +365,46 @@ export default function EncounterDetailPage() {
               Notas Clínicas
             </h3>
             <p className="text-sm text-gray-900 whitespace-pre-wrap">{encounter.clinicalNotes}</p>
+          </div>
+        )}
+
+        {/* Custom Template Data */}
+        {encounter.customData && Object.keys(encounter.customData).length > 0 && (
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+              <ClipboardList className="w-4 h-4 text-blue-600" />
+              {customTemplate?.name || 'Datos de la Consulta'}
+            </h3>
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {customTemplate?.customFields
+                ? (customTemplate.customFields as any[]).map((field: any) => {
+                    const value = encounter.customData![field.name];
+                    if (value === undefined || value === null || value === '') return null;
+                    return (
+                      <div key={field.name}>
+                        <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+                          {field.labelEs || field.label || field.name}
+                        </dt>
+                        <dd className="text-sm text-gray-900 whitespace-pre-wrap">
+                          {Array.isArray(value) ? value.join(', ') : String(value)}
+                        </dd>
+                      </div>
+                    );
+                  })
+                : Object.entries(encounter.customData).map(([key, value]) => {
+                    if (value === undefined || value === null || value === '') return null;
+                    return (
+                      <div key={key}>
+                        <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+                          {key}
+                        </dt>
+                        <dd className="text-sm text-gray-900 whitespace-pre-wrap">
+                          {Array.isArray(value) ? value.join(', ') : String(value)}
+                        </dd>
+                      </div>
+                    );
+                  })}
+            </dl>
           </div>
         )}
 

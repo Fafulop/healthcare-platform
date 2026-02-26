@@ -30,6 +30,7 @@ export default function EditEncounterPage() {
   });
 
   const [encounter, setEncounter] = useState<any | null>(null);
+  const [customTemplate, setCustomTemplate] = useState<any | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -78,10 +79,27 @@ export default function EditEncounterPage() {
       }
 
       setEncounter(data.data);
+
+      // If created with a custom template, fetch it so the form can render custom fields
+      if (data.data.templateId) {
+        fetchCustomTemplate(data.data.templateId);
+      }
     } catch (err: any) {
       setError(err.message || 'Error loading encounter');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCustomTemplate = async (templateId: string) => {
+    try {
+      const res = await fetch(`/api/custom-templates/${templateId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setCustomTemplate(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching custom template:', err);
     }
   };
 
@@ -143,7 +161,8 @@ export default function EditEncounterPage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Editar Consulta</h1>
         <p className="text-gray-600 mt-1">
-          {encounter.patient?.firstName} {encounter.patient?.lastName} • {encounter.chiefComplaint}
+          {encounter.patient?.firstName} {encounter.patient?.lastName}
+          {encounter.chiefComplaint ? ` • ${encounter.chiefComplaint}` : customTemplate ? ` • ${customTemplate.name}` : ''}
         </p>
       </div>
 
@@ -154,6 +173,7 @@ export default function EditEncounterPage() {
         submitLabel="Guardar Cambios"
         cancelHref={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}`}
         isEditing={true}
+        selectedTemplate={customTemplate}
       />
     </div>
   );

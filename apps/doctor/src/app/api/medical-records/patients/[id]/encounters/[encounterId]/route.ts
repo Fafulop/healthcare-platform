@@ -125,6 +125,8 @@ export async function PUT(
         vitalsOther: body.vitalsOther,
         followUpDate: body.followUpDate ? new Date(body.followUpDate) : null,
         followUpNotes: body.followUpNotes,
+        customData: body.customData !== undefined ? body.customData : undefined,
+        templateId: body.templateId !== undefined ? body.templateId : undefined,
         amendedAt: new Date(),
         amendmentReason: body.amendmentReason,
       }
