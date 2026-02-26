@@ -7,9 +7,10 @@ export async function middleware(request: NextRequest) {
 
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isAuthPage = request.nextUrl.pathname.startsWith("/api/auth");
+  const isUploadThingRoute = request.nextUrl.pathname.startsWith("/api/uploadthing");
 
-  // Allow access to login and auth routes (no auth needed)
-  if (isLoginPage || isAuthPage) {
+  // Allow access to login, auth, and UploadThing routes (no auth needed)
+  if (isLoginPage || isAuthPage || isUploadThingRoute) {
     console.log(`[DOCTOR MIDDLEWARE] Allowing public route`);
     return NextResponse.next();
   }
