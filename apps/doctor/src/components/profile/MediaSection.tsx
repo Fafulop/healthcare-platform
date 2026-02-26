@@ -31,7 +31,19 @@ export default function MediaSection({ formData, setFormData }: MediaSectionProp
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Fotos de la Clinica</h3>
         <UploadDropzone
           endpoint="clinicPhotos"
+          onBeforeUploadBegin={(files) => {
+            console.log("[UT] onBeforeUploadBegin fired, files:", files.length, files.map(f => f.name));
+            return files;
+          }}
+          onUploadBegin={(fileName) => {
+            console.log("[UT] onUploadBegin:", fileName);
+          }}
+          onDrop={(acceptedFiles) => {
+            console.log("[UT] onDrop fired, acceptedFiles:", acceptedFiles.length, acceptedFiles.map((f: File) => f.name));
+          }}
           onClientUploadComplete={(res) => {
+            console.log("[UT] onClientUploadComplete:", res);
+            alert(`Foto subida: ${res[0]?.url}`);
             const newPhotos = res.map((file) => ({
               type: "image" as const,
               src: file.url,
@@ -44,6 +56,7 @@ export default function MediaSection({ formData, setFormData }: MediaSectionProp
             }));
           }}
           onUploadError={(error: Error) => {
+            console.error("[UT] onUploadError:", error);
             alert(`Error al subir foto: ${error.message}`);
           }}
         />
