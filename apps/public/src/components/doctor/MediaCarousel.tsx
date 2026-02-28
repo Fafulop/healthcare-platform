@@ -42,29 +42,62 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
         {/* Carousel Container */}
         <div className="relative bg-white rounded-[var(--radius-medium)] overflow-hidden shadow-[var(--shadow-medium)]">
           {/* Main Image/Video Area */}
-          <div className="relative h-[280px] md:h-[400px] bg-[var(--color-neutral-light)]">
+          <div className="relative h-[280px] md:h-[400px] bg-black overflow-hidden">
             {currentItem.type === 'image' ? (
-              <Image
-                src={currentItem.src}
-                alt={currentItem.alt}
-                fill
-                className="object-cover"
-                loading={currentIndex === 0 ? 'eager' : 'lazy'}
-                sizes="(max-width: 768px) 100vw, 896px"
-              />
+              <>
+                {/* Blurred background fill — same image, scaled + blurred */}
+                <Image
+                  src={currentItem.src}
+                  alt=""
+                  fill
+                  aria-hidden="true"
+                  className="object-cover scale-110 blur-2xl opacity-50"
+                  sizes="(max-width: 768px) 100vw, 896px"
+                />
+                {/* Main image — full, no crop */}
+                <Image
+                  src={currentItem.src}
+                  alt={currentItem.alt}
+                  fill
+                  className="object-contain"
+                  loading={currentIndex === 0 ? 'eager' : 'lazy'}
+                  sizes="(max-width: 768px) 100vw, 896px"
+                />
+              </>
             ) : (
               // Video player
               <div className="relative w-full h-full">
                 {!isVideoPlaying ? (
                   <>
-                    <Image
-                      src={currentItem.thumbnail || currentItem.src}
-                      alt={currentItem.alt}
-                      fill
-                      className="object-cover"
-                      loading="lazy"
-                      sizes="(max-width: 768px) 100vw, 896px"
-                    />
+                    {currentItem.thumbnail ? (
+                      <>
+                        {/* Blurred thumbnail background */}
+                        <Image
+                          src={currentItem.thumbnail}
+                          alt=""
+                          fill
+                          aria-hidden="true"
+                          className="object-cover scale-110 blur-2xl opacity-50"
+                          sizes="(max-width: 768px) 100vw, 896px"
+                        />
+                        {/* Main thumbnail — contained */}
+                        <Image
+                          src={currentItem.thumbnail}
+                          alt={currentItem.alt}
+                          fill
+                          className="object-contain"
+                          loading="lazy"
+                          sizes="(max-width: 768px) 100vw, 896px"
+                        />
+                      </>
+                    ) : (
+                      <video
+                        src={currentItem.src}
+                        preload="metadata"
+                        muted
+                        className="w-full h-full object-contain"
+                      />
+                    )}
                     <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
                       <button
                         onClick={() => setIsVideoPlaying(true)}
@@ -81,7 +114,7 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
                     controls
                     autoPlay
                     preload="none"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                     onEnded={() => setIsVideoPlaying(false)}
                   >
                     Tu navegador no soporta videos HTML5.

@@ -1,3 +1,4 @@
+
 # AI Chat Panel Pattern - Complete Architecture & Replication Guide
 
 **Purpose:** This document describes in extreme detail the AI Chat Panel pattern implemented in both the Prescriptions (`/new` prescription page) and Pendientes/Tasks (`/new` task page). It serves as the definitive reference for replicating this pattern in any other form-based page in the application.

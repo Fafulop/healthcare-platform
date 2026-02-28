@@ -29,11 +29,11 @@ export interface FAQ {
 }
 
 export interface CarouselItem {
-  type: 'image' | 'video_thumbnail';
+  type: 'image' | 'video';
   src: string;
   alt: string;
   caption?: string;
-  thumbnail?: string; // for video
+  thumbnail?: string; // optional poster image for video
   // Video metadata for SEO
   name?: string; // video title
   description?: string; // video description
