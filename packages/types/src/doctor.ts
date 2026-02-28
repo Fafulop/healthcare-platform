@@ -29,7 +29,7 @@ export interface FAQ {
 }
 
 export interface CarouselItem {
-  type: 'image' | 'video_thumbnail';
+  type: 'image' | 'video';
   src: string;
   alt: string;
   caption?: string;
