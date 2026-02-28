@@ -73,7 +73,7 @@
 
   "carousel_items": [
     {
-      "type": "video_thumbnail",
+      "type": "video",
       "src": "/videos/doctors/sample/intro.mp4",
       "thumbnail": "/images/doctors/sample/video-thumb-1.jpg",
       "alt": "Video de presentación de la Dra. María López",
@@ -84,7 +84,7 @@
       "duration": "PT45S"
     },
     {
-      "type": "video_thumbnail",
+      "type": "video",
       "src": "/videos/doctors/sample/clinic-tour.mp4",
       "thumbnail": "/images/doctors/sample/video-thumb-2.jpg",
       "alt": "Recorrido virtual por la clínica dermatológica",

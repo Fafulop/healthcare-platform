@@ -151,7 +151,7 @@ export function generateReviewSchemas(
 export function generateVideoSchemas(doctor: DoctorProfile, baseUrl: string = 'https://example.com') {
   if (!doctor.carousel_items || doctor.carousel_items.length === 0) return [];
 
-  const videoItems = doctor.carousel_items.filter(item => item.type === 'video_thumbnail');
+  const videoItems = doctor.carousel_items.filter(item => item.type === 'video');
 
   return videoItems.map((video, index) => ({
     '@context': 'https://schema.org',

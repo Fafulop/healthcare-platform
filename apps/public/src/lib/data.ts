@@ -38,7 +38,7 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
 
     // Carousel
     carousel_items: doctor.carouselItems.map((item: any) => ({
-      type: item.type as 'image' | 'video_thumbnail',
+      type: item.type as 'image' | 'video',
       src: item.src,
       alt: item.alt,
       caption: item.caption || undefined,

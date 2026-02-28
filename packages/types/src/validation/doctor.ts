@@ -70,7 +70,7 @@ export const createDoctorSchema = z.object({
   })).optional().default([]),
 
   carousel_items: z.array(z.object({
-    type: z.enum(['image', 'video_thumbnail']),
+    type: z.enum(['image', 'video']),
     src: z.string().url('Carousel item must be a valid URL'),
     thumbnail: z.string().url().optional(),
     alt: z.string().min(5).max(200),
