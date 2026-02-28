@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2, Activity, Heart, Thermometer, Weight, Ruler, Wind, ClipboardList, Stethoscope } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2, Activity, Heart, Thermometer, Weight, Ruler, Wind, ClipboardList, Stethoscope, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -56,6 +57,7 @@ interface Encounter {
 
 export default function EncounterDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const patientId = params.id as string;
   const encounterId = params.encounterId as string;
 
@@ -71,6 +73,7 @@ export default function EncounterDetailPage() {
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (session?.user?.doctorId) {
@@ -139,6 +142,25 @@ export default function EncounterDetailPage() {
       }
     } catch (err) {
       console.error('Error fetching custom template:', err);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('¿Está seguro de eliminar esta consulta? Esta acción no se puede deshacer.')) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/medical-records/patients/${patientId}/encounters/${encounterId}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Error al eliminar consulta');
+      }
+      router.push(`/dashboard/medical-records/patients/${patientId}`);
+    } catch (err: any) {
+      setError(err.message);
+      setIsDeleting(false);
     }
   };
 
@@ -225,13 +247,23 @@ export default function EncounterDetailPage() {
               {encounter.patient.firstName} {encounter.patient.lastName} • ID: {encounter.patient.internalId}
             </p>
           </div>
-          <Link
-            href={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}/edit`}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5"
-          >
-            <Edit className="w-3.5 h-3.5" />
-            Editar
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}/edit`}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5"
+            >
+              <Edit className="w-3.5 h-3.5" />
+              Editar
+            </Link>
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {isDeleting ? 'Eliminando...' : 'Eliminar'}
+            </button>
+          </div>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FileText, Calendar, Pill } from 'lucide-react';
+import { FileText, Calendar, Pill, Trash2 } from 'lucide-react';
 
 export interface Prescription {
   id: string;
@@ -18,9 +18,10 @@ export interface Prescription {
 interface PrescriptionCardProps {
   prescription: Prescription;
   patientId: string;
+  onDelete?: (id: string) => void;
 }
 
-export function PrescriptionCard({ prescription, patientId }: PrescriptionCardProps) {
+export function PrescriptionCard({ prescription, patientId, onDelete }: PrescriptionCardProps) {
   const formatDate = (dateString: string): string => {
     try {
       const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
@@ -94,9 +95,24 @@ export function PrescriptionCard({ prescription, patientId }: PrescriptionCardPr
           )}
         </div>
 
-        <span className={`px-2 py-1 text-xs rounded ${getStatusColor(prescription.status)}`}>
-          {getStatusLabel(prescription.status)}
-        </span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`px-2 py-1 text-xs rounded ${getStatusColor(prescription.status)}`}>
+            {getStatusLabel(prescription.status)}
+          </span>
+          {prescription.status === 'draft' && onDelete && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(prescription.id);
+              }}
+              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              title="Eliminar prescripción"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     </Link>
   );

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Edit, Plus, Calendar, FileText, User, Clock, Image, Pill, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Calendar, FileText, User, Clock, Image, Pill, Loader2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterCard, type Encounter } from '@/components/medical-records/EncounterCard';
 
@@ -39,6 +39,7 @@ interface Patient {
 
 export default function PatientProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const patientId = params.id as string;
   const { data: session, status } = useSession({
     required: true,
@@ -50,6 +51,7 @@ export default function PatientProfilePage() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isArchiving, setIsArchiving] = useState(false);
 
   useEffect(() => {
     fetchPatient();
@@ -77,6 +79,22 @@ export default function PatientProfilePage() {
       setError(err.message || 'Error loading patient');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!confirm('¿Está seguro de archivar este paciente? El expediente se conservará pero el paciente quedará inactivo.')) return;
+    setIsArchiving(true);
+    try {
+      const res = await fetch(`/api/medical-records/patients/${patientId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Error al archivar paciente');
+      }
+      router.push('/dashboard/medical-records');
+    } catch (err: any) {
+      setError(err.message);
+      setIsArchiving(false);
     }
   };
 
@@ -229,6 +247,15 @@ export default function PatientProfilePage() {
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Nueva Consulta</span>
             </Link>
+            <button
+              onClick={handleArchive}
+              disabled={isArchiving}
+              className="px-3 sm:px-4 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-2"
+              title="Archivar Paciente"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">{isArchiving ? 'Archivando...' : 'Archivar'}</span>
+            </button>
           </div>
         </div>
       </div>

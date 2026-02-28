@@ -59,6 +59,23 @@ export default function PrescriptionsListPage() {
     fetchPrescriptions();
   }, [patientId, statusFilter]);
 
+  const handleDelete = async (prescriptionId: string) => {
+    if (!confirm('¿Está seguro de eliminar esta prescripción? Esta acción no se puede deshacer.')) return;
+    try {
+      const res = await fetch(
+        `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Error al eliminar prescripción');
+      }
+      setPrescriptions((prev) => prev.filter((p) => p.id !== prescriptionId));
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   const fetchPrescriptions = async () => {
     setLoading(true);
     setError('');
@@ -159,6 +176,7 @@ export default function PrescriptionsListPage() {
               key={prescription.id}
               prescription={prescription}
               patientId={patientId}
+              onDelete={handleDelete}
             />
           ))}
         </div>
