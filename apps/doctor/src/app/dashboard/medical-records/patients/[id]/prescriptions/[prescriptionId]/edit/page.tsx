@@ -126,13 +126,24 @@ export default function EditPrescriptionPage() {
 
     try {
       // Validate medications
-      const validMedications = medications.filter(
-        (med) => med.drugName && med.dosage && med.frequency && med.instructions
-      );
+      const namedMedications = medications.filter((med) => med.drugName?.trim());
 
-      if (validMedications.length === 0) {
+      if (namedMedications.length === 0) {
         throw new Error('Debe agregar al menos un medicamento válido');
       }
+
+      const incompleteMedications = namedMedications.filter(
+        (med) => !med.dosage?.trim() || !med.frequency?.trim() || !med.instructions?.trim()
+      );
+
+      if (incompleteMedications.length > 0) {
+        const names = incompleteMedications.map((m) => m.drugName).join(', ');
+        throw new Error(
+          `Los siguientes medicamentos requieren Dosis, Frecuencia e Indicaciones: ${names}`
+        );
+      }
+
+      const validMedications = namedMedications;
 
       if (!doctorFullName || !doctorLicense) {
         throw new Error('Debe completar la información del doctor');

@@ -30,7 +30,7 @@ function getLocalDateString(date: Date): string {
 // Helper to format date string for display (fixes timezone issues)
 function formatDateString(dateStr: string, locale: string = 'es-MX'): string {
   try {
-    const [year, month, day] = dateStr.split('-').map(Number);
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
     if (year && month && day) {
       const date = new Date(year, month - 1, day); // month is 0-indexed
       return date.toLocaleDateString(locale);
@@ -356,11 +356,22 @@ export default function NewPrescriptionPage() {
     setError('');
 
     try {
-      // Validate medications — only exclude completely empty slots (no drugName)
+      // Validate medications — require all fields the backend also requires
       const validMedications = medications.filter((med) => med.drugName.trim());
 
       if (validMedications.length === 0) {
         throw new Error('Debe agregar al menos un medicamento válido');
+      }
+
+      const incompleteMedications = validMedications.filter(
+        (med) => !med.dosage.trim() || !med.frequency.trim() || !med.instructions.trim()
+      );
+
+      if (incompleteMedications.length > 0) {
+        const names = incompleteMedications.map((m) => m.drugName).join(', ');
+        throw new Error(
+          `Los siguientes medicamentos requieren Dosis, Frecuencia e Indicaciones: ${names}`
+        );
       }
 
       if (!doctorFullName || !doctorLicense) {
@@ -391,20 +402,30 @@ export default function NewPrescriptionPage() {
 
       const { data: prescription } = await res.json();
 
-      // Add medications
-      for (const medication of validMedications) {
-        const medRes = await fetch(
-          `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}/medications`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(medication),
-          }
-        );
+      // Add medications — rollback prescription if any fail
+      try {
+        for (const medication of validMedications) {
+          const medRes = await fetch(
+            `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}/medications`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(medication),
+            }
+          );
 
-        if (!medRes.ok) {
-          throw new Error('Error al agregar medicamento');
+          if (!medRes.ok) {
+            const medErr = await medRes.json();
+            throw new Error(medErr.error || 'Error al agregar medicamento');
+          }
         }
+      } catch (medError: any) {
+        // Delete the orphaned prescription so it doesn't clutter the list
+        await fetch(
+          `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}`,
+          { method: 'DELETE' }
+        );
+        throw medError;
       }
 
       // If saveAndIssue, issue the prescription
