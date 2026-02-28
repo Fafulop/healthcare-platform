@@ -23,7 +23,7 @@ interface PrescriptionCardProps {
 export function PrescriptionCard({ prescription, patientId }: PrescriptionCardProps) {
   const formatDate = (dateString: string): string => {
     try {
-      const [year, month, day] = dateString.split('-').map(Number);
+      const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
       if (year && month && day) {
         const date = new Date(year, month - 1, day); // month is 0-indexed
         return date.toLocaleDateString('es-MX', {
