@@ -1,14 +1,17 @@
 // GET /api/appointments/bookings/[id] - Get booking by ID or confirmation code
 // PATCH /api/appointments/bookings/[id] - Update booking status
+// DELETE /api/appointments/bookings/[id] - Delete booking and its slot
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { sendPatientSMS, isSMSEnabled } from '@/lib/sms';
+import { validateAuthToken } from '@/lib/auth';
 import {
   logBookingConfirmed,
   logBookingCancelled,
   logBookingCompleted,
   logBookingNoShow,
+  logSlotDeleted,
 } from '@/lib/activity-logger';
 
 // Booking state machine transitions
@@ -273,6 +276,66 @@ export async function PATCH(
         success: false,
         error: 'Failed to update booking status',
       },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Delete booking and its associated slot
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const { role, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
+
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      include: { slot: true },
+    });
+
+    if (!booking) {
+      return NextResponse.json(
+        { success: false, error: 'Booking not found' },
+        { status: 404 }
+      );
+    }
+
+    // Doctors can only delete their own bookings
+    if (role === 'DOCTOR' && booking.doctorId !== authenticatedDoctorId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 403 }
+      );
+    }
+
+    const slotId = booking.slotId;
+    const slot = booking.slot;
+
+    // Delete booking and slot in a single transaction
+    await prisma.$transaction([
+      prisma.booking.delete({ where: { id } }),
+      prisma.appointmentSlot.delete({ where: { id: slotId } }),
+    ]);
+
+    // Log slot deletion
+    logSlotDeleted({
+      doctorId: slot.doctorId,
+      slotId: slot.id,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      date: slot.date.toISOString().split('T')[0],
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Cita y horario eliminados exitosamente',
+    });
+  } catch (error) {
+    console.error('Error deleting booking:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete booking' },
       { status: 500 }
     );
   }

@@ -92,6 +92,9 @@ export default function AppointmentsPage() {
   const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
   const [showAllSlots, setShowAllSlots] = useState(false);
   const [bookingsCollapsed, setBookingsCollapsed] = useState(false);
+  const [bookingFilterDate, setBookingFilterDate] = useState<string>("");
+  const [bookingFilterPatient, setBookingFilterPatient] = useState<string>("");
+  const [bookingFilterStatus, setBookingFilterStatus] = useState<string>("");
 
   // Book patient modal state
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
@@ -337,6 +340,34 @@ export default function AppointmentsPage() {
     }
   };
 
+  const deleteBooking = async (bookingId: string, patientName: string) => {
+    if (!confirm(`¿Eliminar la cita de ${patientName}? También se eliminará el horario asociado. Esta acción no se puede deshacer.`)) return;
+
+    try {
+      const response = await authFetch(
+        `${API_URL}/api/appointments/bookings/${bookingId}`,
+        { method: "DELETE" }
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        fetchBookings();
+        fetchSlots();
+      } else {
+        alert(data.error || "Error al eliminar la cita");
+      }
+    } catch (error) {
+      console.error("Error deleting booking:", error);
+      alert("Error al eliminar la cita");
+    }
+  };
+
+  const shiftBookingFilterDate = (days: number) => {
+    const base = bookingFilterDate ? new Date(bookingFilterDate + 'T00:00:00') : new Date();
+    base.setDate(base.getDate() + days);
+    setBookingFilterDate(getLocalDateString(base));
+  };
+
   const toggleOpenSlot = async (slotId: string, currentIsOpen: boolean) => {
     const slot = slots.find(s => s.id === slotId);
     const newIsOpen = !currentIsOpen;
@@ -487,12 +518,21 @@ export default function AppointmentsPage() {
     (slot) => slot.date.split('T')[0] === selectedDateStr
   );
 
-  // Filter bookings by selected booking date
-  const bookingsForDate = bookings.filter((booking) => {
-    const slotDate = booking.slot.date.split('T')[0];
-    return slotDate === bookingDate;
+  const filteredBookings = bookings.filter((booking) => {
+    if (bookingFilterDate) {
+      const slotDate = booking.slot.date.split('T')[0];
+      if (slotDate !== bookingFilterDate) return false;
+    }
+    if (bookingFilterPatient) {
+      const search = bookingFilterPatient.toLowerCase();
+      if (
+        !booking.patientName.toLowerCase().includes(search) &&
+        !booking.patientEmail.toLowerCase().includes(search)
+      ) return false;
+    }
+    if (bookingFilterStatus && booking.status !== bookingFilterStatus) return false;
+    return true;
   });
-  const filteredBookings = bookings;
 
   // Filter slots for list view by selected list date
   const slotsForListDate = slots.filter(
@@ -633,15 +673,85 @@ export default function AppointmentsPage() {
           </div>
         </div>
 
-        {!bookingsCollapsed && (filteredBookings.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No hay citas reservadas</p>
-          </div>
-        ) : (
+        {!bookingsCollapsed && (
           <>
-            {/* Mobile Cards View */}
-            <div className="block sm:hidden space-y-3">
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-2 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              {/* Date filter */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => shiftBookingFilterDate(-1)}
+                  className="p-1.5 rounded hover:bg-gray-200 text-gray-600 transition-colors"
+                  title="Día anterior"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <input
+                  type="date"
+                  value={bookingFilterDate}
+                  onChange={(e) => setBookingFilterDate(e.target.value)}
+                  className="text-xs sm:text-sm border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+                <button
+                  onClick={() => shiftBookingFilterDate(1)}
+                  className="p-1.5 rounded hover:bg-gray-200 text-gray-600 transition-colors"
+                  title="Día siguiente"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                {bookingFilterDate && (
+                  <button
+                    onClick={() => setBookingFilterDate("")}
+                    className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 transition-colors whitespace-nowrap"
+                  >
+                    Todas
+                  </button>
+                )}
+              </div>
+              {/* Patient search */}
+              <div className="flex-1 relative">
+                <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar paciente..."
+                  value={bookingFilterPatient}
+                  onChange={(e) => setBookingFilterPatient(e.target.value)}
+                  className="w-full text-xs sm:text-sm border border-gray-200 rounded pl-7 pr-3 py-1.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+              {/* Status filter */}
+              <select
+                value={bookingFilterStatus}
+                onChange={(e) => setBookingFilterStatus(e.target.value)}
+                className="text-xs sm:text-sm border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              >
+                <option value="">Todos los estados</option>
+                <option value="PENDING">Pendiente</option>
+                <option value="CONFIRMED">Confirmada</option>
+                <option value="CANCELLED">Cancelada</option>
+                <option value="COMPLETED">Completada</option>
+                <option value="NO_SHOW">No asistió</option>
+              </select>
+              {/* Clear all */}
+              {(bookingFilterDate || bookingFilterPatient || bookingFilterStatus) && (
+                <button
+                  onClick={() => { setBookingFilterDate(""); setBookingFilterPatient(""); setBookingFilterStatus(""); }}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors whitespace-nowrap"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+
+            {filteredBookings.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">{bookings.length === 0 ? "No hay citas reservadas" : "Sin resultados para los filtros aplicados"}</p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile Cards View */}
+                <div className="block sm:hidden space-y-3">
               {filteredBookings.map((booking) => (
                 <div key={booking.id} className="border border-gray-200 rounded-lg p-3">
                   <div className="flex items-start justify-between mb-2">
@@ -677,7 +787,7 @@ export default function AppointmentsPage() {
                     <code className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono">
                       {booking.confirmationCode}
                     </code>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 items-center">
                       {booking.status === "PENDING" && (
                         <>
                           <button
@@ -716,6 +826,13 @@ export default function AppointmentsPage() {
                           </button>
                         </>
                       )}
+                      <button
+                        onClick={() => deleteBooking(booking.id, booking.patientName)}
+                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        title="Eliminar cita y horario"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -796,7 +913,7 @@ export default function AppointmentsPage() {
                         </code>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 items-center">
                           {booking.status === "PENDING" && (
                             <>
                               <button
@@ -835,6 +952,13 @@ export default function AppointmentsPage() {
                               </button>
                             </>
                           )}
+                          <button
+                            onClick={() => deleteBooking(booking.id, booking.patientName)}
+                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Eliminar cita y horario"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -843,7 +967,9 @@ export default function AppointmentsPage() {
               </table>
             </div>
           </>
-        ))}
+            )}
+          </>
+        )}
       </div>
 
       {/* Calendar View */}
