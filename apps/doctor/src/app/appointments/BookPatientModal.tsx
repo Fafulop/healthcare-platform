@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   X,
   Calendar,
@@ -98,28 +98,13 @@ export default function BookPatientModal({
     notes: "",
   });
 
-  // Re-initialize when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setStep(preSelectedSlot ? "form" : "slot");
-      setSelectedSlot(preSelectedSlot);
-      setCalendarDate(null);
-      setCurrentMonth(new Date());
-      setError("");
-      setConfirmationCode("");
-      setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
-      if (!preSelectedSlot) fetchAvailableSlots();
-    }
-  }, [isOpen, preSelectedSlot]);
-
-  const fetchAvailableSlots = async () => {
+  const fetchAvailableSlots = useCallback(async () => {
     setLoadingSlots(true);
     try {
-      const today = new Date();
-      const todayIso = today.toISOString().split("T")[0];
-      const future = new Date(today);
+      const todayIso = todayStr(); // local date, avoids UTC-offset bug
+      const future = new Date();
       future.setDate(future.getDate() + 90);
-      const futureIso = future.toISOString().split("T")[0];
+      const futureIso = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, "0")}-${String(future.getDate()).padStart(2, "0")}`;
 
       const startDate = new Date(todayIso + "T00:00:00Z").toISOString();
       const endDate = new Date(futureIso + "T23:59:59Z").toISOString();
@@ -134,7 +119,21 @@ export default function BookPatientModal({
     } finally {
       setLoadingSlots(false);
     }
-  };
+  }, [doctorId]);
+
+  // Re-initialize when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setStep(preSelectedSlot ? "form" : "slot");
+      setSelectedSlot(preSelectedSlot);
+      setCalendarDate(null);
+      setCurrentMonth(new Date());
+      setError("");
+      setConfirmationCode("");
+      setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
+      if (!preSelectedSlot) fetchAvailableSlots();
+    }
+  }, [isOpen, preSelectedSlot, fetchAvailableSlots]);
 
   // Available slots: open, not full, today or later
   const availableSlots = useMemo(() => {
@@ -212,7 +211,22 @@ export default function BookPatientModal({
         return;
       }
 
+      const bookingId = bookingData.data.id;
       const code = bookingData.data.confirmationCode;
+
+      // Auto-confirm: doctor manually scheduling means it's already confirmed
+      const confirmRes = await authFetch(
+        `${API_URL}/api/appointments/bookings/${bookingId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: "CONFIRMED" }),
+        }
+      );
+      const confirmData = await confirmRes.json();
+      if (!confirmData.success) {
+        setError(confirmData.error || "Error al confirmar la cita");
+        return;
+      }
 
       setConfirmationCode(code);
       setStep("success");
@@ -380,10 +394,10 @@ export default function BookPatientModal({
                             <div className="flex items-center gap-1.5 mb-1">
                               <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500" />
                               <span className="font-semibold text-gray-900 text-sm">
-                                {slot.startTime}
+                                {slot.startTime} – {slot.endTime}
                               </span>
                             </div>
-                            <span className="text-xs text-gray-400">{slot.startTime} – {slot.endTime}</span>
+                            <span className="text-xs text-gray-400">{slot.duration} min</span>
                             <span className="text-xs font-semibold text-gray-700 mt-1">${slot.finalPrice}</span>
                           </button>
                         ))}
