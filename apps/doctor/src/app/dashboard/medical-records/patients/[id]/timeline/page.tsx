@@ -170,20 +170,22 @@ export default function PatientTimelinePage() {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">{timeline.length}</div>
-              <div className="text-sm text-gray-600 mt-1">Total de Consultas</div>
+              <div className="text-3xl font-bold text-blue-600">
+                {timeline.filter((item: any) => item.type === 'encounter').length}
+              </div>
+              <div className="text-sm text-gray-600 mt-1">Consultas</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">
-                {timeline.filter((item: any) => item.data.status === 'completed').length}
+              <div className="text-3xl font-bold text-emerald-600">
+                {timeline.filter((item: any) => item.type === 'prescription').length}
               </div>
-              <div className="text-sm text-gray-600 mt-1">Completadas</div>
+              <div className="text-sm text-gray-600 mt-1">Prescripciones</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-600">
-                {timeline.filter((item: any) => item.data.status === 'draft').length}
+              <div className="text-3xl font-bold text-purple-600">
+                {timeline.filter((item: any) => item.type === 'media').length}
               </div>
-              <div className="text-sm text-gray-600 mt-1">Borradores</div>
+              <div className="text-sm text-gray-600 mt-1">Documentos</div>
             </div>
           </div>
         </div>

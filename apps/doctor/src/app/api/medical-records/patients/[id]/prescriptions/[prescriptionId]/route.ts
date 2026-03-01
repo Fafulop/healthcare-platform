@@ -220,14 +220,6 @@ export async function DELETE(
       );
     }
 
-    // Only allow deleting draft prescriptions
-    if (prescription.status !== 'draft') {
-      return NextResponse.json(
-        { error: 'Cannot delete prescription with status: ' + prescription.status + '. Use cancel endpoint instead.' },
-        { status: 400 }
-      );
-    }
-
     // Delete prescription (cascade will delete medications)
     await prisma.prescription.delete({
       where: { id: prescriptionId }

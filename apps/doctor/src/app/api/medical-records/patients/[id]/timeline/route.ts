@@ -24,8 +24,8 @@ export async function GET(
       );
     }
 
-    // Get complete timeline - encounters and media (prescriptions in Phase 4)
-    const [encounters, media] = await Promise.all([
+    // Get complete timeline - encounters, media and prescriptions
+    const [encounters, media, prescriptions] = await Promise.all([
       prisma.clinicalEncounter.findMany({
         where: { patientId, doctorId },
         orderBy: { encounterDate: 'desc' },
@@ -46,8 +46,12 @@ export async function GET(
           vitalsWeight: true,
           vitalsHeight: true,
           vitalsOxygenSat: true,
+          vitalsOther: true,
           location: true,
           followUpDate: true,
+          followUpNotes: true,
+          templateId: true,
+          customData: true,
           createdAt: true,
           updatedAt: true,
           completedAt: true,
@@ -71,6 +75,21 @@ export async function GET(
           encounterId: true,
           createdAt: true,
         }
+      }),
+      prisma.prescription.findMany({
+        where: { patientId, doctorId },
+        orderBy: { prescriptionDate: 'desc' },
+        select: {
+          id: true,
+          prescriptionDate: true,
+          status: true,
+          diagnosis: true,
+          medications: {
+            select: { id: true, drugName: true },
+            orderBy: { order: 'asc' }
+          },
+          createdAt: true,
+        }
       })
     ]);
 
@@ -85,6 +104,11 @@ export async function GET(
         type: 'media',
         date: m.captureDate,
         data: m
+      })),
+      ...prescriptions.map(p => ({
+        type: 'prescription',
+        date: p.prescriptionDate,
+        data: p
       }))
     ];
 

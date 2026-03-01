@@ -325,15 +325,6 @@ export default function ViewPrescriptionPage() {
                 <Send className="w-4 h-4" />
                 Emitir Prescripción
               </button>
-
-              <button
-                onClick={handleDelete}
-                disabled={actionLoading}
-                className="px-4 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Eliminar
-              </button>
             </>
           )}
 
@@ -357,6 +348,15 @@ export default function ViewPrescriptionPage() {
               </button>
             </>
           )}
+
+          <button
+            onClick={handleDelete}
+            disabled={actionLoading}
+            className="px-4 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Eliminar
+          </button>
 
           {prescription.status === 'cancelled' && prescription.cancellationReason && (
             <div className="w-full p-3 bg-red-50 border border-red-200 rounded-md">

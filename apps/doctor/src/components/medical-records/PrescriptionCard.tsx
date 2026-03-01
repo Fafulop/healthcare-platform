@@ -99,7 +99,7 @@ export function PrescriptionCard({ prescription, patientId, onDelete }: Prescrip
           <span className={`px-2 py-1 text-xs rounded ${getStatusColor(prescription.status)}`}>
             {getStatusLabel(prescription.status)}
           </span>
-          {prescription.status === 'draft' && onDelete && (
+          {onDelete && (
             <button
               onClick={(e) => {
                 e.preventDefault();
