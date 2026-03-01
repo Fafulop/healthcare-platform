@@ -211,7 +211,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                 <div className="bg-white rounded-lg shadow border border-gray-200">
                   {/* Header — click to expand */}
                   <button
-                    onClick={() => toggleExpand(enc.id, 'encounter', enc.templateId)}
+                    onClick={() => toggleExpand(enc.id, 'encounter', hasCustomData ? enc.templateId : null)}
                     className="w-full text-left p-4 hover:bg-gray-50 transition-colors rounded-t-lg"
                   >
                     <div className="flex items-start justify-between">
@@ -221,7 +221,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                           <h3 className="text-base font-semibold text-gray-900 truncate">{enc.chiefComplaint}</h3>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                          <span>{formatDate(enc.encounterDate)}</span>
+                          <span>{formatDate(enc.encounterDate.split('T')[0])}</span>
                           <span>•</span>
                           <span>{encounterTypeLabel(enc.encounterType)}</span>
                           {enc.location && <><span>•</span><span>{enc.location}</span></>}
