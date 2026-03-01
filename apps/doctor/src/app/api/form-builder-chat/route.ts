@@ -17,7 +17,7 @@ import type { ChatMessage } from '@/lib/ai';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
 import type { FieldDefinition } from '@/types/custom-encounter';
 
-const MODEL = 'gpt-4o';
+const MODEL = 'gpt-4o-mini';
 const MAX_TOKENS = 4096;
 const TEMPERATURE = 0.2;
 
