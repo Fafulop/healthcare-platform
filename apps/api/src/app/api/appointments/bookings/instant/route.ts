@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     }
 
     const endTime = calcEndTime(startTime, durationNum);
-    const finalPrice = Number(basePrice);
+    let finalPrice = Number(basePrice);
 
     // Normalize date to midnight UTC (same as slot creation API)
     const slotDate = new Date(date + 'T12:00:00Z');
@@ -99,6 +99,8 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
+      // Use the existing slot's price to keep booking consistent with the slot
+      finalPrice = Number(slot.finalPrice);
     } else {
       // Create a new slot on the fly
       slot = await prisma.appointmentSlot.create({
