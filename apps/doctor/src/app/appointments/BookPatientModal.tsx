@@ -39,6 +39,12 @@ function todayStr(): string {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
 }
 
+function calcEndTime(startTime: string, duration: number): string {
+  const [h, m] = startTime.split(":").map(Number);
+  const endMins = h * 60 + m + duration;
+  return `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
+}
+
 interface AppointmentSlot {
   id: string;
   date: string;
@@ -98,6 +104,15 @@ export default function BookPatientModal({
     notes: "",
   });
 
+  // "Nuevo horario" mode — create slot on the fly
+  const [slotMode, setSlotMode] = useState<"existing" | "new">("existing");
+  const [newSlotForm, setNewSlotForm] = useState({
+    date: todayStr(),
+    startTime: "09:00",
+    duration: 60 as 30 | 60,
+    basePrice: "",
+  });
+
   const fetchAvailableSlots = useCallback(async () => {
     setLoadingSlots(true);
     try {
@@ -131,6 +146,8 @@ export default function BookPatientModal({
       setError("");
       setConfirmationCode("");
       setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
+      setSlotMode("existing");
+      setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, basePrice: "" });
       if (!preSelectedSlot) fetchAvailableSlots();
     }
   }, [isOpen, preSelectedSlot, fetchAvailableSlots]);
@@ -183,14 +200,69 @@ export default function BookPatientModal({
     setStep("form");
   };
 
+  // Slot info to display in the header and success screen
+  const displaySlot = selectedSlot
+    ? { date: selectedSlot.date, startTime: selectedSlot.startTime, endTime: selectedSlot.endTime, finalPrice: selectedSlot.finalPrice }
+    : slotMode === "new" && newSlotForm.date && newSlotForm.startTime
+    ? {
+        date: newSlotForm.date,
+        startTime: newSlotForm.startTime,
+        endTime: calcEndTime(newSlotForm.startTime, newSlotForm.duration),
+        finalPrice: Number(newSlotForm.basePrice) || 0,
+      }
+    : null;
+
+  const handleNewSlotContinue = () => {
+    if (!newSlotForm.date || !newSlotForm.startTime) {
+      setError("Selecciona una fecha y hora");
+      return;
+    }
+    if (!newSlotForm.basePrice || Number(newSlotForm.basePrice) <= 0) {
+      setError("Ingresa un precio válido");
+      return;
+    }
+    setError("");
+    setStep("form");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSlot) return;
 
     setIsSubmitting(true);
     setError("");
 
     try {
+      // ── NEW SLOT MODE: create slot + booking + confirm in one call ──
+      if (slotMode === "new") {
+        const res = await authFetch(`${API_URL}/api/appointments/bookings/instant`, {
+          method: "POST",
+          body: JSON.stringify({
+            doctorId,
+            date: newSlotForm.date,
+            startTime: newSlotForm.startTime,
+            duration: newSlotForm.duration,
+            basePrice: Number(newSlotForm.basePrice),
+            patientName: formData.patientName,
+            patientEmail: formData.patientEmail,
+            patientPhone: formData.patientPhone,
+            patientWhatsapp: formData.patientWhatsapp || undefined,
+            notes: formData.notes || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          setError(data.error || "Error al crear la cita");
+          return;
+        }
+        setConfirmationCode(data.data.confirmationCode);
+        setStep("success");
+        onSuccess();
+        return;
+      }
+
+      // ── EXISTING SLOT MODE ──
+      if (!selectedSlot) return;
+
       // 1. Create booking (public endpoint)
       const bookingRes = await fetch(`${API_URL}/api/appointments/bookings`, {
         method: "POST",
@@ -246,6 +318,8 @@ export default function BookPatientModal({
     setError("");
     setConfirmationCode("");
     setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
+    setSlotMode("existing");
+    setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, basePrice: "" });
     onClose();
   };
 
@@ -262,10 +336,10 @@ export default function BookPatientModal({
             {step === "slot" && (
               <p className="text-sm text-gray-500">Selecciona una fecha y horario</p>
             )}
-            {step === "form" && selectedSlot && (
+            {step === "form" && displaySlot && (
               <p className="text-sm text-gray-500">
-                {formatDateStr(selectedSlot.date, { weekday: "short", day: "numeric", month: "short" })}
-                {" · "}{selectedSlot.startTime} – {selectedSlot.endTime}
+                {formatDateStr(displaySlot.date, { weekday: "short", day: "numeric", month: "short" })}
+                {" · "}{displaySlot.startTime} – {displaySlot.endTime}
               </p>
             )}
             {step === "success" && <p className="text-sm text-gray-500">Cita confirmada</p>}
@@ -294,16 +368,109 @@ export default function BookPatientModal({
           {/* ── STEP 1: Calendar picker ── */}
           {step === "slot" && (
             <>
-              {loadingSlots ? (
+              {/* Mode tabs */}
+              <div className="flex rounded-lg border border-gray-200 p-1 gap-1 mb-4">
+                <button
+                  type="button"
+                  onClick={() => { setSlotMode("existing"); setError(""); }}
+                  className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    slotMode === "existing"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Horarios disponibles
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSlotMode("new"); setError(""); }}
+                  className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    slotMode === "new"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Nuevo horario
+                </button>
+              </div>
+
+              {/* ── NEW SLOT form ── */}
+              {slotMode === "new" ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
+                    <input
+                      type="date"
+                      min={todayStr()}
+                      value={newSlotForm.date}
+                      onChange={(e) => setNewSlotForm((p) => ({ ...p, date: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Hora de inicio *</label>
+                      <input
+                        type="time"
+                        value={newSlotForm.startTime}
+                        onChange={(e) => setNewSlotForm((p) => ({ ...p, startTime: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Duración *</label>
+                      <select
+                        value={newSlotForm.duration}
+                        onChange={(e) => setNewSlotForm((p) => ({ ...p, duration: Number(e.target.value) as 30 | 60 }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value={30}>30 min</option>
+                        <option value={60}>60 min</option>
+                      </select>
+                    </div>
+                  </div>
+                  {newSlotForm.startTime && (
+                    <p className="text-xs text-gray-500">
+                      Hora de fin: <span className="font-medium">{calcEndTime(newSlotForm.startTime, newSlotForm.duration)}</span>
+                    </p>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Precio (MXN) *</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="number"
+                        min="0"
+                        step="50"
+                        value={newSlotForm.basePrice}
+                        onChange={(e) => setNewSlotForm((p) => ({ ...p, basePrice: e.target.value }))}
+                        className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="500"
+                      />
+                    </div>
+                  </div>
+                  {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleNewSlotContinue}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    Continuar
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : loadingSlots ? (
                 <div className="flex items-center justify-center py-16 text-gray-400">
                   <Loader2 className="w-6 h-6 animate-spin mr-2" />
                   <span className="text-sm">Cargando horarios...</span>
                 </div>
               ) : availableDateSet.size === 0 ? (
-                <div className="text-center py-14 text-gray-500">
+                <div className="text-center py-10 text-gray-500">
                   <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
                   <p className="font-medium text-gray-700">Sin horarios disponibles</p>
-                  <p className="text-sm mt-1 text-gray-500">Crea horarios abiertos para poder agendar citas</p>
+                  <p className="text-sm mt-1 text-gray-500">Usa "Nuevo horario" para agendar sin horario previo</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -531,20 +698,20 @@ export default function BookPatientModal({
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Fecha</span>
                   <span className="font-semibold text-gray-900 capitalize">
-                    {selectedSlot && formatDateStr(selectedSlot.date, { weekday: "long", day: "numeric", month: "long" })}
+                    {displaySlot && formatDateStr(displaySlot.date, { weekday: "long", day: "numeric", month: "long" })}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Horario</span>
                   <span className="font-semibold text-gray-900">
-                    {selectedSlot?.startTime} – {selectedSlot?.endTime}
+                    {displaySlot?.startTime} – {displaySlot?.endTime}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 flex items-center gap-1">
                     <DollarSign className="w-3 h-3" /> Precio
                   </span>
-                  <span className="font-semibold text-gray-900">${selectedSlot?.finalPrice}</span>
+                  <span className="font-semibold text-gray-900">${displaySlot?.finalPrice}</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between items-center">
                   <span className="text-gray-500 text-sm">Código</span>
