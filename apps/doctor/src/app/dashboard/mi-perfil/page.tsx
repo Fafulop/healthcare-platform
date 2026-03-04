@@ -107,6 +107,7 @@ export default function MiPerfilPage() {
     calendarId: string | null;
     enabled: boolean;
     tokenExpiry: string | null;
+    channelExpiry: string | null;
   } | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarMessage, setCalendarMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -133,7 +134,7 @@ export default function MiPerfilPage() {
       const data = await res.json();
       setCalendarStatus(data);
     } catch {
-      setCalendarStatus({ connected: false, hasTokens: false, calendarId: null, enabled: false, tokenExpiry: null });
+      setCalendarStatus({ connected: false, hasTokens: false, calendarId: null, enabled: false, tokenExpiry: null, channelExpiry: null });
     }
   };
 
@@ -152,6 +153,31 @@ export default function MiPerfilPage() {
       await fetchCalendarStatus();
     } catch (err) {
       setCalendarMessage({ type: "error", text: err instanceof Error ? err.message : "Error al conectar" });
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
+
+  const handleCalendarResync = async () => {
+    if (!slug) return;
+    setCalendarLoading(true);
+    setCalendarMessage(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/doctors/${slug}/google-calendar/resync`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al sincronizar");
+      const parts: string[] = [];
+      if (data.createdSlots > 0) parts.push(`${data.createdSlots} citas creadas`);
+      if (data.updatedSlots > 0) parts.push(`${data.updatedSlots} citas actualizadas`);
+      if (data.createdTasks > 0) parts.push(`${data.createdTasks} pendientes creados`);
+      if (data.updatedTasks > 0) parts.push(`${data.updatedTasks} pendientes actualizados`);
+      if (data.deletedOrphans > 0) parts.push(`${data.deletedOrphans} eventos obsoletos eliminados`);
+      setCalendarMessage({
+        type: "success",
+        text: parts.length > 0 ? `Sincronizado: ${parts.join(", ")}.` : "Todo sincronizado, sin cambios.",
+      });
+    } catch (err) {
+      setCalendarMessage({ type: "error", text: err instanceof Error ? err.message : "Error al sincronizar" });
     } finally {
       setCalendarLoading(false);
     }
@@ -474,10 +500,23 @@ export default function MiPerfilPage() {
                     {calendarStatus.tokenExpiry && (
                       <p>Token válido hasta: <span className="text-gray-700">{new Date(calendarStatus.tokenExpiry).toLocaleDateString("es-MX")}</span></p>
                     )}
+                    {calendarStatus.channelExpiry && (() => {
+                      const expiry = new Date(calendarStatus.channelExpiry);
+                      const expiringSoon = expiry < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+                      return (
+                        <p>
+                          Webhook válido hasta:{' '}
+                          <span className={expiringSoon ? 'text-amber-600 font-medium' : 'text-gray-700'}>
+                            {expiry.toLocaleDateString("es-MX")}
+                            {expiringSoon && ' ⚠️'}
+                          </span>
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={handleCalendarConnect}
+                      onClick={handleCalendarResync}
                       disabled={calendarLoading}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 disabled:opacity-50 transition-colors"
                     >

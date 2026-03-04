@@ -172,9 +172,13 @@ export async function POST(request: Request) {
           endTime: slot.endTime,
           isOpen: slot.isOpen,
           patientName: `⏳ ${patientName}`,
+          bookingStatus: 'PENDING',
+          patientPhone: patientPhone,
+          patientEmail: patientEmail,
+          patientNotes: notes ?? undefined,
           finalPrice: Number(slot.finalPrice),
         });
-      }).catch(() => {});
+      }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking PENDING):', err));
     }
 
     // Send SMS notifications (async, non-blocking)

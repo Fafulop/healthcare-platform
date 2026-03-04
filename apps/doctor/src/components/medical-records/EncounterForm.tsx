@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { getLocalDateString } from '@/lib/dates';
 import { Save } from 'lucide-react';
 import Link from 'next/link';
 import { VitalsInput, type VitalsData } from './VitalsInput';
@@ -94,13 +95,6 @@ export function EncounterForm({
 
   const defaultCancelHref = cancelHref || `/dashboard/medical-records/patients/${patientId}`;
 
-  // Helper to get local date string (fixes timezone issues)
-  const getLocalDateString = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   // Merge template default values with initial data (voice data overrides template defaults)
   const templateDefaults = templateConfig?.defaultValues || {};

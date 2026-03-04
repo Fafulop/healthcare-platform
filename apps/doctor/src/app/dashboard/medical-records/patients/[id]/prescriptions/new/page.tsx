@@ -19,27 +19,7 @@ import type { VoicePrescriptionData, VoiceStructuredData } from '@/types/voice-a
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-// Helper to get local date string (fixes timezone issues)
-function getLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-// Helper to format date string for display (fixes timezone issues)
-function formatDateString(dateStr: string, locale: string = 'es-MX'): string {
-  try {
-    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
-    if (year && month && day) {
-      const date = new Date(year, month - 1, day); // month is 0-indexed
-      return date.toLocaleDateString(locale);
-    }
-    return dateStr;
-  } catch {
-    return dateStr;
-  }
-}
+import { getLocalDateString, formatLocalDate as formatDateString } from '@/lib/dates';
 
 interface DoctorProfile {
   id: string;

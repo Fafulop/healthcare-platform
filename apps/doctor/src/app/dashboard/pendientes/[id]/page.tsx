@@ -23,6 +23,8 @@ interface Task {
   patient: { id: string; firstName: string; lastName: string } | null;
 }
 
+import { parseLocalDate } from '@/lib/dates';
+
 const PRIORITY_COLORS: Record<string, string> = {
   ALTA: "bg-red-100 text-red-800",
   MEDIA: "bg-yellow-100 text-yellow-800",
@@ -228,7 +230,7 @@ export default function ViewTaskPage({ params }: { params: Promise<{ id: string 
                   Fecha
                 </h3>
                 <p className="text-gray-900">
-                  {new Date(task.dueDate).toLocaleDateString('es-MX', {
+                  {parseLocalDate(task.dueDate).toLocaleDateString('es-MX', {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',

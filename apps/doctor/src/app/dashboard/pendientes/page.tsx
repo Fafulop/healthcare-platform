@@ -21,13 +21,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-// Helper function to get local date string (fixes timezone issues)
-function getLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { getLocalDateString, parseLocalDate } from '@/lib/dates';
 
 interface Task {
   id: string;
@@ -313,23 +307,17 @@ export default function PendientesPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Extract YYYY-MM-DD from ISO string to avoid timezone shifts
-  const toLocalDate = (isoStr: string): Date => {
-    const dateStr = isoStr.split('T')[0];
-    const [y, m, d] = dateStr.split('-').map(Number);
-    return new Date(y, m - 1, d, 0, 0, 0, 0);
-  };
 
   const isOverdue = (task: Task) => {
     if (!task.dueDate) return false;
     if (task.status === "COMPLETADA" || task.status === "CANCELADA") return false;
-    const due = toLocalDate(task.dueDate as string);
+    const due = parseLocalDate(task.dueDate as string);
     return due < today;
   };
 
   const isToday = (task: Task) => {
     if (!task.dueDate) return false;
-    const due = toLocalDate(task.dueDate as string);
+    const due = parseLocalDate(task.dueDate as string);
     return due.getTime() === today.getTime();
   };
 
@@ -1118,7 +1106,7 @@ export default function PendientesPage() {
                         {showAllTasks && task.dueDate && (
                           <span className={`text-xs flex items-center gap-1 ${isOverdue(task) ? "text-red-600 font-semibold" : "text-gray-500"}`}>
                             <Calendar className="w-3 h-3" />
-                            {toLocalDate(task.dueDate as string).toLocaleDateString()}
+                            {parseLocalDate(task.dueDate as string).toLocaleDateString()}
                           </span>
                         )}
                         {task.startTime && task.endTime && (
@@ -1203,7 +1191,7 @@ export default function PendientesPage() {
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           {task.dueDate ? (
                             <span className={isOverdue(task) ? "text-red-600 font-semibold" : "text-gray-500"}>
-                              {toLocalDate(task.dueDate as string).toLocaleDateString()}
+                              {parseLocalDate(task.dueDate as string).toLocaleDateString()}
                             </span>
                           ) : (
                             <span className="text-gray-400">—</span>
@@ -1346,7 +1334,7 @@ export default function PendientesPage() {
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Fecha</h3>
                   <p className={`text-gray-900 flex items-center gap-2 ${isOverdue(viewingTask) ? "text-red-600 font-semibold" : ""}`}>
                     <Calendar className="w-4 h-4" />
-                    {viewingTask.dueDate ? toLocalDate(viewingTask.dueDate).toLocaleDateString() : "Sin fecha"}
+                    {viewingTask.dueDate ? parseLocalDate(viewingTask.dueDate).toLocaleDateString() : "Sin fecha"}
                     {isOverdue(viewingTask) && <span className="text-xs">(Vencida)</span>}
                   </p>
                 </div>

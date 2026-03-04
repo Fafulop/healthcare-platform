@@ -148,8 +148,8 @@ export async function PUT(
           endTime: updated.endTime,
           isOpen: updated.isOpen,
           finalPrice: updated.finalPrice.toNumber(),
-        }).catch(() => {});
-      }).catch(() => {});
+        }).catch((err) => console.error('[GCal sync] updateSlotEvent (PUT):', err));
+      }).catch((err) => console.error('[GCal sync] getCalendarTokens (PUT):', err));
     }
 
     return NextResponse.json({
@@ -208,8 +208,8 @@ export async function DELETE(
     if (slot.googleEventId) {
       getCalendarTokens(slot.doctorId).then(tokens => {
         if (!tokens) return;
-        deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!).catch(() => {});
-      }).catch(() => {});
+        deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!).catch((err) => console.error('[GCal sync] deleteEvent (slot DELETE):', err));
+      }).catch((err) => console.error('[GCal sync] getCalendarTokens (slot DELETE):', err));
     }
 
     await prisma.appointmentSlot.delete({
@@ -327,8 +327,8 @@ export async function PATCH(
           endTime: updated.endTime,
           isOpen: updated.isOpen,
           finalPrice: updated.finalPrice.toNumber(),
-        }).catch(() => {});
-      }).catch(() => {});
+        }).catch((err) => console.error('[GCal sync] updateSlotEvent (PATCH isOpen):', err));
+      }).catch((err) => console.error('[GCal sync] getCalendarTokens (PATCH isOpen):', err));
     }
 
     return NextResponse.json({

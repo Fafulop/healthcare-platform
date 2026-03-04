@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { getLocalDateString } from "@/lib/dates";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -834,9 +835,6 @@ export default function FlujoDeDineroPage() {
     const fileName = `estado-de-resultados-${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
   };
-
-  const getLocalDateString = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const todayStr = getLocalDateString(new Date());
 

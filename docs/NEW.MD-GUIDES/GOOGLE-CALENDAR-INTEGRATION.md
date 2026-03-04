@@ -1,6 +1,8 @@
 # Google Calendar Integration Guide
 
 **Implemented:** 2026-03-03
+**Bug fixes:** 2026-03-04 (webhook timezone, date display, booking cancellation sync, shared date utility)
+**Enhancements:** 2026-03-04 (COMPLETED/NO_SHOW states, description enrichment, conflict detection, webhook resilience, resync endpoint, error logging)
 **Scope:** Doctor app + API app
 **Type:** OAuth per doctor, bidirectional sync, dedicated "tusalud.pro" calendar
 
@@ -13,16 +15,21 @@ Each doctor can connect their own Google account. When connected, a dedicated ca
 ```
 tusalud.pro DB ──────────────────────────── Google Calendar ("tusalud.pro")
 
-  Slot created        ──── push ────►  Event created (Disponible / Bloqueado)
-  Booking CONFIRMED   ──── push ────►  Event updated ("Cita: Nombre Paciente")
-  Booking CANCELLED   ──── push ────►  Event updated (reverts to "Disponible")
-  Booking deleted     ──── push ────►  Event deleted
-  Task created        ──── push ────►  Event created (🔴/🟡/🟢 title + priority color)
-  Task completed      ──── push ────►  Event deleted
-  Task deleted        ──── push ────►  Event deleted
+  Slot created         ──── push ────►  Event created (Disponible / Bloqueado)
+  Booking PENDING      ──── push ────►  Event updated ("Cita: ⏳ Nombre")
+  Booking CONFIRMED    ──── push ────►  Event updated ("Cita: Nombre") + ⚠️ if conflict
+  Booking CANCELLED    ──── push ────►  Event updated (reverts to "Disponible")
+  Booking COMPLETED    ──── push ────►  Event updated ("✓ Cita: Nombre", basil green)
+  Booking NO_SHOW      ──── push ────►  Event updated ("✗ Cita: Nombre", graphite)
+  Booking deleted      ──── push ────►  Event deleted
+  Task created/updated ──── push ────►  Event created/updated (🔴/🟡/🟢 + ⚠️ if conflict)
+  Task completed       ──── push ────►  Event deleted
+  Task deleted         ──── push ────►  Event deleted
 
-  Event moved in GCal ── webhook ──►  Slot/Task date+time updated in DB
+  Event moved in GCal  ── webhook ──►  Slot/Task date+time updated in DB
   Event deleted in GCal ─ webhook ──►  Slot closed / Task cancelled in DB
+
+  POST /resync         ──── push ────►  Orphan GCal events deleted; all active DB records upserted
 ```
 
 ---
@@ -117,11 +124,14 @@ When Google Calendar events are created, Google returns an event ID. We store it
 | `packages/database/prisma/migrations/add-google-calendar-fields.sql` | SQL migration — 7 new columns across 4 tables |
 | `apps/api/src/lib/google-calendar.ts` | Core Google Calendar service using `googleapis` |
 | `apps/api/src/app/api/auth/google-calendar/tokens/route.ts` | Saves OAuth tokens to DB on sign-in |
-| `apps/api/src/app/api/doctors/[slug]/google-calendar/status/route.ts` | Returns connection status |
+| `apps/api/src/app/api/doctors/[slug]/google-calendar/status/route.ts` | Returns connection status (including channelExpiry) |
 | `apps/api/src/app/api/doctors/[slug]/google-calendar/connect/route.ts` | Creates calendar + runs initial sync |
 | `apps/api/src/app/api/doctors/[slug]/google-calendar/disconnect/route.ts` | Removes integration, clears tokens |
-| `apps/api/src/app/api/calendar/webhook/route.ts` | Receives Google push notifications (bidirectional) |
+| `apps/api/src/app/api/doctors/[slug]/google-calendar/resync/route.ts` | Full bidirectional resync — deletes orphan GCal events, upserts all active slots+tasks |
+| `apps/api/src/app/api/calendar/webhook/route.ts` | Receives Google push notifications + opportunistic channel auto-renewal |
 | `apps/doctor/src/lib/google-calendar-sync.ts` | Lightweight sync helper using raw fetch (no googleapis) |
+| `apps/doctor/src/lib/dates.ts` | Shared date utility — UTC-safe helpers used across entire doctor app |
+| `apps/doctor/src/components/GoogleCalendarBanner.tsx` | Amber top-bar warning when Google tokens are missing or expired |
 
 ### Modified files
 
@@ -130,10 +140,30 @@ When Google Calendar events are created, Google returns an event ID. We store it
 | `packages/auth/src/nextauth-config.ts` | Added Calendar OAuth scope + token capture in jwt callback |
 | `packages/database/prisma/schema.prisma` | Added 7 new fields across User, Doctor, AppointmentSlot, Task |
 | `apps/api/src/app/api/appointments/slots/[id]/route.ts` | Sync hooks on PUT, PATCH, DELETE |
-| `apps/api/src/app/api/appointments/bookings/[id]/route.ts` | Sync hooks on PATCH (status change), DELETE |
-| `apps/doctor/src/app/api/medical-records/tasks/route.ts` | Sync hook on POST (create) |
-| `apps/doctor/src/app/api/medical-records/tasks/[id]/route.ts` | Sync hooks on PUT (update), DELETE |
-| `apps/doctor/src/app/dashboard/mi-perfil/page.tsx` | Added "Integraciones" tab with connect/disconnect UI |
+| `apps/api/src/app/api/appointments/bookings/[id]/route.ts` | Sync hooks for all status changes (CONFIRMED, CANCELLED, COMPLETED, NO_SHOW, DELETE) with enriched descriptions + conflict detection |
+| `apps/api/src/app/api/appointments/bookings/route.ts` | PENDING booking now syncs patientPhone, patientEmail, patientNotes to slot event description |
+| `apps/api/src/app/api/appointments/bookings/instant/route.ts` | Instant booking sync now includes bookingStatus, patientPhone, patientNotes |
+| `apps/doctor/src/app/api/medical-records/tasks/route.ts` | Sync hook on POST (create) with conflict detection and enriched description |
+| `apps/doctor/src/app/api/medical-records/tasks/[id]/route.ts` | Sync hooks on PUT (update) with conflict detection, DELETE |
+| `apps/doctor/src/app/dashboard/mi-perfil/page.tsx` | Added "Integraciones" tab; updated with channelExpiry display, resync button |
+| `apps/doctor/src/app/dashboard/layout.tsx` | Added `<GoogleCalendarBanner />` to dashboard shell |
+| `apps/api/src/app/api/calendar/webhook/route.ts` | **Bug fix**: UTC timezone; **Enhancement**: opportunistic channel auto-renewal when within 48h of expiry |
+| `apps/doctor/src/app/dashboard/pendientes/[id]/page.tsx` | **Bug fix**: date display uses `parseLocalDate()` instead of `new Date()` |
+| `apps/doctor/src/app/appointments/CreateSlotsModal.tsx` | **Bug fix**: conflict alert date display; removed inline `getLocalDateString` → import from `dates.ts` |
+| `apps/doctor/src/hooks/useDayDetails.ts` | Removed inline `getLocalDateString` → import from `dates.ts` |
+| `apps/doctor/src/components/day-details/DayDetailsModal.tsx` | Removed inline `getLocalDateString` → import from `dates.ts` |
+| `apps/doctor/src/components/day-details/MiniCalendar.tsx` | Removed inline `getLocalDateString` → import from `dates.ts` |
+| `apps/doctor/src/components/day-details/DayDetailsSection.tsx` | Removed inline `getLocalDateString` → import from `dates.ts` |
+| `apps/doctor/src/app/dashboard/pendientes/page.tsx` | Removed inline helpers → import from `dates.ts` |
+| `apps/doctor/src/app/dashboard/pendientes/new/page.tsx` | Removed inline `getLocalDateString` → import from `dates.ts` |
+| `apps/doctor/src/app/appointments/page.tsx` | Removed inline helpers → import from `dates.ts` |
+| `apps/doctor/src/app/appointments/BookPatientModal.tsx` | Removed inline helpers → import from `dates.ts` |
+| `apps/doctor/src/components/RecentActivityTable.tsx` | Removed inline `getLocalDateString` → import from `dates.ts` |
+| `apps/doctor/src/components/medical-records/MediaUploader.tsx` | Removed inline `formatDateString` → import from `dates.ts` |
+| `apps/doctor/src/components/medical-records/EncounterForm.tsx` | Removed inline `getLocalDateString` → import from `dates.ts` |
+| `apps/doctor/src/app/dashboard/medical-records/patients/[id]/encounters/new/page.tsx` | Removed inline `getLocalDateString` → import from `dates.ts` |
+| `apps/doctor/src/app/dashboard/medical-records/patients/[id]/prescriptions/new/page.tsx` | Removed inline helpers → import from `dates.ts` |
+| `apps/doctor/src/app/dashboard/practice/flujo-de-dinero/page.tsx` | Removed inline `getLocalDateString` → import from `dates.ts` |
 
 ---
 
@@ -177,22 +207,59 @@ This scope is set in `packages/auth/src/nextauth-config.ts`. Doctors who signed 
 |---|---|
 | `createDedicatedCalendar(accessToken, refreshToken)` | Creates "tusalud.pro" calendar in doctor's Google account. Returns `calendarId`. |
 | `deleteDedicatedCalendar(...)` | Deletes the calendar on disconnect. |
-| `createSlotEvent(...)` | Creates a Google Calendar event for an appointment slot. |
-| `updateSlotEvent(...)` | Updates a slot event (title, time, color). |
-| `createTaskEvent(...)` | Creates an event for a task/pendiente. |
-| `updateTaskEvent(...)` | Updates a task event. |
-| `deleteEvent(...)` | Deletes any event by ID. |
+| `createSlotEvent(accessToken, refreshToken, calendarId, data)` | Creates a Google Calendar event for an appointment slot. Returns `googleEventId`. |
+| `updateSlotEvent(accessToken, refreshToken, calendarId, eventId, data)` | Updates slot event — title, color, description, times. |
+| `createTaskEvent(accessToken, refreshToken, calendarId, data)` | Creates an event for a task/pendiente. Returns `googleEventId`. |
+| `updateTaskEvent(accessToken, refreshToken, calendarId, eventId, data)` | Updates a task event. |
+| `deleteEvent(accessToken, refreshToken, calendarId, eventId)` | Deletes any event by ID. |
 | `resolveTokens(user)` | Gets a valid access token, refreshing if expired. Returns `updatedToken` if refreshed. |
 | `refreshAccessToken(refreshToken)` | Calls Google token endpoint to get a new access token. |
 | `watchCalendar(...)` | Sets up Google push notifications for bidirectional sync. |
 | `stopCalendarWatch(...)` | Stops a push notification channel. |
 
+### SlotEventData interface
+
+```typescript
+interface SlotEventData {
+  id: string;
+  date: string;           // "YYYY-MM-DD"
+  startTime: string;      // "HH:MM"
+  endTime: string;        // "HH:MM"
+  isOpen: boolean;
+  patientName?: string;
+  bookingStatus?: "PENDING" | "CONFIRMED" | "COMPLETED" | "NO_SHOW";
+  patientPhone?: string;
+  patientEmail?: string;
+  patientNotes?: string;
+  conflictNote?: string;  // ⚠️ conflict description if task overlaps this slot
+  finalPrice?: number;
+}
+```
+
+### TaskEventData interface
+
+```typescript
+interface TaskEventData {
+  id: string;
+  title: string;
+  description?: string | null;
+  dueDate: string;        // "YYYY-MM-DD"
+  startTime?: string | null;
+  endTime?: string | null;
+  status: string;
+  priority: string;       // ALTA / MEDIA / BAJA
+  category?: string | null;
+  conflictNote?: string;  // ⚠️ conflict description if slot overlaps this task
+}
+```
+
 ### Event color coding
 
 **Slots:**
-- `colorId: "7"` (Teal/Peacock) — Available slot
-- `colorId: "2"` (Green/Sage) — Booked slot with patient
-- `colorId: "8"` (Grey/Graphite) — Blocked/closed slot
+- `colorId: "7"` (Teal/Peacock) — Available slot (`isOpen: true`, no booking)
+- `colorId: "2"` (Green/Sage) — Booked slot (PENDING or CONFIRMED)
+- `colorId: "8"` (Grey/Graphite) — Blocked/closed slot **or** NO_SHOW booking
+- `colorId: "10"` (Green/Basil) — COMPLETED booking (appointment was attended)
 
 **Tasks:**
 - `colorId: "11"` (Red/Tomato) — ALTA priority
@@ -201,10 +268,47 @@ This scope is set in `packages/auth/src/nextauth-config.ts`. Doctors who signed 
 
 ### Event title format
 
-- Available slot: `"Disponible"`
-- Booked slot: `"Cita: {patientName}"`
-- Blocked slot: `"Bloqueado"`
-- Task: `"🔴 {title}"` / `"🟡 {title}"` / `"🟢 {title}"`
+**Slots:**
+
+| Booking state | Calendar event title | Color |
+|---|---|---|
+| No booking (open) | `Disponible` | Teal |
+| No booking (closed) | `Bloqueado` | Graphite |
+| PENDING | `Cita: ⏳ {patientName}` | Green |
+| CONFIRMED | `Cita: {patientName}` | Green |
+| CONFIRMED + conflict | `⚠️ Cita: {patientName}` | Green |
+| CANCELLED | `Disponible` | Teal |
+| COMPLETED | `✓ Cita: {patientName}` | Basil |
+| NO_SHOW | `✗ Cita: {patientName}` | Graphite |
+
+**Tasks:**
+
+| State | Calendar event title |
+|---|---|
+| Active (no conflict) | `🔴 {title}` / `🟡 {title}` / `🟢 {title}` |
+| Active + conflict | `⚠️ 🔴 {title}` / `⚠️ 🟡 {title}` / `⚠️ 🟢 {title}` |
+
+### Event description format
+
+**Slots:**
+```
+$150 MXN
+
+📞 +52 55 1234 5678
+✉️ paciente@email.com
+📝 Notas: Paciente con alergia a penicilina
+
+⚠️ Conflicto: pendiente "Firma de recetas" a las 10:00    ← only when conflict exists
+```
+
+**Tasks:**
+```
+Categoría: Seguimiento | Prioridad: Alta
+
+Descripción de la tarea aquí...
+
+⚠️ Conflicto: cita con paciente a las 10:00–11:00          ← only when conflict exists
+```
 
 ### Extended properties (how we track ownership)
 
@@ -245,11 +349,12 @@ This pattern is used in every route that calls Google Calendar.
 Tasks live in `apps/doctor` (not `apps/api`), which doesn't have `googleapis` installed. Rather than installing a new package, this helper uses the raw **Google Calendar REST API via `fetch`** — functionally identical but zero dependencies.
 
 ### Functions
-- `syncTaskCreated(doctorId, task)` — Creates Google event, saves `googleEventId` to DB
-- `syncTaskUpdated(doctorId, task)` — Updates event; if status is COMPLETADA/CANCELADA, deletes the event
+- `syncTaskCreated(doctorId, task)` — Creates Google event, saves `googleEventId` to DB. Checks for slot conflicts if task has start/end times.
+- `syncTaskUpdated(doctorId, task)` — Updates event; if status is COMPLETADA/CANCELADA, deletes the event. Re-checks conflicts on update.
 - `syncTaskDeleted(doctorId, googleEventId)` — Deletes event
+- `findSlotConflict(doctorId, dueDate, startTime, endTime)` — Queries PENDING/CONFIRMED bookings that overlap the task's time window. Returns a `⚠️ Conflicto: ...` string if overlap found, `undefined` otherwise.
 
-All functions are **fire-and-forget** — they are called with `.catch(() => {})` so they never block the API response or cause failures.
+All functions are **fire-and-forget** — they are called with `.catch(err => console.error(...))` so they never block the API response or cause failures.
 
 ---
 
@@ -266,7 +371,8 @@ Auth: None (internal call from NextAuth server-side)
 ### Calendar management (all require doctor auth)
 ```
 GET    /api/doctors/[slug]/google-calendar/status
-       Returns: { connected, hasTokens, calendarId, enabled, tokenExpiry }
+       Returns: { connected, hasTokens, calendarId, enabled, tokenExpiry, channelExpiry }
+       channelExpiry: ISO datetime when the webhook push channel expires (null if not set up)
 
 POST   /api/doctors/[slug]/google-calendar/connect
        Creates "tusalud.pro" calendar, runs initial sync (slots 60 days out + pending tasks)
@@ -275,6 +381,13 @@ POST   /api/doctors/[slug]/google-calendar/connect
 DELETE /api/doctors/[slug]/google-calendar/disconnect
        Deletes calendar from Google, clears all tokens and event IDs from DB
        Returns: { success }
+
+POST   /api/doctors/[slug]/google-calendar/resync
+       Full bidirectional resync — 3 phases:
+         1. List GCal events with source=tusalud.pro (next 90 days)
+         2. Delete orphan GCal events (slotId/taskId no longer active in DB)
+         3. Upsert all active slots (next 60 days) and active tasks
+       Returns: { success, deletedOrphans, createdSlots, updatedSlots, createdTasks, updatedTasks }
 ```
 
 ### Webhook
@@ -282,9 +395,64 @@ DELETE /api/doctors/[slug]/google-calendar/disconnect
 POST /api/calendar/webhook
 Headers: X-Goog-Channel-Token (validated against GOOGLE_CALENDAR_WEBHOOK_SECRET)
          X-Goog-Resource-State (sync | exists | not_exists)
-         X-Goog-Channel-Id (format: "doctor_{doctorId}")
+         X-Goog-Channel-Id (format: "doctor_{doctorId}_{randomHex}")
 Processes: moved events → update slot/task date+time in DB
            deleted events → close slot / cancel task in DB
+           channel < 48h to expiry → fire-and-forget auto-renewal (defensive fallback)
+```
+
+---
+
+## Date Handling — UTC Safety
+
+### The problem
+
+The DB stores dates as UTC midnight — e.g., `2026-03-04T00:00:00.000Z`. In a browser running at UTC−6 (Mexico City), calling `new Date(isoStr).toLocaleDateString()` first converts to local time: midnight UTC becomes 6 PM on March 3rd, so the displayed date is one day behind.
+
+The same applies server-side on Railway (UTC server): calling `new Date(googleDateTimeStr).toTimeString()` returns UTC time, not the Mexico City time that Google sent.
+
+### The fix — shared utility
+
+**`apps/doctor/src/lib/dates.ts`** — single source of truth for all date operations in the doctor app:
+
+```typescript
+// Parse a YYYY-MM-DD (or ISO) string as local midnight — no UTC shift
+export function parseLocalDate(isoStr: string): Date {
+  const [y, m, d] = isoStr.split('T')[0].split('-').map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
+// Format YYYY-MM-DD (or ISO) string for display — safe, no UTC shift
+export function formatLocalDate(
+  isoStr: string,
+  options?: Intl.DateTimeFormatOptions,
+  locale: string = 'es-MX'
+): string {
+  return parseLocalDate(isoStr).toLocaleDateString(locale, options);
+}
+
+// Get a YYYY-MM-DD string from an existing Date object (e.g., new Date())
+export function getLocalDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+```
+
+### Rule
+
+**Never use `new Date(dbDateStr)` directly for display.** Always use `parseLocalDate()` or `formatLocalDate()` from `@/lib/dates`.
+
+### Webhook time extraction
+
+Google returns `dateTime` in the calendar's configured timezone (America/Mexico_City), e.g. `"2026-03-04T10:00:00-06:00"`. On a UTC Railway server, `new Date(str).toTimeString()` would give `"16:00"` (UTC) instead of `"10:00"` (local). Fix: extract directly from the string:
+
+```typescript
+// Correct — slice directly from ISO string, no Date object involved
+const newDate      = event.start.dateTime.slice(0, 10);   // "2026-03-04"
+const newStartTime = event.start.dateTime.slice(11, 16);  // "10:00"
+const newEndTime   = event.end.dateTime.slice(11, 16);    // "11:00"
 ```
 
 ---
@@ -295,26 +463,33 @@ All hooks are **fire-and-forget** — they never block the HTTP response. Patter
 
 ```typescript
 // After successful DB write:
-syncSomeEvent(data).catch(() => {});
+syncSomeEvent(data).catch(err => console.error('[GCal sync] syncSomeEvent:', err));
 // OR for routes in apps/api:
-getCalendarTokens(doctorId).then(tokens => {
+getCalendarTokens(doctorId).then(async tokens => {
   if (!tokens) return;
-  updateSlotEvent(tokens.accessToken, ...).catch(() => {});
-}).catch(() => {});
+  updateSlotEvent(tokens.accessToken, ...).catch(err => console.error('[GCal sync] updateSlotEvent:', err));
+}).catch(err => console.error('[GCal sync] getCalendarTokens:', err));
 ```
+
+All sync errors are logged with `console.error('[GCal sync] ...', err)` — never silently swallowed. This makes Railway logs actionable when sync fails.
 
 ### Routes modified
 
 | Route | Trigger | Calendar action |
 |---|---|---|
-| `POST /api/appointments/slots` | Slot created | `createSlotEvent` per new slot |
+| `POST /api/appointments/slots` | Slot created (single or recurring) | `createSlotEvent` per slot; saves `googleEventId` back to DB |
 | `PUT /api/appointments/slots/[id]` | Slot updated | `updateSlotEvent` |
 | `PATCH /api/appointments/slots/[id]` | isOpen toggled | `updateSlotEvent` (color changes) |
 | `DELETE /api/appointments/slots/[id]` | Slot deleted | `deleteEvent` |
-| `PATCH /api/appointments/bookings/[id]` | Booking confirmed/cancelled | `updateSlotEvent` (title shows patient name on CONFIRMED) |
+| `POST /api/appointments/bookings` | New booking (PENDING) | `updateSlotEvent` — title: `"Cita: ⏳ Patient"`, description: phone + email + notes |
+| `PATCH /api/appointments/bookings/[id]` | Booking → CONFIRMED | `updateSlotEvent` — enriched description, conflict check; `⚠️` prefix if task overlaps |
+| `PATCH /api/appointments/bookings/[id]` | Booking → CANCELLED | `updateSlotEvent` — reverts to `"Disponible"` (teal) |
+| `PATCH /api/appointments/bookings/[id]` | Booking → COMPLETED | `updateSlotEvent` — `"✓ Cita: Patient"` (basil green) |
+| `PATCH /api/appointments/bookings/[id]` | Booking → NO_SHOW | `updateSlotEvent` — `"✗ Cita: Patient"` (graphite) |
 | `DELETE /api/appointments/bookings/[id]` | Booking+slot deleted | `deleteEvent` |
-| `POST /api/medical-records/tasks` | Task created | `syncTaskCreated` |
-| `PUT /api/medical-records/tasks/[id]` | Task updated | `syncTaskUpdated` (deletes event if COMPLETADA/CANCELADA) |
+| `POST /api/appointments/bookings/instant` | Instant confirmed booking | `createSlotEvent` with bookingStatus=CONFIRMED, phone, notes |
+| `POST /api/medical-records/tasks` | Task created | `syncTaskCreated` — enriched description, conflict check vs active slots |
+| `PUT /api/medical-records/tasks/[id]` | Task updated | `syncTaskUpdated` — re-checks conflicts; deletes event if COMPLETADA/CANCELADA |
 | `DELETE /api/medical-records/tasks/[id]` | Task deleted | `syncTaskDeleted` |
 
 ---
@@ -349,14 +524,30 @@ Added as the 8th tab in `/dashboard/mi-perfil`. The global "Guardar Cambios" sav
 [ Calendar icon ] Google Calendar    [ ✓ Conectado ]
 Calendario: tusalud.pro
 Token válido hasta: 01/04/2026
+Webhook válido hasta: 11/03/2026                        ← amber + ⚠️ if < 3 days away
 [ ↺ Sincronizar ahora ]  [ ✕ Desconectar ]
 ```
 
 **5. Action feedback** — inline message after connect/disconnect/sync:
 ```
 ✓ Conectado. 12 citas y 5 pendientes sincronizados.
+✓ Sincronizado: 3 citas actualizadas, 2 eventos obsoletos eliminados.
+✓ Todo sincronizado, sin cambios.
 ✗ Error al conectar: No Google tokens found...
 ```
+
+### Token Expiry Banner
+
+`apps/doctor/src/components/GoogleCalendarBanner.tsx` is rendered in `apps/doctor/src/app/dashboard/layout.tsx`. It:
+
+1. On mount, reads a `sessionStorage` key `gcal_token_banner_dismissed` — if set, renders nothing
+2. Calls `GET /api/doctors/[slug]/google-calendar/status`
+3. If `hasTokens: false` or `tokenExpiry` is in the past → shows an amber top bar:
+   ```
+   ⚠️ Tu conexión con Google Calendar ha expirado.  [ Re-autenticarse ]
+   ```
+4. "Re-autenticarse" calls `signIn("google", { callbackUrl: "/dashboard/mi-perfil" })` — the full Google consent screen re-grants Calendar scope
+5. A dismiss button stores `gcal_token_banner_dismissed = "1"` in `sessionStorage` (clears on tab close)
 
 ### Re-authentication flow
 Doctors who signed in before the Calendar scope was added won't have tokens in the DB. The UI detects `hasTokens: false` and shows a re-auth button. Clicking it calls `signIn("google")` which triggers the full Google consent screen again (since we always set `prompt: "consent"`), granting Calendar access and storing the new tokens automatically.
@@ -418,9 +609,13 @@ The webhook always returns HTTP 200 to Google — a non-2xx response would stop 
 - [x] DB migration run on Railway: `add-google-calendar-fields.sql`
 - [x] `GOOGLE_CALENDAR_WEBHOOK_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_API_URL` set in Railway `api` service
 - [x] Railway Function cron service created (daily at 6am, calls renew-channels)
+- [x] Bug fixes merged: webhook timezone, booking cancellation sync, date display off-by-one, shared date utility
+- [x] Enhancements merged: COMPLETED/NO_SHOW states, description enrichment, conflict detection, webhook auto-renewal, resync endpoint, GoogleCalendarBanner, error logging
 - [ ] Deploy code to Railway (git push to main)
 - [ ] Each doctor re-signs in with Google (to grant Calendar scope)
 - [ ] Test: go to `/dashboard/mi-perfil` → Integraciones tab → Conectar Google Calendar
+- [ ] Test end-to-end: drag a slot in Google Calendar → verify DB updates with correct time
+- [ ] Test end-to-end: cancel a booking in app → verify Google Calendar event reverts to "Disponible"
 
 ---
 
@@ -435,6 +630,15 @@ The webhook always returns HTTP 200 to Google — a non-2xx response would stop 
 | ✅ Fixed | Webhook channel renewal | `renew-channels` endpoint + `connect` now calls `watchCalendar()` |
 | ✅ Not an issue | Task "bulk" creation sync | `bulk/route.ts` is DELETE-only; frontend loops through individual POST (which has sync hooks) |
 | ✅ Fixed | New booking PENDING state | `bookings/route.ts` POST now shows "Cita: ⏳ Patient Name" on PENDING |
+| ✅ Fixed | Booking cancellation sync | `bookings/[id]/route.ts` CANCELLED now calls `updateSlotEvent` → reverts to "Disponible" |
+| ✅ Fixed | Webhook UTC timezone bug | Webhook extracted times via `toTimeString()` (Railway = UTC server), returning wrong time. Now uses `.slice()` on ISO string directly |
+| ✅ Fixed | Date display off-by-one | All date display in doctor app now uses `parseLocalDate()` from `@/lib/dates.ts` — eliminates UTC midnight → previous day shift |
+| ✅ Fixed | COMPLETED/NO_SHOW not reflected | Booking terminal states now sync — `✓ Cita:` (basil) for COMPLETED, `✗ Cita:` (graphite) for NO_SHOW |
+| ✅ Fixed | Silent GCal sync failures | All `.catch(() => {})` replaced with `console.error('[GCal sync]', err)` — failures now logged in Railway |
+| ✅ Fixed | Event descriptions empty | Slot events now include price, phone, email, notes; task events include category + priority |
+| ✅ Fixed | No conflict visibility in calendar | Confirmed bookings and timed tasks show `⚠️` prefix when an overlapping task/slot is found |
+| ✅ Fixed | Webhook channel expiry silent | `/status` now returns `channelExpiry`; UI shows expiry date (amber if < 3 days); webhook auto-renews when within 48h |
+| ✅ Fixed | No way to recover stale GCal state | New `POST /resync` endpoint does full orphan cleanup + upsert of all active records |
 | 🟢 Low | Local webhook testing | Dev inconvenience only, works fine in production |
 
 ---
@@ -474,10 +678,14 @@ When a patient books an appointment (`POST /api/appointments/bookings`), the boo
 
 | Booking state | Calendar event title | Color |
 |---|---|---|
-| No booking | Disponible | Teal |
+| No booking (open) | Disponible | Teal |
+| No booking (closed) | Bloqueado | Graphite |
 | PENDING | Cita: ⏳ Patient Name | Green |
 | CONFIRMED | Cita: Patient Name | Green |
+| CONFIRMED + conflict | ⚠️ Cita: Patient Name | Green |
 | CANCELLED | Disponible | Teal |
+| COMPLETED | ✓ Cita: Patient Name | Basil (dark green) |
+| NO_SHOW | ✗ Cita: Patient Name | Graphite |
 
 ---
 
@@ -531,3 +739,175 @@ The initial concern was that AI-generated tasks (from the task-chat or voice pan
 
 **Current state:**
 ✅ **No fix needed.** Investigation confirmed that `tasks/bulk/route.ts` only handles `DELETE` — there is no bulk `POST` for tasks. When the AI chat panel or voice assistant creates multiple tasks, the frontend (`pendientes/new/page.tsx`) loops through each task and calls `POST /api/medical-records/tasks` individually. That single-create route already has a `syncTaskCreated` hook. Each task is synced automatically.
+
+---
+
+### 7. COMPLETED / NO_SHOW Booking States in Calendar ✅ Fixed
+
+**What it is:**
+After a booking is marked COMPLETED or NO_SHOW, the Google Calendar event previously showed no change — the slot just stayed as "Cita: Patient Name". This made it impossible to distinguish attended, no-showed, and available slots in the calendar.
+
+**Current state:**
+✅ **Implemented.** When a booking transitions to either terminal state, a fire-and-forget `updateSlotEvent` call is made:
+
+| State | Title | Color |
+|---|---|---|
+| COMPLETED | `✓ Cita: {patientName}` | Basil (dark green) — appointment was attended |
+| NO_SHOW | `✗ Cita: {patientName}` | Graphite — patient did not appear |
+
+Events are **updated, not deleted** — this preserves appointment history in the doctor's Google Calendar. The ✓/✗ prefixes make it easy to scan the calendar for missed appointments.
+
+**Implementation:** `apps/api/src/app/api/appointments/bookings/[id]/route.ts` — block after the CANCELLED sync block.
+
+---
+
+### 8. Event Description Enrichment ✅ Fixed
+
+**What it is:**
+Google Calendar events previously only had a title. Doctors opening an event had to go back to the app to see patient contact info or task details.
+
+**Current state:**
+✅ **Implemented.**
+
+**Slot events now include:**
+```
+$150 MXN
+
+📞 +52 55 1234 5678
+✉️ paciente@email.com
+📝 Notas: Paciente con alergia a penicilina
+```
+
+**Task events now include:**
+```
+Categoría: Seguimiento | Prioridad: Alta
+
+Descripción de la tarea aquí...
+```
+
+Fields are only added when non-null. Extended properties (`slotId`/`taskId`/`source`) are unchanged — they remain in the `private` extendedProperties block and are not visible to the doctor.
+
+**Implementation:** `SlotEventData` and `TaskEventData` interfaces in `apps/api/src/lib/google-calendar.ts` — new optional fields; `slotToEvent()` and `taskToEvent()` builders updated. `apps/doctor/src/lib/google-calendar-sync.ts` — `buildTaskEvent()` updated with `PRIORITY_LABELS`/`CATEGORY_LABELS` maps.
+
+---
+
+### 9. Conflict Detection Surfaced in Calendar ✅ Fixed
+
+**What it is:**
+A doctor could schedule a task (pendiente) at the same time as an existing appointment slot, or confirm a booking that overlaps an active task — with no visual warning in Google Calendar.
+
+**Current state:**
+✅ **Implemented.** Conflicts are detected and surfaced as `⚠️` prefixes in both the event title and description.
+
+**How it works:**
+
+*Booking → task conflict (on CONFIRMED):*
+```typescript
+// apps/api/src/app/api/appointments/bookings/[id]/route.ts
+const dayTasks = await prisma.task.findMany({
+  where: { doctorId, dueDate: slot.date, status: { in: ['PENDIENTE', 'EN_PROGRESO'] } },
+  select: { title, startTime, endTime },
+});
+const hit = dayTasks.find(t =>
+  t.startTime && t.endTime &&
+  t.startTime < slot.endTime &&        // string HH:MM comparison works correctly
+  t.endTime > slot.startTime
+);
+if (hit) conflictNote = `⚠️ Conflicto: pendiente "${hit.title}" a las ${hit.startTime}`;
+```
+
+*Task → booking conflict (on create/update):*
+```typescript
+// apps/doctor/src/lib/google-calendar-sync.ts
+async function findSlotConflict(doctorId, dueDate, startTime, endTime) {
+  const slots = await prisma.appointmentSlot.findMany({
+    where: { doctorId, date: new Date(dueDate), isOpen: true },
+    include: { bookings: { where: { status: { in: ['PENDING', 'CONFIRMED'] } } } },
+  });
+  const hit = slots.find(s =>
+    s.bookings.length > 0 &&
+    s.startTime < endTime &&
+    s.endTime > startTime
+  );
+  return hit ? `⚠️ Conflicto: cita con paciente a las ${hit.startTime}–${hit.endTime}` : undefined;
+}
+```
+
+**Scope:**
+- Only timed tasks (with `startTime` AND `endTime` set) are checked for conflicts
+- Only PENDING/CONFIRMED bookings count as conflicts
+- The conflict note is fire-and-forget alongside the normal sync — it does NOT block the operation
+
+---
+
+### 10. Webhook Channel Expiry Visibility + Auto-Renewal ✅ Fixed
+
+**What it is:**
+The webhook push channel expires silently after ~7 days. While the daily cron handles renewal, there was no visibility into the channel's health in the UI, and if the cron job failed for a couple of days the channel could expire unnoticed.
+
+**Current state:**
+✅ **Implemented.** Three layers of defense:
+
+**Layer 1 — Status endpoint exposes channelExpiry:**
+`GET /api/doctors/[slug]/google-calendar/status` now returns `channelExpiry` (ISO datetime or null). The Integraciones tab displays it, turning amber + ⚠️ when within 3 days.
+
+**Layer 2 — Dashboard banner for token expiry:**
+`GoogleCalendarBanner` component renders in the dashboard layout. It checks token validity on mount and shows a dismissible amber bar if tokens are expired or missing.
+
+**Layer 3 — Webhook handler auto-renews opportunistically:**
+```typescript
+// apps/api/src/app/api/calendar/webhook/route.ts
+const hoursUntilExpiry = (doctor.googleChannelExpiry.getTime() - Date.now()) / (1000 * 60 * 60);
+if (hoursUntilExpiry < 48) {
+  // Fire-and-forget: stop old channel, create new one, update DB
+  (async () => {
+    await stopCalendarWatch(accessToken, refreshToken, oldChannelId, oldResourceId);
+    const newChannelId = `doctor_${doctor.id}_${crypto.randomBytes(4).toString("hex")}`;
+    const { resourceId, expiration } = await watchCalendar(...);
+    await prisma.doctor.update({ data: { googleChannelId, googleChannelResourceId, googleChannelExpiry } });
+  })();
+}
+```
+
+This means even if the Railway cron job fails for up to 48 hours, the next incoming Google push notification will trigger self-healing renewal. The 200 response to Google is never delayed.
+
+---
+
+### 11. Full Resync Endpoint ✅ Fixed
+
+**What it is:**
+Prior to this feature, there was no way to recover from a state mismatch (e.g., a doctor manually deleting Google Calendar events, or DB records created while Google Calendar was disconnected). The "Sincronizar ahora" button only re-created the initial sync.
+
+**Current state:**
+✅ **Implemented.** `POST /api/doctors/[slug]/google-calendar/resync` performs a true bidirectional resync in 3 phases:
+
+**Phase 1 — List our GCal events:**
+```typescript
+calendarApi.events.list({
+  privateExtendedProperty: ["source=tusalud.pro"],  // only events we created
+  timeMin: today, timeMax: in90Days,
+  singleEvents: true, maxResults: 250,
+})
+// Paginated with nextPageToken
+```
+
+**Phase 2 — Delete orphans:**
+For each GCal event, if its `slotId` or `taskId` is not in the current active DB sets → delete from GCal, clear `googleEventId` from DB.
+
+**Phase 3 — Upsert all active records:**
+- For each slot (next 60 days): if `googleEventId` exists → `updateSlotEvent`; else → `createSlotEvent`. On update-404 (manually deleted in GCal) → fallback to `createSlotEvent`.
+- Same pattern for all active (PENDIENTE/EN_PROGRESO) tasks.
+
+**Returns:**
+```json
+{
+  "success": true,
+  "deletedOrphans": 3,
+  "createdSlots": 5,
+  "updatedSlots": 18,
+  "createdTasks": 2,
+  "updatedTasks": 4
+}
+```
+
+The "Sincronizar ahora" button in the Integraciones tab calls this endpoint and shows a human-readable summary: `"Sincronizado: 5 citas actualizadas, 3 eventos obsoletos eliminados."` or `"Todo sincronizado, sin cambios."` if all counts are 0.

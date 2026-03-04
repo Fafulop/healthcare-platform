@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, ChevronRight, ChevronLeft } from "lucide-react";
 import { DoctorProfileProvider } from "@/contexts/DoctorProfileContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { GoogleCalendarBanner } from "@/components/GoogleCalendarBanner";
 import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
 import { DayDetailsWidget } from "@/components/day-details/DayDetailsWidget";
 import { VoiceAssistantHubWidget } from "@/components/voice-hub/VoiceAssistantHubWidget";
@@ -48,6 +49,7 @@ export default function DashboardRootLayout({
 
   return (
     <DoctorProfileProvider>
+      <GoogleCalendarBanner />
       <DashboardLayout>{children}</DashboardLayout>
 
       {/* Collapse/expand tab — always visible on the right edge */}

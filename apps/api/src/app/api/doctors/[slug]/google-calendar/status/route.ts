@@ -19,6 +19,7 @@ export async function GET(
         id: true,
         googleCalendarId: true,
         googleCalendarEnabled: true,
+        googleChannelExpiry: true,
         user: {
           select: {
             googleAccessToken: true,
@@ -45,6 +46,7 @@ export async function GET(
       calendarId: doctor.googleCalendarId ?? null,
       enabled: doctor.googleCalendarEnabled,
       tokenExpiry: doctor.user?.googleTokenExpiry ?? null,
+      channelExpiry: doctor.googleChannelExpiry ?? null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

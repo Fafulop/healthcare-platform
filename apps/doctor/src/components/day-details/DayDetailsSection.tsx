@@ -15,12 +15,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   BAJA: 'bg-green-100 text-green-800',
 };
 
-function getLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { getLocalDateString } from '@/lib/dates';
 
 interface Booking {
   id: string;

@@ -11,7 +11,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@healthcare/database";
 import { google } from "googleapis";
-import { resolveTokens } from "@/lib/google-calendar";
+import crypto from "crypto";
+import { resolveTokens, watchCalendar, stopCalendarWatch } from "@/lib/google-calendar";
 
 export async function POST(request: Request) {
   try {
@@ -43,6 +44,9 @@ export async function POST(request: Request) {
         id: true,
         googleCalendarId: true,
         googleCalendarEnabled: true,
+        googleChannelId: true,
+        googleChannelResourceId: true,
+        googleChannelExpiry: true,
         user: {
           select: {
             id: true,
@@ -118,17 +122,18 @@ export async function POST(request: Request) {
       }
 
       // Handle updated/moved events (time change from Google Calendar drag-and-drop)
+      // Google returns dateTime in the calendar's configured timezone (America/Mexico_City),
+      // e.g. "2026-03-04T10:00:00-06:00". We extract date/time directly from the string
+      // to avoid UTC conversion errors on Railway (UTC server).
       if (slotId && event.start?.dateTime && event.end?.dateTime) {
-        const newStart = new Date(event.start.dateTime);
-        const newEnd = new Date(event.end.dateTime);
-        const newDate = newStart.toISOString().split("T")[0];
-        const newStartTime = newStart.toTimeString().slice(0, 5);
-        const newEndTime = newEnd.toTimeString().slice(0, 5);
+        const newDateStr = event.start.dateTime.slice(0, 10);       // "2026-03-04"
+        const newStartTime = event.start.dateTime.slice(11, 16);    // "10:00"
+        const newEndTime = event.end.dateTime.slice(11, 16);        // "11:00"
 
         await prisma.appointmentSlot.updateMany({
           where: { id: slotId, doctorId: doctor.id },
           data: {
-            date: new Date(newDate),
+            date: new Date(newDateStr),
             startTime: newStartTime,
             endTime: newEndTime,
           },
@@ -148,16 +153,55 @@ export async function POST(request: Request) {
             },
           });
         } else if (event.start.dateTime && event.end?.dateTime) {
-          const newStart = new Date(event.start.dateTime);
-          const newEnd = new Date(event.end.dateTime);
+          const newDateStr = event.start.dateTime.slice(0, 10);    // "2026-03-04"
+          const newStartTime = event.start.dateTime.slice(11, 16); // "10:00"
+          const newEndTime = event.end.dateTime.slice(11, 16);     // "11:00"
           await prisma.task.updateMany({
             where: { id: taskId, doctorId: doctor.id },
             data: {
-              dueDate: new Date(newStart.toISOString().split("T")[0]),
-              startTime: newStart.toTimeString().slice(0, 5),
-              endTime: newEnd.toTimeString().slice(0, 5),
+              dueDate: new Date(newDateStr),
+              startTime: newStartTime,
+              endTime: newEndTime,
             },
           });
+        }
+      }
+    }
+
+    // Opportunistic channel renewal: if expiring within 48h, renew now (defensive
+    // fallback in case the daily cron job fails for a day or two).
+    if (doctor.googleChannelExpiry && doctor.googleCalendarId && doctor.user) {
+      const hoursUntilExpiry = (doctor.googleChannelExpiry.getTime() - Date.now()) / (1000 * 60 * 60);
+      if (hoursUntilExpiry < 48) {
+        const webhookUrl = process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/calendar/webhook`
+          : null;
+        const webhookSecret = process.env.GOOGLE_CALENDAR_WEBHOOK_SECRET;
+        if (webhookUrl && webhookSecret) {
+          // Fire-and-forget so we don't delay the 200 response to Google
+          (async () => {
+            try {
+              const { accessToken: rAt, refreshToken: rRt } = await resolveTokens(doctor.user!);
+              if (doctor.googleChannelId && doctor.googleChannelResourceId) {
+                await stopCalendarWatch(rAt, rRt, doctor.googleChannelId, doctor.googleChannelResourceId).catch(() => {});
+              }
+              const newChannelId = `doctor_${doctor.id}_${crypto.randomBytes(4).toString("hex")}`;
+              const { resourceId, expiration } = await watchCalendar(
+                rAt, rRt, doctor.googleCalendarId!, webhookUrl, newChannelId, webhookSecret
+              );
+              await prisma.doctor.update({
+                where: { id: doctor.id },
+                data: {
+                  googleChannelId: newChannelId,
+                  googleChannelResourceId: resourceId,
+                  googleChannelExpiry: new Date(Number(expiration)),
+                },
+              });
+              console.log(`[Webhook] Auto-renewed channel for doctor ${doctor.id}`);
+            } catch (err) {
+              console.error(`[Webhook] Auto-renewal failed for doctor ${doctor.id}:`, err);
+            }
+          })();
         }
       }
     }

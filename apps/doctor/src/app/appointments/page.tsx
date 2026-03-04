@@ -17,27 +17,7 @@ import type { VoiceAppointmentSlotsData, VoiceStructuredData } from '@/types/voi
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
-// Helper function to get local date string (fixes timezone issues)
-function getLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-// Helper function to format date string for display (fixes timezone issues)
-function formatDateString(dateStr: string, locale: string = 'es-MX', options?: Intl.DateTimeFormatOptions): string {
-  try {
-    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
-    if (year && month && day) {
-      const date = new Date(year, month - 1, day); // month is 0-indexed
-      return date.toLocaleDateString(locale, options);
-    }
-    return dateStr;
-  } catch {
-    return dateStr;
-  }
-}
+import { getLocalDateString, formatLocalDate as formatDateString } from '@/lib/dates';
 
 interface AppointmentSlot {
   id: string;
@@ -758,7 +738,7 @@ export default function AppointmentsPage() {
                     <div>
                       <p className="font-medium text-gray-900 text-sm">{booking.patientName}</p>
                       <p className="text-xs text-gray-600">
-                        {formatDateString(booking.slot.date, "es-MX", {
+                        {formatDateString(booking.slot.date, {
                           month: "short",
                           day: "numeric",
                         })} · {booking.slot.startTime}
@@ -861,7 +841,7 @@ export default function AppointmentsPage() {
                           <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                           <div>
                             <p className="font-medium text-gray-900">
-                              {formatDateString(booking.slot.date, "es-MX", {
+                              {formatDateString(booking.slot.date, {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
@@ -1233,7 +1213,7 @@ export default function AppointmentsPage() {
 
             {!showAllSlots && (
               <p className="text-sm text-gray-500 capitalize">
-                {formatDateString(listDate, "es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                {formatDateString(listDate, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
               </p>
             )}
 

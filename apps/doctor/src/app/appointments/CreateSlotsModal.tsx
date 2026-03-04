@@ -7,13 +7,7 @@ import { authFetch } from "@/lib/auth-fetch";
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
-// Helper function to get local date string (fixes timezone issues)
-function getLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { getLocalDateString } from '@/lib/dates';
 
 interface SlotEntry {
   date: string;
@@ -258,9 +252,11 @@ export default function CreateSlotsModal({
       // Handle 409 Conflict response (slot conflicts detected)
       if (response.status === 409) {
         // Show error alert and don't allow replacement
-        const conflictList = data.conflicts.slice(0, 5).map((c: any) =>
-          `• ${new Date(c.date).toLocaleDateString('es-MX')} ${c.startTime}-${c.endTime}${c.hasBookings ? ` (${c.currentBookings} reserva${c.currentBookings > 1 ? 's' : ''})` : ''}`
-        ).join('\n');
+        const conflictList = data.conflicts.slice(0, 5).map((c: any) => {
+          const [y, m, d] = c.date.split('T')[0].split('-').map(Number);
+          const dateLabel = new Date(y, m - 1, d).toLocaleDateString('es-MX');
+          return `• ${dateLabel} ${c.startTime}-${c.endTime}${c.hasBookings ? ` (${c.currentBookings} reserva${c.currentBookings > 1 ? 's' : ''})` : ''}`;
+        }).join('\n');
 
         const moreCount = data.conflicts.length > 5 ? `\n... y ${data.conflicts.length - 5} más` : '';
 

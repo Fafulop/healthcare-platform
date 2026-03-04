@@ -86,7 +86,12 @@ export interface SlotEventData {
   endTime: string;      // HH:MM
   isOpen: boolean;
   patientName?: string; // set when a booking exists
+  patientPhone?: string;
+  patientEmail?: string;
+  patientNotes?: string;
+  bookingStatus?: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'NO_SHOW';
   finalPrice?: number;
+  conflictNote?: string; // ⚠️ shown when a task overlaps this slot's time
 }
 
 export interface TaskEventData {
@@ -98,21 +103,47 @@ export interface TaskEventData {
   endTime?: string | null;    // HH:MM
   status: string;
   priority: string;
+  category?: string | null;
+  conflictNote?: string; // ⚠️ shown when a booked slot overlaps this task's time
 }
 
 function slotToEvent(slot: SlotEventData) {
-  const title = slot.patientName
-    ? `Cita: ${slot.patientName}`
-    : slot.isOpen
-    ? "Disponible"
-    : "Bloqueado";
+  let title: string;
+  let colorId: string;
 
-  const colorId = slot.patientName ? "2" : slot.isOpen ? "7" : "8";
-  // 2=Sage(green), 7=Peacock(teal), 8=Graphite(grey)
+  if (slot.patientName) {
+    if (slot.bookingStatus === 'COMPLETED') {
+      title = `✓ Cita: ${slot.patientName}`;
+      colorId = "10"; // Basil (dark green) — appointment completed
+    } else if (slot.bookingStatus === 'NO_SHOW') {
+      title = `✗ Cita: ${slot.patientName}`;
+      colorId = "8";  // Graphite — patient did not show
+    } else {
+      title = `Cita: ${slot.patientName}`;
+      colorId = "2";  // Sage (green) — active booking (PENDING/CONFIRMED)
+    }
+  } else if (slot.isOpen) {
+    title = "Disponible";
+    colorId = "7"; // Peacock (teal)
+  } else {
+    title = "Bloqueado";
+    colorId = "8"; // Graphite
+  }
+
+  // Conflict warning: prefix the title for active (actionable) bookings only
+  const isActiveBooking = slot.patientName && !['COMPLETED', 'NO_SHOW'].includes(slot.bookingStatus ?? '');
+  if (slot.conflictNote && isActiveBooking) title = `⚠️ ${title}`;
+
+  const descLines: string[] = [];
+  if (slot.finalPrice != null) descLines.push(`$${slot.finalPrice} MXN`);
+  if (slot.patientPhone) descLines.push(`Tel: ${slot.patientPhone}`);
+  if (slot.patientEmail) descLines.push(`Email: ${slot.patientEmail}`);
+  if (slot.patientNotes) descLines.push(`Notas: ${slot.patientNotes}`);
+  if (slot.conflictNote) descLines.push(slot.conflictNote);
 
   return {
     summary: title,
-    description: slot.finalPrice != null ? `$${slot.finalPrice} MXN` : undefined,
+    description: descLines.length ? descLines.join('\n') : undefined,
     start: {
       dateTime: `${slot.date}T${slot.startTime}:00`,
       timeZone: "America/Mexico_City",
@@ -131,6 +162,13 @@ function slotToEvent(slot: SlotEventData) {
   };
 }
 
+const PRIORITY_LABELS: Record<string, string> = { ALTA: "Alta", MEDIA: "Media", BAJA: "Baja" };
+const CATEGORY_LABELS: Record<string, string> = {
+  SEGUIMIENTO: "Seguimiento", ADMINISTRATIVO: "Administrativo",
+  LABORATORIO: "Laboratorio", RECETA: "Receta",
+  REFERENCIA: "Referencia", PERSONAL: "Personal", OTRO: "Otro",
+};
+
 function taskToEvent(task: TaskEventData) {
   const priorityEmoji =
     task.priority === "ALTA" ? "🔴" : task.priority === "MEDIA" ? "🟡" : "🟢";
@@ -139,11 +177,24 @@ function taskToEvent(task: TaskEventData) {
     task.priority === "ALTA" ? "11" : task.priority === "MEDIA" ? "5" : "10";
   // 11=Tomato, 5=Banana, 10=Basil
 
+  const meta: string[] = [];
+  if (task.category) meta.push(`Categoría: ${CATEGORY_LABELS[task.category] ?? task.category}`);
+  meta.push(`Prioridad: ${PRIORITY_LABELS[task.priority] ?? task.priority}`);
+  const descLines = [meta.join(' | ')];
+  if (task.description) {
+    descLines.push('');
+    descLines.push(task.description);
+  }
+  if (task.conflictNote) {
+    descLines.push('');
+    descLines.push(task.conflictNote);
+  }
+
   const isAllDay = !task.startTime || !task.endTime;
 
   return {
-    summary: `${priorityEmoji} ${task.title}`,
-    description: task.description ?? undefined,
+    summary: `${task.conflictNote ? '⚠️ ' : ''}${priorityEmoji} ${task.title}`,
+    description: descLines.join('\n'),
     colorId,
     ...(isAllDay
       ? { start: { date: task.dueDate }, end: { date: task.dueDate } }

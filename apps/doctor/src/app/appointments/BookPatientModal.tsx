@@ -19,25 +19,9 @@ import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "${API_URL}";
 
-function formatDateStr(
-  dateStr: string,
-  options?: Intl.DateTimeFormatOptions
-): string {
-  try {
-    const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
-    if (year && month && day) {
-      return new Date(year, month - 1, day).toLocaleDateString("es-MX", options);
-    }
-    return dateStr;
-  } catch {
-    return dateStr;
-  }
-}
+import { getLocalDateString, formatLocalDate as formatDateStr } from '@/lib/dates';
 
-function todayStr(): string {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
-}
+function todayStr(): string { return getLocalDateString(new Date()); }
 
 function calcEndTime(startTime: string, duration: number): string {
   const [h, m] = startTime.split(":").map(Number);

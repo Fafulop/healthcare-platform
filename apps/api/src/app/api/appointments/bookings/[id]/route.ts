@@ -216,6 +216,44 @@ export async function PATCH(
       else if (newStatus === 'COMPLETED') logBookingCompleted(bookingLogParams);
       else if (newStatus === 'NO_SHOW') logBookingNoShow(bookingLogParams);
 
+      // CANCELLED: revert event to "Disponible"
+      if (newStatus === 'CANCELLED' && currentBooking.slot.googleEventId) {
+        getCalendarTokens(currentBooking.doctorId).then(tokens => {
+          if (!tokens) return;
+          const dateStr = currentBooking.slot.date.toISOString().split('T')[0];
+          updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!, {
+            id: currentBooking.slot.id,
+            date: dateStr,
+            startTime: currentBooking.slot.startTime,
+            endTime: currentBooking.slot.endTime,
+            isOpen: currentBooking.slot.isOpen,
+            patientName: undefined,
+            finalPrice: currentBooking.slot.finalPrice.toNumber(),
+          }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking CANCELLED):', err));
+        }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking CANCELLED):', err));
+      }
+
+      // COMPLETED: "✓ Cita: Patient" (basil green) — keeps history of completed visit
+      // NO_SHOW:   "✗ Cita: Patient" (graphite)    — marks patient did not appear
+      if ((newStatus === 'COMPLETED' || newStatus === 'NO_SHOW') && currentBooking.slot.googleEventId) {
+        getCalendarTokens(currentBooking.doctorId).then(tokens => {
+          if (!tokens) return;
+          const dateStr = currentBooking.slot.date.toISOString().split('T')[0];
+          updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!, {
+            id: currentBooking.slot.id,
+            date: dateStr,
+            startTime: currentBooking.slot.startTime,
+            endTime: currentBooking.slot.endTime,
+            isOpen: currentBooking.slot.isOpen,
+            patientName: currentBooking.patientName,
+            bookingStatus: newStatus as 'COMPLETED' | 'NO_SHOW',
+            patientPhone: currentBooking.patientPhone,
+            patientNotes: currentBooking.notes ?? undefined,
+            finalPrice: currentBooking.slot.finalPrice.toNumber(),
+          }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking COMPLETED/NO_SHOW):', err));
+        }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking COMPLETED/NO_SHOW):', err));
+      }
+
       const statusMessages = {
         CANCELLED: 'Booking cancelled successfully',
         COMPLETED: 'Booking marked as completed',
@@ -291,9 +329,31 @@ export async function PATCH(
 
     // Sync slot event title to Google Calendar (fire-and-forget)
     if (updatedBooking.slot.googleEventId) {
-      getCalendarTokens(currentBooking.doctorId).then(tokens => {
+      getCalendarTokens(currentBooking.doctorId).then(async tokens => {
         if (!tokens) return;
         const dateStr = updatedBooking.slot.date.toISOString().split('T')[0];
+
+        // When confirming, check if any active tasks overlap this slot's time
+        let conflictNote: string | undefined;
+        if (newStatus === 'CONFIRMED') {
+          const dayTasks = await prisma.task.findMany({
+            where: {
+              doctorId: currentBooking.doctorId,
+              dueDate: updatedBooking.slot.date,
+              status: { in: ['PENDIENTE', 'EN_PROGRESO'] },
+            },
+            select: { title: true, startTime: true, endTime: true },
+          });
+          const hit = dayTasks.find(t =>
+            t.startTime && t.endTime &&
+            t.startTime < updatedBooking.slot.endTime &&
+            t.endTime > updatedBooking.slot.startTime
+          );
+          if (hit) {
+            conflictNote = `⚠️ Conflicto: pendiente "${hit.title}"${hit.startTime ? ` a las ${hit.startTime}` : ''}`;
+          }
+        }
+
         updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, updatedBooking.slot.googleEventId!, {
           id: updatedBooking.slot.id,
           date: dateStr,
@@ -301,9 +361,13 @@ export async function PATCH(
           endTime: updatedBooking.slot.endTime,
           isOpen: updatedBooking.slot.isOpen,
           patientName: newStatus === 'CONFIRMED' ? updatedBooking.patientName : undefined,
+          bookingStatus: newStatus as 'CONFIRMED' | 'PENDING',
+          patientPhone: newStatus === 'CONFIRMED' ? updatedBooking.patientPhone : undefined,
+          patientNotes: newStatus === 'CONFIRMED' ? (updatedBooking.notes ?? undefined) : undefined,
+          conflictNote,
           finalPrice: updatedBooking.slot.finalPrice.toNumber(),
-        }).catch(() => {});
-      }).catch(() => {});
+        }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking CONFIRMED):', err));
+      }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking CONFIRMED):', err));
     }
 
     const statusMessages: Record<string, string> = {
@@ -364,8 +428,8 @@ export async function DELETE(
     if (slot.googleEventId) {
       getCalendarTokens(slot.doctorId).then(tokens => {
         if (!tokens) return;
-        deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!).catch(() => {});
-      }).catch(() => {});
+        deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!).catch((err) => console.error('[GCal sync] deleteEvent (booking DELETE):', err));
+      }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking DELETE):', err));
     }
 
     // Delete booking and slot in a single transaction

@@ -9,13 +9,7 @@ interface MiniCalendarProps {
   highlightedDates?: string[]; // Array of YYYY-MM-DD dates to highlight
 }
 
-// Helper function to get local date string
-function getLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { getLocalDateString } from '@/lib/dates';
 
 export function MiniCalendar({ selectedDate, onDateSelect, highlightedDates = [] }: MiniCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate));

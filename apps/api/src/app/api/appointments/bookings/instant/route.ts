@@ -200,13 +200,16 @@ export async function POST(request: Request) {
         endTime,
         isOpen: false,
         patientName,
+        bookingStatus: 'CONFIRMED',
+        patientPhone,
+        patientNotes: notes ?? undefined,
         finalPrice,
       });
       await prisma.appointmentSlot.update({
         where: { id: slot!.id },
         data: { googleEventId: eventId },
       });
-    }).catch(() => {});
+    }).catch((err) => console.error('[GCal sync] createSlotEvent (instant booking):', err));
 
     return NextResponse.json(
       {

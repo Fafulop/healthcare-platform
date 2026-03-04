@@ -90,12 +90,7 @@ const FILTER_TABS = [
 
 type FilterKey = (typeof FILTER_TABS)[number]["key"];
 
-function getLocalDateString(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+import { getLocalDateString } from '@/lib/dates';
 
 function shiftDate(dateStr: string, days: number): string {
   const d = new Date(dateStr + "T12:00:00");

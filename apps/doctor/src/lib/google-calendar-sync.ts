@@ -102,6 +102,13 @@ async function getUserIdForDoctor(doctorId: string): Promise<string | null> {
 
 // ─── Event builders ───────────────────────────────────────────────────────────
 
+const PRIORITY_LABELS: Record<string, string> = { ALTA: "Alta", MEDIA: "Media", BAJA: "Baja" };
+const CATEGORY_LABELS: Record<string, string> = {
+  SEGUIMIENTO: "Seguimiento", ADMINISTRATIVO: "Administrativo",
+  LABORATORIO: "Laboratorio", RECETA: "Receta",
+  REFERENCIA: "Referencia", PERSONAL: "Personal", OTRO: "Otro",
+};
+
 function buildTaskEvent(task: {
   id: string;
   title: string;
@@ -111,6 +118,8 @@ function buildTaskEvent(task: {
   endTime?: string | null;
   priority: string;
   status: string;
+  category?: string | null;
+  conflictNote?: string;
 }) {
   if (!task.dueDate) return null;
 
@@ -120,11 +129,24 @@ function buildTaskEvent(task: {
   const colorId =
     task.priority === "ALTA" ? "11" : task.priority === "MEDIA" ? "5" : "10";
 
+  const meta: string[] = [];
+  if (task.category) meta.push(`Categoría: ${CATEGORY_LABELS[task.category] ?? task.category}`);
+  meta.push(`Prioridad: ${PRIORITY_LABELS[task.priority] ?? task.priority}`);
+  const descLines = [meta.join(' | ')];
+  if (task.description) {
+    descLines.push('');
+    descLines.push(task.description);
+  }
+  if (task.conflictNote) {
+    descLines.push('');
+    descLines.push(task.conflictNote);
+  }
+
   const isAllDay = !task.startTime || !task.endTime;
 
   return {
-    summary: `${priorityEmoji} ${task.title}`,
-    description: task.description ?? undefined,
+    summary: `${task.conflictNote ? '⚠️ ' : ''}${priorityEmoji} ${task.title}`,
+    description: descLines.join('\n'),
     colorId,
     ...(isAllDay
       ? { start: { date: dateStr }, end: { date: dateStr } }
@@ -144,6 +166,39 @@ function buildTaskEvent(task: {
   };
 }
 
+// ─── Conflict detection ───────────────────────────────────────────────────────
+
+// Returns a warning note if any PENDING/CONFIRMED slot overlaps the given task time.
+async function findSlotConflict(
+  doctorId: string,
+  dueDate: Date,
+  startTime: string,
+  endTime: string
+): Promise<string | undefined> {
+  try {
+    const slots = await prisma.appointmentSlot.findMany({
+      where: {
+        doctorId,
+        date: dueDate,
+        bookings: { some: { status: { in: ['PENDING', 'CONFIRMED'] } } },
+      },
+      include: {
+        bookings: {
+          where: { status: { in: ['PENDING', 'CONFIRMED'] } },
+          select: { patientName: true },
+          take: 1,
+        },
+      },
+    });
+    const hit = slots.find(s => s.startTime < endTime && s.endTime > startTime);
+    if (!hit) return undefined;
+    const patient = hit.bookings[0]?.patientName;
+    return `⚠️ Conflicto: cita${patient ? ` con ${patient}` : ''} a las ${hit.startTime}`;
+  } catch {
+    return undefined; // never break sync over a conflict check
+  }
+}
+
 // ─── Public sync functions (all fire-and-forget) ──────────────────────────────
 
 export async function syncTaskCreated(doctorId: string, task: {
@@ -155,6 +210,7 @@ export async function syncTaskCreated(doctorId: string, task: {
   endTime?: string | null;
   priority: string;
   status: string;
+  category?: string | null;
 }): Promise<void> {
   try {
     const userId = await getUserIdForDoctor(doctorId);
@@ -163,7 +219,12 @@ export async function syncTaskCreated(doctorId: string, task: {
     const tokens = await getValidToken(userId);
     if (!tokens) return;
 
-    const body = buildTaskEvent(task);
+    // Check for overlapping booked appointments (timed tasks only)
+    const conflictNote = (task.startTime && task.endTime && task.dueDate)
+      ? await findSlotConflict(doctorId, task.dueDate, task.startTime, task.endTime)
+      : undefined;
+
+    const body = buildTaskEvent({ ...task, conflictNote });
     if (!body) return;
 
     const res = await fetch(
@@ -201,6 +262,7 @@ export async function syncTaskUpdated(doctorId: string, task: {
   endTime?: string | null;
   priority: string;
   status: string;
+  category?: string | null;
   googleEventId?: string | null;
 }): Promise<void> {
   try {
@@ -216,7 +278,12 @@ export async function syncTaskUpdated(doctorId: string, task: {
     const tokens = await getValidToken(userId);
     if (!tokens) return;
 
-    const body = buildTaskEvent(task);
+    // Check for overlapping booked appointments (timed tasks only)
+    const conflictNote = (task.startTime && task.endTime && task.dueDate)
+      ? await findSlotConflict(doctorId, task.dueDate, task.startTime, task.endTime)
+      : undefined;
+
+    const body = buildTaskEvent({ ...task, conflictNote });
     if (!body) return;
 
     // If task is completed/cancelled, delete the event

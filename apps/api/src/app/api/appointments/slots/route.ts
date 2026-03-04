@@ -414,7 +414,7 @@ export async function POST(request: Request) {
             await prisma.appointmentSlot.update({ where: { id: slot.id }, data: { googleEventId: eventId } });
           } catch { /* continue with remaining slots */ }
         }
-      }).catch(() => {});
+      }).catch((err) => console.error('[GCal sync] createSlotEvent (single):', err));
 
       return NextResponse.json({
         success: true,
@@ -620,7 +620,7 @@ export async function POST(request: Request) {
             await prisma.appointmentSlot.update({ where: { id: slot.id }, data: { googleEventId: eventId } });
           } catch { /* continue with remaining slots */ }
         }
-      }).catch(() => {});
+      }).catch((err) => console.error('[GCal sync] createSlotEvent (recurring):', err));
 
       return NextResponse.json({
         success: true,
