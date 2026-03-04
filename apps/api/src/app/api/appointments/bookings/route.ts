@@ -11,6 +11,36 @@ import {
 } from '@/lib/sms';
 import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
+import { updateSlotEvent, resolveTokens } from '@/lib/google-calendar';
+
+async function getCalendarTokens(doctorId: string) {
+  const doctor = await prisma.doctor.findUnique({
+    where: { id: doctorId },
+    select: {
+      googleCalendarId: true,
+      googleCalendarEnabled: true,
+      user: {
+        select: {
+          id: true,
+          googleAccessToken: true,
+          googleRefreshToken: true,
+          googleTokenExpiry: true,
+        },
+      },
+    },
+  });
+  if (!doctor?.googleCalendarEnabled || !doctor.googleCalendarId || !doctor.user) return null;
+  try {
+    const { accessToken, refreshToken, updatedToken } = await resolveTokens(doctor.user);
+    if (updatedToken) {
+      await prisma.user.update({
+        where: { id: doctor.user.id },
+        data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
+      });
+    }
+    return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
+  } catch { return null; }
+}
 
 // Helper to generate confirmation code
 function generateConfirmationCode(): string {
@@ -129,6 +159,23 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    // Sync PENDING booking to Google Calendar (fire-and-forget)
+    if (slot.googleEventId) {
+      getCalendarTokens(slot.doctorId).then(async tokens => {
+        if (!tokens) return;
+        const dateStr = slot.date.toISOString().split('T')[0];
+        await updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!, {
+          id: slot.id,
+          date: dateStr,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isOpen: slot.isOpen,
+          patientName: `⏳ ${patientName}`,
+          finalPrice: Number(slot.finalPrice),
+        });
+      }).catch(() => {});
+    }
 
     // Send SMS notifications (async, non-blocking)
     const smsEnabled = await isSMSEnabled();

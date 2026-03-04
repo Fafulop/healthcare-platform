@@ -13,6 +13,36 @@ import {
   logBookingNoShow,
   logSlotDeleted,
 } from '@/lib/activity-logger';
+import { updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
+
+async function getCalendarTokens(doctorId: string) {
+  const doctor = await prisma.doctor.findUnique({
+    where: { id: doctorId },
+    select: {
+      googleCalendarId: true,
+      googleCalendarEnabled: true,
+      user: {
+        select: {
+          id: true,
+          googleAccessToken: true,
+          googleRefreshToken: true,
+          googleTokenExpiry: true,
+        },
+      },
+    },
+  });
+  if (!doctor?.googleCalendarEnabled || !doctor.googleCalendarId || !doctor.user) return null;
+  try {
+    const { accessToken, refreshToken, updatedToken } = await resolveTokens(doctor.user);
+    if (updatedToken) {
+      await prisma.user.update({
+        where: { id: doctor.user.id },
+        data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
+      });
+    }
+    return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
+  } catch { return null; }
+}
 
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -259,6 +289,23 @@ export async function PATCH(
       });
     }
 
+    // Sync slot event title to Google Calendar (fire-and-forget)
+    if (updatedBooking.slot.googleEventId) {
+      getCalendarTokens(currentBooking.doctorId).then(tokens => {
+        if (!tokens) return;
+        const dateStr = updatedBooking.slot.date.toISOString().split('T')[0];
+        updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, updatedBooking.slot.googleEventId!, {
+          id: updatedBooking.slot.id,
+          date: dateStr,
+          startTime: updatedBooking.slot.startTime,
+          endTime: updatedBooking.slot.endTime,
+          isOpen: updatedBooking.slot.isOpen,
+          patientName: newStatus === 'CONFIRMED' ? updatedBooking.patientName : undefined,
+          finalPrice: updatedBooking.slot.finalPrice.toNumber(),
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+
     const statusMessages: Record<string, string> = {
       CONFIRMED: 'Booking confirmed successfully',
       PENDING: 'Booking reverted to pending',
@@ -312,6 +359,14 @@ export async function DELETE(
 
     const slotId = booking.slotId;
     const slot = booking.slot;
+
+    // Sync deletion to Google Calendar before removing from DB (fire-and-forget)
+    if (slot.googleEventId) {
+      getCalendarTokens(slot.doctorId).then(tokens => {
+        if (!tokens) return;
+        deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!).catch(() => {});
+      }).catch(() => {});
+    }
 
     // Delete booking and slot in a single transaction
     await prisma.$transaction([

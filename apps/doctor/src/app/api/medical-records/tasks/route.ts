@@ -4,6 +4,7 @@ import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError, validateRequired } from '@/lib/api-error-handler';
 import { normalizeDate } from '@/lib/conflict-checker';
 import { logTaskCreated } from '@/lib/activity-logger';
+import { syncTaskCreated } from '@/lib/google-calendar-sync';
 
 // GET /api/medical-records/tasks
 export async function GET(request: NextRequest) {
@@ -214,6 +215,9 @@ export async function POST(request: NextRequest) {
       dueDate: task.dueDate || undefined,
       patientName: task.patient ? `${task.patient.firstName} ${task.patient.lastName}` : undefined,
     });
+
+    // Sync to Google Calendar (fire-and-forget)
+    syncTaskCreated(doctorId, task).catch(() => {});
 
     // Return task with optional warning about booked appointments
     const response: any = { data: task };

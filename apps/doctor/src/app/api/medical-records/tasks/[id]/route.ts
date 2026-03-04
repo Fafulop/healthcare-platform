@@ -4,6 +4,7 @@ import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { normalizeDate } from '@/lib/conflict-checker';
 import { logTaskUpdated, logTaskCompleted, logTaskStatusChanged, logTaskDeleted } from '@/lib/activity-logger';
+import { syncTaskUpdated, syncTaskDeleted } from '@/lib/google-calendar-sync';
 
 // GET /api/medical-records/tasks/[id]
 export async function GET(
@@ -218,6 +219,9 @@ export async function PUT(
       });
     }
 
+    // Sync to Google Calendar (fire-and-forget)
+    syncTaskUpdated(doctorId, { ...task, googleEventId: task.googleEventId }).catch(() => {});
+
     // Return task with optional warning about booked appointments
     const response: Record<string, unknown> = { data: task };
     if (bookedAppointmentWarning) {
@@ -248,6 +252,9 @@ export async function DELETE(
     if (!existing) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
+
+    // Sync deletion to Google Calendar (fire-and-forget, before DB delete)
+    syncTaskDeleted(doctorId, existing.googleEventId ?? null).catch(() => {});
 
     await prisma.task.delete({ where: { id } });
 

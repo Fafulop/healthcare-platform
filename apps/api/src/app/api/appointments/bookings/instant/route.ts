@@ -7,6 +7,36 @@ import { prisma } from '@healthcare/database';
 import crypto from 'crypto';
 import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
+import { createSlotEvent, resolveTokens } from '@/lib/google-calendar';
+
+async function getCalendarTokens(doctorId: string) {
+  const doctor = await prisma.doctor.findUnique({
+    where: { id: doctorId },
+    select: {
+      googleCalendarId: true,
+      googleCalendarEnabled: true,
+      user: {
+        select: {
+          id: true,
+          googleAccessToken: true,
+          googleRefreshToken: true,
+          googleTokenExpiry: true,
+        },
+      },
+    },
+  });
+  if (!doctor?.googleCalendarEnabled || !doctor.googleCalendarId || !doctor.user) return null;
+  try {
+    const { accessToken, refreshToken, updatedToken } = await resolveTokens(doctor.user);
+    if (updatedToken) {
+      await prisma.user.update({
+        where: { id: doctor.user.id },
+        data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
+      });
+    }
+    return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
+  } catch { return null; }
+}
 
 function generateConfirmationCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -159,6 +189,24 @@ export async function POST(request: Request) {
       confirmationCode,
       finalPrice,
     });
+
+    // Sync to Google Calendar (fire-and-forget)
+    getCalendarTokens(doctorId).then(async tokens => {
+      if (!tokens) return;
+      const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, {
+        id: slot!.id,
+        date,
+        startTime,
+        endTime,
+        isOpen: false,
+        patientName,
+        finalPrice,
+      });
+      await prisma.appointmentSlot.update({
+        where: { id: slot!.id },
+        data: { googleEventId: eventId },
+      });
+    }).catch(() => {});
 
     return NextResponse.json(
       {

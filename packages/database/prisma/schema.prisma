@@ -24,6 +24,11 @@ model User {
   doctorId  String?  @unique @map("doctor_id")
   doctor    Doctor?  @relation(fields: [doctorId], references: [id])
 
+  // Google Calendar OAuth tokens
+  googleAccessToken  String?   @map("google_access_token")
+  googleRefreshToken String?   @map("google_refresh_token")
+  googleTokenExpiry  DateTime? @map("google_token_expiry")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -91,6 +96,15 @@ model Doctor {
 
   // Google Ads - Per-doctor Ads account ID
   googleAdsId        String?   @map("google_ads_id")
+
+  // Google Calendar integration
+  googleCalendarId          String?   @map("google_calendar_id")
+  googleCalendarEnabled     Boolean   @default(false) @map("google_calendar_enabled")
+
+  // Google Calendar push notification channel (for bidirectional sync)
+  googleChannelId           String?   @map("google_channel_id")
+  googleChannelResourceId   String?   @map("google_channel_resource_id")
+  googleChannelExpiry       DateTime? @map("google_channel_expiry")
 
   // Relations
   user               User?     // 1:1 relation - optional (can have doctors without user accounts)
@@ -278,6 +292,9 @@ model AppointmentSlot {
   isOpen             Boolean     @default(true) @map("is_open") // true = patients can book, false = blocked by doctor
   maxBookings        Int         @default(1) @map("max_bookings")
   currentBookings    Int         @default(0) @map("current_bookings")
+
+  // Google Calendar sync
+  googleEventId      String?     @map("google_event_id")
 
   // Relations
   doctor             Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
@@ -1534,6 +1551,10 @@ model Task {
   category      String    @default("OTRO") @db.VarChar(20)
   patientId     String?   @map("patient_id")
   completedAt   DateTime? @map("completed_at")
+
+  // Google Calendar sync
+  googleEventId String?   @map("google_event_id")
+
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 

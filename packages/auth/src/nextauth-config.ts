@@ -12,6 +12,7 @@ export const authConfig: NextAuthConfig = {
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
+          scope: "openid email profile https://www.googleapis.com/auth/calendar",
         },
       },
     }),
@@ -54,6 +55,26 @@ export const authConfig: NextAuthConfig = {
         } catch (error) {
           console.error("[JWT CALLBACK] Error fetching user from API:", error);
           // Continue with existing token if API fails
+        }
+      }
+
+      // On fresh sign-in, account contains Google OAuth tokens — save them to DB.
+      // account is only present on the first jwt() call after OAuth login.
+      if (account?.provider === "google" && account.access_token) {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+          await fetch(`${apiUrl}/api/auth/google-calendar/tokens`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: user?.email || token.email,
+              accessToken: account.access_token,
+              refreshToken: account.refresh_token ?? null,
+              expiresAt: account.expires_at ? new Date(account.expires_at * 1000).toISOString() : null,
+            }),
+          });
+        } catch (error) {
+          console.error("[JWT CALLBACK] Error saving Google Calendar tokens:", error);
         }
       }
 
