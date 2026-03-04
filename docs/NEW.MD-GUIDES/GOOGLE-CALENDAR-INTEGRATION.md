@@ -614,8 +614,92 @@ The webhook always returns HTTP 200 to Google — a non-2xx response would stop 
 - [ ] Deploy code to Railway (git push to main)
 - [ ] Each doctor re-signs in with Google (to grant Calendar scope)
 - [ ] Test: go to `/dashboard/mi-perfil` → Integraciones tab → Conectar Google Calendar
-- [ ] Test end-to-end: drag a slot in Google Calendar → verify DB updates with correct time
-- [ ] Test end-to-end: cancel a booking in app → verify Google Calendar event reverts to "Disponible"
+- [ ] Run full test checklist below
+
+---
+
+## End-to-End Test Checklist
+
+Use this after connecting Google Calendar to verify all sync directions work correctly.
+
+### Setup
+- [ ] Doctor connected Google Calendar (`/dashboard/mi-perfil` → Integraciones → Conectar)
+- [ ] "tusalud.pro" calendar visible in Google Calendar app
+
+### Slots (App → GCal)
+
+| Action in app | Expected in Google Calendar |
+|---|---|
+| Create a single slot | New event: `"Disponible"` (teal) at correct date/time |
+| Create recurring slots (e.g. every Monday) | One teal event per slot, each at the right date/time |
+| Toggle slot closed (`isOpen = false`) | Event turns graphite, title becomes `"Bloqueado"` |
+| Toggle slot open again | Event returns to teal `"Disponible"` |
+| Edit slot time | Event start/end time updates |
+| Delete a slot | Event disappears from GCal |
+
+### Bookings (App → GCal)
+
+| Action in app | Expected in Google Calendar |
+|---|---|
+| Patient creates booking (PENDING) | Slot event title → `"Cita: ⏳ Nombre"` (green); description shows phone, email, notes |
+| Doctor confirms booking | Title → `"Cita: Nombre"`; description includes phone + notes |
+| Confirm booking that overlaps an active task | Title → `"⚠️ Cita: Nombre"`; description includes conflict note |
+| Cancel booking | Event reverts to `"Disponible"` (teal); description cleared |
+| Mark booking as Completed | Title → `"✓ Cita: Nombre"` (basil green); event stays in calendar as history |
+| Mark booking as No-Show | Title → `"✗ Cita: Nombre"` (graphite); event stays in calendar as history |
+| Delete booking+slot | Event disappears from GCal |
+
+### Tasks / Pendientes (App → GCal)
+
+| Action in app | Expected in Google Calendar |
+|---|---|
+| Create task with due date (no time) | All-day event: `"🔴/🟡/🟢 Título"`; description: `Categoría \| Prioridad` |
+| Create timed task (with start+end time) | Timed event at correct hours |
+| Create timed task overlapping a confirmed booking | Title → `"⚠️ 🔴 Título"`; description includes conflict note |
+| Edit task title / date / priority | GCal event updates accordingly |
+| Mark task as Completada | Event disappears from GCal |
+| Mark task as Cancelada | Event disappears from GCal |
+| Delete task | Event disappears from GCal |
+
+### Google Calendar → App (Webhook / bidirectional)
+
+| Action in Google Calendar | Expected in app DB |
+|---|---|
+| Drag a slot event to a new time (same day) | Slot `startTime` + `endTime` update |
+| Drag a slot event to a different day | Slot `date` updates |
+| Drag a timed task event to a new time | Task `startTime` + `endTime` update |
+| Drag a task event to a different day | Task `dueDate` updates |
+| Delete a slot event in GCal | Slot `isOpen` → `false` in DB |
+| Delete a task event in GCal | Task `status` → `CANCELADA` in DB |
+
+> **Note:** Webhook actions require a production deployment (public URL). Test these on Railway, not localhost.
+
+### Conflict Detection
+
+| Scenario | Expected |
+|---|---|
+| Confirm booking at 10:00–11:00 when a task exists at 10:30 | GCal slot event gets `⚠️` prefix + conflict note in description |
+| Create task at 10:00–11:00 when a CONFIRMED booking exists at 10:30 | GCal task event gets `⚠️` prefix + conflict note |
+| Cancel the conflicting task/booking | Re-save the other item; `⚠️` should no longer appear (or run resync) |
+
+### Resync ("Sincronizar ahora")
+
+| Scenario | Expected |
+|---|---|
+| Manually delete a GCal slot event, then resync | Event re-created in GCal; `googleEventId` restored in DB |
+| Delete a slot from the app without GCal sync (edge case) | Resync detects orphan GCal event and deletes it |
+| Connect calendar after creating several slots/tasks | Resync button pushes all existing records to GCal |
+| Result message after resync with changes | `"Sincronizado: N citas actualizadas, N eventos obsoletos eliminados."` |
+| Result message after resync with no changes | `"Todo sincronizado, sin cambios."` |
+
+### Token / Channel Health
+
+| Check | Expected |
+|---|---|
+| Integraciones tab → "Token válido hasta" | Shows a future date |
+| Integraciones tab → "Webhook válido hasta" | Shows a future date (amber + ⚠️ if < 3 days away) |
+| Let token expire, open dashboard | Amber banner appears: "Tu conexión con Google Calendar ha expirado" |
+| Click "Re-autenticarse" in banner | Google consent screen; after sign-in, tokens renewed |
 
 ---
 
