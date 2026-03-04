@@ -568,7 +568,7 @@ export default function NewPrescriptionPage() {
               <option value="">Ninguna consulta seleccionada</option>
               {encounters.map(encounter => (
                 <option key={encounter.id} value={encounter.id}>
-                  {formatDateString(encounter.encounterDate, 'es-MX')} - {encounter.chiefComplaint}
+                  {formatDateString(encounter.encounterDate)} - {encounter.chiefComplaint}
                 </option>
               ))}
             </select>
