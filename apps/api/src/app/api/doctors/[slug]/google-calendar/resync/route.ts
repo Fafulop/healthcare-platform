@@ -99,7 +99,7 @@ export async function POST(
 
     // ── 2. List all GCal events we created (source=tusalud.pro) ──────────────
 
-    const gcalEvents: Array<{ id?: string | null; extendedProperties?: { private?: Record<string, string> } }> = [];
+    const gcalEvents: Array<{ id?: string | null; extendedProperties?: { private?: Record<string, string> } | null }> = [];
     let pageToken: string | undefined;
     do {
       const { data } = await calendarApi.events.list({
