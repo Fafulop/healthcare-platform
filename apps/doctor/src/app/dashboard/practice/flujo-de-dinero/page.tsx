@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { Loader2, Plus, FolderTree } from 'lucide-react';
 import { useLedgerPage } from './_components/useLedgerPage';
 import { BalanceSummaryCards } from './_components/BalanceSummaryCards';
@@ -13,8 +12,6 @@ import { EntryDetailModal } from './_components/EntryDetailModal';
 
 export default function FlujoDeDineroPage() {
   const page = useLedgerPage();
-
-  if (page.sessionStatus === 'unauthenticated') redirect('/login');
 
   if (page.sessionStatus === 'loading' || page.loading) {
     return (
