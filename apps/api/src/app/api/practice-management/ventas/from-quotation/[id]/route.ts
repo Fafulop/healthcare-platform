@@ -66,7 +66,9 @@ export async function POST(
       try {
         sale = await prisma.$transaction(async (tx) => {
           const saleNumber = await generateSaleNumber(doctor.id, tx);
+          console.log('[from-quotation] saleNumber:', saleNumber);
           const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'ingreso', tx);
+          console.log('[from-quotation] ledgerInternalId:', ledgerInternalId);
 
           const newSale = await tx.sale.create({
             data: {
@@ -94,6 +96,7 @@ export async function POST(
             },
           });
 
+          console.log('[from-quotation] sale created:', newSale.id);
           const client = await tx.client.findUnique({ where: { id: quotation.clientId } });
 
           await tx.ledgerEntry.create({
@@ -116,6 +119,7 @@ export async function POST(
             },
           });
 
+          console.log('[from-quotation] ledger created');
           // Auto-approve the quotation
           await tx.quotation.update({
             where: { id: quotationId },
@@ -145,7 +149,7 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { error: 'Error interno del servidor', details: error.message },
+      { error: 'Error interno del servidor', details: error.message, code: error.code, meta: error.meta },
       { status: 500 }
     );
   }

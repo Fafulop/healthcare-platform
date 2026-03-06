@@ -120,7 +120,11 @@ export function useCotizacionesPage() {
     setLoading(true);
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/ventas/from-quotation/${quotation.id}`, { method: 'POST' });
-      if (!response.ok) throw new Error('Error al convertir cotización a venta');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const detail = [errData.code, errData.details || errData.error].filter(Boolean).join(': ');
+        throw new Error(detail || 'Error al convertir cotización a venta');
+      }
       const result = await response.json();
       setToastMessage({ message: `¡Venta creada exitosamente! Folio: ${result.data.saleNumber}`, type: 'success' });
       window.location.href = `/dashboard/practice/ventas/${result.data.id}`;
