@@ -14,12 +14,12 @@ interface Props {
   updatingAmountPaid: boolean;
   onToggleSelect: (id: number) => void;
   onToggleSelectAll: () => void;
-  onPurchaseStatusChange: (id: number, oldStatus: string, newStatus: string) => void;
+  onPurchaseStatusChange: (id: number, oldStatus: string, newStatus: string) => void | Promise<void>;
   onStartEditAmountPaid: (purchase: Purchase) => void;
   onSaveAmountPaid: (purchaseId: number, total: string) => void;
   onEditAmountPaidValueChange: (value: string) => void;
   onCancelEditAmountPaid: () => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number) => void | Promise<void>;
   onExportPDF: () => void;
   onDeselect: () => void;
   formatDate: (s: string) => string;

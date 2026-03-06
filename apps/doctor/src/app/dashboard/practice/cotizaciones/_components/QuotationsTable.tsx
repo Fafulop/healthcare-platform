@@ -14,9 +14,9 @@ interface Props {
   updatingId: number | null;
   onToggleSelect: (id: number) => void;
   onToggleSelectAll: () => void;
-  onStatusChange: (id: number, oldStatus: string, newStatus: string) => void;
-  onConvertToSale: (quotation: Quotation) => void;
-  onDelete: (quotation: Quotation) => void;
+  onStatusChange: (id: number, oldStatus: string, newStatus: string) => void | Promise<void>;
+  onConvertToSale: (quotation: Quotation) => void | Promise<void>;
+  onDelete: (quotation: Quotation) => void | Promise<void>;
   onExportPDF: () => void;
   onDeselect: () => void;
   formatDate: (s: string) => string;
