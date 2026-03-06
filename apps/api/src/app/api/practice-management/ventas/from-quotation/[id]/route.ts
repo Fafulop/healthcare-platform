@@ -138,7 +138,7 @@ export async function POST(
     if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Error interno del servidor', code: error.code }, { status: 500 });
   }
 }
 
