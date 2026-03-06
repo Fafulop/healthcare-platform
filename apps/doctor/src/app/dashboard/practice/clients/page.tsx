@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Trash2, Loader2, Users, Building2, FileText, ShoppingCart, Phone, Mail, MapPin } from "lucide-react";
+import { Search, Trash2, Loader2, Users, Building2, FileText, ShoppingCart, Phone, Mail, MapPin } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from '@/lib/practice-toast';
 import { practiceConfirm } from '@/lib/practice-confirm';
@@ -139,13 +139,6 @@ export default function ClientsPage() {
               <ShoppingCart className="w-5 h-5" />
               <span className="hidden sm:inline">Ventas</span>
             </Link>
-            <Link
-              href="/dashboard/practice/clients/new"
-              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-semibold"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Nuevo</span>
-            </Link>
           </div>
         </div>
       </div>
@@ -190,18 +183,6 @@ export default function ClientsPage() {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             {search || statusFilter !== 'all' ? 'No se encontraron clientes' : 'No hay clientes'}
           </h3>
-          <p className="text-gray-600 mb-4">
-            {!search && statusFilter === 'all' && 'Crea tu primer cliente para comenzar'}
-          </p>
-          {!search && statusFilter === 'all' && (
-            <Link
-              href="/dashboard/practice/clients/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Nuevo Cliente
-            </Link>
-          )}
         </div>
       ) : (
         <>
@@ -267,12 +248,6 @@ export default function ClientsPage() {
                     title="Crear cotización"
                   >
                     <FileText className="w-5 h-5" />
-                  </Link>
-                  <Link
-                    href={`/dashboard/practice/clients/${client.id}/edit`}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-5 h-5" />
                   </Link>
                   <button
                     onClick={() => handleDelete(client)}
@@ -357,13 +332,6 @@ export default function ClientsPage() {
                             title="Crear cotización"
                           >
                             <FileText className="w-4 h-4" />
-                          </Link>
-                          <Link
-                            href={`/dashboard/practice/clients/${client.id}/edit`}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-4 h-4" />
                           </Link>
                           <button
                             onClick={() => handleDelete(client)}
