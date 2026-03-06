@@ -61,15 +61,13 @@ export async function POST(
     }));
 
     // Retry loop to handle race conditions on saleNumber unique constraint
+    // Number generation must be OUTSIDE the transaction so each retry reads fresh DB state
     let sale: any = null;
     for (let attempt = 0; attempt < 10; attempt++) {
       try {
+        const saleNumber = await generateSaleNumber(doctor.id);
+        const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'ingreso');
         sale = await prisma.$transaction(async (tx) => {
-          const saleNumber = await generateSaleNumber(doctor.id, tx);
-          console.log('[from-quotation] saleNumber:', saleNumber);
-          const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'ingreso', tx);
-          console.log('[from-quotation] ledgerInternalId:', ledgerInternalId);
-
           const newSale = await tx.sale.create({
             data: {
               doctorId: doctor.id,
@@ -96,7 +94,6 @@ export async function POST(
             },
           });
 
-          console.log('[from-quotation] sale created:', newSale.id);
           const client = await tx.client.findUnique({ where: { id: quotation.clientId } });
 
           await tx.ledgerEntry.create({
@@ -119,7 +116,6 @@ export async function POST(
             },
           });
 
-          console.log('[from-quotation] ledger created');
           // Auto-approve the quotation
           await tx.quotation.update({
             where: { id: quotationId },
@@ -139,19 +135,10 @@ export async function POST(
     return NextResponse.json({ data: sale }, { status: 201 });
   } catch (error: any) {
     console.error('Error al convertir cotización a venta:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
-
-    if (error.message.includes('Doctor') || error.message.includes('access required')) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 403 }
-      );
+    if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
     }
-
-    return NextResponse.json(
-      { error: 'Error interno del servidor', details: error.message, code: error.code, meta: error.meta },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
 
