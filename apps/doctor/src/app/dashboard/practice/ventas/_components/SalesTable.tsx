@@ -99,7 +99,7 @@ export function SalesTable({
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConf.color}`}>{statusConf.icon} {statusConf.label}</span>
               </div>
               <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                <InlineStatusSelect currentStatus={sale.status} statuses={statusOptions} onStatusChange={(s) => onSaleStatusChange(sale.id, sale.status, s)} disabled={updatingId === sale.id} />
+                <InlineStatusSelect currentStatus={sale.status} statuses={statusOptions} onStatusChange={async (s) => { await onSaleStatusChange(sale.id, sale.status, s); }} disabled={updatingId === sale.id} />
                 <div className="flex items-center gap-1">
                   <Link href={`/dashboard/practice/ventas/${sale.id}`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-5 h-5" /></Link>
                   <Link href={`/dashboard/practice/ventas/${sale.id}/edit`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-5 h-5" /></Link>
@@ -195,7 +195,7 @@ export function SalesTable({
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${paymentConf.color}`}>{paymentConf.icon} {paymentConf.label}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <InlineStatusSelect currentStatus={sale.status} statuses={statusOptions} onStatusChange={(s) => onSaleStatusChange(sale.id, sale.status, s)} disabled={updatingId === sale.id} />
+                      <InlineStatusSelect currentStatus={sale.status} statuses={statusOptions} onStatusChange={async (s) => { await onSaleStatusChange(sale.id, sale.status, s); }} disabled={updatingId === sale.id} />
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">

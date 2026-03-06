@@ -104,7 +104,7 @@ export function QuotationsTable({
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>{config.icon} {config.label}</span>
               </div>
               <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                <InlineStatusSelect currentStatus={quotation.status} statuses={statusOptions} onStatusChange={(s) => onStatusChange(quotation.id, quotation.status, s)} disabled={updatingId === quotation.id} />
+                <InlineStatusSelect currentStatus={quotation.status} statuses={statusOptions} onStatusChange={async (s) => { await onStatusChange(quotation.id, quotation.status, s); }} disabled={updatingId === quotation.id} />
                 <div className="flex items-center gap-1">
                   <Link href={`/dashboard/practice/cotizaciones/${quotation.id}`} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"><Eye className="w-5 h-5" /></Link>
                   <Link href={`/dashboard/practice/cotizaciones/${quotation.id}/edit`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-5 h-5" /></Link>
@@ -161,7 +161,7 @@ export function QuotationsTable({
                       <div className="font-semibold text-gray-900">{formatCurrency(quotation.total)}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <InlineStatusSelect currentStatus={quotation.status} statuses={statusOptions} onStatusChange={(s) => onStatusChange(quotation.id, quotation.status, s)} disabled={updatingId === quotation.id} />
+                      <InlineStatusSelect currentStatus={quotation.status} statuses={statusOptions} onStatusChange={async (s) => { await onStatusChange(quotation.id, quotation.status, s); }} disabled={updatingId === quotation.id} />
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
