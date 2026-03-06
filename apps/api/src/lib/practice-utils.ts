@@ -30,12 +30,12 @@ function nextSequence(lastId: string | null | undefined, prefix: string): string
 }
 
 export async function generateSaleNumber(
-  doctorId: string,
+  _doctorId: string,
   tx: TxClient | PrismaClient = prisma
 ): Promise<string> {
   const prefix = `VTA-${new Date().getFullYear()}-`;
   const last = await (tx as PrismaClient).sale.findFirst({
-    where: { doctorId, saleNumber: { startsWith: prefix } },
+    where: { saleNumber: { startsWith: prefix } },
     orderBy: { saleNumber: 'desc' },
     select: { saleNumber: true },
   });
@@ -43,12 +43,12 @@ export async function generateSaleNumber(
 }
 
 export async function generatePurchaseNumber(
-  doctorId: string,
+  _doctorId: string,
   tx: TxClient | PrismaClient = prisma
 ): Promise<string> {
   const prefix = `CMP-${new Date().getFullYear()}-`;
   const last = await (tx as PrismaClient).purchase.findFirst({
-    where: { doctorId, purchaseNumber: { startsWith: prefix } },
+    where: { purchaseNumber: { startsWith: prefix } },
     orderBy: { purchaseNumber: 'desc' },
     select: { purchaseNumber: true },
   });
@@ -56,12 +56,12 @@ export async function generatePurchaseNumber(
 }
 
 export async function generateQuotationNumber(
-  doctorId: string,
+  _doctorId: string,
   tx: TxClient | PrismaClient = prisma
 ): Promise<string> {
   const prefix = `COT-${new Date().getFullYear()}-`;
   const last = await (tx as PrismaClient).quotation.findFirst({
-    where: { doctorId, quotationNumber: { startsWith: prefix } },
+    where: { quotationNumber: { startsWith: prefix } },
     orderBy: { quotationNumber: 'desc' },
     select: { quotationNumber: true },
   });
