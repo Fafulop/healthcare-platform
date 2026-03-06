@@ -125,27 +125,30 @@ export function SaleItemsSection({
                   </td>
                   <td className="px-4 py-3">
                     <input
+                      key={`${item.tempId}-disc-${item.discountRate}`}
                       type="number" min="0" max="100" step="0.01"
-                      value={(item.discountRate * 100).toFixed(2)}
-                      onChange={(e) => onUpdateDiscount(item.tempId, parseFloat(e.target.value) / 100 || 0)}
+                      defaultValue={+(item.discountRate * 100).toFixed(4)}
+                      onBlur={(e) => onUpdateDiscount(item.tempId, parseFloat(e.target.value) / 100 || 0)}
                       className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
                       placeholder="0"
                     />
                   </td>
                   <td className="px-4 py-3">
                     <input
+                      key={`${item.tempId}-tax-${item.taxRate}`}
                       type="number" min="0" max="100" step="0.01"
-                      value={(item.taxRate * 100).toFixed(2)}
-                      onChange={(e) => onUpdateTaxRate(item.tempId, parseFloat(e.target.value) / 100 || 0)}
+                      defaultValue={+(item.taxRate * 100).toFixed(4)}
+                      onBlur={(e) => onUpdateTaxRate(item.tempId, parseFloat(e.target.value) / 100 || 0)}
                       className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
                       placeholder="0"
                     />
                   </td>
                   <td className="px-4 py-3">
                     <input
+                      key={`${item.tempId}-tax2-${item.taxRate2}`}
                       type="number" min="0" max="100" step="0.01"
-                      value={(item.taxRate2 * 100).toFixed(2)}
-                      onChange={(e) => onUpdateTaxRate2(item.tempId, parseFloat(e.target.value) / 100 || 0)}
+                      defaultValue={+(item.taxRate2 * 100).toFixed(4)}
+                      onBlur={(e) => onUpdateTaxRate2(item.tempId, parseFloat(e.target.value) / 100 || 0)}
                       className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
                       placeholder="0"
                     />

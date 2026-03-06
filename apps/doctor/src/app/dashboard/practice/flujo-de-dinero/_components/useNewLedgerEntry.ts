@@ -93,13 +93,16 @@ export function useNewLedgerEntry() {
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
         try {
+          const entryAmount = entry.amount || 0;
+          const isPending = entry.paymentStatus === 'PENDING';
           const response = await authFetch(`${API_URL}/api/practice-management/ledger`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...entry,
-              amount: entry.amount || 0,
-              amountPaid: entry.amountPaid || 0,
+              amount: entryAmount,
+              amountPaid: isPending ? (entry.amountPaid ?? 0) : entryAmount,
+              paymentStatus: entry.paymentStatus || 'PAID',
             }),
           });
           if (!response.ok) {
@@ -173,7 +176,7 @@ export function useNewLedgerEntry() {
       bankAccount: ledgerData.bankAccount || null,
       formaDePago: ledgerData.formaDePago || null,
       bankMovementId: ledgerData.bankMovementId || null,
-      paymentOption: null,
+      paymentOption: ledgerData.paymentStatus === 'PENDING' ? 'pending' : ledgerData.paymentStatus === 'PAID' ? 'paid' : null,
     }]);
     setVoiceSidebarOpen(false);
     setSidebarInitialData(undefined);
@@ -211,7 +214,7 @@ export function useNewLedgerEntry() {
       bankAccount: e.bankAccount || undefined,
       formaDePago: (e.formaDePago as VoiceLedgerEntryData['formaDePago']) || undefined,
       bankMovementId: e.bankMovementId || undefined,
-      paymentOption: e.paymentOption || undefined,
+      paymentStatus: e.paymentOption === 'pending' ? 'PENDING' : e.paymentOption === 'paid' ? 'PAID' : undefined,
     }));
     await handleBatchEntryCreation(mapped);
     setAccumulatedEntries([]);

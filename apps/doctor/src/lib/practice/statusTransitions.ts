@@ -33,8 +33,8 @@ const salesTransitions: Record<SaleStatus, SaleStatus[]> = {
   CONFIRMED: ['PROCESSING', 'CANCELLED'],
   PROCESSING: ['SHIPPED', 'CANCELLED'],
   SHIPPED: ['DELIVERED', 'CANCELLED'],
-  DELIVERED: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'CANCELLED'], // Allow reverting delivered status
-  CANCELLED: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'], // Allow reverting cancelled status
+  DELIVERED: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'CANCELLED'],
+  CANCELLED: [], // Terminal state — cannot be reversed (ledger entry is permanently deleted)
 };
 
 /**
@@ -149,8 +149,8 @@ const purchaseTransitions: Record<PurchaseStatus, PurchaseStatus[]> = {
   CONFIRMED: ['PROCESSING', 'CANCELLED'],
   PROCESSING: ['SHIPPED', 'CANCELLED'],
   SHIPPED: ['RECEIVED', 'CANCELLED'],
-  RECEIVED: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'CANCELLED'], // Allow reverting received status
-  CANCELLED: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'RECEIVED'], // Allow reverting cancelled status
+  RECEIVED: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'CANCELLED'],
+  CANCELLED: [], // Terminal state — cannot be reversed (ledger entry is permanently deleted)
 };
 
 /**

@@ -35,6 +35,13 @@ export async function PATCH(
       );
     }
 
+    if (status !== undefined && existingSale.status === 'CANCELLED') {
+      return NextResponse.json(
+        { error: 'Una venta cancelada no puede cambiar de estado' },
+        { status: 422 }
+      );
+    }
+
     const saleUpdate: any = {};
     if (status !== undefined) saleUpdate.status = status;
     if (amountPaid !== undefined) {

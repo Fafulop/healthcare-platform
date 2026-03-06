@@ -121,7 +121,9 @@ export async function POST(request: NextRequest) {
       transactionDate,
       area,
       subarea,
-      porRealizar
+      porRealizar,
+      amountPaid,
+      paymentStatus,
     } = body;
 
     // Validation - required fields
@@ -209,6 +211,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Default to fully paid unless caller explicitly sets pending
+    const finalAmountPaid = amountPaid !== undefined ? parseFloat(String(amountPaid)) : amount;
+    const finalPaymentStatus = paymentStatus || (finalAmountPaid >= amount ? 'PAID' : finalAmountPaid > 0 ? 'PARTIAL' : 'PENDING');
+
     // Create ledger entry (no auto-creation of sales/purchases)
     const entry = await prisma.ledgerEntry.create({
       data: {
@@ -224,9 +230,9 @@ export async function POST(request: NextRequest) {
         area: area?.trim() || null,
         subarea: subarea?.trim() || null,
         porRealizar: porRealizar || false,
-        transactionType: txType
-        // Note: saleId, purchaseId, clientId, supplierId, paymentStatus, amountPaid
-        // are only set when ledger entries are auto-created from ventas/compras modules
+        transactionType: txType,
+        amountPaid: finalAmountPaid,
+        paymentStatus: finalPaymentStatus,
       },
       include: {
         attachments: true,
