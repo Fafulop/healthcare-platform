@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
-import { Plus, Search, Loader2, Users, ShoppingCart } from "lucide-react";
+import { Plus, Search, Loader2, ShoppingCart } from "lucide-react";
 import Toast from "@/components/ui/Toast";
 import { useCotizacionesPage } from './_components/useCotizacionesPage';
 import { QuotationsTable } from './_components/QuotationsTable';
@@ -55,9 +55,6 @@ export default function CotizacionesPage() {
               <p className="text-gray-600 mt-1 text-sm sm:text-base">Gestiona las cotizaciones para tus clientes</p>
             </div>
             <div className="flex gap-2">
-              <Link href="/dashboard/practice/clients" className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors font-semibold">
-                <Users className="w-5 h-5" /><span className="hidden sm:inline">Clientes</span>
-              </Link>
               <Link href="/dashboard/practice/ventas" className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors font-semibold">
                 <ShoppingCart className="w-5 h-5" /><span className="hidden sm:inline">Ventas</span>
               </Link>

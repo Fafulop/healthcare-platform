@@ -455,12 +455,6 @@ export default function FlujoDeDineroDetailPage() {
                     {entry.client.contactName && (
                       <p className="text-sm text-gray-600 mt-1">{entry.client.contactName}</p>
                     )}
-                    <Link
-                      href={`/dashboard/practice/clients/${entry.client.id}`}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium hover:underline mt-2 inline-block"
-                    >
-                      Ver perfil del cliente →
-                    </Link>
                   </div>
                 )}
                 {entry.supplier && (

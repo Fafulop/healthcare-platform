@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
-import { Plus, Search, Loader2, FileText, Users } from "lucide-react";
+import { Plus, Search, Loader2, FileText } from "lucide-react";
 import Toast from "@/components/ui/Toast";
 import { useVentasPage } from './_components/useVentasPage';
 import { SalesTable } from './_components/SalesTable';
@@ -59,9 +59,6 @@ export default function VentasPage() {
               <p className="text-gray-600 mt-1 text-sm sm:text-base">Gestiona tus ventas confirmadas</p>
             </div>
             <div className="flex gap-2">
-              <Link href="/dashboard/practice/clients" className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors font-semibold">
-                <Users className="w-5 h-5" /><span className="hidden sm:inline">Clientes</span>
-              </Link>
               <Link href="/dashboard/practice/cotizaciones" className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors font-semibold">
                 <FileText className="w-5 h-5" /><span className="hidden sm:inline">Cotizaciones</span>
               </Link>

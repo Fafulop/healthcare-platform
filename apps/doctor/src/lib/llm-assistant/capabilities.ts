@@ -323,7 +323,6 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
       '/dashboard/practice/cotizaciones',
       '/dashboard/practice/flujo-de-dinero',
       '/dashboard/practice/products',
-      '/dashboard/practice/clients',
       '/dashboard/practice/proveedores',
       '/dashboard/practice/areas',
       '/dashboard/practice/master-data',
