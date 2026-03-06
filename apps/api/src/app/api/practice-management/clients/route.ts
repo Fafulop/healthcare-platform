@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { parsePagination, buildPaginationMeta } from '@/lib/practice-utils';
 
 // GET /api/practice-management/clients
 // Get all clients for authenticated doctor with optional filtering
@@ -28,12 +29,18 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const clients = await prisma.client.findMany({
-      where,
-      orderBy: { businessName: 'asc' }
-    });
+    const pagination = parsePagination(searchParams, 200);
+    const [total, clients] = await prisma.$transaction([
+      prisma.client.count({ where }),
+      prisma.client.findMany({
+        where,
+        orderBy: { businessName: 'asc' },
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+    ]);
 
-    return NextResponse.json({ data: clients });
+    return NextResponse.json({ data: clients, pagination: buildPaginationMeta(total, pagination) });
   } catch (error: any) {
     console.error('Error fetching clients:', error);
 

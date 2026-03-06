@@ -1,116 +1,144 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { calculatePaymentStatus, computeItemTotals } from '@/lib/practice-utils';
 
-// Helper function to auto-calculate payment status based on amount paid
-function calculatePaymentStatus(amountPaid: number, total: number): 'PENDING' | 'PARTIAL' | 'PAID' {
-  if (amountPaid === 0) {
-    return 'PENDING';
-  } else if (amountPaid >= total) {
-    return 'PAID';
-  } else {
-    return 'PARTIAL';
+// PATCH /api/practice-management/ventas/:id
+// Lightweight partial update: { status } or { amountPaid }
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const { id } = await params;
+    const saleId = parseInt(id);
+
+    if (isNaN(saleId)) {
+      return NextResponse.json({ error: 'ID de venta inválido' }, { status: 400 });
+    }
+
+    const existingSale = await prisma.sale.findFirst({
+      where: { id: saleId, doctorId: doctor.id },
+    });
+    if (!existingSale) {
+      return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const { status, amountPaid } = body;
+
+    if (status !== undefined && !VALID_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: `Estado inválido. Valores permitidos: ${VALID_STATUSES.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    const saleUpdate: any = {};
+    if (status !== undefined) saleUpdate.status = status;
+    if (amountPaid !== undefined) {
+      const paid = parseFloat(amountPaid);
+      const total = parseFloat(existingSale.total.toString());
+      saleUpdate.amountPaid = paid;
+      saleUpdate.paymentStatus = calculatePaymentStatus(paid, total);
+    }
+
+    if (Object.keys(saleUpdate).length === 0) {
+      return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
+    }
+
+    const sale = await prisma.$transaction(async (tx) => {
+      const updated = await tx.sale.update({ where: { id: saleId }, data: saleUpdate });
+
+      const linkedLedger = await tx.ledgerEntry.findFirst({
+        where: { saleId, doctorId: doctor.id },
+      });
+
+      if (linkedLedger) {
+        if (saleUpdate.status === 'CANCELLED') {
+          await tx.ledgerEntry.delete({ where: { id: linkedLedger.id } });
+        } else {
+          const ledgerUpdate: any = {};
+          if (saleUpdate.paymentStatus !== undefined) ledgerUpdate.paymentStatus = saleUpdate.paymentStatus;
+          if (saleUpdate.amountPaid !== undefined) ledgerUpdate.amountPaid = saleUpdate.amountPaid;
+          if (Object.keys(ledgerUpdate).length > 0) {
+            await tx.ledgerEntry.update({ where: { id: linkedLedger.id }, data: ledgerUpdate });
+          }
+        }
+      }
+
+      return updated;
+    });
+
+    return NextResponse.json({ data: sale });
+  } catch (error: any) {
+    console.error('Error al actualizar venta (patch):', error);
+    if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
 
+const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const;
+
 // GET /api/practice-management/ventas/:id
-// Obtener venta específica
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
-    const resolvedParams = await params;
-    const saleId = parseInt(resolvedParams.id);
+    const { id } = await params;
+    const saleId = parseInt(id);
 
     if (isNaN(saleId)) {
-      return NextResponse.json(
-        { error: 'ID de venta inválido' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'ID de venta inválido' }, { status: 400 });
     }
 
     const sale = await prisma.sale.findFirst({
-      where: {
-        id: saleId,
-        doctorId: doctor.id
-      },
+      where: { id: saleId, doctorId: doctor.id },
       include: {
         client: true,
-        quotation: {
-          select: {
-            id: true,
-            quotationNumber: true,
-            issueDate: true
-          }
-        },
-        items: {
-          include: {
-            product: true
-          },
-          orderBy: { order: 'asc' }
-        }
-      }
+        quotation: { select: { id: true, quotationNumber: true, issueDate: true } },
+        items: { include: { product: true }, orderBy: { order: 'asc' } },
+      },
     });
 
     if (!sale) {
-      return NextResponse.json(
-        { error: 'Venta no encontrada' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
     }
 
     return NextResponse.json({ data: sale });
   } catch (error: any) {
     console.error('Error al obtener venta:', error);
-
-    if (error.message.includes('Doctor') || error.message.includes('access required')) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 403 }
-      );
+    if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
     }
-
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
 
 // PUT /api/practice-management/ventas/:id
-// Actualizar venta
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
-    const resolvedParams = await params;
-    const saleId = parseInt(resolvedParams.id);
-    const body = await request.json();
+    const { id } = await params;
+    const saleId = parseInt(id);
 
     if (isNaN(saleId)) {
-      return NextResponse.json(
-        { error: 'ID de venta inválido' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'ID de venta inválido' }, { status: 400 });
     }
 
-    // Verificar propiedad
     const existingSale = await prisma.sale.findFirst({
-      where: {
-        id: saleId,
-        doctorId: doctor.id
-      }
+      where: { id: saleId, doctorId: doctor.id },
     });
-
     if (!existingSale) {
-      return NextResponse.json(
-        { error: 'Venta no encontrada' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
     }
 
     const {
@@ -122,11 +150,9 @@ export async function PUT(
       termsAndConditions,
       taxRate,
       status,
-      paymentStatus,
-      amountPaid
-    } = body;
+      amountPaid,
+    } = await request.json();
 
-    // Validar items
     if (!items || items.length === 0) {
       return NextResponse.json(
         { error: 'Debe agregar al menos un producto o servicio' },
@@ -134,187 +160,114 @@ export async function PUT(
       );
     }
 
-    // Calcular totales
-    let subtotal = 0;
-    let totalTax = 0;
-    const saleItems = items.map((item: any, index: number) => {
-      const baseAmount = parseFloat(item.quantity) * parseFloat(item.unitPrice);
-      const discountRate = item.discountRate !== undefined ? parseFloat(item.discountRate) : 0;
-      const discountAmount = baseAmount * discountRate;
-      const itemSubtotal = baseAmount - discountAmount;
-      const itemTaxRate = item.taxRate !== undefined ? parseFloat(item.taxRate) : 0.16;
-      const itemTaxAmount = itemSubtotal * itemTaxRate;
-
-      subtotal += itemSubtotal;
-      totalTax += itemTaxAmount;
-
-      return {
-        productId: item.productId || null,
-        itemType: item.itemType || 'product',
-        description: item.description,
-        sku: item.sku || null,
-        quantity: parseFloat(item.quantity),
-        unit: item.unit || null,
-        unitPrice: parseFloat(item.unitPrice),
-        discountRate: discountRate,
-        taxRate: itemTaxRate,
-        taxAmount: itemTaxAmount,
-        subtotal: itemSubtotal,
-        order: index
-      };
-    });
-
-    const taxRateValue = taxRate !== undefined ? parseFloat(taxRate) : 0.16;
-    const total = subtotal + totalTax;
-
-    // Eliminar items existentes y crear nuevos
-    await prisma.saleItem.deleteMany({
-      where: { saleId }
-    });
-
-    // Actualizar venta
-    const sale = await prisma.sale.update({
-      where: { id: saleId },
-      data: {
-        clientId: clientId ? parseInt(clientId) : existingSale.clientId,
-        saleDate: saleDate ? new Date(saleDate) : existingSale.saleDate,
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : existingSale.deliveryDate,
-        status: status || existingSale.status,
-        paymentStatus: calculatePaymentStatus(
-          amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingSale.amountPaid?.toString() || '0'),
-          total
-        ),
-        amountPaid: amountPaid !== undefined ? parseFloat(amountPaid) : existingSale.amountPaid,
-        subtotal,
-        taxRate: taxRateValue,
-        tax: totalTax,
-        total,
-        notes: notes?.trim() || null,
-        termsAndConditions: termsAndConditions?.trim() || null,
-        items: {
-          create: saleItems
-        }
-      },
-      include: {
-        client: true,
-        quotation: true,
-        items: {
-          include: {
-            product: true
-          },
-          orderBy: { order: 'asc' }
-        }
-      }
-    });
-
-    // SYNC: Update or delete linked ledger entry
-    const linkedLedgerEntry = await prisma.ledgerEntry.findFirst({
-      where: {
-        saleId: saleId,
-        doctorId: doctor.id
-      }
-    });
-
-    if (linkedLedgerEntry) {
-      const finalStatus = status || existingSale.status;
-
-      // If cancelled, delete the ledger entry
-      if (finalStatus === 'CANCELLED') {
-        await prisma.ledgerEntry.delete({
-          where: { id: linkedLedgerEntry.id }
-        });
-      } else {
-        // Otherwise, sync the ledger entry
-        const finalAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingSale.amountPaid?.toString() || '0');
-        await prisma.ledgerEntry.update({
-          where: { id: linkedLedgerEntry.id },
-          data: {
-            amount: total,
-            paymentStatus: calculatePaymentStatus(finalAmountPaid, total),
-            amountPaid: finalAmountPaid
-          }
-        });
-      }
+    if (status && !VALID_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: `Estado inválido. Valores permitidos: ${VALID_STATUSES.join(', ')}` },
+        { status: 400 }
+      );
     }
+
+    const { subtotal, totalTax, total, items: saleItems } = computeItemTotals(items);
+    const taxRateValue = taxRate !== undefined ? parseFloat(taxRate) : 0.16;
+    const finalAmountPaid =
+      amountPaid !== undefined
+        ? parseFloat(amountPaid)
+        : parseFloat(existingSale.amountPaid?.toString() || '0');
+    const finalStatus = status || existingSale.status;
+
+    const sale = await prisma.$transaction(async (tx) => {
+      // Replace items atomically
+      await tx.saleItem.deleteMany({ where: { saleId } });
+
+      const updatedSale = await tx.sale.update({
+        where: { id: saleId },
+        data: {
+          clientId: clientId ? parseInt(clientId) : existingSale.clientId,
+          saleDate: saleDate ? new Date(saleDate) : existingSale.saleDate,
+          deliveryDate: deliveryDate !== undefined ? (deliveryDate ? new Date(deliveryDate) : null) : existingSale.deliveryDate,
+          status: finalStatus,
+          paymentStatus: calculatePaymentStatus(finalAmountPaid, total),
+          amountPaid: finalAmountPaid,
+          subtotal,
+          taxRate: taxRateValue,
+          tax: totalTax,
+          total,
+          notes: notes?.trim() || null,
+          termsAndConditions: termsAndConditions?.trim() || null,
+          items: { create: saleItems },
+        },
+        include: {
+          client: true,
+          quotation: true,
+          items: { include: { product: true }, orderBy: { order: 'asc' } },
+        },
+      });
+
+      // Sync linked ledger entry
+      const linkedLedger = await tx.ledgerEntry.findFirst({
+        where: { saleId, doctorId: doctor.id },
+      });
+
+      if (linkedLedger) {
+        if (finalStatus === 'CANCELLED') {
+          await tx.ledgerEntry.delete({ where: { id: linkedLedger.id } });
+        } else {
+          await tx.ledgerEntry.update({
+            where: { id: linkedLedger.id },
+            data: {
+              amount: total,
+              paymentStatus: calculatePaymentStatus(finalAmountPaid, total),
+              amountPaid: finalAmountPaid,
+            },
+          });
+        }
+      }
+
+      return updatedSale;
+    });
 
     return NextResponse.json({ data: sale });
   } catch (error: any) {
     console.error('Error al actualizar venta:', error);
-
-    if (error.message.includes('Doctor') || error.message.includes('access required')) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 403 }
-      );
+    if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
     }
-
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
 
 // DELETE /api/practice-management/ventas/:id
-// Eliminar venta
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
-    const resolvedParams = await params;
-    const saleId = parseInt(resolvedParams.id);
+    const { id } = await params;
+    const saleId = parseInt(id);
 
     if (isNaN(saleId)) {
-      return NextResponse.json(
-        { error: 'ID de venta inválido' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'ID de venta inválido' }, { status: 400 });
     }
 
-    // Verificar propiedad
     const existingSale = await prisma.sale.findFirst({
-      where: {
-        id: saleId,
-        doctorId: doctor.id
-      }
+      where: { id: saleId, doctorId: doctor.id },
     });
-
     if (!existingSale) {
-      return NextResponse.json(
-        { error: 'Venta no encontrada' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
     }
 
-    // Delete linked ledger entry first
-    await prisma.ledgerEntry.deleteMany({
-      where: {
-        saleId: saleId,
-        doctorId: doctor.id
-      }
-    });
+    await prisma.$transaction([
+      prisma.ledgerEntry.deleteMany({ where: { saleId, doctorId: doctor.id } }),
+      prisma.sale.delete({ where: { id: saleId } }),
+    ]);
 
-    // Eliminar venta (cascada a items)
-    await prisma.sale.delete({
-      where: { id: saleId }
-    });
-
-    return NextResponse.json({ success: true }, { status: 200 });
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error al eliminar venta:', error);
-
-    if (error.message.includes('Doctor') || error.message.includes('access required')) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 403 }
-      );
+    if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
     }
-
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }

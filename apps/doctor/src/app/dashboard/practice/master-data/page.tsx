@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Edit2, Trash2, Loader2, Database, ChevronDown, ChevronRight, ArrowLeft, DollarSign } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from '@/lib/practice-toast';
+import { practiceConfirm } from '@/lib/practice-confirm';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -228,7 +230,7 @@ export default function MasterDataPage() {
 
   const handleDeleteAttribute = async (attribute: Attribute) => {
     if (!session?.user?.email) return;
-    if (!confirm(`¿Eliminar "${attribute.name}"? Esto eliminará todos sus valores.`)) return;
+    if (!await practiceConfirm(`¿Eliminar "${attribute.name}"? Esto eliminará todos sus valores.`)) return;
 
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/product-attributes/${attribute.id}`, {
@@ -239,13 +241,13 @@ export default function MasterDataPage() {
       await fetchAttributes();
     } catch (err) {
       console.error('Error deleting attribute:', err);
-      alert('Error al eliminar atributo');
+      toast.error('Error al eliminar atributo');
     }
   };
 
   const handleDeleteValue = async (attribute: Attribute, value: AttributeValue) => {
     if (!session?.user?.email) return;
-    if (!confirm(`¿Eliminar "${value.value}"?`)) return;
+    if (!await practiceConfirm(`¿Eliminar "${value.value}"?`)) return;
 
     try {
       const response = await authFetch(
@@ -259,7 +261,7 @@ export default function MasterDataPage() {
       await fetchAttributes();
     } catch (err) {
       console.error('Error deleting value:', err);
-      alert('Error al eliminar valor');
+      toast.error('Error al eliminar valor');
     }
   };
 

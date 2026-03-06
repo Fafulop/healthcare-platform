@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { parsePagination, buildPaginationMeta } from '@/lib/practice-utils';
 
 // GET /api/practice-management/products
 // Get all products for authenticated doctor with optional filtering
@@ -40,24 +41,24 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const products = await prisma.product.findMany({
-      where,
-      include: {
-        components: {
-          include: {
-            attributeValue: {
-              include: {
-                attribute: true
-              }
-            }
+    const pagination = parsePagination(searchParams, 200);
+    const [total, products] = await prisma.$transaction([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        include: {
+          components: {
+            include: { attributeValue: { include: { attribute: true } } },
+            orderBy: { order: 'asc' },
           },
-          orderBy: { order: 'asc' }
-        }
-      },
-      orderBy: { name: 'asc' }
-    });
+        },
+        orderBy: { name: 'asc' },
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+    ]);
 
-    return NextResponse.json({ data: products });
+    return NextResponse.json({ data: products, pagination: buildPaginationMeta(total, pagination) });
   } catch (error: any) {
     console.error('Error fetching products:', error);
 

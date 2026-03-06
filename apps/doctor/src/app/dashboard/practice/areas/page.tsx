@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from '@/lib/practice-toast';
+import { practiceConfirm } from '@/lib/practice-confirm';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -229,7 +231,7 @@ export default function AreasPage() {
 
   const handleDeleteArea = async (area: Area) => {
     if (!session?.user?.email) return;
-    if (!confirm(`¿Estás seguro de eliminar "${area.name}"? Esto también eliminará todas las subáreas.`)) return;
+    if (!await practiceConfirm(`¿Estás seguro de eliminar "${area.name}"? Esto también eliminará todas las subáreas.`)) return;
 
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/areas/${area.id}`, {
@@ -243,13 +245,13 @@ export default function AreasPage() {
       await fetchAreas();
     } catch (err) {
       console.error('Error deleting area:', err);
-      alert('Error al eliminar área');
+      toast.error('Error al eliminar área');
     }
   };
 
   const handleDeleteSubarea = async (area: Area, subarea: Subarea) => {
     if (!session?.user?.email) return;
-    if (!confirm(`¿Estás seguro de eliminar "${subarea.name}"?`)) return;
+    if (!await practiceConfirm(`¿Estás seguro de eliminar "${subarea.name}"?`)) return;
 
     try {
       const response = await authFetch(
@@ -266,7 +268,7 @@ export default function AreasPage() {
       await fetchAreas();
     } catch (err) {
       console.error('Error deleting subarea:', err);
-      alert('Error al eliminar subárea');
+      toast.error('Error al eliminar subárea');
     }
   };
 

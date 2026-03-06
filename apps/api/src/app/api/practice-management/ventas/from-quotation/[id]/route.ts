@@ -1,31 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-
-// Helper function to generate ledger internal ID
-async function generateLedgerInternalId(doctorId: string, entryType: string): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = entryType === 'ingreso' ? `ING-${year}-` : `EGR-${year}-`;
-
-  const lastEntry = await prisma.ledgerEntry.findFirst({
-    where: {
-      doctorId,
-      internalId: { startsWith: prefix }
-    },
-    orderBy: { internalId: 'desc' }
-  });
-
-  let nextNumber = 1;
-  if (lastEntry) {
-    const parts = lastEntry.internalId.split('-');
-    const lastNumber = parseInt(parts[2]);
-    if (!isNaN(lastNumber)) {
-      nextNumber = lastNumber + 1;
-    }
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
-}
+import { generateSaleNumber, generateLedgerInternalId } from '@/lib/practice-utils';
 
 // POST /api/practice-management/ventas/from-quotation/:id
 // Convertir cotización a venta
@@ -65,15 +41,10 @@ export async function POST(
       );
     }
 
-    // Generar número de venta
-    const saleNumber = await generateSaleNumber(doctor.id);
-
-    // Calcular totales (reusar cálculos de la cotización)
     const subtotal = parseFloat(quotation.subtotal.toString());
     const tax = quotation.tax ? parseFloat(quotation.tax.toString()) : 0;
     const total = parseFloat(quotation.total.toString());
 
-    // Convertir items de cotización a items de venta
     const saleItems = quotation.items.map((item, index) => ({
       productId: item.productId,
       itemType: item.itemType,
@@ -86,74 +57,80 @@ export async function POST(
       taxRate: item.taxRate ? parseFloat(item.taxRate.toString()) : 0.16,
       taxAmount: item.taxAmount ? parseFloat(item.taxAmount.toString()) : 0,
       subtotal: parseFloat(item.subtotal.toString()),
-      order: index
+      order: index,
     }));
 
-    // Crear venta vinculada a la cotización
-    const sale = await prisma.sale.create({
-      data: {
-        doctorId: doctor.id,
-        clientId: quotation.clientId,
-        quotationId: quotation.id,
-        saleNumber,
-        saleDate: new Date(),
-        deliveryDate: null,
-        status: 'PENDING',
-        paymentStatus: 'PENDING',
-        amountPaid: 0,
-        subtotal,
-        taxRate: quotation.taxRate ? parseFloat(quotation.taxRate.toString()) : 0.16,
-        tax,
-        total,
-        notes: quotation.notes,
-        termsAndConditions: quotation.termsAndConditions,
-        items: {
-          create: saleItems
-        }
-      },
-      include: {
-        client: true,
-        quotation: {
-          select: {
-            id: true,
-            quotationNumber: true,
-            issueDate: true
-          }
-        },
-        items: {
-          include: {
-            product: true
-          },
-          orderBy: { order: 'asc' }
-        }
-      }
-    });
+    // Retry loop to handle race conditions on saleNumber unique constraint
+    let sale: any = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      try {
+        sale = await prisma.$transaction(async (tx) => {
+          const saleNumber = await generateSaleNumber(doctor.id, tx);
+          const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'ingreso', tx);
 
-    // AUTO-CREATE LEDGER ENTRY for the sale (same as direct sale creation)
-    const client = await prisma.client.findUnique({
-      where: { id: quotation.clientId }
-    });
+          const newSale = await tx.sale.create({
+            data: {
+              doctorId: doctor.id,
+              clientId: quotation.clientId,
+              quotationId: quotation.id,
+              saleNumber,
+              saleDate: new Date(),
+              deliveryDate: null,
+              status: 'PENDING',
+              paymentStatus: 'PENDING',
+              amountPaid: 0,
+              subtotal,
+              taxRate: quotation.taxRate ? parseFloat(quotation.taxRate.toString()) : 0.16,
+              tax,
+              total,
+              notes: quotation.notes,
+              termsAndConditions: quotation.termsAndConditions,
+              items: { create: saleItems },
+            },
+            include: {
+              client: true,
+              quotation: { select: { id: true, quotationNumber: true, issueDate: true } },
+              items: { include: { product: true }, orderBy: { order: 'asc' } },
+            },
+          });
 
-    const ledgerInternalId = await generateLedgerInternalId(doctor.id, 'ingreso');
-    await prisma.ledgerEntry.create({
-      data: {
-        doctorId: doctor.id,
-        amount: total,
-        concept: `Venta ${saleNumber} - Cliente: ${client?.businessName || 'Sin nombre'}`,
-        entryType: 'ingreso',
-        transactionDate: new Date(),
-        area: 'Ventas',
-        subarea: 'Ventas Generales',
-        porRealizar: false,
-        internalId: ledgerInternalId,
-        transactionType: 'VENTA',
-        saleId: sale.id,
-        clientId: quotation.clientId,
-        paymentStatus: 'PENDING',
-        amountPaid: 0,
-        formaDePago: 'transferencia'
+          const client = await tx.client.findUnique({ where: { id: quotation.clientId } });
+
+          await tx.ledgerEntry.create({
+            data: {
+              doctorId: doctor.id,
+              amount: total,
+              concept: `Venta ${saleNumber} - Cliente: ${client?.businessName || 'Sin nombre'}`,
+              entryType: 'ingreso',
+              transactionDate: new Date(),
+              area: 'Ventas',
+              subarea: 'Ventas Generales',
+              porRealizar: false,
+              internalId: ledgerInternalId,
+              transactionType: 'VENTA',
+              saleId: newSale.id,
+              clientId: quotation.clientId,
+              paymentStatus: 'PENDING',
+              amountPaid: 0,
+              formaDePago: 'transferencia',
+            },
+          });
+
+          // Auto-approve the quotation
+          await tx.quotation.update({
+            where: { id: quotationId },
+            data: { status: 'APPROVED' },
+          });
+
+          return newSale;
+        });
+        break;
+      } catch (e: any) {
+        if (e.code === 'P2002' && e.meta?.target?.includes('sale_number')) continue;
+        throw e;
       }
-    });
+    }
+    if (!sale) throw new Error('No se pudo generar un número de venta único');
 
     return NextResponse.json({ data: sale }, { status: 201 });
   } catch (error: any) {
@@ -174,28 +151,4 @@ export async function POST(
   }
 }
 
-// Función auxiliar para generar número de venta
-async function generateSaleNumber(doctorId: string): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `VTA-${year}-`;
 
-  const lastSale = await prisma.sale.findFirst({
-    where: {
-      doctorId,
-      saleNumber: {
-        startsWith: prefix
-      }
-    },
-    orderBy: {
-      saleNumber: 'desc'
-    }
-  });
-
-  let nextNumber = 1;
-  if (lastSale) {
-    const lastNumber = parseInt(lastSale.saleNumber.split('-')[2]);
-    nextNumber = lastNumber + 1;
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
-}

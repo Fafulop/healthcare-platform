@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Edit2, Trash2, Loader2, Package, Database } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from '@/lib/practice-toast';
+import { practiceConfirm } from '@/lib/practice-confirm';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -72,7 +74,7 @@ export default function ProductsPage() {
   };
 
   const handleDelete = async (product: Product) => {
-    if (!confirm(`¿Eliminar "${product.name}"?`)) return;
+    if (!await practiceConfirm(`¿Eliminar "${product.name}"?`)) return;
 
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/products/${product.id}`, {
@@ -83,7 +85,7 @@ export default function ProductsPage() {
       await fetchProducts();
     } catch (err) {
       console.error('Error deleting product:', err);
-      alert('Error al eliminar producto');
+      toast.error('Error al eliminar producto');
     }
   };
 

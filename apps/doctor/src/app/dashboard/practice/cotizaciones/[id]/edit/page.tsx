@@ -3,57 +3,18 @@
 import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Loader2, Plus, Trash2, FileText, X } from "lucide-react";
+import { ArrowLeft, Loader2, FileText } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from '@/lib/practice-toast';
+import { useQuotationForm } from '../../_components/useQuotationForm';
+import { QuotationClientSection } from '../../_components/QuotationClientSection';
+import { QuotationItemsSection } from '../../_components/QuotationItemsSection';
+import { QuotationProductModal } from '../../_components/QuotationProductModal';
+import { QuotationCustomItemModal } from '../../_components/QuotationCustomItemModal';
+import { QuotationSummaryCard } from '../../_components/QuotationSummaryCard';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface Client {
-  id: number;
-  businessName: string;
-  contactName: string | null;
-  email: string | null;
-  phone: string | null;
-  rfc: string | null;
-}
-
-interface Patient {
-  id: string;
-  internalId: string;
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string | null;
-  description: string | null;
-  price: string | null;
-  unit: string | null;
-  stockQuantity: number | null;
-  type: 'product' | 'service';
-}
-
-interface QuotationItem {
-  tempId: string;
-  productId: number | null;
-  itemType: 'product' | 'service';
-  description: string;
-  sku: string | null;
-  quantity: number;
-  unit: string;
-  unitPrice: number;
-  discountRate: number; // Decimal 0-1 (e.g., 0.10 = 10%)
-  subtotal: number;
-  taxRate: number;
-  taxAmount: number;
-  taxRate2: number;
-  taxAmount2: number;
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function EditCotizacionPage({ params }: { params: Promise<{ id: string }> }) {
   const { data: session, status } = useSession({
@@ -67,44 +28,38 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
   const [quotationId, setQuotationId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Data loading
-  const [clients, setClients] = useState<Client[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [loadingClients, setLoadingClients] = useState(true);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [loadingPatients, setLoadingPatients] = useState(true);
   const [loadingQuotation, setLoadingQuotation] = useState(true);
 
-  // Patients
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [resolvingPatient, setResolvingPatient] = useState(false);
-
-  // Form state
-  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
-  const [validUntil, setValidUntil] = useState('');
-  const [notes, setNotes] = useState('');
-  const [termsAndConditions, setTermsAndConditions] = useState('');
-
-  // Items state
-  const [items, setItems] = useState<QuotationItem[]>([]);
-  const [taxColumnLabel, setTaxColumnLabel] = useState('RTP %');
-  const [taxColumnLabel2, setTaxColumnLabel2] = useState('Imp. 2 %');
-
-  // Modal state
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [showCustomItemModal, setShowCustomItemModal] = useState(false);
-  const [productSearch, setProductSearch] = useState('');
-  const [productTypeFilter, setProductTypeFilter] = useState<'product' | 'service' | null>(null);
-
-  // Custom item modal state
-  const [customItemType, setCustomItemType] = useState<'product' | 'service'>('service');
-  const [customDescription, setCustomDescription] = useState('');
-  const [customQuantity, setCustomQuantity] = useState(1);
-  const [customUnit, setCustomUnit] = useState('servicio');
-  const [customPrice, setCustomPrice] = useState(0);
+  const {
+    clients, products, patients,
+    loadingClients, loadingProducts, loadingPatients,
+    fetchClients, fetchProducts, fetchPatients,
+    selectedPatient, setSelectedPatient,
+    selectedClientId, setSelectedClientId,
+    issueDate, setIssueDate,
+    validUntil, setValidUntil,
+    notes, setNotes,
+    termsAndConditions, setTermsAndConditions,
+    items, setItems,
+    taxColumnLabel, setTaxColumnLabel,
+    taxColumnLabel2, setTaxColumnLabel2,
+    showProductModal, setShowProductModal,
+    showCustomItemModal, setShowCustomItemModal,
+    productSearch, setProductSearch,
+    productTypeFilter, setProductTypeFilter,
+    customItemType, setCustomItemType,
+    customDescription, setCustomDescription,
+    customQuantity, setCustomQuantity,
+    customUnit, setCustomUnit,
+    customPrice, setCustomPrice,
+    handleSelectionChange,
+    resolvingPatient,
+    addProductToQuote, addCustomItemToQuote,
+    removeItem, updateItemQuantity, updateItemPrice,
+    updateItemDiscount, updateItemTaxRate, updateItemTaxRate2,
+    calculateSubtotal, calculateTax, calculateTax2, calculateTotal,
+    selectedClient, selectValue, filteredProducts,
+  } = useQuotationForm();
 
   useEffect(() => {
     const loadParams = async () => {
@@ -126,24 +81,20 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
 
   const fetchQuotation = async () => {
     if (!quotationId) return;
-
     setLoadingQuotation(true);
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`);
-
       if (!response.ok) throw new Error('Error al cargar cotización');
       const result = await response.json();
       const quotation = result.data;
 
-      // Pre-populate form fields
       setSelectedClientId(quotation.client.id);
       setIssueDate(quotation.issueDate.split('T')[0]);
       setValidUntil(quotation.validUntil.split('T')[0]);
       setNotes(quotation.notes || '');
       setTermsAndConditions(quotation.termsAndConditions || '');
 
-      // Convert database items to QuotationItem format
-      const convertedItems: QuotationItem[] = quotation.items.map((item: any) => ({
+      setItems(quotation.items.map((item: any) => ({
         tempId: `temp-${item.id}`,
         productId: item.productId,
         itemType: item.itemType,
@@ -157,9 +108,8 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
         taxRate: parseFloat(item.taxRate),
         taxAmount: parseFloat(item.taxAmount),
         taxRate2: parseFloat(item.taxRate2 || 0),
-        taxAmount2: parseFloat(item.taxAmount2 || 0)
-      }));
-      setItems(convertedItems);
+        taxAmount2: parseFloat(item.taxAmount2 || 0),
+      })));
     } catch (err) {
       console.error('Error al cargar cotización:', err);
       setError('Error al cargar la cotización');
@@ -168,281 +118,14 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
     }
   };
 
-  const fetchClients = async () => {
-    try {
-      const response = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
-
-      if (!response.ok) throw new Error('Error al cargar clientes');
-      const result = await response.json();
-      setClients(result.data || []);
-    } catch (err) {
-      console.error('Error al cargar clientes:', err);
-    } finally {
-      setLoadingClients(false);
-    }
-  };
-
-  const fetchProducts = async () => {
-    try {
-      const response = await authFetch(`${API_URL}/api/practice-management/products?status=active`);
-
-      if (!response.ok) throw new Error('Error al cargar productos');
-      const result = await response.json();
-      setProducts(result.data || []);
-    } catch (err) {
-      console.error('Error al cargar productos:', err);
-    } finally {
-      setLoadingProducts(false);
-    }
-  };
-
-  const fetchPatients = async () => {
-    try {
-      const response = await fetch('/api/medical-records/patients?status=active');
-      if (!response.ok) throw new Error('Error al cargar pacientes');
-      const data = await response.json();
-      setPatients(data.data || []);
-    } catch (err) {
-      console.error('Error al cargar pacientes:', err);
-    } finally {
-      setLoadingPatients(false);
-    }
-  };
-
-  const resolvePatientAsClient = async (patient: Patient) => {
-    setResolvingPatient(true);
-    const fullName = `${patient.firstName} ${patient.lastName}`;
-
-    // Check if a client with this name already exists locally
-    const existing = clients.find(c => c.businessName === fullName);
-    if (existing) {
-      setSelectedClientId(existing.id);
-      setResolvingPatient(false);
-      return;
-    }
-
-    // Auto-create a client from the patient
-    try {
-      const response = await authFetch(`${API_URL}/api/practice-management/clients`, {
-        method: 'POST',
-        body: JSON.stringify({
-          businessName: fullName,
-          contactName: fullName,
-          email: patient.email || null,
-          phone: patient.phone || null,
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setClients(prev => [...prev, result.data]);
-        setSelectedClientId(result.data.id);
-      } else if (response.status === 409) {
-        // Race condition: client was created between our check and POST — re-fetch
-        const refreshResponse = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
-        const refreshResult = await refreshResponse.json();
-        const refreshedClients: Client[] = refreshResult.data || [];
-        setClients(refreshedClients);
-        const found = refreshedClients.find(c => c.businessName === fullName);
-        if (found) setSelectedClientId(found.id);
-      }
-    } catch (err) {
-      console.error('Error al crear cliente desde paciente:', err);
-    } finally {
-      setResolvingPatient(false);
-    }
-  };
-
-  const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    if (!value) {
-      setSelectedClientId(null);
-      setSelectedPatient(null);
-      return;
-    }
-
-    if (value.startsWith('patient:')) {
-      const patientId = value.slice('patient:'.length);
-      const patient = patients.find(p => p.id === patientId);
-      if (patient) {
-        setSelectedPatient(patient);
-        resolvePatientAsClient(patient);
-      }
-    } else {
-      const clientId = Number(value.slice('client:'.length));
-      setSelectedClientId(clientId);
-      setSelectedPatient(null);
-    }
-  };
-
-  const addProductToQuote = (product: Product) => {
-    const unitPrice = parseFloat(product.price || '0');
-    const quantity = 1;
-    const discountRate = 0;
-    const baseAmount = quantity * unitPrice;
-    const discountAmount = baseAmount * discountRate;
-    const subtotal = baseAmount - discountAmount;
-    const taxRate = 0.16;
-    const taxAmount = subtotal * taxRate;
-
-    const newItem: QuotationItem = {
-      tempId: `temp-${Date.now()}`,
-      productId: product.id,
-      itemType: 'product',
-      description: product.name,
-      sku: product.sku,
-      quantity,
-      unit: product.unit || 'pza',
-      unitPrice,
-      discountRate,
-      taxRate,
-      taxAmount,
-      taxRate2: 0,
-      taxAmount2: 0,
-      subtotal
-    };
-
-    setItems([...items, newItem]);
-    setShowProductModal(false);
-    setProductSearch('');
-  };
-
-  const addCustomItemToQuote = () => {
-    if (!customDescription || customPrice <= 0) {
-      alert('Complete todos los campos requeridos');
-      return;
-    }
-
-    const discountRate = 0;
-    const baseAmount = customQuantity * customPrice;
-    const discountAmount = baseAmount * discountRate;
-    const subtotal = baseAmount - discountAmount;
-    const taxRate = 0.16;
-    const taxAmount = subtotal * taxRate;
-
-    const newItem: QuotationItem = {
-      tempId: `temp-${Date.now()}`,
-      productId: null,
-      itemType: customItemType,
-      description: customDescription,
-      sku: null,
-      quantity: customQuantity,
-      unit: customUnit,
-      unitPrice: customPrice,
-      discountRate,
-      taxRate,
-      taxAmount,
-      taxRate2: 0,
-      taxAmount2: 0,
-      subtotal
-    };
-
-    setItems([...items, newItem]);
-    setShowCustomItemModal(false);
-
-    // Reset form
-    setCustomDescription('');
-    setCustomQuantity(1);
-    setCustomUnit('servicio');
-    setCustomPrice(0);
-    setCustomItemType('service');
-  };
-
-  const removeItem = (tempId: string) => {
-    setItems(items.filter(item => item.tempId !== tempId));
-  };
-
-  const updateItemQuantity = (tempId: string, quantity: number) => {
-    setItems(items.map(item => {
-      if (item.tempId === tempId) {
-        const baseAmount = quantity * item.unitPrice;
-        const discountAmount = baseAmount * item.discountRate;
-        const subtotal = baseAmount - discountAmount;
-        const taxAmount = subtotal * item.taxRate;
-        const taxAmount2 = subtotal * item.taxRate2;
-        return { ...item, quantity, subtotal, taxAmount, taxAmount2 };
-      }
-      return item;
-    }));
-  };
-
-  const updateItemPrice = (tempId: string, unitPrice: number) => {
-    setItems(items.map(item => {
-      if (item.tempId === tempId) {
-        const baseAmount = item.quantity * unitPrice;
-        const discountAmount = baseAmount * item.discountRate;
-        const subtotal = baseAmount - discountAmount;
-        const taxAmount = subtotal * item.taxRate;
-        const taxAmount2 = subtotal * item.taxRate2;
-        return { ...item, unitPrice, subtotal, taxAmount, taxAmount2 };
-      }
-      return item;
-    }));
-  };
-
-  const updateItemDiscount = (tempId: string, discountRate: number) => {
-    setItems(items.map(item => {
-      if (item.tempId === tempId) {
-        const baseAmount = item.quantity * item.unitPrice;
-        const discountAmount = baseAmount * discountRate;
-        const subtotal = baseAmount - discountAmount;
-        const taxAmount = subtotal * item.taxRate;
-        const taxAmount2 = subtotal * item.taxRate2;
-        return { ...item, discountRate, subtotal, taxAmount, taxAmount2 };
-      }
-      return item;
-    }));
-  };
-
-  const updateItemTaxRate = (tempId: string, taxRate: number) => {
-    setItems(items.map(item => {
-      if (item.tempId === tempId) {
-        const taxAmount = item.subtotal * taxRate;
-        return { ...item, taxRate, taxAmount };
-      }
-      return item;
-    }));
-  };
-
-  const updateItemTaxRate2 = (tempId: string, taxRate2: number) => {
-    setItems(items.map(item => {
-      if (item.tempId === tempId) {
-        const taxAmount2 = item.subtotal * taxRate2;
-        return { ...item, taxRate2, taxAmount2 };
-      }
-      return item;
-    }));
-  };
-
-  const calculateSubtotal = () => {
-    return items.reduce((sum, item) => sum + item.subtotal, 0);
-  };
-
-  const calculateTax = () => {
-    return items.reduce((sum, item) => sum + item.taxAmount, 0);
-  };
-
-  const calculateTax2 = () => {
-    return items.reduce((sum, item) => sum + item.taxAmount2, 0);
-  };
-
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const tax = calculateTax();
-    const tax2 = calculateTax2();
-    return subtotal + tax + tax2;
-  };
-
   const handleSubmit = async (saveStatus: 'DRAFT' | 'SENT') => {
     if (!quotationId) return;
-
     if (!selectedClientId) {
-      alert('Debe seleccionar un paciente');
+      toast.error('Debe seleccionar un paciente');
       return;
     }
-
     if (items.length === 0) {
-      alert('Debe agregar al menos un servicio');
+      toast.error('Debe agregar al menos un servicio');
       return;
     }
 
@@ -467,16 +150,16 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
           taxRate: item.taxRate,
           taxAmount: item.taxAmount,
           taxRate2: item.taxRate2,
-          taxAmount2: item.taxAmount2
+          taxAmount2: item.taxAmount2,
         })),
         notes,
         termsAndConditions,
-        taxRate: 0.16
+        taxRate: 0.16,
       };
 
       const response = await authFetch(`${API_URL}/api/practice-management/cotizaciones/${quotationId}`, {
         method: 'PUT',
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -491,19 +174,6 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
       setSubmitting(false);
     }
   };
-
-  const selectedClient = clients.find(c => c.id === selectedClientId);
-  const selectValue = selectedPatient
-    ? `patient:${selectedPatient.id}`
-    : selectedClientId
-      ? `client:${selectedClientId}`
-      : '';
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-      p.sku?.toLowerCase().includes(productSearch.toLowerCase());
-    const matchesType = productTypeFilter ? p.type === productTypeFilter : true;
-    return matchesSearch && matchesType;
-  });
 
   const subtotal = calculateSubtotal();
   const tax = calculateTax();
@@ -523,623 +193,124 @@ export default function EditCotizacionPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="p-4 sm:p-6">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <Link
-            href={`/dashboard/practice/cotizaciones/${quotationId}`}
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver a la Cotización
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <FileText className="w-8 h-8 text-blue-600" />
-            Editar Cotización
-          </h1>
-          <p className="text-gray-600 mt-2">Modifica la información de la cotización</p>
-        </div>
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <Link
+          href={`/dashboard/practice/cotizaciones/${quotationId}`}
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver a la Cotización
+        </Link>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <FileText className="w-8 h-8 text-blue-600" />
+          Editar Cotización
+        </h1>
+        <p className="text-gray-600 mt-2">Modifica la información de la cotización</p>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Client & Details */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Patient Selection */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Paciente</h2>
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-                  {error}
-                </div>
-              )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <QuotationClientSection
+            patients={patients}
+            clients={clients}
+            selectedPatient={selectedPatient}
+            selectedClient={selectedClient}
+            selectValue={selectValue}
+            resolvingPatient={resolvingPatient}
+            issueDate={issueDate}
+            validUntil={validUntil}
+            error={error}
+            onSelectionChange={handleSelectionChange}
+            onIssueDateChange={setIssueDate}
+            onValidUntilChange={setValidUntil}
+          />
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Paciente *
-                </label>
-                <select
-                  value={selectValue}
-                  onChange={handleSelectionChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Seleccionar paciente...</option>
-                  {patients.length > 0 && (
-                    <optgroup label="Pacientes">
-                      {patients.map(patient => (
-                        <option key={patient.id} value={`patient:${patient.id}`}>
-                          {patient.firstName} {patient.lastName}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {(() => {
-                    // Filter out clients that were auto-created from patients
-                    const patientNames = new Set(patients.map(p => `${p.firstName} ${p.lastName}`));
-                    const externalClients = clients.filter(c => !patientNames.has(c.businessName));
-                    return externalClients.length > 0 && (
-                      <optgroup label="Clientes Externos">
-                        {externalClients.map(client => (
-                          <option key={client.id} value={`client:${client.id}`}>
-                            {client.businessName} {client.contactName ? `- ${client.contactName}` : ''}
-                          </option>
-                        ))}
-                      </optgroup>
-                    );
-                  })()}
-                </select>
-                {resolvingPatient && (
-                  <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Preparando datos...
-                  </p>
-                )}
-              </div>
+          <QuotationItemsSection
+            items={items}
+            taxColumnLabel={taxColumnLabel}
+            taxColumnLabel2={taxColumnLabel2}
+            onTaxColumnLabelChange={setTaxColumnLabel}
+            onTaxColumnLabel2Change={setTaxColumnLabel2}
+            onAddService={() => { setProductTypeFilter('service'); setProductSearch(''); setShowProductModal(true); }}
+            onAddProduct={() => { setProductTypeFilter('product'); setProductSearch(''); setShowProductModal(true); }}
+            onAddCustomItem={() => { setCustomItemType('product'); setCustomUnit('pza'); setShowCustomItemModal(true); }}
+            onRemoveItem={removeItem}
+            onUpdateQuantity={updateItemQuantity}
+            onUpdatePrice={updateItemPrice}
+            onUpdateDiscount={updateItemDiscount}
+            onUpdateTaxRate={updateItemTaxRate}
+            onUpdateTaxRate2={updateItemTaxRate2}
+          />
 
-              {(selectedPatient || selectedClient) && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <div className="flex items-start gap-2">
-                    <span className="text-blue-600 text-xl">✓</span>
-                    <div className="flex-1">
-                      {selectedPatient ? (
-                        <>
-                          <div className="font-semibold text-gray-900">
-                            {selectedPatient.firstName} {selectedPatient.lastName}
-                          </div>
-                          <div className="text-xs text-blue-600 font-medium mt-0.5">Paciente</div>
-                          {selectedPatient.internalId && (
-                            <div className="text-sm text-gray-600">ID interno: {selectedPatient.internalId}</div>
-                          )}
-                          {selectedPatient.email && (
-                            <div className="text-sm text-gray-600">📧 {selectedPatient.email}</div>
-                          )}
-                          {selectedPatient.phone && (
-                            <div className="text-sm text-gray-600">📞 {selectedPatient.phone}</div>
-                          )}
-                        </>
-                      ) : selectedClient ? (
-                        <>
-                          <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
-                          {selectedClient.contactName && (
-                            <div className="text-sm text-gray-600">Contacto: {selectedClient.contactName}</div>
-                          )}
-                          {selectedClient.email && (
-                            <div className="text-sm text-gray-600">📧 {selectedClient.email}</div>
-                          )}
-                          {selectedClient.phone && (
-                            <div className="text-sm text-gray-600">📞 {selectedClient.phone}</div>
-                          )}
-                          {selectedClient.rfc && (
-                            <div className="text-sm text-gray-600">RFC: {selectedClient.rfc}</div>
-                          )}
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha de emisión *
-                  </label>
-                  <input
-                    type="date"
-                    value={issueDate}
-                    onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Válida hasta *
-                  </label>
-                  <input
-                    type="date"
-                    value={validUntil}
-                    onChange={(e) => setValidUntil(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-              </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Notas y Términos</h2>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Notas adicionales</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={3}
+                placeholder="Añade notas sobre esta cotización..."
+              />
             </div>
-
-            {/* Items Section */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos y Servicios</h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProductTypeFilter('service');
-                    setProductSearch('');
-                    setShowProductModal(true);
-                  }}
-                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  Agregar Servicio
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProductTypeFilter('product');
-                    setProductSearch('');
-                    setShowProductModal(true);
-                  }}
-                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors border border-gray-300"
-                >
-                  <Plus className="w-5 h-5" />
-                  Agregar Producto
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomItemType('product');
-                    setCustomUnit('pza');
-                    setShowCustomItemModal(true);
-                  }}
-                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors border border-gray-300"
-                >
-                  <Plus className="w-5 h-5" />
-                  Producto o Servicio Personalizado
-                </button>
-              </div>
-
-              {items.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p>No hay productos o servicios agregados</p>
-                  <p className="text-sm text-gray-400 mt-1">Haz clic en los botones de arriba para agregar items</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Descripción</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cant.</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Unidad</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">P. Unit.</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Desc. %</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">
-                          <input
-                            type="text"
-                            value={taxColumnLabel}
-                            onChange={(e) => setTaxColumnLabel(e.target.value)}
-                            className="w-24 text-xs font-medium text-blue-600 uppercase bg-blue-50 border border-dashed border-blue-300 rounded px-1 py-0.5 focus:border-blue-500 focus:bg-blue-100 focus:outline-none cursor-text"
-                            placeholder="RTP %"
-                          />
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">
-                          <input
-                            type="text"
-                            value={taxColumnLabel2}
-                            onChange={(e) => setTaxColumnLabel2(e.target.value)}
-                            className="w-24 text-xs font-medium text-blue-600 uppercase bg-blue-50 border border-dashed border-blue-300 rounded px-1 py-0.5 focus:border-blue-500 focus:bg-blue-100 focus:outline-none cursor-text"
-                            placeholder="Imp. 2 %"
-                          />
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Subtotal</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {items.map(item => (
-                        <tr key={item.tempId} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-gray-900">{item.description}</div>
-                            {item.sku && (
-                              <div className="text-xs text-gray-500">SKU: {item.sku}</div>
-                            )}
-                            {!item.productId && (
-                              <div className={`text-xs ${
-                                item.itemType === 'product' ? 'text-purple-600' : 'text-blue-600'
-                              }`}>
-                                {item.itemType === 'product' ? 'Producto personalizado' : 'Servicio personalizado'}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
-                              value={item.quantity}
-                              onChange={(e) => updateItemQuantity(item.tempId, parseFloat(e.target.value) || 0)}
-                              className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{item.unit}</td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.unitPrice}
-                              onChange={(e) => updateItemPrice(item.tempId, parseFloat(e.target.value) || 0)}
-                              className="w-24 border border-gray-300 rounded px-2 py-1 text-sm"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={(item.discountRate * 100).toFixed(2)}
-                              onChange={(e) => updateItemDiscount(item.tempId, parseFloat(e.target.value) / 100 || 0)}
-                              className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
-                              placeholder="0"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={(item.taxRate * 100).toFixed(2)}
-                              onChange={(e) => updateItemTaxRate(item.tempId, parseFloat(e.target.value) / 100 || 0)}
-                              className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
-                              placeholder="0"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={(item.taxRate2 * 100).toFixed(2)}
-                              onChange={(e) => updateItemTaxRate2(item.tempId, parseFloat(e.target.value) / 100 || 0)}
-                              className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
-                              placeholder="0"
-                            />
-                          </td>
-                          <td className="px-4 py-3 font-semibold text-gray-900">
-                            ${item.subtotal.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <button
-                              onClick={() => removeItem(item.tempId)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Notes and Terms Section */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Notas y Términos</h2>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notas adicionales
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                  placeholder="Añade notas sobre esta cotización..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Términos y condiciones
-                </label>
-                <textarea
-                  value={termsAndConditions}
-                  onChange={(e) => setTermsAndConditions(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                  placeholder="Ej: Pago 50% anticipo, 50% contra entrega..."
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Summary (Sticky) */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow p-6 sticky top-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen</h3>
-
-              <div className="space-y-3">
-                <div className="flex justify-between items-center pb-3 border-b">
-                  <span className="text-gray-600">Productos/Servicios</span>
-                  <span className="font-semibold text-gray-900">{items.length}</span>
-                </div>
-
-                <div className="flex justify-between items-center pb-3 border-b">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-semibold text-gray-900">${subtotal.toFixed(2)}</span>
-                </div>
-
-                <div className="flex justify-between items-center pb-3 border-b">
-                  <span className="text-gray-600">{taxColumnLabel || 'RTP %'} Total</span>
-                  <span className="font-semibold text-gray-900">${tax.toFixed(2)}</span>
-                </div>
-
-                {tax2 > 0 && (
-                  <div className="flex justify-between items-center pb-3 border-b">
-                    <span className="text-gray-600">{taxColumnLabel2 || 'Imp. 2 %'} Total</span>
-                    <span className="font-semibold text-gray-900">${tax2.toFixed(2)}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center pt-2">
-                  <span className="text-gray-900 font-bold text-lg">TOTAL</span>
-                  <span className="font-bold text-blue-600 text-xl">${total.toFixed(2)}</span>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-2">
-                <button
-                  onClick={() => handleSubmit('DRAFT')}
-                  disabled={submitting || !selectedClientId || items.length === 0}
-                  className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                  title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
-                >
-                  {submitting ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Guardando...
-                    </div>
-                  ) : (
-                    'Guardar como Borrador'
-                  )}
-                </button>
-                <button
-                  onClick={() => handleSubmit('SENT')}
-                  disabled={submitting || !selectedClientId || items.length === 0}
-                  className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-                  title={!selectedClientId ? 'Selecciona un paciente' : items.length === 0 ? 'Agrega al menos un servicio' : ''}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Actualizando...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-5 h-5" />
-                      Actualizar Cotización
-                    </>
-                  )}
-                </button>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Términos y condiciones</label>
+              <textarea
+                value={termsAndConditions}
+                onChange={(e) => setTermsAndConditions(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={3}
+                placeholder="Ej: Pago 50% anticipo, 50% contra entrega..."
+              />
             </div>
           </div>
         </div>
 
-        {/* Product Selection Modal */}
-        {showProductModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
-              <div className="p-6 border-b flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">
-                  {productTypeFilter === 'service' ? 'Seleccionar Servicio' : 'Seleccionar Producto'}
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowProductModal(false);
-                    setProductSearch('');
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+        <div className="lg:col-span-1">
+          <QuotationSummaryCard
+            itemCount={items.length}
+            subtotal={subtotal}
+            tax={tax}
+            tax2={tax2}
+            total={total}
+            taxColumnLabel={taxColumnLabel}
+            taxColumnLabel2={taxColumnLabel2}
+            submitting={submitting}
+            canSubmit={!!selectedClientId && items.length > 0}
+            submitLabel="Actualizar Cotización"
+            submittingLabel="Actualizando..."
+            onSaveAsDraft={() => handleSubmit('DRAFT')}
+            onSubmit={() => handleSubmit('SENT')}
+          />
+        </div>
+      </div>
 
-              <div className="p-6 border-b">
-                <input
-                  type="text"
-                  placeholder={productTypeFilter === 'service' ? 'Buscar servicio por nombre...' : 'Buscar producto por nombre o SKU...'}
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
-              </div>
+      <QuotationProductModal
+        show={showProductModal}
+        productTypeFilter={productTypeFilter}
+        products={filteredProducts}
+        productSearch={productSearch}
+        onSearchChange={setProductSearch}
+        onSelect={addProductToQuote}
+        onClose={() => { setShowProductModal(false); setProductSearch(''); }}
+      />
 
-              <div className="overflow-y-auto max-h-96 p-6">
-                {filteredProducts.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    {productTypeFilter === 'service'
-                      ? 'No se encontraron servicios. Crea uno en Productos y Servicios.'
-                      : 'No se encontraron productos'}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredProducts.map(product => (
-                      <div
-                        key={product.id}
-                        onClick={() => addProductToQuote(product)}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 hover:border-blue-500 cursor-pointer transition-all"
-                      >
-                        <div className="font-semibold text-gray-900">{product.name}</div>
-                        {product.sku && (
-                          <div className="text-sm text-gray-500">SKU: {product.sku}</div>
-                        )}
-                        {product.description && (
-                          <div className="text-sm text-gray-600 mt-1">{product.description}</div>
-                        )}
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-lg font-bold text-blue-600">
-                            ${parseFloat(product.price || '0').toFixed(2)} {product.unit && `/ ${product.unit}`}
-                          </span>
-                          {product.stockQuantity !== null && (
-                            <span className="text-sm text-gray-500">
-                              Stock: {product.stockQuantity}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Custom Item Modal */}
-        {showCustomItemModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
-              <div className={`p-6 border-b flex justify-between items-center ${
-                customItemType === 'product' ? 'bg-purple-50' : 'bg-blue-50'
-              }`}>
-                <h3 className="text-xl font-bold text-gray-900">
-                  {customItemType === 'product' ? 'Producto Personalizado' : 'Servicio Personalizado'}
-                </h3>
-                <button
-                  onClick={() => setShowCustomItemModal(false)}
-                  className="p-2 hover:bg-white rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Descripción {customItemType === 'product' ? 'del producto' : 'del servicio'} *
-                  </label>
-                  <input
-                    type="text"
-                    value={customDescription}
-                    onChange={(e) => setCustomDescription(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                    placeholder={customItemType === 'product'
-                      ? "Ej: Producto especial, Item único, etc."
-                      : "Ej: Consulta especializada, Instalación, etc."}
-                    autoFocus
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cantidad *
-                    </label>
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={customQuantity}
-                      onChange={(e) => setCustomQuantity(parseFloat(e.target.value) || 1)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Unidad *
-                    </label>
-                    <select
-                      value={customUnit}
-                      onChange={(e) => setCustomUnit(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                    >
-                      {customItemType === 'product' ? (
-                        <>
-                          <option value="pza">pza</option>
-                          <option value="kg">kg</option>
-                          <option value="lt">lt</option>
-                          <option value="mt">mt</option>
-                          <option value="caja">caja</option>
-                          <option value="paquete">paquete</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="servicio">servicio</option>
-                          <option value="hora">hora</option>
-                          <option value="día">día</option>
-                          <option value="sesión">sesión</option>
-                          <option value="consulta">consulta</option>
-                        </>
-                      )}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Precio unitario *
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={customPrice}
-                    onChange={(e) => setCustomPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="text-xl font-bold text-gray-900">
-                      ${(customQuantity * customPrice).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowCustomItemModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={addCustomItemToQuote}
-                    className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors ${
-                      customItemType === 'product'
-                        ? 'bg-purple-600 hover:bg-purple-700'
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    }`}
-                  >
-                    Agregar {customItemType === 'product' ? 'Producto' : 'Servicio'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+      <QuotationCustomItemModal
+        show={showCustomItemModal}
+        itemType={customItemType}
+        description={customDescription}
+        quantity={customQuantity}
+        unit={customUnit}
+        price={customPrice}
+        onDescriptionChange={setCustomDescription}
+        onQuantityChange={setCustomQuantity}
+        onUnitChange={setCustomUnit}
+        onPriceChange={setCustomPrice}
+        onAdd={addCustomItemToQuote}
+        onClose={() => setShowCustomItemModal(false)}
+      />
     </div>
   );
 }

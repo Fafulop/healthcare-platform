@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Edit2, Trash2, Loader2, Truck, Package } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from '@/lib/practice-toast';
+import { practiceConfirm } from '@/lib/practice-confirm';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -101,7 +103,7 @@ export default function ProveedoresPage() {
   };
 
   const handleDelete = async (proveedor: Proveedor) => {
-    if (!confirm(`¿Estás seguro de eliminar "${proveedor.businessName}"?`)) return;
+    if (!await practiceConfirm(`¿Estás seguro de eliminar "${proveedor.businessName}"?`)) return;
 
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/proveedores/${proveedor.id}`, {
@@ -115,7 +117,7 @@ export default function ProveedoresPage() {
       await fetchProveedores();
     } catch (err) {
       console.error('Error al eliminar proveedor:', err);
-      alert('Error al eliminar proveedor');
+      toast.error('Error al eliminar proveedor');
     }
   };
 

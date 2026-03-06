@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { generateQuotationNumber, parsePagination, buildPaginationMeta } from '@/lib/practice-utils';
 
 // GET /api/practice-management/cotizaciones
 // Obtener todas las cotizaciones del doctor con filtros opcionales
@@ -46,35 +47,27 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const quotations = await prisma.quotation.findMany({
-      where,
-      include: {
-        client: {
-          select: {
-            id: true,
-            businessName: true,
-            contactName: true,
-            email: true,
-            phone: true
-          }
-        },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                sku: true
-              }
-            }
+    const pagination = parsePagination(searchParams);
+    const [total, quotations] = await prisma.$transaction([
+      prisma.quotation.count({ where }),
+      prisma.quotation.findMany({
+        where,
+        include: {
+          client: {
+            select: { id: true, businessName: true, contactName: true, email: true, phone: true },
           },
-          orderBy: { order: 'asc' }
-        }
-      },
-      orderBy: { issueDate: 'desc' }
-    });
+          items: {
+            include: { product: { select: { id: true, name: true, sku: true } } },
+            orderBy: { order: 'asc' },
+          },
+        },
+        orderBy: { issueDate: 'desc' },
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+    ]);
 
-    return NextResponse.json({ data: quotations });
+    return NextResponse.json({ data: quotations, pagination: buildPaginationMeta(total, pagination) });
   } catch (error: any) {
     console.error('Error al obtener cotizaciones:', error);
 
@@ -140,7 +133,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generar número de cotización
     const quotationNumber = await generateQuotationNumber(doctor.id);
 
     // Calcular totales
@@ -224,33 +216,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// Función auxiliar para generar número de cotización
-async function generateQuotationNumber(doctorId: string): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `COT-${year}-`;
-
-  // Obtener última cotización del año
-  const lastQuotation = await prisma.quotation.findFirst({
-    where: {
-      doctorId,
-      quotationNumber: {
-        startsWith: prefix
-      }
-    },
-    orderBy: {
-      quotationNumber: 'desc'
-    }
-  });
-
-  let nextNumber = 1;
-  if (lastQuotation) {
-    const lastNumber = parseInt(lastQuotation.quotationNumber.split('-')[2]);
-    nextNumber = lastNumber + 1;
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
 }
 
 // Función auxiliar para calcular fecha de vencimiento por defecto (30 días)

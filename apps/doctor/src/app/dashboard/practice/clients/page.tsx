@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Edit2, Trash2, Loader2, Users, Building2, FileText, ShoppingCart, Phone, Mail, MapPin } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from '@/lib/practice-toast';
+import { practiceConfirm } from '@/lib/practice-confirm';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -75,7 +77,7 @@ export default function ClientsPage() {
   };
 
   const handleDelete = async (client: Client) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar "${client.businessName}"?`)) return;
+    if (!await practiceConfirm(`¿Estás seguro de que quieres eliminar "${client.businessName}"?`)) return;
 
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/clients/${client.id}`, {
@@ -89,7 +91,7 @@ export default function ClientsPage() {
       await fetchClients();
     } catch (err) {
       console.error('Error al eliminar cliente:', err);
-      alert('Error al eliminar cliente');
+      toast.error('Error al eliminar cliente');
     }
   };
 

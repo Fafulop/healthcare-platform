@@ -10,6 +10,7 @@ import { GoogleCalendarBanner } from "@/components/GoogleCalendarBanner";
 import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
 import { DayDetailsWidget } from "@/components/day-details/DayDetailsWidget";
 import { VoiceAssistantHubWidget } from "@/components/voice-hub/VoiceAssistantHubWidget";
+import { PracticeUIProvider } from "@/components/ui/PracticeUIProvider";
 
 export default function DashboardRootLayout({
   children,
@@ -49,31 +50,33 @@ export default function DashboardRootLayout({
 
   return (
     <DoctorProfileProvider>
-      <GoogleCalendarBanner />
-      <DashboardLayout>{children}</DashboardLayout>
+      <PracticeUIProvider>
+        <GoogleCalendarBanner />
+        <DashboardLayout>{children}</DashboardLayout>
 
-      {/* Collapse/expand tab — always visible on the right edge */}
-      <button
-        onClick={() => setWidgetsCollapsed((c) => !c)}
-        className="fixed bottom-32 right-0 sm:bottom-24 z-[51]
-          bg-white border border-gray-300 border-r-0 rounded-l-lg shadow-md
-          w-5 h-12 flex items-center justify-center
-          text-gray-400 hover:text-gray-600 hover:bg-gray-50
-          transition-colors"
-        title={widgetsCollapsed ? "Mostrar herramientas" : "Ocultar herramientas"}
-      >
-        {widgetsCollapsed
-          ? <ChevronLeft className="w-3 h-3" />
-          : <ChevronRight className="w-3 h-3" />
-        }
-      </button>
+        {/* Collapse/expand tab — always visible on the right edge */}
+        <button
+          onClick={() => setWidgetsCollapsed((c) => !c)}
+          className="fixed bottom-32 right-0 sm:bottom-24 z-[51]
+            bg-white border border-gray-300 border-r-0 rounded-l-lg shadow-md
+            w-5 h-12 flex items-center justify-center
+            text-gray-400 hover:text-gray-600 hover:bg-gray-50
+            transition-colors"
+          title={widgetsCollapsed ? "Mostrar herramientas" : "Ocultar herramientas"}
+        >
+          {widgetsCollapsed
+            ? <ChevronLeft className="w-3 h-3" />
+            : <ChevronRight className="w-3 h-3" />
+          }
+        </button>
 
-      {/* Widget buttons — hidden when collapsed (display:none cascades to fixed children) */}
-      <div className={widgetsCollapsed ? "hidden" : ""}>
-        <VoiceAssistantHubWidget />
-        <DayDetailsWidget />
-        <ChatWidget />
-      </div>
+        {/* Widget buttons — hidden when collapsed (display:none cascades to fixed children) */}
+        <div className={widgetsCollapsed ? "hidden" : ""}>
+          <VoiceAssistantHubWidget />
+          <DayDetailsWidget />
+          <ChatWidget />
+        </div>
+      </PracticeUIProvider>
     </DoctorProfileProvider>
   );
 }

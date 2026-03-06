@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Save, Loader2, Plus, Trash2, Package } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from '@/lib/practice-toast';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -132,7 +133,7 @@ export default function NewProductPage() {
     const qty = parseFloat(quantity);
 
     if (qty <= 0) {
-      alert('Quantity must be greater than 0');
+      toast.error('Quantity must be greater than 0');
       return;
     }
 

@@ -7,6 +7,8 @@ import { ArrowLeft, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, Plus, Down
 import Link from "next/link";
 import { uploadFiles } from "@/lib/uploadthing";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from '@/lib/practice-toast';
+import { practiceConfirm } from '@/lib/practice-confirm';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
 
@@ -135,7 +137,7 @@ export default function FlujoDeDineroDetailPage() {
 
   const handleDelete = async () => {
     if (!entry) return;
-    if (!confirm(`¿Estás seguro de eliminar el movimiento ${entry.internalId}?`)) return;
+    if (!await practiceConfirm(`¿Estás seguro de eliminar el movimiento ${entry.internalId}?`)) return;
 
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
@@ -145,7 +147,7 @@ export default function FlujoDeDineroDetailPage() {
       if (!response.ok) throw new Error('Error al eliminar movimiento');
       router.push('/dashboard/practice/flujo-de-dinero');
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -211,7 +213,7 @@ export default function FlujoDeDineroDetailPage() {
       setUploadType(null);
     } catch (err: any) {
       console.error('Upload error:', err);
-      alert(err.message || 'Error al subir archivo');
+      toast.error(err.message || 'Error al subir archivo');
     } finally {
       setUploading(false);
     }

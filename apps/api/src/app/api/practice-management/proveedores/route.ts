@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { parsePagination, buildPaginationMeta } from '@/lib/practice-utils';
 
 // GET /api/practice-management/proveedores
 // Get all suppliers for authenticated doctor with optional filtering
@@ -28,12 +29,18 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const proveedores = await prisma.proveedor.findMany({
-      where,
-      orderBy: { businessName: 'asc' }
-    });
+    const pagination = parsePagination(searchParams, 200);
+    const [total, proveedores] = await prisma.$transaction([
+      prisma.proveedor.count({ where }),
+      prisma.proveedor.findMany({
+        where,
+        orderBy: { businessName: 'asc' },
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+    ]);
 
-    return NextResponse.json({ data: proveedores });
+    return NextResponse.json({ data: proveedores, pagination: buildPaginationMeta(total, pagination) });
   } catch (error: any) {
     console.error('Error fetching suppliers:', error);
 

@@ -1,31 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-
-// Helper function to generate internal ID
-async function generateInternalId(doctorId: string, entryType: string): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = entryType === 'ingreso' ? `ING-${year}-` : `EGR-${year}-`;
-
-  const lastEntry = await prisma.ledgerEntry.findFirst({
-    where: {
-      doctorId,
-      internalId: { startsWith: prefix }
-    },
-    orderBy: { internalId: 'desc' }
-  });
-
-  let nextNumber = 1;
-  if (lastEntry) {
-    const parts = lastEntry.internalId.split('-');
-    const lastNumber = parseInt(parts[2]);
-    if (!isNaN(lastNumber)) {
-      nextNumber = lastNumber + 1;
-    }
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
-}
+import { generateLedgerInternalId, parsePagination, buildPaginationMeta } from '@/lib/practice-utils';
 
 // GET /api/practice-management/ledger
 // Get all ledger entries for authenticated doctor with optional filtering
@@ -89,45 +65,27 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const entries = await prisma.ledgerEntry.findMany({
-      where,
-      include: {
-        attachments: true,
-        facturas: true,
-        facturasXml: true,
-        client: {
-          select: {
-            id: true,
-            businessName: true,
-            contactName: true
-          }
+    const pagination = parsePagination(searchParams);
+    const [total, entries] = await prisma.$transaction([
+      prisma.ledgerEntry.count({ where }),
+      prisma.ledgerEntry.findMany({
+        where,
+        include: {
+          attachments: true,
+          facturas: true,
+          facturasXml: true,
+          client: { select: { id: true, businessName: true, contactName: true } },
+          supplier: { select: { id: true, businessName: true, contactName: true } },
+          sale: { select: { id: true, saleNumber: true, total: true } },
+          purchase: { select: { id: true, purchaseNumber: true, total: true } },
         },
-        supplier: {
-          select: {
-            id: true,
-            businessName: true,
-            contactName: true
-          }
-        },
-        sale: {
-          select: {
-            id: true,
-            saleNumber: true,
-            total: true
-          }
-        },
-        purchase: {
-          select: {
-            id: true,
-            purchaseNumber: true,
-            total: true
-          }
-        }
-      },
-      orderBy: { transactionDate: 'desc' }
-    });
+        orderBy: { transactionDate: 'desc' },
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+    ]);
 
-    return NextResponse.json({ data: entries });
+    return NextResponse.json({ data: entries, pagination: buildPaginationMeta(total, pagination) });
   } catch (error: any) {
     console.error('Error fetching ledger entries:', error);
 
@@ -233,7 +191,7 @@ export async function POST(request: NextRequest) {
     let finalInternalId = internalId?.trim();
 
     if (!finalInternalId) {
-      finalInternalId = await generateInternalId(doctor.id, entryType);
+      finalInternalId = await generateLedgerInternalId(doctor.id, entryType);
     }
 
     // Check uniqueness of internal ID
