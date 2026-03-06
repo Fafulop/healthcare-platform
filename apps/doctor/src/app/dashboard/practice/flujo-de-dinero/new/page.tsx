@@ -25,7 +25,7 @@ export default function NewFlujoDeDineroPage() {
     availableSubareas,
     voiceModalOpen, setVoiceModalOpen,
     voiceSidebarOpen, setVoiceSidebarOpen,
-    sidebarInitialData,
+    sidebarInitialData, clearSidebarInitialData,
     chatPanelOpen, setChatPanelOpen,
     accumulatedEntries,
     handleChange,
@@ -368,7 +368,7 @@ export default function NewFlujoDeDineroPage() {
           isOpen={voiceSidebarOpen}
           onClose={() => {
             setVoiceSidebarOpen(false);
-            setSidebarInitialData(undefined);
+            clearSidebarInitialData();
           }}
           sessionType="CREATE_LEDGER_ENTRY"
           patientId="ledger"

@@ -278,6 +278,7 @@ export function useNewLedgerEntry() {
     voiceModalOpen, setVoiceModalOpen,
     voiceSidebarOpen, setVoiceSidebarOpen,
     sidebarInitialData,
+    clearSidebarInitialData: () => setSidebarInitialData(undefined),
     chatPanelOpen, setChatPanelOpen,
     accumulatedEntries,
     handleChange,
