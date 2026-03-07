@@ -13,7 +13,7 @@ import DailyChart from "@/components/analytics/DailyChart";
 import TrafficSourcesChart from "@/components/analytics/TrafficSourcesChart";
 import SearchQueriesTable from "@/components/analytics/SearchQueriesTable";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface LlmUsageData {
   range: string;
