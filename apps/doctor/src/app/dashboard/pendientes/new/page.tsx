@@ -1,349 +1,45 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { redirect, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, Loader2, Save, Sparkles } from "lucide-react";
+import { Loader2, Save, Sparkles, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import {
   VoiceChatSidebar,
   VoiceRecordingModal,
 } from '@/components/voice-assistant';
-// ConflictDialog no longer needed - simplified to inline dialog
-import type { InitialChatData } from '@/hooks/useChatSession';
-import type { VoiceStructuredData, VoiceTaskData } from '@/types/voice-assistant';
 import { TaskChatPanel } from '@/components/tasks/TaskChatPanel';
-
-interface PatientOption {
-  id: string;
-  firstName: string;
-  lastName: string;
-  internalId: string;
-}
-
-import { getLocalDateString } from '@/lib/dates';
-
-
-// Simplified conflict handling - server-side only
-interface TaskConflictData {
-  taskConflicts: any[];
-  error: string;
-}
+import { useNewTask } from './useNewTask';
 
 export default function NewTaskPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { data: session, status: authStatus } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect("/login");
-    },
-  });
-
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [patients, setPatients] = useState<PatientOption[]>([]);
-  const [patientSearch, setPatientSearch] = useState("");
-
-  // Simplified conflict state (server-side only)
-  const [taskConflicts, setTaskConflicts] = useState<TaskConflictData | null>(null);
-  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
-
-  // Voice assistant state
-  const [modalOpen, setModalOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
-
-  // Chat IA state
-  const [chatPanelOpen, setChatPanelOpen] = useState(false);
-  const [accumulatedTasks, setAccumulatedTasks] = useState<VoiceTaskData[]>([]);
-
-  // Auto-open chat panel from hub widget
-  useEffect(() => {
-    if (searchParams.get('chat') === 'true') {
-      setChatPanelOpen(true);
-    }
-  }, [searchParams]);
-
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    dueDate: "",
-    startTime: "",
-    endTime: "",
-    priority: "MEDIA",
-    category: "OTRO",
-    patientId: "",
-  });
-
-  useEffect(() => {
-    if (authStatus === "authenticated") {
-      fetchPatients();
-    }
-  }, [authStatus]);
-
-  const fetchPatients = async () => {
-    try {
-      const res = await fetch("/api/medical-records/patients?status=active");
-      const result = await res.json();
-      if (res.ok) {
-        setPatients(result.data || []);
-      }
-    } catch {
-      // non-critical
-    }
-  };
-
-  // Chat IA callbacks
-  const handleChatTaskUpdates = useCallback((tasks: VoiceTaskData[]) => {
-    setAccumulatedTasks(tasks);
-  }, []);
-
-  const handleChatBatchCreate = useCallback(() => {
-    if (accumulatedTasks.length === 0) return;
-    executeBatchCreation(accumulatedTasks);
-    setAccumulatedTasks([]);
-    setChatPanelOpen(false);
-  }, [accumulatedTasks]);
-
-  // Handle modal completion - transition to sidebar with initial data
-  const handleModalComplete = useCallback((
-    transcript: string,
-    data: VoiceStructuredData,
-    sessionId: string,
-    transcriptId: string,
-    audioDuration: number
-  ) => {
-    const voiceData = data as VoiceTaskData;
-
-    // Calculate extracted fields
-    const allFields = Object.keys(voiceData);
-    const extracted = allFields.filter(
-      k => voiceData[k as keyof VoiceTaskData] != null &&
-           voiceData[k as keyof VoiceTaskData] !== ''
-    );
-
-    // Prepare initial data for sidebar
-    const initialData: InitialChatData = {
-      transcript,
-      structuredData: data,
-      transcriptId,
-      sessionId,
-      audioDuration,
-      fieldsExtracted: extracted,
-    };
-
-    // Close modal, set initial data, and open sidebar
-    setModalOpen(false);
-    setSidebarInitialData(initialData);
-    setSidebarOpen(true);
-  }, []);
-
-  // Handle voice chat confirm - populate form or batch create
-  const handleVoiceConfirm = useCallback(async (data: VoiceStructuredData) => {
-    // Check if this is a batch
-    const batchData = data as any;
-    if (batchData.isBatch && Array.isArray(batchData.entries) && batchData.entries.length > 0) {
-      setSaving(true);
-      setError(null);
-      setSidebarOpen(false);
-      setSidebarInitialData(undefined);
-
-      const entries = batchData.entries as VoiceTaskData[];
-
-      // No client-side conflict checking - server handles it per task
-      await executeBatchCreation(entries);
-      return;
-    }
-
-    // Single task: add to accumulated list (same as batch)
-    const voiceData = data as VoiceTaskData;
-    setAccumulatedTasks(prev => [...prev, voiceData]);
-    setSidebarOpen(false);
-    setSidebarInitialData(undefined);
-  }, [router]);
-
-  // Load voice data from sessionStorage (hub widget flow)
-  // Handles both single tasks (pre-fill form) and batch (direct API creation)
-  useEffect(() => {
-    if (searchParams.get('voice') === 'true') {
-      const stored = sessionStorage.getItem('voiceTaskData');
-      if (stored) {
-        try {
-          const { data } = JSON.parse(stored);
-          sessionStorage.removeItem('voiceTaskData');
-          handleVoiceConfirm(data);
-        } catch (e) {
-          console.error('Error parsing voice task data:', e);
-        }
-      }
-    }
-  }, [searchParams, handleVoiceConfirm]);
-
-  const executeBatchCreation = async (entries: VoiceTaskData[]) => {
-    setSaving(true);
-    let successCount = 0;
-    const failed: { entry: VoiceTaskData; reason: string }[] = [];
-
-    for (const entry of entries) {
-      try {
-        const res = await fetch("/api/medical-records/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: (entry.title || "").trim(),
-            description: (entry.description || "").trim() || null,
-            dueDate: entry.dueDate || null,
-            startTime: entry.startTime || null,
-            endTime: entry.endTime || null,
-            priority: entry.priority || "MEDIA",
-            category: entry.category || "OTRO",
-            patientId: entry.patientId || null,
-          }),
-        });
-
-        // Handle both success and 409 conflicts
-        if (res.ok) {
-          successCount++;
-        } else if (res.status === 409) {
-          const errData = await res.json().catch(() => null);
-          failed.push({
-            entry,
-            reason: errData?.error || "Conflicto de horario",
-          });
-        } else {
-          const errData = await res.json().catch(() => null);
-          failed.push({
-            entry,
-            reason: errData?.error || `Error ${res.status}`,
-          });
-        }
-      } catch {
-        failed.push({ entry, reason: 'Error de conexión' });
-      }
-    }
-
-    setSaving(false);
-
-    if (failed.length > 0) {
-      const failedNames = failed
-        .map(f => `• "${f.entry.title}": ${f.reason}`)
-        .join('\n');
-      setError(
-        `Se crearon ${successCount} de ${entries.length} pendientes.\n\nFallaron:\n${failedNames}`
-      );
-    } else {
-      router.push("/dashboard/pendientes");
-    }
-  };
-
-  // Removed live conflict preview - server handles conflict detection on submission
-
-  const handleStartTimeChange = (value: string) => {
-    if (!value) {
-      setForm({ ...form, startTime: '', endTime: '' });
-    } else {
-      setForm({ ...form, startTime: value });
-    }
-  };
-
-  const handleEndTimeChange = (value: string) => {
-    setForm({ ...form, endTime: value });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title.trim()) {
-      setError("El titulo es obligatorio");
-      return;
-    }
-
-    if (!form.dueDate) {
-      setError("La fecha es obligatoria");
-      return;
-    }
-
-    // Validate startTime/endTime pairing
-    if (form.startTime && !form.endTime) {
-      setError("Si se proporciona hora de inicio, la hora de fin es obligatoria");
-      return;
-    }
-    if (form.endTime && !form.startTime) {
-      setError("Si se proporciona hora de fin, la hora de inicio es obligatoria");
-      return;
-    }
-
-    // Direct submission - server detects conflicts
-    await submitTask();
-  };
-
-  const submitTask = async () => {
-    setSaving(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/medical-records/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: form.title.trim(),
-          description: form.description.trim() || null,
-          dueDate: form.dueDate || null,
-          startTime: form.startTime || null,
-          endTime: form.endTime || null,
-          priority: form.priority,
-          category: form.category,
-          patientId: form.patientId || null,
-        }),
-      });
-
-      const result = await res.json();
-
-      // Handle 409 Conflict - Task-task conflicts (BLOCKING)
-      if (res.status === 409) {
-        setTaskConflicts({
-          taskConflicts: result.taskConflicts || [],
-          error: result.error || "Ya tienes un pendiente a esta hora",
-        });
-        setConflictDialogOpen(true);
-        setSaving(false);
-        return;
-      }
-
-      if (res.ok) {
-        // Task created successfully
-        if (result.warning && result.bookedAppointments) {
-          // Show success + warning for 3 seconds then redirect
-          setSuccessMessage(`Tarea creada exitosamente\n\n${result.warning}`);
-          setTimeout(() => {
-            router.push("/dashboard/pendientes");
-          }, 3000);
-        } else {
-          // No warning - redirect immediately
-          router.push("/dashboard/pendientes");
-        }
-      } else {
-        setError(result.error || "Error al crear la tarea");
-      }
-    } catch {
-      setError("Error al crear la tarea");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Override not needed - conflicts must be resolved manually or task rescheduled
-
-  const filteredPatients = patients.filter((p) => {
-    if (!patientSearch) return true;
-    const search = patientSearch.toLowerCase();
-    return (
-      p.firstName.toLowerCase().includes(search) ||
-      p.lastName.toLowerCase().includes(search) ||
-      p.internalId.toLowerCase().includes(search)
-    );
-  });
+  const {
+    session,
+    authStatus,
+    form,
+    setForm,
+    patientSearch,
+    setPatientSearch,
+    filteredPatients,
+    saving,
+    error,
+    successMessage,
+    taskConflicts,
+    conflictDialogOpen,
+    setConflictDialogOpen,
+    modalOpen,
+    setModalOpen,
+    sidebarOpen,
+    setSidebarOpen,
+    sidebarInitialData,
+    chatPanelOpen,
+    setChatPanelOpen,
+    accumulatedTasks,
+    handleSubmit,
+    handleStartTimeChange,
+    handleEndTimeChange,
+    handleModalComplete,
+    handleVoiceConfirm,
+    handleChatTaskUpdates,
+    handleChatBatchCreate,
+  } = useNewTask();
 
   if (authStatus === "loading") {
     return (
@@ -369,7 +65,6 @@ export default function NewTaskPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Nueva Tarea</h1>
             <p className="text-gray-600 mt-1">Crea una nueva tarea pendiente</p>
           </div>
-          {/* Action buttons */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setChatPanelOpen(true)}
@@ -432,7 +127,7 @@ export default function NewTaskPage() {
               />
             </div>
 
-            {/* Date and Time Range */}
+            {/* Date */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Fecha <span className="text-red-500">*</span>
@@ -446,6 +141,7 @@ export default function NewTaskPage() {
               />
             </div>
 
+            {/* Time Range */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -562,7 +258,7 @@ export default function NewTaskPage() {
         </div>
       </form>
 
-      {/* Task Conflict Dialog (simple inline) */}
+      {/* Task Conflict Dialog */}
       {conflictDialogOpen && taskConflicts && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
@@ -598,7 +294,6 @@ export default function NewTaskPage() {
                 <button
                   onClick={() => {
                     setConflictDialogOpen(false);
-                    setTaskConflicts(null);
                   }}
                   className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium transition-colors"
                 >
@@ -616,9 +311,7 @@ export default function NewTaskPage() {
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
           sessionType="NEW_TASK"
-          context={{
-            doctorId: session.user.doctorId,
-          }}
+          context={{ doctorId: session.user.doctorId }}
           onComplete={handleModalComplete}
         />
       )}
@@ -631,9 +324,7 @@ export default function NewTaskPage() {
           sessionType="NEW_TASK"
           patientId=""
           doctorId={session.user.doctorId}
-          context={{
-            doctorId: session.user.doctorId,
-          }}
+          context={{ doctorId: session.user.doctorId }}
           initialData={sidebarInitialData}
           onConfirm={handleVoiceConfirm}
         />
