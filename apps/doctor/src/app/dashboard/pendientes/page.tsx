@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 
 import { getLocalDateString, parseLocalDate } from '@/lib/dates';
+import { toast } from '@/lib/practice-toast';
+import { practiceConfirm } from '@/lib/practice-confirm';
 
 interface Task {
   id: string;
@@ -218,7 +220,7 @@ export default function PendientesPage() {
   };
 
   const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`¿Eliminar "${title}"?`)) return;
+    if (!await practiceConfirm(`¿Eliminar "${title}"?`)) return;
     try {
       const res = await fetch(`/api/medical-records/tasks/${id}`, {
         method: "DELETE",
@@ -232,7 +234,7 @@ export default function PendientesPage() {
         });
       }
     } catch {
-      alert("Error al eliminar");
+      toast.error("Error al eliminar");
     }
   };
 
@@ -261,7 +263,7 @@ export default function PendientesPage() {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`¿Eliminar ${selectedIds.size} tarea(s) seleccionada(s)?`)) return;
+    if (!await practiceConfirm(`¿Eliminar ${selectedIds.size} tarea(s) seleccionada(s)?`)) return;
 
     setBulkDeleting(true);
     const idsToDelete = Array.from(selectedIds);

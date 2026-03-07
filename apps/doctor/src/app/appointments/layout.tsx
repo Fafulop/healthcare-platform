@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { DoctorProfileProvider } from "@/contexts/DoctorProfileContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { PracticeUIProvider } from "@/components/ui/PracticeUIProvider";
 import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
 import { DayDetailsWidget } from "@/components/day-details/DayDetailsWidget";
 import { VoiceAssistantHubWidget } from "@/components/voice-hub/VoiceAssistantHubWidget";
@@ -34,7 +35,9 @@ export default function AppointmentsLayout({
 
   return (
     <DoctorProfileProvider>
-      <DashboardLayout>{children}</DashboardLayout>
+      <PracticeUIProvider>
+        <DashboardLayout>{children}</DashboardLayout>
+      </PracticeUIProvider>
       <VoiceAssistantHubWidget />
       <DayDetailsWidget />
       <ChatWidget />

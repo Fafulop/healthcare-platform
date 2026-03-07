@@ -13,11 +13,12 @@ import {
 } from '@/components/voice-assistant';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoiceAppointmentSlotsData, VoiceStructuredData } from '@/types/voice-assistant';
+import { toast } from '@/lib/practice-toast';
+import { practiceConfirm } from '@/lib/practice-confirm';
+import { getLocalDateString, formatLocalDate as formatDateString } from '@/lib/dates';
 
 // API URL from environment variable
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-import { getLocalDateString, formatLocalDate as formatDateString } from '@/lib/dates';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface AppointmentSlot {
   id: string;
@@ -254,7 +255,7 @@ export default function AppointmentsPage() {
     });
 
     if (slot && slot.currentBookings > 0) {
-      if (!confirm(`Este horario tiene ${slot.currentBookings} cita(s) activa(s). ¿Cancelar las citas y eliminar el horario?`)) return;
+      if (!await practiceConfirm(`Este horario tiene ${slot.currentBookings} cita(s) activa(s). ¿Cancelar las citas y eliminar el horario?`)) return;
 
       // Cancel all active bookings first
       for (const booking of activeBookings) {
@@ -271,7 +272,7 @@ export default function AppointmentsPage() {
         }
       }
     } else {
-      if (!confirm("¿Estás seguro de que quieres eliminar este horario?")) return;
+      if (!await practiceConfirm("¿Estás seguro de que quieres eliminar este horario?")) return;
     }
 
     try {
@@ -282,20 +283,20 @@ export default function AppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert("Horario eliminado exitosamente");
+        toast.success("Horario eliminado exitosamente");
         fetchSlots();
         fetchBookings();
       } else {
-        alert(data.error || "Error al eliminar horario");
+        toast.error(data.error || "Error al eliminar horario");
       }
     } catch (error) {
       console.error("Error deleting slot:", error);
-      alert("Error al eliminar horario");
+      toast.error("Error al eliminar horario");
     }
   };
 
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
-    if (newStatus === "CANCELLED" && !confirm("¿Estás seguro de que quieres cancelar esta cita?")) return;
+    if (newStatus === "CANCELLED" && !await practiceConfirm("¿Estás seguro de que quieres cancelar esta cita?")) return;
 
     try {
       const response = await authFetch(
@@ -308,20 +309,20 @@ export default function AppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert(data.message || "Estado actualizado exitosamente");
+        toast.success(data.message || "Estado actualizado exitosamente");
         fetchBookings();
         fetchSlots();
       } else {
-        alert(data.error || "Error al actualizar estado");
+        toast.error(data.error || "Error al actualizar estado");
       }
     } catch (error) {
       console.error("Error updating booking status:", error);
-      alert("Error al actualizar estado");
+      toast.error("Error al actualizar estado");
     }
   };
 
   const deleteBooking = async (bookingId: string, patientName: string) => {
-    if (!confirm(`¿Eliminar la cita de ${patientName}? También se eliminará el horario asociado. Esta acción no se puede deshacer.`)) return;
+    if (!await practiceConfirm(`¿Eliminar la cita de ${patientName}? También se eliminará el horario asociado. Esta acción no se puede deshacer.`)) return;
 
     try {
       const response = await authFetch(
@@ -334,11 +335,11 @@ export default function AppointmentsPage() {
         fetchBookings();
         fetchSlots();
       } else {
-        alert(data.error || "Error al eliminar la cita");
+        toast.error(data.error || "Error al eliminar la cita");
       }
     } catch (error) {
       console.error("Error deleting booking:", error);
-      alert("Error al eliminar la cita");
+      toast.error("Error al eliminar la cita");
     }
   };
 
@@ -354,7 +355,7 @@ export default function AppointmentsPage() {
 
     // Prevent closing slots with active bookings
     if (slot && !newIsOpen && slot.currentBookings > 0) {
-      alert(`No se puede cerrar este horario porque tiene ${slot.currentBookings} reserva(s) activa(s). Por favor cancela las reservas primero.`);
+      toast.error(`No se puede cerrar este horario porque tiene ${slot.currentBookings} reserva(s) activa(s). Por favor cancela las reservas primero.`);
       return;
     }
 
@@ -369,15 +370,15 @@ export default function AppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert(data.message);
+        toast.success(data.message);
         fetchSlots();
         fetchBookings();
       } else {
-        alert(data.error || "Error al actualizar horario");
+        toast.error(data.error || "Error al actualizar horario");
       }
     } catch (error) {
       console.error("Error updating slot:", error);
-      alert("Error al actualizar horario");
+      toast.error("Error al actualizar horario");
     }
   };
 
@@ -385,7 +386,7 @@ export default function AppointmentsPage() {
     const slotIds = Array.from(selectedSlots);
 
     if (slotIds.length === 0) {
-      alert("Por favor selecciona horarios primero");
+      toast.error("Por favor selecciona horarios primero");
       return;
     }
 
@@ -395,13 +396,13 @@ export default function AppointmentsPage() {
       const slotsWithBookings = selectedSlotsData.filter(s => s.currentBookings > 0);
 
       if (slotsWithBookings.length > 0) {
-        alert(`No se pueden cerrar ${slotsWithBookings.length} horario(s) porque tienen reservas activas. Por favor cancela las reservas primero o deselecciona esos horarios.`);
+        toast.error(`No se pueden cerrar ${slotsWithBookings.length} horario(s) porque tienen reservas activas. Por favor cancela las reservas primero o deselecciona esos horarios.`);
         return;
       }
     }
 
     const actionText = action === "delete" ? "eliminar" : action === "close" ? "cerrar" : "abrir";
-    if (!confirm(`¿Estás seguro de que quieres ${actionText} ${slotIds.length} horario(s)?`)) {
+    if (!await practiceConfirm(`¿Estás seguro de que quieres ${actionText} ${slotIds.length} horario(s)?`)) {
       return;
     }
 
@@ -416,16 +417,16 @@ export default function AppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert(`${data.count} horario(s) ${actionText === "eliminar" ? "eliminados" : actionText === "cerrar" ? "cerrados" : "abiertos"} exitosamente`);
+        toast.success(`${data.count} horario(s) ${actionText === "eliminar" ? "eliminados" : actionText === "cerrar" ? "cerrados" : "abiertos"} exitosamente`);
         setSelectedSlots(new Set());
         fetchSlots();
         fetchBookings();
       } else {
-        alert(data.error || `Error al ${actionText} horarios`);
+        toast.error(data.error || `Error al ${actionText} horarios`);
       }
     } catch (error) {
       console.error(`Error performing bulk ${action}:`, error);
-      alert(`Error al ${actionText} horarios`);
+      toast.error(`Error al ${actionText} horarios`);
     }
   };
 

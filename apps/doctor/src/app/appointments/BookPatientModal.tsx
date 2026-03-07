@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "${API_URL}";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 import { getLocalDateString, formatLocalDate as formatDateStr } from '@/lib/dates';
 

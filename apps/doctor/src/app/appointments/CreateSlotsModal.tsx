@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { X, Calendar, Clock, DollarSign, Percent, Info, Loader2 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from '@/lib/practice-toast';
+import { getLocalDateString } from '@/lib/dates';
 
 // API URL from environment variable
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-import { getLocalDateString } from '@/lib/dates';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface SlotEntry {
   date: string;
@@ -106,6 +106,7 @@ export default function CreateSlotsModal({
   const [discount, setDiscount] = useState("");
   const [discountType, setDiscountType] = useState<"PERCENTAGE" | "FIXED">("PERCENTAGE");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [previewSlots, setPreviewSlots] = useState<number>(0);
 
   // Task info state (informational)
@@ -260,11 +261,8 @@ export default function CreateSlotsModal({
 
         const moreCount = data.conflicts.length > 5 ? `\n... y ${data.conflicts.length - 5} más` : '';
 
-        alert(
-          `⚠️ No se pueden crear los horarios\n\n` +
-          `${data.message}\n\n` +
-          `Horarios existentes:\n${conflictList}${moreCount}\n\n` +
-          `Por favor, elimina primero los horarios existentes si deseas crear nuevos en estos tiempos.`
+        setSubmitError(
+          `No se pueden crear los horarios. ${data.message} Horarios con conflicto: ${conflictList}${moreCount}. Por favor, elimina primero los horarios existentes.`
         );
         setIsSubmitting(false);
         return;
@@ -282,16 +280,16 @@ export default function CreateSlotsModal({
           setTasksInfo(data.tasksInfo);
         }
 
-        alert(message);
+        toast.success(message);
         onSuccess();
         onClose();
         resetForm();
       } else {
-        alert(data.error || "Error al crear horarios");
+        toast.error(data.error || "Error al crear horarios");
       }
     } catch (error) {
       console.error("Error creating slots:", error);
-      alert("Error al crear horarios. Por favor intenta de nuevo.");
+      toast.error("Error al crear horarios. Por favor intenta de nuevo.");
     } finally {
       setIsSubmitting(false);
     }
@@ -300,23 +298,25 @@ export default function CreateSlotsModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    setSubmitError(null);
+
     if (!basePrice || parseFloat(basePrice) <= 0) {
-      alert("Por favor ingresa un precio base valido");
+      setSubmitError("Por favor ingresa un precio base valido");
       return;
     }
 
     if (mode === "single" && !singleDate) {
-      alert("Por favor selecciona una fecha");
+      setSubmitError("Por favor selecciona una fecha");
       return;
     }
 
     if (mode === "recurring" && (!startDate || !endDate)) {
-      alert("Por favor selecciona fechas de inicio y fin");
+      setSubmitError("Por favor selecciona fechas de inicio y fin");
       return;
     }
 
     if (mode === "recurring" && daysOfWeek.length === 0) {
-      alert("Por favor selecciona al menos un dia de la semana");
+      setSubmitError("Por favor selecciona al menos un dia de la semana");
       return;
     }
 
@@ -731,6 +731,10 @@ export default function CreateSlotsModal({
                 Entendido
               </button>
             </div>
+          )}
+
+          {submitError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 whitespace-pre-wrap">{submitError}</p>
           )}
 
           {/* Actions */}

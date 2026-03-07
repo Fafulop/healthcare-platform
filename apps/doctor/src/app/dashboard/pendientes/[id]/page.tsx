@@ -5,6 +5,7 @@ import { redirect, useRouter } from "next/navigation";
 import { useEffect, useState, use } from "react";
 import { ArrowLeft, Loader2, Edit, Trash2, CheckCircle2, Calendar, Clock, User } from "lucide-react";
 import Link from "next/link";
+import { practiceConfirm } from "@/lib/practice-confirm";
 
 interface Task {
   id: string;
@@ -90,7 +91,7 @@ export default function ViewTaskPage({ params }: { params: Promise<{ id: string 
   };
 
   const handleDelete = async () => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar esta tarea?`)) return;
+    if (!await practiceConfirm(`¿Estás seguro de que quieres eliminar esta tarea?`)) return;
 
     setDeleting(true);
     try {
