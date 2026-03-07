@@ -1,263 +1,28 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { redirect, useRouter, useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { redirect } from "next/navigation";
 import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import Link from "next/link";
-import { authFetch } from "@/lib/auth-fetch";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  doctorFullName: string;
-  primarySpecialty: string;
-}
-
-interface Area {
-  id: number;
-  name: string;
-  type: 'INGRESO' | 'EGRESO';
-  subareas: Subarea[];
-}
-
-interface Subarea {
-  id: number;
-  name: string;
-}
-
-interface LedgerEntry {
-  id: number;
-  amount: string;
-  concept: string;
-  bankAccount: string | null;
-  formaDePago: string;
-  internalId: string;
-  bankMovementId: string | null;
-  entryType: string;
-  transactionDate: string;
-  area: string;
-  subarea: string;
-  porRealizar: boolean;
-  transactionType?: string;
-  clientId?: number;
-  supplierId?: number;
-  paymentStatus?: string;
-  amountPaid?: string;
-  client?: {
-    id: number;
-    businessName: string;
-    contactName: string | null;
-  };
-  supplier?: {
-    id: number;
-    businessName: string;
-    contactName: string | null;
-  };
-  sale?: {
-    id: number;
-    saleNumber: string;
-    total: string;
-  };
-  purchase?: {
-    id: number;
-    purchaseNumber: string;
-    total: string;
-  };
-}
+import { useEditLedgerEntry } from "../../_components/useEditLedgerEntry";
 
 export default function EditFlujoDeDineroPage() {
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
-    onUnauthenticated() {
-      redirect("/login");
-    },
+    onUnauthenticated() { redirect("/login"); },
   });
 
-  const router = useRouter();
-  const params = useParams();
-  const entryId = params.id as string;
-
-  const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [entry, setEntry] = useState<LedgerEntry | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-
-  const [formData, setFormData] = useState({
-    entryType: "ingreso" as "ingreso" | "egreso",
-    amount: "",
-    concept: "",
-    transactionDate: "",
-    area: "",
-    subarea: "",
-    bankAccount: "",
-    formaDePago: "efectivo",
-    bankMovementId: "",
-    internalId: "",
-    porRealizar: false,
-    paymentOption: "paid" as "paid" | "pending"
-  });
-
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
-
-  useEffect(() => {
-    if (session?.user?.email) {
-      fetchAreas();
-      fetchEntry();
-    }
-  }, []);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
-
-  const fetchAreas = async () => {
-    if (!session?.user?.email) return;
-
-    try {
-      const response = await authFetch(`${API_URL}/api/practice-management/areas`);
-
-      if (!response.ok) throw new Error('Error al cargar áreas');
-      const result = await response.json();
-      setAreas(result.data || []);
-    } catch (err) {
-      console.error('Error al cargar áreas:', err);
-    }
-  };
-
-  const fetchEntry = async () => {
-    if (!session?.user?.email) return;
-
-    try {
-      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`);
-
-      if (!response.ok) throw new Error('Error al cargar movimiento');
-      const result = await response.json();
-      const entry = result.data;
-
-      setEntry(entry);
-
-      // Determine payment option based on amountPaid
-      const amount = parseFloat(entry.amount);
-      const amountPaid = parseFloat(entry.amountPaid || '0');
-      const paymentOption = amountPaid >= amount ? 'paid' : 'pending';
-
-      setFormData({
-        entryType: entry.entryType,
-        amount: entry.amount,
-        concept: entry.concept,
-        transactionDate: entry.transactionDate.split('T')[0],
-        area: entry.area,
-        subarea: entry.subarea,
-        bankAccount: entry.bankAccount || "",
-        formaDePago: entry.formaDePago,
-        bankMovementId: entry.bankMovementId || "",
-        internalId: entry.internalId,
-        porRealizar: entry.porRealizar,
-        paymentOption: paymentOption as "paid" | "pending"
-      });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
-
-    // Reset subarea when area changes
-    if (name === 'area') {
-      setFormData(prev => ({ ...prev, subarea: '' }));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!session?.user?.email) return;
-
-    // Validation
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      setError('El monto debe ser mayor a 0');
-      return;
-    }
-
-    if (!formData.concept.trim()) {
-      setError('El concepto es requerido');
-      return;
-    }
-
-    if (!formData.area || !formData.subarea) {
-      setError('Seleccione un área y subárea');
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const amount = parseFloat(formData.amount);
-      const amountPaid = formData.paymentOption === 'paid' ? amount : 0;
-      const paymentStatus = formData.paymentOption === 'paid' ? 'PAID' : 'PENDING';
-
-      const response = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...formData,
-          amount: amount,
-          amountPaid: amountPaid,
-          paymentStatus: paymentStatus
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al actualizar movimiento');
-      }
-
-      router.push('/dashboard/practice/flujo-de-dinero');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Filter areas based on entry type
-  const filteredAreas = areas.filter(a =>
-    formData.entryType === 'ingreso' ? a.type === 'INGRESO' : a.type === 'EGRESO'
-  );
-
-  const selectedArea = filteredAreas.find(a => a.name === formData.area);
-  const availableSubareas = selectedArea?.subareas || [];
+  const {
+    entry,
+    loading,
+    error,
+    submitting,
+    formData,
+    filteredAreas,
+    availableSubareas,
+    handleChange,
+    handleSubmit,
+  } = useEditLedgerEntry();
 
   if (status === "loading" || loading) {
     return (
@@ -288,383 +53,369 @@ export default function EditFlujoDeDineroPage() {
 
   return (
     <div className="p-3 sm:p-6 max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-3 sm:mb-6">
-          <Link
-            href="/dashboard/practice/flujo-de-dinero"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver a Flujo de Dinero
-          </Link>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Editar Movimiento</h1>
-          <p className="text-gray-500 mt-0.5 text-xs sm:text-sm">
-            ID: <span className="font-mono">{entry.internalId}</span>
-          </p>
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-3 sm:mb-6">
+        <Link
+          href="/dashboard/practice/flujo-de-dinero"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver a Flujo de Dinero
+        </Link>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Editar Movimiento</h1>
+        <p className="text-gray-500 mt-0.5 text-xs sm:text-sm">
+          ID: <span className="font-mono">{entry.internalId}</span>
+        </p>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-3 sm:mb-6 text-sm">
+          {error}
         </div>
+      )}
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-3 sm:mb-6 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="bg-white rounded-lg shadow p-4 sm:p-6 space-y-4 sm:space-y-6">
-            {/* Entry Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Movimiento *
-              </label>
-              <div className="flex gap-3">
-                <label className={`flex-1 flex items-center justify-center gap-2 p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  formData.entryType === 'ingreso'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}>
-                  <input
-                    type="radio"
-                    name="entryType"
-                    value="ingreso"
-                    checked={formData.entryType === 'ingreso'}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
-                  <TrendingUp className={`w-4 h-4 sm:w-5 sm:h-5 ${formData.entryType === 'ingreso' ? 'text-green-600' : 'text-gray-400'}`} />
-                  <span className={`font-medium text-sm sm:text-base ${formData.entryType === 'ingreso' ? 'text-green-900' : 'text-gray-600'}`}>
-                    Ingreso
-                  </span>
-                </label>
-                <label className={`flex-1 flex items-center justify-center gap-2 p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  formData.entryType === 'egreso'
-                    ? 'border-red-500 bg-red-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}>
-                  <input
-                    type="radio"
-                    name="entryType"
-                    value="egreso"
-                    checked={formData.entryType === 'egreso'}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
-                  <TrendingDown className={`w-4 h-4 sm:w-5 sm:h-5 ${formData.entryType === 'egreso' ? 'text-red-600' : 'text-gray-400'}`} />
-                  <span className={`font-medium text-sm sm:text-base ${formData.entryType === 'egreso' ? 'text-red-900' : 'text-gray-600'}`}>
-                    Egreso
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            {/* Amount and Date */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Monto (MXN) *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    name="amount"
-                    value={formData.amount}
-                    onChange={handleChange}
-                    step="0.01"
-                    min="0"
-                    className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Fecha *
-                </label>
+      <form onSubmit={handleSubmit}>
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 space-y-4 sm:space-y-6">
+          {/* Entry Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de Movimiento *
+            </label>
+            <div className="flex gap-3">
+              <label className={`flex-1 flex items-center justify-center gap-2 p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                formData.entryType === 'ingreso'
+                  ? 'border-green-500 bg-green-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}>
                 <input
-                  type="date"
-                  name="transactionDate"
-                  value={formData.transactionDate}
+                  type="radio"
+                  name="entryType"
+                  value="ingreso"
+                  checked={formData.entryType === 'ingreso'}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  required
+                  className="sr-only"
                 />
-              </div>
+                <TrendingUp className={`w-4 h-4 sm:w-5 sm:h-5 ${formData.entryType === 'ingreso' ? 'text-green-600' : 'text-gray-400'}`} />
+                <span className={`font-medium text-sm sm:text-base ${formData.entryType === 'ingreso' ? 'text-green-900' : 'text-gray-600'}`}>
+                  Ingreso
+                </span>
+              </label>
+              <label className={`flex-1 flex items-center justify-center gap-2 p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                formData.entryType === 'egreso'
+                  ? 'border-red-500 bg-red-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}>
+                <input
+                  type="radio"
+                  name="entryType"
+                  value="egreso"
+                  checked={formData.entryType === 'egreso'}
+                  onChange={handleChange}
+                  className="sr-only"
+                />
+                <TrendingDown className={`w-4 h-4 sm:w-5 sm:h-5 ${formData.entryType === 'egreso' ? 'text-red-600' : 'text-gray-400'}`} />
+                <span className={`font-medium text-sm sm:text-base ${formData.entryType === 'egreso' ? 'text-red-900' : 'text-gray-600'}`}>
+                  Egreso
+                </span>
+              </label>
             </div>
+          </div>
 
-            {/* Concept */}
+          {/* Amount and Date */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Concepto *
+                Monto (MXN) *
               </label>
-              <textarea
-                name="concept"
-                value={formData.concept}
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">
+                  $
+                </span>
+                <input
+                  type="number"
+                  name="amount"
+                  value={formData.amount}
+                  onChange={handleChange}
+                  step="0.01"
+                  min="0"
+                  className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Fecha *
+              </label>
+              <input
+                type="date"
+                name="transactionDate"
+                value={formData.transactionDate}
                 onChange={handleChange}
-                rows={2}
-                maxLength={500}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                placeholder="Descripción del movimiento..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 required
               />
-              <p className="text-xs text-gray-400 mt-0.5">
-                {formData.concept.length}/500
-              </p>
-            </div>
-
-            {/* Transaction Information (Read-only) */}
-            {entry && (entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-                <h3 className="text-sm font-semibold text-blue-900 mb-2">Información de Transacción (Solo lectura)</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-blue-700 mb-1">
-                      Tipo
-                    </label>
-                    <div className="text-sm text-blue-900">
-                      {entry.transactionType === 'VENTA' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Venta {entry.sale && `- ${entry.sale.saleNumber}`}
-                        </span>
-                      )}
-                      {entry.transactionType === 'COMPRA' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                          Compra {entry.purchase && `- ${entry.purchase.purchaseNumber}`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-blue-700 mb-1">
-                      {entry.transactionType === 'VENTA' ? 'Cliente' : 'Proveedor'}
-                    </label>
-                    <div className="text-sm text-blue-900 font-medium truncate">
-                      {entry.client && entry.client.businessName}
-                      {entry.supplier && entry.supplier.businessName}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-blue-700 mb-1">
-                      Estado de Pago
-                    </label>
-                    <div className="text-sm text-blue-900">
-                      {entry.paymentStatus === 'PAID' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Pagado
-                        </span>
-                      )}
-                      {entry.paymentStatus === 'PARTIAL' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          Parcial
-                        </span>
-                      )}
-                      {entry.paymentStatus === 'PENDING' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                          Pendiente
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-xs text-blue-600 mt-2">
-                  Vinculado a {entry.transactionType === 'VENTA' ? 'venta' : 'compra'}. Edita el registro original para cambiarlo.
-                </p>
-              </div>
-            )}
-
-            {/* Area and Subarea */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Área *
-                </label>
-                <select
-                  name="area"
-                  value={formData.area}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  required
-                >
-                  <option value="">Seleccione un área</option>
-                  {filteredAreas.map(area => (
-                    <option key={area.id} value={area.name}>
-                      {area.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Subárea *
-                </label>
-                <select
-                  name="subarea"
-                  value={formData.subarea}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  disabled={!formData.area}
-                  required
-                >
-                  <option value="">Seleccione una subárea</option>
-                  {availableSubareas.map(subarea => (
-                    <option key={subarea.id} value={subarea.name}>
-                      {subarea.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Bank and Payment Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Cuenta Bancaria
-                </label>
-                <input
-                  type="text"
-                  name="bankAccount"
-                  value={formData.bankAccount}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  placeholder="Ej: BBVA Empresarial"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Forma de Pago *
-                </label>
-                <select
-                  name="formaDePago"
-                  value={formData.formaDePago}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  required
-                >
-                  <option value="efectivo">Efectivo</option>
-                  <option value="transferencia">Transferencia</option>
-                  <option value="tarjeta">Tarjeta</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="deposito">Depósito</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Payment Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estado de Pago *
-              </label>
-              <div className="flex gap-3">
-                <label className={`flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                  formData.paymentOption === 'paid'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}>
-                  <input
-                    type="radio"
-                    name="paymentOption"
-                    value="paid"
-                    checked={formData.paymentOption === 'paid'}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
-                  <span className={`font-medium text-sm ${formData.paymentOption === 'paid' ? 'text-blue-900' : 'text-gray-600'}`}>
-                    {formData.entryType === 'ingreso' ? 'Cobrado' : 'Pagado'}
-                  </span>
-                </label>
-                <label className={`flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                  formData.paymentOption === 'pending'
-                    ? 'border-orange-500 bg-orange-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}>
-                  <input
-                    type="radio"
-                    name="paymentOption"
-                    value="pending"
-                    checked={formData.paymentOption === 'pending'}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
-                  <span className={`font-medium text-sm ${formData.paymentOption === 'pending' ? 'text-orange-900' : 'text-gray-600'}`}>
-                    {formData.entryType === 'ingreso' ? 'Por Cobrar' : 'Por Pagar'}
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            {/* Bank Movement ID and Internal ID */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  ID de Movimiento Bancario
-                </label>
-                <input
-                  type="text"
-                  name="bankMovementId"
-                  value={formData.bankMovementId}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  placeholder="Ej: REF123456"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  ID Interno *
-                </label>
-                <input
-                  type="text"
-                  name="internalId"
-                  value={formData.internalId}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 text-sm"
-                  placeholder="ING-2026-001"
-                  required
-                />
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Formato: ING-YYYY-NNN o EGR-YYYY-NNN
-                </p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-2">
-              <Link
-                href="/dashboard/practice/flujo-de-dinero"
-                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-center text-sm"
-              >
-                Cancelar
-              </Link>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Actualizando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    Actualizar
-                  </>
-                )}
-              </button>
             </div>
           </div>
-        </form>
+
+          {/* Concept */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Concepto *
+            </label>
+            <textarea
+              name="concept"
+              value={formData.concept}
+              onChange={handleChange}
+              rows={2}
+              maxLength={500}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+              placeholder="Descripción del movimiento..."
+              required
+            />
+            <p className="text-xs text-gray-400 mt-0.5">{formData.concept.length}/500</p>
+          </div>
+
+          {/* Transaction Information (Read-only) */}
+          {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-2">Información de Transacción (Solo lectura)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-blue-700 mb-1">Tipo</label>
+                  <div className="text-sm text-blue-900">
+                    {entry.transactionType === 'VENTA' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Venta {entry.sale && `- ${entry.sale.saleNumber}`}
+                      </span>
+                    )}
+                    {entry.transactionType === 'COMPRA' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        Compra {entry.purchase && `- ${entry.purchase.purchaseNumber}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-blue-700 mb-1">
+                    {entry.transactionType === 'VENTA' ? 'Cliente' : 'Proveedor'}
+                  </label>
+                  <div className="text-sm text-blue-900 font-medium truncate">
+                    {entry.client && entry.client.businessName}
+                    {entry.supplier && entry.supplier.businessName}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-blue-700 mb-1">Estado de Pago</label>
+                  <div className="text-sm text-blue-900">
+                    {entry.paymentStatus === 'PAID' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Pagado
+                      </span>
+                    )}
+                    {entry.paymentStatus === 'PARTIAL' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Parcial
+                      </span>
+                    )}
+                    {entry.paymentStatus === 'PENDING' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        Pendiente
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-blue-600 mt-2">
+                Vinculado a {entry.transactionType === 'VENTA' ? 'venta' : 'compra'}. Edita el registro original para cambiarlo.
+              </p>
+            </div>
+          )}
+
+          {/* Area and Subarea */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Área *
+              </label>
+              <select
+                name="area"
+                value={formData.area}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                required
+              >
+                <option value="">Seleccione un área</option>
+                {filteredAreas.map(area => (
+                  <option key={area.id} value={area.name}>{area.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Subárea *
+              </label>
+              <select
+                name="subarea"
+                value={formData.subarea}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                disabled={!formData.area}
+                required
+              >
+                <option value="">Seleccione una subárea</option>
+                {availableSubareas.map(subarea => (
+                  <option key={subarea.id} value={subarea.name}>{subarea.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Bank and Payment Details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Cuenta Bancaria
+              </label>
+              <input
+                type="text"
+                name="bankAccount"
+                value={formData.bankAccount}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                placeholder="Ej: BBVA Empresarial"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Forma de Pago *
+              </label>
+              <select
+                name="formaDePago"
+                value={formData.formaDePago}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                required
+              >
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="cheque">Cheque</option>
+                <option value="deposito">Depósito</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Payment Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Estado de Pago *
+            </label>
+            <div className="flex gap-3">
+              <label className={`flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                formData.paymentOption === 'paid'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}>
+                <input
+                  type="radio"
+                  name="paymentOption"
+                  value="paid"
+                  checked={formData.paymentOption === 'paid'}
+                  onChange={handleChange}
+                  className="sr-only"
+                />
+                <span className={`font-medium text-sm ${formData.paymentOption === 'paid' ? 'text-blue-900' : 'text-gray-600'}`}>
+                  {formData.entryType === 'ingreso' ? 'Cobrado' : 'Pagado'}
+                </span>
+              </label>
+              <label className={`flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                formData.paymentOption === 'pending'
+                  ? 'border-orange-500 bg-orange-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}>
+                <input
+                  type="radio"
+                  name="paymentOption"
+                  value="pending"
+                  checked={formData.paymentOption === 'pending'}
+                  onChange={handleChange}
+                  className="sr-only"
+                />
+                <span className={`font-medium text-sm ${formData.paymentOption === 'pending' ? 'text-orange-900' : 'text-gray-600'}`}>
+                  {formData.entryType === 'ingreso' ? 'Por Cobrar' : 'Por Pagar'}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Bank Movement ID and Internal ID */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                ID de Movimiento Bancario
+              </label>
+              <input
+                type="text"
+                name="bankMovementId"
+                value={formData.bankMovementId}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                placeholder="Ej: REF123456"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                ID Interno *
+              </label>
+              <input
+                type="text"
+                name="internalId"
+                value={formData.internalId}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 text-sm"
+                placeholder="ING-2026-001"
+                required
+              />
+              <p className="text-xs text-gray-400 mt-0.5">Formato: ING-YYYY-NNN o EGR-YYYY-NNN</p>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-2">
+            <Link
+              href="/dashboard/practice/flujo-de-dinero"
+              className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-center text-sm"
+            >
+              Cancelar
+            </Link>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Actualizando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Actualizar
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   );
 }

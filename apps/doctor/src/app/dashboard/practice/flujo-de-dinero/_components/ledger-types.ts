@@ -23,6 +23,7 @@ export interface LedgerEntry {
   amount: string;
   concept: string;
   bankAccount: string | null;
+  bankMovementId: string | null;
   formaDePago: string;
   internalId: string;
   entryType: string;
