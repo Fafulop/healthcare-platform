@@ -1,8 +1,5 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { redirect, useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
 import {
   CheckSquare,
   Plus,
@@ -20,46 +17,9 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-
 import { getLocalDateString, parseLocalDate } from '@/lib/dates';
-import { toast } from '@/lib/practice-toast';
-import { practiceConfirm } from '@/lib/practice-confirm';
-
-interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  dueDate: string | null;
-  startTime: string | null;
-  endTime: string | null;
-  priority: "ALTA" | "MEDIA" | "BAJA";
-  status: "PENDIENTE" | "EN_PROGRESO" | "COMPLETADA" | "CANCELADA";
-  category: string;
-  patientId: string | null;
-  completedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  patient: { id: string; firstName: string; lastName: string } | null;
-}
-
-interface Booking {
-  id: string;
-  patientName: string;
-  patientEmail: string;
-  patientPhone: string;
-  status: string;
-}
-
-interface AppointmentSlot {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  isOpen: boolean;
-  currentBookings: number;
-  maxBookings: number;
-  bookings?: Booking[];
-}
+import { usePendientesPage } from './usePendientesPage';
+import type { Task, AppointmentSlot } from './usePendientesPage';
 
 const PRIORITY_COLORS: Record<string, string> = {
   ALTA: "bg-red-100 text-red-800",
@@ -95,256 +55,35 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function PendientesPage() {
-  const router = useRouter();
-  const { status: authStatus } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect("/login");
-    },
-  });
-
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>("");
-  const [filterPriority, setFilterPriority] = useState<string>("");
-  const [filterCategory, setFilterCategory] = useState<string>("");
-
-  // Selection state for bulk actions
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkDeleting, setBulkDeleting] = useState(false);
-
-  // Modal state for task details
-  const [viewingTask, setViewingTask] = useState<Task | null>(null);
-
-  // Inline status editing
-  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
-
-  // Day filter state for list view
-  const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
-  const [showAllTasks, setShowAllTasks] = useState(false);
-
-  // Calendar view state
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [calendarTasks, setCalendarTasks] = useState<Task[]>([]);
-  const [appointmentSlots, setAppointmentSlots] = useState<AppointmentSlot[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [calendarLoading, setCalendarLoading] = useState(false);
-
-  const fetchTasks = useCallback(async () => {
-    try {
-      setLoading(true);
-      setSelectedIds(new Set()); // Clear selection when reloading
-      const params = new URLSearchParams();
-      if (filterStatus) params.set("status", filterStatus);
-      if (filterPriority) params.set("priority", filterPriority);
-      if (filterCategory) params.set("category", filterCategory);
-
-      const res = await fetch(`/api/medical-records/tasks?${params}`);
-      const result = await res.json();
-
-      if (res.ok) {
-        setTasks(result.data);
-        setError(null);
-      } else {
-        setError(result.error || "Error al cargar pendientes");
-      }
-    } catch {
-      setError("Error al cargar pendientes");
-    } finally {
-      setLoading(false);
-    }
-  }, [filterStatus, filterPriority, filterCategory]);
-
-  useEffect(() => {
-    if (authStatus === "authenticated") {
-      fetchTasks();
-    }
-  }, [authStatus, fetchTasks]);
-
-  const fetchCalendarData = useCallback(async () => {
-    try {
-      setCalendarLoading(true);
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth();
-      const startDate = new Date(year, month, 1);
-      const endDate = new Date(year, month + 1, 0);
-
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = endDate.toISOString().split('T')[0];
-
-      console.log('📅 Fetching calendar data for:', { startDateStr, endDateStr });
-
-      const res = await fetch(`/api/medical-records/tasks/calendar?startDate=${startDateStr}&endDate=${endDateStr}`);
-      const result = await res.json();
-
-      console.log('📊 Calendar API response:', result);
-
-      if (res.ok) {
-        setCalendarTasks(result.data.tasks || []);
-        setAppointmentSlots(result.data.appointmentSlots || []);
-        console.log('✅ Set calendar data:', {
-          tasksCount: result.data.tasks?.length || 0,
-          appointmentSlotsCount: result.data.appointmentSlots?.length || 0,
-          appointmentSlots: result.data.appointmentSlots
-        });
-      }
-    } catch (err) {
-      console.error('Error fetching calendar data:', err);
-    } finally {
-      setCalendarLoading(false);
-    }
-  }, [currentMonth]);
-
-  useEffect(() => {
-    if (authStatus === "authenticated" && viewMode === 'calendar') {
-      fetchCalendarData();
-    }
-  }, [authStatus, viewMode, fetchCalendarData]);
-
-  const handleToggleComplete = async (task: Task) => {
-    const newStatus = task.status === "COMPLETADA" ? "PENDIENTE" : "COMPLETADA";
-    try {
-      const res = await fetch(`/api/medical-records/tasks/${task.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) {
-        fetchTasks();
-      }
-    } catch {
-      // silent fail
-    }
-  };
-
-  const handleDelete = async (id: string, title: string) => {
-    if (!await practiceConfirm(`¿Eliminar "${title}"?`)) return;
-    try {
-      const res = await fetch(`/api/medical-records/tasks/${id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        setTasks(tasks.filter((t) => t.id !== id));
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-      }
-    } catch {
-      toast.error("Error al eliminar");
-    }
-  };
-
-  // Selection handlers
-  const toggleSelection = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    const target = viewMode === 'list' ? visibleTasks : tasks;
-    const allSelected = target.length > 0 && target.every(t => selectedIds.has(t.id));
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(target.map((t) => t.id)));
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return;
-    if (!await practiceConfirm(`¿Eliminar ${selectedIds.size} tarea(s) seleccionada(s)?`)) return;
-
-    setBulkDeleting(true);
-    const idsToDelete = Array.from(selectedIds);
-    let deleted = 0;
-
-    for (const id of idsToDelete) {
-      try {
-        const res = await fetch(`/api/medical-records/tasks/${id}`, {
-          method: "DELETE",
-        });
-        if (res.ok) {
-          deleted++;
-        }
-      } catch {
-        // Continue with next
-      }
-    }
-
-    if (deleted > 0) {
-      setTasks((prev) => prev.filter((t) => !selectedIds.has(t.id)));
-      setSelectedIds(new Set());
-    }
-
-    setBulkDeleting(false);
-  };
-
-  const handleStatusChange = async (taskId: string, newStatus: string) => {
-    setEditingStatusId(null);
-    try {
-      const res = await fetch(`/api/medical-records/tasks/${taskId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) {
-        fetchTasks();
-      }
-    } catch {
-      // silent fail
-    }
-  };
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-
-  const isOverdue = (task: Task) => {
-    if (!task.dueDate) return false;
-    if (task.status === "COMPLETADA" || task.status === "CANCELADA") return false;
-    const due = parseLocalDate(task.dueDate as string);
-    return due < today;
-  };
-
-  const isToday = (task: Task) => {
-    if (!task.dueDate) return false;
-    const due = parseLocalDate(task.dueDate as string);
-    return due.getTime() === today.getTime();
-  };
-
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
-
-  const stats = {
-    totalPending: tasks.filter((t) => t.status === "PENDIENTE" || t.status === "EN_PROGRESO").length,
-    overdue: tasks.filter(isOverdue).length,
-    today: tasks.filter(isToday).length,
-    completedThisWeek: tasks.filter((t) => {
-      if (t.status !== "COMPLETADA" || !t.completedAt) return false;
-      const completed = new Date(t.completedAt);
-      return completed >= startOfWeek && completed <= endOfWeek;
-    }).length,
-  };
-
-  // Filter tasks by selected list date
-  const tasksForListDate = tasks.filter((task) => {
-    if (!task.dueDate) return false;
-    return task.dueDate.split('T')[0] === listDate;
-  });
-  const visibleTasks = showAllTasks ? tasks : tasksForListDate;
+  const {
+    router,
+    authStatus,
+    loading,
+    error,
+    filterStatus, setFilterStatus,
+    filterPriority, setFilterPriority,
+    filterCategory, setFilterCategory,
+    selectedIds, setSelectedIds,
+    bulkDeleting,
+    viewingTask, setViewingTask,
+    editingStatusId, setEditingStatusId,
+    listDate, setListDate,
+    showAllTasks, setShowAllTasks,
+    viewMode, setViewMode,
+    currentMonth, setCurrentMonth,
+    calendarTasks,
+    appointmentSlots,
+    selectedDate, setSelectedDate,
+    calendarLoading,
+    stats,
+    visibleTasks,
+    isOverdue,
+    handleDelete,
+    toggleSelection,
+    toggleSelectAll,
+    handleBulkDelete,
+    handleStatusChange,
+  } = usePendientesPage();
 
   if (authStatus === "loading" || loading) {
     return (
@@ -582,16 +321,13 @@ export default function PendientesPage() {
                   const daysInMonth = new Date(year, month + 1, 0).getDate();
                   const days: React.ReactElement[] = [];
 
-                  // Empty cells before month starts
                   for (let i = 0; i < firstDay; i++) {
                     days.push(<div key={`empty-${i}`} className="aspect-square" />);
                   }
 
-                  // Days of the month
                   for (let day = 1; day <= daysInMonth; day++) {
                     const date = new Date(year, month, day);
                     const dateStr = getLocalDateString(date);
-                    // Normalize task dueDate to YYYY-MM-DD for comparison
                     const dayTasks = calendarTasks.filter(t => {
                       if (!t.dueDate) return false;
                       const taskDateStr = typeof t.dueDate === 'string'
@@ -607,11 +343,7 @@ export default function PendientesPage() {
                     });
                     const isToday = dateStr === getLocalDateString(new Date());
                     const isSelected = selectedDate && getLocalDateString(selectedDate) === dateStr;
-
-                    // Check if day has tasks or appointments
-                    const hasTasks = dayTasks.length > 0;
-                    const hasSlots = daySlots.length > 0;
-                    const hasContent = hasTasks || hasSlots;
+                    const hasContent = dayTasks.length > 0 || daySlots.length > 0;
 
                     days.push(
                       <button
@@ -649,11 +381,9 @@ export default function PendientesPage() {
                 Detalles del día - {selectedDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}
               </h3>
 
-              {/* Chronological Timeline View */}
               {(() => {
                 const selectedDateStr = getLocalDateString(selectedDate);
 
-                // Get tasks for the day
                 const tasksForDay = calendarTasks.filter(t => {
                   if (!t.dueDate) return false;
                   const taskDateStr = typeof t.dueDate === 'string'
@@ -662,7 +392,6 @@ export default function PendientesPage() {
                   return taskDateStr === selectedDateStr;
                 });
 
-                // Get appointment slots for the day
                 const slotsForDay = appointmentSlots.filter(s => {
                   const slotDateStr = typeof s.date === 'string'
                     ? s.date.split('T')[0]
@@ -670,12 +399,10 @@ export default function PendientesPage() {
                   return slotDateStr === selectedDateStr;
                 });
 
-                // Build conflict detection sets
                 const taskTaskConflictIds = new Set<string>();
                 const bookedAppointmentWarningIds = new Set<string>();
                 const slotTaskOverlapIds = new Set<string>();
 
-                // Check task-task conflicts
                 for (const task of tasksForDay) {
                   if (!task.startTime || !task.endTime) continue;
                   for (const other of tasksForDay) {
@@ -687,7 +414,6 @@ export default function PendientesPage() {
                   }
                 }
 
-                // Check task-appointment overlaps
                 const openSlots = slotsForDay.filter(s => s.isOpen);
                 for (const task of tasksForDay) {
                   if (!task.startTime || !task.endTime) continue;
@@ -702,7 +428,6 @@ export default function PendientesPage() {
                   }
                 }
 
-                // Check slot-task overlaps
                 for (const slot of slotsForDay) {
                   if (!slot.isOpen) continue;
                   const isBooked = slot.currentBookings > 0;
@@ -717,22 +442,14 @@ export default function PendientesPage() {
                   }
                 }
 
-                // Helper to get slot status
                 const getSlotDisplayStatus = (slot: AppointmentSlot) => {
                   const isFull = slot.currentBookings >= slot.maxBookings;
-                  if (!slot.isOpen) {
-                    return { label: "Cerrado", color: "bg-gray-200 text-gray-700" };
-                  }
-                  if (isFull) {
-                    return { label: "Lleno", color: "bg-blue-100 text-blue-700" };
-                  }
-                  if (slot.currentBookings > 0) {
-                    return { label: "Reservado", color: "bg-orange-100 text-orange-800" };
-                  }
+                  if (!slot.isOpen) return { label: "Cerrado", color: "bg-gray-200 text-gray-700" };
+                  if (isFull) return { label: "Lleno", color: "bg-blue-100 text-blue-700" };
+                  if (slot.currentBookings > 0) return { label: "Reservado", color: "bg-orange-100 text-orange-800" };
                   return { label: "Disponible", color: "bg-green-100 text-green-800" };
                 };
 
-                // Combine tasks and appointments into timeline items
                 type TimelineItem = {
                   type: 'task' | 'appointment';
                   startTime: string;
@@ -743,68 +460,43 @@ export default function PendientesPage() {
                 const timelineItems: TimelineItem[] = [
                   ...tasksForDay
                     .filter(t => t.startTime && t.endTime)
-                    .map(t => ({
-                      type: 'task' as const,
-                      startTime: t.startTime!,
-                      endTime: t.endTime!,
-                      data: t
-                    })),
-                  // Only show appointments that have bookings (exclude available empty slots)
+                    .map(t => ({ type: 'task' as const, startTime: t.startTime!, endTime: t.endTime!, data: t })),
                   ...slotsForDay
                     .filter(s => s.currentBookings > 0)
-                    .map(s => ({
-                      type: 'appointment' as const,
-                      startTime: s.startTime,
-                      endTime: s.endTime,
-                      data: s
-                    }))
+                    .map(s => ({ type: 'appointment' as const, startTime: s.startTime, endTime: s.endTime, data: s }))
                 ];
 
-                // Sort by start time, then by type (appointments first, then tasks)
                 timelineItems.sort((a, b) => {
                   const timeCompare = a.startTime.localeCompare(b.startTime);
                   if (timeCompare !== 0) return timeCompare;
-                  // Secondary sort: 'appointment' comes before 'task' alphabetically
                   return a.type.localeCompare(b.type);
                 });
 
-                // Group by unique time slots
                 const timeSlots = new Map<string, TimelineItem[]>();
                 for (const item of timelineItems) {
                   const key = `${item.startTime}-${item.endTime}`;
-                  if (!timeSlots.has(key)) {
-                    timeSlots.set(key, []);
-                  }
+                  if (!timeSlots.has(key)) timeSlots.set(key, []);
                   timeSlots.get(key)!.push(item);
                 }
 
-                // Get tasks without times
                 const tasksWithoutTime = tasksForDay.filter(t => !t.startTime || !t.endTime);
 
                 if (timelineItems.length === 0 && tasksWithoutTime.length === 0) {
-                  return (
-                    <p className="text-sm text-gray-500">Sin pendientes ni citas programadas</p>
-                  );
+                  return <p className="text-sm text-gray-500">Sin pendientes ni citas programadas</p>;
                 }
 
                 return (
                   <div className="space-y-4">
-                    {/* Timeline items grouped by time */}
                     {Array.from(timeSlots.entries()).map(([timeKey, items]) => {
                       const [startTime, endTime] = timeKey.split('-');
                       return (
                         <div key={timeKey} className="border-l-4 border-yellow-400 pl-4">
-                          {/* Time Header */}
                           <div className="flex items-center gap-2 mb-2">
                             <Clock className="w-4 h-4 text-yellow-600" />
-                            <h4 className="font-semibold text-gray-900">
-                              {startTime} - {endTime}
-                            </h4>
+                            <h4 className="font-semibold text-gray-900">{startTime} - {endTime}</h4>
                           </div>
-
-                          {/* Items at this time */}
                           <div className="space-y-2">
-                            {items.map((item, idx) => {
+                            {items.map((item) => {
                               if (item.type === 'task') {
                                 const task = item.data as Task;
                                 const hasTaskConflict = taskTaskConflictIds.has(task.id);
@@ -814,18 +506,13 @@ export default function PendientesPage() {
                                   : hasBookedWarning
                                   ? 'border-blue-300 bg-blue-50 hover:border-blue-400'
                                   : 'border-gray-200 hover:border-blue-300';
-
                                 return (
                                   <div key={`task-${task.id}`} className={`border rounded-lg p-3 transition-colors ${borderColor}`}>
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
-                                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">
-                                            Pendiente
-                                          </span>
-                                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>
-                                            {task.priority}
-                                          </span>
+                                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
+                                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
                                         </div>
                                         <button
                                           onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
@@ -834,18 +521,13 @@ export default function PendientesPage() {
                                           {task.title}
                                         </button>
                                         {(hasTaskConflict || hasBookedWarning) && (
-                                          <p className={`text-sm mt-1 ${
-                                            hasTaskConflict ? 'text-red-600 font-medium' :
-                                            'text-blue-600 font-medium'
-                                          }`}>
+                                          <p className={`text-sm mt-1 ${hasTaskConflict ? 'text-red-600 font-medium' : 'text-blue-600 font-medium'}`}>
                                             {hasTaskConflict && '⚠️ Conflicto con otro pendiente'}
                                             {hasBookedWarning && 'ℹ️ Cita reservada a esta hora'}
                                           </p>
                                         )}
                                         {task.patient && (
-                                          <p className="text-sm text-gray-500 mt-1">
-                                            Paciente: {task.patient.firstName} {task.patient.lastName}
-                                          </p>
+                                          <p className="text-sm text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
                                         )}
                                       </div>
                                     </div>
@@ -856,27 +538,17 @@ export default function PendientesPage() {
                                 const hasTaskOverlap = slotTaskOverlapIds.has(slot.id);
                                 const slotStatus = getSlotDisplayStatus(slot);
                                 const activeBookings = slot.bookings?.filter(b => b.status !== 'CANCELLED') || [];
-
                                 return (
-                                  <div key={`slot-${slot.id}`} className={`border rounded-lg p-3 ${
-                                    hasTaskOverlap
-                                      ? 'border-blue-300 bg-blue-50'
-                                      : 'border-gray-200'
-                                  }`}>
+                                  <div key={`slot-${slot.id}`} className={`border rounded-lg p-3 ${hasTaskOverlap ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
-                                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">
-                                            Cita
-                                          </span>
-                                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${slotStatus.color}`}>
-                                            {slotStatus.label}
-                                          </span>
+                                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">Cita</span>
+                                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${slotStatus.color}`}>{slotStatus.label}</span>
                                         </div>
                                         <p className={`font-medium ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
                                           {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
                                         </p>
-                                        {/* Patient Info from Bookings */}
                                         {activeBookings.length > 0 && (
                                           <div className="mt-2 space-y-2">
                                             {activeBookings.map((booking) => (
@@ -900,9 +572,7 @@ export default function PendientesPage() {
                                           </div>
                                         )}
                                         {hasTaskOverlap && (
-                                          <p className="text-sm text-blue-600 font-medium mt-1">
-                                            ℹ️ Pendiente a esta hora
-                                          </p>
+                                          <p className="text-sm text-blue-600 font-medium mt-1">ℹ️ Pendiente a esta hora</p>
                                         )}
                                       </div>
                                     </div>
@@ -915,7 +585,6 @@ export default function PendientesPage() {
                       );
                     })}
 
-                    {/* Tasks without time (at the end) */}
                     {tasksWithoutTime.length > 0 && (
                       <div className="border-l-4 border-gray-300 pl-4">
                         <div className="flex items-center gap-2 mb-2">
@@ -928,12 +597,8 @@ export default function PendientesPage() {
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">
-                                      Pendiente
-                                    </span>
-                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>
-                                      {task.priority}
-                                    </span>
+                                    <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
+                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
                                   </div>
                                   <button
                                     onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
@@ -942,9 +607,7 @@ export default function PendientesPage() {
                                     {task.title}
                                   </button>
                                   {task.patient && (
-                                    <p className="text-sm text-gray-500 mt-1">
-                                      Paciente: {task.patient.firstName} {task.patient.lastName}
-                                    </p>
+                                    <p className="text-sm text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
                                   )}
                                 </div>
                               </div>
@@ -1200,12 +863,8 @@ export default function PendientesPage() {
                           )}
                         </td>
                       )}
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {task.startTime || "—"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {task.endTime || "—"}
-                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{task.startTime || "—"}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{task.endTime || "—"}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>
                           {task.priority}
@@ -1216,10 +875,7 @@ export default function PendientesPage() {
                           {CATEGORY_LABELS[task.category] || task.category}
                         </span>
                       </td>
-                      <td
-                        className="px-4 py-3 whitespace-nowrap text-sm relative"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <td className="px-4 py-3 whitespace-nowrap text-sm relative" onClick={(e) => e.stopPropagation()}>
                         {editingStatusId === task.id ? (
                           <select
                             value={task.status}
@@ -1237,11 +893,12 @@ export default function PendientesPage() {
                           <span
                             onClick={() => setEditingStatusId(task.id)}
                             className={`px-2 py-1 text-xs font-semibold rounded-full cursor-pointer hover:opacity-80 ${
-                            task.status === "COMPLETADA" ? "bg-green-100 text-green-800" :
-                            task.status === "EN_PROGRESO" ? "bg-blue-100 text-blue-800" :
-                            task.status === "CANCELADA" ? "bg-gray-100 text-gray-800" :
-                            "bg-yellow-100 text-yellow-800"
-                          }`}>
+                              task.status === "COMPLETADA" ? "bg-green-100 text-green-800" :
+                              task.status === "EN_PROGRESO" ? "bg-blue-100 text-blue-800" :
+                              task.status === "CANCELADA" ? "bg-gray-100 text-gray-800" :
+                              "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
                             {STATUS_LABELS[task.status] || task.status}
                           </span>
                         )}
@@ -1287,7 +944,6 @@ export default function PendientesPage() {
             className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="flex items-start justify-between p-4 border-b border-gray-200">
               <div className="flex-1 min-w-0 pr-4">
                 <h2 className={`text-lg font-semibold ${viewingTask.status === "COMPLETADA" ? "line-through text-gray-400" : "text-gray-900"}`}>
@@ -1310,27 +966,20 @@ export default function PendientesPage() {
                   </span>
                 </div>
               </div>
-              <button
-                onClick={() => setViewingTask(null)}
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
+              <button onClick={() => setViewingTask(null)} className="text-gray-400 hover:text-gray-600 p-1">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-4 space-y-4">
-              {/* Description */}
               {viewingTask.description && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Descripción</h3>
                   <p className="text-gray-900 whitespace-pre-wrap">{viewingTask.description}</p>
                 </div>
               )}
-
-              {/* Date & Time */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Fecha</h3>
@@ -1350,18 +999,12 @@ export default function PendientesPage() {
                   </p>
                 </div>
               </div>
-
-              {/* Patient */}
               {viewingTask.patient && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Paciente</h3>
-                  <p className="text-gray-900">
-                    {viewingTask.patient.firstName} {viewingTask.patient.lastName}
-                  </p>
+                  <p className="text-gray-900">{viewingTask.patient.firstName} {viewingTask.patient.lastName}</p>
                 </div>
               )}
-
-              {/* Dates info */}
               <div className="text-xs text-gray-400 pt-2 border-t border-gray-100">
                 <p>Creada: {new Date(viewingTask.createdAt).toLocaleString()}</p>
                 {viewingTask.completedAt && (
@@ -1370,7 +1013,6 @@ export default function PendientesPage() {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="flex justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={() => setViewingTask(null)}
