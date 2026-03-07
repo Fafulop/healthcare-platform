@@ -6,6 +6,7 @@ import { useEffect, useState, use } from "react";
 import { ArrowLeft, Loader2, Edit, Trash2, CheckCircle2, Calendar, Clock, User } from "lucide-react";
 import Link from "next/link";
 import { practiceConfirm } from "@/lib/practice-confirm";
+import { parseLocalDate } from '@/lib/dates';
 
 interface Task {
   id: string;
@@ -23,8 +24,6 @@ interface Task {
   updatedAt: string;
   patient: { id: string; firstName: string; lastName: string } | null;
 }
-
-import { parseLocalDate } from '@/lib/dates';
 
 const PRIORITY_COLORS: Record<string, string> = {
   ALTA: "bg-red-100 text-red-800",
