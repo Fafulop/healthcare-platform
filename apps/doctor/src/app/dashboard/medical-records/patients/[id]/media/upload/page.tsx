@@ -7,14 +7,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MediaUploader } from '@/components/medical-records/MediaUploader';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
+import { toast } from '@/lib/practice-toast';
 
 interface Patient {
   id: string;
@@ -27,7 +20,7 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
   const resolvedParams = use(params);
   const router = useRouter();
 
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
@@ -35,29 +28,6 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
   });
 
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   useEffect(() => {
     fetchPatient();
@@ -73,7 +43,7 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
       setPatient(data.data);
     } catch (error) {
       console.error('Error fetching patient:', error);
-      alert('Error al cargar información del paciente');
+      toast.error('Error al cargar información del paciente');
     }
   };
 

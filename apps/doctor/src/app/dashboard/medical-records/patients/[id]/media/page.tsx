@@ -2,21 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { use } from 'react';
-import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Plus, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MediaGallery } from '@/components/medical-records/MediaGallery';
 import { MediaViewer } from '@/components/medical-records/MediaViewer';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
+import { toast } from '@/lib/practice-toast';
 
 interface Media {
   id: string;
@@ -41,9 +33,8 @@ interface Patient {
 
 export default function MediaGalleryPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const router = useRouter();
 
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
@@ -53,30 +44,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
   const [media, setMedia] = useState<Media[]>([]);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   useEffect(() => {
     fetchData();
@@ -101,7 +69,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
       setMedia(mediaData.data);
     } catch (error) {
       console.error('Error fetching data:', error);
-      alert('Error al cargar documentos y galería');
+      toast.error('Error al cargar documentos y galería');
     } finally {
       setIsLoading(false);
     }

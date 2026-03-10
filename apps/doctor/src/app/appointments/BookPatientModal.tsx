@@ -16,6 +16,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import type { AppointmentSlot } from './useAppointmentsPage';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -27,21 +28,6 @@ function calcEndTime(startTime: string, duration: number): string {
   const [h, m] = startTime.split(":").map(Number);
   const endMins = h * 60 + m + duration;
   return `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
-}
-
-interface AppointmentSlot {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  duration: number;
-  basePrice: number;
-  discount: number | null;
-  discountType: string | null;
-  finalPrice: number;
-  isOpen: boolean;
-  currentBookings: number;
-  maxBookings: number;
 }
 
 interface BookPatientModalProps {
@@ -247,10 +233,9 @@ export default function BookPatientModal({
       // ── EXISTING SLOT MODE ──
       if (!selectedSlot) return;
 
-      // 1. Create booking (public endpoint)
-      const bookingRes = await fetch(`${API_URL}/api/appointments/bookings`, {
+      // 1. Create booking
+      const bookingRes = await authFetch(`${API_URL}/api/appointments/bookings`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           slotId: selectedSlot.id,
           patientName: formData.patientName,

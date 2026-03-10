@@ -7,8 +7,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Plus, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { TimelineView } from '@/components/medical-records/TimelineView';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { calculateAge } from '@/lib/practice-utils';
 
 interface Patient {
   id: string;
@@ -22,17 +21,11 @@ interface TimelineData {
   patient: Patient;
 }
 
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
-
 export default function PatientTimelinePage() {
   const params = useParams();
   const patientId = params.id as string;
 
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
@@ -40,35 +33,12 @@ export default function PatientTimelinePage() {
   });
 
   const [timelineData, setTimelineData] = useState<TimelineData | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
-
-  useEffect(() => {
     fetchTimeline();
   }, [patientId]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchTimeline = async () => {
     setLoading(true);
@@ -88,17 +58,6 @@ export default function PatientTimelinePage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateAge = (dateOfBirth: string): number => {
-    const today = new Date();
-    const birth = new Date(dateOfBirth);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
   };
 
   if (status === "loading" || loading) {

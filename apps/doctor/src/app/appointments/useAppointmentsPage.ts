@@ -61,7 +61,6 @@ export function useAppointmentsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
-  const [bookingDate, setBookingDate] = useState<string>(getLocalDateString(new Date()));
   const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
   const [showAllSlots, setShowAllSlots] = useState(false);
   const [bookingsCollapsed, setBookingsCollapsed] = useState(false);
@@ -193,6 +192,7 @@ export function useAppointmentsPage() {
       }
     } catch (error) {
       console.error("Error fetching slots:", error);
+      toast.error("Error al cargar los horarios");
     } finally {
       setLoading(false);
     }
@@ -212,6 +212,7 @@ export function useAppointmentsPage() {
       }
     } catch (error) {
       console.error("Error fetching bookings:", error);
+      toast.error("Error al cargar las citas");
     }
   };
 
@@ -233,12 +234,19 @@ export function useAppointmentsPage() {
 
       for (const booking of activeBookings) {
         try {
-          await authFetch(
+          const cancelRes = await authFetch(
             `${API_URL}/api/appointments/bookings/${booking.id}`,
             { method: "PATCH", body: JSON.stringify({ status: "CANCELLED" }) }
           );
+          const cancelData = await cancelRes.json();
+          if (!cancelData.success) {
+            toast.error(`Error al cancelar la cita de ${booking.patientName}. El horario no fue eliminado.`);
+            return;
+          }
         } catch (error) {
           console.error("Error cancelling booking:", error);
+          toast.error("Error al cancelar una cita. El horario no fue eliminado.");
+          return;
         }
       }
     } else {
@@ -450,7 +458,7 @@ export function useAppointmentsPage() {
       case "CONFIRMED": return "bg-blue-100 text-blue-700 border-blue-200";
       case "PENDING": return "bg-yellow-100 text-yellow-700 border-yellow-200";
       case "CANCELLED": return "bg-red-100 text-red-700 border-red-200";
-      case "COMPLETED": return "bg-blue-100 text-blue-700 border-blue-200";
+      case "COMPLETED": return "bg-green-100 text-green-700 border-green-200";
       default: return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
@@ -468,7 +476,6 @@ export function useAppointmentsPage() {
     showCreateModal, setShowCreateModal,
     viewMode, setViewMode,
     selectedSlots, setSelectedSlots,
-    bookingDate, setBookingDate,
     listDate, setListDate,
     showAllSlots, setShowAllSlots,
     bookingsCollapsed, setBookingsCollapsed,

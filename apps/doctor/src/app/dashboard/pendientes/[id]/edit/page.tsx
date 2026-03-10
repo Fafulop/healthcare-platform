@@ -138,6 +138,9 @@ export default function EditTaskPage({ params }: { params: Promise<{ id: string 
       });
       if (res.ok) {
         router.push("/dashboard/pendientes");
+      } else {
+        const result = await res.json();
+        setError(result.error || "Error al completar la tarea");
       }
     } catch {
       setError("Error al completar la tarea");

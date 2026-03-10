@@ -7,20 +7,13 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Plus, Filter, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { PrescriptionCard, type Prescription } from '@/components/medical-records/PrescriptionCard';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
+import { practiceConfirm } from '@/lib/practice-confirm';
 
 export default function PrescriptionsListPage() {
   const params = useParams();
   const patientId = params.id as string;
 
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
@@ -28,39 +21,17 @@ export default function PrescriptionsListPage() {
   });
 
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   useEffect(() => {
     fetchPrescriptions();
   }, [patientId, statusFilter]);
 
   const handleDelete = async (prescriptionId: string) => {
-    if (!confirm('¿Está seguro de eliminar esta prescripción? Esta acción no se puede deshacer.')) return;
+    const confirmed = await practiceConfirm('¿Está seguro de eliminar esta prescripción? Esta acción no se puede deshacer.');
+    if (!confirmed) return;
     try {
       const res = await fetch(
         `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}`,

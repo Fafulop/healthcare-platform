@@ -115,21 +115,12 @@ export function usePendientesPage() {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
 
-      console.log('📅 Fetching calendar data for:', { startDateStr, endDateStr });
-
       const res = await fetch(`/api/medical-records/tasks/calendar?startDate=${startDateStr}&endDate=${endDateStr}`);
       const result = await res.json();
-
-      console.log('📊 Calendar API response:', result);
 
       if (res.ok) {
         setCalendarTasks(result.data.tasks || []);
         setAppointmentSlots(result.data.appointmentSlots || []);
-        console.log('✅ Set calendar data:', {
-          tasksCount: result.data.tasks?.length || 0,
-          appointmentSlotsCount: result.data.appointmentSlots?.length || 0,
-          appointmentSlots: result.data.appointmentSlots
-        });
       }
     } catch (err) {
       console.error('Error fetching calendar data:', err);
@@ -154,9 +145,11 @@ export function usePendientesPage() {
       });
       if (res.ok) {
         fetchTasks();
+      } else {
+        toast.error("Error al actualizar la tarea");
       }
     } catch {
-      // silent fail
+      toast.error("Error al actualizar la tarea");
     }
   };
 
@@ -171,6 +164,9 @@ export function usePendientesPage() {
           next.delete(id);
           return next;
         });
+      } else {
+        const result = await res.json();
+        toast.error(result.error || "Error al eliminar");
       }
     } catch {
       toast.error("Error al eliminar");
@@ -209,6 +205,11 @@ export function usePendientesPage() {
     if (deleted > 0) {
       setTasks((prev) => prev.filter((t) => !selectedIds.has(t.id)));
       setSelectedIds(new Set());
+      if (deleted < idsToDelete.length) {
+        toast.error(`${idsToDelete.length - deleted} tarea(s) no pudieron eliminarse`);
+      }
+    } else {
+      toast.error("Error al eliminar las tareas");
     }
 
     setBulkDeleting(false);
@@ -224,9 +225,11 @@ export function usePendientesPage() {
       });
       if (res.ok) {
         fetchTasks();
+      } else {
+        toast.error("Error al actualizar el estado");
       }
     } catch {
-      // silent fail
+      toast.error("Error al actualizar el estado");
     }
   };
 
@@ -284,7 +287,6 @@ export function usePendientesPage() {
     authStatus,
     loading,
     error,
-    tasks,
     filterStatus, setFilterStatus,
     filterPriority, setFilterPriority,
     filterCategory, setFilterCategory,
@@ -303,7 +305,6 @@ export function usePendientesPage() {
     stats,
     visibleTasks,
     isOverdue,
-    handleToggleComplete,
     handleDelete,
     toggleSelection,
     toggleSelectAll,
