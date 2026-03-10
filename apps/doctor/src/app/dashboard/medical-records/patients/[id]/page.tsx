@@ -1,132 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
 import { ArrowLeft, Edit, Plus, Calendar, FileText, User, Clock, Image, Pill, Loader2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { EncounterCard, type Encounter } from '@/components/medical-records/EncounterCard';
-
-interface Patient {
-  id: string;
-  internalId: string;
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
-  sex: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-  emergencyContactRelation?: string;
-  firstVisitDate?: string;
-  lastVisitDate?: string;
-  status: string;
-  tags: string[];
-  currentAllergies?: string;
-  currentChronicConditions?: string;
-  currentMedications?: string;
-  bloodType?: string;
-  generalNotes?: string;
-  photoUrl?: string;
-  encounters: Encounter[];
-}
+import { EncounterCard } from '@/components/medical-records/EncounterCard';
+import { usePatientProfile } from '../_components/usePatientProfile';
 
 export default function PatientProfilePage() {
-  const params = useParams();
-  const router = useRouter();
-  const patientId = params.id as string;
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect("/login");
-    },
-  });
+  const {
+    patientId,
+    sessionStatus,
+    patient,
+    loading,
+    error,
+    isArchiving,
+    calculateAge,
+    formatDate,
+    handleArchive,
+  } = usePatientProfile();
 
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [isArchiving, setIsArchiving] = useState(false);
-
-  useEffect(() => {
-    fetchPatient();
-  }, [patientId]);
-
-  const fetchPatient = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/medical-records/patients/${patientId}`);
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al cargar paciente');
-      }
-
-      const data = await res.json();
-
-      if (!data?.data) {
-        throw new Error('Invalid response format');
-      }
-
-      setPatient(data.data);
-    } catch (err: any) {
-      setError(err.message || 'Error loading patient');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleArchive = async () => {
-    if (!confirm('¿Está seguro de archivar este paciente? El expediente se conservará pero el paciente quedará inactivo.')) return;
-    setIsArchiving(true);
-    try {
-      const res = await fetch(`/api/medical-records/patients/${patientId}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Error al archivar paciente');
-      }
-      router.push('/dashboard/medical-records');
-    } catch (err: any) {
-      setError(err.message);
-      setIsArchiving(false);
-    }
-  };
-
-  const calculateAge = (dateOfBirth: string): number => {
-    const today = new Date();
-    const birth = new Date(dateOfBirth);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const formatDate = (dateString: string): string => {
-    try {
-      const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
-      if (year && month && day) {
-        const date = new Date(year, month - 1, day); // month is 0-indexed
-        return date.toLocaleDateString('es-MX', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-      }
-      return dateString;
-    } catch {
-      return dateString;
-    }
-  };
-
-  if (status === "loading" || loading) {
+  if (sessionStatus === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -142,10 +34,7 @@ export default function PatientProfilePage() {
       <div className="p-4 sm:p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800">{error || 'Paciente no encontrado'}</p>
-          <Link
-            href="/dashboard/medical-records"
-            className="text-red-600 hover:text-red-800 mt-2 inline-block"
-          >
+          <Link href="/dashboard/medical-records" className="text-red-600 hover:text-red-800 mt-2 inline-block">
             Volver a la lista
           </Link>
         </div>
@@ -155,13 +44,13 @@ export default function PatientProfilePage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            <Link
-              href="/dashboard/medical-records"
-              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-            >
-              <ArrowLeft className="w-5 h-5" />
+      {/* Header */}
+      <div className="mb-6">
+        <Link
+          href="/dashboard/medical-records"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+        >
+          <ArrowLeft className="w-5 h-5" />
           Volver a Pacientes
         </Link>
 
@@ -201,10 +90,7 @@ export default function PatientProfilePage() {
               {patient.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {patient.tags.map(tag => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded"
-                    >
+                    <span key={tag} className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
                       {tag}
                     </span>
                   ))}
@@ -262,7 +148,7 @@ export default function PatientProfilePage() {
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Patient Details */}
+        {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Contact Information */}
           <div className="bg-white rounded-lg shadow p-6">
@@ -315,7 +201,6 @@ export default function PatientProfilePage() {
             </div>
           )}
 
-
           {/* General Notes */}
           {patient.generalNotes && (
             <div className="bg-white rounded-lg shadow p-6">
@@ -342,11 +227,7 @@ export default function PatientProfilePage() {
             {patient.encounters && patient.encounters.length > 0 ? (
               <div className="space-y-3">
                 {patient.encounters.map(encounter => (
-                  <EncounterCard
-                    key={encounter.id}
-                    encounter={encounter}
-                    patientId={patient.id}
-                  />
+                  <EncounterCard key={encounter.id} encounter={encounter} patientId={patient.id} />
                 ))}
               </div>
             ) : (
@@ -366,7 +247,6 @@ export default function PatientProfilePage() {
 
         {/* Right Column - Quick Info */}
         <div className="space-y-6">
-          {/* Quick Stats */}
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Información Rápida</h3>
             <div className="space-y-3">
@@ -397,9 +277,7 @@ export default function PatientProfilePage() {
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Estado</span>
                 <span className={`px-2 py-1 text-xs rounded ${
-                  patient.status === 'active'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-100 text-gray-800'
+                  patient.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                 }`}>
                   {patient.status === 'active' ? 'Activo' : patient.status}
                 </span>

@@ -9,13 +9,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { toast } from '@/lib/practice-toast';
 import { practiceConfirm } from '@/lib/practice-confirm';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface Subarea {
   id: number;
@@ -32,14 +26,13 @@ interface Area {
 }
 
 export default function AreasPage() {
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
     },
   });
 
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedAreas, setExpandedAreas] = useState<Set<number>>(new Set());
@@ -61,43 +54,25 @@ export default function AreasPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
+    if (status === 'authenticated') {
+      fetchAreas();
     }
-    fetchAreas();
-  }, []);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const fetchAreas = async () => {
-    if (!session?.user?.email) return;
-
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/areas`);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch areas');
+        throw new Error('Error al cargar áreas');
       }
 
       const result = await response.json();
       setAreas(result.data || []);
     } catch (err) {
       console.error('Error fetching areas:', err);
-      setError('Failed to load areas');
+      setError('Error al cargar las áreas');
     } finally {
       setLoading(false);
     }
@@ -147,8 +122,6 @@ export default function AreasPage() {
 
   const handleSaveArea = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.email) return;
-
     setSubmitting(true);
     setError(null);
 
@@ -163,8 +136,6 @@ export default function AreasPage() {
         type: areaType
       };
 
-      console.log('Saving area with payload:', payload);
-
       const response = await authFetch(url, {
         method: editingArea ? 'PUT' : 'POST',
         headers: {
@@ -175,11 +146,8 @@ export default function AreasPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save area');
+        throw new Error(errorData.error || 'Error al guardar el área');
       }
-
-      const result = await response.json();
-      console.log('Area saved successfully:', result);
 
       await fetchAreas();
       closeModals();
@@ -192,7 +160,7 @@ export default function AreasPage() {
 
   const handleSaveSubarea = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.email || !selectedAreaForSubarea) return;
+    if (!selectedAreaForSubarea) return;
 
     setSubmitting(true);
     setError(null);
@@ -215,7 +183,7 @@ export default function AreasPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save subarea');
+        throw new Error(errorData.error || 'Error al guardar la subárea');
       }
 
       await fetchAreas();
@@ -230,7 +198,6 @@ export default function AreasPage() {
   };
 
   const handleDeleteArea = async (area: Area) => {
-    if (!session?.user?.email) return;
     if (!await practiceConfirm(`¿Estás seguro de eliminar "${area.name}"? Esto también eliminará todas las subáreas.`)) return;
 
     try {
@@ -250,7 +217,6 @@ export default function AreasPage() {
   };
 
   const handleDeleteSubarea = async (area: Area, subarea: Subarea) => {
-    if (!session?.user?.email) return;
     if (!await practiceConfirm(`¿Estás seguro de eliminar "${subarea.name}"?`)) return;
 
     try {

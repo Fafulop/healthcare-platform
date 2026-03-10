@@ -9,7 +9,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { toast } from '@/lib/practice-toast';
 import { practiceConfirm } from '@/lib/practice-confirm';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface Product {
   id: number;

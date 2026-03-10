@@ -8,13 +8,7 @@ import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from '@/lib/practice-toast';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface AttributeValue {
   id: number;
@@ -36,7 +30,7 @@ interface Component {
 }
 
 export default function NewProductPage() {
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
@@ -44,7 +38,6 @@ export default function NewProductPage() {
   });
 
   const router = useRouter();
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableValues, setAvailableValues] = useState<AttributeValue[]>([]);
@@ -70,28 +63,9 @@ export default function NewProductPage() {
   const [manualCost, setManualCost] = useState("");
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
     fetchAvailableValues();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchAvailableValues = async () => {
     try {
@@ -133,7 +107,7 @@ export default function NewProductPage() {
     const qty = parseFloat(quantity);
 
     if (qty <= 0) {
-      toast.error('Quantity must be greater than 0');
+      toast.error('La cantidad debe ser mayor a 0');
       return;
     }
 
@@ -186,7 +160,7 @@ export default function NewProductPage() {
 
       if (!productResponse.ok) {
         const errorData = await productResponse.json();
-        throw new Error(errorData.error || 'Failed to create product');
+        throw new Error(errorData.error || 'Error al crear el producto');
       }
 
       const productResult = await productResponse.json();

@@ -1,255 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
-import { ArrowLeft, Edit, FileText, Send, Ban, Trash2, Download, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Send, Ban, Trash2, Download, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { MedicationList, type Medication } from '@/components/medical-records/MedicationList';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
-
-interface PrescriptionDetails {
-  id: string;
-  prescriptionDate: string;
-  status: string;
-  diagnosis?: string;
-  clinicalNotes?: string;
-  doctorFullName: string;
-  doctorLicense: string;
-  expiresAt?: string;
-  issuedAt?: string;
-  issuedBy?: string;
-  cancelledAt?: string;
-  cancellationReason?: string;
-  patient: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    internalId: string;
-    dateOfBirth: string;
-    sex: string;
-  };
-  medications: Medication[];
-  createdAt: string;
-  updatedAt: string;
-}
+import { MedicationList } from '@/components/medical-records/MedicationList';
+import { formatDateLong } from '@/lib/practice-utils';
+import { getStatusLabel, getStatusColor } from '../_components/prescription-types';
+import { usePrescriptionDetail } from '../_components/usePrescriptionDetail';
 
 export default function ViewPrescriptionPage() {
-  const params = useParams();
-  const router = useRouter();
-  const patientId = params.id as string;
-  const prescriptionId = params.prescriptionId as string;
+  const {
+    patientId,
+    prescriptionId,
+    sessionStatus,
+    prescription,
+    loading,
+    actionLoading,
+    error,
+    showCancelModal, setShowCancelModal,
+    cancellationReason, setCancellationReason,
+    handleIssue,
+    handleCancel,
+    handleDelete,
+    handleDownloadPDF,
+  } = usePrescriptionDetail();
 
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect("/login");
-    },
-  });
-
-  const [prescription, setPrescription] = useState<PrescriptionDetails | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancellationReason, setCancellationReason] = useState('');
-
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchPrescription();
-  }, [patientId, prescriptionId]);
-
-  const fetchPrescription = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(
-        `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}`
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al cargar prescripción');
-      }
-
-      const data = await res.json();
-      setPrescription(data.data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleIssue = async () => {
-    if (!confirm('¿Está seguro de emitir esta prescripción? No podrá editarla después.')) {
-      return;
-    }
-
-    setActionLoading(true);
-    setError('');
-    try {
-      const res = await fetch(
-        `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/issue`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        }
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al emitir prescripción');
-      }
-
-      await fetchPrescription();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!cancellationReason.trim()) {
-      setError('Debe proporcionar un motivo de cancelación');
-      return;
-    }
-
-    setActionLoading(true);
-    setError('');
-    try {
-      const res = await fetch(
-        `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/cancel`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cancellationReason }),
-        }
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al cancelar prescripción');
-      }
-
-      setShowCancelModal(false);
-      await fetchPrescription();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (
-      !confirm(
-        '¿Está seguro de eliminar esta prescripción? Esta acción no se puede deshacer.'
-      )
-    ) {
-      return;
-    }
-
-    setActionLoading(true);
-    setError('');
-    try {
-      const res = await fetch(
-        `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}`,
-        {
-          method: 'DELETE',
-        }
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al eliminar prescripción');
-      }
-
-      router.push(`/dashboard/medical-records/patients/${patientId}/prescriptions`);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDownloadPDF = () => {
-    window.open(
-      `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/pdf`,
-      '_blank'
-    );
-  };
-
-  const formatDate = (dateString: string): string => {
-    try {
-      const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
-      if (year && month && day) {
-        const date = new Date(year, month - 1, day); // month is 0-indexed
-        return date.toLocaleDateString('es-MX', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-      }
-      return dateString;
-    } catch {
-      return dateString;
-    }
-  };
-
-  const getStatusLabel = (status: string): string => {
-    const statusMap: Record<string, string> = {
-      draft: 'Borrador',
-      issued: 'Emitida',
-      cancelled: 'Cancelada',
-      expired: 'Expirada'
-    };
-    return statusMap[status] || status;
-  };
-
-  const getStatusColor = (status: string): string => {
-    const colorMap: Record<string, string> = {
-      draft: 'bg-yellow-100 text-yellow-800',
-      issued: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800',
-      expired: 'bg-gray-100 text-gray-800'
-    };
-    return colorMap[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  if (status === "loading" || loading) {
+  if (sessionStatus === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -374,13 +149,13 @@ export default function ViewPrescriptionPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-gray-600">Fecha de Prescripción</p>
-            <p className="text-gray-900">{formatDate(prescription.prescriptionDate)}</p>
+            <p className="text-gray-900">{formatDateLong(prescription.prescriptionDate)}</p>
           </div>
 
           {prescription.expiresAt && (
             <div>
               <p className="text-sm text-gray-600">Fecha de Expiración</p>
-              <p className="text-gray-900">{formatDate(prescription.expiresAt)}</p>
+              <p className="text-gray-900">{formatDateLong(prescription.expiresAt)}</p>
             </div>
           )}
 

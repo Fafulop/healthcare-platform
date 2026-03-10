@@ -9,13 +9,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { toast } from '@/lib/practice-toast';
 import { practiceConfirm } from '@/lib/practice-confirm';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface Proveedor {
   id: number;
@@ -38,7 +32,7 @@ interface Proveedor {
 }
 
 export default function ProveedoresPage() {
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
@@ -46,35 +40,15 @@ export default function ProveedoresPage() {
   });
 
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
     fetchProveedores();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchProveedores = async () => {
     setLoading(true);

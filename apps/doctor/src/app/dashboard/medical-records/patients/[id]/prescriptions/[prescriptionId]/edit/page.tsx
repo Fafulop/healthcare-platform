@@ -1,220 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { MedicationList, type Medication } from '@/components/medical-records/MedicationList';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
-
-interface PrescriptionDetails {
-  id: string;
-  prescriptionDate: string;
-  status: string;
-  diagnosis?: string;
-  clinicalNotes?: string;
-  doctorFullName: string;
-  doctorLicense: string;
-  expiresAt?: string;
-  medications: Medication[];
-}
+import { MedicationList } from '@/components/medical-records/MedicationList';
+import { useEditPrescriptionForm } from '../../_components/useEditPrescriptionForm';
 
 export default function EditPrescriptionPage() {
-  const params = useParams();
-  const router = useRouter();
-  const patientId = params.id as string;
-  const prescriptionId = params.prescriptionId as string;
+  const {
+    patientId,
+    prescriptionId,
+    sessionStatus,
+    prescription,
+    loading,
+    loadingPrescription,
+    error,
+    prescriptionDate, setPrescriptionDate,
+    diagnosis, setDiagnosis,
+    clinicalNotes, setClinicalNotes,
+    doctorFullName, setDoctorFullName,
+    doctorLicense, setDoctorLicense,
+    expiresAt, setExpiresAt,
+    medications, setMedications,
+    handleSubmit,
+  } = useEditPrescriptionForm();
 
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect("/login");
-    },
-  });
-
-  const [prescription, setPrescription] = useState<PrescriptionDetails | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadingPrescription, setLoadingPrescription] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
-
-  // Form state
-  const [prescriptionDate, setPrescriptionDate] = useState('');
-  const [diagnosis, setDiagnosis] = useState('');
-  const [clinicalNotes, setClinicalNotes] = useState('');
-  const [doctorFullName, setDoctorFullName] = useState('');
-  const [doctorLicense, setDoctorLicense] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
-  const [medications, setMedications] = useState<Medication[]>([]);
-
-  useEffect(() => {
-    fetchPrescription();
-  }, [patientId, prescriptionId]);
-
-  const fetchPrescription = async () => {
-    setLoadingPrescription(true);
-    setError('');
-    try {
-      const res = await fetch(
-        `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}`
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al cargar prescripción');
-      }
-
-      const { data } = await res.json();
-
-      // Check if prescription is editable
-      if (data.status !== 'draft') {
-        throw new Error('Solo se pueden editar prescripciones en borrador');
-      }
-
-      setPrescription(data);
-
-      // Populate form
-      setPrescriptionDate(data.prescriptionDate.split('T')[0]);
-      setDiagnosis(data.diagnosis || '');
-      setClinicalNotes(data.clinicalNotes || '');
-      setDoctorFullName(data.doctorFullName);
-      setDoctorLicense(data.doctorLicense);
-      setExpiresAt(data.expiresAt ? data.expiresAt.split('T')[0] : '');
-      setMedications(data.medications || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoadingPrescription(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      // Validate medications
-      const namedMedications = medications.filter((med) => med.drugName?.trim());
-
-      if (namedMedications.length === 0) {
-        throw new Error('Debe agregar al menos un medicamento válido');
-      }
-
-      const incompleteMedications = namedMedications.filter(
-        (med) => !med.dosage?.trim() || !med.frequency?.trim() || !med.instructions?.trim()
-      );
-
-      if (incompleteMedications.length > 0) {
-        const names = incompleteMedications.map((m) => m.drugName).join(', ');
-        throw new Error(
-          `Los siguientes medicamentos requieren Dosis, Frecuencia e Indicaciones: ${names}`
-        );
-      }
-
-      const validMedications = namedMedications;
-
-      if (!doctorFullName || !doctorLicense) {
-        throw new Error('Debe completar la información del doctor');
-      }
-
-      // Update prescription metadata
-      const prescriptionData = {
-        prescriptionDate: new Date(prescriptionDate).toISOString(),
-        diagnosis: diagnosis || null,
-        clinicalNotes: clinicalNotes || null,
-        doctorFullName,
-        doctorLicense,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-      };
-
-      const resUpdate = await fetch(
-        `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(prescriptionData),
-        }
-      );
-
-      if (!resUpdate.ok) {
-        const errorData = await resUpdate.json();
-        throw new Error(errorData.error || 'Error al actualizar prescripción');
-      }
-
-      // Delete existing medications and add new ones
-      const existingMedicationIds = prescription?.medications?.map((m) => m.id) || [];
-
-      for (const medId of existingMedicationIds) {
-        if (medId) {
-          await fetch(
-            `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/medications/${medId}`,
-            {
-              method: 'DELETE',
-            }
-          );
-        }
-      }
-
-      // Add new medications
-      for (const medication of validMedications) {
-        const medRes = await fetch(
-          `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/medications`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(medication),
-          }
-        );
-
-        if (!medRes.ok) {
-          throw new Error('Error al agregar medicamento');
-        }
-      }
-
-      // Redirect to prescription detail
-      router.push(
-        `/dashboard/medical-records/patients/${patientId}/prescriptions/${prescriptionId}`
-      );
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (status === "loading" || loadingPrescription) {
+  if (sessionStatus === 'loading' || loadingPrescription) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -255,9 +65,7 @@ export default function EditPrescriptionPage() {
         </Link>
 
         <h1 className="text-2xl font-bold text-gray-900">Editar Prescripción</h1>
-        <p className="text-gray-600 mt-1">
-          Modificar la información de la prescripción
-        </p>
+        <p className="text-gray-600 mt-1">Modificar la información de la prescripción</p>
       </div>
 
       {/* Error */}

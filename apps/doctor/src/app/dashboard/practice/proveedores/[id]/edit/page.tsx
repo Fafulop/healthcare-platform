@@ -7,7 +7,7 @@ import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface Client {
   id: number;

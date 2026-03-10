@@ -15,15 +15,8 @@ import { PurchaseSummaryCard } from '../../_components/PurchaseSummaryCard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  doctorFullName: string;
-  primarySpecialty: string;
-}
-
 export default function EditCompraPage({ params }: { params: Promise<{ id: string }> }) {
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
@@ -34,7 +27,6 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loadingPurchase, setLoadingPurchase] = useState(true);
 
   const {
@@ -74,9 +66,6 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
   }, [params]);
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
     if (purchaseId) {
       fetchSuppliers();
       fetchProducts();
@@ -84,19 +73,6 @@ export default function EditCompraPage({ params }: { params: Promise<{ id: strin
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [purchaseId]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) setDoctorProfile(doctor);
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchPurchase = async () => {
     if (!purchaseId) return;

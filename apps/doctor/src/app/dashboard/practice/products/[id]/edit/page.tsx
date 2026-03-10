@@ -8,13 +8,7 @@ import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from '@/lib/practice-toast';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface AttributeValue {
   id: number;
@@ -53,7 +47,7 @@ interface Product {
 }
 
 export default function EditProductPage() {
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
@@ -64,7 +58,6 @@ export default function EditProductPage() {
   const params = useParams();
   const productId = params.id as string;
 
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,29 +83,10 @@ export default function EditProductPage() {
   const [editingQuantity, setEditingQuantity] = useState("");
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
     fetchProduct();
     fetchAvailableValues();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
 
   const fetchProduct = async () => {
     try {
@@ -192,7 +166,7 @@ export default function EditProductPage() {
     const qty = parseFloat(quantity);
 
     if (qty <= 0) {
-      toast.error('Quantity must be greater than 0');
+      toast.error('La cantidad debe ser mayor a 0');
       return;
     }
 
@@ -226,7 +200,7 @@ export default function EditProductPage() {
   const saveComponentQuantity = (comp: Component) => {
     const newQty = parseFloat(editingQuantity);
     if (newQty <= 0) {
-      toast.error('Quantity must be greater than 0');
+      toast.error('La cantidad debe ser mayor a 0');
       return;
     }
 
@@ -286,7 +260,7 @@ export default function EditProductPage() {
 
       if (!productResponse.ok) {
         const errorData = await productResponse.json();
-        throw new Error(errorData.error || 'Failed to update product');
+        throw new Error(errorData.error || 'Error al actualizar el producto');
       }
 
       // Handle component changes
@@ -342,12 +316,12 @@ export default function EditProductPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Producto no encontrado</h2>
           <Link
             href="/dashboard/practice/products"
             className="text-blue-600 hover:text-blue-700"
           >
-            Back to Products
+            Volver a Productos
           </Link>
         </div>
       </div>
@@ -368,13 +342,13 @@ export default function EditProductPage() {
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Products
+            Volver a Productos y Servicios
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
             <Package className="w-8 h-8 text-blue-600" />
-            Edit Product
+            Editar Producto o Servicio
           </h1>
-          <p className="text-gray-600 mt-2">Update product information and bill of materials</p>
+          <p className="text-gray-600 mt-2">Actualiza la información y componentes del producto</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -383,7 +357,7 @@ export default function EditProductPage() {
             <div className="lg:col-span-2 space-y-6">
               {/* Basic Info */}
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Información Básica</h2>
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                     {error}
@@ -392,7 +366,7 @@ export default function EditProductPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Product Name *
+                      Nombre del Producto *
                     </label>
                     <input
                       type="text"
@@ -400,13 +374,13 @@ export default function EditProductPage() {
                       value={formData.name}
                       onChange={handleChange}
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., Sweet Bread"
+                      placeholder="ej., Consulta General"
                       required
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      SKU / Product Code
+                      SKU / Código
                     </label>
                     <input
                       type="text"
@@ -414,12 +388,12 @@ export default function EditProductPage() {
                       value={formData.sku}
                       onChange={handleChange}
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., PD-001"
+                      placeholder="ej., PD-001"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category
+                      Categoría
                     </label>
                     <input
                       type="text"
@@ -427,12 +401,12 @@ export default function EditProductPage() {
                       value={formData.category}
                       onChange={handleChange}
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., Bakery, Electronics"
+                      placeholder="ej., Insumos Médicos, Consultas"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Selling Price
+                      Precio de Venta
                     </label>
                     <input
                       type="number"
@@ -446,7 +420,7 @@ export default function EditProductPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Unit of Measure
+                      Unidad de Medida
                     </label>
                     <input
                       type="text"
@@ -454,7 +428,7 @@ export default function EditProductPage() {
                       value={formData.unit}
                       onChange={handleChange}
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="pcs, kg, liter"
+                      placeholder="pza, kg, litro"
                     />
                   </div>
                   <div>
@@ -472,7 +446,7 @@ export default function EditProductPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Status
+                      Estado
                     </label>
                     <select
                       name="status"
@@ -480,14 +454,14 @@ export default function EditProductPage() {
                       onChange={handleChange}
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="discontinued">Discontinued</option>
+                      <option value="active">Activo</option>
+                      <option value="inactive">Inactivo</option>
+                      <option value="discontinued">Descontinuado</option>
                     </select>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description
+                      Descripción
                     </label>
                     <textarea
                       name="description"
@@ -495,7 +469,7 @@ export default function EditProductPage() {
                       onChange={handleChange}
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={3}
-                      placeholder="Product description..."
+                      placeholder="Descripción del producto..."
                     />
                   </div>
                 </div>
@@ -503,7 +477,7 @@ export default function EditProductPage() {
 
               {/* Bill of Materials */}
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Bill of Materials (BOM)</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Componentes del Producto</h2>
 
                 {/* Add Component */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
@@ -514,12 +488,12 @@ export default function EditProductPage() {
                         onChange={(e) => setSelectedValueId(e.target.value)}
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
-                        <option value="">Select a component...</option>
+                        <option value="">Selecciona un componente...</option>
                         {availableValues.map(val => (
                           <option key={val.id} value={val.id}>
                             {val.attribute.name}: {val.value}
                             {val.cost && ` - $${val.cost}`}
-                            {val.unit && ` per ${val.unit}`}
+                            {val.unit && ` por ${val.unit}`}
                           </option>
                         ))}
                       </select>
@@ -531,7 +505,7 @@ export default function EditProductPage() {
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
                         className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Qty"
+                        placeholder="Cant."
                       />
                       <button
                         type="button"
@@ -539,7 +513,7 @@ export default function EditProductPage() {
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
-                        Add
+                        Agregar
                       </button>
                     </div>
                   </div>
@@ -549,7 +523,7 @@ export default function EditProductPage() {
                 <div className="space-y-2">
                   {activeComponents.length === 0 ? (
                     <p className="text-gray-500 text-sm text-center py-4">
-                      No components. Add components to calculate cost.
+                      Sin componentes. Agrega componentes para calcular el costo automáticamente.
                     </p>
                   ) : (
                     activeComponents.map((comp, index) => (
@@ -558,7 +532,7 @@ export default function EditProductPage() {
                           <div className="font-medium text-gray-900">
                             {comp.attributeValue?.attribute.name}: {comp.attributeValue?.value}
                             {comp.isNew && (
-                              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">New</span>
+                              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Nuevo</span>
                             )}
                           </div>
                           {editingComponentId === comp.id ? (
@@ -577,14 +551,14 @@ export default function EditProductPage() {
                                 onClick={() => saveComponentQuantity(comp)}
                                 className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
                               >
-                                Save
+                                Guardar
                               </button>
                               <button
                                 type="button"
                                 onClick={cancelEditingComponent}
                                 className="text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700"
                               >
-                                Cancel
+                                Cancelar
                               </button>
                             </div>
                           ) : (
@@ -599,7 +573,7 @@ export default function EditProductPage() {
                               type="button"
                               onClick={() => startEditingComponent(comp)}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Edit quantity"
+                              title="Editar cantidad"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
@@ -608,7 +582,7 @@ export default function EditProductPage() {
                             type="button"
                             onClick={() => removeComponent(comp)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Remove component"
+                            title="Eliminar componente"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -624,22 +598,22 @@ export default function EditProductPage() {
             <div className="space-y-6">
               {/* Cost Summary */}
               <div className="bg-white rounded-lg shadow p-6 sticky top-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Summary</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen de Costos</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-                    <span className="text-gray-600">Components</span>
+                    <span className="text-gray-600">Componentes</span>
                     <span className="font-semibold text-gray-900">{activeComponents.length}</span>
                   </div>
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-                    <span className="text-gray-600">Total Cost</span>
+                    <span className="text-gray-600">Costo Total</span>
                     <span className="font-semibold text-lg text-gray-900">${totalCost.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-                    <span className="text-gray-600">Selling Price</span>
+                    <span className="text-gray-600">Precio de Venta</span>
                     <span className="font-semibold text-lg text-blue-600">${price.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Profit Margin</span>
+                    <span className="text-gray-600">Margen de Ganancia</span>
                     <span className={`font-semibold text-lg ${parseFloat(margin) > 0 ? 'text-blue-600' : 'text-red-600'}`}>
                       {margin}%
                     </span>
@@ -656,12 +630,12 @@ export default function EditProductPage() {
                     {submitting ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        Updating...
+                        Guardando...
                       </>
                     ) : (
                       <>
                         <Save className="w-5 h-5" />
-                        Update Product
+                        Guardar Cambios
                       </>
                     )}
                   </button>
@@ -669,7 +643,7 @@ export default function EditProductPage() {
                     href="/dashboard/practice/products"
                     className="block text-center w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
+                    Cancelar
                   </Link>
                 </div>
               </div>

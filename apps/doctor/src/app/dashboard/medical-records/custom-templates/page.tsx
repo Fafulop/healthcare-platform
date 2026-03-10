@@ -1,102 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { redirect, useRouter } from 'next/navigation';
 import {
-  Plus,
-  Edit,
-  Trash2,
-  Star,
-  FileText,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-  Settings,
-  ArrowLeft,
+  Plus, Edit, Trash2, Star, FileText, Loader2,
+  AlertCircle, CheckCircle, Settings, ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { CustomEncounterTemplate } from '@/types/custom-encounter';
+import { useCustomTemplatesPage } from './_components/useCustomTemplatesPage';
 
 export default function CustomTemplatesPage() {
-  const router = useRouter();
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect('/login');
-    },
-  });
+  const {
+    sessionStatus,
+    templates,
+    loading,
+    error,
+    deleteConfirm, setDeleteConfirm,
+    handleDelete,
+    handleSetDefault,
+  } = useCustomTemplatesPage();
 
-  const [templates, setTemplates] = useState<CustomEncounterTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
-  const fetchTemplates = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('/api/custom-templates');
-      const data = await res.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Error loading templates');
-      }
-
-      setTemplates(data.data);
-    } catch (err: any) {
-      setError(err.message || 'Error loading templates');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async (templateId: string) => {
-    try {
-      const res = await fetch(`/api/custom-templates/${templateId}`, {
-        method: 'DELETE',
-      });
-
-      const data = await res.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Error deleting template');
-      }
-
-      // Refresh list
-      fetchTemplates();
-      setDeleteConfirm(null);
-    } catch (err: any) {
-      alert(err.message || 'Error deleting template');
-    }
-  };
-
-  const handleSetDefault = async (templateId: string) => {
-    try {
-      const res = await fetch(`/api/custom-templates/${templateId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isDefault: true }),
-      });
-
-      const data = await res.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Error setting default');
-      }
-
-      // Refresh list
-      fetchTemplates();
-    } catch (err: any) {
-      alert(err.message || 'Error setting default');
-    }
-  };
-
-  if (status === 'loading' || loading) {
+  if (sessionStatus === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -181,21 +103,11 @@ export default function CustomTemplatesPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Template
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fields
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Usage
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Template</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fields</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -203,16 +115,12 @@ export default function CustomTemplatesPage() {
                 <tr key={template.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          template.color ? `bg-${template.color}-100` : 'bg-gray-100'
-                        }`}
-                      >
-                        <FileText
-                          className={`w-5 h-5 ${
-                            template.color ? `text-${template.color}-600` : 'text-gray-600'
-                          }`}
-                        />
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        template.color ? `bg-${template.color}-100` : 'bg-gray-100'
+                      }`}>
+                        <FileText className={`w-5 h-5 ${
+                          template.color ? `text-${template.color}-600` : 'text-gray-600'
+                        }`} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -222,22 +130,16 @@ export default function CustomTemplatesPage() {
                           )}
                         </div>
                         {template.description && (
-                          <p className="text-sm text-gray-500 line-clamp-1">
-                            {template.description}
-                          </p>
+                          <p className="text-sm text-gray-500 line-clamp-1">{template.description}</p>
                         )}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-900">
-                      {template.customFields.length} fields
-                    </span>
+                    <span className="text-sm text-gray-900">{template.customFields.length} fields</span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-600">
-                      {template.usageCount} encounters
-                    </span>
+                    <span className="text-sm text-gray-600">{template.usageCount} encounters</span>
                   </td>
                   <td className="px-6 py-4">
                     {template.isActive ? (

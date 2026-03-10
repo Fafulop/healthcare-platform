@@ -1,441 +1,51 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
 import { ArrowLeft, Save, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { MedicationList, type Medication } from '@/components/medical-records/MedicationList';
+import { MedicationList } from '@/components/medical-records/MedicationList';
 import {
   AIDraftBanner,
   VoiceChatSidebar,
   VoiceRecordingModal,
 } from '@/components/voice-assistant';
 import { PrescriptionChatPanel } from '@/components/medical-records/PrescriptionChatPanel';
-import type { PrescriptionFormData } from '@/hooks/usePrescriptionChat';
-import type { InitialChatData } from '@/hooks/useChatSession';
-import type { VoicePrescriptionData, VoiceStructuredData } from '@/types/voice-assistant';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-import { getLocalDateString, formatLocalDate as formatDateString } from '@/lib/dates';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
-
-interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  internalId: string;
-}
-
-interface Encounter {
-  id: string;
-  encounterDate: string;
-  encounterType: string;
-  chiefComplaint: string;
-}
+import { formatLocalDate as formatDateString } from '@/lib/dates';
+import { useNewPrescriptionForm } from '../_components/useNewPrescriptionForm';
 
 export default function NewPrescriptionPage() {
-  const params = useParams();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const patientId = params.id as string;
+  const {
+    patientId,
+    session,
+    sessionStatus,
+    patient,
+    doctorProfile,
+    encounters,
+    loading,
+    loadingPatient,
+    error,
+    prescriptionDate, setPrescriptionDate,
+    diagnosis, setDiagnosis,
+    clinicalNotes, setClinicalNotes,
+    doctorFullName, setDoctorFullName,
+    doctorLicense, setDoctorLicense,
+    expiresAt, setExpiresAt,
+    medications, setMedications,
+    selectedEncounterId, setSelectedEncounterId,
+    modalOpen, setModalOpen,
+    sidebarOpen, setSidebarOpen,
+    sidebarInitialData,
+    showAIBanner, setShowAIBanner,
+    aiMetadata,
+    handleModalComplete,
+    handleVoiceConfirm,
+    chatPanelOpen, setChatPanelOpen,
+    currentFormData,
+    handleChatFieldUpdates,
+    handleChatMedicationUpdates,
+    handleSubmit,
+  } = useNewPrescriptionForm();
 
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect("/login");
-    },
-  });
-
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [loadingPatient, setLoadingPatient] = useState(true);
-  const [encounters, setEncounters] = useState<Encounter[]>([]);
-  const [selectedEncounterId, setSelectedEncounterId] = useState<string>('');
-
-  // Voice recording modal state
-  const [modalOpen, setModalOpen] = useState(false);
-
-  // Voice chat sidebar state
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
-
-  // Chat IA panel state
-  const [chatPanelOpen, setChatPanelOpen] = useState(false);
-
-  // Voice assistant result state
-  const [showAIBanner, setShowAIBanner] = useState(false);
-  const [aiMetadata, setAIMetadata] = useState<{
-    sessionId: string;
-    transcriptId: string;
-    fieldsExtracted: string[];
-    fieldsEmpty: string[];
-    confidence: 'high' | 'medium' | 'low';
-  } | null>(null);
-  const [voiceDataLoaded, setVoiceDataLoaded] = useState(false);
-
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
-
-  // Handle modal completion - transition to sidebar with initial data
-  const handleModalComplete = useCallback((
-    transcript: string,
-    data: VoiceStructuredData,
-    sessionId: string,
-    transcriptId: string,
-    audioDuration: number
-  ) => {
-    const voiceData = data as VoicePrescriptionData;
-
-    // Calculate extracted fields
-    const allFields = Object.keys(voiceData);
-    const extracted = allFields.filter(
-      k => voiceData[k as keyof VoicePrescriptionData] != null &&
-           voiceData[k as keyof VoicePrescriptionData] !== ''
-    );
-
-    // Prepare initial data for sidebar
-    const initialData: InitialChatData = {
-      transcript,
-      structuredData: data,
-      transcriptId,
-      sessionId,
-      audioDuration,
-      fieldsExtracted: extracted,
-    };
-
-    // Close modal, set initial data, and open sidebar
-    setModalOpen(false);
-    setSidebarInitialData(initialData);
-    setSidebarOpen(true);
-  }, []);
-
-  // Handle voice chat confirm - populate form with extracted data
-  const handleVoiceConfirm = useCallback((data: VoiceStructuredData) => {
-    console.log('[Page] handleVoiceConfirm called with data:', data);
-
-    const voiceData = data as VoicePrescriptionData;
-
-    // Pre-fill form fields
-    if (voiceData.prescriptionDate) setPrescriptionDate(voiceData.prescriptionDate);
-    if (voiceData.diagnosis) setDiagnosis(voiceData.diagnosis);
-    if (voiceData.clinicalNotes) setClinicalNotes(voiceData.clinicalNotes);
-    if (voiceData.doctorFullName) setDoctorFullName(voiceData.doctorFullName);
-    if (voiceData.doctorLicense) setDoctorLicense(voiceData.doctorLicense);
-    if (voiceData.expiresAt) setExpiresAt(voiceData.expiresAt);
-
-    // Pre-fill medications
-    if (voiceData.medications && voiceData.medications.length > 0) {
-      console.log('[Page] Medications from voice:', voiceData.medications);
-      const mappedMedications = voiceData.medications.map((med, index) => ({
-        drugName: med.drugName || '',
-        presentation: med.presentation || undefined,
-        dosage: med.dosage || '',
-        frequency: med.frequency || '',
-        duration: med.duration || undefined,
-        quantity: med.quantity || undefined,
-        instructions: med.instructions || '',
-        warnings: med.warnings || undefined,
-        order: index,
-      }));
-      console.log('[Page] Mapped medications:', mappedMedications);
-      setMedications(mappedMedications);
-    }
-
-    // Calculate extracted/empty fields for banner
-    const allFields = Object.keys(voiceData);
-    const extracted = allFields.filter(
-      k => voiceData[k as keyof VoicePrescriptionData] != null &&
-           voiceData[k as keyof VoicePrescriptionData] !== ''
-    );
-    const empty = allFields.filter(
-      k => voiceData[k as keyof VoicePrescriptionData] == null ||
-           voiceData[k as keyof VoicePrescriptionData] === ''
-    );
-
-    console.log('[Page] Fields analysis:', { extracted, empty });
-
-    setAIMetadata({
-      sessionId: crypto.randomUUID(),
-      transcriptId: crypto.randomUUID(),
-      fieldsExtracted: extracted,
-      fieldsEmpty: empty,
-      confidence: voiceData.medications && voiceData.medications.length > 0 ? 'high' : 'medium',
-    });
-
-    setShowAIBanner(true);
-
-    // Clear initial data after confirming
-    setSidebarInitialData(undefined);
-
-    console.log('[Page] Form should now be filled with voice data');
-  }, []);
-
-  // Form state
-  const [prescriptionDate, setPrescriptionDate] = useState(
-    getLocalDateString(new Date())
-  );
-  const [diagnosis, setDiagnosis] = useState('');
-  const [clinicalNotes, setClinicalNotes] = useState('');
-  const [doctorFullName, setDoctorFullName] = useState('');
-  const [doctorLicense, setDoctorLicense] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
-  const [medications, setMedications] = useState<Medication[]>([
-    {
-      drugName: '',
-      dosage: '',
-      frequency: '',
-      instructions: '',
-      order: 0,
-    }
-  ]);
-
-  // Computed form data for Chat IA
-  const currentFormData: PrescriptionFormData = useMemo(() => ({
-    prescriptionDate,
-    diagnosis,
-    clinicalNotes,
-    doctorFullName,
-    doctorLicense,
-    expiresAt,
-    medications,
-  }), [prescriptionDate, diagnosis, clinicalNotes, doctorFullName, doctorLicense, expiresAt, medications]);
-
-  // Chat IA callbacks
-  const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
-    if (updates.prescriptionDate) setPrescriptionDate(updates.prescriptionDate);
-    if (updates.diagnosis) setDiagnosis(updates.diagnosis);
-    if (updates.clinicalNotes) setClinicalNotes(updates.clinicalNotes);
-    if (updates.doctorFullName) setDoctorFullName(updates.doctorFullName);
-    if (updates.doctorLicense) setDoctorLicense(updates.doctorLicense);
-    if (updates.expiresAt) setExpiresAt(updates.expiresAt);
-  }, []);
-
-  const handleChatMedicationUpdates = useCallback((meds: Medication[]) => {
-    setMedications(meds);
-  }, []);
-
-  // Load voice data from sessionStorage
-  useEffect(() => {
-    if (searchParams.get('voice') === 'true' && !voiceDataLoaded) {
-      const stored = sessionStorage.getItem('voicePrescriptionData');
-      if (stored) {
-        try {
-          const { data, sessionId, transcriptId } = JSON.parse(stored) as {
-            data: VoicePrescriptionData;
-            sessionId: string;
-            transcriptId: string;
-          };
-
-          // Pre-fill form fields
-          if (data.prescriptionDate) setPrescriptionDate(data.prescriptionDate);
-          if (data.diagnosis) setDiagnosis(data.diagnosis);
-          if (data.clinicalNotes) setClinicalNotes(data.clinicalNotes);
-          if (data.doctorFullName) setDoctorFullName(data.doctorFullName);
-          if (data.doctorLicense) setDoctorLicense(data.doctorLicense);
-          if (data.expiresAt) setExpiresAt(data.expiresAt);
-
-          // Pre-fill medications
-          if (data.medications && data.medications.length > 0) {
-            setMedications(data.medications.map((med, index) => ({
-              drugName: med.drugName || '',
-              presentation: med.presentation || undefined,
-              dosage: med.dosage || '',
-              frequency: med.frequency || '',
-              duration: med.duration || undefined,
-              quantity: med.quantity || undefined,
-              instructions: med.instructions || '',
-              warnings: med.warnings || undefined,
-              order: index,
-            })));
-          }
-
-          // Calculate extracted/empty fields
-          const extracted: string[] = [];
-          const empty: string[] = [];
-
-          if (data.prescriptionDate) extracted.push('prescriptionDate'); else empty.push('prescriptionDate');
-          if (data.diagnosis) extracted.push('diagnosis'); else empty.push('diagnosis');
-          if (data.clinicalNotes) extracted.push('clinicalNotes'); else empty.push('clinicalNotes');
-          if (data.doctorFullName) extracted.push('doctorFullName'); else empty.push('doctorFullName');
-          if (data.doctorLicense) extracted.push('doctorLicense'); else empty.push('doctorLicense');
-          if (data.medications && data.medications.length > 0) extracted.push('medications'); else empty.push('medications');
-
-          // Set AI metadata for banner
-          setAIMetadata({
-            sessionId,
-            transcriptId,
-            fieldsExtracted: extracted,
-            fieldsEmpty: empty,
-            confidence: data.medications && data.medications.length > 0 ? 'high' : 'medium',
-          });
-
-          setShowAIBanner(true);
-          setVoiceDataLoaded(true);
-
-          // Clear storage
-          sessionStorage.removeItem('voicePrescriptionData');
-        } catch (e) {
-          console.error('Error parsing voice data:', e);
-        }
-      }
-    }
-  }, [searchParams, voiceDataLoaded]);
-
-  useEffect(() => {
-    fetchPatient();
-  }, [patientId]);
-
-  const fetchPatient = async () => {
-    try {
-      const res = await fetch(`/api/medical-records/patients/${patientId}`);
-      if (!res.ok) {
-        throw new Error('Error al cargar paciente');
-      }
-      const data = await res.json();
-      setPatient(data.data);
-      setEncounters(data.data.encounters || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoadingPatient(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent, saveAndIssue: boolean = false) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      // Validate medications — require all fields the backend also requires
-      const validMedications = medications.filter((med) => med.drugName.trim());
-
-      if (validMedications.length === 0) {
-        throw new Error('Debe agregar al menos un medicamento válido');
-      }
-
-      const incompleteMedications = validMedications.filter(
-        (med) => !med.dosage.trim() || !med.frequency.trim() || !med.instructions.trim()
-      );
-
-      if (incompleteMedications.length > 0) {
-        const names = incompleteMedications.map((m) => m.drugName).join(', ');
-        throw new Error(
-          `Los siguientes medicamentos requieren Dosis, Frecuencia e Indicaciones: ${names}`
-        );
-      }
-
-      if (!doctorFullName || !doctorLicense) {
-        throw new Error('Debe completar la información del doctor');
-      }
-
-      // Create prescription
-      const prescriptionData = {
-        prescriptionDate: new Date(prescriptionDate).toISOString(),
-        diagnosis: diagnosis || null,
-        clinicalNotes: clinicalNotes || null,
-        doctorFullName,
-        doctorLicense,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-        encounterId: selectedEncounterId || null,
-      };
-
-      const res = await fetch(`/api/medical-records/patients/${patientId}/prescriptions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prescriptionData),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al crear prescripción');
-      }
-
-      const { data: prescription } = await res.json();
-
-      // Add medications — rollback prescription if any fail
-      try {
-        for (const medication of validMedications) {
-          const medRes = await fetch(
-            `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}/medications`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(medication),
-            }
-          );
-
-          if (!medRes.ok) {
-            const medErr = await medRes.json();
-            throw new Error(medErr.error || 'Error al agregar medicamento');
-          }
-        }
-      } catch (medError: any) {
-        // Delete the orphaned prescription so it doesn't clutter the list
-        await fetch(
-          `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}`,
-          { method: 'DELETE' }
-        );
-        throw medError;
-      }
-
-      // If saveAndIssue, issue the prescription
-      if (saveAndIssue) {
-        const issueRes = await fetch(
-          `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}/issue`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
-          }
-        );
-
-        if (!issueRes.ok) {
-          throw new Error('Error al emitir prescripción');
-        }
-      }
-
-      // Redirect to prescription detail
-      router.push(
-        `/dashboard/medical-records/patients/${patientId}/prescriptions/${prescription.id}`
-      );
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (status === "loading" || loadingPatient) {
+  if (sessionStatus === 'loading' || loadingPatient) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -468,7 +78,6 @@ export default function NewPrescriptionPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Chat IA Button */}
             <button
               onClick={() => setChatPanelOpen(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"

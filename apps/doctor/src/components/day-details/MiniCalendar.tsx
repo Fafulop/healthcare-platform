@@ -1,39 +1,66 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MiniCalendarProps {
   selectedDate: Date;
   onDateSelect: (date: Date) => void;
-  highlightedDates?: string[]; // Array of YYYY-MM-DD dates to highlight
+  highlightedDates?: string[]; // kept for backward compat — shows indigo dot
+  taskDates?: string[];         // days with tasks — shows indigo dot
+  appointmentDates?: string[];  // days with appointments — shows green dot
+  onMonthChange?: (month: Date) => void;
 }
 
 import { getLocalDateString } from '@/lib/dates';
 
-export function MiniCalendar({ selectedDate, onDateSelect, highlightedDates = [] }: MiniCalendarProps) {
+export function MiniCalendar({
+  selectedDate,
+  onDateSelect,
+  highlightedDates = [],
+  taskDates = [],
+  appointmentDates = [],
+  onMonthChange,
+}: MiniCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate));
+
+  // Sync calendar view when selectedDate crosses a month boundary (e.g. prev/next day nav).
+  // Do NOT call onMonthChange here — the parent already fetched when the date was selected.
+  useEffect(() => {
+    if (
+      selectedDate.getMonth() !== currentMonth.getMonth() ||
+      selectedDate.getFullYear() !== currentMonth.getFullYear()
+    ) {
+      setCurrentMonth(new Date(selectedDate));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
+  const changeMonth = (newMonth: Date) => {
+    setCurrentMonth(newMonth);
+    onMonthChange?.(newMonth);
+  };
+
   const goToPreviousMonth = () => {
     const newMonth = new Date(currentMonth);
     newMonth.setMonth(currentMonth.getMonth() - 1);
-    setCurrentMonth(newMonth);
+    changeMonth(newMonth);
   };
 
   const goToNextMonth = () => {
     const newMonth = new Date(currentMonth);
     newMonth.setMonth(currentMonth.getMonth() + 1);
-    setCurrentMonth(newMonth);
+    changeMonth(newMonth);
   };
 
   const goToToday = () => {
     const today = new Date();
-    setCurrentMonth(today);
+    changeMonth(today);
     onDateSelect(today);
   };
 
@@ -51,6 +78,9 @@ export function MiniCalendar({ selectedDate, onDateSelect, highlightedDates = []
     const isToday = dateStr === getLocalDateString(new Date());
     const isSelected = getLocalDateString(selectedDate) === dateStr;
     const isHighlighted = highlightedDates.includes(dateStr);
+    const isTask = taskDates.includes(dateStr);
+    const isAppointment = appointmentDates.includes(dateStr);
+    const hasDot = !isSelected && (isTask || isAppointment || (isHighlighted && !isTask && !isAppointment));
 
     days.push(
       <button
@@ -67,8 +97,12 @@ export function MiniCalendar({ selectedDate, onDateSelect, highlightedDates = []
         }`}
       >
         <div className="text-xs sm:text-sm">{day}</div>
-        {isHighlighted && !isSelected && (
-          <div className="w-1 h-1 bg-indigo-600 rounded-full mx-auto mt-0.5 sm:mt-1" />
+        {hasDot && (
+          <div className="flex justify-center gap-0.5 mt-0.5 sm:mt-1">
+            {isTask && <div className="w-1 h-1 bg-indigo-500 rounded-full" />}
+            {isAppointment && <div className="w-1 h-1 bg-green-500 rounded-full" />}
+            {isHighlighted && !isTask && !isAppointment && <div className="w-1 h-1 bg-indigo-600 rounded-full" />}
+          </div>
         )}
       </button>
     );

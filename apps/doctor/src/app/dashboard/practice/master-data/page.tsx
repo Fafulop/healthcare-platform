@@ -9,13 +9,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { toast } from '@/lib/practice-toast';
 import { practiceConfirm } from '@/lib/practice-confirm';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface AttributeValue {
   id: number;
@@ -37,14 +31,13 @@ interface Attribute {
 }
 
 export default function MasterDataPage() {
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
     },
   });
 
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedAttributes, setExpandedAttributes] = useState<Set<number>>(new Set());
@@ -67,35 +60,17 @@ export default function MasterDataPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
+    if (status === 'authenticated') {
+      fetchAttributes();
     }
-    fetchAttributes();
-  }, []);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const fetchAttributes = async () => {
-    if (!session?.user?.email) return;
-
     try {
       const response = await authFetch(`${API_URL}/api/practice-management/product-attributes`);
 
-      if (!response.ok) throw new Error('Failed to fetch attributes');
+      if (!response.ok) throw new Error('Error al cargar los datos maestros');
 
       const result = await response.json();
       setAttributes(result.data || []);
@@ -153,8 +128,6 @@ export default function MasterDataPage() {
 
   const handleSaveAttribute = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.email) return;
-
     setSubmitting(true);
     setError(null);
 
@@ -176,7 +149,7 @@ export default function MasterDataPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save attribute');
+        throw new Error(errorData.error || 'Error al guardar la categoría');
       }
 
       await fetchAttributes();
@@ -190,7 +163,7 @@ export default function MasterDataPage() {
 
   const handleSaveValue = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.email || !selectedAttributeForValue) return;
+    if (!selectedAttributeForValue) return;
 
     setSubmitting(true);
     setError(null);
@@ -215,7 +188,7 @@ export default function MasterDataPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save value');
+        throw new Error(errorData.error || 'Error al guardar el elemento');
       }
 
       await fetchAttributes();
@@ -229,7 +202,6 @@ export default function MasterDataPage() {
   };
 
   const handleDeleteAttribute = async (attribute: Attribute) => {
-    if (!session?.user?.email) return;
     if (!await practiceConfirm(`¿Eliminar "${attribute.name}"? Esto eliminará todos sus valores.`)) return;
 
     try {
@@ -246,7 +218,6 @@ export default function MasterDataPage() {
   };
 
   const handleDeleteValue = async (attribute: Attribute, value: AttributeValue) => {
-    if (!session?.user?.email) return;
     if (!await practiceConfirm(`¿Eliminar "${value.value}"?`)) return;
 
     try {

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import RecentActivityTable from "@/components/RecentActivityTable";
-import { DayDetailsSection } from "@/components/day-details/DayDetailsSection";
+import { DashboardDaySection } from "@/components/day-details/DashboardDaySection";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -120,8 +120,8 @@ export default function DoctorDashboardPage() {
         </Link>
       </div>
 
-      {/* Detalles del día */}
-      <DayDetailsSection />
+      {/* Itinerario del día + Calendario */}
+      <DashboardDaySection />
 
       {/* Acciones Rápidas - Chat IA */}
       <div className="bg-white rounded-lg shadow mb-6">

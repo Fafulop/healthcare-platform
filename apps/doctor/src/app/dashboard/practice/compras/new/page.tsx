@@ -32,12 +32,6 @@ const VoiceChatSidebar = dynamic(
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
-
 export default function NewCompraPage() {
   const { data: session, status } = useSession({
     required: true,
@@ -50,7 +44,6 @@ export default function NewCompraPage() {
   const searchParams = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
 
   // Voice assistant state
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -89,9 +82,6 @@ export default function NewCompraPage() {
   } = usePurchaseForm();
 
   useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
     fetchSuppliers();
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -132,19 +122,6 @@ export default function NewCompraPage() {
     }
   }, [searchParams, suppliers, setSelectedSupplierId]);
 
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) setDoctorProfile(doctor);
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
-
   const handleVoiceModalComplete = (
     transcript: string,
     data: VoiceStructuredData,
@@ -176,7 +153,6 @@ export default function NewCompraPage() {
   const handleVoiceConfirm = (data: VoiceStructuredData) => {
     const purchaseData = data as VoicePurchaseData;
 
-    console.log('[Compras New] Voice data confirmed:', purchaseData);
 
     if (purchaseData.supplierName) {
       const matchedSupplier = suppliers.find(
@@ -186,9 +162,6 @@ export default function NewCompraPage() {
       );
       if (matchedSupplier) {
         setSelectedSupplierId(matchedSupplier.id);
-        console.log('[Compras New] Matched supplier:', matchedSupplier.businessName);
-      } else {
-        console.log('[Compras New] No supplier match found for:', purchaseData.supplierName);
       }
     }
 
@@ -245,7 +218,6 @@ export default function NewCompraPage() {
       }).filter(Boolean) as PurchaseItem[];
 
       setItems(mappedItems);
-      console.log('[Compras New] Mapped items:', mappedItems.length);
     }
 
     setShowVoiceSidebar(false);

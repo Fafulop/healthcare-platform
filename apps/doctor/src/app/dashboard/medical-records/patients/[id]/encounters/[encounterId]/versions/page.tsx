@@ -1,104 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
-import { ArrowLeft, Clock, User, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-interface DoctorProfile {
-  id: string;
-  slug: string;
-  primarySpecialty: string;
-}
-
-interface Version {
-  id: number;
-  versionNumber: number;
-  encounterData: any;
-  createdBy: string;
-  changeReason?: string;
-  createdAt: string;
-}
+import { formatDateTime } from '@/lib/practice-utils';
+import { useEncounterVersions } from '../../_components/useEncounterVersions';
 
 export default function EncounterVersionsPage() {
-  const params = useParams();
-  const patientId = params.id as string;
-  const encounterId = params.encounterId as string;
+  const {
+    patientId,
+    encounterId,
+    sessionStatus,
+    versions,
+    selectedVersion, setSelectedVersion,
+    loading,
+    error,
+  } = useEncounterVersions();
 
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect("/login");
-    },
-  });
-
-  const [versions, setVersions] = useState<Version[]>([]);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);
-
-  useEffect(() => {
-    if (session?.user?.doctorId) {
-      fetchDoctorProfile(session.user.doctorId);
-    }
-  }, [session]);
-
-  const fetchDoctorProfile = async (doctorId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/doctors`);
-      const result = await response.json();
-
-      if (result.success) {
-        const doctor = result.data.find((d: any) => d.id === doctorId);
-        if (doctor) {
-          setDoctorProfile(doctor);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching doctor profile:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchVersions();
-  }, [patientId, encounterId]);
-
-  const fetchVersions = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/medical-records/patients/${patientId}/encounters/${encounterId}/versions`);
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al cargar versiones');
-      }
-
-      const data = await res.json();
-      setVersions(data.data || []);
-    } catch (err: any) {
-      setError(err.message || 'Error loading versions');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString('es-MX', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  if (status === "loading" || loading) {
+  if (sessionStatus === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -178,7 +96,7 @@ export default function EncounterVersionsPage() {
                           Versión {version.versionNumber}
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
-                          {formatDate(version.createdAt)}
+                          {formatDateTime(version.createdAt)}
                         </div>
                         {version.changeReason && (
                           <div className="text-xs text-gray-500 mt-1 line-clamp-2">
@@ -207,7 +125,7 @@ export default function EncounterVersionsPage() {
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <div className="flex items-center gap-1">
                       <Clock className="w-4 h-4" />
-                      {formatDate(selectedVersion.createdAt)}
+                      {formatDateTime(selectedVersion.createdAt)}
                     </div>
                     {selectedVersion.changeReason && (
                       <div className="flex-1">
@@ -282,7 +200,7 @@ export default function EncounterVersionsPage() {
                     </div>
                   )}
 
-                  {/* Clinical Notes (if no SOAP) */}
+                  {/* Clinical Notes */}
                   {selectedVersion.encounterData.clinicalNotes && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-700 mb-2">Notas Clínicas</h3>
