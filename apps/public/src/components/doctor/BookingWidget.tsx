@@ -257,13 +257,17 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 <p className="text-gray-900">
                   <strong>Duración:</strong> {selectedSlot.duration} minutos
                 </p>
-                <p className="text-gray-900">
-                  <strong>Precio:</strong> ${selectedSlot.finalPrice}
-                </p>
                 {selectedServiceId && services.find(s => s.id === selectedServiceId) && (
-                  <p className="text-gray-900">
-                    <strong>Servicio:</strong> {services.find(s => s.id === selectedServiceId)!.service_name}
-                  </p>
+                  <>
+                    <p className="text-gray-900">
+                      <strong>Servicio:</strong> {services.find(s => s.id === selectedServiceId)!.service_name}
+                    </p>
+                    {services.find(s => s.id === selectedServiceId)!.price != null && (
+                      <p className="text-gray-900">
+                        <strong>Precio:</strong> ${services.find(s => s.id === selectedServiceId)!.price}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -328,14 +332,11 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 day: "numeric",
               })} • {selectedSlot.startTime}
             </p>
-            <p className="text-xl font-bold text-[var(--color-secondary)] mt-2">
-              ${selectedSlot.finalPrice}
-              {selectedSlot.discount && (
-                <span className="text-sm text-green-600 ml-2 font-semibold">
-                  ({selectedSlot.discountType === "PERCENTAGE" ? `-${selectedSlot.discount}%` : `-$${selectedSlot.discount}`})
-                </span>
-              )}
-            </p>
+            {selectedServiceId && services.find(s => s.id === selectedServiceId)?.price != null && (
+              <p className="text-xl font-bold text-[var(--color-secondary)] mt-2">
+                ${services.find(s => s.id === selectedServiceId)!.price}
+              </p>
+            )}
           </div>
 
           {/* Service Selector */}
@@ -562,12 +563,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                             className="flex flex-col items-center justify-center p-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:border-blue-400 rounded-md transition-all hover:scale-105"
                           >
                             <span className="text-[11px] font-bold text-gray-900 leading-tight">{slot.startTime}</span>
-                            <span className="text-[9px] text-blue-700 font-semibold leading-tight">${slot.finalPrice}</span>
-                            {slot.discount && (
-                              <span className="text-[8px] text-green-600 font-medium leading-tight">
-                                -{slot.discountType === "PERCENTAGE" ? `${slot.discount}%` : `$${slot.discount}`}
-                              </span>
-                            )}
+                            <span className="text-[9px] text-blue-600 leading-tight">{slot.duration} min</span>
                           </button>
                         ))}
                       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Calendar, Clock, DollarSign, Percent, Info, Loader2 } from "lucide-react";
+import { X, Calendar, Clock, Info, Loader2 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from '@/lib/practice-toast';
 import { getLocalDateString } from '@/lib/dates';
@@ -101,10 +101,6 @@ export default function CreateSlotsModal({
   const [hasBreak, setHasBreak] = useState(false);
   const [breakStart, setBreakStart] = useState("12:00");
   const [breakEnd, setBreakEnd] = useState("13:00");
-  const [basePrice, setBasePrice] = useState("");
-  const [hasDiscount, setHasDiscount] = useState(false);
-  const [discount, setDiscount] = useState("");
-  const [discountType, setDiscountType] = useState<"PERCENTAGE" | "FIXED">("PERCENTAGE");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [previewSlots, setPreviewSlots] = useState<number>(0);
@@ -131,10 +127,6 @@ export default function CreateSlotsModal({
       if (initialData.hasBreak !== undefined) setHasBreak(initialData.hasBreak);
       if (initialData.breakStart) setBreakStart(initialData.breakStart);
       if (initialData.breakEnd) setBreakEnd(initialData.breakEnd);
-      if (initialData.basePrice) setBasePrice(initialData.basePrice);
-      if (initialData.hasDiscount !== undefined) setHasDiscount(initialData.hasDiscount);
-      if (initialData.discount) setDiscount(initialData.discount);
-      if (initialData.discountType) setDiscountType(initialData.discountType);
     }
   }, [initialData]);
 
@@ -202,18 +194,6 @@ export default function CreateSlotsModal({
     );
   };
 
-  const calculateFinalPrice = () => {
-    const base = parseFloat(basePrice) || 0;
-    if (!hasDiscount || !discount) return base;
-
-    const discountValue = parseFloat(discount) || 0;
-    if (discountType === "PERCENTAGE") {
-      return base - (base * discountValue) / 100;
-    } else {
-      return Math.max(0, base - discountValue);
-    }
-  };
-
   const executeSlotCreation = async (replaceConflicts = false) => {
     setIsSubmitting(true);
 
@@ -224,9 +204,9 @@ export default function CreateSlotsModal({
         startTime,
         endTime,
         duration,
-        basePrice: parseFloat(basePrice),
-        discount: hasDiscount && discount ? parseFloat(discount) : null,
-        discountType: hasDiscount && discount ? discountType : null,
+        basePrice: 0,
+        discount: null,
+        discountType: null,
         replaceConflicts, // NEW: Include replaceConflicts flag
       };
 
@@ -300,11 +280,6 @@ export default function CreateSlotsModal({
 
     setSubmitError(null);
 
-    if (!basePrice || parseFloat(basePrice) <= 0) {
-      setSubmitError("Por favor ingresa un precio base valido");
-      return;
-    }
-
     if (mode === "single" && !singleDate) {
       setSubmitError("Por favor selecciona una fecha");
       return;
@@ -336,15 +311,9 @@ export default function CreateSlotsModal({
     setHasBreak(false);
     setBreakStart("12:00");
     setBreakEnd("13:00");
-    setBasePrice("");
-    setHasDiscount(false);
-    setDiscount("");
-    setDiscountType("PERCENTAGE");
   };
 
   if (!isOpen) return null;
-
-  const finalPrice = calculateFinalPrice();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
@@ -587,103 +556,11 @@ export default function CreateSlotsModal({
             </div>
           </div>
 
-          {/* Precios */}
+          {/* Precio */}
           <div className="border-t pt-4 sm:pt-6">
-            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3 sm:mb-4">
-              <DollarSign className="inline w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-              Precios
-            </label>
-
-            <div className="mb-3 sm:mb-4">
-              <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
-                Precio Base (MXN) *
-              </label>
-              <input
-                type="number"
-                value={basePrice}
-                onChange={(e) => setBasePrice(e.target.value)}
-                min="0"
-                step="0.01"
-                placeholder="500.00"
-                className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                required
-              />
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-              <label className="flex items-center gap-2 mb-2 sm:mb-3">
-                <input
-                  type="checkbox"
-                  checked={hasDiscount}
-                  onChange={(e) => setHasDiscount(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <span className="text-xs sm:text-sm font-medium text-gray-700">
-                  Agregar descuento (opcional)
-                </span>
-              </label>
-
-              {hasDiscount && (
-                <div className="space-y-2 sm:space-y-3">
-                  <div className="flex gap-2 sm:gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setDiscountType("PERCENTAGE")}
-                      className={`flex-1 py-1.5 sm:py-2 px-2 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
-                        discountType === "PERCENTAGE"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}
-                    >
-                      <Percent className="inline w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                      <span className="hidden sm:inline">Porcentaje</span>
-                      <span className="sm:hidden">%</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDiscountType("FIXED")}
-                      className={`flex-1 py-1.5 sm:py-2 px-2 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
-                        discountType === "FIXED"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}
-                    >
-                      <DollarSign className="inline w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                      <span className="hidden sm:inline">Cantidad Fija</span>
-                      <span className="sm:hidden">Fijo</span>
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
-                      Descuento {discountType === "PERCENTAGE" ? "(%)" : "(MXN)"}
-                    </label>
-                    <input
-                      type="number"
-                      value={discount}
-                      onChange={(e) => setDiscount(e.target.value)}
-                      min="0"
-                      max={discountType === "PERCENTAGE" ? "100" : undefined}
-                      step={discountType === "PERCENTAGE" ? "1" : "0.01"}
-                      placeholder={discountType === "PERCENTAGE" ? "10" : "50.00"}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
-                  </div>
-
-                  {discount && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-2 sm:p-3">
-                      <p className="text-xs sm:text-sm text-green-800">
-                        <strong>Precio Final:</strong> ${finalPrice.toFixed(2)}
-                        {discountType === "PERCENTAGE" && discount && (
-                          <span className="ml-1 sm:ml-2 text-blue-600">
-                            ({discount}% off)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 text-xs sm:text-sm text-blue-800">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>El precio de la cita lo determina el servicio seleccionado por el paciente al reservar.</span>
             </div>
           </div>
 

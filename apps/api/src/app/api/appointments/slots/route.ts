@@ -208,7 +208,7 @@ export async function POST(request: Request) {
     } = body;
 
     // Validation
-    if (!doctorId || !basePrice || !duration || !startTime || !endTime) {
+    if (!doctorId || !duration || !startTime || !endTime) {
       return NextResponse.json(
         {
           success: false,
@@ -259,7 +259,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const finalPrice = calculateFinalPrice(basePrice, discount, discountType);
+    const priceBase = basePrice ?? 0;
+    const finalPrice = calculateFinalPrice(priceBase, discount, discountType);
 
     // Generate time slots for the day
     const timeSlots = generateTimeSlots(
@@ -298,7 +299,7 @@ export async function POST(request: Request) {
         startTime: slot.startTime,
         endTime: slot.endTime,
         duration,
-        basePrice,
+        basePrice: priceBase,
         discount,
         discountType,
         finalPrice,
@@ -476,7 +477,7 @@ export async function POST(request: Request) {
             startTime: slot.startTime,
             endTime: slot.endTime,
             duration,
-            basePrice,
+            basePrice: priceBase,
             discount,
             discountType,
             finalPrice,

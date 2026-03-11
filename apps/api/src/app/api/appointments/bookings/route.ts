@@ -126,6 +126,7 @@ export async function POST(request: Request) {
     }
 
     let serviceName: string | null = null;
+    let servicePrice: number = 0;
     if (serviceId) {
       const service = await prisma.service.findFirst({
         where: { id: serviceId, doctorId: slot.doctorId },
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
         );
       }
       serviceName = service.serviceName;
+      servicePrice = Number(service.price) || 0;
     }
 
     // Generate confirmation code and review token
@@ -156,7 +158,7 @@ export async function POST(request: Request) {
           notes,
           serviceId: serviceId || null,
           serviceName,
-          finalPrice: slot.finalPrice,
+          finalPrice: servicePrice,
           confirmationCode,
           reviewToken,
           status: 'PENDING',

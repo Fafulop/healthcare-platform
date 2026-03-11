@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     } = body;
 
     // Validate required fields
-    if (!doctorId || !date || !startTime || !duration || !basePrice || !patientName || !patientEmail || !patientPhone) {
+    if (!doctorId || !date || !startTime || !duration || !patientName || !patientEmail || !patientPhone) {
       return NextResponse.json(
         { success: false, error: 'Faltan campos requeridos' },
         { status: 400 }
@@ -108,7 +108,6 @@ export async function POST(request: Request) {
     }
 
     const endTime = calcEndTime(startTime, durationNum);
-    let finalPrice = Number(basePrice);
 
     // Normalize date to midnight UTC (same as slot creation API)
     const slotDate = new Date(date + 'T12:00:00Z');
@@ -130,10 +129,8 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
-      // Use the existing slot's price to keep booking consistent with the slot
-      finalPrice = Number(slot.finalPrice);
     } else {
-      // Create a new slot on the fly
+      // Create a new slot on the fly (price stored as 0 — actual price comes from service)
       slot = await prisma.appointmentSlot.create({
         data: {
           doctorId,
@@ -141,8 +138,8 @@ export async function POST(request: Request) {
           startTime,
           endTime,
           duration: durationNum,
-          basePrice: finalPrice,
-          finalPrice,
+          basePrice: 0,
+          finalPrice: 0,
           isOpen: true,
           currentBookings: 0,
           maxBookings: 1,
@@ -150,13 +147,17 @@ export async function POST(request: Request) {
       });
     }
 
-    // Resolve service name if serviceId provided
+    // Resolve service name and price
     let serviceName: string | null = null;
+    let finalPrice = 0;
     if (serviceId) {
       const service = await prisma.service.findFirst({
         where: { id: serviceId, doctorId },
       });
-      if (service) serviceName = service.serviceName;
+      if (service) {
+        serviceName = service.serviceName;
+        finalPrice = Number(service.price) || 0;
+      }
     }
 
     // Create booking + confirm in a single transaction
