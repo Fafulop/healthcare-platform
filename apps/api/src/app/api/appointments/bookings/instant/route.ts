@@ -67,7 +67,6 @@ export async function POST(request: Request) {
       date,           // "YYYY-MM-DD"
       startTime,      // "HH:MM"
       duration,       // 30 or 60
-      basePrice,      // number
       patientName,
       patientEmail,
       patientPhone,

@@ -255,7 +255,7 @@ export async function POST(request: Request) {
       date: slot.date.toISOString().split('T')[0],
       time: `${slot.startTime}-${slot.endTime}`,
       confirmationCode,
-      finalPrice: Number(slot.finalPrice),
+      finalPrice: servicePrice,
     });
 
     return NextResponse.json(
