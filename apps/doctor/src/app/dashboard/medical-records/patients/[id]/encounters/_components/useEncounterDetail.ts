@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { practiceConfirm } from '@/lib/practice-confirm';
+import { generateEncounterPDF } from '@/lib/pdf/encounter-pdf';
 import type { Encounter } from './encounter-types';
 
 export function useEncounterDetail() {
@@ -25,6 +26,7 @@ export function useEncounterDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   useEffect(() => {
     fetchEncounter();
@@ -73,6 +75,18 @@ export function useEncounterDetail() {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!encounter) return;
+    setExportingPDF(true);
+    try {
+      await generateEncounterPDF(encounter, customTemplate);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
   const handleDelete = async () => {
     const confirmed = await practiceConfirm(
       '¿Está seguro de eliminar esta consulta? Esta acción no se puede deshacer.'
@@ -108,7 +122,9 @@ export function useEncounterDetail() {
     loading,
     error,
     isDeleting,
+    exportingPDF,
     // Actions
+    handleExportPDF,
     handleDelete,
   };
 }

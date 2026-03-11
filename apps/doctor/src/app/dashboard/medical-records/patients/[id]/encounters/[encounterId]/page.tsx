@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2, ClipboardList, Stethoscope, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2, ClipboardList, Stethoscope, Trash2, Download } from 'lucide-react';
 import Link from 'next/link';
 import { formatDateLong, formatDateTime } from '@/lib/practice-utils';
 import { getEncounterTypeLabel } from '../_components/encounter-types';
@@ -18,6 +18,8 @@ export default function EncounterDetailPage() {
     loading,
     error,
     isDeleting,
+    exportingPDF,
+    handleExportPDF,
     handleDelete,
   } = useEncounterDetail();
 
@@ -68,6 +70,14 @@ export default function EncounterDetailPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportPDF}
+              disabled={exportingPDF}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {exportingPDF ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              {exportingPDF ? 'Generando...' : 'PDF'}
+            </button>
             <Link
               href={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}/edit`}
               className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5"

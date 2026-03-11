@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Plus, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Clock, Loader2, Download } from 'lucide-react';
 import Link from 'next/link';
 import { TimelineView } from '@/components/medical-records/TimelineView';
 import { calculateAge } from '@/lib/practice-utils';
+import { generateTimelinePDF } from '@/lib/pdf/encounter-pdf';
 
 interface Patient {
   id: string;
@@ -35,10 +36,26 @@ export default function PatientTimelinePage() {
   const [timelineData, setTimelineData] = useState<TimelineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   useEffect(() => {
     fetchTimeline();
   }, [patientId]);
+
+  const handleExportPDF = async () => {
+    if (!timelineData) return;
+    setExportingPDF(true);
+    try {
+      const encounters = timelineData.timeline
+        .filter((item: any) => item.type === 'encounter')
+        .map((item: any) => item.data);
+      await generateTimelinePDF(encounters, timelineData.patient);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+    } finally {
+      setExportingPDF(false);
+    }
+  };
 
   const fetchTimeline = async () => {
     setLoading(true);
@@ -114,13 +131,23 @@ export default function PatientTimelinePage() {
             </div>
           </div>
 
-          <Link
-            href={`/dashboard/medical-records/patients/${patientId}/encounters/new`}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Nueva Consulta
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportPDF}
+              disabled={exportingPDF || !timelineData}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2 text-sm"
+            >
+              {exportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {exportingPDF ? 'Generando...' : 'Exportar PDF'}
+            </button>
+            <Link
+              href={`/dashboard/medical-records/patients/${patientId}/encounters/new`}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Nueva Consulta
+            </Link>
+          </div>
         </div>
       </div>
 
