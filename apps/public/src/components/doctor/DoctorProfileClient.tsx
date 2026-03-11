@@ -150,6 +150,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
         doctorSlug={doctor.slug}
         initialDate={selectedDate}
         googleAdsId={doctor.google_ads_id}
+        services={doctor.services_list}
       />
     </>
   );

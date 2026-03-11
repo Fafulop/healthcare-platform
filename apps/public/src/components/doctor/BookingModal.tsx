@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import BookingWidget from "./BookingWidget";
+import type { Service } from "@/types/doctor";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -10,9 +11,10 @@ interface BookingModalProps {
   doctorSlug: string;
   initialDate?: string | null;
   googleAdsId?: string;
+  services?: Service[];
 }
 
-export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null, googleAdsId }: BookingModalProps) {
+export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null, googleAdsId, services = [] }: BookingModalProps) {
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -96,7 +98,7 @@ export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate 
 
         {/* Content */}
         <div style={{ padding: '24px' }}>
-          <BookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} />
+          <BookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} services={services} />
         </div>
       </div>
     </div>

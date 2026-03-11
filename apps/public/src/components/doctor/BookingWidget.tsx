@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCircle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCircle, Loader2, ChevronLeft, ChevronRight, Stethoscope } from "lucide-react";
 import { trackSlotSelected, trackBookingComplete } from "@/lib/analytics";
+import type { Service } from "@/types/doctor";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
@@ -39,9 +40,10 @@ interface BookingWidgetProps {
   onDayClick?: (dateStr: string) => void;
   initialDate?: string | null;
   googleAdsId?: string;
+  services?: Service[];
 }
 
-export default function BookingWidget({ doctorSlug, isModal = false, onDayClick, initialDate = null, googleAdsId }: BookingWidgetProps) {
+export default function BookingWidget({ doctorSlug, isModal = false, onDayClick, initialDate = null, googleAdsId, services = [] }: BookingWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (initialDate && typeof initialDate === 'string' && initialDate.includes('-')) {
       const [y, m] = initialDate.split('-').map(Number);
@@ -58,6 +60,9 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
   const [loading, setLoading] = useState(true);
   const [bookingStep, setBookingStep] = useState<"calendar" | "form" | "success">("calendar");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Service selection
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -141,6 +146,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
         body: JSON.stringify({
           slotId: selectedSlot.id,
           ...formData,
+          serviceId: selectedServiceId || undefined,
         }),
       });
 
@@ -174,6 +180,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     setSelectedSlot(null);
     setBookingStep("calendar");
     setConfirmationCode("");
+    setSelectedServiceId(null);
     fetchAvailability(); // Refresh availability
   };
 
@@ -253,6 +260,11 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 <p className="text-gray-900">
                   <strong>Precio:</strong> ${selectedSlot.finalPrice}
                 </p>
+                {selectedServiceId && services.find(s => s.id === selectedServiceId) && (
+                  <p className="text-gray-900">
+                    <strong>Servicio:</strong> {services.find(s => s.id === selectedServiceId)!.service_name}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -325,6 +337,44 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
               )}
             </p>
           </div>
+
+          {/* Service Selector */}
+          {services.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Stethoscope className="inline w-4 h-4 mr-1" />
+                Servicio *
+              </label>
+              <div className="space-y-2">
+                {services.map((service) => (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => setSelectedServiceId(service.id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-lg border-2 transition-all cursor-pointer ${
+                      selectedServiceId === service.id
+                        ? "border-[var(--color-secondary)] bg-blue-50"
+                        : "border-gray-200 hover:border-blue-300 bg-white"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-gray-900">{service.service_name}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {service.duration_minutes} min
+                      </span>
+                      {service.price !== undefined && (
+                        <span className="text-xs font-medium text-[var(--color-secondary)] flex items-center gap-1">
+                          <DollarSign className="w-3 h-3" />
+                          {service.price}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -402,7 +452,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (services.length > 0 && !selectedServiceId)}
               className="w-full bg-[var(--color-secondary)] hover:bg-[var(--color-secondary-hover)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
             >
               {isSubmitting ? (

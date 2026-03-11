@@ -22,6 +22,7 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
 
     // Services
     services_list: doctor.services.map((s: any) => ({
+      id: s.id,
       service_name: s.serviceName,
       short_description: s.shortDescription,
       duration_minutes: s.durationMinutes,

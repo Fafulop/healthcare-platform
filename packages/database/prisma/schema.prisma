@@ -199,7 +199,8 @@ model Service {
   durationMinutes    Int      @map("duration_minutes")
   price              Float?
 
-  doctor             Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor             Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  bookings           Booking[]
 
   @@map("services")
   @@index([doctorId])
@@ -322,6 +323,10 @@ model Booking {
   patientPhone       String        @map("patient_phone")
   patientWhatsapp    String?       @map("patient_whatsapp")
 
+  // Service selected by patient
+  serviceId          String?       @map("service_id")
+  serviceName        String?       @map("service_name")
+
   // Booking Details
   status             BookingStatus @default(PENDING)
   finalPrice         Decimal       @map("final_price") @db.Decimal(10, 2)
@@ -339,6 +344,7 @@ model Booking {
   // Relations
   slot               AppointmentSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
   doctor             Doctor          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  service            Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   review             Review?
 
   createdAt          DateTime      @default(now()) @map("created_at")

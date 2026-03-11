@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       patientPhone,
       patientWhatsapp,
       notes,
+      serviceId,
     } = body;
 
     // Validation
@@ -112,6 +113,32 @@ export async function POST(request: Request) {
       );
     }
 
+    // Validate service selection
+    const doctorServicesCount = await prisma.service.count({
+      where: { doctorId: slot.doctorId },
+    });
+
+    if (doctorServicesCount > 0 && !serviceId) {
+      return NextResponse.json(
+        { success: false, error: 'Por favor selecciona un servicio para continuar' },
+        { status: 400 }
+      );
+    }
+
+    let serviceName: string | null = null;
+    if (serviceId) {
+      const service = await prisma.service.findFirst({
+        where: { id: serviceId, doctorId: slot.doctorId },
+      });
+      if (!service) {
+        return NextResponse.json(
+          { success: false, error: 'El servicio seleccionado no es válido' },
+          { status: 400 }
+        );
+      }
+      serviceName = service.serviceName;
+    }
+
     // Generate confirmation code and review token
     const confirmationCode = generateConfirmationCode();
     const reviewToken = generateReviewToken();
@@ -127,6 +154,8 @@ export async function POST(request: Request) {
           patientPhone,
           patientWhatsapp,
           notes,
+          serviceId: serviceId || null,
+          serviceName,
           finalPrice: slot.finalPrice,
           confirmationCode,
           reviewToken,
