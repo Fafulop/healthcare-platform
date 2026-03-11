@@ -101,7 +101,7 @@ export async function POST(
         encounterType: body.encounterType,
         chiefComplaint: body.chiefComplaint,
         location: body.location,
-        status: body.status || 'draft',
+        status: body.status || 'completed',
         clinicalNotes: body.clinicalNotes,
         subjective: body.subjective,
         objective: body.objective,

@@ -8,6 +8,8 @@ export interface Encounter {
   encounterType: string;
   chiefComplaint: string;
   assessment?: string | null;
+  templateId?: string | null;
+  customData?: Record<string, any> | null;
   status: string;
   createdAt: string;
 }
@@ -54,7 +56,16 @@ export function EncounterCard({ encounter, patientId }: EncounterCardProps) {
     }
   };
 
-  const description = encounter.chiefComplaint || encounter.assessment || null;
+  // For custom templates, derive description from customData (chiefComplaint is not a custom field)
+  // For standard templates, use chiefComplaint or assessment as fallback
+  const isCustom = !!(encounter.templateId || encounter.customData);
+  let description: string | null = null;
+  if (isCustom && encounter.customData) {
+    const firstVal = Object.values(encounter.customData).find(v => typeof v === 'string' && v.trim());
+    description = (firstVal as string) || null;
+  } else {
+    description = encounter.chiefComplaint || encounter.assessment || null;
+  }
   const typeLabel = ENCOUNTER_TYPE_LABELS[encounter.encounterType] ?? encounter.encounterType;
   const statusLabel = STATUS_LABELS[encounter.status] ?? encounter.status;
   const statusColor = STATUS_COLORS[encounter.status] ?? 'bg-gray-100 text-gray-800';

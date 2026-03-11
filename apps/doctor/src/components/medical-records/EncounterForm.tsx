@@ -118,7 +118,7 @@ export function EncounterForm({
     vitalsOther: initialData.vitalsOther || '',
     followUpDate: initialData.followUpDate ? initialData.followUpDate.split('T')[0] : '',
     followUpNotes: initialData.followUpNotes || templateDefaults.followUpNotes || '',
-    status: initialData.status || 'draft',
+    status: initialData.status || 'completed',
   });
 
   // Sync form state when initialData changes (e.g., from voice assistant)

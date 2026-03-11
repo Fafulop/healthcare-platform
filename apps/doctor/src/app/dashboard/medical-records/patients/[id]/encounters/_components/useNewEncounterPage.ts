@@ -19,7 +19,7 @@ function mapVoiceToFormData(voiceData: VoiceEncounterData): Partial<EncounterFor
     encounterType: voiceData.encounterType || 'consultation',
     chiefComplaint: voiceData.chiefComplaint || '',
     location: voiceData.location || undefined,
-    status: voiceData.status || 'draft',
+    status: voiceData.status || 'completed',
     vitalsBloodPressure: voiceData.vitalsBloodPressure || undefined,
     vitalsHeartRate: voiceData.vitalsHeartRate || undefined,
     vitalsTemperature: voiceData.vitalsTemperature || undefined,
