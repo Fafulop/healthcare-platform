@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Edit, Plus, Calendar, FileText, User, Clock, Image, Pill, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { usePatientProfile } from '../_components/usePatientProfile';
@@ -211,18 +211,10 @@ export default function PatientProfilePage() {
 
           {/* Encounters List */}
           <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Consultas Recientes
-              </h2>
-              <Link
-                href={`/dashboard/medical-records/patients/${patient.id}/encounters`}
-                className="text-blue-600 hover:text-blue-800 text-sm"
-              >
-                Ver todas
-              </Link>
-            </div>
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <FileText className="w-5 h-5" />
+              Consultas Recientes
+            </h2>
 
             {patient.encounters && patient.encounters.length > 0 ? (
               <div className="space-y-3">
