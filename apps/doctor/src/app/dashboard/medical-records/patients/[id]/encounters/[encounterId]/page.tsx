@@ -101,7 +101,7 @@ export default function EncounterDetailPage() {
       <div className="space-y-4">
         {/* Basic Info + Chief Complaint */}
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm mb-3 pb-3 border-b border-gray-100">
+          <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 text-sm ${!(encounter.templateId || encounter.customData) && encounter.chiefComplaint ? 'mb-3 pb-3 border-b border-gray-100' : ''}`}>
             <div className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-gray-400" />
               <span className="text-gray-900">{formatDateLong(encounter.encounterDate)}</span>
@@ -117,10 +117,12 @@ export default function EncounterDetailPage() {
               </div>
             )}
           </div>
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Motivo de Consulta</h3>
-            <p className="text-gray-900 whitespace-pre-wrap">{encounter.chiefComplaint}</p>
-          </div>
+          {!(encounter.templateId || encounter.customData) && encounter.chiefComplaint && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Motivo de Consulta</h3>
+              <p className="text-gray-900 whitespace-pre-wrap">{encounter.chiefComplaint}</p>
+            </div>
+          )}
         </div>
 
         {/* Vitals */}
