@@ -207,7 +207,7 @@ export async function generateEncounterPDF(
     const fields = customTemplate?.customFields as any[] | undefined;
     const entries: [string, any][] = fields
       ? fields
-          .map((f: any) => [f.labelEs || f.label || f.name, encounter.customData![f.name]])
+          .map((f: any): [string, any] => [f.labelEs || f.label || f.name, encounter.customData![f.name]])
           .filter(([, v]) => v !== undefined && v !== null && v !== '')
       : Object.entries(encounter.customData).filter(([, v]) => v !== undefined && v !== null && v !== '');
 
