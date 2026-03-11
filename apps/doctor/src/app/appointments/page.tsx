@@ -257,6 +257,9 @@ export default function AppointmentsPage() {
                           <p className="text-xs text-gray-600">
                             {formatDateString(booking.slot.date, { month: "short", day: "numeric" })} · {booking.slot.startTime}
                           </p>
+                          {booking.serviceName && (
+                            <p className="text-xs text-blue-600 font-medium mt-0.5">{booking.serviceName}</p>
+                          )}
                         </div>
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(booking.status)}`}>
                           {getStatusIcon(booking.status)}
@@ -326,8 +329,13 @@ export default function AppointmentsPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
-                              <User className="w-4 h-4 text-gray-400" />
-                              <span className="font-medium text-gray-900">{booking.patientName}</span>
+                              <User className="w-4 h-4 text-gray-400 shrink-0" />
+                              <div>
+                                <p className="font-medium text-gray-900">{booking.patientName}</p>
+                                {booking.serviceName && (
+                                  <p className="text-xs text-blue-600 font-medium">{booking.serviceName}</p>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="py-3 px-4">

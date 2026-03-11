@@ -2,6 +2,7 @@
 // Based on SEO_GUIDE.md blueprint
 
 export interface Service {
+  id: string;
   service_name: string;
   short_description: string;
   duration_minutes: number;

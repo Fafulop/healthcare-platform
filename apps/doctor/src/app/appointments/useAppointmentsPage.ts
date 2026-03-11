@@ -35,6 +35,7 @@ export interface Booking {
   finalPrice: number;
   confirmationCode: string;
   createdAt: string;
+  serviceName?: string | null;
   slot: {
     date: string;
     startTime: string;
