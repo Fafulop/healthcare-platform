@@ -14,6 +14,7 @@ import {
   Loader2,
   ChevronRight,
   ChevronLeft,
+  Stethoscope,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import type { AppointmentSlot } from './useAppointmentsPage';
@@ -21,6 +22,13 @@ import type { AppointmentSlot } from './useAppointmentsPage';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 import { getLocalDateString, formatLocalDate as formatDateStr } from '@/lib/dates';
+
+interface DoctorService {
+  id: string;
+  serviceName: string;
+  durationMinutes: number;
+  price: number | null;
+}
 
 function todayStr(): string { return getLocalDateString(new Date()); }
 
@@ -61,6 +69,10 @@ export default function BookPatientModal({
   // Slots data
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+
+  // Services
+  const [services, setServices] = useState<DoctorService[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
   // Form state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -115,10 +127,16 @@ export default function BookPatientModal({
       setCurrentMonth(new Date());
       setError("");
       setConfirmationCode("");
+      setSelectedServiceId(null);
       setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
       setSlotMode("existing");
       setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, basePrice: "" });
       if (!preSelectedSlot) fetchAvailableSlots();
+      // Fetch doctor's services
+      authFetch('/api/doctor/services')
+        .then(r => r.json())
+        .then(d => { if (d.success) setServices(d.data); })
+        .catch(() => {});
     }
   }, [isOpen, preSelectedSlot, fetchAvailableSlots]);
 
@@ -217,6 +235,7 @@ export default function BookPatientModal({
             patientPhone: formData.patientPhone,
             patientWhatsapp: formData.patientWhatsapp || undefined,
             notes: formData.notes || undefined,
+            serviceId: selectedServiceId || undefined,
           }),
         });
         const data = await res.json();
@@ -243,6 +262,7 @@ export default function BookPatientModal({
           patientPhone: formData.patientPhone,
           patientWhatsapp: formData.patientWhatsapp || undefined,
           notes: formData.notes || undefined,
+          serviceId: selectedServiceId || undefined,
         }),
       });
 
@@ -286,6 +306,7 @@ export default function BookPatientModal({
     setCurrentMonth(new Date());
     setError("");
     setConfirmationCode("");
+    setSelectedServiceId(null);
     setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
     setSlotMode("existing");
     setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, basePrice: "" });
@@ -564,6 +585,43 @@ export default function BookPatientModal({
                 </button>
               )}
 
+              {services.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Servicio *
+                  </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {services.map((svc) => (
+                      <button
+                        key={svc.id}
+                        type="button"
+                        onClick={() => setSelectedServiceId(svc.id)}
+                        className={`flex items-center justify-between p-3 rounded-lg border text-left transition-all ${
+                          selectedServiceId === svc.id
+                            ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                            : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Stethoscope className={`w-4 h-4 shrink-0 ${selectedServiceId === svc.id ? "text-blue-600" : "text-gray-400"}`} />
+                          <span className={`text-sm font-medium ${selectedServiceId === svc.id ? "text-blue-900" : "text-gray-800"}`}>
+                            {svc.serviceName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          {svc.durationMinutes && (
+                            <span className="text-xs text-gray-400">{svc.durationMinutes} min</span>
+                          )}
+                          {svc.price != null && (
+                            <span className="text-xs font-semibold text-gray-700">${svc.price}</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
                 <div className="relative">
@@ -676,6 +734,16 @@ export default function BookPatientModal({
                     {displaySlot?.startTime} – {displaySlot?.endTime}
                   </span>
                 </div>
+                {selectedServiceId && services.find(s => s.id === selectedServiceId) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 flex items-center gap-1">
+                      <Stethoscope className="w-3 h-3" /> Servicio
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {services.find(s => s.id === selectedServiceId)!.serviceName}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 flex items-center gap-1">
                     <DollarSign className="w-3 h-3" /> Precio
@@ -713,7 +781,7 @@ export default function BookPatientModal({
             <button
               type="submit"
               form="book-patient-form"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (services.length > 0 && !selectedServiceId)}
               className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2"
             >
               {isSubmitting ? (

@@ -6,7 +6,7 @@ import { trackSlotSelected, trackBookingComplete } from "@/lib/analytics";
 import type { Service } from "@/types/doctor";
 
 // API URL from environment variable
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
 // Helper to format a date string without timezone shift
 function formatDateString(dateStr: string, locale: string, options?: Intl.DateTimeFormatOptions): string {

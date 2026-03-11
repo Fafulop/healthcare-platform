@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       patientPhone,
       patientWhatsapp,
       notes,
+      serviceId,
     } = body;
 
     // Validate required fields
@@ -149,6 +150,15 @@ export async function POST(request: Request) {
       });
     }
 
+    // Resolve service name if serviceId provided
+    let serviceName: string | null = null;
+    if (serviceId) {
+      const service = await prisma.service.findFirst({
+        where: { id: serviceId, doctorId },
+      });
+      if (service) serviceName = service.serviceName;
+    }
+
     // Create booking + confirm in a single transaction
     const confirmationCode = generateConfirmationCode();
     const reviewToken = generateReviewToken();
@@ -163,6 +173,8 @@ export async function POST(request: Request) {
           patientPhone,
           patientWhatsapp: patientWhatsapp || null,
           notes: notes || null,
+          serviceId: serviceId || null,
+          serviceName,
           finalPrice,
           confirmationCode,
           reviewToken,
