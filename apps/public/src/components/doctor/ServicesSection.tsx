@@ -17,14 +17,15 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
   if (!services || services.length === 0) return null;
 
   const openModal = (service: Service) => {
+    // Modal is mobile-only; ignore clicks on md+ screens
+    if (window.innerWidth >= 768) return;
     setSelectedService(service);
-    // Prevent body scroll when modal is open
     document.body.style.overflow = 'hidden';
   };
 
   const closeModal = () => {
     setSelectedService(null);
-    document.body.style.overflow = 'unset';
+    document.body.style.overflow = '';
   };
 
   return (
@@ -88,7 +89,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
       {/* Service Detail Modal - Mobile only */}
       {selectedService && (
         <div
-          className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+          className="md:hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm"
           onClick={closeModal}
         >
           <div
