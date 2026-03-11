@@ -41,9 +41,10 @@ interface BookingWidgetProps {
   initialDate?: string | null;
   googleAdsId?: string;
   services?: Service[];
+  appointmentModes?: ('in_person' | 'teleconsult')[];
 }
 
-export default function BookingWidget({ doctorSlug, isModal = false, onDayClick, initialDate = null, googleAdsId, services = [] }: BookingWidgetProps) {
+export default function BookingWidget({ doctorSlug, isModal = false, onDayClick, initialDate = null, googleAdsId, services = [], appointmentModes = ['in_person', 'teleconsult'] }: BookingWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (initialDate && typeof initialDate === 'string' && initialDate.includes('-')) {
       const [y, m] = initialDate.split('-').map(Number);
@@ -63,6 +64,10 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
   // Service selection
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+
+  // Visit context
+  const [isFirstTime, setIsFirstTime] = useState<boolean | null>(null);
+  const [appointmentMode, setAppointmentMode] = useState<'PRESENCIAL' | 'TELEMEDICINA' | null>(null);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -147,6 +152,8 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
           slotId: selectedSlot.id,
           ...formData,
           serviceId: selectedServiceId || undefined,
+          isFirstTime: isFirstTime,
+          appointmentMode: appointmentMode || undefined,
         }),
       });
 
@@ -181,6 +188,8 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     setBookingStep("calendar");
     setConfirmationCode("");
     setSelectedServiceId(null);
+    setIsFirstTime(null);
+    setAppointmentMode(null);
     fetchAvailability(); // Refresh availability
   };
 
@@ -373,6 +382,62 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Primera vez / Recurrente */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de visita</label>
+            <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
+              {([{ val: true, label: "Primera vez" }, { val: false, label: "Recurrente" }] as const).map(({ val, label }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setIsFirstTime(isFirstTime === val ? null : val)}
+                  className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isFirstTime === val
+                      ? "bg-[var(--color-secondary)] text-white shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Presencial / Telemedicina — only show relevant modes */}
+          {(appointmentModes.includes('in_person') || appointmentModes.includes('teleconsult')) && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Modalidad</label>
+              <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
+                {appointmentModes.includes('in_person') && (
+                  <button
+                    type="button"
+                    onClick={() => setAppointmentMode(appointmentMode === 'PRESENCIAL' ? null : 'PRESENCIAL')}
+                    className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+                      appointmentMode === 'PRESENCIAL'
+                        ? "bg-[var(--color-secondary)] text-white shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Presencial
+                  </button>
+                )}
+                {appointmentModes.includes('teleconsult') && (
+                  <button
+                    type="button"
+                    onClick={() => setAppointmentMode(appointmentMode === 'TELEMEDICINA' ? null : 'TELEMEDICINA')}
+                    className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+                      appointmentMode === 'TELEMEDICINA'
+                        ? "bg-[var(--color-secondary)] text-white shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Telemedicina
+                  </button>
+                )}
               </div>
             </div>
           )}

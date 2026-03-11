@@ -327,6 +327,10 @@ model Booking {
   serviceId          String?       @map("service_id")
   serviceName        String?       @map("service_name")
 
+  // Visit context
+  isFirstTime        Boolean?      @map("is_first_time")
+  appointmentMode    String?       @map("appointment_mode") // "PRESENCIAL" | "TELEMEDICINA"
+
   // Booking Details
   status             BookingStatus @default(PENDING)
   finalPrice         Decimal       @map("final_price") @db.Decimal(10, 2)

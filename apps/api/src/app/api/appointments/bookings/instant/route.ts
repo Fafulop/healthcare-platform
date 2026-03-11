@@ -73,6 +73,8 @@ export async function POST(request: Request) {
       patientWhatsapp,
       notes,
       serviceId,
+      isFirstTime,
+      appointmentMode,
     } = body;
 
     // Validate required fields
@@ -175,6 +177,8 @@ export async function POST(request: Request) {
           notes: notes || null,
           serviceId: serviceId || null,
           serviceName,
+          isFirstTime: isFirstTime ?? null,
+          appointmentMode: appointmentMode || null,
           finalPrice,
           confirmationCode,
           reviewToken,

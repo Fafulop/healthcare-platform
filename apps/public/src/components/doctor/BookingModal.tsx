@@ -12,9 +12,10 @@ interface BookingModalProps {
   initialDate?: string | null;
   googleAdsId?: string;
   services?: Service[];
+  appointmentModes?: ('in_person' | 'teleconsult')[];
 }
 
-export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null, googleAdsId, services = [] }: BookingModalProps) {
+export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null, googleAdsId, services = [], appointmentModes = ['in_person', 'teleconsult'] }: BookingModalProps) {
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -98,7 +99,7 @@ export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate 
 
         {/* Content */}
         <div style={{ padding: '24px' }}>
-          <BookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} services={services} />
+          <BookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} services={services} appointmentModes={appointmentModes} />
         </div>
       </div>
     </div>

@@ -260,6 +260,18 @@ export default function AppointmentsPage() {
                           {booking.serviceName && (
                             <p className="text-xs text-blue-600 font-medium mt-0.5">{booking.serviceName}</p>
                           )}
+                          <div className="flex gap-1 mt-0.5 flex-wrap">
+                            {booking.isFirstTime != null && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">
+                                {booking.isFirstTime ? "1ra vez" : "Recurrente"}
+                              </span>
+                            )}
+                            {booking.appointmentMode && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 font-medium">
+                                {booking.appointmentMode === "TELEMEDICINA" ? "Telemedicina" : "Presencial"}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(booking.status)}`}>
                           {getStatusIcon(booking.status)}
@@ -335,6 +347,18 @@ export default function AppointmentsPage() {
                                 {booking.serviceName && (
                                   <p className="text-xs text-blue-600 font-medium">{booking.serviceName}</p>
                                 )}
+                                <div className="flex gap-1 mt-0.5 flex-wrap">
+                                  {booking.isFirstTime != null && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">
+                                      {booking.isFirstTime ? "1ra vez" : "Recurrente"}
+                                    </span>
+                                  )}
+                                  {booking.appointmentMode && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 font-medium">
+                                      {booking.appointmentMode === "TELEMEDICINA" ? "Telemedicina" : "Presencial"}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>

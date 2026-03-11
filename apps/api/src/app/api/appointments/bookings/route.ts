@@ -69,6 +69,8 @@ export async function POST(request: Request) {
       patientWhatsapp,
       notes,
       serviceId,
+      isFirstTime,
+      appointmentMode,
     } = body;
 
     // Validation
@@ -158,6 +160,8 @@ export async function POST(request: Request) {
           notes,
           serviceId: serviceId || null,
           serviceName,
+          isFirstTime: isFirstTime ?? null,
+          appointmentMode: appointmentMode || null,
           finalPrice: servicePrice,
           confirmationCode,
           reviewToken,

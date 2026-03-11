@@ -151,6 +151,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
         initialDate={selectedDate}
         googleAdsId={doctor.google_ads_id}
         services={doctor.services_list}
+        appointmentModes={doctor.appointment_modes}
       />
     </>
   );

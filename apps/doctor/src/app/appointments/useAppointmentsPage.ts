@@ -36,6 +36,8 @@ export interface Booking {
   confirmationCode: string;
   createdAt: string;
   serviceName?: string | null;
+  isFirstTime?: boolean | null;
+  appointmentMode?: string | null;
   slot: {
     date: string;
     startTime: string;

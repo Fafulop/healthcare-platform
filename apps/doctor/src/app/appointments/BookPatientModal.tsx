@@ -74,6 +74,10 @@ export default function BookPatientModal({
   const [services, setServices] = useState<DoctorService[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
+  // Visit context
+  const [isFirstTime, setIsFirstTime] = useState<boolean | null>(null);
+  const [appointmentMode, setAppointmentMode] = useState<'PRESENCIAL' | 'TELEMEDICINA' | null>(null);
+
   // Form state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState("");
@@ -127,6 +131,8 @@ export default function BookPatientModal({
       setError("");
       setConfirmationCode("");
       setSelectedServiceId(null);
+      setIsFirstTime(null);
+      setAppointmentMode(null);
       setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
       setSlotMode("existing");
       setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60 });
@@ -232,6 +238,8 @@ export default function BookPatientModal({
             patientWhatsapp: formData.patientWhatsapp || undefined,
             notes: formData.notes || undefined,
             serviceId: selectedServiceId || undefined,
+            isFirstTime: isFirstTime,
+            appointmentMode: appointmentMode || undefined,
           }),
         });
         const data = await res.json();
@@ -259,6 +267,8 @@ export default function BookPatientModal({
           patientWhatsapp: formData.patientWhatsapp || undefined,
           notes: formData.notes || undefined,
           serviceId: selectedServiceId || undefined,
+          isFirstTime: isFirstTime,
+          appointmentMode: appointmentMode || undefined,
         }),
       });
 
@@ -303,6 +313,8 @@ export default function BookPatientModal({
     setError("");
     setConfirmationCode("");
     setSelectedServiceId(null);
+    setIsFirstTime(null);
+    setAppointmentMode(null);
     setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
     setSlotMode("existing");
     setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60 });
@@ -605,6 +617,44 @@ export default function BookPatientModal({
                   </div>
                 </div>
               )}
+
+              {/* Primera vez / Recurrente */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de visita</label>
+                <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
+                  {([{ val: true, label: "Primera vez" }, { val: false, label: "Recurrente" }] as const).map(({ val, label }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setIsFirstTime(isFirstTime === val ? null : val)}
+                      className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        isFirstTime === val ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Presencial / Telemedicina */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Modalidad</label>
+                <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
+                  {([{ val: "PRESENCIAL", label: "Presencial" }, { val: "TELEMEDICINA", label: "Telemedicina" }] as const).map(({ val, label }) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setAppointmentMode(appointmentMode === val ? null : val)}
+                      className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        appointmentMode === val ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
