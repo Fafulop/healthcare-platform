@@ -202,6 +202,27 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
           const templateFields = enc.templateId ? customTemplates[enc.templateId] : null;
           const hasSOAP = !!(enc.subjective || enc.objective || enc.assessment || enc.plan);
 
+          // Derive best title and preview for this encounter
+          const isCustom = !!(enc.templateId || enc.customData);
+          let cardTitle: string;
+          let cardPreview: string | null = null;
+          if (isCustom && enc.customData) {
+            const vals = Object.values(enc.customData).filter(v => typeof v === 'string' && (v as string).trim());
+            cardTitle = (vals[0] as string) || encounterTypeLabel(enc.encounterType);
+            cardPreview = vals[1] ? String(vals[1]).slice(0, 120) : null;
+          } else {
+            cardTitle = enc.chiefComplaint || enc.assessment || encounterTypeLabel(enc.encounterType);
+            cardPreview = enc.assessment && enc.assessment !== cardTitle
+              ? enc.assessment.slice(0, 120)
+              : enc.clinicalNotes?.slice(0, 120) || null;
+          }
+          // Indicator chips for collapsed view
+          const chips: string[] = [];
+          if (hasSOAP) chips.push('SOAP');
+          if (hasVitals) chips.push('Signos Vitales');
+          if (hasCustomData) chips.push('Plantilla personalizada');
+          if (enc.followUpDate || enc.followUpNotes) chips.push('Seguimiento');
+
           return (
             <div key={enc.id} className="relative">
               {!isLast && <div className="absolute left-6 top-16 bottom-0 w-0.5 bg-gray-200 -mb-8" />}
@@ -218,7 +239,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                          <h3 className="text-base font-semibold text-gray-900 truncate">{enc.chiefComplaint}</h3>
+                          <h3 className="text-base font-semibold text-gray-900 truncate">{cardTitle}</h3>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                           <span>{formatDate(enc.encounterDate.split('T')[0])}</span>
@@ -412,10 +433,21 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                     </div>
                   )}
 
-                  {/* Collapsed hint */}
+                  {/* Collapsed preview */}
                   {!expanded && (
-                    <div className="px-4 py-2 bg-gray-50 rounded-b-lg border-t border-gray-100">
-                      <span className="text-xs text-gray-400">Clic para ver detalles</span>
+                    <div className="px-4 py-2.5 bg-gray-50 rounded-b-lg border-t border-gray-100 space-y-1.5">
+                      {cardPreview && (
+                        <p className="text-xs text-gray-600 line-clamp-2">{cardPreview}{cardPreview.length >= 120 ? '…' : ''}</p>
+                      )}
+                      {chips.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {chips.map(chip => (
+                            <span key={chip} className="px-1.5 py-0.5 text-xs bg-blue-50 text-blue-600 rounded border border-blue-100">{chip}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        !cardPreview && <span className="text-xs text-gray-400">Clic para ver detalles</span>
+                      )}
                     </div>
                   )}
                 </div>
