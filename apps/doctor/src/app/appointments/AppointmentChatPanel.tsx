@@ -184,11 +184,11 @@ export function AppointmentChatPanel({
   return (
     <div
       className={`fixed z-[60] flex-col shadow-xl transition-all duration-300 ease-in-out
-        inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:w-96
+        inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:top-0 sm:w-96
         bg-white border-t sm:border-t-0 sm:border-l border-gray-200
         ${collapsed
-          ? 'sm:!h-auto rounded-t-2xl sm:rounded-none'
-          : 'rounded-t-2xl sm:rounded-none sm:!h-auto'
+          ? 'rounded-t-2xl sm:rounded-none'
+          : 'sm:bottom-0 rounded-t-2xl sm:rounded-none'
         }
         ${isOpen ? 'flex' : 'hidden'}
       `}
@@ -363,7 +363,7 @@ export function AppointmentChatPanel({
                 className={`
                   flex-1 px-3 sm:px-4 py-2.5 sm:py-2 rounded-full border border-gray-200
                   focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400
-                  text-sm placeholder:text-gray-400
+                  text-base sm:text-sm placeholder:text-gray-400
                   ${isBusy || pendingActions ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}
                 `}
               />
