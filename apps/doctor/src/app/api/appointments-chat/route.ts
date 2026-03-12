@@ -81,6 +81,11 @@ async function fetchContext(doctorId: string, now: Date): Promise<SlotContext[]>
     orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
   });
 
+  const statusLabel: Record<string, string> = {
+    PENDING: 'PENDIENTE',
+    CONFIRMED: 'AGENDADA',
+  };
+
   return slots.map((slot) => ({
     id: slot.id,
     date: slot.date.toISOString().split('T')[0],
@@ -90,7 +95,10 @@ async function fetchContext(doctorId: string, now: Date): Promise<SlotContext[]>
     isOpen: slot.isOpen,
     currentBookings: slot.currentBookings,
     maxBookings: slot.maxBookings,
-    bookings: slot.bookings,
+    bookings: slot.bookings.map((b) => ({
+      ...b,
+      status: statusLabel[b.status] ?? b.status,
+    })),
   }));
 }
 
@@ -108,24 +116,26 @@ const RESPONSE_RULES = `
 6. Codificación de daysOfWeek: Lunes=0, Martes=1, Miércoles=2, Jueves=3, Viernes=4, Sábado=5, Domingo=6.
 7. La duración debe ser 30 o 60 (minutos). No incluyas basePrice — siempre se inyecta como 0.
 8. Para reschedule_booking: proporciona bookingId + nueva fecha/hora. El sistema cancela y reagenda automáticamente.
-9. Para confirm_booking: proporciona bookingId. Cambia el estado de PENDING a CONFIRMED.
-10. Si el doctor pregunta algo ambiguo, haz UNA pregunta de aclaración en "reply" y devuelve actions: [].
-11. Para operaciones masivas (bulk_close, bulk_open, bulk_delete): reúne todos los IDs de horarios que coincidan del contexto.
-12. maxBookings por defecto es 1 si no se especifica.`.trim();
+9. Para confirm_booking: proporciona bookingId. Cambia el estado de PENDIENTE a AGENDADA (el paciente confirmó que asistirá). Solo aplica a citas en estado PENDIENTE.
+10. Para complete_booking: proporciona bookingId. Marca la cita como atendida/completada (AGENDADA → COMPLETADA). Usa esto cuando el doctor dice "completar", "marcar como atendida", "ya fue atendido", "ya llegó", etc. Solo aplica a citas en estado AGENDADA.
+11. DISTINCIÓN CRÍTICA — confirm vs complete: "confirmar" = reserva PENDIENTE que pasa a AGENDADA. "completar/atender/terminar" = cita AGENDADA que ya ocurrió, pasa a COMPLETADA. Son acciones DISTINTAS. Una cita AGENDADA NO se puede "confirmar" — ya está agendada.
+12. Si el doctor pregunta algo ambiguo, haz UNA pregunta de aclaración en "reply" y devuelve actions: [].
+13. Para operaciones masivas (bulk_close, bulk_open, bulk_delete): reúne todos los IDs de horarios que coincidan del contexto.
+14. maxBookings por defecto es 1 si no se especifica.`.trim();
 
 const DEPENDENCY_RULES = `
 ## Reglas de dependencia — el orden es aplicado por el sistema; las violaciones serán rechazadas
-13. ANTES de close_slot o delete_slot en un horario con reservas activas en el contexto:
+15. ANTES de close_slot o delete_slot en un horario con reservas activas en el contexto:
     incluye un cancel_booking para cada reserva activa de ese horario, colocado ANTES de la acción de cierre/eliminación.
-14. ANTES de bulk_close o bulk_delete: inspecciona cada horario en slotIds.
+16. ANTES de bulk_close o bulk_delete: inspecciona cada horario en slotIds.
     Para cualquier horario con reservas activas, agrega acciones cancel_booking individuales antes de la acción masiva.
-15. Si cancelas una reserva Y reagendas al paciente en el mismo horario en el mismo lote:
+17. Si cancelas una reserva Y reagendas al paciente en el mismo horario en el mismo lote:
     el cancel_booking DEBE aparecer antes del book_patient.
-16. Al crear horarios E inmediatamente agendar un paciente en uno de los nuevos horarios:
+18. Al crear horarios E inmediatamente agendar un paciente en uno de los nuevos horarios:
     usa instant booking (omite slotId). Nunca hagas referencia a un ID de horario que no existe aún en el contexto.
-17. Antes de proponer un reagendamiento a una hora específica, verifica esa hora en el contexto.
+19. Antes de proponer un reagendamiento a una hora específica, verifica esa hora en el contexto.
     Si ya existe un horario lleno, indícalo en "reply" y pide al doctor que elija otra hora. Devuelve actions: [].
-18. Para create_slots que conflictúen con horarios existentes en el contexto:
+20. Para create_slots que conflictúen con horarios existentes en el contexto:
     solo establece replaceConflicts: true si el doctor pidió explícitamente reemplazar los horarios existentes.
     De lo contrario, reporta el conflicto en "reply" y devuelve actions: [].`.trim();
 
@@ -156,9 +166,13 @@ Respuesta: { "reply": "Reagendé la cita de Ana Pérez del martes 11:00 al jueve
 Doctor: "Cancela la cita de María García"
 Respuesta: { "reply": "Cancelé la cita de María García (10:00 del 18 de marzo).", "actions": [{ "type": "cancel_booking", "summary": "Cancelar cita de María García", "bookingId": "clx..." }] }
 
-### Confirmar cita pendiente
+### Confirmar cita pendiente (PENDIENTE → AGENDADA)
 Doctor: "Confirma la cita de Carlos López"
-Respuesta: { "reply": "Confirmé la cita de Carlos López.", "actions": [{ "type": "confirm_booking", "summary": "Confirmar cita de Carlos López", "bookingId": "clx..." }] }
+Respuesta: { "reply": "Confirmé la cita de Carlos López — ahora está agendada.", "actions": [{ "type": "confirm_booking", "summary": "Confirmar cita de Carlos López", "bookingId": "clx..." }] }
+
+### Completar cita atendida (AGENDADA → COMPLETADA)
+Doctor: "Completa la cita de Ana Pérez" / "Ana Pérez ya fue atendida" / "Marca como atendida la cita de las 10"
+Respuesta: { "reply": "Marqué la cita de Ana Pérez como completada.", "actions": [{ "type": "complete_booking", "summary": "Completar cita de Ana Pérez", "bookingId": "clx..." }] }
 
 ### Cerrar horarios masivamente
 Doctor: "Cierra todos los horarios de la semana del 23 al 27 de marzo"
