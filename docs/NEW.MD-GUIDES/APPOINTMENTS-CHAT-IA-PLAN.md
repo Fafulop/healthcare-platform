@@ -106,15 +106,17 @@ export interface CreateSlotsAction {
   // NOTE: basePrice is NEVER in action params — route always injects 0
 }
 
-// ── Instant booking (slot + booking in one call) ─────────────────────────────
+// ── Instant booking (slot + booking in one call, always CONFIRMED) ───────────
+// Always uses /bookings/instant — never /bookings (which creates PENDING status).
+// PENDING is only for patient-initiated bookings from the public app.
+// Instant booking reuses an existing open slot if one exists at that time,
+// or creates a new slot on the fly if none exists.
 export interface BookPatientAction {
   type: 'book_patient';
   summary: string;
-  slotId?: string;           // if booking into an existing open slot
-  // if slotId absent → instant booking (creates slot on-the-fly):
-  date?: string;             // 'YYYY-MM-DD'
-  startTime?: string;        // 'HH:MM' 24h
-  duration?: 30 | 60;        // hook computes endTime = startTime + duration
+  date: string;              // 'YYYY-MM-DD'
+  startTime: string;         // 'HH:MM' 24h
+  duration: 30 | 60;         // hook computes endTime = startTime + duration
   patientName: string;
   patientEmail: string;
   patientPhone: string;
@@ -257,6 +259,21 @@ Today is {TODAY} (America/Mexico_City).
 10. For bulk operations (bulk_close, bulk_open, bulk_delete): collect all matching slot IDs from context.
 11. maxBookings defaults to 1 if not specified.
 
+## Dependency rules — ordering is enforced by the system; violations will be rejected
+12. BEFORE close_slot or delete_slot on a slot that has active bookings in context:
+    include a cancel_booking for each active booking on that slot, placed BEFORE the close/delete action.
+13. BEFORE bulk_close or bulk_delete: inspect every slot in slotIds.
+    For any slot with active bookings, add individual cancel_booking actions before the bulk action.
+14. If you are cancelling a booking AND rebooking a patient into the same slot in the same batch:
+    the cancel_booking MUST appear before the book_patient.
+15. When creating slots AND immediately booking a patient into one of the new slots:
+    use instant booking (omit slotId). Never reference a slot ID that does not yet exist in context.
+16. Before proposing a reschedule to a specific time, check that time in context.
+    If a slot exists there and is already full, say so in reply and ask the doctor to choose another time. Return actions: [].
+17. For create_slots that would conflict with existing slots in context:
+    only set replaceConflicts: true if the doctor explicitly asked to replace existing slots.
+    Otherwise, report the conflict in reply and return actions: [].
+
 ## Examples
 [few-shot examples — see §5 below]
 ```
@@ -333,7 +350,8 @@ const [messages, setMessages] = useState<ChatMessage[]>([]);
 const [input, setInput] = useState('');
 const [loading, setLoading] = useState(false);
 const [pendingActions, setPendingActions] = useState<AppointmentChatAction[] | null>(null);
-const [confirmText, setConfirmText] = useState('');
+// pendingActions drives the inline confirmation list in AppointmentChatPanel (see §7)
+// no confirmText string — the panel renders action.summary for each item in pendingActions
 const conversationRef = useRef<{ role: string; content: string }[]>([]);
 ```
 
@@ -344,10 +362,26 @@ const conversationRef = useRef<{ role: string; content: string }[]>([]);
 3. `POST /api/appointments-chat` with `{ message: text, conversationHistory: conversationRef.current }`
 4. Receive `{ reply, actions }`
 5. Append assistant message to conversationRef + messages
-6. If `actions.length === 0` → done
-7. Check confirmation rules (see §7)
-8. If confirmation needed → `setPendingActions(actions); setConfirmText(summary)`
-9. Else → `executeActions(actions)`
+6. If `actions.length === 0` → show reply, done (retrieval/info query)
+7. Run `validateActionOrder(actions, currentSlots, currentBookings)` (see §6a below)
+   - If invalid → append error message into chat, do NOT show confirmation, done
+8. If valid → show confirmation dialog with full ordered action list (see §7)
+9. On user confirm → `executeActions(actions)`
+
+### §6a `validateActionOrder(actions, slots, bookings)` — pre-execution guard
+
+Runs against the **current local context** (same data the AI saw). Returns `{ valid: boolean, error?: string }`.
+
+Checks (in order):
+1. **close_slot / delete_slot**: for each, find that slot in context. If it has active bookings (status not in CANCELLED/COMPLETED/NO_SHOW), verify a `cancel_booking` for each of those bookings appears at an earlier index in `actions[]`. If not → invalid.
+2. **bulk_close / bulk_delete**: for every slotId in the array, apply same check as above.
+3. **book_patient**: find any existing slot in context matching `date + startTime`. If one exists and `currentBookings >= maxBookings`, verify a `cancel_booking` for one of that slot's bookings appears at an earlier index. If not → invalid.
+4. **reschedule_booking**: find any existing slot in context matching `newDate + newStartTime`. If one exists and `currentBookings >= maxBookings`, and there is no `cancel_booking` for one of that slot's bookings at an earlier index → invalid. Error message should tell the doctor the target time is already full and ask them to choose another.
+
+On invalid: append an assistant message explaining which action failed the check and why, e.g.:
+> "No se puede cerrar el horario de las 10:00 del 18 Mar porque la cita de María García sigue activa. Por favor indícame si también quieres cancelarla."
+
+The AI then gets another turn to produce a corrected batch.
 
 ### `executeActions(actions: AppointmentChatAction[])`
 
@@ -374,8 +408,7 @@ async function executeActions(actions: AppointmentChatAction[]) {
 | action.type | HTTP call |
 |---|---|
 | `create_slots` | `POST ${API_URL}/api/appointments/slots` (hook injects `basePrice: 0`, forwards `maxBookings` if present — default 1) |
-| `book_patient` (slotId present) | `POST ${API_URL}/api/appointments/bookings` `{ slotId, patientName, patientEmail, patientPhone, notes?, serviceId? }` |
-| `book_patient` (no slotId) | `POST ${API_URL}/api/appointments/bookings/instant` (hook computes `endTime` from `startTime + duration`) |
+| `book_patient` | `POST ${API_URL}/api/appointments/bookings/instant` `{ doctorId, date, startTime, endTime, duration, patientName, patientEmail, patientPhone, notes?, serviceId? }` — hook computes `endTime` from `startTime + duration`; always CONFIRMED |
 | `close_slot` | `PATCH ${API_URL}/api/appointments/slots/${slotId}` `{ isOpen: false }` |
 | `open_slot` | `PATCH ${API_URL}/api/appointments/slots/${slotId}` `{ isOpen: true }` |
 | `delete_slot` | `DELETE ${API_URL}/api/appointments/slots/${slotId}` |
@@ -406,18 +439,20 @@ if (!cancelRes.ok) return { ok: false, error: 'No se pudo cancelar la cita origi
 const newEndTime = addMinutes(action.newStartTime, action.newDuration);
 
 // Step 2: create new instant booking
+// doctorId is required by the instant booking endpoint — hook injects it from session
 const bookRes = await authFetch(
   `${API_URL}/api/appointments/bookings/instant`,
   {
     method: 'POST',
     body: JSON.stringify({
+      doctorId,                     // injected by hook from session
       date: action.newDate,
       startTime: action.newStartTime,
-      endTime: newEndTime,
+      duration: action.newDuration,
       patientName: action.patientName,
       patientEmail: action.patientEmail,
       patientPhone: action.patientPhone,
-      basePrice: 0,
+      serviceId: action.serviceId ?? undefined,
     })
   }
 );
@@ -440,22 +475,30 @@ Use existing `useVoiceRecording` hook (same as useTaskChat). Transcript fed dire
 
 ## 7. Confirmation Rules
 
-**Hardcoded in hook — AI does not control this.**
+**All non-empty `actions[]` batches require confirmation — no exceptions.**
 
-| action.type | Requires confirmation? |
-|---|---|
-| `create_slots` | No (easily undoable) |
-| `book_patient` | No |
-| `close_slot` | No |
-| `open_slot` | No |
-| `delete_slot` | **Yes** — "¿Eliminar este horario?" |
-| `cancel_booking` | **Yes** — "¿Cancelar la cita de {patientName}?" |
-| `reschedule_booking` | **Yes** — "¿Reagendar cita de {patientName} al {newDate} {newStartTime}?" |
-| `bulk_close` | No |
-| `bulk_open` | No |
-| `bulk_delete` | **Yes** — "¿Eliminar {n} horarios?" |
+The hook never auto-executes mutations. Every batch goes through the confirmation dialog before anything runs. This:
+- Matches the existing pattern in the rest of the doctor app
+- Gives the doctor a chance to review the full ordered action list before it fires
+- Makes behavior predictable regardless of action type
 
-When multiple actions arrive and any requires confirmation, ALL actions in that batch wait for one combined confirmation dialog showing the full list.
+### Confirmation UI
+
+Shows the ordered action list using each action's `summary` field:
+
+```
+El asistente propone:
+
+  1. Cancelar cita de María García (10:00 del 18 Mar)
+  2. Cerrar horario 18 Mar 10:00–11:00
+  3. Crear horarios Lu–Vi 09:00–10:00 semana del 23 Mar
+
+[Confirmar]   [Cancelar]
+```
+
+`practiceConfirm` is NOT used — the appointments chat needs a list UI, not a simple yes/no modal. The `AppointmentChatPanel` renders an inline confirmation section so the doctor can see the full action list while still seeing the chat history above it.
+
+**Note on dependency annotations**: the `← requerido por #N` labels shown in earlier drafts were removed. To render them, `validateActionOrder` would need to return a full dependency graph instead of `{ valid, error }`. The ordered list alone is sufficient — the doctor sees the sequence and can cancel if something looks wrong. Annotations can be added later as a UI enhancement if needed.
 
 ---
 
@@ -486,9 +529,9 @@ When multiple actions arrive and any requires confirmation, ALL actions in that 
 - "Muéstrame las citas confirmadas de los próximos 7 días"
 - "Cierra todos los horarios de la semana que viene"
 
-### Confirmation dialog
+### Confirmation UI
 
-Reuse `practiceConfirm` from `@/lib/practice-confirm` — same modal already used across doctor app.
+Rendered inline inside the panel (not a blocking modal) — see §7 for full spec. The panel shows the ordered action list with `summary` fields before anything executes.
 
 ### Props
 
@@ -623,3 +666,7 @@ No DB migrations. No Railway changes. No env vars (reuses `OPENAI_API_KEY` alrea
 | bulk_open included | Symmetry with bulk_close/bulk_delete; maps to existing `POST /slots/bulk { action: "open" }` |
 | Panel stays mounted (isOpen prop) | Closing and reopening with conditional render (`&&`) destroys hook state and loses conversation history; CSS visibility toggle preserves it |
 | serviceId in Prisma select + reschedule action | Original booking's service must be preserved on reschedule; AI copies serviceId from context into RescheduleBookingAction params |
+| All mutations require confirmation (no auto-execute) | Matches existing app pattern; doctor reviews full ordered list before anything fires; predictable regardless of action type |
+| Dependency validation in hook before confirmation | AI may return actions in wrong order despite system prompt rules; hook validates against live context and rejects invalid batches with a clear error message before the confirm dialog appears |
+| Inline confirmation panel (not practiceConfirm modal) | Multi-action batches need a list UI with dependency annotations; a simple yes/no modal is insufficient |
+| Always instant booking, never slotId booking | Two booking flows exist: patient-initiated (public app → PENDING, doctor reviews) and doctor-initiated (doctor portal → CONFIRMED, auto-approved). Chat AI is always doctor-initiated so always uses /bookings/instant (CONFIRMED). slotId path removed from BookPatientAction entirely. |
