@@ -10,9 +10,9 @@
 | Step | File | Status |
 |------|------|--------|
 | 1 | `apps/doctor/src/app/api/appointments-chat/route.ts` | ✅ Done — commit `ad98af45` |
-| 2 | `apps/doctor/src/hooks/useAppointmentsChat.ts` | ✅ Done — uncommitted |
-| 3 | `apps/doctor/src/app/appointments/AppointmentChatPanel.tsx` | ⏳ Next |
-| 4 | `apps/doctor/src/app/appointments/useAppointmentsPage.ts` | ⏳ Pending |
+| 2 | `apps/doctor/src/hooks/useAppointmentsChat.ts` | ✅ Done — commit `12813dab` |
+| 3 | `apps/doctor/src/app/appointments/AppointmentChatPanel.tsx` | ✅ Done — uncommitted |
+| 4 | `apps/doctor/src/app/appointments/useAppointmentsPage.ts` | ⏳ Next |
 | 5 | `apps/doctor/src/app/appointments/page.tsx` | ⏳ Pending |
 
 ---
@@ -46,13 +46,14 @@
 - `sendMessage(text)`: POST to `/api/appointments-chat` → receive `{ reply, actions }` → run `validateActionOrder` → set `pendingActions` if valid
 - `confirmActions()`: calls `executeActions(pendingActions)`
 - `cancelActions()`: clears `pendingActions`, appends cancellation message to chat
-- `executeActions(actions)`: sequential dispatch, stops on first failure, calls `onRefresh()` once after
+- `executeActions(actions)`: sets `loading=true`, sequential dispatch, stops on first failure, calls `onRefresh()` once after, then `loading=false` + `setPendingActions(null)`
 - `dispatchAction(action, doctorId)`: standalone async function (outside hook, independently testable) — maps each action type to its `authFetch` call
 - Voice recording: same pattern as `useTaskChat`
 - `clearChat()`: resets messages, pendingActions, and conversationRef
 
 **Key decisions baked in:**
-- `sendMessage` guards: `if (loading || pendingActions) return` — blocks new messages while confirmation is pending
+- `sendMessage` guards: `if (loading || pendingActions) return` — blocks new messages while AI call or execution is in flight
+- `executeActions` sets `loading=true` during dispatch — prevents double-execution if doctor taps Confirmar twice
 - `toResult(res, fallback)`: shared helper reduces repetitive authFetch+json+error extraction
 - `TERMINAL_STATUSES = ['CANCELLED', 'COMPLETED', 'NO_SHOW']` — matches route's booking filter exactly
 - `doctorId` injected by hook from `useSession()` into every instant booking call
@@ -71,7 +72,7 @@ interface UseAppointmentsChatOptions {
 ```ts
 {
   messages,        // ChatMessage[] — for rendering bubbles
-  loading,         // boolean — AI request in flight
+  loading,         // boolean — AI call or action execution in flight
   pendingActions,  // AppointmentChatAction[] | null — drives confirmation UI
   sendMessage,     // (text: string) => Promise<void>
   confirmActions,  // () => void — doctor confirmed the batch
@@ -83,25 +84,34 @@ interface UseAppointmentsChatOptions {
 
 ---
 
-## Step 3 — Panel (next) ⏳
+## Step 3 — Panel ✅
 
 **File:** `apps/doctor/src/app/appointments/AppointmentChatPanel.tsx`
 
-**What it needs to do:**
-- Accept props: `{ isOpen, onClose, onRefresh }`
-- Instantiate `useAppointmentsChat({ slots, bookings, onRefresh })` — needs slots+bookings passed in from page
-- Render message bubbles
-- Render suggestion chips on empty state
-- Render inline confirmation list when `pendingActions !== null` (ordered, with `summary` per action)
-- Render text input + voice button + send button
-- Use CSS visibility toggle (`hidden`/`flex`) on `isOpen` — never unmount (preserves conversation history)
-- Mirror layout of `TaskChatPanel`
+**What it does:**
+- Props: `{ isOpen, onClose, onRefresh, slots, bookings }`
+- Instantiates `useAppointmentsChat({ slots, bookings, onRefresh })`
+- CSS visibility toggle on `isOpen` (`hidden`/`flex`) — never unmounts, preserves conversation history
+- Collapsible header with message count badge (same pattern as TaskChatPanel)
+- Draggable height on mobile
+- Empty state with 4 suggestion chips
+- Message bubbles with markdown-like renderer (`**bold**`, `-` lists, numbered lists)
+- Thinking/transcribing indicator while `isBusy`
+- **Inline confirmation section** (amber card) when `pendingActions !== null`:
+  - Numbered list of `action.summary` items
+  - Confirmar button: shows spinner + "Ejecutando..." and is disabled while `loading=true`
+  - Cancelar button: disabled while `loading=true`
+- Text input + VoiceRecordButton + send button
+- Input disabled with contextual placeholder when `pendingActions !== null` or `isBusy`
 
-**Reference:** `apps/doctor/src/app/appointments/AppointmentChatPanel.tsx` does not exist yet. Closest reference: any existing `*ChatPanel` or task chat panel in the doctor app.
+**Key decisions baked in:**
+- `slots` and `bookings` passed as props (not in original plan spec, but required by hook)
+- Confirmar/Cancelar disabled during execution (`loading=true`) — prevents double-dispatch
+- `isBusy = loading || voice.isRecording || voice.isProcessing`
 
 ---
 
-## Step 4 — useAppointmentsPage changes ⏳
+## Step 4 — useAppointmentsPage changes ⏳ (next)
 
 **File:** `apps/doctor/src/app/appointments/useAppointmentsPage.ts`
 
@@ -128,7 +138,8 @@ return { ...existingReturn, chatPanelOpen, setChatPanelOpen, onRefresh };
 **Changes needed:**
 - Import `AppointmentChatPanel`
 - Add "Chat IA" button in the header (calls `setChatPanelOpen(true)`)
-- Mount `<AppointmentChatPanel isOpen={chatPanelOpen} onClose={() => setChatPanelOpen(false)} onRefresh={onRefresh} />` — always mounted, never conditionally rendered
+- Pass `slots` and `bookings` from `useAppointmentsPage` into the panel
+- Mount `<AppointmentChatPanel isOpen={chatPanelOpen} onClose={() => setChatPanelOpen(false)} onRefresh={onRefresh} slots={slots} bookings={bookings} />` — always mounted, never conditionally rendered
 
 ---
 

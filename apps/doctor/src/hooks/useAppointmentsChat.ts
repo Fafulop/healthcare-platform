@@ -465,6 +465,7 @@ export function useAppointmentsChat({ slots, bookings, onRefresh }: UseAppointme
         return;
       }
 
+      setLoading(true);
       let completedCount = 0;
       for (const action of actions) {
         const result = await dispatchAction(action, doctorId);
@@ -479,6 +480,7 @@ export function useAppointmentsChat({ slots, bookings, onRefresh }: UseAppointme
       }
 
       if (completedCount > 0) await onRefresh();
+      setLoading(false);
       setPendingActions(null);
     },
     [doctorId, appendAssistantMessage, onRefresh]
