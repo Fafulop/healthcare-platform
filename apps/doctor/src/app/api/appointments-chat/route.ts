@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = now.toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
     const slots = await fetchContext(doctorId, now);
     const systemPrompt = buildSystemPrompt(slots, today);
 

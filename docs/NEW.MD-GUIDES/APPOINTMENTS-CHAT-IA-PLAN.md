@@ -1,6 +1,6 @@
 # Appointments Chat IA — Implementation Plan
 
-> Status: DESIGN COMPLETE — ready for implementation
+> Status: IMPLEMENTED ✅ — all 5 steps complete (2026-03-13)
 > Scope: `apps/doctor` (chat route + hook + panel) + minor edits to existing appointments page
 > External API calls: `apps/api` appointments endpoints (slots, bookings, bulk)
 
@@ -216,7 +216,7 @@ const slots = await prisma.appointmentSlot.findMany({
   },
   include: {
     bookings: {
-      where: { status: { notIn: ['CANCELLED'] } },
+      where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
       select: {
         id: true,
         patientName: true,
@@ -233,6 +233,12 @@ const slots = await prisma.appointmentSlot.findMany({
 ```
 
 Serialized as compact JSON injected into the system prompt. No client payload needed for context — always fresh on every turn.
+
+`today` is computed as:
+```ts
+const today = now.toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
+// sv-SE locale → YYYY-MM-DD format; timeZone ensures correct local date (toISOString() would give UTC date, wrong 6h/day)
+```
 
 ### System prompt structure
 
@@ -347,12 +353,11 @@ Doctor: "Cierra todos los horarios de la semana del 23 al 27 de marzo"
 
 ```ts
 const [messages, setMessages] = useState<ChatMessage[]>([]);
-const [input, setInput] = useState('');
 const [loading, setLoading] = useState(false);
 const [pendingActions, setPendingActions] = useState<AppointmentChatAction[] | null>(null);
 // pendingActions drives the inline confirmation list in AppointmentChatPanel (see §7)
 // no confirmText string — the panel renders action.summary for each item in pendingActions
-const conversationRef = useRef<{ role: string; content: string }[]>([]);
+const conversationRef = useRef<ConversationMessage[]>([]);
 ```
 
 ### `sendMessage(text: string)`
@@ -540,6 +545,8 @@ interface AppointmentChatPanelProps {
   isOpen: boolean;          // controls visibility — component stays mounted to preserve history
   onClose: () => void;
   onRefresh: () => Promise<void>;
+  slots: AppointmentSlot[];  // passed through to useAppointmentsChat for validateActionOrder
+  bookings: Booking[];       // passed through to useAppointmentsChat for validateActionOrder
 }
 ```
 
@@ -561,10 +568,12 @@ Panel uses `isOpen` to toggle CSS visibility (`hidden` / `flex`), never unmounts
 const [chatPanelOpen, setChatPanelOpen] = useState(false);
 
 // Expose onRefresh for hook:
+// deps use doctorId + selectedDate directly (fetchSlots/fetchBookings are plain functions,
+// not useCallback-wrapped — using them as deps would cause onRefresh to recreate every render)
 const onRefresh = useCallback(async () => {
   await fetchSlots();
   await fetchBookings();
-}, [fetchSlots, fetchBookings]);
+}, [doctorId, selectedDate]);
 
 // Add to return:
 return {
@@ -578,16 +587,19 @@ return {
 ### `page.tsx` (appointments) — changes needed
 
 ```tsx
-// Add "Chat IA" button in the header actions area
+// Add "Chat IA Citas" button in the header actions area (indigo, distinct from existing purple voice button)
 <button onClick={() => setChatPanelOpen(true)}>
-  Chat IA
+  Chat IA Citas
 </button>
 
 // Mount panel always — use isOpen prop to show/hide (preserves conversation history across toggle):
+// Panel is NOT wrapped in {doctorId && ...} — hook gets doctorId from its own useSession()
 <AppointmentChatPanel
   isOpen={chatPanelOpen}
   onClose={() => setChatPanelOpen(false)}
   onRefresh={onRefresh}
+  slots={slots}
+  bookings={bookings}
 />
 ```
 

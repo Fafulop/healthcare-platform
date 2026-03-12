@@ -532,9 +532,7 @@ export function useAppointmentsChat({ slots, bookings, onRefresh }: UseAppointme
 
         const { reply, actions } = json.data;
 
-        const assistantMsg: ChatMessage = { id: generateId(), role: 'assistant', content: reply, timestamp: new Date() };
-        setMessages((prev) => [...prev, assistantMsg]);
-        conversationRef.current.push({ role: 'assistant', content: reply });
+        appendAssistantMessage(reply);
 
         if (actions.length === 0) return;
 

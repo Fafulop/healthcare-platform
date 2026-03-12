@@ -1,6 +1,6 @@
 # Appointments Chat IA — Implementation Progress
 
-> Last updated: 2026-03-12
+> Last updated: 2026-03-13
 > Full design spec: `APPOINTMENTS-CHAT-IA-PLAN.md`
 
 ---
@@ -11,9 +11,9 @@
 |------|------|--------|
 | 1 | `apps/doctor/src/app/api/appointments-chat/route.ts` | ✅ Done — commit `ad98af45` |
 | 2 | `apps/doctor/src/hooks/useAppointmentsChat.ts` | ✅ Done — commit `12813dab` |
-| 3 | `apps/doctor/src/app/appointments/AppointmentChatPanel.tsx` | ✅ Done — uncommitted |
-| 4 | `apps/doctor/src/app/appointments/useAppointmentsPage.ts` | ✅ Done |
-| 5 | `apps/doctor/src/app/appointments/page.tsx` | ✅ Done |
+| 3 | `apps/doctor/src/app/appointments/AppointmentChatPanel.tsx` | ✅ Done — commit `ac8bf62a` |
+| 4 | `apps/doctor/src/app/appointments/useAppointmentsPage.ts` | ✅ Done — commit `7b91fa90` |
+| 5 | `apps/doctor/src/app/appointments/page.tsx` | ✅ Done — commit `7b91fa90` |
 
 ---
 
@@ -34,6 +34,7 @@
 - Booking filter: `notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW']` — only CONFIRMED/PENDING shown to AI as "active"
 - `windowStart` normalized to `setUTCHours(0, 0, 0, 0)` to avoid missing midnight-UTC slots
 - `now` computed once and passed to `fetchContext` — `today` string derived from same value
+- `today` uses `toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' })` — **not** `toISOString()` (UTC) — so AI always sees the correct local date (fix: UTC date was wrong 6h/day)
 
 ---
 
@@ -58,6 +59,7 @@
 - `TERMINAL_STATUSES = ['CANCELLED', 'COMPLETED', 'NO_SHOW']` — matches route's booking filter exactly
 - `doctorId` injected by hook from `useSession()` into every instant booking call
 - `conversationHistory: conversationRef.current.slice(0, -1)` — excludes the just-pushed user message; route appends it as the final turn
+- `appendAssistantMessage(reply)` used consistently in `sendMessage` — original had 3 inline lines duplicating the helper (cleaned up)
 
 **Hook options (props):**
 ```ts
@@ -115,19 +117,13 @@ interface UseAppointmentsChatOptions {
 
 **File:** `apps/doctor/src/app/appointments/useAppointmentsPage.ts`
 
-**Changes needed (additive only):**
-```ts
-// Add:
-const [chatPanelOpen, setChatPanelOpen] = useState(false);
+**What was added (additive only):**
+- `chatPanelOpen` / `setChatPanelOpen` state — grouped with other modal/panel states near `voiceModalOpen`
+- `onRefresh` callback — placed immediately after `fetchBookings`, deps are `[doctorId, selectedDate]` (not unstable function refs)
+- Both exported in the return object under `// Chat IA panel`
 
-const onRefresh = useCallback(async () => {
-  await fetchSlots();
-  await fetchBookings();
-}, [fetchSlots, fetchBookings]);
-
-// Add to return:
-return { ...existingReturn, chatPanelOpen, setChatPanelOpen, onRefresh };
-```
+**Key decisions baked in:**
+- `onRefresh` deps use `doctorId` + `selectedDate` directly — avoids recreating on every render (using `fetchSlots`/`fetchBookings` as deps would be broken since they're plain functions, not `useCallback`)
 
 ---
 
@@ -135,11 +131,16 @@ return { ...existingReturn, chatPanelOpen, setChatPanelOpen, onRefresh };
 
 **File:** `apps/doctor/src/app/appointments/page.tsx`
 
-**Changes needed:**
-- Import `AppointmentChatPanel`
-- Add "Chat IA" button in the header (calls `setChatPanelOpen(true)`)
-- Pass `slots` and `bookings` from `useAppointmentsPage` into the panel
-- Mount `<AppointmentChatPanel isOpen={chatPanelOpen} onClose={() => setChatPanelOpen(false)} onRefresh={onRefresh} slots={slots} bookings={bookings} />` — always mounted, never conditionally rendered
+**What was added:**
+- Import `AppointmentChatPanel` from `./AppointmentChatPanel`
+- Destructure `chatPanelOpen`, `setChatPanelOpen`, `onRefresh` from `useAppointmentsPage()`
+- Indigo "Chat IA Citas" button in header → `setChatPanelOpen(true)` (distinct from existing purple voice "Chat IA" button)
+- `<AppointmentChatPanel>` always mounted at bottom of JSX (outside `{doctorId && ...}` guard — hook has its own `useSession`)
+
+**Key decisions baked in:**
+- Panel is unconditional (no `doctorId` guard) — `useAppointmentsChat` gets `doctorId` from its own `useSession()` call
+- `slots` and `bookings` passed as live state — auto-update after `onRefresh` runs
+- Button labeled "Chat IA Citas" to distinguish from the existing voice assistant button
 
 ---
 
