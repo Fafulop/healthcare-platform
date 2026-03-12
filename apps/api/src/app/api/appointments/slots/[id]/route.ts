@@ -81,8 +81,10 @@ export async function PUT(
       );
     }
 
-    // Prevent editing if slot has active bookings (except for toggling isOpen)
-    if (existingSlot.bookings.length > 0 && isOpen !== existingSlot.isOpen) {
+    // Prevent editing time/price fields if slot has active bookings (use PATCH for isOpen)
+    const hasActiveBookings = existingSlot.bookings.length > 0;
+    const isEditingFields = startTime !== undefined || endTime !== undefined || duration !== undefined || basePrice !== undefined || discount !== undefined || discountType !== undefined;
+    if (hasActiveBookings && isEditingFields) {
       return NextResponse.json(
         {
           success: false,
@@ -176,12 +178,12 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Check if slot has bookings
+    // Check if slot has active (non-terminal) bookings
     const slot = await prisma.appointmentSlot.findUnique({
       where: { id },
       include: {
         bookings: {
-          where: { status: { notIn: ['CANCELLED'] } },
+          where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
         },
       },
     });

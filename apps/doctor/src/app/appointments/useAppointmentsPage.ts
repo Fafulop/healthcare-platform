@@ -27,6 +27,7 @@ export interface AppointmentSlot {
 
 export interface Booking {
   id: string;
+  slotId: string;
   patientName: string;
   patientEmail: string;
   patientPhone: string;
@@ -205,8 +206,16 @@ export function useAppointmentsPage() {
     if (!doctorId) return;
 
     try {
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const startDate = new Date(startStr + 'T00:00:00Z').toISOString();
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      const endDate = new Date(endStr + 'T23:59:59Z').toISOString();
+
       const response = await authFetch(
-        `${API_URL}/api/appointments/bookings?doctorId=${doctorId}`
+        `${API_URL}/api/appointments/bookings?doctorId=${doctorId}&startDate=${startDate}&endDate=${endDate}`
       );
       const data = await response.json();
 
@@ -222,18 +231,12 @@ export function useAppointmentsPage() {
   const deleteSlot = async (slotId: string) => {
     const slot = slots.find(s => s.id === slotId);
     const activeBookings = bookings.filter(
-      b => b.slot && slots.find(s => s.id === slotId) &&
+      b => b.slotId === slotId &&
         b.status !== "CANCELLED" && b.status !== "COMPLETED" && b.status !== "NO_SHOW"
-    ).filter(b => {
-      const slotData = slots.find(s => s.id === slotId);
-      if (!slotData) return false;
-      return b.slot.date.split('T')[0] === slotData.date.split('T')[0] &&
-        b.slot.startTime === slotData.startTime &&
-        b.slot.endTime === slotData.endTime;
-    });
+    );
 
-    if (slot && slot.currentBookings > 0) {
-      if (!await practiceConfirm(`Este horario tiene ${slot.currentBookings} cita(s) activa(s). ¿Cancelar las citas y eliminar el horario?`)) return;
+    if (activeBookings.length > 0) {
+      if (!await practiceConfirm(`Este horario tiene ${activeBookings.length} cita(s) activa(s). ¿Cancelar las citas y eliminar el horario?`)) return;
 
       for (const booking of activeBookings) {
         try {
@@ -462,6 +465,7 @@ export function useAppointmentsPage() {
       case "PENDING": return "bg-yellow-100 text-yellow-700 border-yellow-200";
       case "CANCELLED": return "bg-red-100 text-red-700 border-red-200";
       case "COMPLETED": return "bg-green-100 text-green-700 border-green-200";
+      case "NO_SHOW": return "bg-orange-100 text-orange-700 border-orange-200";
       default: return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };

@@ -158,7 +158,7 @@ export function usePendientesPage() {
     try {
       const res = await fetch(`/api/medical-records/tasks/${id}`, { method: "DELETE" });
       if (res.ok) {
-        setTasks(tasks.filter((t) => t.id !== id));
+        setTasks((prev) => prev.filter((t) => t.id !== id));
         setSelectedIds((prev) => {
           const next = new Set(prev);
           next.delete(id);
@@ -191,28 +191,26 @@ export function usePendientesPage() {
 
     setBulkDeleting(true);
     const idsToDelete = Array.from(selectedIds);
-    let deleted = 0;
 
-    for (const id of idsToDelete) {
-      try {
-        const res = await fetch(`/api/medical-records/tasks/${id}`, { method: "DELETE" });
-        if (res.ok) deleted++;
-      } catch {
-        // Continue with next
-      }
-    }
+    try {
+      const res = await fetch(`/api/medical-records/tasks/bulk`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskIds: idsToDelete }),
+      });
 
-    if (deleted > 0) {
-      setTasks((prev) => prev.filter((t) => !selectedIds.has(t.id)));
-      setSelectedIds(new Set());
-      if (deleted < idsToDelete.length) {
-        toast.error(`${idsToDelete.length - deleted} tarea(s) no pudieron eliminarse`);
+      if (res.ok) {
+        setTasks((prev) => prev.filter((t) => !selectedIds.has(t.id)));
+        setSelectedIds(new Set());
+      } else {
+        const result = await res.json();
+        toast.error(result.error || "Error al eliminar las tareas");
       }
-    } else {
+    } catch {
       toast.error("Error al eliminar las tareas");
+    } finally {
+      setBulkDeleting(false);
     }
-
-    setBulkDeleting(false);
   };
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {

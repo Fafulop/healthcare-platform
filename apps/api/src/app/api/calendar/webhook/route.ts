@@ -133,7 +133,7 @@ export async function POST(request: Request) {
         await prisma.appointmentSlot.updateMany({
           where: { id: slotId, doctorId: doctor.id },
           data: {
-            date: new Date(newDateStr),
+            date: new Date(newDateStr + 'T12:00:00Z'),
             startTime: newStartTime,
             endTime: newEndTime,
           },
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
           await prisma.task.updateMany({
             where: { id: taskId, doctorId: doctor.id },
             data: {
-              dueDate: new Date(event.start.date),
+              dueDate: new Date(event.start.date + 'T12:00:00Z'),
               startTime: null,
               endTime: null,
             },
@@ -159,7 +159,7 @@ export async function POST(request: Request) {
           await prisma.task.updateMany({
             where: { id: taskId, doctorId: doctor.id },
             data: {
-              dueDate: new Date(newDateStr),
+              dueDate: new Date(newDateStr + 'T12:00:00Z'),
               startTime: newStartTime,
               endTime: newEndTime,
             },

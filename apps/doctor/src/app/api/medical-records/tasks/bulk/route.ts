@@ -3,6 +3,7 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { logTaskBulkDeleted } from '@/lib/activity-logger';
+import { syncTaskDeleted } from '@/lib/google-calendar-sync';
 
 // DELETE /api/medical-records/tasks/bulk
 export async function DELETE(request: NextRequest) {
@@ -17,13 +18,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Verify all tasks belong to this doctor
+    // Verify all tasks belong to this doctor and fetch googleEventId for Calendar sync
     const tasks = await prisma.task.findMany({
       where: {
         id: { in: body.taskIds },
         doctorId,
       },
-      select: { id: true },
+      select: { id: true, googleEventId: true },
     });
 
     if (tasks.length !== body.taskIds.length) {
@@ -31,6 +32,11 @@ export async function DELETE(request: NextRequest) {
         { error: 'Some tasks not found or do not belong to you' },
         { status: 403 }
       );
+    }
+
+    // Sync deletions to Google Calendar before removing from DB (fire-and-forget)
+    for (const task of tasks) {
+      syncTaskDeleted(doctorId, task.googleEventId ?? null).catch(() => {});
     }
 
     // Delete all tasks
