@@ -183,14 +183,13 @@ export function AppointmentChatPanel({
 
   return (
     <div
-      className={`fixed z-[60] flex-col shadow-xl transition-all duration-300 ease-in-out
-        inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:top-0 sm:w-96
+      className={`fixed z-[60] flex flex-col shadow-xl transition-all duration-300 ease-in-out
         bg-white border-t sm:border-t-0 sm:border-l border-gray-200
         ${collapsed
-          ? 'rounded-t-2xl sm:rounded-none'
-          : 'sm:bottom-0 rounded-t-2xl sm:rounded-none'
+          ? 'inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:bottom-0 sm:top-auto sm:w-96 h-auto'
+          : 'inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:!h-auto sm:w-96 rounded-t-2xl sm:rounded-none'
         }
-        ${isOpen ? 'flex' : 'hidden'}
+        ${isOpen ? '' : 'hidden'}
       `}
       style={collapsed ? undefined : { height: `${panelHeight}vh` }}
     >
