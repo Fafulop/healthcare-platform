@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { redirect, useSearchParams } from "next/navigation";
 import { authFetch } from "@/lib/auth-fetch";
@@ -61,6 +61,7 @@ export function useAppointmentsPage() {
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoadedOnce = useRef(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
@@ -178,7 +179,7 @@ export function useAppointmentsPage() {
   const fetchSlots = async () => {
     if (!doctorId) return;
 
-    setLoading(true);
+    if (!hasLoadedOnce.current) setLoading(true);
     try {
       const year = selectedDate.getFullYear();
       const month = selectedDate.getMonth();
@@ -200,6 +201,7 @@ export function useAppointmentsPage() {
       console.error("Error fetching slots:", error);
       toast.error("Error al cargar los horarios");
     } finally {
+      hasLoadedOnce.current = true;
       setLoading(false);
     }
   };
