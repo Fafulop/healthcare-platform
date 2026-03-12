@@ -468,7 +468,16 @@ export function useAppointmentsPage() {
     return { label: "Disponible", color: "bg-green-100 text-green-700" };
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, slotEndTime?: string, slotDate?: string) => {
+    // VENCIDA: was active (PENDING/CONFIRMED) but slot end time has already passed
+    if ((status === 'PENDING' || status === 'CONFIRMED') && slotEndTime && slotDate) {
+      const now = new Date();
+      const nowLocal = now.toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
+      const slotEndStr = `${slotDate.split('T')[0]} ${slotEndTime}:00`;
+      if (slotEndStr < nowLocal) {
+        return "bg-red-100 text-red-800 border-red-300";
+      }
+    }
     switch (status) {
       case "CONFIRMED": return "bg-blue-100 text-blue-700 border-blue-200";
       case "PENDING": return "bg-yellow-100 text-yellow-700 border-yellow-200";

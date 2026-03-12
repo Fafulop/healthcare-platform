@@ -297,6 +297,7 @@ async function dispatchAction(
             method: 'POST',
             body: JSON.stringify({
               doctorId,
+              mode: action.recurring ? 'recurring' : 'single',
               basePrice: 0,
               maxBookings: action.maxBookings ?? 1,
               date: action.date,
@@ -305,7 +306,6 @@ async function dispatchAction(
               duration: action.duration,
               breakStart: action.breakStart,
               breakEnd: action.breakEnd,
-              recurring: action.recurring,
               startDate: action.startDate,
               endDate: action.endDate,
               daysOfWeek: action.daysOfWeek,
@@ -562,19 +562,10 @@ export function useAppointmentsChat({ slots, bookings, onRefresh }: UseAppointme
           return;
         }
 
-        const { reply, actions } = json.data;
+        const { reply, actions: _actions } = json.data;
 
+        // PHASE 1 — query only: actions are disabled until AI query understanding is validated.
         appendAssistantMessage(reply);
-
-        if (actions.length === 0) return;
-
-        const validation = validateActionOrder(actions, slots, bookings);
-        if (!validation.valid) {
-          appendAssistantMessage(validation.error!);
-          return;
-        }
-
-        setPendingActions(actions);
       } catch (err) {
         console.error('[useAppointmentsChat] sendMessage error:', err);
         appendAssistantMessage('No pude conectarme con el servidor. Intente de nuevo.');
@@ -582,7 +573,7 @@ export function useAppointmentsChat({ slots, bookings, onRefresh }: UseAppointme
         setLoading(false);
       }
     },
-    [loading, pendingActions, slots, bookings, appendAssistantMessage]
+    [loading, pendingActions, appendAssistantMessage]
   );
 
   sendMessageRef.current = sendMessage;

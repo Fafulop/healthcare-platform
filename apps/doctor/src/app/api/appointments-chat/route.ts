@@ -27,29 +27,54 @@ const TEMPERATURE = 0.2;
 // Types
 // -----------------------------------------------------------------------------
 
+interface BookingContext {
+  id: string;
+  paciente: string;
+  estado: string;
+  vencida: boolean;
+  servicio: string | null;
+  primeraVez: boolean;
+  modalidad: string | null;
+}
+
 interface SlotContext {
   id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  duration: number;
-  isOpen: boolean;
-  currentBookings: number;
-  maxBookings: number;
-  bookings: {
-    id: string;
-    patientName: string;
-    patientEmail: string;
-    patientPhone: string;
-    status: string;
-    serviceName: string | null;
-    serviceId: string | null;
-  }[];
+  fecha: string;
+  inicio: string;
+  fin: string;
+  duracion: number;
+  estado: 'DISPONIBLE' | 'LLENO' | 'CERRADO';
+  lugaresOcupados: number;
+  lugaresTotal: number;
+  citas: BookingContext[];
 }
 
 // -----------------------------------------------------------------------------
 // Context fetch
 // -----------------------------------------------------------------------------
+
+const BOOKING_STATUS_LABEL: Record<string, string> = {
+  PENDING:    'PENDIENTE',
+  CONFIRMED:  'AGENDADA',
+  COMPLETED:  'COMPLETADA',
+  NO_SHOW:    'NO_ASISTIÓ',
+  CANCELLED:  'CANCELADA',
+};
+
+function slotEstado(isOpen: boolean, current: number, max: number): 'DISPONIBLE' | 'LLENO' | 'CERRADO' {
+  if (!isOpen) return 'CERRADO';
+  if (current >= max) return 'LLENO';
+  return 'DISPONIBLE';
+}
+
+function isVencida(slotDate: string, endTime: string, status: string, now: Date): boolean {
+  if (status !== 'PENDING' && status !== 'CONFIRMED') return false;
+  // Compare as Mexico City local time strings (sv-SE locale → "YYYY-MM-DD HH:MM:SS")
+  // Avoids constructing a Date from a naive string which would be server-local (UTC on Railway)
+  const nowMx = now.toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
+  const slotEndStr = `${slotDate} ${endTime}:00`;
+  return slotEndStr < nowMx;
+}
 
 async function fetchContext(doctorId: string, now: Date): Promise<SlotContext[]> {
   const windowStart = new Date(now);
@@ -66,128 +91,76 @@ async function fetchContext(doctorId: string, now: Date): Promise<SlotContext[]>
     },
     include: {
       bookings: {
-        where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
         select: {
           id: true,
           patientName: true,
-          patientEmail: true,
-          patientPhone: true,
           status: true,
           serviceName: true,
-          serviceId: true,
+          isFirstTime: true,
+          appointmentMode: true,
         },
       },
     },
     orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
   });
 
-  const statusLabel: Record<string, string> = {
-    PENDING: 'PENDIENTE',
-    CONFIRMED: 'AGENDADA',
-  };
-
-  return slots.map((slot) => ({
-    id: slot.id,
-    date: slot.date.toISOString().split('T')[0],
-    startTime: slot.startTime,
-    endTime: slot.endTime,
-    duration: slot.duration,
-    isOpen: slot.isOpen,
-    currentBookings: slot.currentBookings,
-    maxBookings: slot.maxBookings,
-    bookings: slot.bookings.map((b) => ({
-      ...b,
-      status: statusLabel[b.status] ?? b.status,
-    })),
-  }));
+  return slots.map((slot) => {
+    const fecha = slot.date.toISOString().split('T')[0];
+    return {
+      id: slot.id,
+      fecha,
+      inicio: slot.startTime,
+      fin: slot.endTime,
+      duracion: slot.duration,
+      estado: slotEstado(slot.isOpen, slot.currentBookings, slot.maxBookings),
+      lugaresOcupados: slot.currentBookings,
+      lugaresTotal: slot.maxBookings,
+      citas: slot.bookings.map((b) => ({
+        id: b.id,
+        paciente: b.patientName,
+        estado: BOOKING_STATUS_LABEL[b.status] ?? b.status,
+        vencida: isVencida(fecha, slot.endTime, b.status, now),
+        servicio: b.serviceName ?? null,
+        primeraVez: b.isFirstTime ?? false,
+        modalidad: b.appointmentMode ?? null,
+      })),
+    };
+  });
 }
 
 // -----------------------------------------------------------------------------
-// System prompt sections (edit each section independently)
+// System prompt (query-only phase)
 // -----------------------------------------------------------------------------
 
-const RESPONSE_RULES = `
-## Reglas
-1. Devuelve ÚNICAMENTE JSON válido con la estructura: { "reply": string, "actions": ActionType[] }
-2. "reply" es la respuesta conversacional mostrada al doctor (en español).
-3. "actions" es vacío para consultas informativas o de solo lectura.
-4. NUNCA inventes IDs de horarios o reservas — usa solo IDs del contexto anterior.
-5. Para create_slots: omite el campo "date" si usas recurrencia (usa startDate/endDate/daysOfWeek).
-6. Codificación de daysOfWeek: Lunes=0, Martes=1, Miércoles=2, Jueves=3, Viernes=4, Sábado=5, Domingo=6.
-7. La duración debe ser 30 o 60 (minutos). No incluyas basePrice — siempre se inyecta como 0.
-8. Para reschedule_booking: proporciona bookingId + nueva fecha/hora. El sistema cancela y reagenda automáticamente.
-9. Para confirm_booking: proporciona bookingId. Cambia el estado de PENDIENTE a AGENDADA (el paciente confirmó que asistirá). Solo aplica a citas en estado PENDIENTE.
-10. Para complete_booking: proporciona bookingId. Marca la cita como atendida/completada (AGENDADA → COMPLETADA). Usa esto cuando el doctor dice "completar", "marcar como atendida", "ya fue atendido", "ya llegó", etc. Solo aplica a citas en estado AGENDADA.
-11. DISTINCIÓN CRÍTICA — confirm vs complete: "confirmar" = reserva PENDIENTE que pasa a AGENDADA. "completar/atender/terminar" = cita AGENDADA que ya ocurrió, pasa a COMPLETADA. Son acciones DISTINTAS. Una cita AGENDADA NO se puede "confirmar" — ya está agendada.
-12. Si el doctor pregunta algo ambiguo, haz UNA pregunta de aclaración en "reply" y devuelve actions: [].
-13. Para operaciones masivas (bulk_close, bulk_open, bulk_delete): reúne todos los IDs de horarios que coincidan del contexto.
-14. maxBookings por defecto es 1 si no se especifica.`.trim();
-
-const DEPENDENCY_RULES = `
-## Reglas de dependencia — el orden es aplicado por el sistema; las violaciones serán rechazadas
-15. ANTES de close_slot o delete_slot en un horario con reservas activas en el contexto:
-    incluye un cancel_booking para cada reserva activa de ese horario, colocado ANTES de la acción de cierre/eliminación.
-16. ANTES de bulk_close o bulk_delete: inspecciona cada horario en slotIds.
-    Para cualquier horario con reservas activas, agrega acciones cancel_booking individuales antes de la acción masiva.
-17. Si cancelas una reserva Y reagendas al paciente en el mismo horario en el mismo lote:
-    el cancel_booking DEBE aparecer antes del book_patient.
-18. Al crear horarios E inmediatamente agendar un paciente en uno de los nuevos horarios:
-    usa instant booking (omite slotId). Nunca hagas referencia a un ID de horario que no existe aún en el contexto.
-19. Antes de proponer un reagendamiento a una hora específica, verifica esa hora en el contexto.
-    Si ya existe un horario lleno, indícalo en "reply" y pide al doctor que elija otra hora. Devuelve actions: [].
-20. Para create_slots que conflictúen con horarios existentes en el contexto:
-    solo establece replaceConflicts: true si el doctor pidió explícitamente reemplazar los horarios existentes.
-    De lo contrario, reporta el conflicto en "reply" y devuelve actions: [].`.trim();
-
-const FEW_SHOT_EXAMPLES = `
-## Ejemplos
-
-### Consulta informativa (sin acciones)
-Doctor: "¿Qué horarios tengo disponibles el 25 de marzo?"
-Respuesta: { "reply": "El 25 de marzo tienes 3 horarios abiertos: 09:00–10:00, 10:00–11:00 y 15:00–16:00. Los tres están sin reservas.", "actions": [] }
-
-### Crear horario único
-Doctor: "Abre un horario el 20 de marzo de 9 a 10"
-Respuesta: { "reply": "Creé un horario el 20 de marzo de 09:00 a 10:00.", "actions": [{ "type": "create_slots", "summary": "Crear horario 20 Mar 09:00–10:00", "date": "YYYY-MM-DD", "startTime": "09:00", "endTime": "10:00", "duration": 60 }] }
-
-### Crear horarios recurrentes
-Doctor: "Crea horarios de lunes a viernes de 8 a 9 la próxima semana"
-Respuesta: { "reply": "Crearé 5 horarios de 08:00 a 09:00 de lunes a viernes.", "actions": [{ "type": "create_slots", "summary": "Lu–Vi 08:00–09:00 semana del 16 Mar", "recurring": true, "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD", "daysOfWeek": [0,1,2,3,4], "startTime": "08:00", "endTime": "09:00", "duration": 60 }] }
-
-### Agendar paciente
-Doctor: "Agenda a Carlos López mañana a las 10, dura 30 min, tel 5551234567, carlos@email.com"
-Respuesta: { "reply": "Agendé a Carlos López mañana a las 10:00 por 30 minutos.", "actions": [{ "type": "book_patient", "summary": "Agendar Carlos López 10:00", "date": "YYYY-MM-DD", "startTime": "10:00", "duration": 30, "patientName": "Carlos López", "patientEmail": "carlos@email.com", "patientPhone": "5551234567" }] }
-
-### Reagendar cita
-Doctor: "Cambia la cita de Ana Pérez del martes a las 11 al jueves a las 9"
-Respuesta: { "reply": "Reagendé la cita de Ana Pérez del martes 11:00 al jueves 09:00.", "actions": [{ "type": "reschedule_booking", "summary": "Reagendar Ana Pérez → Jue 09:00", "bookingId": "clx...", "newDate": "YYYY-MM-DD", "newStartTime": "09:00", "newDuration": 60, "patientName": "Ana Pérez", "patientEmail": "ana@email.com", "patientPhone": "5559876543" }] }
-
-### Cancelar reserva
-Doctor: "Cancela la cita de María García"
-Respuesta: { "reply": "Cancelé la cita de María García (10:00 del 18 de marzo).", "actions": [{ "type": "cancel_booking", "summary": "Cancelar cita de María García", "bookingId": "clx..." }] }
-
-### Confirmar cita pendiente (PENDIENTE → AGENDADA)
-Doctor: "Confirma la cita de Carlos López"
-Respuesta: { "reply": "Confirmé la cita de Carlos López — ahora está agendada.", "actions": [{ "type": "confirm_booking", "summary": "Confirmar cita de Carlos López", "bookingId": "clx..." }] }
-
-### Completar cita atendida (AGENDADA → COMPLETADA)
-Doctor: "Completa la cita de Ana Pérez" / "Ana Pérez ya fue atendida" / "Marca como atendida la cita de las 10"
-Respuesta: { "reply": "Marqué la cita de Ana Pérez como completada.", "actions": [{ "type": "complete_booking", "summary": "Completar cita de Ana Pérez", "bookingId": "clx..." }] }
-
-### Cerrar horarios masivamente
-Doctor: "Cierra todos los horarios de la semana del 23 al 27 de marzo"
-Respuesta: { "reply": "Cerraré 10 horarios de esa semana.", "actions": [{ "type": "bulk_close", "summary": "Cerrar horarios 23–27 Mar", "slotIds": ["clx1","clx2"] }] }`.trim();
-
 function buildSystemPrompt(slots: SlotContext[], today: string): string {
-  return [
-    `Eres el asistente de IA de citas para una consulta médica.`,
-    `Hoy es ${today} (America/Mexico_City).`,
-    `\n## Horarios disponibles en esta ventana (hoy−7 a hoy+60)`,
-    JSON.stringify(slots, null, 2),
-    RESPONSE_RULES,
-    DEPENDENCY_RULES,
-    FEW_SHOT_EXAMPLES,
-  ].join('\n');
+  return `Eres el asistente de agenda de una consulta médica. Respondes preguntas del doctor sobre sus horarios y citas.
+
+Hoy es ${today} (zona horaria: America/Mexico_City).
+
+## Estructura de datos
+
+Cada **horario** (slot) tiene:
+- id, fecha (YYYY-MM-DD), inicio/fin (HH:MM), duracion (minutos)
+- estado: DISPONIBLE (abierto y con lugar), LLENO (abierto pero sin lugar), CERRADO (bloqueado)
+- lugaresOcupados / lugaresTotal
+- citas[]: lista de reservas en ese horario
+
+Cada **cita** (booking) dentro de un horario tiene:
+- id, paciente (nombre), estado, vencida (bool), servicio, primeraVez, modalidad
+- estado puede ser: PENDIENTE, AGENDADA, COMPLETADA, NO_ASISTIÓ, CANCELADA
+- vencida: true significa que la cita era PENDIENTE o AGENDADA pero ya pasó la hora de fin del horario sin resolverse
+
+## Reglas
+1. Responde ÚNICAMENTE con JSON válido: { "reply": string, "actions": [] }
+2. "actions" SIEMPRE es [] — eres de solo lectura por ahora.
+3. Responde en español, con precisión. Solo usa datos del contexto — nunca inventes citas, horarios ni pacientes.
+4. Si el doctor pregunta algo que no puedes responder con el contexto disponible, dilo claramente.
+5. El contexto cubre hoy−7 días hasta hoy+60 días. Si preguntan fuera de ese rango, indícalo.
+6. Al mencionar horarios, usa formato "Lunes 14 de marzo, 10:00–11:00". Al mencionar fechas relativas ("mañana", "el martes"), calcúlalas desde hoy.
+7. Citas VENCIDAS son un indicador importante: son citas que nunca se resolvieron. Mencionarlas proactivamente si el doctor pregunta por el estado de su agenda.
+
+## Contexto de agenda (hoy−7 a hoy+60)
+${JSON.stringify(slots, null, 2)}`.trim();
 }
 
 // -----------------------------------------------------------------------------
