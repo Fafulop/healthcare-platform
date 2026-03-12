@@ -108,23 +108,24 @@ const RESPONSE_RULES = `
 6. Codificación de daysOfWeek: Lunes=0, Martes=1, Miércoles=2, Jueves=3, Viernes=4, Sábado=5, Domingo=6.
 7. La duración debe ser 30 o 60 (minutos). No incluyas basePrice — siempre se inyecta como 0.
 8. Para reschedule_booking: proporciona bookingId + nueva fecha/hora. El sistema cancela y reagenda automáticamente.
-9. Si el doctor pregunta algo ambiguo, haz UNA pregunta de aclaración en "reply" y devuelve actions: [].
-10. Para operaciones masivas (bulk_close, bulk_open, bulk_delete): reúne todos los IDs de horarios que coincidan del contexto.
-11. maxBookings por defecto es 1 si no se especifica.`.trim();
+9. Para confirm_booking: proporciona bookingId. Cambia el estado de PENDING a CONFIRMED.
+10. Si el doctor pregunta algo ambiguo, haz UNA pregunta de aclaración en "reply" y devuelve actions: [].
+11. Para operaciones masivas (bulk_close, bulk_open, bulk_delete): reúne todos los IDs de horarios que coincidan del contexto.
+12. maxBookings por defecto es 1 si no se especifica.`.trim();
 
 const DEPENDENCY_RULES = `
 ## Reglas de dependencia — el orden es aplicado por el sistema; las violaciones serán rechazadas
-12. ANTES de close_slot o delete_slot en un horario con reservas activas en el contexto:
+13. ANTES de close_slot o delete_slot en un horario con reservas activas en el contexto:
     incluye un cancel_booking para cada reserva activa de ese horario, colocado ANTES de la acción de cierre/eliminación.
-13. ANTES de bulk_close o bulk_delete: inspecciona cada horario en slotIds.
+14. ANTES de bulk_close o bulk_delete: inspecciona cada horario en slotIds.
     Para cualquier horario con reservas activas, agrega acciones cancel_booking individuales antes de la acción masiva.
-14. Si cancelas una reserva Y reagendas al paciente en el mismo horario en el mismo lote:
+15. Si cancelas una reserva Y reagendas al paciente en el mismo horario en el mismo lote:
     el cancel_booking DEBE aparecer antes del book_patient.
-15. Al crear horarios E inmediatamente agendar un paciente en uno de los nuevos horarios:
+16. Al crear horarios E inmediatamente agendar un paciente en uno de los nuevos horarios:
     usa instant booking (omite slotId). Nunca hagas referencia a un ID de horario que no existe aún en el contexto.
-16. Antes de proponer un reagendamiento a una hora específica, verifica esa hora en el contexto.
+17. Antes de proponer un reagendamiento a una hora específica, verifica esa hora en el contexto.
     Si ya existe un horario lleno, indícalo en "reply" y pide al doctor que elija otra hora. Devuelve actions: [].
-17. Para create_slots que conflictúen con horarios existentes en el contexto:
+18. Para create_slots que conflictúen con horarios existentes en el contexto:
     solo establece replaceConflicts: true si el doctor pidió explícitamente reemplazar los horarios existentes.
     De lo contrario, reporta el conflicto en "reply" y devuelve actions: [].`.trim();
 
@@ -154,6 +155,10 @@ Respuesta: { "reply": "Reagendé la cita de Ana Pérez del martes 11:00 al jueve
 ### Cancelar reserva
 Doctor: "Cancela la cita de María García"
 Respuesta: { "reply": "Cancelé la cita de María García (10:00 del 18 de marzo).", "actions": [{ "type": "cancel_booking", "summary": "Cancelar cita de María García", "bookingId": "clx..." }] }
+
+### Confirmar cita pendiente
+Doctor: "Confirma la cita de Carlos López"
+Respuesta: { "reply": "Confirmé la cita de Carlos López.", "actions": [{ "type": "confirm_booking", "summary": "Confirmar cita de Carlos López", "bookingId": "clx..." }] }
 
 ### Cerrar horarios masivamente
 Doctor: "Cierra todos los horarios de la semana del 23 al 27 de marzo"

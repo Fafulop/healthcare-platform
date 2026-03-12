@@ -1,6 +1,6 @@
 # Appointments Chat IA — Implementation Progress
 
-> Last updated: 2026-03-13
+> Last updated: 2026-03-12
 > Full design spec: `APPOINTMENTS-CHAT-IA-PLAN.md`
 
 ---
@@ -25,7 +25,7 @@
 - `requireDoctorAuth(request)` → `doctorId`
 - Validates `{ message, conversationHistory }` request body
 - Fetches slots + active bookings from Prisma for window `today−7` to `today+60`
-- Builds system prompt (17 rules + 7 few-shot examples) as named constants: `RESPONSE_RULES`, `DEPENDENCY_RULES`, `FEW_SHOT_EXAMPLES`
+- Builds system prompt (18 rules + 8 few-shot examples) as named constants: `RESPONSE_RULES`, `DEPENDENCY_RULES`, `FEW_SHOT_EXAMPLES`
 - Calls `gpt-4o` with `jsonMode: true`
 - Returns `{ success: true, data: { reply: string, actions: AppointmentChatAction[] } }`
 - Logs token usage (fire-and-forget)
@@ -144,9 +144,29 @@ interface UseAppointmentsChatOptions {
 
 ---
 
+---
+
+## Post-implementation fixes
+
+### `confirm_booking` action type — 2026-03-12
+
+**Bug:** AI correctly returned `{ type: 'confirm_booking', bookingId }` but the hook's `dispatchAction` switch had no case for it → hit `default` → "Acción desconocida: confirm_booking".
+
+**Fix applied to `useAppointmentsChat.ts`:**
+- Added `ConfirmBookingAction` interface (`type`, `summary`, `bookingId`)
+- Added to `AppointmentChatAction` union type
+- Added `case 'confirm_booking'`: PATCH `/api/appointments/bookings/${bookingId}` with `{ status: 'CONFIRMED' }`
+
+**Fix applied to `route.ts`:**
+- Added rule 9: "Para confirm_booking: proporciona bookingId. Cambia el estado de PENDING a CONFIRMED."
+- Renumbered subsequent rules (RESPONSE_RULES 1–12, DEPENDENCY_RULES 13–18, continuous)
+- Added few-shot example for confirming a pending booking
+
+---
+
 ## No changes needed to
 
-- `apps/api` — all endpoints already exist and are correct
+- `apps/api` — all endpoints already exist and are correct (PATCH bookings/{id} with status=CONFIRMED was already implemented)
 - Auth infrastructure — `auth-fetch.ts`, `medical-auth.ts`, `get-token/route.ts` unchanged
 - Database schema — no new fields
 - GCal sync — preserved automatically through apps/api endpoints

@@ -74,6 +74,12 @@ export interface CancelBookingAction {
   bookingId: string;
 }
 
+export interface ConfirmBookingAction {
+  type: 'confirm_booking';
+  summary: string;
+  bookingId: string;
+}
+
 export interface RescheduleBookingAction {
   type: 'reschedule_booking';
   summary: string;
@@ -112,6 +118,7 @@ export type AppointmentChatAction =
   | OpenSlotAction
   | DeleteSlotAction
   | CancelBookingAction
+  | ConfirmBookingAction
   | RescheduleBookingAction
   | BulkCloseAction
   | BulkOpenAction
@@ -353,6 +360,15 @@ async function dispatchAction(
             body: JSON.stringify({ status: 'CANCELLED' }),
           }),
           'Error al cancelar cita'
+        );
+
+      case 'confirm_booking':
+        return toResult(
+          await authFetch(`${API_URL}/api/appointments/bookings/${action.bookingId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'CONFIRMED' }),
+          }),
+          'Error al confirmar cita'
         );
 
       case 'reschedule_booking': {
