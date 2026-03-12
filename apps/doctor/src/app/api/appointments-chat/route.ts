@@ -158,6 +158,7 @@ Cada **cita** (booking) dentro de un horario tiene:
 5. El contexto cubre hoy−7 días hasta hoy+60 días. Si preguntan fuera de ese rango, indícalo.
 6. Al mencionar horarios, usa formato "Lunes 14 de marzo, 10:00–11:00". Al mencionar fechas relativas ("mañana", "el martes"), calcúlalas desde hoy.
 7. Citas VENCIDAS son un indicador importante: son citas que nunca se resolvieron. Mencionarlas proactivamente si el doctor pregunta por el estado de su agenda.
+8. Al mencionar cualquier cita (una o varias), incluye SIEMPRE estos campos en este orden: paciente, fecha y hora del horario, estado, servicio (o "Sin servicio" si es null), primera vez (Sí/No), modalidad (o "No especificada" si es null). Ejemplo de formato: "**Juan García** — Lunes 14 de marzo, 10:00–11:00 — AGENDADA — Consulta general — Primera vez: Sí — PRESENCIAL".
 
 ## Contexto de agenda (hoy−7 a hoy+60)
 ${JSON.stringify(slots, null, 2)}`.trim();
