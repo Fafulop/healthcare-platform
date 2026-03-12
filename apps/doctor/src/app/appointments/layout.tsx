@@ -2,7 +2,8 @@
 
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { DoctorProfileProvider } from "@/contexts/DoctorProfileContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { PracticeUIProvider } from "@/components/ui/PracticeUIProvider";
@@ -15,6 +16,8 @@ export default function AppointmentsLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [widgetsCollapsed, setWidgetsCollapsed] = useState(false);
+
   const { status } = useSession({
     required: true,
     onUnauthenticated() {
@@ -38,9 +41,25 @@ export default function AppointmentsLayout({
       <PracticeUIProvider>
         <DashboardLayout>{children}</DashboardLayout>
       </PracticeUIProvider>
-      <VoiceAssistantHubWidget />
-      <DayDetailsWidget />
-      <ChatWidget />
+      <button
+        onClick={() => setWidgetsCollapsed((c) => !c)}
+        className="fixed bottom-32 right-0 sm:bottom-24 z-[51]
+          bg-blue-500 hover:bg-blue-600 border border-blue-500 border-r-0 rounded-l-lg shadow-md
+          w-5 h-12 flex items-center justify-center text-white
+          transition-colors"
+        title={widgetsCollapsed ? "Mostrar herramientas" : "Ocultar herramientas"}
+      >
+        {widgetsCollapsed
+          ? <ChevronLeft className="w-3 h-3" />
+          : <ChevronRight className="w-3 h-3" />
+        }
+      </button>
+
+      <div className={widgetsCollapsed ? "hidden" : ""}>
+        <VoiceAssistantHubWidget />
+        <DayDetailsWidget />
+        <ChatWidget />
+      </div>
     </DoctorProfileProvider>
   );
 }

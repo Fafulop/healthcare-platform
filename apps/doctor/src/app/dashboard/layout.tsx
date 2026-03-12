@@ -58,9 +58,8 @@ export default function DashboardRootLayout({
         <button
           onClick={() => setWidgetsCollapsed((c) => !c)}
           className="fixed bottom-32 right-0 sm:bottom-24 z-[51]
-            bg-white border border-gray-300 border-r-0 rounded-l-lg shadow-md
-            w-5 h-12 flex items-center justify-center
-            text-blue-500 hover:text-blue-700 hover:bg-gray-50
+            bg-blue-500 hover:bg-blue-600 border border-blue-500 border-r-0 rounded-l-lg shadow-md
+            w-5 h-12 flex items-center justify-center text-white
             transition-colors"
           title={widgetsCollapsed ? "Mostrar herramientas" : "Ocultar herramientas"}
         >
