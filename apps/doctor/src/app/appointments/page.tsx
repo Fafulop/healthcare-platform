@@ -276,7 +276,7 @@ export default function AppointmentsPage() {
                             )}
                           </div>
                         </div>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(booking.status)}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(booking.status, booking.slot.endTime, booking.slot.date)}`}>
                           {getStatusIcon(booking.status)}
                           {booking.status}
                         </span>
@@ -372,7 +372,7 @@ export default function AppointmentsPage() {
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status)}`}>
+                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status, booking.slot.endTime, booking.slot.date)}`}>
                               {getStatusIcon(booking.status)}
                               {booking.status}
                             </span>
