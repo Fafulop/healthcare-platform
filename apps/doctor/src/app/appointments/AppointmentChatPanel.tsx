@@ -183,7 +183,7 @@ export function AppointmentChatPanel({
 
   return (
     <div
-      className={`fixed z-[60] flex flex-col shadow-xl transition-all duration-300 ease-in-out
+      className={`fixed z-[60] flex-col shadow-xl transition-all duration-300 ease-in-out
         inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:w-96
         bg-white border-t sm:border-t-0 sm:border-l border-gray-200
         ${collapsed

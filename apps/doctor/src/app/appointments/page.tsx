@@ -111,13 +111,6 @@ export default function AppointmentsPage() {
               <span>Chat IA Citas</span>
             </button>
             <button
-              onClick={() => setVoiceModalOpen(true)}
-              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
-            >
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Chat IA</span>
-            </button>
-            <button
               onClick={openBookModal}
               className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
             >

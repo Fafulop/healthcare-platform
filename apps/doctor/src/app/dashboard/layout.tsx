@@ -60,7 +60,7 @@ export default function DashboardRootLayout({
           className="fixed bottom-32 right-0 sm:bottom-24 z-[51]
             bg-white border border-gray-300 border-r-0 rounded-l-lg shadow-md
             w-5 h-12 flex items-center justify-center
-            text-gray-400 hover:text-gray-600 hover:bg-gray-50
+            text-blue-500 hover:text-blue-700 hover:bg-gray-50
             transition-colors"
           title={widgetsCollapsed ? "Mostrar herramientas" : "Ocultar herramientas"}
         >
