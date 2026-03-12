@@ -1,7 +1,7 @@
 # Google Calendar Integration Guide
 
 **Implemented:** 2026-03-03
-**Bug fixes:** 2026-03-04 (webhook timezone, date display, booking cancellation sync, shared date utility)
+**Bug fixes:** 2026-03-04 (webhook timezone, date display, booking cancellation sync, shared date utility) | 2026-03-11 (webhook date parsing, bulk slot GCal sync, task bulk delete GCal sync, frontend logic fixes)
 **Enhancements:** 2026-03-04 (COMPLETED/NO_SHOW states, description enrichment, conflict detection, webhook resilience, resync endpoint, error logging)
 **Scope:** Doctor app + API app
 **Type:** OAuth per doctor, bidirectional sync, dedicated "tusalud.pro" calendar
@@ -16,6 +16,9 @@ Each doctor can connect their own Google account. When connected, a dedicated ca
 tusalud.pro DB ──────────────────────────── Google Calendar ("tusalud.pro")
 
   Slot created         ──── push ────►  Event created (Disponible / Bloqueado)
+  Slot bulk open       ──── push ────►  Events updated → "Disponible" (teal)
+  Slot bulk close      ──── push ────►  Events updated → "Bloqueado" (graphite)
+  Slot bulk delete     ──── push ────►  Events deleted
   Booking PENDING      ──── push ────►  Event updated ("Cita: ⏳ Nombre")
   Booking CONFIRMED    ──── push ────►  Event updated ("Cita: Nombre") + ⚠️ if conflict
   Booking CANCELLED    ──── push ────►  Event updated (reverts to "Disponible")
@@ -25,6 +28,7 @@ tusalud.pro DB ─────────────────────�
   Task created/updated ──── push ────►  Event created/updated (🔴/🟡/🟢 + ⚠️ if conflict)
   Task completed       ──── push ────►  Event deleted
   Task deleted         ──── push ────►  Event deleted
+  Task bulk deleted    ──── push ────►  Events deleted (one per task)
 
   Event moved in GCal  ── webhook ──►  Slot/Task date+time updated in DB
   Event deleted in GCal ─ webhook ──►  Slot closed / Task cancelled in DB
@@ -139,15 +143,19 @@ When Google Calendar events are created, Google returns an event ID. We store it
 |---|---|
 | `packages/auth/src/nextauth-config.ts` | Added Calendar OAuth scope + token capture in jwt callback |
 | `packages/database/prisma/schema.prisma` | Added 7 new fields across User, Doctor, AppointmentSlot, Task |
-| `apps/api/src/app/api/appointments/slots/[id]/route.ts` | Sync hooks on PUT, PATCH, DELETE |
+| `apps/api/src/app/api/appointments/slots/[id]/route.ts` | Sync hooks on PUT, PATCH, DELETE; **Bug fix 2026-03-11**: fixed inverted booking guard on PUT (was blocking isOpen, allowing time edits); DELETE now excludes COMPLETED/NO_SHOW from block |
+| `apps/api/src/app/api/appointments/slots/bulk/route.ts` | **Bug fix 2026-03-11**: added GCal sync for all 3 bulk actions — delete (`deleteEvent`), close (`updateSlotEvent` isOpen:false), open (`updateSlotEvent` isOpen:true) |
 | `apps/api/src/app/api/appointments/bookings/[id]/route.ts` | Sync hooks for all status changes (CONFIRMED, CANCELLED, COMPLETED, NO_SHOW, DELETE) with enriched descriptions + conflict detection |
 | `apps/api/src/app/api/appointments/bookings/route.ts` | PENDING booking now syncs patientPhone, patientEmail, patientNotes to slot event description |
 | `apps/api/src/app/api/appointments/bookings/instant/route.ts` | Instant booking sync now includes bookingStatus, patientPhone, patientNotes |
 | `apps/doctor/src/app/api/medical-records/tasks/route.ts` | Sync hook on POST (create) with conflict detection and enriched description |
 | `apps/doctor/src/app/api/medical-records/tasks/[id]/route.ts` | Sync hooks on PUT (update) with conflict detection, DELETE |
+| `apps/doctor/src/app/api/medical-records/tasks/bulk/route.ts` | **Bug fix 2026-03-11**: added GCal sync — select includes `googleEventId`, calls `syncTaskDeleted` per task before `deleteMany` |
 | `apps/doctor/src/app/dashboard/mi-perfil/page.tsx` | Added "Integraciones" tab; updated with channelExpiry display, resync button |
 | `apps/doctor/src/app/dashboard/layout.tsx` | Added `<GoogleCalendarBanner />` to dashboard shell |
-| `apps/api/src/app/api/calendar/webhook/route.ts` | **Bug fix**: UTC timezone; **Enhancement**: opportunistic channel auto-renewal when within 48h of expiry |
+| `apps/doctor/src/app/appointments/useAppointmentsPage.ts` | **Bug fix 2026-03-11**: added `slotId` to Booking interface; fixed `activeBookings` filter; fixed `deleteSlot` guard; scoped `fetchBookings` to current month; added NO_SHOW color |
+| `apps/doctor/src/app/dashboard/pendientes/usePendientesPage.ts` | **Bug fix 2026-03-11**: fixed stale closure in `handleDelete`; rewrote `handleBulkDelete` to use bulk endpoint (atomic, single request, proper GCal sync) |
+| `apps/api/src/app/api/calendar/webhook/route.ts` | **Bug fix**: UTC timezone; **Enhancement**: opportunistic channel auto-renewal when within 48h of expiry; **Bug fix 2026-03-11**: date parsing — `new Date(dateStr)` → `new Date(dateStr + 'T12:00:00Z')` for slot and task time changes |
 | `apps/doctor/src/app/dashboard/pendientes/[id]/page.tsx` | **Bug fix**: date display uses `parseLocalDate()` instead of `new Date()` |
 | `apps/doctor/src/app/appointments/CreateSlotsModal.tsx` | **Bug fix**: conflict alert date display; removed inline `getLocalDateString` → import from `dates.ts` |
 | `apps/doctor/src/hooks/useDayDetails.ts` | Removed inline `getLocalDateString` → import from `dates.ts` |
@@ -455,6 +463,20 @@ const newStartTime = event.start.dateTime.slice(11, 16);  // "10:00"
 const newEndTime   = event.end.dateTime.slice(11, 16);    // "11:00"
 ```
 
+### Webhook date parsing (2026-03-11 fix)
+
+A separate but related bug: when writing the extracted date back to Prisma, `new Date("2026-03-04")` creates **midnight UTC**, which on Railway (UTC server) is correct as a DB timestamp, but Prisma stores it as-is and the date displays correctly — however in Mexico (UTC-6) clients, midnight UTC equals 6 PM the previous day. The fix mirrors the slot creation pattern:
+
+```typescript
+// Before (wrong): creates midnight UTC — wrong day in UTC-6 timezone
+date: new Date(newDateStr)
+
+// After (correct): noon UTC — unambiguously the correct calendar day everywhere
+date: new Date(newDateStr + 'T12:00:00Z')
+```
+
+This fix was applied to 3 places in the webhook: slot time changes, task all-day changes, and task timed changes.
+
 ---
 
 ## Sync Hooks in Existing Routes
@@ -478,9 +500,13 @@ All sync errors are logged with `console.error('[GCal sync] ...', err)` — neve
 | Route | Trigger | Calendar action |
 |---|---|---|
 | `POST /api/appointments/slots` | Slot created (single or recurring) | `createSlotEvent` per slot; saves `googleEventId` back to DB |
-| `PUT /api/appointments/slots/[id]` | Slot updated | `updateSlotEvent` |
+| `POST /api/appointments/slots` (replaceConflicts) | Old slots deleted, new ones created | Old slots deleted from DB; new ones get `createSlotEvent`. Resync cleans any leftover orphan events. |
+| `PUT /api/appointments/slots/[id]` | Slot fields updated | `updateSlotEvent` |
 | `PATCH /api/appointments/slots/[id]` | isOpen toggled | `updateSlotEvent` (color changes) |
 | `DELETE /api/appointments/slots/[id]` | Slot deleted | `deleteEvent` |
+| `POST /api/appointments/slots/bulk` (delete) | Bulk delete slots | `deleteEvent` per slot with `googleEventId` |
+| `POST /api/appointments/slots/bulk` (close) | Bulk close slots | `updateSlotEvent` with `isOpen: false` per slot |
+| `POST /api/appointments/slots/bulk` (open) | Bulk open slots | `updateSlotEvent` with `isOpen: true` per slot |
 | `POST /api/appointments/bookings` | New booking (PENDING) | `updateSlotEvent` — title: `"Cita: ⏳ Patient"`, description: phone + email + notes |
 | `PATCH /api/appointments/bookings/[id]` | Booking → CONFIRMED | `updateSlotEvent` — enriched description, conflict check; `⚠️` prefix if task overlaps |
 | `PATCH /api/appointments/bookings/[id]` | Booking → CANCELLED | `updateSlotEvent` — reverts to `"Disponible"` (teal) |
@@ -491,6 +517,7 @@ All sync errors are logged with `console.error('[GCal sync] ...', err)` — neve
 | `POST /api/medical-records/tasks` | Task created | `syncTaskCreated` — enriched description, conflict check vs active slots |
 | `PUT /api/medical-records/tasks/[id]` | Task updated | `syncTaskUpdated` — re-checks conflicts; deletes event if COMPLETADA/CANCELADA |
 | `DELETE /api/medical-records/tasks/[id]` | Task deleted | `syncTaskDeleted` |
+| `DELETE /api/medical-records/tasks/bulk` | Bulk delete tasks | `syncTaskDeleted` per task (fire-and-forget before `deleteMany`) |
 
 ---
 
@@ -611,6 +638,7 @@ The webhook always returns HTTP 200 to Google — a non-2xx response would stop 
 - [x] Railway Function cron service created (daily at 6am, calls renew-channels)
 - [x] Bug fixes merged: webhook timezone, booking cancellation sync, date display off-by-one, shared date utility
 - [x] Enhancements merged: COMPLETED/NO_SHOW states, description enrichment, conflict detection, webhook auto-renewal, resync endpoint, GoogleCalendarBanner, error logging
+- [x] Bug fixes 2026-03-11: bulk slot GCal sync, task bulk delete GCal sync, webhook date parsing, frontend logic fixes
 - [ ] Deploy code to Railway (git push to main)
 - [ ] Each doctor re-signs in with Google (to grant Calendar scope)
 - [ ] Test: go to `/dashboard/mi-perfil` → Integraciones tab → Conectar Google Calendar
@@ -636,6 +664,9 @@ Use this after connecting Google Calendar to verify all sync directions work cor
 | Toggle slot open again | Event returns to teal `"Disponible"` |
 | Edit slot time | Event start/end time updates |
 | Delete a slot | Event disappears from GCal |
+| **Bulk close** multiple slots | All selected slot events → graphite "Bloqueado" |
+| **Bulk open** multiple slots | All selected slot events → teal "Disponible" |
+| **Bulk delete** multiple slots | All selected slot events disappear from GCal |
 
 ### Bookings (App → GCal)
 
@@ -660,15 +691,16 @@ Use this after connecting Google Calendar to verify all sync directions work cor
 | Mark task as Completada | Event disappears from GCal |
 | Mark task as Cancelada | Event disappears from GCal |
 | Delete task | Event disappears from GCal |
+| **Bulk delete** multiple tasks | All selected task events disappear from GCal |
 
 ### Google Calendar → App (Webhook / bidirectional)
 
 | Action in Google Calendar | Expected in app DB |
 |---|---|
-| Drag a slot event to a new time (same day) | Slot `startTime` + `endTime` update |
-| Drag a slot event to a different day | Slot `date` updates |
-| Drag a timed task event to a new time | Task `startTime` + `endTime` update |
-| Drag a task event to a different day | Task `dueDate` updates |
+| Drag a slot event to a new time (same day) | Slot `startTime` + `endTime` update in DB |
+| Drag a slot event to a different day | Slot `date` updates to the **correct** day (noon UTC fix) |
+| Drag a timed task event to a new time | Task `startTime` + `endTime` update in DB |
+| Drag a task event to a different day | Task `dueDate` updates to the **correct** day (noon UTC fix) |
 | Delete a slot event in GCal | Slot `isOpen` → `false` in DB |
 | Delete a task event in GCal | Task `status` → `CANCELADA` in DB |
 
@@ -723,6 +755,12 @@ Use this after connecting Google Calendar to verify all sync directions work cor
 | ✅ Fixed | No conflict visibility in calendar | Confirmed bookings and timed tasks show `⚠️` prefix when an overlapping task/slot is found |
 | ✅ Fixed | Webhook channel expiry silent | `/status` now returns `channelExpiry`; UI shows expiry date (amber if < 3 days); webhook auto-renews when within 48h |
 | ✅ Fixed | No way to recover stale GCal state | New `POST /resync` endpoint does full orphan cleanup + upsert of all active records |
+| ✅ Fixed | Bulk slot operations missing GCal sync | `slots/bulk` (delete/close/open) now calls `deleteEvent`/`updateSlotEvent` per slot |
+| ✅ Fixed | Task bulk delete missing GCal sync | `tasks/bulk` DELETE now selects `googleEventId` and calls `syncTaskDeleted` per task |
+| ✅ Fixed | Webhook date parsing off-by-one | `new Date(dateStr)` → `new Date(dateStr + 'T12:00:00Z')` in all 3 webhook date writes |
+| ✅ Fixed | Frontend: active bookings filter wrong | `useAppointmentsPage` — `activeBookings` now filters by `slotId` instead of fragile date/time matching |
+| ✅ Fixed | Frontend: stale closure in `handleDelete` | `usePendientesPage` — `setTasks(tasks.filter(...))` → `setTasks(prev => prev.filter(...))` |
+| ✅ Fixed | Frontend: bulk delete uses N serial requests | `usePendientesPage` — `handleBulkDelete` now calls the bulk endpoint (atomic, single request) |
 | 🟢 Low | Local webhook testing | Dev inconvenience only, works fine in production |
 
 ---
@@ -995,3 +1033,56 @@ For each GCal event, if its `slotId` or `taskId` is not in the current active DB
 ```
 
 The "Sincronizar ahora" button in the Integraciones tab calls this endpoint and shows a human-readable summary: `"Sincronizado: 5 citas actualizadas, 3 eventos obsoletos eliminados."` or `"Todo sincronizado, sin cambios."` if all counts are 0.
+
+---
+
+### 12. Bulk Slot Operations Missing GCal Sync ✅ Fixed (2026-03-11)
+
+**What it was:**
+`POST /api/appointments/slots/bulk` supports 3 actions: `delete`, `close`, `open`. None of them synced to Google Calendar. Bulk-deleting slots left ghost events in GCal; bulk-closing/opening left events with the wrong color/title.
+
+**Current state:**
+✅ **Implemented.** Each action now fires GCal sync after the DB operation:
+
+| Action | GCal call |
+|---|---|
+| `delete` | `deleteEvent()` per slot that has a `googleEventId` |
+| `close` | `updateSlotEvent()` with `isOpen: false` — event shows "Bloqueado" (graphite) |
+| `open` | `updateSlotEvent()` with `isOpen: true` — event shows "Disponible" (teal) |
+
+All three use the same fire-and-forget `getCalendarTokens → then → ...catch` pattern as every other route. For `open`, the minimal `findFirst({ select: { doctorId } })` was replaced with `findMany` to get all slot fields needed for the event update.
+
+**Implementation:** `apps/api/src/app/api/appointments/slots/bulk/route.ts`
+
+---
+
+### 13. Task Bulk Delete Missing GCal Sync ✅ Fixed (2026-03-11)
+
+**What it was:**
+`DELETE /api/medical-records/tasks/bulk` verified task ownership but only selected `{ id: true }` — so `googleEventId` was never fetched. No GCal sync ran. Bulk-deleted tasks left orphan events in Google Calendar.
+
+**Current state:**
+✅ **Implemented.** The `findMany` select was expanded to `{ id: true, googleEventId: true }`. A loop calls `syncTaskDeleted(doctorId, task.googleEventId ?? null).catch(() => {})` for each task before `deleteMany` executes.
+
+**Implementation:** `apps/doctor/src/app/api/medical-records/tasks/bulk/route.ts`
+
+---
+
+### 14. Webhook Date Parsing Off-by-One ✅ Fixed (2026-03-11)
+
+**What it was:**
+When the webhook received a GCal event time change (doctor drags event to a new date), it stored the date as:
+```typescript
+date: new Date(newDateStr)   // e.g. new Date("2026-03-04") = midnight UTC
+```
+`new Date("2026-03-04")` parses as `2026-03-04T00:00:00.000Z` (midnight UTC). In Mexico (UTC-6) that equals `2026-03-03T18:00:00` — the **previous day**. Dragging a slot to March 4th in GCal would store March 3rd in the DB.
+
+**Current state:**
+✅ **Fixed.** Changed to `new Date(newDateStr + 'T12:00:00Z')` — noon UTC is unambiguously March 4th in all timezones. This is the same pattern used by `slots/route.ts` POST and `bookings/instant/route.ts` for all date normalization.
+
+Applied in 3 places in the webhook:
+1. Slot time change (`slotId && event.start?.dateTime`)
+2. Task all-day change (`isAllDay && event.start.date`)
+3. Task timed change (`event.start.dateTime && event.end?.dateTime`)
+
+**Implementation:** `apps/api/src/app/api/calendar/webhook/route.ts`
