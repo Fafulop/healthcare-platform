@@ -66,7 +66,7 @@ async function fetchContext(doctorId: string, now: Date): Promise<SlotContext[]>
     },
     include: {
       bookings: {
-        where: { status: { notIn: ['CANCELLED'] } },
+        where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
         select: {
           id: true,
           patientName: true,
