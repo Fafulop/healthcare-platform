@@ -9,6 +9,7 @@ import {
 } from '@/components/voice-assistant';
 import { getLocalDateString, formatLocalDate as formatDateString } from '@/lib/dates';
 import { useAppointmentsPage } from './useAppointmentsPage';
+import { AppointmentChatPanel } from './AppointmentChatPanel';
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -46,6 +47,8 @@ export default function AppointmentsPage() {
     voiceFormData, setVoiceFormData,
     handleVoiceModalComplete,
     handleVoiceConfirm,
+    chatPanelOpen, setChatPanelOpen,
+    onRefresh,
     fetchSlots,
     fetchBookings,
     deleteSlot,
@@ -100,6 +103,13 @@ export default function AppointmentsPage() {
             <p className="text-gray-600 mt-1 text-sm sm:text-base">Crea y gestiona tu disponibilidad</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <button
+              onClick={() => setChatPanelOpen(true)}
+              className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
+            >
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Chat IA Citas</span>
+            </button>
             <button
               onClick={() => setVoiceModalOpen(true)}
               className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
@@ -799,6 +809,15 @@ export default function AppointmentsPage() {
           initialData={sidebarInitialData}
         />
       )}
+
+      {/* Appointments Chat IA Panel — always mounted to preserve conversation history */}
+      <AppointmentChatPanel
+        isOpen={chatPanelOpen}
+        onClose={() => setChatPanelOpen(false)}
+        onRefresh={onRefresh}
+        slots={slots}
+        bookings={bookings}
+      />
     </div>
   );
 }

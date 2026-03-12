@@ -12,8 +12,8 @@
 | 1 | `apps/doctor/src/app/api/appointments-chat/route.ts` | ✅ Done — commit `ad98af45` |
 | 2 | `apps/doctor/src/hooks/useAppointmentsChat.ts` | ✅ Done — commit `12813dab` |
 | 3 | `apps/doctor/src/app/appointments/AppointmentChatPanel.tsx` | ✅ Done — uncommitted |
-| 4 | `apps/doctor/src/app/appointments/useAppointmentsPage.ts` | ⏳ Next |
-| 5 | `apps/doctor/src/app/appointments/page.tsx` | ⏳ Pending |
+| 4 | `apps/doctor/src/app/appointments/useAppointmentsPage.ts` | ✅ Done |
+| 5 | `apps/doctor/src/app/appointments/page.tsx` | ✅ Done |
 
 ---
 
@@ -111,7 +111,7 @@ interface UseAppointmentsChatOptions {
 
 ---
 
-## Step 4 — useAppointmentsPage changes ⏳ (next)
+## Step 4 — useAppointmentsPage changes ✅
 
 **File:** `apps/doctor/src/app/appointments/useAppointmentsPage.ts`
 
@@ -131,7 +131,7 @@ return { ...existingReturn, chatPanelOpen, setChatPanelOpen, onRefresh };
 
 ---
 
-## Step 5 — page.tsx changes ⏳
+## Step 5 — page.tsx changes ✅
 
 **File:** `apps/doctor/src/app/appointments/page.tsx`
 

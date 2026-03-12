@@ -72,6 +72,8 @@ export function useAppointmentsPage() {
   const [bookingFilterPatient, setBookingFilterPatient] = useState<string>("");
   const [bookingFilterStatus, setBookingFilterStatus] = useState<string>("");
 
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
+
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
   const [bookPatientPreSlot, setBookPatientPreSlot] = useState<AppointmentSlot | null>(null);
 
@@ -442,6 +444,11 @@ export function useAppointmentsPage() {
   for (let i = 0; i < startDayOfWeek; i++) calendarDays.push(null);
   for (let day = 1; day <= daysInMonth; day++) calendarDays.push(day);
 
+  const onRefresh = useCallback(async () => {
+    await fetchSlots();
+    await fetchBookings();
+  }, [fetchSlots, fetchBookings]);
+
   const toggleAllSlots = () => {
     const visibleSlots = viewMode === "list" ? visibleListSlots : slots;
     const allSelected = visibleSlots.every(s => selectedSlots.has(s.id));
@@ -489,6 +496,9 @@ export function useAppointmentsPage() {
     bookingFilterDate, setBookingFilterDate,
     bookingFilterPatient, setBookingFilterPatient,
     bookingFilterStatus, setBookingFilterStatus,
+    // Chat IA panel
+    chatPanelOpen, setChatPanelOpen,
+    onRefresh,
     // Book modal
     bookPatientModalOpen, setBookPatientModalOpen,
     bookPatientPreSlot, setBookPatientPreSlot,
