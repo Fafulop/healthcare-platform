@@ -11,6 +11,23 @@ import { getLocalDateString, formatLocalDate as formatDateString } from '@/lib/d
 import { useAppointmentsPage } from './useAppointmentsPage';
 import { AppointmentChatPanel } from './AppointmentChatPanel';
 
+const STATUS_LABEL: Record<string, string> = {
+  PENDING:   'PENDIENTE',
+  CONFIRMED: 'AGENDADA',
+  COMPLETED: 'COMPLETADA',
+  NO_SHOW:   'NO ASISTIÓ',
+  CANCELLED: 'CANCELADA',
+};
+
+function getStatusLabel(status: string, slotEndTime?: string, slotDate?: string): string {
+  if ((status === 'PENDING' || status === 'CONFIRMED') && slotEndTime && slotDate) {
+    const nowLocal = new Date().toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
+    const slotEndStr = `${slotDate.split('T')[0]} ${slotEndTime}:00`;
+    if (slotEndStr < nowLocal) return 'VENCIDA';
+  }
+  return STATUS_LABEL[status] ?? status;
+}
+
 const getStatusIcon = (status: string) => {
   switch (status) {
     case "CONFIRMED": return <CheckCircle className="w-4 h-4" />;
@@ -278,7 +295,7 @@ export default function AppointmentsPage() {
                         </div>
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(booking.status, booking.slot.endTime, booking.slot.date)}`}>
                           {getStatusIcon(booking.status)}
-                          {booking.status}
+                          {getStatusLabel(booking.status, booking.slot.endTime, booking.slot.date)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs text-gray-600">
@@ -374,7 +391,7 @@ export default function AppointmentsPage() {
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status, booking.slot.endTime, booking.slot.date)}`}>
                               {getStatusIcon(booking.status)}
-                              {booking.status}
+                              {getStatusLabel(booking.status, booking.slot.endTime, booking.slot.date)}
                             </span>
                           </td>
                           <td className="py-3 px-4">

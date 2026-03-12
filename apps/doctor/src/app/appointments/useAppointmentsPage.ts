@@ -69,7 +69,7 @@ export function useAppointmentsPage() {
   const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
   const [showAllSlots, setShowAllSlots] = useState(false);
   const [bookingsCollapsed, setBookingsCollapsed] = useState(false);
-  const [bookingFilterDate, setBookingFilterDate] = useState<string>("");
+  const [bookingFilterDate, setBookingFilterDate] = useState<string>(getLocalDateString(new Date()));
   const [bookingFilterPatient, setBookingFilterPatient] = useState<string>("");
   const [bookingFilterStatus, setBookingFilterStatus] = useState<string>("");
 
