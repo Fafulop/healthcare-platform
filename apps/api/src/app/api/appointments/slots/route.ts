@@ -337,14 +337,27 @@ export async function POST(request: Request) {
         });
       });
 
-      // If replaceConflicts, delete existing slots first (atomic with creation)
+      // If replaceConflicts, delete existing slots that have NO active bookings.
+      // Slots with active bookings cannot be silently deleted — that would destroy patient appointments.
       if (replaceConflicts && existingSlots.length > 0) {
-        await prisma.appointmentSlot.deleteMany({
-          where: {
-            id: {
-              in: existingSlots.map((s) => s.id),
+        const slotsWithActiveBookings = existingSlots.filter(s => s.bookings.length > 0);
+        if (slotsWithActiveBookings.length > 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `No se pueden reemplazar ${slotsWithActiveBookings.length} horario(s) porque tienen citas activas. Cancela las citas primero.`,
+              conflicts: slotsWithActiveBookings.map(s => ({
+                id: s.id,
+                startTime: s.startTime,
+                endTime: s.endTime,
+                hasActiveBookings: true,
+              })),
             },
-          },
+            { status: 409 }
+          );
+        }
+        await prisma.appointmentSlot.deleteMany({
+          where: { id: { in: existingSlots.map((s) => s.id) } },
         });
       }
 
@@ -521,14 +534,28 @@ export async function POST(request: Request) {
         });
       });
 
-      // If replaceConflicts, delete existing slots first
+      // If replaceConflicts, delete existing slots that have NO active bookings.
+      // Slots with active bookings cannot be silently deleted — that would destroy patient appointments.
       if (replaceConflicts && existingSlots.length > 0) {
-        await prisma.appointmentSlot.deleteMany({
-          where: {
-            id: {
-              in: existingSlots.map((s) => s.id),
+        const slotsWithActiveBookings = existingSlots.filter(s => s.bookings.length > 0);
+        if (slotsWithActiveBookings.length > 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `No se pueden reemplazar ${slotsWithActiveBookings.length} horario(s) porque tienen citas activas. Cancela las citas primero.`,
+              conflicts: slotsWithActiveBookings.map(s => ({
+                id: s.id,
+                startTime: s.startTime,
+                endTime: s.endTime,
+                date: s.date,
+                hasActiveBookings: true,
+              })),
             },
-          },
+            { status: 409 }
+          );
+        }
+        await prisma.appointmentSlot.deleteMany({
+          where: { id: { in: existingSlots.map((s) => s.id) } },
         });
       }
 

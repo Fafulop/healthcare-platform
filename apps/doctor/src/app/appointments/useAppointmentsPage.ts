@@ -339,6 +339,11 @@ export function useAppointmentsPage() {
       return;
     }
 
+    if (slot && newIsOpen && slot.currentBookings >= slot.maxBookings) {
+      toast.error(`Este horario ya está lleno (${slot.currentBookings}/${slot.maxBookings} reservas). No se puede abrir para nuevas citas.`);
+      return;
+    }
+
     try {
       const response = await authFetch(
         `${API_URL}/api/appointments/slots/${slotId}`,

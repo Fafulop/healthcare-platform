@@ -84,40 +84,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if slot exists and is available
-    const slot = await prisma.appointmentSlot.findUnique({
+    // Pre-flight: verify slot exists and belongs to the right doctor (for service validation).
+    // The critical availability check (isOpen, currentBookings) happens inside the transaction below.
+    const slotForValidation = await prisma.appointmentSlot.findUnique({
       where: { id: slotId },
-      include: {
-        bookings: {
-          where: { status: { notIn: ['CANCELLED'] } },
-        },
-      },
     });
 
-    if (!slot) {
+    if (!slotForValidation) {
       return NextResponse.json(
         { success: false, error: 'Appointment slot not found' },
         { status: 404 }
       );
     }
 
-    if (!slot.isOpen) {
-      return NextResponse.json(
-        { success: false, error: 'This slot is not available for booking' },
-        { status: 400 }
-      );
-    }
-
-    if (slot.currentBookings >= slot.maxBookings) {
-      return NextResponse.json(
-        { success: false, error: 'This slot is fully booked' },
-        { status: 400 }
-      );
-    }
-
     // Validate service selection
     const doctorServicesCount = await prisma.service.count({
-      where: { doctorId: slot.doctorId },
+      where: { doctorId: slotForValidation.doctorId },
     });
 
     if (doctorServicesCount > 0 && !serviceId) {
@@ -131,7 +113,7 @@ export async function POST(request: Request) {
     let servicePrice: number = 0;
     if (serviceId) {
       const service = await prisma.service.findFirst({
-        where: { id: serviceId, doctorId: slot.doctorId },
+        where: { id: serviceId, doctorId: slotForValidation.doctorId },
       });
       if (!service) {
         return NextResponse.json(
@@ -147,36 +129,54 @@ export async function POST(request: Request) {
     const confirmationCode = generateConfirmationCode();
     const reviewToken = generateReviewToken();
 
-    // Create booking and update slot in a transaction
-    const [booking, updatedSlot] = await prisma.$transaction([
-      prisma.booking.create({
-        data: {
-          slotId,
-          doctorId: slot.doctorId,
-          patientName,
-          patientEmail,
-          patientPhone,
-          patientWhatsapp,
-          notes,
-          serviceId: serviceId || null,
-          serviceName,
-          isFirstTime: isFirstTime ?? null,
-          appointmentMode: appointmentMode || null,
-          finalPrice: servicePrice,
-          confirmationCode,
-          reviewToken,
-          status: 'PENDING',
-        },
-      }),
-      prisma.appointmentSlot.update({
-        where: { id: slotId },
-        data: {
-          currentBookings: { increment: 1 },
-          // Note: Availability is now determined by isOpen and currentBookings < maxBookings
-          // No need to update status field (removed from schema)
-        },
-      }),
-    ]);
+    // Create booking atomically: re-check availability INSIDE the transaction to prevent
+    // race-condition double-booking (two concurrent requests seeing the same slot state).
+    let booking: any;
+    let slot: any;
+    try {
+      [booking, slot] = await prisma.$transaction(async (tx) => {
+        const freshSlot = await tx.appointmentSlot.findUnique({ where: { id: slotId } });
+        if (!freshSlot) throw Object.assign(new Error('SLOT_NOT_FOUND'), { bookingError: true });
+        if (!freshSlot.isOpen) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
+        if (freshSlot.currentBookings >= freshSlot.maxBookings) throw Object.assign(new Error('SLOT_FULL'), { bookingError: true });
+
+        const b = await tx.booking.create({
+          data: {
+            slotId,
+            doctorId: freshSlot.doctorId,
+            patientName,
+            patientEmail,
+            patientPhone,
+            patientWhatsapp,
+            notes,
+            serviceId: serviceId || null,
+            serviceName,
+            isFirstTime: isFirstTime ?? null,
+            appointmentMode: appointmentMode || null,
+            finalPrice: servicePrice,
+            confirmationCode,
+            reviewToken,
+            status: 'PENDING',
+          },
+        });
+        const s = await tx.appointmentSlot.update({
+          where: { id: slotId },
+          data: { currentBookings: { increment: 1 } },
+        });
+        return [b, s];
+      });
+    } catch (txErr: any) {
+      if (txErr?.bookingError) {
+        const msg = txErr.message === 'SLOT_NOT_FOUND'
+          ? 'Appointment slot not found'
+          : txErr.message === 'SLOT_CLOSED'
+          ? 'This slot is not available for booking'
+          : 'This slot is fully booked';
+        const status = txErr.message === 'SLOT_NOT_FOUND' ? 404 : 400;
+        return NextResponse.json({ success: false, error: msg }, { status });
+      }
+      throw txErr;
+    }
 
     // Include slot details in response
     const bookingWithSlot = await prisma.booking.findUnique({

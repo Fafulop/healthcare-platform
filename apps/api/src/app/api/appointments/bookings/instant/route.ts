@@ -108,62 +108,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const endTime = calcEndTime(startTime, durationNum);
+    // Normalize startTime to HH:MM (strip seconds if browser sends HH:MM:SS)
+    const normalizedStartTime = startTime.length > 5 ? startTime.slice(0, 5) : startTime;
+    const endTime = calcEndTime(normalizedStartTime, durationNum);
 
     // Normalize date to midnight UTC (same as slot creation API)
     const slotDate = new Date(date + 'T12:00:00Z');
     slotDate.setUTCHours(0, 0, 0, 0);
 
-    // Check if a slot already exists at this date+time
-    let slot = await prisma.appointmentSlot.findFirst({
-      where: { doctorId, date: slotDate, startTime },
-    });
-
-    if (slot) {
-      if (!slot.isInstant) {
-        // A pre-planned regular slot exists at this time.
-        // "Nuevo horario" must not overwrite it — use "Horarios disponibles" instead.
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Ya existe un horario a las ${startTime} del ${date}. Para agendar en él, usa "Horarios disponibles".`,
-          },
-          { status: 409 }
-        );
-      }
-      // Instant slot exists — it must be open and not full (i.e. its booking is still active).
-      // This should not happen in normal flow (cancelled instant slots are deleted),
-      // but guard against orphaned slots just in case.
-      if (!slot.isOpen || slot.currentBookings >= slot.maxBookings) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Ya tienes una cita a las ${startTime} del ${date}. Cancélala primero o elige otra hora.`,
-          },
-          { status: 409 }
-        );
-      }
-      // Orphaned instant slot (open, no booking) — reuse it.
-    } else {
-      // Create a new slot on the fly (price stored as 0 — actual price comes from service)
-      slot = await prisma.appointmentSlot.create({
-        data: {
-          doctorId,
-          date: slotDate,
-          startTime,
-          endTime,
-          duration: durationNum,
-          basePrice: 0,
-          finalPrice: 0,
-          isOpen: true,
-          currentBookings: 0,
-          maxBookings: 1,
-          isInstant: true,
-        },
-      });
-    }
-
-    // Resolve service name and price
+    // Resolve service name and price before the transaction
     let serviceName: string | null = null;
     let finalPrice = 0;
     if (serviceId) {
@@ -176,37 +129,94 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create booking + confirm in a single transaction
+    // All slot-check + slot-create/reuse + booking-create logic is in ONE atomic transaction.
+    // orderBy isInstant asc ensures a regular slot (false) is preferred over an instant slot (true)
+    // when both somehow exist at the same time, so the 409 guard always fires for regular slots.
     const confirmationCode = generateConfirmationCode();
     const reviewToken = generateReviewToken();
 
-    const booking = await prisma.$transaction(async (tx) => {
-      const b = await tx.booking.create({
-        data: {
-          slotId: slot!.id,
-          doctorId,
-          patientName,
-          patientEmail,
-          patientPhone,
-          patientWhatsapp: patientWhatsapp || null,
-          notes: notes || null,
-          serviceId: serviceId || null,
-          serviceName,
-          isFirstTime: isFirstTime ?? null,
-          appointmentMode: appointmentMode || null,
-          finalPrice,
-          confirmationCode,
-          reviewToken,
-          status: 'CONFIRMED',
-          confirmedAt: new Date(),
-        },
-      });
-      await tx.appointmentSlot.update({
-        where: { id: slot!.id },
-        data: { currentBookings: { increment: 1 } },
-      });
-      return b;
-    });
+    let slot: any;
+    let booking: any;
+    try {
+      ({ slot, booking } = await prisma.$transaction(async (tx) => {
+        const existingSlot = await tx.appointmentSlot.findFirst({
+          where: { doctorId, date: slotDate, startTime: normalizedStartTime },
+          orderBy: { isInstant: 'asc' }, // regular slots (false) first
+        });
+
+        let resolvedSlot: any;
+
+        if (existingSlot) {
+          if (!existingSlot.isInstant) {
+            // A pre-planned regular slot exists — "Nuevo horario" must not overwrite it.
+            throw Object.assign(
+              new Error(`Ya existe un horario a las ${normalizedStartTime} del ${date}. Para agendar en él, usa "Horarios disponibles".`),
+              { isConflict: true, status: 409 }
+            );
+          }
+          // Instant slot exists — guard against occupied or closed orphaned slots.
+          if (!existingSlot.isOpen || existingSlot.currentBookings >= existingSlot.maxBookings) {
+            throw Object.assign(
+              new Error(`Ya tienes una cita a las ${normalizedStartTime} del ${date}. Cancélala primero o elige otra hora.`),
+              { isConflict: true, status: 409 }
+            );
+          }
+          // Orphaned instant slot (open, 0 bookings) — reuse it.
+          resolvedSlot = existingSlot;
+        } else {
+          // Create a new instant slot on the fly.
+          resolvedSlot = await tx.appointmentSlot.create({
+            data: {
+              doctorId,
+              date: slotDate,
+              startTime: normalizedStartTime,
+              endTime,
+              duration: durationNum,
+              basePrice: 0,
+              finalPrice: 0,
+              isOpen: true,
+              currentBookings: 0,
+              maxBookings: 1,
+              isInstant: true,
+            },
+          });
+        }
+
+        const b = await tx.booking.create({
+          data: {
+            slotId: resolvedSlot.id,
+            doctorId,
+            patientName,
+            patientEmail,
+            patientPhone,
+            patientWhatsapp: patientWhatsapp || null,
+            notes: notes || null,
+            serviceId: serviceId || null,
+            serviceName,
+            isFirstTime: isFirstTime ?? null,
+            appointmentMode: appointmentMode || null,
+            finalPrice,
+            confirmationCode,
+            reviewToken,
+            status: 'CONFIRMED',
+            confirmedAt: new Date(),
+          },
+        });
+        await tx.appointmentSlot.update({
+          where: { id: resolvedSlot.id },
+          data: { currentBookings: { increment: 1 } },
+        });
+        return { slot: resolvedSlot, booking: b };
+      }));
+    } catch (txErr: any) {
+      if (txErr?.isConflict) {
+        return NextResponse.json(
+          { success: false, error: txErr.message },
+          { status: txErr.status ?? 409 }
+        );
+      }
+      throw txErr;
+    }
 
     // Log activity
     logBookingCreated({
@@ -216,7 +226,7 @@ export async function POST(request: Request) {
       patientEmail,
       patientPhone,
       date,
-      time: `${startTime}-${endTime}`,
+      time: `${normalizedStartTime}-${endTime}`,
       confirmationCode,
       finalPrice,
     });
@@ -225,9 +235,9 @@ export async function POST(request: Request) {
     getCalendarTokens(doctorId).then(async tokens => {
       if (!tokens) return;
       const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, {
-        id: slot!.id,
+        id: slot.id,
         date,
-        startTime,
+        startTime: normalizedStartTime,
         endTime,
         isOpen: false,
         patientName,
@@ -237,7 +247,7 @@ export async function POST(request: Request) {
         finalPrice,
       });
       await prisma.appointmentSlot.update({
-        where: { id: slot!.id },
+        where: { id: slot.id },
         data: { googleEventId: eventId },
       });
     }).catch((err) => console.error('[GCal sync] createSlotEvent (instant booking):', err));
@@ -249,7 +259,7 @@ export async function POST(request: Request) {
         data: {
           confirmationCode,
           bookingId: booking.id,
-          slot: { date, startTime, endTime, duration: durationNum, finalPrice },
+          slot: { date, startTime: normalizedStartTime, endTime, duration: durationNum, finalPrice },
         },
       },
       { status: 201 }
