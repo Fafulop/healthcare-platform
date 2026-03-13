@@ -10,10 +10,7 @@ import {
   createSlotEvent,
   createTaskEvent,
   resolveTokens,
-  watchCalendar,
-  stopCalendarWatch,
 } from "@/lib/google-calendar";
-import crypto from "crypto";
 
 export async function POST(
   request: Request,
@@ -29,8 +26,6 @@ export async function POST(
         id: true,
         googleCalendarId: true,
         googleCalendarEnabled: true,
-        googleChannelId: true,
-        googleChannelResourceId: true,
         user: {
           select: {
             id: true,
@@ -173,60 +168,12 @@ export async function POST(
       }
     }
 
-    // ── Set up push notifications for bidirectional sync ──
-    const webhookUrl = process.env.NEXT_PUBLIC_API_URL
-      ? `${process.env.NEXT_PUBLIC_API_URL}/api/calendar/webhook`
-      : null;
-
-    let channelExpiry: string | null = null;
-
-    if (webhookUrl && process.env.GOOGLE_CALENDAR_WEBHOOK_SECRET) {
-      try {
-        // Stop existing channel before creating a new one (safe to call even if none exists)
-        if (doctor.googleChannelId && doctor.googleChannelResourceId) {
-          await stopCalendarWatch(
-            accessToken,
-            refreshToken,
-            doctor.googleChannelId,
-            doctor.googleChannelResourceId
-          ).catch(() => {}); // Ignore errors — old channel may already be expired
-        }
-
-        // Generate a unique channel ID for this doctor
-        const newChannelId = `doctor_${doctor.id}_${crypto.randomBytes(4).toString("hex")}`;
-
-        const { resourceId, expiration } = await watchCalendar(
-          accessToken,
-          refreshToken,
-          calendarId,
-          webhookUrl,
-          newChannelId,
-          process.env.GOOGLE_CALENDAR_WEBHOOK_SECRET
-        );
-
-        await prisma.doctor.update({
-          where: { id: doctor.id },
-          data: {
-            googleChannelId: newChannelId,
-            googleChannelResourceId: resourceId,
-            googleChannelExpiry: new Date(Number(expiration)),
-          },
-        });
-
-        channelExpiry = new Date(Number(expiration)).toISOString();
-      } catch (err) {
-        // Webhook setup failure is non-fatal — sync still works app → Google
-        console.warn("[Google Calendar connect] Webhook setup failed:", err);
-      }
-    }
-
+    // Sync is intentionally one-way: app → GCal only. No webhook channel is set up.
     return NextResponse.json({
       success: true,
       calendarId,
       syncedSlots: slots.length,
       syncedTasks: tasks.length,
-      webhookActive: !!channelExpiry,
-      channelExpiry,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
