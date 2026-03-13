@@ -234,7 +234,7 @@ export async function POST(request: Request) {
 
     // Send SMS notifications (async, non-blocking)
     const smsEnabled = await isSMSEnabled();
-    if (smsEnabled && bookingWithSlot) {
+    if (smsEnabled && bookingWithSlot?.slot) {
       const smsDetails = {
         patientName,
         patientPhone: patientPhone,
