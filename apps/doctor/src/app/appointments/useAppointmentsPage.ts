@@ -264,7 +264,8 @@ export function useAppointmentsPage() {
       );
       const data = await response.json();
 
-      if (data.success) {
+      // 404 = slot was already deleted (e.g. instant slot removed when its booking was cancelled above)
+      if (data.success || response.status === 404) {
         toast.success("Horario eliminado exitosamente");
         fetchSlots();
         fetchBookings();
@@ -301,7 +302,7 @@ export function useAppointmentsPage() {
   };
 
   const deleteBooking = async (bookingId: string, patientName: string) => {
-    if (!await practiceConfirm(`¿Eliminar la cita de ${patientName}? También se eliminará el horario asociado. Esta acción no se puede deshacer.`)) return;
+    if (!await practiceConfirm(`¿Eliminar el registro de la cita de ${patientName}? Esta acción no se puede deshacer.`)) return;
 
     try {
       const response = await authFetch(

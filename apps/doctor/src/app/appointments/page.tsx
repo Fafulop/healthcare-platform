@@ -324,7 +324,7 @@ export default function AppointmentsPage() {
                               <button onClick={() => updateBookingStatus(booking.id, "CANCELLED")} className="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-[10px] font-medium">Cancelar</button>
                             </>
                           )}
-                          <button onClick={() => deleteBooking(booking.id, booking.patientName)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar cita y horario">
+                          <button onClick={() => deleteBooking(booking.id, booking.patientName)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar cita">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -415,7 +415,7 @@ export default function AppointmentsPage() {
                                   <button onClick={() => updateBookingStatus(booking.id, "CANCELLED")} className="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs font-medium">Cancelar</button>
                                 </>
                               )}
-                              <button onClick={() => deleteBooking(booking.id, booking.patientName)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar cita y horario">
+                              <button onClick={() => deleteBooking(booking.id, booking.patientName)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar cita">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
