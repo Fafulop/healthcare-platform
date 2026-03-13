@@ -5,36 +5,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { logSlotDeleted, logSlotOpened, logSlotClosed, logSlotUpdated } from '@/lib/activity-logger';
-import { updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
-
-async function getCalendarTokens(doctorId: string) {
-  const doctor = await prisma.doctor.findUnique({
-    where: { id: doctorId },
-    select: {
-      googleCalendarId: true,
-      googleCalendarEnabled: true,
-      user: {
-        select: {
-          id: true,
-          googleAccessToken: true,
-          googleRefreshToken: true,
-          googleTokenExpiry: true,
-        },
-      },
-    },
-  });
-  if (!doctor?.googleCalendarEnabled || !doctor.googleCalendarId || !doctor.user) return null;
-  try {
-    const { accessToken, refreshToken, updatedToken } = await resolveTokens(doctor.user);
-    if (updatedToken) {
-      await prisma.user.update({
-        where: { id: doctor.user.id },
-        data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
-      });
-    }
-    return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
-  } catch { return null; }
-}
 
 // Helper function to calculate final price
 function calculateFinalPrice(
@@ -138,22 +108,6 @@ export async function PUT(
       });
     }
 
-    // Sync to Google Calendar (fire-and-forget)
-    if (updated.googleEventId) {
-      getCalendarTokens(existingSlot.doctorId).then(tokens => {
-        if (!tokens) return;
-        const dateStr = updated.date.toISOString().split('T')[0];
-        updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, updated.googleEventId!, {
-          id: updated.id,
-          date: dateStr,
-          startTime: updated.startTime,
-          endTime: updated.endTime,
-          isOpen: updated.isOpen,
-          finalPrice: updated.finalPrice.toNumber(),
-        }).catch((err) => console.error('[GCal sync] updateSlotEvent (PUT):', err));
-      }).catch((err) => console.error('[GCal sync] getCalendarTokens (PUT):', err));
-    }
-
     return NextResponse.json({
       success: true,
       data: updated,
@@ -204,14 +158,6 @@ export async function DELETE(
         },
         { status: 400 }
       );
-    }
-
-    // Sync deletion to Google Calendar (fire-and-forget, before DB delete)
-    if (slot.googleEventId) {
-      getCalendarTokens(slot.doctorId).then(tokens => {
-        if (!tokens) return;
-        deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!).catch((err) => console.error('[GCal sync] deleteEvent (slot DELETE):', err));
-      }).catch((err) => console.error('[GCal sync] getCalendarTokens (slot DELETE):', err));
     }
 
     await prisma.appointmentSlot.delete({
@@ -315,22 +261,6 @@ export async function PATCH(
         endTime: updated.endTime,
         date: dateStr,
       });
-    }
-
-    // Sync to Google Calendar (fire-and-forget)
-    if (updated.googleEventId) {
-      getCalendarTokens(updated.doctorId).then(tokens => {
-        if (!tokens) return;
-        const dateStr = updated.date.toISOString().split('T')[0];
-        updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, updated.googleEventId!, {
-          id: updated.id,
-          date: dateStr,
-          startTime: updated.startTime,
-          endTime: updated.endTime,
-          isOpen: updated.isOpen,
-          finalPrice: updated.finalPrice.toNumber(),
-        }).catch((err) => console.error('[GCal sync] updateSlotEvent (PATCH isOpen):', err));
-      }).catch((err) => console.error('[GCal sync] getCalendarTokens (PATCH isOpen):', err));
     }
 
     return NextResponse.json({

@@ -5,36 +5,6 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
 import { logSlotsCreated } from '@/lib/activity-logger';
-import { createSlotEvent, resolveTokens } from '@/lib/google-calendar';
-
-async function getCalendarTokens(doctorId: string) {
-  const doctor = await prisma.doctor.findUnique({
-    where: { id: doctorId },
-    select: {
-      googleCalendarId: true,
-      googleCalendarEnabled: true,
-      user: {
-        select: {
-          id: true,
-          googleAccessToken: true,
-          googleRefreshToken: true,
-          googleTokenExpiry: true,
-        },
-      },
-    },
-  });
-  if (!doctor?.googleCalendarEnabled || !doctor.googleCalendarId || !doctor.user) return null;
-  try {
-    const { accessToken, refreshToken, updatedToken } = await resolveTokens(doctor.user);
-    if (updatedToken) {
-      await prisma.user.update({
-        where: { id: doctor.user.id },
-        data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
-      });
-    }
-    return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
-  } catch { return null; }
-}
 
 // Helper function to calculate final price
 function calculateFinalPrice(
@@ -396,27 +366,6 @@ export async function POST(request: Request) {
         basePrice,
       });
 
-      // Sync new slots to Google Calendar (fire-and-forget)
-      getCalendarTokens(doctorId).then(async tokens => {
-        if (!tokens) return;
-        const newSlots = await prisma.appointmentSlot.findMany({
-          where: { doctorId, date: slotDate, googleEventId: null },
-        });
-        for (const slot of newSlots) {
-          try {
-            const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, {
-              id: slot.id,
-              date: slot.date.toISOString().split('T')[0],
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-              isOpen: slot.isOpen,
-              finalPrice: slot.finalPrice.toNumber(),
-            });
-            await prisma.appointmentSlot.update({ where: { id: slot.id }, data: { googleEventId: eventId } });
-          } catch { /* continue with remaining slots */ }
-        }
-      }).catch((err) => console.error('[GCal sync] createSlotEvent (single):', err));
-
       return NextResponse.json({
         success: true,
         message: `Created ${created.count} slots`,
@@ -601,27 +550,6 @@ export async function POST(request: Request) {
         duration,
         basePrice,
       });
-
-      // Sync new slots to Google Calendar (fire-and-forget)
-      getCalendarTokens(doctorId).then(async tokens => {
-        if (!tokens) return;
-        const newSlots = await prisma.appointmentSlot.findMany({
-          where: { doctorId, date: { in: uniqueDates }, googleEventId: null },
-        });
-        for (const slot of newSlots) {
-          try {
-            const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, {
-              id: slot.id,
-              date: slot.date.toISOString().split('T')[0],
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-              isOpen: slot.isOpen,
-              finalPrice: slot.finalPrice.toNumber(),
-            });
-            await prisma.appointmentSlot.update({ where: { id: slot.id }, data: { googleEventId: eventId } });
-          } catch { /* continue with remaining slots */ }
-        }
-      }).catch((err) => console.error('[GCal sync] createSlotEvent (recurring):', err));
 
       return NextResponse.json({
         success: true,

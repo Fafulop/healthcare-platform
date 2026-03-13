@@ -13,7 +13,7 @@ import {
   logBookingNoShow,
   logSlotDeleted,
 } from '@/lib/activity-logger';
-import { updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
+import { createSlotEvent, updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
 
 async function getCalendarTokens(doctorId: string) {
   const doctor = await prisma.doctor.findUnique({
@@ -219,27 +219,14 @@ export async function PATCH(
       else if (newStatus === 'COMPLETED') logBookingCompleted(bookingLogParams);
       else if (newStatus === 'NO_SHOW') logBookingNoShow(bookingLogParams);
 
-      // CANCELLED GCal sync:
-      // - Instant slot → delete the event (slot is permanently closed, no longer relevant)
-      // - Regular slot → revert event to "Disponible" (slot is open for re-booking)
+      // CANCELLED GCal sync: delete the event for both slot types.
+      // - Instant slot: permanently closed, event no longer relevant
+      // - Regular slot: goes invisible until a new booking is confirmed
       if (newStatus === 'CANCELLED' && currentBooking.slot.googleEventId) {
         getCalendarTokens(currentBooking.doctorId).then(tokens => {
           if (!tokens) return;
-          if (isInstantSlot) {
-            deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!)
-              .catch((err) => console.error('[GCal sync] deleteEvent (instant booking CANCELLED):', err));
-          } else {
-            const dateStr = currentBooking.slot.date.toISOString().split('T')[0];
-            updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!, {
-              id: currentBooking.slot.id,
-              date: dateStr,
-              startTime: currentBooking.slot.startTime,
-              endTime: currentBooking.slot.endTime,
-              isOpen: true,
-              patientName: undefined,
-              finalPrice: currentBooking.slot.finalPrice.toNumber(),
-            }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking CANCELLED):', err));
-          }
+          deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!)
+            .catch((err) => console.error('[GCal sync] deleteEvent (booking CANCELLED):', err));
         }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking CANCELLED):', err));
       }
 
@@ -337,48 +324,60 @@ export async function PATCH(
       });
     }
 
-    // Sync slot event title to Google Calendar (fire-and-forget)
-    if (updatedBooking.slot.googleEventId) {
-      getCalendarTokens(currentBooking.doctorId).then(async tokens => {
-        if (!tokens) return;
-        const dateStr = updatedBooking.slot.date.toISOString().split('T')[0];
+    // Sync to Google Calendar (fire-and-forget)
+    // Regular slots have no event until confirmed — create one here if needed.
+    getCalendarTokens(currentBooking.doctorId).then(async tokens => {
+      if (!tokens) return;
+      const dateStr = updatedBooking.slot.date.toISOString().split('T')[0];
 
-        // When confirming, check if any active tasks overlap this slot's time
-        let conflictNote: string | undefined;
-        if (newStatus === 'CONFIRMED') {
-          const dayTasks = await prisma.task.findMany({
-            where: {
-              doctorId: currentBooking.doctorId,
-              dueDate: updatedBooking.slot.date,
-              status: { in: ['PENDIENTE', 'EN_PROGRESO'] },
-            },
-            select: { title: true, startTime: true, endTime: true },
-          });
-          const hit = dayTasks.find(t =>
-            t.startTime && t.endTime &&
-            t.startTime < updatedBooking.slot.endTime &&
-            t.endTime > updatedBooking.slot.startTime
-          );
-          if (hit) {
-            conflictNote = `⚠️ Conflicto: pendiente "${hit.title}"${hit.startTime ? ` a las ${hit.startTime}` : ''}`;
-          }
+      // When confirming, check if any active tasks overlap this slot's time
+      let conflictNote: string | undefined;
+      if (newStatus === 'CONFIRMED') {
+        const dayTasks = await prisma.task.findMany({
+          where: {
+            doctorId: currentBooking.doctorId,
+            dueDate: updatedBooking.slot.date,
+            status: { in: ['PENDIENTE', 'EN_PROGRESO'] },
+          },
+          select: { title: true, startTime: true, endTime: true },
+        });
+        const hit = dayTasks.find(t =>
+          t.startTime && t.endTime &&
+          t.startTime < updatedBooking.slot.endTime &&
+          t.endTime > updatedBooking.slot.startTime
+        );
+        if (hit) {
+          conflictNote = `⚠️ Conflicto: pendiente "${hit.title}"${hit.startTime ? ` a las ${hit.startTime}` : ''}`;
         }
+      }
 
-        updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, updatedBooking.slot.googleEventId!, {
-          id: updatedBooking.slot.id,
-          date: dateStr,
-          startTime: updatedBooking.slot.startTime,
-          endTime: updatedBooking.slot.endTime,
-          isOpen: updatedBooking.slot.isOpen,
-          patientName: newStatus === 'CONFIRMED' ? updatedBooking.patientName : undefined,
-          bookingStatus: newStatus as 'CONFIRMED' | 'PENDING',
-          patientPhone: newStatus === 'CONFIRMED' ? updatedBooking.patientPhone : undefined,
-          patientNotes: newStatus === 'CONFIRMED' ? (updatedBooking.notes ?? undefined) : undefined,
-          conflictNote,
-          finalPrice: updatedBooking.slot.finalPrice.toNumber(),
-        }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking CONFIRMED):', err));
-      }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking CONFIRMED):', err));
-    }
+      const slotEventData = {
+        id: updatedBooking.slot.id,
+        date: dateStr,
+        startTime: updatedBooking.slot.startTime,
+        endTime: updatedBooking.slot.endTime,
+        isOpen: updatedBooking.slot.isOpen,
+        patientName: newStatus === 'CONFIRMED' ? updatedBooking.patientName : undefined,
+        bookingStatus: newStatus as 'CONFIRMED' | 'PENDING',
+        patientPhone: newStatus === 'CONFIRMED' ? updatedBooking.patientPhone : undefined,
+        patientNotes: newStatus === 'CONFIRMED' ? (updatedBooking.notes ?? undefined) : undefined,
+        conflictNote,
+        finalPrice: updatedBooking.slot.finalPrice.toNumber(),
+      };
+
+      if (updatedBooking.slot.googleEventId) {
+        // Event already exists (instant slot or legacy slot) — update it
+        updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, updatedBooking.slot.googleEventId, slotEventData)
+          .catch((err) => console.error('[GCal sync] updateSlotEvent (booking CONFIRMED):', err));
+      } else {
+        // No event yet (regular slot) — create one now and persist the ID
+        const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slotEventData);
+        await prisma.appointmentSlot.update({
+          where: { id: updatedBooking.slot.id },
+          data: { googleEventId: eventId },
+        });
+      }
+    }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking CONFIRMED):', err));
 
     const statusMessages: Record<string, string> = {
       CONFIRMED: 'Booking confirmed successfully',
