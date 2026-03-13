@@ -1,7 +1,7 @@
 # Appointments Chat IA — Rebuild Guide
 
 > Last updated: 2026-03-12
-> Status: Phase 1 (query-only) deployed — testing in progress
+> Status: Phase 1 complete — paused here, phases 2–5 pending
 
 ---
 
@@ -70,7 +70,7 @@ This means the appointment window closed without the doctor marking it as COMPLE
 - Not stored in DB — computed at read time in the route
 - Threshold is **end time** (not start time) — appointment may be in progress during the slot
 - Timezone comparison uses `sv-SE` locale string trick to avoid UTC offset errors
-- Displayed in UI with a distinct red style (dormant until wired in page.tsx)
+- Displayed in UI with a distinct red style — wired in `page.tsx` (both mobile and desktop booking badges)
 
 ---
 
@@ -108,15 +108,15 @@ The route sends a clean, Spanish-language JSON context to the AI. Sensitive fiel
 
 ## Phase plan
 
-### Phase 1 — Query only ✅ (current)
+### Phase 1 — Query only ✅ (complete)
 
 **Goal:** Prove the AI correctly reads and interprets the data before it can touch anything.
 
-- Prompt: minimal 7 rules, no action rules, no examples
+- Prompt: 8 rules, no action rules, no examples
 - Hook: actions returned by AI are ignored (`_actions` discarded)
 - Action infrastructure preserved in code — just dormant
 
-**Test queries:**
+**Tested queries (all passing):**
 - "¿Qué citas tengo hoy?"
 - "¿Hay citas vencidas?"
 - "¿Quién tiene cita esta semana?"
@@ -125,7 +125,11 @@ The route sends a clean, Spanish-language JSON context to the AI. Sensitive fiel
 - "Dame un resumen de mi agenda"
 - "¿La cita de [nombre] ya está confirmada?"
 
-Phase 1 is complete when these all return accurate, well-formatted answers with no hallucinations.
+**Post-Phase-1 improvements (still query-only):**
+- Rule 8 added: AI always includes paciente, fecha/hora, estado, servicio, primera vez, modalidad when mentioning any cita
+- `page.tsx`: booking status badges now show Spanish labels (PENDIENTE, AGENDADA, COMPLETADA, NO_ASISTIÓ, CANCELADA)
+- `page.tsx`: VENCIDA badge label + red styling wired for overdue PENDING/CONFIRMED bookings
+- `useAppointmentsPage.ts`: "Todas las Citas" table defaults to today's date filter on load
 
 ---
 

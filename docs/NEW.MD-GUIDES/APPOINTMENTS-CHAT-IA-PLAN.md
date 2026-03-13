@@ -1,8 +1,9 @@
 # Appointments Chat IA — Implementation Plan
 
-> Status: IMPLEMENTED ✅ — all 5 steps complete (2026-03-13)
+> Status: Phase 1 complete — phases 2–5 pending (see `APPOINTMENTS-CHAT-IA-REBUILD.md`)
 > Scope: `apps/doctor` (chat route + hook + panel) + minor edits to existing appointments page
 > External API calls: `apps/api` appointments endpoints (slots, bookings, bulk)
+> ⚠️ The original one-shot implementation was rebuilt phase-by-phase. This doc remains the design reference for phases 2–5 (action types, dispatch table, validation rules, few-shot examples).
 
 ---
 

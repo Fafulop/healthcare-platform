@@ -2,6 +2,7 @@
 
 > Last updated: 2026-03-12
 > Full design spec: `APPOINTMENTS-CHAT-IA-PLAN.md`
+> ⚠️ **Note:** The original one-shot implementation described in steps 1–5 below was replaced by a phase-by-phase rebuild. See `APPOINTMENTS-CHAT-IA-REBUILD.md` for the current architecture and phase status. The steps below are kept for historical reference only.
 
 ---
 
@@ -146,21 +147,37 @@ interface UseAppointmentsChatOptions {
 
 ---
 
-## Post-implementation fixes
+## Post-rebuild state (current) — 2026-03-12
 
-### `confirm_booking` action type — 2026-03-12
+The one-shot implementation above was scrapped and rebuilt phase-by-phase. See `APPOINTMENTS-CHAT-IA-REBUILD.md` for the full rationale and phase plan.
 
-**Bug:** AI correctly returned `{ type: 'confirm_booking', bookingId }` but the hook's `dispatchAction` switch had no case for it → hit `default` → "Acción desconocida: confirm_booking".
+### What changed in the rebuild
 
-**Fix applied to `useAppointmentsChat.ts`:**
-- Added `ConfirmBookingAction` interface (`type`, `summary`, `bookingId`)
-- Added to `AppointmentChatAction` union type
-- Added `case 'confirm_booking'`: PATCH `/api/appointments/bookings/${bookingId}` with `{ status: 'CONFIRMED' }`
+**`route.ts`:**
+- Removed 18-rule action prompt + 8 few-shot examples
+- Replaced with 8-rule query-only prompt
+- New Spanish-language AI context: all field names in Spanish (fecha, inicio, fin, estado, citas, paciente, vencida, etc.)
+- All booking statuses translated (PENDING→PENDIENTE, CONFIRMED→AGENDADA, etc.)
+- `isVencida()` computed at read time — PENDING/CONFIRMED bookings past slot end time flagged
+- Removed `notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW']` filter — all statuses included for historical queries
+- Sensitive fields stripped (email, phone, prices)
 
-**Fix applied to `route.ts`:**
-- Added rule 9: "Para confirm_booking: proporciona bookingId. Cambia el estado de PENDING a CONFIRMED."
-- Renumbered subsequent rules (RESPONSE_RULES 1–12, DEPENDENCY_RULES 13–18, continuous)
-- Added few-shot example for confirming a pending booking
+**`useAppointmentsChat.ts`:**
+- `sendMessage` discards actions (`_actions`) — Phase 1 lock
+- Added `CompleteBookingAction` + `complete_booking` dispatch case (ready for Phase 2)
+- Fixed `create_slots` dispatch: sends `mode: 'single'|'recurring'` derived from `action.recurring`
+
+**`useAppointmentsPage.ts`:**
+- `hasLoadedOnce` ref: date changes no longer trigger full-page spinner (was destroying chat panel)
+- `getStatusColor` accepts optional `slotEndTime` + `slotDate` → returns red for VENCIDA bookings
+
+**`page.tsx`:**
+- `STATUS_LABEL` map + `getStatusLabel()`: booking badges show Spanish labels; VENCIDA bookings show "VENCIDA" label in red
+- `bookingFilterDate` defaults to today — "Todas las Citas" table shows current day on load
+- Both mobile and desktop booking badges wired with `slotEndTime` + `slotDate` for VENCIDA styling
+
+### Current phase
+Phase 1 (query-only) complete and validated. Paused here — phases 2–5 pending.
 
 ---
 

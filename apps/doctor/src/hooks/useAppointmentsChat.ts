@@ -309,7 +309,6 @@ async function dispatchAction(
               startDate: action.startDate,
               endDate: action.endDate,
               daysOfWeek: action.daysOfWeek,
-              replaceConflicts: action.replaceConflicts,
             }),
           }),
           'Error al crear horarios'
@@ -562,10 +561,17 @@ export function useAppointmentsChat({ slots, bookings, onRefresh }: UseAppointme
           return;
         }
 
-        const { reply, actions: _actions } = json.data;
-
-        // PHASE 1 — query only: actions are disabled until AI query understanding is validated.
+        const { reply, actions } = json.data;
         appendAssistantMessage(reply);
+
+        if (actions.length > 0) {
+          const validation = validateActionOrder(actions, slots, bookings);
+          if (!validation.valid) {
+            appendAssistantMessage(`No puedo ejecutar estas acciones: ${validation.error}`);
+          } else {
+            setPendingActions(actions);
+          }
+        }
       } catch (err) {
         console.error('[useAppointmentsChat] sendMessage error:', err);
         appendAssistantMessage('No pude conectarme con el servidor. Intente de nuevo.');
@@ -573,7 +579,7 @@ export function useAppointmentsChat({ slots, bookings, onRefresh }: UseAppointme
         setLoading(false);
       }
     },
-    [loading, pendingActions, appendAssistantMessage]
+    [loading, pendingActions, appendAssistantMessage, slots, bookings]
   );
 
   sendMessageRef.current = sendMessage;
