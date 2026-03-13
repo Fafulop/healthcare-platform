@@ -169,14 +169,7 @@ export function useAppointmentsPage() {
     }
   }, [searchParams, mapVoiceToFormData]);
 
-  useEffect(() => {
-    if (doctorId) {
-      fetchSlots();
-      fetchBookings();
-    }
-  }, [doctorId, selectedDate]);
-
-  const fetchSlots = async () => {
+  const fetchSlots = useCallback(async () => {
     if (!doctorId) return;
 
     if (!hasLoadedOnce.current) setLoading(true);
@@ -204,22 +197,16 @@ export function useAppointmentsPage() {
       hasLoadedOnce.current = true;
       setLoading(false);
     }
-  };
+  }, [doctorId, selectedDate]);
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     if (!doctorId) return;
 
     try {
-      const year = selectedDate.getFullYear();
-      const month = selectedDate.getMonth();
-      const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-      const startDate = new Date(startStr + 'T00:00:00Z').toISOString();
-      const lastDay = new Date(year, month + 1, 0).getDate();
-      const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-      const endDate = new Date(endStr + 'T23:59:59Z').toISOString();
-
+      // Fetch all bookings without date restriction — the table uses client-side filtering.
+      // Scoping to the calendar month caused April bookings to be invisible when viewing March.
       const response = await authFetch(
-        `${API_URL}/api/appointments/bookings?doctorId=${doctorId}&startDate=${startDate}&endDate=${endDate}`
+        `${API_URL}/api/appointments/bookings?doctorId=${doctorId}`
       );
       const data = await response.json();
 
@@ -230,15 +217,17 @@ export function useAppointmentsPage() {
       console.error("Error fetching bookings:", error);
       toast.error("Error al cargar las citas");
     }
-  };
+  }, [doctorId]);
 
   const onRefresh = useCallback(async () => {
     await fetchSlots();
     await fetchBookings();
-  }, [doctorId, selectedDate]);
+  }, [fetchSlots, fetchBookings]);
+
+  useEffect(() => { fetchSlots(); }, [fetchSlots]);
+  useEffect(() => { fetchBookings(); }, [fetchBookings]);
 
   const deleteSlot = async (slotId: string) => {
-    const slot = slots.find(s => s.id === slotId);
     const activeBookings = bookings.filter(
       b => b.slotId === slotId &&
         b.status !== "CANCELLED" && b.status !== "COMPLETED" && b.status !== "NO_SHOW"
@@ -322,6 +311,7 @@ export function useAppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
+        toast.success("Cita eliminada exitosamente");
         fetchBookings();
         fetchSlots();
       } else {
