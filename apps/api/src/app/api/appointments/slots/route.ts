@@ -128,21 +128,29 @@ export async function GET(request: Request) {
     const slots = await prisma.appointmentSlot.findMany({
       where,
       include: {
-        _count: {
+        bookings: {
+          where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
           select: {
-            bookings: {
-              where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
-            },
+            id: true,
+            patientName: true,
+            patientEmail: true,
+            patientPhone: true,
+            status: true,
+            confirmationCode: true,
+            serviceName: true,
+            notes: true,
+            finalPrice: true,
           },
         },
       },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
     });
 
-    // Return computed currentBookings from live count — not the stale denormalized counter.
-    const data = slots.map(({ _count, ...slot }) => ({
+    // Compute currentBookings from live active bookings — not the stale denormalized counter.
+    const data = slots.map(({ bookings, ...slot }) => ({
       ...slot,
-      currentBookings: _count.bookings,
+      currentBookings: bookings.length,
+      bookings,
     }));
 
     return NextResponse.json({

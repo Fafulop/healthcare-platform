@@ -313,10 +313,19 @@ model AppointmentSlot {
 }
 
 // Booking/Appointment - Patient reservation
+// slotId is null for freeform bookings (doctor uses "Nuevo horario" — no pre-planned slot).
+// Freeform bookings store date/startTime/endTime/duration directly on the booking.
+// Slot-based bookings (public portal or existing slot) always have slotId set.
 model Booking {
   id                 String        @id @default(cuid())
-  slotId             String        @map("slot_id")
+  slotId             String?       @map("slot_id")   // null = freeform booking
   doctorId           String        @map("doctor_id")
+
+  // Freeform booking time fields (set when slotId is null, null otherwise)
+  date               DateTime?                        // Date only (normalized to midnight UTC)
+  startTime          String?       @map("start_time") // "09:00"
+  endTime            String?       @map("end_time")   // "10:00"
+  duration           Int?                             // Minutes: 30 or 60
 
   // Patient Information
   patientName        String        @map("patient_name")
@@ -346,10 +355,13 @@ model Booking {
   reviewToken        String?       @unique @map("review_token")
   reviewTokenUsed    Boolean       @default(false) @map("review_token_used")
 
+  // Google Calendar sync (freeform bookings store event ID here; slot-based use slot.googleEventId)
+  googleEventId      String?       @map("google_event_id")
+
   // Relations
-  slot               AppointmentSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
-  doctor             Doctor          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  service            Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  slot               AppointmentSlot? @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  doctor             Doctor           @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  service            Service?         @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   review             Review?
 
   createdAt          DateTime      @default(now()) @map("created_at")
@@ -358,6 +370,7 @@ model Booking {
   @@map("bookings")
   @@index([doctorId, status])
   @@index([slotId])
+  @@index([doctorId, date])
   @@index([patientEmail])
   @@index([reviewToken])
   @@schema("public")

@@ -44,17 +44,6 @@ async function getCalendarTokens(doctorId: string) {
   } catch { return null; }
 }
 
-// Deletes a booking and its associated instant slot atomically.
-// Booking must be deleted first to satisfy the FK constraint (onDelete: Cascade
-// goes slot→booking, so deleting the slot would cascade — but we delete booking
-// first to be explicit and safe regardless of FK direction).
-async function deleteBookingAndInstantSlot(bookingId: string, slotId: string) {
-  await prisma.$transaction([
-    prisma.booking.delete({ where: { id: bookingId } }),
-    prisma.appointmentSlot.delete({ where: { id: slotId } }),
-  ]);
-}
-
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
@@ -182,79 +171,66 @@ export async function PATCH(
       );
     }
 
-    // Terminal statuses: only CANCELLED frees up the slot
     const isTerminalStatus = ['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(newStatus);
     const wasNotTerminal = !['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(currentStatus);
 
     if (isTerminalStatus && wasNotTerminal) {
-      // Only free up the slot when CANCELLED (patient won't come).
-      // COMPLETED and NO_SHOW keep the slot occupied — the time was used/reserved.
-      const shouldFreeSlot = newStatus === 'CANCELLED';
-      const isInstantSlot = currentBooking.slot.isInstant;
+      // Cancel/complete/no-show: always just update the booking status.
+      // - Freeform bookings (slotId = null): no slot to touch, done.
+      // - Slot-based bookings: slot availability is computed live from bookings count, no counter to update.
+      const updatedBooking = await prisma.booking.update({
+        where: { id },
+        data: {
+          status: newStatus,
+          ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
+        },
+      });
 
-      let updatedBooking: any;
-
-      if (shouldFreeSlot && isInstantSlot) {
-        // Instant slot cancel: delete booking + slot atomically.
-        // currentBookings is not maintained — availability is computed from live bookings count.
-        const deletedBooking = await prisma.booking.findUnique({ where: { id } });
-        await deleteBookingAndInstantSlot(id, currentBooking.slotId);
-        updatedBooking = deletedBooking;
-      } else {
-        // Regular slot cancel: keep booking as CANCELLED.
-        // Non-cancel terminal (COMPLETED/NO_SHOW): just update booking, leave slot occupied.
-        // No counter decrement — currentBookings is computed from live bookings count.
-        updatedBooking = await prisma.booking.update({
-          where: { id },
-          data: {
-            status: newStatus,
-            ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
-          },
-        });
-      }
+      // Resolve date/time from slot (slot-based) or directly from booking (freeform)
+      const bookingDateStr = currentBooking.slot
+        ? currentBooking.slot.date.toISOString().split('T')[0]
+        : currentBooking.date?.toISOString().split('T')[0] ?? '';
+      const bookingStartTime = currentBooking.slot?.startTime ?? currentBooking.startTime ?? '';
 
       // Log activity
-      const slotDateTerminal = currentBooking.slot.date.toISOString().split('T')[0];
       const bookingLogParams = {
         doctorId: currentBooking.doctorId,
         bookingId: currentBooking.id,
         patientName: currentBooking.patientName,
-        date: slotDateTerminal,
-        time: currentBooking.slot.startTime,
+        date: bookingDateStr,
+        time: bookingStartTime,
         confirmationCode: currentBooking.confirmationCode ?? undefined,
       };
       if (newStatus === 'CANCELLED') logBookingCancelled(bookingLogParams);
       else if (newStatus === 'COMPLETED') logBookingCompleted(bookingLogParams);
       else if (newStatus === 'NO_SHOW') logBookingNoShow(bookingLogParams);
 
-      // CANCELLED GCal sync: delete the event for both slot types.
-      // - Instant slot: slot is deleted entirely, event no longer relevant
-      // - Regular slot: goes invisible until a new booking is confirmed
-      if (newStatus === 'CANCELLED' && currentBooking.slot.googleEventId) {
+      // GCal sync — freeform bookings use booking.googleEventId; slot-based use slot.googleEventId
+      const gcalEventId = currentBooking.slot?.googleEventId ?? currentBooking.googleEventId;
+
+      if (newStatus === 'CANCELLED' && gcalEventId) {
         getCalendarTokens(currentBooking.doctorId).then(tokens => {
           if (!tokens) return;
-          deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!)
+          deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, gcalEventId)
             .catch((err) => console.error('[GCal sync] deleteEvent (booking CANCELLED):', err));
         }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking CANCELLED):', err));
       }
 
-      // COMPLETED: "✓ Cita: Patient" (basil green) — keeps history of completed visit
-      // NO_SHOW:   "✗ Cita: Patient" (graphite)    — marks patient did not appear
-      if ((newStatus === 'COMPLETED' || newStatus === 'NO_SHOW') && currentBooking.slot.googleEventId) {
+      if ((newStatus === 'COMPLETED' || newStatus === 'NO_SHOW') && gcalEventId) {
         getCalendarTokens(currentBooking.doctorId).then(tokens => {
           if (!tokens) return;
-          const dateStr = currentBooking.slot.date.toISOString().split('T')[0];
-          updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!, {
-            id: currentBooking.slot.id,
-            date: dateStr,
-            startTime: currentBooking.slot.startTime,
-            endTime: currentBooking.slot.endTime,
-            isOpen: currentBooking.slot.isOpen,
+          const slot = currentBooking.slot;
+          updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, gcalEventId, {
+            id: slot?.id ?? currentBooking.id,
+            date: bookingDateStr,
+            startTime: bookingStartTime,
+            endTime: slot?.endTime ?? currentBooking.endTime ?? '',
+            isOpen: slot?.isOpen ?? false,
             patientName: currentBooking.patientName,
             bookingStatus: newStatus as 'COMPLETED' | 'NO_SHOW',
             patientPhone: currentBooking.patientPhone,
             patientNotes: currentBooking.notes ?? undefined,
-            finalPrice: currentBooking.slot.finalPrice.toNumber(),
+            finalPrice: slot ? slot.finalPrice.toNumber() : Number(currentBooking.finalPrice),
           }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking COMPLETED/NO_SHOW):', err));
         }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking COMPLETED/NO_SHOW):', err));
       }
@@ -438,44 +414,29 @@ export async function DELETE(
       );
     }
 
-    const slotId = booking.slotId;
     const slot = booking.slot;
+    // GCal event ID lives on the booking (freeform) or on the slot (slot-based)
+    const gcalEventId = booking.googleEventId ?? slot?.googleEventId ?? null;
 
-    if (slot.isInstant) {
-      // Instant slot: delete GCal event, then delete booking + slot atomically.
-      if (slot.googleEventId) {
-        getCalendarTokens(slot.doctorId).then(tokens => {
-          if (!tokens) return;
-          deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!)
-            .catch((err) => console.error('[GCal sync] deleteEvent (booking DELETE instant):', err));
-        }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking DELETE instant):', err));
-      }
+    // Delete the GCal event (fire-and-forget)
+    if (gcalEventId) {
+      getCalendarTokens(booking.doctorId).then(tokens => {
+        if (!tokens) return;
+        deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, gcalEventId)
+          .catch((err) => console.error('[GCal sync] deleteEvent (booking DELETE):', err));
+      }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking DELETE):', err));
+    }
 
-      await deleteBookingAndInstantSlot(id, slotId);
-
-      logSlotDeleted({
-        doctorId: slot.doctorId,
-        slotId: slot.id,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        date: slot.date.toISOString().split('T')[0],
-      });
+    if (!booking.slotId) {
+      // Freeform booking — just delete the record, nothing else to clean up.
+      await prisma.booking.delete({ where: { id } });
     } else {
-      // Regular slot: delete booking record only — slot stays available.
-      // No counter decrement — currentBookings is computed from live bookings count.
-      // Clean up any stale GCal event on the slot.
-      if (slot.googleEventId) {
-        getCalendarTokens(slot.doctorId).then(tokens => {
-          if (!tokens) return;
-          deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!)
-            .catch((err) => console.error('[GCal sync] deleteEvent (booking DELETE regular):', err));
-        }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking DELETE regular):', err));
-      }
-
+      // Slot-based booking — delete booking record; slot stays available.
+      // Clear the stale GCal event ID from the slot if it had one.
       await prisma.$transaction([
         prisma.booking.delete({ where: { id } }),
-        ...(slot.googleEventId
-          ? [prisma.appointmentSlot.update({ where: { id: slotId }, data: { googleEventId: null } })]
+        ...(slot?.googleEventId
+          ? [prisma.appointmentSlot.update({ where: { id: booking.slotId }, data: { googleEventId: null } })]
           : []),
       ]);
     }

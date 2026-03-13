@@ -1,6 +1,7 @@
 // POST /api/appointments/bookings/instant
-// Creates a slot on the fly (if none exists) + booking + auto-confirms in one operation.
-// Used when the doctor schedules a patient without a pre-created slot.
+// Creates a freeform booking directly — no AppointmentSlot is created.
+// Used when the doctor schedules a patient outside of pre-planned slots ("Nuevo horario").
+// The booking stores date/startTime/endTime/duration directly instead of referencing a slot.
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
@@ -77,7 +78,6 @@ export async function POST(request: Request) {
       appointmentMode,
     } = body;
 
-    // Validate required fields
     if (!doctorId || !date || !startTime || !duration || !patientName || !patientEmail || !patientPhone) {
       return NextResponse.json(
         { success: false, error: 'Faltan campos requeridos' },
@@ -93,30 +93,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // Auth: doctors can only book for themselves
     if (role === 'DOCTOR') {
       if (!authenticatedDoctorId || doctorId !== authenticatedDoctorId) {
-        return NextResponse.json(
-          { success: false, error: 'No autorizado' },
-          { status: 403 }
-        );
+        return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 403 });
       }
     } else if (role !== 'ADMIN') {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 403 });
     }
 
     // Normalize startTime to HH:MM (strip seconds if browser sends HH:MM:SS)
     const normalizedStartTime = startTime.length > 5 ? startTime.slice(0, 5) : startTime;
     const endTime = calcEndTime(normalizedStartTime, durationNum);
 
-    // Normalize date to midnight UTC (same as slot creation API)
-    const slotDate = new Date(date + 'T12:00:00Z');
-    slotDate.setUTCHours(0, 0, 0, 0);
+    // Normalize date to midnight UTC
+    const bookingDate = new Date(date + 'T12:00:00Z');
+    bookingDate.setUTCHours(0, 0, 0, 0);
 
-    // Resolve service name and price before the transaction
+    // Resolve service name and price
     let serviceName: string | null = null;
     let finalPrice = 0;
     if (serviceId) {
@@ -129,91 +122,35 @@ export async function POST(request: Request) {
       }
     }
 
-    // All slot-check + slot-create/reuse + booking-create logic is in ONE atomic transaction.
-    // orderBy isInstant asc ensures a regular slot (false) is preferred over an instant slot (true)
-    // when both somehow exist at the same time, so the 409 guard always fires for regular slots.
     const confirmationCode = generateConfirmationCode();
     const reviewToken = generateReviewToken();
 
-    let slot: any;
-    let booking: any;
-    try {
-      ({ slot, booking } = await prisma.$transaction(async (tx) => {
-        const existingSlot = await tx.appointmentSlot.findFirst({
-          where: { doctorId, date: slotDate, startTime: normalizedStartTime },
-          orderBy: { isInstant: 'asc' }, // regular slots (false) first
-        });
-
-        let resolvedSlot: any;
-
-        if (existingSlot) {
-          if (!existingSlot.isInstant) {
-            // A pre-planned regular slot exists — "Nuevo horario" must not overwrite it.
-            throw Object.assign(
-              new Error(`Ya existe un horario a las ${normalizedStartTime} del ${date}. Para agendar en él, usa "Horarios disponibles".`),
-              { isConflict: true, status: 409 }
-            );
-          }
-          // Instant slot exists — guard against occupied or closed orphaned slots.
-          if (!existingSlot.isOpen || existingSlot.currentBookings >= existingSlot.maxBookings) {
-            throw Object.assign(
-              new Error(`Ya tienes una cita a las ${normalizedStartTime} del ${date}. Cancélala primero o elige otra hora.`),
-              { isConflict: true, status: 409 }
-            );
-          }
-          // Orphaned instant slot (open, 0 bookings) — reuse it.
-          resolvedSlot = existingSlot;
-        } else {
-          // Create a new instant slot on the fly.
-          resolvedSlot = await tx.appointmentSlot.create({
-            data: {
-              doctorId,
-              date: slotDate,
-              startTime: normalizedStartTime,
-              endTime,
-              duration: durationNum,
-              basePrice: 0,
-              finalPrice: 0,
-              isOpen: true,
-              currentBookings: 0,
-              maxBookings: 1,
-              isInstant: true,
-            },
-          });
-        }
-
-        const b = await tx.booking.create({
-          data: {
-            slotId: resolvedSlot.id,
-            doctorId,
-            patientName,
-            patientEmail,
-            patientPhone,
-            patientWhatsapp: patientWhatsapp || null,
-            notes: notes || null,
-            serviceId: serviceId || null,
-            serviceName,
-            isFirstTime: isFirstTime ?? null,
-            appointmentMode: appointmentMode || null,
-            finalPrice,
-            confirmationCode,
-            reviewToken,
-            status: 'CONFIRMED',
-            confirmedAt: new Date(),
-          },
-        });
-        // No counter increment — currentBookings is now computed from live bookings count.
-        return { slot: resolvedSlot, booking: b };
-      }));
-    } catch (txErr: any) {
-      if (txErr?.isConflict) {
-        return NextResponse.json(
-          { success: false, error: txErr.message },
-          { status: txErr.status ?? 409 }
-        );
-      }
-      throw txErr;
-    }
+    // Create the freeform booking — no slot involved.
+    // date/startTime/endTime/duration are stored directly on the booking.
+    const booking = await prisma.booking.create({
+      data: {
+        doctorId,
+        slotId: null,
+        date: bookingDate,
+        startTime: normalizedStartTime,
+        endTime,
+        duration: durationNum,
+        patientName,
+        patientEmail,
+        patientPhone,
+        patientWhatsapp: patientWhatsapp || null,
+        notes: notes || null,
+        serviceId: serviceId || null,
+        serviceName,
+        isFirstTime: isFirstTime ?? null,
+        appointmentMode: appointmentMode || null,
+        finalPrice,
+        confirmationCode,
+        reviewToken,
+        status: 'CONFIRMED',
+        confirmedAt: new Date(),
+      },
+    });
 
     // Log activity
     logBookingCreated({
@@ -228,11 +165,11 @@ export async function POST(request: Request) {
       finalPrice,
     });
 
-    // Sync to Google Calendar (fire-and-forget)
+    // Sync to Google Calendar (fire-and-forget) — event ID stored on the booking itself
     getCalendarTokens(doctorId).then(async tokens => {
       if (!tokens) return;
       const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, {
-        id: slot.id,
+        id: booking.id,
         date,
         startTime: normalizedStartTime,
         endTime,
@@ -243,11 +180,11 @@ export async function POST(request: Request) {
         patientNotes: notes ?? undefined,
         finalPrice,
       });
-      await prisma.appointmentSlot.update({
-        where: { id: slot.id },
+      await prisma.booking.update({
+        where: { id: booking.id },
         data: { googleEventId: eventId },
       });
-    }).catch((err) => console.error('[GCal sync] createSlotEvent (instant booking):', err));
+    }).catch((err) => console.error('[GCal sync] createSlotEvent (freeform booking):', err));
 
     return NextResponse.json(
       {
@@ -262,14 +199,11 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating instant booking:', error);
+    console.error('Error creating freeform booking:', error);
 
     if (error instanceof Error) {
       if (error.message.includes('authorization') || error.message.includes('token') || error.message.includes('authentication')) {
-        return NextResponse.json(
-          { success: false, error: error.message },
-          { status: 401 }
-        );
+        return NextResponse.json({ success: false, error: error.message }, { status: 401 });
       }
     }
 
