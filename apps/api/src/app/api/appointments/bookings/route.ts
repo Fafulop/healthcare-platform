@@ -152,6 +152,18 @@ export async function POST(request: Request) {
         if (!freshSlot) throw Object.assign(new Error('SLOT_NOT_FOUND'), { bookingError: true });
         if (!freshSlot.isOpen) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
 
+        // Block if a freeform booking already exists at this exact time (doctor is busy)
+        const freeformConflict = await tx.booking.findFirst({
+          where: {
+            doctorId: freshSlot.doctorId,
+            slotId: null,
+            date: freshSlot.date,
+            startTime: freshSlot.startTime,
+            status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] },
+          },
+        });
+        if (freeformConflict) throw Object.assign(new Error('FREEFORM_CONFLICT'), { bookingError: true });
+
         const b = await tx.booking.create({
           data: {
             slotId,
@@ -176,10 +188,12 @@ export async function POST(request: Request) {
       });
     } catch (txErr: any) {
       if (txErr?.bookingError) {
+        const statusCode = txErr.message === 'SLOT_NOT_FOUND' ? 404 : 400;
         const msg = txErr.message === 'SLOT_NOT_FOUND'
           ? 'Appointment slot not found'
+          : txErr.message === 'FREEFORM_CONFLICT'
+          ? 'Este horario ya no está disponible'
           : 'This slot is not available for booking';
-        const statusCode = txErr.message === 'SLOT_NOT_FOUND' ? 404 : 400;
         return NextResponse.json({ success: false, error: msg }, { status: statusCode });
       }
       // DB unique index violation = slot already has an active booking

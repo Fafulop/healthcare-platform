@@ -152,6 +152,18 @@ export async function POST(request: Request) {
       },
     });
 
+    // Close any open slots at this same date+time — the doctor is now committed here.
+    // This prevents public patients from booking into a slot that overlaps this freeform appointment.
+    await prisma.appointmentSlot.updateMany({
+      where: {
+        doctorId,
+        date: bookingDate,
+        startTime: normalizedStartTime,
+        isOpen: true,
+      },
+      data: { isOpen: false },
+    });
+
     // Log activity
     logBookingCreated({
       doctorId,
