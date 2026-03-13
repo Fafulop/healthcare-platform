@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         },
         include: {
           bookings: {
-            where: { status: { notIn: ['CANCELLED'] } },
+            where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
           },
         },
       });

@@ -120,23 +120,30 @@ export async function POST(request: Request) {
     });
 
     if (slot) {
-      const isInstantUnavailable = slot.isInstant && (!slot.isOpen || slot.currentBookings >= slot.maxBookings);
-      if (isInstantUnavailable) {
-        // Previously used instant slot (cancelled, completed, or no-show) — re-open it for reuse
-        slot = await prisma.appointmentSlot.update({
-          where: { id: slot.id },
-          data: { isOpen: true, currentBookings: 0 },
-        });
-      } else if (!slot.isOpen || slot.currentBookings >= slot.maxBookings) {
-        // Regular slot that is closed or full — cannot book
+      if (!slot.isInstant) {
+        // A pre-planned regular slot exists at this time.
+        // "Nuevo horario" must not overwrite it — use "Horarios disponibles" instead.
         return NextResponse.json(
           {
             success: false,
-            error: `Ya existe un horario a las ${startTime} del ${date} y no está disponible. Elige otra hora.`,
+            error: `Ya existe un horario a las ${startTime} del ${date}. Para agendar en él, usa "Horarios disponibles".`,
           },
           { status: 409 }
         );
       }
+      // Instant slot exists — it must be open and not full (i.e. its booking is still active).
+      // This should not happen in normal flow (cancelled instant slots are deleted),
+      // but guard against orphaned slots just in case.
+      if (!slot.isOpen || slot.currentBookings >= slot.maxBookings) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Ya tienes una cita a las ${startTime} del ${date}. Cancélala primero o elige otra hora.`,
+          },
+          { status: 409 }
+        );
+      }
+      // Orphaned instant slot (open, no booking) — reuse it.
     } else {
       // Create a new slot on the fly (price stored as 0 — actual price comes from service)
       slot = await prisma.appointmentSlot.create({

@@ -31,7 +31,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { startTime, endTime, duration, basePrice, discount, discountType, isOpen } =
+    const { startTime, endTime, duration, basePrice, discount, discountType } =
       body;
 
     // Check if slot exists and isn't booked
@@ -84,7 +84,6 @@ export async function PUT(
         ...(discount !== undefined && { discount }),
         ...(discountType !== undefined && { discountType }),
         ...(finalPrice !== undefined && { finalPrice }),
-        ...(isOpen !== undefined && { isOpen }),
       },
     });
 

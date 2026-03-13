@@ -191,14 +191,14 @@ export async function PATCH(
         }),
         ...(shouldFreeSlot
           ? [
-              prisma.appointmentSlot.update({
-                where: { id: currentBooking.slotId },
-                data: isInstantSlot
-                  // Instant slot: close permanently — it was created just for this booking
-                  ? { isOpen: false }
-                  // Regular slot: free up for re-booking
-                  : { currentBookings: { decrement: 1 } },
-              }),
+              isInstantSlot
+                // Instant slot: delete it entirely — it was created just for this booking
+                ? prisma.appointmentSlot.delete({ where: { id: currentBooking.slotId } })
+                // Regular slot: free up for re-booking
+                : prisma.appointmentSlot.update({
+                    where: { id: currentBooking.slotId },
+                    data: { currentBookings: { decrement: 1 } },
+                  }),
             ]
           : []),
       ];
