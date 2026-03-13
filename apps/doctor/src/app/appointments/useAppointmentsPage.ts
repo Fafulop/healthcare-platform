@@ -27,7 +27,7 @@ export interface AppointmentSlot {
 
 export interface Booking {
   id: string;
-  slotId: string;
+  slotId: string | null;
   patientName: string;
   patientEmail: string;
   patientPhone: string;
@@ -39,12 +39,12 @@ export interface Booking {
   serviceName?: string | null;
   isFirstTime?: boolean | null;
   appointmentMode?: string | null;
-  slot: {
-    date: string;
-    startTime: string;
-    endTime: string;
-    duration: number;
-  };
+  // Slot-based bookings have a slot; freeform bookings (slotId=null) store these directly
+  slot: { date: string; startTime: string; endTime: string; duration: number; } | null;
+  date?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  duration?: number | null;
 }
 
 export function useAppointmentsPage() {
@@ -421,7 +421,8 @@ export function useAppointmentsPage() {
   const slotsForSelectedDate = slots.filter(slot => slot.date.split('T')[0] === selectedDateStr);
 
   const filteredBookings = bookings.filter((booking) => {
-    if (bookingFilterDate && booking.slot.date.split('T')[0] !== bookingFilterDate) return false;
+    const bookingDate = (booking.slot?.date ?? booking.date ?? '').split('T')[0];
+    if (bookingFilterDate && bookingDate !== bookingFilterDate) return false;
     if (bookingFilterPatient) {
       const search = bookingFilterPatient.toLowerCase();
       if (!booking.patientName.toLowerCase().includes(search) &&

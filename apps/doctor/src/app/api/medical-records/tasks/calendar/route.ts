@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
           gte: normalizeDate(startDate),
           lte: normalizeDate(endDate),
         },
-        status: { notIn: ['CANCELLED'] },
+        status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] },
       },
       select: {
         id: true,

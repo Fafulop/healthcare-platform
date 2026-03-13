@@ -352,17 +352,19 @@ export async function GET(request: Request) {
       where.status = status;
     }
 
-    // Date range filter on the slot
+    // Date range filter — covers both slot-based (slot.date) and freeform (booking.date) bookings.
+    // Use OR so freeform bookings aren't dropped when slot is null.
     if (startDate || endDate) {
-      where.slot = {};
-      if (startDate && endDate) {
-        where.slot.date = {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
-        };
-      } else if (startDate) {
-        where.slot.date = { gte: new Date(startDate) };
-      }
+      const dateFilter: any = startDate && endDate
+        ? { gte: new Date(startDate), lte: new Date(endDate) }
+        : startDate
+        ? { gte: new Date(startDate) }
+        : { lte: new Date(endDate!) };
+
+      where.OR = [
+        { slot: { date: dateFilter } },
+        { slotId: null, date: dateFilter },
+      ];
     }
 
     const bookings = await prisma.booking.findMany({

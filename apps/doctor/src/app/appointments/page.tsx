@@ -275,7 +275,7 @@ export default function AppointmentsPage() {
                         <div>
                           <p className="font-medium text-gray-900 text-sm">{booking.patientName}</p>
                           <p className="text-xs text-gray-600">
-                            {formatDateString(booking.slot.date, { month: "short", day: "numeric" })} · {booking.slot.startTime}
+                            {formatDateString(booking.slot?.date ?? booking.date ?? '', { month: "short", day: "numeric" })} · {booking.slot?.startTime ?? booking.startTime ?? ''}
                           </p>
                           {booking.serviceName && (
                             <p className="text-xs text-blue-600 font-medium mt-0.5">{booking.serviceName}</p>
@@ -293,9 +293,9 @@ export default function AppointmentsPage() {
                             )}
                           </div>
                         </div>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(booking.status, booking.slot.endTime, booking.slot.date)}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(booking.status, booking.slot?.endTime ?? booking.endTime ?? undefined, booking.slot?.date ?? booking.date ?? undefined)}`}>
                           {getStatusIcon(booking.status)}
-                          {getStatusLabel(booking.status, booking.slot.endTime, booking.slot.date)}
+                          {getStatusLabel(booking.status, booking.slot?.endTime ?? booking.endTime ?? undefined, booking.slot?.date ?? booking.date ?? undefined)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs text-gray-600">
@@ -354,8 +354,8 @@ export default function AppointmentsPage() {
                             <div className="flex items-start gap-2">
                               <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                               <div>
-                                <p className="font-medium text-gray-900">{formatDateString(booking.slot.date, { month: "short", day: "numeric", year: "numeric" })}</p>
-                                <p className="text-sm text-gray-600">{booking.slot.startTime} - {booking.slot.endTime}</p>
+                                <p className="font-medium text-gray-900">{formatDateString(booking.slot?.date ?? booking.date ?? '', { month: "short", day: "numeric", year: "numeric" })}</p>
+                                <p className="text-sm text-gray-600">{booking.slot?.startTime ?? booking.startTime ?? ''} - {booking.slot?.endTime ?? booking.endTime ?? ''}</p>
                               </div>
                             </div>
                           </td>
@@ -389,9 +389,9 @@ export default function AppointmentsPage() {
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status, booking.slot.endTime, booking.slot.date)}`}>
+                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status, booking.slot?.endTime ?? booking.endTime ?? undefined, booking.slot?.date ?? booking.date ?? undefined)}`}>
                               {getStatusIcon(booking.status)}
-                              {getStatusLabel(booking.status, booking.slot.endTime, booking.slot.date)}
+                              {getStatusLabel(booking.status, booking.slot?.endTime ?? booking.endTime ?? undefined, booking.slot?.date ?? booking.date ?? undefined)}
                             </span>
                           </td>
                           <td className="py-3 px-4">

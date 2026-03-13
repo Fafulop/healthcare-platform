@@ -1,6 +1,6 @@
 // GET /api/appointments/bookings/[id] - Get booking by ID or confirmation code
 // PATCH /api/appointments/bookings/[id] - Update booking status
-// DELETE /api/appointments/bookings/[id] - Delete booking (and slot if instant)
+// DELETE /api/appointments/bookings/[id] - Delete booking record
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
@@ -11,7 +11,6 @@ import {
   logBookingCancelled,
   logBookingCompleted,
   logBookingNoShow,
-  logSlotDeleted,
 } from '@/lib/activity-logger';
 import { createSlotEvent, updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
 
@@ -268,6 +267,13 @@ export async function PATCH(
       },
     });
 
+    // Freeform bookings (slotId=null) are always created as CONFIRMED — they can never be PENDING.
+    // If somehow slot is null here, skip the slot-dependent SMS/GCal work and return early.
+    const slot = updatedBooking.slot;
+    if (!slot) {
+      return NextResponse.json({ success: true, data: updatedBooking, message: 'Booking status updated' });
+    }
+
     // Send confirmation SMS when status changes to CONFIRMED
     const smsEnabled = await isSMSEnabled();
     if (newStatus === 'CONFIRMED' && smsEnabled) {
@@ -276,10 +282,10 @@ export async function PATCH(
         patientPhone: updatedBooking.patientPhone,
         doctorName: updatedBooking.doctor.doctorFullName,
         doctorPhone: updatedBooking.doctor.clinicPhone || undefined,
-        date: updatedBooking.slot.date.toISOString(),
-        startTime: updatedBooking.slot.startTime,
-        endTime: updatedBooking.slot.endTime,
-        duration: updatedBooking.slot.duration,
+        date: slot.date.toISOString(),
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        duration: slot.duration,
         finalPrice: Number(updatedBooking.finalPrice),
         confirmationCode: updatedBooking.confirmationCode ?? '',
         clinicAddress: updatedBooking.doctor.clinicAddress || undefined,
@@ -302,8 +308,8 @@ export async function PATCH(
         doctorId: currentBooking.doctorId,
         bookingId: currentBooking.id,
         patientName: currentBooking.patientName,
-        date: updatedBooking.slot.date.toISOString().split('T')[0],
-        time: updatedBooking.slot.startTime,
+        date: slot.date.toISOString().split('T')[0],
+        time: slot.startTime,
         confirmationCode: updatedBooking.confirmationCode ?? undefined,
       });
     }
@@ -312,7 +318,7 @@ export async function PATCH(
     // Regular slots have no event until confirmed — create one here if needed.
     getCalendarTokens(currentBooking.doctorId).then(async tokens => {
       if (!tokens) return;
-      const dateStr = updatedBooking.slot.date.toISOString().split('T')[0];
+      const dateStr = slot.date.toISOString().split('T')[0];
 
       // When confirming, check if any active tasks overlap this slot's time
       let conflictNote: string | undefined;
@@ -320,15 +326,15 @@ export async function PATCH(
         const dayTasks = await prisma.task.findMany({
           where: {
             doctorId: currentBooking.doctorId,
-            dueDate: updatedBooking.slot.date,
+            dueDate: slot.date,
             status: { in: ['PENDIENTE', 'EN_PROGRESO'] },
           },
           select: { title: true, startTime: true, endTime: true },
         });
         const hit = dayTasks.find(t =>
           t.startTime && t.endTime &&
-          t.startTime < updatedBooking.slot.endTime &&
-          t.endTime > updatedBooking.slot.startTime
+          t.startTime < slot.endTime &&
+          t.endTime > slot.startTime
         );
         if (hit) {
           conflictNote = `⚠️ Conflicto: pendiente "${hit.title}"${hit.startTime ? ` a las ${hit.startTime}` : ''}`;
@@ -336,28 +342,28 @@ export async function PATCH(
       }
 
       const slotEventData = {
-        id: updatedBooking.slot.id,
+        id: slot.id,
         date: dateStr,
-        startTime: updatedBooking.slot.startTime,
-        endTime: updatedBooking.slot.endTime,
-        isOpen: updatedBooking.slot.isOpen,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        isOpen: slot.isOpen,
         patientName: newStatus === 'CONFIRMED' ? updatedBooking.patientName : undefined,
         bookingStatus: newStatus as 'CONFIRMED' | 'PENDING',
         patientPhone: newStatus === 'CONFIRMED' ? updatedBooking.patientPhone : undefined,
         patientNotes: newStatus === 'CONFIRMED' ? (updatedBooking.notes ?? undefined) : undefined,
         conflictNote,
-        finalPrice: updatedBooking.slot.finalPrice.toNumber(),
+        finalPrice: slot.finalPrice.toNumber(),
       };
 
-      if (updatedBooking.slot.googleEventId) {
-        // Event already exists (instant slot or legacy slot) — update it
-        updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, updatedBooking.slot.googleEventId, slotEventData)
+      if (slot.googleEventId) {
+        // Event already exists — update it
+        updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId, slotEventData)
           .catch((err) => console.error('[GCal sync] updateSlotEvent (booking CONFIRMED):', err));
       } else {
         // No event yet (regular slot) — create one now and persist the ID
         const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slotEventData);
         await prisma.appointmentSlot.update({
-          where: { id: updatedBooking.slot.id },
+          where: { id: slot.id },
           data: { googleEventId: eventId },
         });
       }
