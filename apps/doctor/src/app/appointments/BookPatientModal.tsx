@@ -256,7 +256,7 @@ export default function BookPatientModal({
       // ── EXISTING SLOT MODE ──
       if (!selectedSlot) return;
 
-      // 1. Create booking
+      // Doctor booking via authFetch → server detects DOCTOR role → auto-confirmed in one call.
       const bookingRes = await authFetch(`${API_URL}/api/appointments/bookings`, {
         method: "POST",
         body: JSON.stringify({
@@ -278,24 +278,7 @@ export default function BookPatientModal({
         return;
       }
 
-      const bookingId = bookingData.data.id;
-      const code = bookingData.data.confirmationCode;
-
-      // Auto-confirm: doctor manually scheduling means it's already confirmed
-      const confirmRes = await authFetch(
-        `${API_URL}/api/appointments/bookings/${bookingId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ status: "CONFIRMED" }),
-        }
-      );
-      const confirmData = await confirmRes.json();
-      if (!confirmData.success) {
-        setError(confirmData.error || "Error al confirmar la cita");
-        return;
-      }
-
-      setConfirmationCode(code);
+      setConfirmationCode(bookingData.data.confirmationCode);
       setStep("success");
       onSuccess();
     } catch {

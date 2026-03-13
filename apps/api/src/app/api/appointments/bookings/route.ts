@@ -11,7 +11,7 @@ import {
 } from '@/lib/sms';
 import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
-import { updateSlotEvent, resolveTokens } from '@/lib/google-calendar';
+import { createSlotEvent, updateSlotEvent, resolveTokens } from '@/lib/google-calendar';
 
 async function getCalendarTokens(doctorId: string) {
   const doctor = await prisma.doctor.findUnique({
@@ -60,6 +60,13 @@ function generateReviewToken(): string {
 // POST - Create a booking
 export async function POST(request: Request) {
   try {
+    // Optional auth — doctors/admins get auto-confirmed bookings, public gets PENDING.
+    let callerRole: string | null = null;
+    try {
+      const auth = await validateAuthToken(request);
+      callerRole = auth.role;
+    } catch {}
+
     const body = await request.json();
     const {
       slotId,
@@ -129,8 +136,14 @@ export async function POST(request: Request) {
     const confirmationCode = generateConfirmationCode();
     const reviewToken = generateReviewToken();
 
+    // Doctors/admins booking directly → CONFIRMED immediately (no pending review step).
+    // Public portal bookings → PENDING until doctor confirms.
+    const autoConfirm = callerRole === 'DOCTOR' || callerRole === 'ADMIN';
+    const bookingStatus = autoConfirm ? 'CONFIRMED' : 'PENDING';
+
     // Create booking atomically: re-check availability INSIDE the transaction to prevent
     // race-condition double-booking (two concurrent requests seeing the same slot state).
+    // The DB partial unique index on (slot_id) WHERE status is active is the final safety net.
     let booking: any;
     let slot: any;
     try {
@@ -138,7 +151,6 @@ export async function POST(request: Request) {
         const freshSlot = await tx.appointmentSlot.findUnique({ where: { id: slotId } });
         if (!freshSlot) throw Object.assign(new Error('SLOT_NOT_FOUND'), { bookingError: true });
         if (!freshSlot.isOpen) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
-        if (freshSlot.currentBookings >= freshSlot.maxBookings) throw Object.assign(new Error('SLOT_FULL'), { bookingError: true });
 
         const b = await tx.booking.create({
           data: {
@@ -156,24 +168,23 @@ export async function POST(request: Request) {
             finalPrice: servicePrice,
             confirmationCode,
             reviewToken,
-            status: 'PENDING',
+            status: bookingStatus,
+            ...(autoConfirm && { confirmedAt: new Date() }),
           },
         });
-        const s = await tx.appointmentSlot.update({
-          where: { id: slotId },
-          data: { currentBookings: { increment: 1 } },
-        });
-        return [b, s];
+        return [b, freshSlot];
       });
     } catch (txErr: any) {
       if (txErr?.bookingError) {
         const msg = txErr.message === 'SLOT_NOT_FOUND'
           ? 'Appointment slot not found'
-          : txErr.message === 'SLOT_CLOSED'
-          ? 'This slot is not available for booking'
-          : 'This slot is fully booked';
-        const status = txErr.message === 'SLOT_NOT_FOUND' ? 404 : 400;
-        return NextResponse.json({ success: false, error: msg }, { status });
+          : 'This slot is not available for booking';
+        const statusCode = txErr.message === 'SLOT_NOT_FOUND' ? 404 : 400;
+        return NextResponse.json({ success: false, error: msg }, { status: statusCode });
+      }
+      // DB unique index violation = slot already has an active booking
+      if ((txErr as any)?.code === 'P2002') {
+        return NextResponse.json({ success: false, error: 'This slot is fully booked' }, { status: 400 });
       }
       throw txErr;
     }
@@ -195,26 +206,31 @@ export async function POST(request: Request) {
       },
     });
 
-    // Sync PENDING booking to Google Calendar (fire-and-forget)
-    if (slot.googleEventId) {
-      getCalendarTokens(slot.doctorId).then(async tokens => {
-        if (!tokens) return;
-        const dateStr = slot.date.toISOString().split('T')[0];
-        await updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId!, {
-          id: slot.id,
-          date: dateStr,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          isOpen: slot.isOpen,
-          patientName: `⏳ ${patientName}`,
-          bookingStatus: 'PENDING',
-          patientPhone: patientPhone,
-          patientEmail: patientEmail,
-          patientNotes: notes ?? undefined,
-          finalPrice: Number(slot.finalPrice),
-        });
-      }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking PENDING):', err));
-    }
+    // Sync to Google Calendar (fire-and-forget)
+    getCalendarTokens(slot.doctorId).then(async tokens => {
+      if (!tokens) return;
+      const dateStr = slot.date.toISOString().split('T')[0];
+      const slotEventData = {
+        id: slot.id,
+        date: dateStr,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        isOpen: slot.isOpen,
+        patientName: autoConfirm ? patientName : `⏳ ${patientName}`,
+        bookingStatus: bookingStatus as 'PENDING' | 'CONFIRMED',
+        patientPhone: patientPhone,
+        patientEmail: patientEmail,
+        patientNotes: notes ?? undefined,
+        finalPrice: Number(slot.finalPrice),
+      };
+      if (slot.googleEventId) {
+        await updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId, slotEventData);
+      } else if (autoConfirm) {
+        // Doctor-confirmed booking on a regular slot — create the GCal event now.
+        const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slotEventData);
+        await prisma.appointmentSlot.update({ where: { id: slot.id }, data: { googleEventId: eventId } });
+      }
+    }).catch((err) => console.error('[GCal sync] booking POST:', err));
 
     // Send SMS notifications (async, non-blocking)
     const smsEnabled = await isSMSEnabled();
@@ -235,9 +251,9 @@ export async function POST(request: Request) {
         reviewToken,
       };
 
-      // Send PENDING SMS to patient (acknowledgment that request was received)
-      sendPatientSMS(smsDetails, 'PENDING').catch((error) =>
-        console.error('SMS patient notification (PENDING) failed:', error)
+      // Send SMS to patient — CONFIRMED if doctor booked directly, PENDING if public portal.
+      sendPatientSMS(smsDetails, bookingStatus as 'PENDING' | 'CONFIRMED').catch((error) =>
+        console.error(`SMS patient notification (${bookingStatus}) failed:`, error)
       );
 
       // Send to doctor (don't await - let it run in background)

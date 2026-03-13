@@ -44,6 +44,17 @@ async function getCalendarTokens(doctorId: string) {
   } catch { return null; }
 }
 
+// Deletes a booking and its associated instant slot atomically.
+// Booking must be deleted first to satisfy the FK constraint (onDelete: Cascade
+// goes slot→booking, so deleting the slot would cascade — but we delete booking
+// first to be explicit and safe regardless of FK direction).
+async function deleteBookingAndInstantSlot(bookingId: string, slotId: string) {
+  await prisma.$transaction([
+    prisma.booking.delete({ where: { id: bookingId } }),
+    prisma.appointmentSlot.delete({ where: { id: slotId } }),
+  ]);
+}
+
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
@@ -184,35 +195,22 @@ export async function PATCH(
       let updatedBooking: any;
 
       if (shouldFreeSlot && isInstantSlot) {
-        // Instant slot cancel: delete booking first (removes FK reference), then delete the slot.
-        // Must be in this order — Postgres FK constraint prevents deleting a slot while a
-        // booking still references it. The cancellation is captured in the activity log below.
-        const [deletedBooking] = await prisma.$transaction([
-          prisma.booking.delete({ where: { id } }),
-          prisma.appointmentSlot.delete({ where: { id: currentBooking.slotId } }),
-        ]);
+        // Instant slot cancel: delete booking + slot atomically.
+        // currentBookings is not maintained — availability is computed from live bookings count.
+        const deletedBooking = await prisma.booking.findUnique({ where: { id } });
+        await deleteBookingAndInstantSlot(id, currentBooking.slotId);
         updatedBooking = deletedBooking;
       } else {
-        // Regular slot cancel: keep booking as CANCELLED, free up the slot counter.
+        // Regular slot cancel: keep booking as CANCELLED.
         // Non-cancel terminal (COMPLETED/NO_SHOW): just update booking, leave slot occupied.
-        const [result] = await prisma.$transaction([
-          prisma.booking.update({
-            where: { id },
-            data: {
-              status: newStatus,
-              ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
-            },
-          }),
-          ...(shouldFreeSlot
-            ? [
-                prisma.appointmentSlot.update({
-                  where: { id: currentBooking.slotId },
-                  data: { currentBookings: { decrement: 1 } },
-                }),
-              ]
-            : []),
-        ]);
-        updatedBooking = result;
+        // No counter decrement — currentBookings is computed from live bookings count.
+        updatedBooking = await prisma.booking.update({
+          where: { id },
+          data: {
+            status: newStatus,
+            ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
+          },
+        });
       }
 
       // Log activity
@@ -442,13 +440,9 @@ export async function DELETE(
 
     const slotId = booking.slotId;
     const slot = booking.slot;
-    // Any status except CANCELLED still holds a currentBookings count on the slot.
-    // CANCELLED already decremented it at cancel time, so don't decrement again.
-    const needsSlotDecrement = booking.status !== 'CANCELLED';
 
     if (slot.isInstant) {
       // Instant slot: delete GCal event, then delete booking + slot atomically.
-      // Booking must be deleted first to satisfy the FK constraint.
       if (slot.googleEventId) {
         getCalendarTokens(slot.doctorId).then(tokens => {
           if (!tokens) return;
@@ -457,10 +451,7 @@ export async function DELETE(
         }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking DELETE instant):', err));
       }
 
-      await prisma.$transaction([
-        prisma.booking.delete({ where: { id } }),
-        prisma.appointmentSlot.delete({ where: { id: slotId } }),
-      ]);
+      await deleteBookingAndInstantSlot(id, slotId);
 
       logSlotDeleted({
         doctorId: slot.doctorId,
@@ -470,9 +461,9 @@ export async function DELETE(
         date: slot.date.toISOString().split('T')[0],
       });
     } else {
-      // Regular slot: delete booking record only — the slot stays and remains available.
-      // If the booking held a counter (anything except CANCELLED), decrement it.
-      // Also clean up any GCal event on the slot (booking is gone, event is stale).
+      // Regular slot: delete booking record only — slot stays available.
+      // No counter decrement — currentBookings is computed from live bookings count.
+      // Clean up any stale GCal event on the slot.
       if (slot.googleEventId) {
         getCalendarTokens(slot.doctorId).then(tokens => {
           if (!tokens) return;
@@ -483,15 +474,8 @@ export async function DELETE(
 
       await prisma.$transaction([
         prisma.booking.delete({ where: { id } }),
-        // Update slot if we need to decrement its counter or clear its stale GCal event ID
-        ...(needsSlotDecrement || slot.googleEventId
-          ? [prisma.appointmentSlot.update({
-              where: { id: slotId },
-              data: {
-                ...(needsSlotDecrement && { currentBookings: { decrement: 1 } }),
-                ...(slot.googleEventId && { googleEventId: null }),
-              },
-            })]
+        ...(slot.googleEventId
+          ? [prisma.appointmentSlot.update({ where: { id: slotId }, data: { googleEventId: null } })]
           : []),
       ]);
     }

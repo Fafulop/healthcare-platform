@@ -208,33 +208,43 @@ export async function PATCH(
       );
     }
 
-    // Check if slot has bookings when trying to close it
-    if (!isOpen) {
-      const slot = await prisma.appointmentSlot.findUnique({
-        where: { id },
-        include: {
-          bookings: {
-            where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
-          },
+    // For both open and close, fetch the slot with its active booking count.
+    const slot = await prisma.appointmentSlot.findUnique({
+      where: { id },
+      include: {
+        bookings: {
+          where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
         },
-      });
+      },
+    });
 
-      if (!slot) {
-        return NextResponse.json(
-          { success: false, error: 'Slot not found' },
-          { status: 404 }
-        );
-      }
+    if (!slot) {
+      return NextResponse.json(
+        { success: false, error: 'Slot not found' },
+        { status: 404 }
+      );
+    }
 
-      if (slot.bookings.length > 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Cannot close slot with ${slot.bookings.length} active booking(s). Please cancel the bookings first.`,
-          },
-          { status: 400 }
-        );
-      }
+    const activeBookingCount = slot.bookings.length;
+
+    if (!isOpen && activeBookingCount > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Cannot close slot with ${activeBookingCount} active booking(s). Please cancel the bookings first.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (isOpen && activeBookingCount >= slot.maxBookings) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Cannot re-open slot — it already has ${activeBookingCount} active booking(s).`,
+        },
+        { status: 400 }
+      );
     }
 
     const updated = await prisma.appointmentSlot.update({

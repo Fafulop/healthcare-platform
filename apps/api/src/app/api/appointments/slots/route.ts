@@ -128,17 +128,27 @@ export async function GET(request: Request) {
     const slots = await prisma.appointmentSlot.findMany({
       where,
       include: {
-        bookings: {
-          where: { status: { notIn: ['CANCELLED'] } },
+        _count: {
+          select: {
+            bookings: {
+              where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+            },
+          },
         },
       },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
     });
 
+    // Return computed currentBookings from live count — not the stale denormalized counter.
+    const data = slots.map(({ _count, ...slot }) => ({
+      ...slot,
+      currentBookings: _count.bookings,
+    }));
+
     return NextResponse.json({
       success: true,
-      count: slots.length,
-      data: slots,
+      count: data.length,
+      data,
     });
   } catch (error) {
     console.error('Error fetching appointment slots:', error);
@@ -302,7 +312,7 @@ export async function POST(request: Request) {
               date: slot.date,
               startTime: slot.startTime,
               endTime: slot.endTime,
-              currentBookings: slot.currentBookings,
+              currentBookings: slot.bookings.length,
               maxBookings: slot.maxBookings,
               hasBookings: slot.bookings.length > 0,
             })),
@@ -495,7 +505,7 @@ export async function POST(request: Request) {
               date: slot.date,
               startTime: slot.startTime,
               endTime: slot.endTime,
-              currentBookings: slot.currentBookings,
+              currentBookings: slot.bookings.length,
               maxBookings: slot.maxBookings,
               hasBookings: slot.bookings.length > 0,
             })),

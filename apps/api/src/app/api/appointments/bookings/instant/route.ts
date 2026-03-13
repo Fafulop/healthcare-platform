@@ -202,10 +202,7 @@ export async function POST(request: Request) {
             confirmedAt: new Date(),
           },
         });
-        await tx.appointmentSlot.update({
-          where: { id: resolvedSlot.id },
-          data: { currentBookings: { increment: 1 } },
-        });
+        // No counter increment — currentBookings is now computed from live bookings count.
         return { slot: resolvedSlot, booking: b };
       }));
     } catch (txErr: any) {
