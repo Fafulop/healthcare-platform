@@ -179,6 +179,7 @@ export async function PATCH(
       // Only free up the slot when CANCELLED (patient won't come).
       // COMPLETED and NO_SHOW keep the slot occupied — the time was used/reserved.
       const shouldFreeSlot = newStatus === 'CANCELLED';
+      const isInstantSlot = currentBooking.slot.isInstant;
 
       const transactionOps = [
         prisma.booking.update({
@@ -192,9 +193,11 @@ export async function PATCH(
           ? [
               prisma.appointmentSlot.update({
                 where: { id: currentBooking.slotId },
-                data: {
-                  currentBookings: { decrement: 1 },
-                },
+                data: isInstantSlot
+                  // Instant slot: close permanently — it was created just for this booking
+                  ? { isOpen: false }
+                  // Regular slot: free up for re-booking
+                  : { currentBookings: { decrement: 1 } },
               }),
             ]
           : []),
@@ -216,20 +219,27 @@ export async function PATCH(
       else if (newStatus === 'COMPLETED') logBookingCompleted(bookingLogParams);
       else if (newStatus === 'NO_SHOW') logBookingNoShow(bookingLogParams);
 
-      // CANCELLED: revert event to "Disponible"
+      // CANCELLED GCal sync:
+      // - Instant slot → delete the event (slot is permanently closed, no longer relevant)
+      // - Regular slot → revert event to "Disponible" (slot is open for re-booking)
       if (newStatus === 'CANCELLED' && currentBooking.slot.googleEventId) {
         getCalendarTokens(currentBooking.doctorId).then(tokens => {
           if (!tokens) return;
-          const dateStr = currentBooking.slot.date.toISOString().split('T')[0];
-          updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!, {
-            id: currentBooking.slot.id,
-            date: dateStr,
-            startTime: currentBooking.slot.startTime,
-            endTime: currentBooking.slot.endTime,
-            isOpen: currentBooking.slot.isOpen,
-            patientName: undefined,
-            finalPrice: currentBooking.slot.finalPrice.toNumber(),
-          }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking CANCELLED):', err));
+          if (isInstantSlot) {
+            deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!)
+              .catch((err) => console.error('[GCal sync] deleteEvent (instant booking CANCELLED):', err));
+          } else {
+            const dateStr = currentBooking.slot.date.toISOString().split('T')[0];
+            updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.slot.googleEventId!, {
+              id: currentBooking.slot.id,
+              date: dateStr,
+              startTime: currentBooking.slot.startTime,
+              endTime: currentBooking.slot.endTime,
+              isOpen: true,
+              patientName: undefined,
+              finalPrice: currentBooking.slot.finalPrice.toNumber(),
+            }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking CANCELLED):', err));
+          }
         }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking CANCELLED):', err));
       }
 

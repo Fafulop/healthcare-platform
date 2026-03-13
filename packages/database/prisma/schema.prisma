@@ -293,6 +293,7 @@ model AppointmentSlot {
   isOpen             Boolean     @default(true) @map("is_open") // true = patients can book, false = blocked by doctor
   maxBookings        Int         @default(1) @map("max_bookings")
   currentBookings    Int         @default(0) @map("current_bookings")
+  isInstant          Boolean     @default(false) @map("is_instant") // true = created on-the-fly via instant booking (not a pre-planned slot)
 
   // Google Calendar sync
   googleEventId      String?     @map("google_event_id")

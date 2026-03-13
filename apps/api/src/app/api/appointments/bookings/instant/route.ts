@@ -120,8 +120,15 @@ export async function POST(request: Request) {
     });
 
     if (slot) {
-      // Slot exists — check it's still bookable
-      if (!slot.isOpen || slot.currentBookings >= slot.maxBookings) {
+      const isInstantUnavailable = slot.isInstant && (!slot.isOpen || slot.currentBookings >= slot.maxBookings);
+      if (isInstantUnavailable) {
+        // Previously used instant slot (cancelled, completed, or no-show) — re-open it for reuse
+        slot = await prisma.appointmentSlot.update({
+          where: { id: slot.id },
+          data: { isOpen: true, currentBookings: 0 },
+        });
+      } else if (!slot.isOpen || slot.currentBookings >= slot.maxBookings) {
+        // Regular slot that is closed or full — cannot book
         return NextResponse.json(
           {
             success: false,
@@ -144,6 +151,7 @@ export async function POST(request: Request) {
           isOpen: true,
           currentBookings: 0,
           maxBookings: 1,
+          isInstant: true,
         },
       });
     }
