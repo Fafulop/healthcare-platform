@@ -71,8 +71,8 @@ export async function GET(request: Request) {
       data: {
         doctorName: booking.doctor.doctorFullName,
         specialty: booking.doctor.primarySpecialty,
-        appointmentDate: booking.slot.date,
-        appointmentTime: booking.slot.startTime,
+        appointmentDate: booking.slot?.date ?? booking.date,
+        appointmentTime: booking.slot?.startTime ?? booking.startTime,
         patientName: booking.patientName,
       },
     });
