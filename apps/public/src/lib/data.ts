@@ -83,6 +83,18 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
       },
     },
 
+    // Clinic Locations (multi-location support)
+    clinic_locations: (doctor.clinicLocations || []).map((loc: any) => ({
+      id: loc.id,
+      name: loc.name,
+      address: loc.address,
+      phone: loc.phone ?? null,
+      whatsapp: loc.whatsapp ?? null,
+      hours: loc.hours ?? undefined,
+      geoLat: loc.geoLat ?? null,
+      geoLng: loc.geoLng ?? null,
+    })),
+
     // FAQs
     faqs: doctor.faqs.map((faq: any) => ({
       question: faq.question,

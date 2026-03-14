@@ -4,76 +4,84 @@ import React from 'react';
 import { MapPin, Clock, ExternalLink } from 'lucide-react';
 import Card from '../ui/Card';
 import { trackMapClick } from '@/lib/analytics';
-import type { ClinicInfo} from '@/types/doctor';
+import type { ClinicInfo, ClinicLocationItem } from '@/types/doctor';
 
 interface ClinicLocationSectionProps {
   doctorSlug?: string;
   clinicInfo: ClinicInfo;
+  clinicLocations?: ClinicLocationItem[];
   id?: string;
 }
 
-export default function ClinicLocationSection({ doctorSlug, clinicInfo, id }: ClinicLocationSectionProps) {
-  // Generate Google Maps URL - Use coordinates if available, otherwise use address
-  const googleMapsUrl = (clinicInfo.geo.lat !== 0 && clinicInfo.geo.lng !== 0)
-    ? `https://www.google.com/maps?q=${clinicInfo.geo.lat},${clinicInfo.geo.lng}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clinicInfo.address)}`;
+export default function ClinicLocationSection({ doctorSlug, clinicInfo, clinicLocations, id }: ClinicLocationSectionProps) {
+  // Use clinicLocations array if available, otherwise fall back to single clinic_info
+  const locations: ClinicLocationItem[] = (clinicLocations && clinicLocations.length > 0)
+    ? clinicLocations
+    : [{
+        id: 'default',
+        name: 'Consultorio',
+        address: clinicInfo.address,
+        phone: clinicInfo.phone,
+        whatsapp: clinicInfo.whatsapp,
+        hours: clinicInfo.hours,
+        geoLat: clinicInfo.geo.lat,
+        geoLng: clinicInfo.geo.lng,
+      }];
 
-  const handleMapClick = () => {
-    if (doctorSlug) trackMapClick(doctorSlug, 'clinic_section');
-  };
-
-  // Translate day names to Spanish
   const translateDay = (day: string): string => {
     const days: { [key: string]: string } = {
-      'monday': 'Lunes',
-      'tuesday': 'Martes',
-      'wednesday': 'Miércoles',
-      'thursday': 'Jueves',
-      'friday': 'Viernes',
-      'saturday': 'Sábado',
-      'sunday': 'Domingo',
+      'monday': 'Lunes', 'tuesday': 'Martes', 'wednesday': 'Miércoles',
+      'thursday': 'Jueves', 'friday': 'Viernes', 'saturday': 'Sábado', 'sunday': 'Domingo',
     };
     return days[day.toLowerCase()] || day;
   };
 
+  const getMapsUrl = (loc: ClinicLocationItem) =>
+    (loc.geoLat && loc.geoLng && loc.geoLat !== 0 && loc.geoLng !== 0)
+      ? `https://www.google.com/maps?q=${loc.geoLat},${loc.geoLng}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}`;
+
+  // Use hours from first location for the schedule card
+  const primaryHours = locations[0]?.hours ?? clinicInfo.hours;
+
   return (
     <section id={id} className="py-16 bg-[var(--color-bg-green-light)]">
       <div className="max-w-5xl mx-auto px-4">
-        {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
           Ubicación de la Clínica
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Contact Information */}
+          {/* Addresses — one card per location */}
           <Card shadow="light" padding="lg">
             <h3 className="text-xl font-semibold text-[var(--color-neutral-dark)] mb-6">
-              Información de Contacto
+              {locations.length > 1 ? 'Consultorios' : 'Información de Contacto'}
             </h3>
-
-            <div className="space-y-4">
-              {/* Address */}
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-[var(--color-secondary)] flex-shrink-0 mt-1" />
-                <div>
-                  <p className="font-medium text-[var(--color-neutral-dark)]">Dirección</p>
-                  <p className="text-[var(--color-neutral-medium)]">{clinicInfo.address}</p>
-                </div>
-              </div>
-
-              {/* Google Maps Link */}
-              <div className="pt-4">
-                <a
-                  href={googleMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={handleMapClick}
-                  className="inline-flex items-center gap-2 text-[var(--color-secondary)] hover:text-[var(--color-secondary-hover)] font-semibold"
-                >
-                  <ExternalLink className="w-5 h-5" />
-                  Ver en Google Maps
-                </a>
-              </div>
+            <div className="space-y-5">
+              {locations.map((loc) => {
+                const mapsUrl = getMapsUrl(loc);
+                return (
+                  <div key={loc.id} className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-[var(--color-secondary)] flex-shrink-0 mt-1" />
+                    <div>
+                      {locations.length > 1 && (
+                        <p className="font-semibold text-[var(--color-neutral-dark)] text-sm mb-0.5">{loc.name}</p>
+                      )}
+                      <p className="text-[var(--color-neutral-medium)]">{loc.address}</p>
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => doctorSlug && trackMapClick(doctorSlug, 'clinic_section')}
+                        className="inline-flex items-center gap-1 text-sm text-[var(--color-secondary)] hover:text-[var(--color-secondary-hover)] font-semibold mt-1"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Ver en Google Maps
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
 
@@ -83,27 +91,21 @@ export default function ClinicLocationSection({ doctorSlug, clinicInfo, id }: Cl
               <Clock className="w-6 h-6 text-[var(--color-secondary)]" />
               Horario de Atención
             </h3>
-
-            {clinicInfo.hours ? (
+            {primaryHours ? (
               <div className="space-y-3">
                 {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
-                  if (!clinicInfo.hours) return null;
-                  const hours = clinicInfo.hours[day as keyof typeof clinicInfo.hours];
+                  const hours = primaryHours[day as keyof typeof primaryHours];
                   if (!hours) return null;
                   return (
                     <div key={day} className="flex justify-between">
-                      <span className="font-medium text-[var(--color-neutral-dark)]">
-                        {translateDay(day)}
-                      </span>
+                      <span className="font-medium text-[var(--color-neutral-dark)]">{translateDay(day)}</span>
                       <span className="text-[var(--color-neutral-medium)]">{hours}</span>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-[var(--color-neutral-medium)]">
-                Por favor llame para conocer el horario
-              </p>
+              <p className="text-[var(--color-neutral-medium)]">Por favor llame para conocer el horario</p>
             )}
           </Card>
         </div>

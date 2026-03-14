@@ -97,7 +97,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
             />
 
             {/* 7. Clinic Location - Local SEO signal */}
-            <ClinicLocationSection id="location" doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} />
+            <ClinicLocationSection id="location" doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} clinicLocations={doctor.clinic_locations} />
 
             {/* 8. Education - E-E-A-T proof */}
             <EducationSection id="education" educationItems={doctor.education_items} />
@@ -128,7 +128,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
                 />
 
                 {/* Contact Information - Quick access (Desktop Only) */}
-                <SidebarContactInfo doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} />
+                <SidebarContactInfo doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} clinicLocations={doctor.clinic_locations} />
               </div>
             </div>
           </aside>

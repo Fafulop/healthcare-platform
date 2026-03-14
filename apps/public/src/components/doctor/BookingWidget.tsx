@@ -32,6 +32,7 @@ interface Slot {
   discount: number | null;
   discountType: string | null;
   finalPrice: number;
+  location: { name: string; address: string } | null;
 }
 
 interface BookingWidgetProps {
@@ -267,6 +268,11 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 <p className="text-gray-900">
                   <strong>Duración:</strong> {selectedSlot.duration} minutos
                 </p>
+                {selectedSlot.location && (
+                  <p className="text-gray-900">
+                    <strong>Consultorio:</strong> {selectedSlot.location.name}{selectedSlot.location.address ? ` — ${selectedSlot.location.address}` : ""}
+                  </p>
+                )}
                 {selectedServiceId && services.find(s => s.id === selectedServiceId) && (
                   <>
                     <p className="text-gray-900">
@@ -342,6 +348,11 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 day: "numeric",
               })} • {selectedSlot.startTime}
             </p>
+            {selectedSlot.location && (
+              <p className="text-xs text-gray-600 mt-1">
+                📍 {selectedSlot.location.name}{selectedSlot.location.address ? ` — ${selectedSlot.location.address}` : ""}
+              </p>
+            )}
             {selectedServiceId && services.find(s => s.id === selectedServiceId)?.price != null && (
               <p className="text-xl font-bold text-[var(--color-secondary)] mt-2">
                 ${services.find(s => s.id === selectedServiceId)!.price}
@@ -637,6 +648,9 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                           >
                             <span className="text-[11px] font-bold text-gray-900 leading-tight">{slot.startTime}</span>
                             <span className="text-[9px] text-blue-600 leading-tight">{slot.duration} min</span>
+                            {slot.location && (
+                              <span className="text-[8px] text-gray-500 leading-tight truncate w-full text-center">{slot.location.name}</span>
+                            )}
                           </button>
                         ))}
                       </div>
