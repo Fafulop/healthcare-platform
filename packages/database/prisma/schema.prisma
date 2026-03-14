@@ -118,6 +118,7 @@ model Doctor {
   bookings           Booking[]
   articles           Article[]
   reviews            Review[]
+  reviewLinks        ReviewLink[]
   activityLogs       ActivityLog[]
 
   // Practice Management Relations (NEW)
@@ -440,6 +441,22 @@ model Review {
   @@map("reviews")
   @@index([doctorId, approved])
   @@index([bookingId])
+  @@schema("public")
+}
+
+// Standalone review link — not tied to any booking, generated on demand by doctor
+model ReviewLink {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  doctorId    String   @map("doctor_id")
+  patientName String?  @map("patient_name")
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("review_links")
+  @@index([doctorId])
   @@schema("public")
 }
 

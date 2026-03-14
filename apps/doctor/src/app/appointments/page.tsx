@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Sparkles } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Sparkles, Star } from "lucide-react";
 import { useCalendar } from "./_hooks/useCalendar";
 import { useSlots } from "./_hooks/useSlots";
 import { useBookings } from "./_hooks/useBookings";
@@ -14,6 +14,7 @@ import { BookingsSection } from "./_components/BookingsSection";
 import { CreateSlotsModal } from "./_components/CreateSlotsModal";
 import { BookPatientModal } from "./_components/BookPatientModal";
 import { AppointmentChatPanel } from "./_components/AppointmentChatPanel";
+import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
 import type { AppointmentSlot } from "./_hooks/useSlots";
 import type { Booking } from "./_hooks/useBookings";
 
@@ -37,6 +38,7 @@ export default function AppointmentsV2Page() {
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
   const [bookPatientPreSlot, setBookPatientPreSlot] = useState<AppointmentSlot | null>(null);
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
+  const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
 
   const onRefresh = useCallback(async () => {
     await slotsHook.fetchSlots();
@@ -90,6 +92,14 @@ export default function AppointmentsV2Page() {
             <p className="text-gray-600 mt-1 text-sm sm:text-base">Crea y gestiona tu disponibilidad</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <button
+              onClick={() => setReviewLinkModalOpen(true)}
+              className="flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
+            >
+              <Star className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Enlace Reseña</span>
+              <span className="sm:hidden">Reseña</span>
+            </button>
             <button
               onClick={() => setChatPanelOpen(true)}
               className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
@@ -253,6 +263,11 @@ export default function AppointmentsV2Page() {
         clinicLocations={slotsHook.clinicLocations}
         onSuccess={onRefresh}
         preSelectedSlot={bookPatientPreSlot}
+      />
+
+      <GenerateReviewLinkModal
+        isOpen={reviewLinkModalOpen}
+        onClose={() => setReviewLinkModalOpen(false)}
       />
 
       <AppointmentChatPanel
