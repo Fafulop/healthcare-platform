@@ -87,6 +87,23 @@ export async function POST(request: Request) {
     let booking: any;
     try {
       [slot, booking] = await prisma.$transaction(async (tx) => {
+        // Overlap check: reject if any existing slot on this doctor+date overlaps the requested time range.
+        // String comparison works for zero-padded "HH:MM" times (lexicographic = chronological).
+        const overlapping = await tx.appointmentSlot.findFirst({
+          where: {
+            doctorId,
+            date: bookingDate,
+            startTime: { lt: endTime },
+            endTime: { gt: normalizedStartTime },
+          },
+        });
+        if (overlapping) {
+          throw Object.assign(
+            new Error('TIME_OVERLAP'),
+            { bookingError: true, overlap: overlapping }
+          );
+        }
+
         const s = await tx.appointmentSlot.create({
           data: {
             doctorId,
@@ -129,6 +146,13 @@ export async function POST(request: Request) {
         return [s, b];
       });
     } catch (txErr: any) {
+      if (txErr?.message === 'TIME_OVERLAP') {
+        const ov = txErr.overlap;
+        return NextResponse.json(
+          { success: false, error: `Este horario se traslapa con un horario existente (${ov.startTime}–${ov.endTime}). Elige otro momento.` },
+          { status: 409 }
+        );
+      }
       if (txErr?.code === 'P2002') {
         return NextResponse.json(
           { success: false, error: 'Ya existe un horario en este tiempo. Usa el horario existente o elige otro momento.' },
