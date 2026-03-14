@@ -448,7 +448,23 @@ export function CreateSlotsModal({
             </div>
           </div>
 
-          {/* Location picker — only when doctor has multiple locations */}
+          {/* Location — read-only label for 1 location, picker for 2+ */}
+          {clinicLocations.length === 1 && (
+            <div className="border-t pt-4 sm:pt-6">
+              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                <MapPin className="inline w-3.5 h-3.5 mr-1.5" />
+                Consultorio
+              </label>
+              <div className="py-2 px-3 rounded-lg border-2 border-gray-200 bg-gray-50 text-sm text-gray-700">
+                {clinicLocations[0].name}
+                {clinicLocations[0].address && (
+                  <span className="block text-xs font-normal text-gray-400">
+                    {clinicLocations[0].address}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
           {clinicLocations.length > 1 && (
             <div className="border-t pt-4 sm:pt-6">
               <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">

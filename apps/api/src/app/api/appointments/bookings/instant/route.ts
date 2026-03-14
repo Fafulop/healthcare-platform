@@ -59,6 +59,17 @@ export async function POST(request: Request) {
     const normalizedStartTime = startTime.length > 5 ? startTime.slice(0, 5) : startTime;
     const endTime = calcEndTime(normalizedStartTime, durationNum);
 
+    // Resolve locationId — if not provided, default to doctor's first ClinicLocation
+    let resolvedLocationId: string | null = locationId || null;
+    if (!resolvedLocationId) {
+      const defaultLoc = await prisma.clinicLocation.findFirst({
+        where: { doctorId },
+        orderBy: [{ isDefault: 'desc' }, { displayOrder: 'asc' }],
+        select: { id: true },
+      });
+      resolvedLocationId = defaultLoc?.id ?? null;
+    }
+
     // Normalize date to midnight UTC
     const bookingDate = new Date(date + 'T12:00:00Z');
     bookingDate.setUTCHours(0, 0, 0, 0);
@@ -115,7 +126,7 @@ export async function POST(request: Request) {
             finalPrice,
             isPublic: false,
             isOpen: false,
-            ...(locationId ? { locationId } : {}),
+            ...(resolvedLocationId ? { locationId: resolvedLocationId } : {}),
           },
           include: {
             location: { select: { address: true } },

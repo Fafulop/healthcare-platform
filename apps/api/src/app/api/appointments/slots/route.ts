@@ -250,6 +250,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // Resolve locationId — if not provided, default to doctor's first ClinicLocation
+    let resolvedLocationId: string | null = locationId || null;
+    if (!resolvedLocationId) {
+      const defaultLoc = await prisma.clinicLocation.findFirst({
+        where: { doctorId },
+        orderBy: [{ isDefault: 'desc' }, { displayOrder: 'asc' }],
+        select: { id: true },
+      });
+      resolvedLocationId = defaultLoc?.id ?? null;
+    }
+
     const priceBase = basePrice ?? 0;
     const finalPrice = calculateFinalPrice(priceBase, discount, discountType);
 
@@ -294,7 +305,7 @@ export async function POST(request: Request) {
         discount,
         discountType,
         finalPrice,
-        locationId: locationId ?? null,
+        locationId: resolvedLocationId,
       }));
 
       // Check for existing slots (same-type conflict detection)
@@ -465,7 +476,7 @@ export async function POST(request: Request) {
             discount,
             discountType,
             finalPrice,
-            locationId: locationId ?? null,
+            locationId: resolvedLocationId,
           }));
 
           allSlotsToCreate.push(...slotsForDay);

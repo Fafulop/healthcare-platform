@@ -74,8 +74,8 @@ export function useSlots(doctorId: string | undefined, selectedDate: Date) {
     try {
       const response = await fetch(`${API_URL}/api/doctors/${slug}/locations`);
       const data = await response.json();
-      if (Array.isArray(data)) {
-        setClinicLocations(data);
+      if (data.success && Array.isArray(data.data)) {
+        setClinicLocations(data.data);
       }
     } catch (error) {
       console.error("Error fetching clinic locations:", error);
