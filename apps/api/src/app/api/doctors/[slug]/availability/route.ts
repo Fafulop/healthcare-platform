@@ -20,9 +20,6 @@ export async function GET(
       select: { id: true, doctorFullName: true },
     });
 
-    console.log(`🔍 Looking for doctor with slug: "${slug}"`);
-    console.log(`👨‍⚕️ Found doctor:`, doctor);
-
     if (!doctor) {
       return NextResponse.json(
         { success: false, error: 'Doctor not found' },
@@ -70,12 +67,13 @@ export async function GET(
       };
     }
 
-    // Get available slots (isOpen = true AND not fully booked)
+    // Get available public slots (isOpen = true, isPublic = true), compute live booking count via _count
     const allSlots = await prisma.appointmentSlot.findMany({
       where: {
         doctorId: doctor.id,
         date: dateFilter,
-        isOpen: true, // Only open slots
+        isOpen: true,
+        isPublic: true,
       },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
       select: {
@@ -89,38 +87,29 @@ export async function GET(
         discountType: true,
         finalPrice: true,
         maxBookings: true,
-        currentBookings: true,
         isOpen: true,
+        location: {
+          select: { name: true, address: true },
+        },
+        _count: {
+          select: {
+            bookings: {
+              where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+            },
+          },
+        },
       },
     });
 
-    // Filter out fully booked slots (where currentBookings >= maxBookings)
-    const slots = allSlots.filter(slot => slot.currentBookings < slot.maxBookings);
-
-    console.log(`📅 Date filter:`, dateFilter);
-    console.log(`📍 Found ${allSlots.length} open slots, ${slots.length} available (not full) for doctor ID: ${doctor.id}`);
-
-    // Debug: Check ALL slots for this doctor (open and closed)
-    const totalSlotsCount = await prisma.appointmentSlot.count({
-      where: {
-        doctorId: doctor.id,
-        date: dateFilter,
-      },
-    });
-    const openSlotsCount = await prisma.appointmentSlot.count({
-      where: {
-        doctorId: doctor.id,
-        date: dateFilter,
-        isOpen: true,
-      },
-    });
-    console.log(`🔢 Total slots in date range: ${totalSlotsCount} (${openSlotsCount} open, ${totalSlotsCount - openSlotsCount} closed)`);
+    // Filter out fully booked slots using live booking count (not stale currentBookings field)
+    const slots = allSlots.filter(slot => slot._count.bookings < slot.maxBookings);
 
     // Group slots by date for easier frontend consumption
     const slotsByDate: Record<string, any[]> = {};
     const availableDates: string[] = [];
 
     slots.forEach((slot) => {
+      const { _count, location, ...slotData } = slot;
       const dateKey = slot.date.toISOString().split('T')[0];
 
       if (!slotsByDate[dateKey]) {
@@ -128,7 +117,11 @@ export async function GET(
         availableDates.push(dateKey);
       }
 
-      slotsByDate[dateKey].push(slot);
+      slotsByDate[dateKey].push({
+        ...slotData,
+        currentBookings: _count.bookings, // live count for backward compat
+        location: location ?? null,
+      });
     });
 
     return NextResponse.json({

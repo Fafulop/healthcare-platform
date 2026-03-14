@@ -12,7 +12,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { authFetch } from '@/lib/auth-fetch';
 import { useVoiceRecording, formatDuration } from './useVoiceRecording';
-import type { AppointmentSlot, Booking } from '@/app/appointments/useAppointmentsPage';
+import type { AppointmentSlot } from '@/app/appointments/_hooks/useSlots';
+import type { Booking } from '@/app/appointments/_hooks/useBookings';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 

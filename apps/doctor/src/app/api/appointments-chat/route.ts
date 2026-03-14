@@ -61,9 +61,9 @@ const BOOKING_STATUS_LABEL: Record<string, string> = {
   CANCELLED:  'CANCELADA',
 };
 
-function slotEstado(isOpen: boolean, current: number, max: number): 'DISPONIBLE' | 'LLENO' | 'CERRADO' {
+function slotEstado(isOpen: boolean, liveCount: number, max: number): 'DISPONIBLE' | 'LLENO' | 'CERRADO' {
   if (!isOpen) return 'CERRADO';
-  if (current >= max) return 'LLENO';
+  if (liveCount >= max) return 'LLENO';
   return 'DISPONIBLE';
 }
 
@@ -112,8 +112,8 @@ async function fetchContext(doctorId: string, now: Date): Promise<SlotContext[]>
       inicio: slot.startTime,
       fin: slot.endTime,
       duracion: slot.duration,
-      estado: slotEstado(slot.isOpen, slot.currentBookings, slot.maxBookings),
-      lugaresOcupados: slot.currentBookings,
+      estado: slotEstado(slot.isOpen, slot.bookings.length, slot.maxBookings),
+      lugaresOcupados: slot.bookings.length,
       lugaresTotal: slot.maxBookings,
       citas: slot.bookings.map((b) => ({
         id: b.id,

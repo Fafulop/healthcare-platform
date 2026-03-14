@@ -164,6 +164,20 @@ export async function POST(request: Request) {
             answer: faq.answer,
           })),
         },
+        // Create default clinic location from clinic_info
+        clinicLocations: {
+          create: [{
+            name: 'Consultorio Principal',
+            address: body.clinic_info?.address || '',
+            phone: body.clinic_info?.phone || null,
+            whatsapp: body.clinic_info?.whatsapp || null,
+            hours: body.clinic_info?.hours || {},
+            geoLat: body.clinic_info?.geo?.lat || null,
+            geoLng: body.clinic_info?.geo?.lng || null,
+            isDefault: true,
+            displayOrder: 0,
+          }],
+        },
       },
     });
 

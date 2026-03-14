@@ -61,21 +61,17 @@ const DEFAULT_FORM_DATA = {
     issued_by: string;
     year: string;
   }>,
-  clinic_info: {
-    address: "",
-    phone: "",
-    whatsapp: "",
-    hours: {
-      monday: "9:00 AM - 6:00 PM",
-      tuesday: "9:00 AM - 6:00 PM",
-      wednesday: "9:00 AM - 6:00 PM",
-      thursday: "9:00 AM - 6:00 PM",
-      friday: "9:00 AM - 5:00 PM",
-      saturday: "Closed",
-      sunday: "Closed",
-    },
-    geo: { lat: 0, lng: 0 },
-  },
+  clinic_locations: [] as Array<{
+    id?: string;
+    name: string;
+    address: string;
+    phone: string;
+    whatsapp: string;
+    hours: Record<string, string>;
+    geoLat: number;
+    geoLng: number;
+    isDefault: boolean;
+  }>,
   faqs: [] as Array<{ question: string; answer: string }>,
   carousel_items: [] as Array<{
     type: "image" | "video";
@@ -247,16 +243,28 @@ export default function MiPerfilPage() {
           issued_by: c.issuedBy,
           year: c.year,
         })),
-        clinic_info: {
-          address: d.clinicAddress || "",
-          phone: d.clinicPhone || "",
-          whatsapp: d.clinicWhatsapp || "",
-          hours: d.clinicHours || DEFAULT_FORM_DATA.clinic_info.hours,
-          geo: {
-            lat: d.clinicGeoLat || 0,
-            lng: d.clinicGeoLng || 0,
-          },
-        },
+        clinic_locations: (d.clinicLocations && d.clinicLocations.length > 0)
+          ? d.clinicLocations.map((loc: any) => ({
+              id: loc.id,
+              name: loc.name || "Consultorio Principal",
+              address: loc.address || "",
+              phone: loc.phone || "",
+              whatsapp: loc.whatsapp || "",
+              hours: loc.hours || {},
+              geoLat: loc.geoLat || 0,
+              geoLng: loc.geoLng || 0,
+              isDefault: loc.isDefault ?? true,
+            }))
+          : [{
+              name: "Consultorio Principal",
+              address: d.clinicAddress || "",
+              phone: d.clinicPhone || "",
+              whatsapp: d.clinicWhatsapp || "",
+              hours: d.clinicHours || {},
+              geoLat: d.clinicGeoLat || 0,
+              geoLng: d.clinicGeoLng || 0,
+              isDefault: true,
+            }],
         faqs: (d.faqs || []).map((f: any) => ({
           question: f.question,
           answer: f.answer,

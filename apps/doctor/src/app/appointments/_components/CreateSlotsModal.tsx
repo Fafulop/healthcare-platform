@@ -1,22 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Calendar, Clock, Info, Loader2 } from "lucide-react";
+import { X, Calendar, Clock, Info, Loader2, MapPin } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
-import { toast } from '@/lib/practice-toast';
-import { getLocalDateString } from '@/lib/dates';
+import { toast } from "@/lib/practice-toast";
+import { getLocalDateString } from "@/lib/dates";
+import type { ClinicLocation } from "../_hooks/useSlots";
 
-// API URL from environment variable
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
-interface SlotEntry {
-  date: string;
-  startTime: string;
-  endTime: string;
-}
-
-// Generate individual slot entries from form parameters
-function generateSlotEntries(
+function generatePreviewCount(
   mode: "single" | "recurring",
   singleDate: string,
   startDate: string,
@@ -28,96 +21,78 @@ function generateSlotEntries(
   hasBreak: boolean,
   breakStart: string,
   breakEnd: string
-): SlotEntry[] {
-  const entries: SlotEntry[] = [];
+): number {
+  if (!startTime || !endTime || !duration) return 0;
 
   const [startH, startM] = startTime.split(":").map(Number);
   const [endH, endM] = endTime.split(":").map(Number);
   const startMinutes = startH * 60 + startM;
   const endMinutes = endH * 60 + endM;
 
-  const [breakStartH, breakStartM] = hasBreak ? breakStart.split(":").map(Number) : [0, 0];
-  const [breakEndH, breakEndM] = hasBreak ? breakEnd.split(":").map(Number) : [0, 0];
-  const breakStartMin = hasBreak ? breakStartH * 60 + breakStartM : 0;
-  const breakEndMin = hasBreak ? breakEndH * 60 + breakEndM : 0;
+  const breakStartMinutes = hasBreak ? (() => { const [h, m] = breakStart.split(":").map(Number); return h * 60 + m; })() : 0;
+  const breakEndMinutes = hasBreak ? (() => { const [h, m] = breakEnd.split(":").map(Number); return h * 60 + m; })() : 0;
+  const breakDuration = hasBreak ? breakEndMinutes - breakStartMinutes : 0;
 
-  const dates: string[] = [];
-  if (mode === "single" && singleDate) {
-    dates.push(singleDate);
-  } else if (mode === "recurring" && startDate && endDate) {
-    const start = new Date(startDate + 'T12:00:00');
-    const end = new Date(endDate + 'T12:00:00');
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dayOfWeek = d.getDay();
-      const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      if (daysOfWeek.includes(adjustedDay)) {
-        dates.push(getLocalDateString(d));
-      }
-    }
+  const totalMinutes = endMinutes - startMinutes - breakDuration;
+  const slotsPerDay = Math.floor(totalMinutes / duration);
+
+  if (mode === "single") return singleDate ? slotsPerDay : 0;
+
+  if (!startDate || !endDate) return 0;
+  let daysCount = 0;
+  const start = new Date(startDate + "T12:00:00");
+  const end = new Date(endDate + "T12:00:00");
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    const adjusted = dow === 0 ? 6 : dow - 1;
+    if (daysOfWeek.includes(adjusted)) daysCount++;
   }
-
-  for (const date of dates) {
-    let currentMin = startMinutes;
-    while (currentMin + duration <= endMinutes) {
-      const slotEnd = currentMin + duration;
-      // Skip slots that overlap with break
-      if (hasBreak && currentMin < breakEndMin && slotEnd > breakStartMin) {
-        currentMin = breakEndMin;
-        continue;
-      }
-      const slotStartTime = `${String(Math.floor(currentMin / 60)).padStart(2, '0')}:${String(currentMin % 60).padStart(2, '0')}`;
-      const slotEndTime = `${String(Math.floor(slotEnd / 60)).padStart(2, '0')}:${String(slotEnd % 60).padStart(2, '0')}`;
-      entries.push({ date, startTime: slotStartTime, endTime: slotEndTime });
-      currentMin = slotEnd;
-    }
-  }
-
-  return entries;
+  return slotsPerDay * daysCount;
 }
 
-interface CreateSlotsModalProps {
+interface Props {
   isOpen: boolean;
   onClose: () => void;
   doctorId: string;
+  clinicLocations: ClinicLocation[];
   onSuccess: () => void;
-  initialData?: any; // Voice assistant data for pre-filling
+  initialData?: any;
 }
 
-export default function CreateSlotsModal({
+export function CreateSlotsModal({
   isOpen,
   onClose,
   doctorId,
+  clinicLocations,
   onSuccess,
   initialData,
-}: CreateSlotsModalProps) {
-  const [mode, setMode] = useState<"single" | "recurring">("recurring"); // Always recurring for voice
+}: Props) {
+  const [mode, setMode] = useState<"single" | "recurring">("recurring");
   const [singleDate, setSingleDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri by default
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const [duration, setDuration] = useState<30 | 60>(60);
   const [hasBreak, setHasBreak] = useState(false);
   const [breakStart, setBreakStart] = useState("12:00");
   const [breakEnd, setBreakEnd] = useState("13:00");
+  const [locationId, setLocationId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [previewSlots, setPreviewSlots] = useState<number>(0);
-
-  // Task info state (informational)
-  const [tasksInfo, setTasksInfo] = useState<{
-    count: number;
-    message: string;
-    tasks: any[];
-  } | null>(null);
+  const [tasksInfo, setTasksInfo] = useState<{ count: number; message: string; tasks: any[] } | null>(null);
 
   const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-  // Pre-fill form with voice assistant data
+  const previewSlots = generatePreviewCount(
+    mode, singleDate, startDate, endDate, daysOfWeek,
+    startTime, endTime, duration, hasBreak, breakStart, breakEnd
+  );
+
   useEffect(() => {
     if (initialData) {
-      setMode("recurring"); // Force recurring mode
+      setMode("recurring");
       if (initialData.startDate) setStartDate(initialData.startDate);
       if (initialData.endDate) setEndDate(initialData.endDate);
       if (initialData.daysOfWeek) setDaysOfWeek(initialData.daysOfWeek);
@@ -130,61 +105,16 @@ export default function CreateSlotsModal({
     }
   }, [initialData]);
 
-  // Calculate preview of slots to be created
+  // Default to first location when locations load
   useEffect(() => {
-    if (!startTime || !endTime || !duration) {
-      setPreviewSlots(0);
-      return;
+    if (clinicLocations.length > 0 && !locationId) {
+      setLocationId(clinicLocations[0].id);
     }
-
-    const [startH, startM] = startTime.split(":").map(Number);
-    const [endH, endM] = endTime.split(":").map(Number);
-    const [breakStartH, breakStartM] = hasBreak ? breakStart.split(":").map(Number) : [0, 0];
-    const [breakEndH, breakEndM] = hasBreak ? breakEnd.split(":").map(Number) : [0, 0];
-
-    const startMinutes = startH * 60 + startM;
-    const endMinutes = endH * 60 + endM;
-    const breakStartMinutes = hasBreak ? breakStartH * 60 + breakStartM : 0;
-    const breakEndMinutes = hasBreak ? breakEndH * 60 + breakEndM : 0;
-    const breakDuration = hasBreak ? breakEndMinutes - breakStartMinutes : 0;
-
-    const totalMinutes = endMinutes - startMinutes - breakDuration;
-    const slotsPerDay = Math.floor(totalMinutes / duration);
-
-    if (mode === "single") {
-      setPreviewSlots(slotsPerDay);
-    } else if (mode === "recurring" && startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      let daysCount = 0;
-
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dayOfWeek = d.getDay();
-        const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        if (daysOfWeek.includes(adjustedDay)) {
-          daysCount++;
-        }
-      }
-
-      setPreviewSlots(slotsPerDay * daysCount);
-    }
-  }, [
-    mode,
-    singleDate,
-    startDate,
-    endDate,
-    daysOfWeek,
-    startTime,
-    endTime,
-    duration,
-    hasBreak,
-    breakStart,
-    breakEnd,
-  ]);
+  }, [clinicLocations, locationId]);
 
   const timeOptions = Array.from({ length: 48 }, (_, i) => {
-    const h = String(Math.floor(i / 2)).padStart(2, '0');
-    const m = i % 2 === 0 ? '00' : '30';
+    const h = String(Math.floor(i / 2)).padStart(2, "0");
+    const m = i % 2 === 0 ? "00" : "30";
     return `${h}:${m}`;
   });
 
@@ -194,9 +124,23 @@ export default function CreateSlotsModal({
     );
   };
 
-  const executeSlotCreation = async (replaceConflicts = false) => {
-    setIsSubmitting(true);
+  const resetForm = () => {
+    setMode("single");
+    setSingleDate("");
+    setStartDate("");
+    setEndDate("");
+    setDaysOfWeek([1, 2, 3, 4, 5]);
+    setStartTime("09:00");
+    setEndTime("17:00");
+    setDuration(60);
+    setHasBreak(false);
+    setBreakStart("12:00");
+    setBreakEnd("13:00");
+    setLocationId(clinicLocations[0]?.id ?? "");
+  };
 
+  const executeSlotCreation = async () => {
+    setIsSubmitting(true);
     try {
       const payload: any = {
         doctorId,
@@ -207,7 +151,8 @@ export default function CreateSlotsModal({
         basePrice: 0,
         discount: null,
         discountType: null,
-        replaceConflicts, // NEW: Include replaceConflicts flag
+        replaceConflicts: false,
+        ...(locationId && { locationId }),
       };
 
       if (hasBreak) {
@@ -230,36 +175,27 @@ export default function CreateSlotsModal({
 
       const data = await response.json();
 
-      // Handle 409 Conflict response (slot conflicts detected)
       if (response.status === 409) {
-        // Show error alert and don't allow replacement
-        const conflictList = data.conflicts.slice(0, 5).map((c: any) => {
-          const [y, m, d] = c.date.split('T')[0].split('-').map(Number);
-          const dateLabel = new Date(y, m - 1, d).toLocaleDateString('es-MX');
-          return `• ${dateLabel} ${c.startTime}-${c.endTime}${c.hasBookings ? ` (${c.currentBookings} reserva${c.currentBookings > 1 ? 's' : ''})` : ''}`;
-        }).join('\n');
-
-        const moreCount = data.conflicts.length > 5 ? `\n... y ${data.conflicts.length - 5} más` : '';
-
+        const conflictList = data.conflicts
+          .slice(0, 5)
+          .map((c: any) => {
+            const [y, m, d] = c.date.split("T")[0].split("-").map(Number);
+            const dateLabel = new Date(y, m - 1, d).toLocaleDateString("es-MX");
+            return `• ${dateLabel} ${c.startTime}-${c.endTime}${c.hasBookings ? ` (${c.currentBookings} reserva${c.currentBookings > 1 ? "s" : ""})` : ""}`;
+          })
+          .join("\n");
+        const moreCount =
+          data.conflicts.length > 5 ? `\n... y ${data.conflicts.length - 5} más` : "";
         setSubmitError(
-          `No se pueden crear los horarios. ${data.message} Horarios con conflicto: ${conflictList}${moreCount}. Por favor, elimina primero los horarios existentes.`
+          `No se pueden crear los horarios. ${data.message} Horarios con conflicto:\n${conflictList}${moreCount}. Por favor, elimina primero los horarios existentes.`
         );
-        setIsSubmitting(false);
         return;
       }
 
       if (data.success) {
-        // Show success message
         let message = `Se crearon ${data.count} horarios de citas.`;
-        if (data.replaced > 0) {
-          message += ` (${data.replaced} reemplazados)`;
-        }
-
-        // Show task info if exists (informational)
-        if (data.tasksInfo) {
-          setTasksInfo(data.tasksInfo);
-        }
-
+        if (data.replaced > 0) message += ` (${data.replaced} reemplazados)`;
+        if (data.tasksInfo) setTasksInfo(data.tasksInfo);
         toast.success(message);
         onSuccess();
         onClose();
@@ -267,8 +203,7 @@ export default function CreateSlotsModal({
       } else {
         toast.error(data.error || "Error al crear horarios");
       }
-    } catch (error) {
-      console.error("Error creating slots:", error);
+    } catch {
       toast.error("Error al crear horarios. Por favor intenta de nuevo.");
     } finally {
       setIsSubmitting(false);
@@ -277,40 +212,22 @@ export default function CreateSlotsModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setSubmitError(null);
 
     if (mode === "single" && !singleDate) {
       setSubmitError("Por favor selecciona una fecha");
       return;
     }
-
     if (mode === "recurring" && (!startDate || !endDate)) {
       setSubmitError("Por favor selecciona fechas de inicio y fin");
       return;
     }
-
     if (mode === "recurring" && daysOfWeek.length === 0) {
-      setSubmitError("Por favor selecciona al menos un dia de la semana");
+      setSubmitError("Por favor selecciona al menos un día de la semana");
       return;
     }
 
-    // Submit without allowing replacements (replaceConflicts = false)
-    await executeSlotCreation(false);
-  };
-
-  const resetForm = () => {
-    setMode("single");
-    setSingleDate("");
-    setStartDate("");
-    setEndDate("");
-    setDaysOfWeek([1, 2, 3, 4, 5]);
-    setStartTime("09:00");
-    setEndTime("17:00");
-    setDuration(60);
-    setHasBreak(false);
-    setBreakStart("12:00");
-    setBreakEnd("13:00");
+    await executeSlotCreation();
   };
 
   if (!isOpen) return null;
@@ -318,7 +235,6 @@ export default function CreateSlotsModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full my-4 sm:my-8">
-        {/* Header */}
         <div className="bg-blue-600 px-4 sm:px-6 py-3 sm:py-4 rounded-t-lg flex items-center justify-between">
           <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
             <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -333,39 +249,34 @@ export default function CreateSlotsModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-h-[calc(100vh-120px)] sm:max-h-[calc(100vh-200px)] overflow-y-auto">
-          {/* Mode Selection */}
+        <form
+          onSubmit={handleSubmit}
+          className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-h-[calc(100vh-120px)] sm:max-h-[calc(100vh-200px)] overflow-y-auto"
+        >
+          {/* Mode */}
           <div>
             <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
               Modo de Creación
             </label>
             <div className="flex gap-2 sm:gap-4">
-              <button
-                type="button"
-                onClick={() => setMode("single")}
-                className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-medium transition-all text-sm sm:text-base ${
-                  mode === "single"
-                    ? "bg-blue-100 text-blue-700 border-2 border-blue-500"
-                    : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200"
-                }`}
-              >
-                Día Único
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("recurring")}
-                className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-medium transition-all text-sm sm:text-base ${
-                  mode === "recurring"
-                    ? "bg-blue-100 text-blue-700 border-2 border-blue-500"
-                    : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200"
-                }`}
-              >
-                Recurrente
-              </button>
+              {(["single", "recurring"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-medium transition-all text-sm sm:text-base ${
+                    mode === m
+                      ? "bg-blue-100 text-blue-700 border-2 border-blue-500"
+                      : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200"
+                  }`}
+                >
+                  {m === "single" ? "Día Único" : "Recurrente"}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Date Selection */}
+          {/* Date */}
           <div className="border-t pt-4 sm:pt-6">
             {mode === "single" ? (
               <div>
@@ -437,7 +348,7 @@ export default function CreateSlotsModal({
             )}
           </div>
 
-          {/* Time Settings */}
+          {/* Time */}
           <div className="border-t pt-4 sm:pt-6">
             <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3 sm:mb-4">
               <Clock className="inline w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
@@ -482,32 +393,24 @@ export default function CreateSlotsModal({
                 Duración del Horario *
               </label>
               <div className="flex gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={() => setDuration(30)}
-                  className={`flex-1 py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
-                    duration === 30
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  30 min
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDuration(60)}
-                  className={`flex-1 py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
-                    duration === 60
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  60 min
-                </button>
+                {([30, 60] as const).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDuration(d)}
+                    className={`flex-1 py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
+                      duration === d
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {d} min
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Break Time */}
+            {/* Break */}
             <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
               <label className="flex items-center gap-2 mb-2 sm:mb-3">
                 <input
@@ -520,43 +423,63 @@ export default function CreateSlotsModal({
                   Agregar descanso (opcional)
                 </span>
               </label>
-
               {hasBreak && (
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
-                      Inicio
-                    </label>
-                    <select
-                      value={breakStart}
-                      onChange={(e) => setBreakStart(e.target.value)}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    >
-                      {timeOptions.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
-                      Fin
-                    </label>
-                    <select
-                      value={breakEnd}
-                      onChange={(e) => setBreakEnd(e.target.value)}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    >
-                      {timeOptions.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {["Inicio", "Fin"].map((label, i) => (
+                    <div key={label}>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5 sm:mb-2">
+                        {label}
+                      </label>
+                      <select
+                        value={i === 0 ? breakStart : breakEnd}
+                        onChange={(e) =>
+                          i === 0 ? setBreakStart(e.target.value) : setBreakEnd(e.target.value)
+                        }
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      >
+                        {timeOptions.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Precio */}
+          {/* Location picker — only when doctor has multiple locations */}
+          {clinicLocations.length > 1 && (
+            <div className="border-t pt-4 sm:pt-6">
+              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                <MapPin className="inline w-3.5 h-3.5 mr-1.5" />
+                Consultorio
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {clinicLocations.map((loc) => (
+                  <button
+                    key={loc.id}
+                    type="button"
+                    onClick={() => setLocationId(loc.id)}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all border-2 ${
+                      locationId === loc.id
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    {loc.name}
+                    {loc.address && (
+                      <span className="block text-xs font-normal text-gray-400 truncate">
+                        {loc.address}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Price info */}
           <div className="border-t pt-4 sm:pt-6">
             <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 text-xs sm:text-sm text-blue-800">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
@@ -564,7 +487,7 @@ export default function CreateSlotsModal({
             </div>
           </div>
 
-          {/* Vista Previa */}
+          {/* Preview */}
           {previewSlots > 0 && (
             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 sm:p-4">
               <div className="flex items-start gap-2 sm:gap-3">
@@ -582,12 +505,10 @@ export default function CreateSlotsModal({
             </div>
           )}
 
-          {/* Task Info Banner (Informational) */}
+          {/* Task info */}
           {tasksInfo && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-800 font-medium">
-                ℹ️ {tasksInfo.message}
-              </p>
+              <p className="text-sm text-blue-800 font-medium">ℹ️ {tasksInfo.message}</p>
               <div className="mt-2 space-y-1">
                 {tasksInfo.tasks.slice(0, 3).map((task, idx) => (
                   <p key={idx} className="text-xs text-blue-700">
@@ -595,9 +516,7 @@ export default function CreateSlotsModal({
                   </p>
                 ))}
                 {tasksInfo.tasks.length > 3 && (
-                  <p className="text-xs text-blue-600">
-                    ... y {tasksInfo.tasks.length - 3} más
-                  </p>
+                  <p className="text-xs text-blue-600">... y {tasksInfo.tasks.length - 3} más</p>
                 )}
               </div>
               <button
@@ -611,7 +530,9 @@ export default function CreateSlotsModal({
           )}
 
           {submitError && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 whitespace-pre-wrap">{submitError}</p>
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 whitespace-pre-wrap">
+              {submitError}
+            </p>
           )}
 
           {/* Actions */}
@@ -619,8 +540,8 @@ export default function CreateSlotsModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 sm:px-6 py-2 sm:py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-colors text-sm sm:text-base"
               disabled={isSubmitting}
+              className="flex-1 px-4 sm:px-6 py-2 sm:py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-colors text-sm sm:text-base"
             >
               Cancelar
             </button>
@@ -636,7 +557,9 @@ export default function CreateSlotsModal({
                 </>
               ) : (
                 <>
-                  <span className="hidden sm:inline">Crear {previewSlots} Horario{previewSlots !== 1 ? "s" : ""}</span>
+                  <span className="hidden sm:inline">
+                    Crear {previewSlots} Horario{previewSlots !== 1 ? "s" : ""}
+                  </span>
                   <span className="sm:hidden">Crear ({previewSlots})</span>
                 </>
               )}

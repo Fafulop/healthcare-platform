@@ -12,36 +12,8 @@ import {
   logBookingCompleted,
   logBookingNoShow,
 } from '@/lib/activity-logger';
-import { createSlotEvent, updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
-
-async function getCalendarTokens(doctorId: string) {
-  const doctor = await prisma.doctor.findUnique({
-    where: { id: doctorId },
-    select: {
-      googleCalendarId: true,
-      googleCalendarEnabled: true,
-      user: {
-        select: {
-          id: true,
-          googleAccessToken: true,
-          googleRefreshToken: true,
-          googleTokenExpiry: true,
-        },
-      },
-    },
-  });
-  if (!doctor?.googleCalendarEnabled || !doctor.googleCalendarId || !doctor.user) return null;
-  try {
-    const { accessToken, refreshToken, updatedToken } = await resolveTokens(doctor.user);
-    if (updatedToken) {
-      await prisma.user.update({
-        where: { id: doctor.user.id },
-        data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
-      });
-    }
-    return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
-  } catch { return null; }
-}
+import { createSlotEvent, updateSlotEvent, deleteEvent } from '@/lib/google-calendar';
+import { getCalendarTokens } from '@/lib/appointments-utils';
 
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -127,7 +99,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status: newStatus } = body;
+    const { status: newStatus, confirmationCode: bodyConfirmationCode } = body;
 
     if (!newStatus) {
       return NextResponse.json(
@@ -144,6 +116,17 @@ export async function PATCH(
       );
     }
 
+    // Try to authenticate. Doctors/admins can perform any valid transition.
+    // Unauthenticated requests (patient self-cancellation) are only allowed for CANCELLED
+    // status and must include the matching confirmationCode as proof of ownership.
+    let callerRole: string | null = null;
+    let callerDoctorId: string | null = null;
+    try {
+      const auth = await validateAuthToken(request);
+      callerRole = auth.role;
+      callerDoctorId = auth.doctorId;
+    } catch {}
+
     // Get current booking with slot
     const currentBooking = await prisma.booking.findUnique({
       where: { id },
@@ -155,6 +138,23 @@ export async function PATCH(
         { success: false, error: 'Booking not found' },
         { status: 404 }
       );
+    }
+
+    // Authorization
+    if (!callerRole) {
+      // Unauthenticated — only patient self-cancellation allowed, requires confirmationCode
+      if (newStatus !== 'CANCELLED') {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      }
+      if (!bodyConfirmationCode || bodyConfirmationCode !== currentBooking.confirmationCode) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      }
+    } else if (callerRole === 'DOCTOR') {
+      if (currentBooking.doctorId !== callerDoctorId) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      }
+    } else if (callerRole !== 'ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const currentStatus = currentBooking.status;
@@ -174,16 +174,36 @@ export async function PATCH(
     const wasNotTerminal = !['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(currentStatus);
 
     if (isTerminalStatus && wasNotTerminal) {
-      // Cancel/complete/no-show: always just update the booking status.
-      // - Freeform bookings (slotId = null): no slot to touch, done.
-      // - Slot-based bookings: slot availability is computed live from bookings count, no counter to update.
-      const updatedBooking = await prisma.booking.update({
-        where: { id },
-        data: {
-          status: newStatus,
-          ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
-        },
-      });
+      // Cancel/complete/no-show: update booking status.
+      // Gap A: if the booking was on a private slot (isPublic: false), clean up the now-orphaned slot.
+      // We null out slotId first to prevent the cascade FK from deleting this booking record,
+      // then delete the slot. This preserves the booking history (CANCELLED record stays).
+      const isPrivateSlot = currentBooking.slot?.isPublic === false;
+
+      let updatedBooking: any;
+      if (isPrivateSlot) {
+        // Private slot cleanup: null out slotId first to prevent cascade from deleting this booking,
+        // then delete the now-orphaned slot. Applies to all terminal states (CANCELLED, COMPLETED, NO_SHOW).
+        [updatedBooking] = await prisma.$transaction([
+          prisma.booking.update({
+            where: { id },
+            data: {
+              status: newStatus,
+              slotId: null,
+              ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
+            },
+          }),
+          prisma.appointmentSlot.delete({ where: { id: currentBooking.slot!.id } }),
+        ]);
+      } else {
+        updatedBooking = await prisma.booking.update({
+          where: { id },
+          data: {
+            status: newStatus,
+            ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
+          },
+        });
+      }
 
       // Resolve date/time from slot (slot-based) or directly from booking (freeform)
       const bookingDateStr = currentBooking.slot
@@ -255,7 +275,9 @@ export async function PATCH(
         ...(newStatus === 'CONFIRMED' && { confirmedAt: new Date() }),
       },
       include: {
-        slot: true,
+        slot: {
+          include: { location: { select: { address: true } } },
+        },
         doctor: {
           select: {
             doctorFullName: true,
@@ -288,7 +310,7 @@ export async function PATCH(
         duration: slot.duration,
         finalPrice: Number(updatedBooking.finalPrice),
         confirmationCode: updatedBooking.confirmationCode ?? '',
-        clinicAddress: updatedBooking.doctor.clinicAddress || undefined,
+        clinicAddress: (slot.location?.address ?? updatedBooking.doctor.clinicAddress) || undefined,
         specialty: updatedBooking.doctor.primarySpecialty || undefined,
         reviewToken: updatedBooking.reviewToken || undefined,
       };
@@ -434,10 +456,16 @@ export async function DELETE(
     }
 
     if (!booking.slotId) {
-      // Freeform booking — just delete the record, nothing else to clean up.
+      // Freeform booking (legacy) — just delete the record, nothing else to clean up.
       await prisma.booking.delete({ where: { id } });
+    } else if (slot?.isPublic === false) {
+      // Gap A: private slot — delete booking first (satisfies FK), then delete the now-orphaned slot.
+      await prisma.$transaction([
+        prisma.booking.delete({ where: { id } }),
+        prisma.appointmentSlot.delete({ where: { id: slot.id } }),
+      ]);
     } else {
-      // Slot-based booking — delete booking record; slot stays available.
+      // Regular public slot — delete booking record; slot stays available for new bookings.
       // Clear the stale GCal event ID from the slot if it had one.
       await prisma.$transaction([
         prisma.booking.delete({ where: { id } }),

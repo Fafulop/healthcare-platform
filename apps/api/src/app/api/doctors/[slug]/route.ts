@@ -20,6 +20,9 @@ export async function GET(
         certificates: true,
         carouselItems: true,
         faqs: true,
+        clinicLocations: {
+          orderBy: { displayOrder: 'asc' },
+        },
         reviews: {
           where: { approved: true },
           select: {
@@ -128,6 +131,34 @@ export async function PUT(
 
     const body = await request.json();
 
+    // Normalize clinic_locations — accept new array format or fall back to old clinic_info shape
+    const rawLocations: Array<any> | undefined = body.clinic_locations;
+    let locationsToSave = rawLocations;
+
+    if (!locationsToSave || locationsToSave.length === 0) {
+      if (body.clinic_info) {
+        locationsToSave = [{
+          name: 'Consultorio Principal',
+          address: body.clinic_info.address || '',
+          phone: body.clinic_info.phone || null,
+          whatsapp: body.clinic_info.whatsapp || null,
+          hours: body.clinic_info.hours || {},
+          geoLat: body.clinic_info.geo?.lat ?? null,
+          geoLng: body.clinic_info.geo?.lng ?? null,
+          isDefault: true,
+        }];
+      }
+    }
+
+    if (locationsToSave && locationsToSave.length > 2) {
+      return NextResponse.json(
+        { success: false, error: 'Max 2 clinic locations allowed' },
+        { status: 400 }
+      );
+    }
+
+    const defaultLoc = locationsToSave?.find((l: any) => l.isDefault) ?? locationsToSave?.[0];
+
     // ✅ SEO PROTECTION: Prevent slug changes
     if (body.slug && body.slug !== slug) {
       return NextResponse.json(
@@ -172,6 +203,45 @@ export async function PUT(
       await tx.carouselItem.deleteMany({ where: { doctorId: existingDoctor.id } });
       await tx.fAQ.deleteMany({ where: { doctorId: existingDoctor.id } });
 
+      // Upsert clinic locations
+      if (locationsToSave && locationsToSave.length > 0) {
+        const existingLocs = await tx.clinicLocation.findMany({
+          where: { doctorId: existingDoctor.id },
+          select: { id: true },
+        });
+        const existingIdSet = new Set(existingLocs.map((l) => l.id));
+        const incomingIdSet = new Set(
+          locationsToSave.filter((l: any) => l.id).map((l: any) => l.id as string)
+        );
+
+        // Delete removed locations
+        const toDelete = [...existingIdSet].filter((id) => !incomingIdSet.has(id));
+        if (toDelete.length > 0) {
+          await tx.clinicLocation.deleteMany({ where: { id: { in: toDelete } } });
+        }
+
+        // Upsert each location
+        for (let i = 0; i < locationsToSave.length; i++) {
+          const loc = locationsToSave[i];
+          const locData = {
+            name: loc.name || (i === 0 ? 'Consultorio Principal' : 'Consultorio 2'),
+            address: loc.address || '',
+            phone: loc.phone || null,
+            whatsapp: loc.whatsapp || null,
+            hours: loc.hours || {},
+            geoLat: loc.geoLat ?? null,
+            geoLng: loc.geoLng ?? null,
+            isDefault: loc.isDefault ?? (i === 0),
+            displayOrder: i,
+          };
+          if (loc.id && existingIdSet.has(loc.id)) {
+            await tx.clinicLocation.update({ where: { id: loc.id }, data: locData });
+          } else {
+            await tx.clinicLocation.create({ data: { ...locData, doctorId: existingDoctor.id } });
+          }
+        }
+      }
+
       // Update doctor with new data
       return await tx.doctor.update({
         where: { slug },
@@ -192,12 +262,13 @@ export async function PUT(
           procedures: body.procedures || [],
           nextAvailableDate: body.next_available_date ? new Date(body.next_available_date) : null,
           appointmentModes: body.appointment_modes || [],
-          clinicAddress: body.clinic_info.address,
-          clinicPhone: body.clinic_info.phone,
-          clinicWhatsapp: body.clinic_info.whatsapp,
-          clinicHours: body.clinic_info.hours || {},
-          clinicGeoLat: body.clinic_info.geo?.lat,
-          clinicGeoLng: body.clinic_info.geo?.lng,
+          // Backward-compat old columns — write from default location
+          clinicAddress: defaultLoc?.address ?? body.clinic_info?.address ?? existingDoctor.clinicAddress ?? '',
+          clinicPhone: defaultLoc?.phone ?? body.clinic_info?.phone ?? existingDoctor.clinicPhone,
+          clinicWhatsapp: defaultLoc?.whatsapp ?? body.clinic_info?.whatsapp ?? existingDoctor.clinicWhatsapp,
+          clinicHours: defaultLoc?.hours ?? body.clinic_info?.hours ?? existingDoctor.clinicHours ?? {},
+          clinicGeoLat: defaultLoc?.geoLat ?? body.clinic_info?.geo?.lat ?? existingDoctor.clinicGeoLat,
+          clinicGeoLng: defaultLoc?.geoLng ?? body.clinic_info?.geo?.lng ?? existingDoctor.clinicGeoLng,
           socialLinkedin: body.social_links?.linkedin,
           socialTwitter: body.social_links?.twitter,
           colorPalette: body.color_palette || 'warm',

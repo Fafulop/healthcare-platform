@@ -4,12 +4,10 @@ import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { Sparkles, X, Bot, User, Loader2, Send, Minus, ChevronUp, CheckCircle } from 'lucide-react';
 import { VoiceRecordButton } from '@/components/voice-assistant/chat/VoiceRecordButton';
 import { useAppointmentsChat, type ChatMessage } from '@/hooks/useAppointmentsChat';
-import type { AppointmentSlot, Booking } from './useAppointmentsPage';
+import type { AppointmentSlot } from '@/app/appointments/_hooks/useSlots';
+import type { Booking } from '@/app/appointments/_hooks/useBookings';
 
-// -----------------------------------------------------------------------------
 // Markdown-like renderer (same pattern as TaskChatPanel)
-// -----------------------------------------------------------------------------
-
 function renderContent(text: string) {
   if (!text) return null;
   const lines = text.split('\n');
@@ -43,20 +41,12 @@ function renderContent(text: string) {
   });
 }
 
-// -----------------------------------------------------------------------------
-// Suggestions
-// -----------------------------------------------------------------------------
-
 const SUGGESTIONS = [
   '¿Qué horarios tengo disponibles hoy?',
   'Crea horarios de lunes a viernes de 9 a 10 esta semana',
   'Muéstrame las citas confirmadas de los próximos 7 días',
   'Cierra todos los horarios de la semana que viene',
 ];
-
-// -----------------------------------------------------------------------------
-// Message bubble
-// -----------------------------------------------------------------------------
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
@@ -85,10 +75,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     </div>
   );
 }
-
-// -----------------------------------------------------------------------------
-// Panel
-// -----------------------------------------------------------------------------
 
 interface AppointmentChatPanelProps {
   isOpen: boolean;
@@ -121,8 +107,7 @@ export function AppointmentChatPanel({
   const [text, setText] = useState('');
   const [collapsed, setCollapsed] = useState(false);
 
-  // Draggable panel height (mobile only)
-  const [panelHeight, setPanelHeight] = useState(60); // vh
+  const [panelHeight, setPanelHeight] = useState(60);
   const isDragging = useRef(false);
   const dragStartY = useRef(0);
   const dragStartHeight = useRef(60);
@@ -156,7 +141,6 @@ export function AppointmentChatPanel({
     window.addEventListener('mouseup', onMouseUp);
   };
 
-  // Auto-scroll on new messages or when confirmation appears
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -193,7 +177,6 @@ export function AppointmentChatPanel({
       `}
       style={collapsed ? undefined : { height: `${panelHeight}vh` }}
     >
-      {/* Drag handle (mobile, expanded only) */}
       {!collapsed && (
         <div
           className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing sm:hidden"
@@ -206,7 +189,6 @@ export function AppointmentChatPanel({
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 sm:py-3 border-b border-gray-200 bg-indigo-50 flex-shrink-0">
         <button
           type="button"
@@ -235,7 +217,6 @@ export function AppointmentChatPanel({
             type="button"
             onClick={() => setCollapsed(!collapsed)}
             className="p-1 rounded hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors"
-            title={collapsed ? 'Expandir' : 'Minimizar'}
           >
             {collapsed ? <ChevronUp className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
           </button>
@@ -249,20 +230,15 @@ export function AppointmentChatPanel({
         </div>
       </div>
 
-      {/* Body — hidden when collapsed */}
       {!collapsed && (
         <>
-          {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
             {messages.length === 0 ? (
-              // Empty state with suggestion chips
               <div className="flex flex-col items-center justify-center h-full text-center px-4">
                 <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-3">
                   <Sparkles className="w-6 h-6 text-indigo-500" />
                 </div>
-                <p className="text-sm font-medium text-gray-700 mb-1">
-                  Asistente de citas
-                </p>
+                <p className="text-sm font-medium text-gray-700 mb-1">Asistente de citas</p>
                 <p className="text-xs text-gray-500 mb-4">
                   Gestiona horarios y citas con lenguaje natural. Revisa cada acción antes de confirmar.
                 </p>
@@ -285,7 +261,6 @@ export function AppointmentChatPanel({
                   <MessageBubble key={msg.id} message={msg} />
                 ))}
 
-                {/* Thinking / transcribing indicator */}
                 {isBusy && (
                   <div className="flex gap-2">
                     <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
@@ -298,7 +273,6 @@ export function AppointmentChatPanel({
                   </div>
                 )}
 
-                {/* Inline confirmation list */}
                 {pendingActions && (
                   <div className="border border-amber-200 rounded-xl bg-amber-50 p-3">
                     <p className="text-xs font-semibold text-amber-800 mb-2 flex items-center gap-1.5">
@@ -339,7 +313,6 @@ export function AppointmentChatPanel({
             )}
           </div>
 
-          {/* Input */}
           <div className="border-t border-gray-200 p-2 sm:p-3 bg-white flex-shrink-0">
             <div className="flex items-center gap-2">
               <VoiceRecordButton
@@ -377,7 +350,6 @@ export function AppointmentChatPanel({
                     : 'bg-gray-100 text-gray-300 cursor-not-allowed'
                   }
                 `}
-                title="Enviar mensaje"
               >
                 <Send className="w-4 h-4" />
               </button>

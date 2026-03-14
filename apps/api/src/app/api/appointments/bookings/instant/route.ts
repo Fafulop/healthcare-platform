@@ -1,62 +1,15 @@
 // POST /api/appointments/bookings/instant
-// Creates a freeform booking directly — no AppointmentSlot is created.
-// Used when the doctor schedules a patient outside of pre-planned slots ("Nuevo horario").
-// The booking stores date/startTime/endTime/duration directly instead of referencing a slot.
+// Creates a private AppointmentSlot (isPublic: false, isOpen: false) + a confirmed Booking
+// in one transaction. Used when the doctor schedules a patient outside pre-planned slots ("Nuevo horario").
+// No freeform bookings (slotId: null) are created — every booking references a slot.
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import crypto from 'crypto';
 import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
-import { createSlotEvent, resolveTokens } from '@/lib/google-calendar';
-
-async function getCalendarTokens(doctorId: string) {
-  const doctor = await prisma.doctor.findUnique({
-    where: { id: doctorId },
-    select: {
-      googleCalendarId: true,
-      googleCalendarEnabled: true,
-      user: {
-        select: {
-          id: true,
-          googleAccessToken: true,
-          googleRefreshToken: true,
-          googleTokenExpiry: true,
-        },
-      },
-    },
-  });
-  if (!doctor?.googleCalendarEnabled || !doctor.googleCalendarId || !doctor.user) return null;
-  try {
-    const { accessToken, refreshToken, updatedToken } = await resolveTokens(doctor.user);
-    if (updatedToken) {
-      await prisma.user.update({
-        where: { id: doctor.user.id },
-        data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
-      });
-    }
-    return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
-  } catch { return null; }
-}
-
-function generateConfirmationCode(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-function generateReviewToken(): string {
-  return crypto.randomBytes(32).toString('hex');
-}
-
-function calcEndTime(startTime: string, duration: number): string {
-  const [h, m] = startTime.split(':').map(Number);
-  const endMins = h * 60 + m + duration;
-  return `${String(Math.floor(endMins / 60)).padStart(2, '0')}:${String(endMins % 60).padStart(2, '0')}`;
-}
+import { createSlotEvent } from '@/lib/google-calendar';
+import { getCalendarTokens, generateConfirmationCode, generateReviewToken, calcEndTime } from '@/lib/appointments-utils';
+import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 
 export async function POST(request: Request) {
   try {
@@ -76,6 +29,7 @@ export async function POST(request: Request) {
       serviceId,
       isFirstTime,
       appointmentMode,
+      locationId,     // optional — links to ClinicLocation
     } = body;
 
     if (!doctorId || !date || !startTime || !duration || !patientName || !patientEmail || !patientPhone) {
@@ -125,44 +79,96 @@ export async function POST(request: Request) {
     const confirmationCode = generateConfirmationCode();
     const reviewToken = generateReviewToken();
 
-    // Create the freeform booking — no slot involved.
-    // date/startTime/endTime/duration are stored directly on the booking.
-    const booking = await prisma.booking.create({
-      data: {
-        doctorId,
-        slotId: null,
-        date: bookingDate,
-        startTime: normalizedStartTime,
-        endTime,
-        duration: durationNum,
-        patientName,
-        patientEmail,
-        patientPhone,
-        patientWhatsapp: patientWhatsapp || null,
-        notes: notes || null,
-        serviceId: serviceId || null,
-        serviceName,
-        isFirstTime: isFirstTime ?? null,
-        appointmentMode: appointmentMode || null,
-        finalPrice,
-        confirmationCode,
-        reviewToken,
-        status: 'CONFIRMED',
-        confirmedAt: new Date(),
-      },
-    });
+    // Create private slot + confirmed booking atomically.
+    // The slot is isPublic: false (hidden from public booking page) and isOpen: false
+    // (doctor is committed to this patient — no further bookings accepted on this slot).
+    // P2002 = unique constraint (doctorId, date, startTime) violated — slot already exists at this time.
+    let slot: any;
+    let booking: any;
+    try {
+      [slot, booking] = await prisma.$transaction(async (tx) => {
+        const s = await tx.appointmentSlot.create({
+          data: {
+            doctorId,
+            date: bookingDate,
+            startTime: normalizedStartTime,
+            endTime,
+            duration: durationNum,
+            basePrice: finalPrice,
+            finalPrice,
+            isPublic: false,
+            isOpen: false,
+            ...(locationId ? { locationId } : {}),
+          },
+          include: {
+            location: { select: { address: true } },
+          },
+        });
 
-    // Close any open slots at this same date+time — the doctor is now committed here.
-    // This prevents public patients from booking into a slot that overlaps this freeform appointment.
-    await prisma.appointmentSlot.updateMany({
-      where: {
-        doctorId,
-        date: bookingDate,
-        startTime: normalizedStartTime,
-        isOpen: true,
-      },
-      data: { isOpen: false },
-    });
+        const b = await tx.booking.create({
+          data: {
+            doctorId,
+            slotId: s.id,
+            patientName,
+            patientEmail,
+            patientPhone,
+            patientWhatsapp: patientWhatsapp || null,
+            notes: notes || null,
+            serviceId: serviceId || null,
+            serviceName,
+            isFirstTime: isFirstTime ?? null,
+            appointmentMode: appointmentMode || null,
+            finalPrice,
+            confirmationCode,
+            reviewToken,
+            status: 'CONFIRMED',
+            confirmedAt: new Date(),
+          },
+        });
+
+        return [s, b];
+      });
+    } catch (txErr: any) {
+      if (txErr?.code === 'P2002') {
+        return NextResponse.json(
+          { success: false, error: 'Ya existe un horario en este tiempo. Usa el horario existente o elige otro momento.' },
+          { status: 409 }
+        );
+      }
+      throw txErr;
+    }
+
+    // Send SMS notifications (async, non-blocking)
+    const smsEnabled = await isSMSEnabled();
+    if (smsEnabled) {
+      const doctorForSms = await prisma.doctor.findUnique({
+        where: { id: doctorId },
+        select: { doctorFullName: true, clinicPhone: true, clinicAddress: true, primarySpecialty: true },
+      });
+      if (doctorForSms) {
+        const smsDetails = {
+          patientName,
+          patientPhone,
+          doctorName: doctorForSms.doctorFullName,
+          doctorPhone: doctorForSms.clinicPhone || undefined,
+          date: bookingDate.toISOString(),
+          startTime: normalizedStartTime,
+          endTime,
+          duration: durationNum,
+          finalPrice,
+          confirmationCode,
+          clinicAddress: slot.location?.address ?? doctorForSms.clinicAddress ?? undefined,
+          specialty: doctorForSms.primarySpecialty || undefined,
+          reviewToken,
+        };
+        sendPatientSMS(smsDetails, 'CONFIRMED').catch((err) =>
+          console.error('SMS patient notification (instant):', err)
+        );
+        sendDoctorSMS(smsDetails).catch((err) =>
+          console.error('SMS doctor notification (instant):', err)
+        );
+      }
+    }
 
     // Log activity
     logBookingCreated({
@@ -177,11 +183,11 @@ export async function POST(request: Request) {
       finalPrice,
     });
 
-    // Sync to Google Calendar (fire-and-forget) — event ID stored on the booking itself
+    // Sync to Google Calendar (fire-and-forget) — event ID stored on the slot (not the booking)
     getCalendarTokens(doctorId).then(async tokens => {
       if (!tokens) return;
       const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, {
-        id: booking.id,
+        id: slot.id,
         date,
         startTime: normalizedStartTime,
         endTime,
@@ -192,11 +198,11 @@ export async function POST(request: Request) {
         patientNotes: notes ?? undefined,
         finalPrice,
       });
-      await prisma.booking.update({
-        where: { id: booking.id },
+      await prisma.appointmentSlot.update({
+        where: { id: slot.id },
         data: { googleEventId: eventId },
       });
-    }).catch((err) => console.error('[GCal sync] createSlotEvent (freeform booking):', err));
+    }).catch((err) => console.error('[GCal sync] createSlotEvent (instant booking):', err));
 
     return NextResponse.json(
       {
@@ -205,13 +211,14 @@ export async function POST(request: Request) {
         data: {
           confirmationCode,
           bookingId: booking.id,
+          slotId: slot.id,
           slot: { date, startTime: normalizedStartTime, endTime, duration: durationNum, finalPrice },
         },
       },
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating freeform booking:', error);
+    console.error('Error creating instant booking:', error);
 
     if (error instanceof Error) {
       if (error.message.includes('authorization') || error.message.includes('token') || error.message.includes('authentication')) {

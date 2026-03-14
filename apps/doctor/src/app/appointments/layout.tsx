@@ -11,7 +11,7 @@ import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
 import { DayDetailsWidget } from "@/components/day-details/DayDetailsWidget";
 import { VoiceAssistantHubWidget } from "@/components/voice-hub/VoiceAssistantHubWidget";
 
-export default function AppointmentsLayout({
+export default function AppointmentsV2Layout({
   children,
 }: {
   children: React.ReactNode;

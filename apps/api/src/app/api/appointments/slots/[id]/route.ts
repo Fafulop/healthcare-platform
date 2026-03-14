@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import { validateAuthToken } from '@/lib/auth';
 import { logSlotDeleted, logSlotOpened, logSlotClosed, logSlotUpdated } from '@/lib/activity-logger';
 
 // Helper function to calculate final price
@@ -29,9 +30,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { role, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
     const { id } = await params;
     const body = await request.json();
-    const { startTime, endTime, duration, basePrice, discount, discountType } =
+    const { startTime, endTime, duration, basePrice, discount, discountType, locationId } =
       body;
 
     // Check if slot exists and isn't booked
@@ -51,7 +53,14 @@ export async function PUT(
       );
     }
 
-    // Prevent editing time/price fields if slot has active bookings (use PATCH for isOpen)
+    if (role === 'DOCTOR' && existingSlot.doctorId !== authenticatedDoctorId) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    } else if (role !== 'DOCTOR' && role !== 'ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Prevent editing time/price fields if slot has active bookings (use PATCH for isOpen).
+    // locationId can always be changed — it doesn't affect existing bookings.
     const hasActiveBookings = existingSlot.bookings.length > 0;
     const isEditingFields = startTime !== undefined || endTime !== undefined || duration !== undefined || basePrice !== undefined || discount !== undefined || discountType !== undefined;
     if (hasActiveBookings && isEditingFields) {
@@ -84,6 +93,7 @@ export async function PUT(
         ...(discount !== undefined && { discount }),
         ...(discountType !== undefined && { discountType }),
         ...(finalPrice !== undefined && { finalPrice }),
+        ...(locationId !== undefined && { locationId: locationId ?? null }),
       },
     });
 
@@ -129,6 +139,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { role, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
     const { id } = await params;
 
     // Check if slot has active (non-terminal) bookings
@@ -146,6 +157,12 @@ export async function DELETE(
         { success: false, error: 'Slot not found' },
         { status: 404 }
       );
+    }
+
+    if (role === 'DOCTOR' && slot.doctorId !== authenticatedDoctorId) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    } else if (role !== 'DOCTOR' && role !== 'ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     if (slot.bookings.length > 0) {
@@ -194,6 +211,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { role, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
     const { id } = await params;
     const body = await request.json();
     const { isOpen } = body;
@@ -223,6 +241,12 @@ export async function PATCH(
         { success: false, error: 'Slot not found' },
         { status: 404 }
       );
+    }
+
+    if (role === 'DOCTOR' && slot.doctorId !== authenticatedDoctorId) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    } else if (role !== 'DOCTOR' && role !== 'ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const activeBookingCount = slot.bookings.length;

@@ -108,6 +108,7 @@ model Doctor {
 
   // Relations
   user               User?     // 1:1 relation - optional (can have doctors without user accounts)
+  clinicLocations    ClinicLocation[]
   services           Service[]
   educationItems     Education[]
   certificates       Certificate[]
@@ -298,9 +299,16 @@ model AppointmentSlot {
   // Google Calendar sync
   googleEventId      String?     @map("google_event_id")
 
+  // Visibility: false = private slot (doctor internal, not bookable by patients)
+  isPublic           Boolean     @default(true) @map("is_public")
+
+  // Location: which clinic address this slot is at (null = doctor's default location)
+  locationId         String?     @map("location_id")
+
   // Relations
-  doctor             Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor             Doctor           @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   bookings           Booking[]
+  location           ClinicLocation?  @relation(fields: [locationId], references: [id])
 
   createdAt          DateTime    @default(now()) @map("created_at")
   updatedAt          DateTime    @updatedAt @map("updated_at")
@@ -309,6 +317,28 @@ model AppointmentSlot {
   @@index([doctorId, date, isOpen])
   @@index([date])
   @@unique([doctorId, date, startTime]) // Prevent duplicate slots at same time
+  @@schema("public")
+}
+
+model ClinicLocation {
+  id           String   @id @default(cuid())
+  doctorId     String   @map("doctor_id")
+  name         String                        // "Consultorio Principal", "Consultorio 2"
+  address      String
+  phone        String?
+  whatsapp     String?
+  hours        Json     @default("{}")
+  geoLat       Float?   @map("geo_lat")
+  geoLng       Float?   @map("geo_lng")
+  isDefault    Boolean  @default(false) @map("is_default")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  doctor  Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  slots   AppointmentSlot[]
+
+  @@map("clinic_locations")
+  @@index([doctorId])
   @@schema("public")
 }
 

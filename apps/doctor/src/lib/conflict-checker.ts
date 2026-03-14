@@ -40,7 +40,8 @@ export async function checkConflictsForEntry(
       const slots = slotsData.data || [];
 
       appointmentConflicts = slots.filter((slot: any) => {
-        const isActive = slot.status === 'AVAILABLE' || slot.status === 'BOOKED';
+        // A slot is active if it's open (doctor is available there) or has active bookings
+        const isActive = slot.isOpen === true || (slot.currentBookings ?? 0) > 0;
         const overlaps = slot.startTime < endTime && slot.endTime > startTime;
         return isActive && overlaps;
       });
@@ -91,7 +92,7 @@ export async function checkConflictsForEntry(
   }
 
   const hasBookedAppointments = appointmentConflicts.some(
-    (slot: any) => slot.status === 'BOOKED'
+    (slot: any) => (slot.currentBookings ?? 0) > 0
   );
 
   return {

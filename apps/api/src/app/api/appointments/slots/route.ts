@@ -128,6 +128,7 @@ export async function GET(request: Request) {
     const slots = await prisma.appointmentSlot.findMany({
       where,
       include: {
+        location: { select: { name: true, address: true } },
         bookings: {
           where: { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
           select: {
@@ -147,8 +148,9 @@ export async function GET(request: Request) {
     });
 
     // Compute currentBookings from live active bookings — not the stale denormalized counter.
-    const data = slots.map(({ bookings, ...slot }) => ({
+    const data = slots.map(({ bookings, location, ...slot }) => ({
       ...slot,
+      location: location ?? null,
       currentBookings: bookings.length,
       bookings,
     }));
@@ -193,6 +195,7 @@ export async function POST(request: Request) {
       discount,
       discountType,
       replaceConflicts, // NEW: If true, delete conflicting slots and create new ones
+      locationId,       // optional — links slots to a ClinicLocation
     } = body;
 
     // Validation
@@ -291,6 +294,7 @@ export async function POST(request: Request) {
         discount,
         discountType,
         finalPrice,
+        locationId: locationId ?? null,
       }));
 
       // Check for existing slots (same-type conflict detection)
@@ -461,6 +465,7 @@ export async function POST(request: Request) {
             discount,
             discountType,
             finalPrice,
+            locationId: locationId ?? null,
           }));
 
           allSlotsToCreate.push(...slotsForDay);

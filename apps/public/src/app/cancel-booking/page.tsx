@@ -71,7 +71,7 @@ export default function CancelBookingPage() {
       const res = await fetch(`${API_URL}/api/appointments/bookings/${booking.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CANCELLED" }),
+        body: JSON.stringify({ status: "CANCELLED", confirmationCode: code.trim() }),
       });
       const data = await res.json();
 

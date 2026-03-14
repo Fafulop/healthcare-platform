@@ -3,7 +3,6 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import crypto from 'crypto';
 import {
   sendPatientSMS,
   sendDoctorSMS,
@@ -11,51 +10,8 @@ import {
 } from '@/lib/sms';
 import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
-import { createSlotEvent, updateSlotEvent, resolveTokens } from '@/lib/google-calendar';
-
-async function getCalendarTokens(doctorId: string) {
-  const doctor = await prisma.doctor.findUnique({
-    where: { id: doctorId },
-    select: {
-      googleCalendarId: true,
-      googleCalendarEnabled: true,
-      user: {
-        select: {
-          id: true,
-          googleAccessToken: true,
-          googleRefreshToken: true,
-          googleTokenExpiry: true,
-        },
-      },
-    },
-  });
-  if (!doctor?.googleCalendarEnabled || !doctor.googleCalendarId || !doctor.user) return null;
-  try {
-    const { accessToken, refreshToken, updatedToken } = await resolveTokens(doctor.user);
-    if (updatedToken) {
-      await prisma.user.update({
-        where: { id: doctor.user.id },
-        data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
-      });
-    }
-    return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
-  } catch { return null; }
-}
-
-// Helper to generate confirmation code
-function generateConfirmationCode(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-// Helper to generate unique review token
-function generateReviewToken(): string {
-  return crypto.randomBytes(32).toString('hex');
-}
+import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
+import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
 
 // POST - Create a booking
 export async function POST(request: Request) {
@@ -150,19 +106,8 @@ export async function POST(request: Request) {
       [booking, slot] = await prisma.$transaction(async (tx) => {
         const freshSlot = await tx.appointmentSlot.findUnique({ where: { id: slotId } });
         if (!freshSlot) throw Object.assign(new Error('SLOT_NOT_FOUND'), { bookingError: true });
+        if (!freshSlot.isPublic) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
         if (!freshSlot.isOpen) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
-
-        // Block if a freeform booking already exists at this exact time (doctor is busy)
-        const freeformConflict = await tx.booking.findFirst({
-          where: {
-            doctorId: freshSlot.doctorId,
-            slotId: null,
-            date: freshSlot.date,
-            startTime: freshSlot.startTime,
-            status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] },
-          },
-        });
-        if (freeformConflict) throw Object.assign(new Error('FREEFORM_CONFLICT'), { bookingError: true });
 
         const b = await tx.booking.create({
           data: {
@@ -191,8 +136,6 @@ export async function POST(request: Request) {
         const statusCode = txErr.message === 'SLOT_NOT_FOUND' ? 404 : 400;
         const msg = txErr.message === 'SLOT_NOT_FOUND'
           ? 'Appointment slot not found'
-          : txErr.message === 'FREEFORM_CONFLICT'
-          ? 'Este horario ya no está disponible'
           : 'This slot is not available for booking';
         return NextResponse.json({ success: false, error: msg }, { status: statusCode });
       }
@@ -207,7 +150,9 @@ export async function POST(request: Request) {
     const bookingWithSlot = await prisma.booking.findUnique({
       where: { id: booking.id },
       include: {
-        slot: true,
+        slot: {
+          include: { location: { select: { address: true } } },
+        },
         doctor: {
           select: {
             doctorFullName: true,
@@ -260,7 +205,7 @@ export async function POST(request: Request) {
         duration: bookingWithSlot.slot.duration,
         finalPrice: Number(bookingWithSlot.finalPrice),
         confirmationCode,
-        clinicAddress: bookingWithSlot.doctor.clinicAddress || undefined,
+        clinicAddress: (bookingWithSlot.slot?.location?.address ?? bookingWithSlot.doctor.clinicAddress) || undefined,
         specialty: bookingWithSlot.doctor.primarySpecialty || undefined,
         reviewToken,
       };

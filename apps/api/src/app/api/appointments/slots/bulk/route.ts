@@ -2,40 +2,19 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import { validateAuthToken } from '@/lib/auth';
+import { getCalendarTokens } from '@/lib/appointments-utils';
 import { logSlotsBulkDeleted, logSlotsBulkOpened, logSlotsBulkClosed } from '@/lib/activity-logger';
-import { deleteEvent, updateSlotEvent, resolveTokens } from '@/lib/google-calendar';
-
-async function getCalendarTokens(doctorId: string) {
-  const doctor = await prisma.doctor.findUnique({
-    where: { id: doctorId },
-    select: {
-      googleCalendarId: true,
-      googleCalendarEnabled: true,
-      user: {
-        select: {
-          id: true,
-          googleAccessToken: true,
-          googleRefreshToken: true,
-          googleTokenExpiry: true,
-        },
-      },
-    },
-  });
-  if (!doctor?.googleCalendarEnabled || !doctor.googleCalendarId || !doctor.user) return null;
-  try {
-    const { accessToken, refreshToken, updatedToken } = await resolveTokens(doctor.user);
-    if (updatedToken) {
-      await prisma.user.update({
-        where: { id: doctor.user.id },
-        data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
-      });
-    }
-    return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
-  } catch { return null; }
-}
+import { deleteEvent, updateSlotEvent } from '@/lib/google-calendar';
 
 export async function POST(request: Request) {
   try {
+    const { role, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
+
+    if (role !== 'DOCTOR' && role !== 'ADMIN') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { action, slotIds } = body;
 
@@ -49,12 +28,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Scope slot queries to the authenticated doctor (admins can act on any doctor's slots)
+    const ownershipWhere: { id: { in: string[] }; doctorId?: string } = { id: { in: slotIds } };
+    if (role === 'DOCTOR') ownershipWhere.doctorId = authenticatedDoctorId!;
+
     // Delete multiple slots
     if (action === 'delete') {
-      // Check if any slots have bookings
       const slotsWithBookings = await prisma.appointmentSlot.findMany({
         where: {
-          id: { in: slotIds },
+          ...ownershipWhere,
         },
         include: {
           bookings: {
@@ -79,9 +61,7 @@ export async function POST(request: Request) {
       }
 
       const deleted = await prisma.appointmentSlot.deleteMany({
-        where: {
-          id: { in: slotIds },
-        },
+        where: { ...ownershipWhere },
       });
 
       // Log activity + sync to Google Calendar (fire-and-forget)
@@ -108,10 +88,9 @@ export async function POST(request: Request) {
 
     // Close multiple slots (prevent new bookings)
     if (action === 'close') {
-      // Check if any slots have active bookings
       const slotsWithBookings = await prisma.appointmentSlot.findMany({
         where: {
-          id: { in: slotIds },
+          ...ownershipWhere,
         },
         include: {
           bookings: {
@@ -138,9 +117,7 @@ export async function POST(request: Request) {
       }
 
       const updated = await prisma.appointmentSlot.updateMany({
-        where: {
-          id: { in: slotIds },
-        },
+        where: { ...ownershipWhere },
         data: {
           isOpen: false,
         },
@@ -178,12 +155,12 @@ export async function POST(request: Request) {
     // Open multiple slots (allow new bookings)
     if (action === 'open') {
       const slotsToOpen = await prisma.appointmentSlot.findMany({
-        where: { id: { in: slotIds } },
+        where: { ...ownershipWhere },
         select: { id: true, doctorId: true, date: true, startTime: true, endTime: true, finalPrice: true, googleEventId: true },
       });
 
       const updated = await prisma.appointmentSlot.updateMany({
-        where: { id: { in: slotIds } },
+        where: { ...ownershipWhere },
         data: { isOpen: true },
       });
 
@@ -225,6 +202,17 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error('Error performing bulk operation:', error);
+
+    if (error instanceof Error) {
+      if (
+        error.message.includes('authorization') ||
+        error.message.includes('token') ||
+        error.message.includes('authentication')
+      ) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 401 });
+      }
+    }
+
     return NextResponse.json(
       {
         success: false,
