@@ -59,17 +59,6 @@ export interface ClinicInfo {
   geo: GeoCoordinates;
 }
 
-export interface ClinicLocationItem {
-  id: string;
-  name: string;
-  address: string;
-  phone?: string | null;
-  whatsapp?: string | null;
-  hours?: OfficeHours;
-  geoLat?: number | null;
-  geoLng?: number | null;
-}
-
 export interface Review {
   id: string;
   patientName: string | null;
@@ -124,7 +113,6 @@ export interface DoctorProfile {
 
   // Clinic Location
   clinic_info: ClinicInfo;
-  clinic_locations?: ClinicLocationItem[];
 
   // FAQ
   faqs: FAQ[];
