@@ -6,7 +6,6 @@ import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
-const PUBLIC_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://tusalud.pro";
 
 interface Props {
   isOpen: boolean;
