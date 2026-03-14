@@ -196,13 +196,28 @@ export async function PATCH(
           prisma.appointmentSlot.delete({ where: { id: currentBooking.slot!.id } }),
         ]);
       } else {
-        updatedBooking = await prisma.booking.update({
-          where: { id },
-          data: {
-            status: newStatus,
-            ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
-          },
-        });
+        // COMPLETED or NO_SHOW on a public slot: close the slot so it stops appearing in availability.
+        // CANCELLED on a public slot: leave isOpen as-is so other patients can still book it.
+        if ((newStatus === 'COMPLETED' || newStatus === 'NO_SHOW') && currentBooking.slotId) {
+          [updatedBooking] = await prisma.$transaction([
+            prisma.booking.update({
+              where: { id },
+              data: { status: newStatus },
+            }),
+            prisma.appointmentSlot.update({
+              where: { id: currentBooking.slotId },
+              data: { isOpen: false },
+            }),
+          ]);
+        } else {
+          updatedBooking = await prisma.booking.update({
+            where: { id },
+            data: {
+              status: newStatus,
+              ...(newStatus === 'CANCELLED' && { cancelledAt: new Date() }),
+            },
+          });
+        }
       }
 
       // Resolve date/time from slot (slot-based) or directly from booking (freeform)
