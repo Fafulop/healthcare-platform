@@ -1,6 +1,7 @@
 // GET /api/doctors - List all doctors
 // POST /api/doctors - Create new doctor (admin only)
 
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireAdminAuth } from '@/lib/auth';
