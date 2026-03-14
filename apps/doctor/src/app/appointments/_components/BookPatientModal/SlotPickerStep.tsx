@@ -123,13 +123,17 @@ export function SlotPickerStep({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Hora de inicio *</label>
-              <input
-                type="time"
-                step={1800}
+              <select
                 value={newSlotForm.startTime}
                 onChange={(e) => setNewSlotForm({ ...newSlotForm, startTime: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              >
+                <option value="">-- Hora --</option>
+                {Array.from({ length: 17 }, (_, i) => i + 6).map((h) => {
+                  const val = `${String(h).padStart(2, "0")}:00`;
+                  return <option key={val} value={val}>{val}</option>;
+                })}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Duración *</label>
