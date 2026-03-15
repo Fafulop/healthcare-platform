@@ -3,9 +3,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
-import { getCalendarTokens } from '@/lib/appointments-utils';
 import { logSlotsBulkDeleted, logSlotsBulkOpened, logSlotsBulkClosed } from '@/lib/activity-logger';
-import { deleteEvent, updateSlotEvent } from '@/lib/google-calendar';
 
 export async function POST(request: Request) {
   try {
@@ -64,19 +62,9 @@ export async function POST(request: Request) {
         where: { ...ownershipWhere },
       });
 
-      // Log activity + sync to Google Calendar (fire-and-forget)
       const doctorIdForDelete = slotsWithBookings[0]?.doctorId;
       if (doctorIdForDelete) {
         logSlotsBulkDeleted({ doctorId: doctorIdForDelete, count: deleted.count });
-        getCalendarTokens(doctorIdForDelete).then(tokens => {
-          if (!tokens) return;
-          for (const slot of slotsWithBookings) {
-            if (slot.googleEventId) {
-              deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId)
-                .catch((err) => console.error('[GCal sync] deleteEvent (bulk DELETE):', err));
-            }
-          }
-        }).catch((err) => console.error('[GCal sync] getCalendarTokens (bulk DELETE):', err));
       }
 
       return NextResponse.json({
@@ -123,26 +111,9 @@ export async function POST(request: Request) {
         },
       });
 
-      // Log activity + sync to Google Calendar (fire-and-forget)
       const doctorIdForClose = slotsWithBookings[0]?.doctorId;
       if (doctorIdForClose) {
         logSlotsBulkClosed({ doctorId: doctorIdForClose, count: updated.count });
-        getCalendarTokens(doctorIdForClose).then(tokens => {
-          if (!tokens) return;
-          for (const slot of slotsWithBookings) {
-            if (slot.googleEventId) {
-              const dateStr = slot.date.toISOString().split('T')[0];
-              updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId, {
-                id: slot.id,
-                date: dateStr,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                isOpen: false,
-                finalPrice: Number(slot.finalPrice),
-              }).catch((err) => console.error('[GCal sync] updateSlotEvent (bulk CLOSE):', err));
-            }
-          }
-        }).catch((err) => console.error('[GCal sync] getCalendarTokens (bulk CLOSE):', err));
       }
 
       return NextResponse.json({
@@ -156,7 +127,7 @@ export async function POST(request: Request) {
     if (action === 'open') {
       const slotsToOpen = await prisma.appointmentSlot.findMany({
         where: { ...ownershipWhere },
-        select: { id: true, doctorId: true, date: true, startTime: true, endTime: true, finalPrice: true, googleEventId: true },
+        select: { id: true, doctorId: true },
       });
 
       const updated = await prisma.appointmentSlot.updateMany({
@@ -164,26 +135,9 @@ export async function POST(request: Request) {
         data: { isOpen: true },
       });
 
-      // Log activity + sync to Google Calendar (fire-and-forget)
       const doctorIdForOpen = slotsToOpen[0]?.doctorId;
       if (doctorIdForOpen) {
         logSlotsBulkOpened({ doctorId: doctorIdForOpen, count: updated.count });
-        getCalendarTokens(doctorIdForOpen).then(tokens => {
-          if (!tokens) return;
-          for (const slot of slotsToOpen) {
-            if (slot.googleEventId) {
-              const dateStr = slot.date.toISOString().split('T')[0];
-              updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId, {
-                id: slot.id,
-                date: dateStr,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                isOpen: true,
-                finalPrice: Number(slot.finalPrice),
-              }).catch((err) => console.error('[GCal sync] updateSlotEvent (bulk OPEN):', err));
-            }
-          }
-        }).catch((err) => console.error('[GCal sync] getCalendarTokens (bulk OPEN):', err));
       }
 
       return NextResponse.json({

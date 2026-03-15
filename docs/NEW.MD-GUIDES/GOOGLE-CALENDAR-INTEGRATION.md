@@ -1,27 +1,26 @@
 # Google Calendar Integration Guide
 
 **Implemented:** 2026-03-03
-**Bug fixes:** 2026-03-04 (webhook timezone, date display, booking cancellation sync, shared date utility) | 2026-03-11 (webhook date parsing, bulk slot GCal sync, task bulk delete GCal sync, frontend logic fixes)
+**Bug fixes:** 2026-03-04 (webhook timezone, date display, booking cancellation sync, shared date utility) | 2026-03-11 (webhook date parsing, task bulk delete GCal sync, frontend logic fixes)
 **Enhancements:** 2026-03-04 (COMPLETED/NO_SHOW states, description enrichment, conflict detection, webhook resilience, resync endpoint, error logging)
+**Design change:** 2026-03-15 — sync scope reduced to bookings + tasks only (slots no longer appear in GCal); one-way confirmed (app → GCal only, webhook already was a no-op)
 **Scope:** Doctor app + API app
-**Type:** OAuth per doctor, bidirectional sync, dedicated "tusalud.pro" calendar
+**Type:** OAuth per doctor, one-way sync (app → GCal), dedicated "tusalud.pro" calendar
 
 ---
 
 ## Overview
 
-Each doctor can connect their own Google account. When connected, a dedicated calendar called **"tusalud.pro"** is created inside their Google Calendar account. All appointment slots, confirmed/pending bookings, and tasks (pendientes) sync automatically in both directions.
+Each doctor can connect their own Google account. When connected, a dedicated calendar called **"tusalud.pro"** is created inside their Google Calendar account. Confirmed/pending bookings and tasks (pendientes) sync one-way to Google Calendar. Slots (schedule blocks) are **not** synced — only patient appointments and tasks appear in the calendar.
+
+> **One-way only:** All changes flow from tusalud.pro → Google Calendar. Changes made in Google Calendar are never written back to the DB. The webhook endpoint exists solely to receive Google's push notification pings; it performs zero DB writes.
 
 ```
 tusalud.pro DB ──────────────────────────── Google Calendar ("tusalud.pro")
 
-  Slot created         ──── push ────►  Event created (Disponible / Bloqueado)
-  Slot bulk open       ──── push ────►  Events updated → "Disponible" (teal)
-  Slot bulk close      ──── push ────►  Events updated → "Bloqueado" (graphite)
-  Slot bulk delete     ──── push ────►  Events deleted
-  Booking PENDING      ──── push ────►  Event updated ("Cita: ⏳ Nombre")
+  Booking PENDING      ──── push ────►  Event created ("Cita: ⏳ Nombre")
   Booking CONFIRMED    ──── push ────►  Event updated ("Cita: Nombre") + ⚠️ if conflict
-  Booking CANCELLED    ──── push ────►  Event updated (reverts to "Disponible")
+  Booking CANCELLED    ──── push ────►  Event deleted
   Booking COMPLETED    ──── push ────►  Event updated ("✓ Cita: Nombre", basil green)
   Booking NO_SHOW      ──── push ────►  Event updated ("✗ Cita: Nombre", graphite)
   Booking deleted      ──── push ────►  Event deleted
@@ -30,10 +29,9 @@ tusalud.pro DB ─────────────────────�
   Task deleted         ──── push ────►  Event deleted
   Task bulk deleted    ──── push ────►  Events deleted (one per task)
 
-  Event moved in GCal  ── webhook ──►  Slot/Task date+time updated in DB
-  Event deleted in GCal ─ webhook ──►  Slot closed / Task cancelled in DB
+  Google Calendar      ── webhook ──►  (acknowledged, no DB writes — one-way by design)
 
-  POST /resync         ──── push ────►  Orphan GCal events deleted; all active DB records upserted
+  POST /resync         ──── push ────►  Orphan GCal events deleted; all active bookings+tasks upserted
 ```
 
 ---
@@ -48,7 +46,7 @@ Three options were considered:
 | B — Service Account | One Google Workspace account manages all calendars | ❌ Requires paid Google Workspace |
 | C — iCal feed | Read-only public `.ics` URL | ❌ One-way only |
 
-**Why Option A:** Events appear in the doctor's own Google Calendar app (phone/desktop). Full bidirectional sync. Standard SaaS pattern. No extra Google services needed.
+**Why Option A:** Events appear in the doctor's own Google Calendar app (phone/desktop). Standard SaaS pattern. No extra Google services needed. Sync is one-way (app → GCal) by design — changes in Google Calendar are not reflected back.
 
 ---
 
@@ -117,6 +115,8 @@ Tokens belong to the Google account, which is linked to the `User` row (not `Doc
 ### Why `googleEventId` on slots and tasks?
 When Google Calendar events are created, Google returns an event ID. We store it so we can call `events.update()` and `events.delete()` by that ID later. Without it, we'd have no way to update a specific event.
 
+> **Note (2026-03-15):** Slots no longer sync to Google Calendar. The `googleEventId` column on `AppointmentSlot` remains in the DB schema but is no longer written to. Bookings still use the slot's `googleEventId` via the `createSlotEvent` / `updateSlotEvent` flow when a booking is placed on a slot that had a prior event ID. Tasks still use their own `googleEventId` normally.
+
 ---
 
 ## Files Created / Modified
@@ -131,7 +131,7 @@ When Google Calendar events are created, Google returns an event ID. We store it
 | `apps/api/src/app/api/doctors/[slug]/google-calendar/status/route.ts` | Returns connection status (including channelExpiry) |
 | `apps/api/src/app/api/doctors/[slug]/google-calendar/connect/route.ts` | Creates calendar + runs initial sync |
 | `apps/api/src/app/api/doctors/[slug]/google-calendar/disconnect/route.ts` | Removes integration, clears tokens |
-| `apps/api/src/app/api/doctors/[slug]/google-calendar/resync/route.ts` | Full bidirectional resync — deletes orphan GCal events, upserts all active slots+tasks |
+| `apps/api/src/app/api/doctors/[slug]/google-calendar/resync/route.ts` | Resync — deletes orphan GCal events, upserts all active bookings+tasks |
 | `apps/api/src/app/api/calendar/webhook/route.ts` | Receives Google push notifications + opportunistic channel auto-renewal |
 | `apps/doctor/src/lib/google-calendar-sync.ts` | Lightweight sync helper using raw fetch (no googleapis) |
 | `apps/doctor/src/lib/dates.ts` | Shared date utility — UTC-safe helpers used across entire doctor app |
@@ -144,7 +144,7 @@ When Google Calendar events are created, Google returns an event ID. We store it
 | `packages/auth/src/nextauth-config.ts` | Added Calendar OAuth scope + token capture in jwt callback |
 | `packages/database/prisma/schema.prisma` | Added 7 new fields across User, Doctor, AppointmentSlot, Task |
 | `apps/api/src/app/api/appointments/slots/[id]/route.ts` | Sync hooks on PUT, PATCH, DELETE; **Bug fix 2026-03-11**: fixed inverted booking guard on PUT (was blocking isOpen, allowing time edits); DELETE now excludes COMPLETED/NO_SHOW from block |
-| `apps/api/src/app/api/appointments/slots/bulk/route.ts` | **Bug fix 2026-03-11**: added GCal sync for all 3 bulk actions — delete (`deleteEvent`), close (`updateSlotEvent` isOpen:false), open (`updateSlotEvent` isOpen:true) |
+| `apps/api/src/app/api/appointments/slots/bulk/route.ts` | **Bug fix 2026-03-11**: added GCal sync for bulk actions. **Design change 2026-03-15**: removed all GCal sync — slots no longer appear in calendar |
 | `apps/api/src/app/api/appointments/bookings/[id]/route.ts` | Sync hooks for all status changes (CONFIRMED, CANCELLED, COMPLETED, NO_SHOW, DELETE) with enriched descriptions + conflict detection |
 | `apps/api/src/app/api/appointments/bookings/route.ts` | PENDING booking now syncs patientPhone, patientEmail, patientNotes to slot event description |
 | `apps/api/src/app/api/appointments/bookings/instant/route.ts` | Instant booking sync now includes bookingStatus, patientPhone, patientNotes |
@@ -222,7 +222,7 @@ This scope is set in `packages/auth/src/nextauth-config.ts`. Doctors who signed 
 | `deleteEvent(accessToken, refreshToken, calendarId, eventId)` | Deletes any event by ID. |
 | `resolveTokens(user)` | Gets a valid access token, refreshing if expired. Returns `updatedToken` if refreshed. |
 | `refreshAccessToken(refreshToken)` | Calls Google token endpoint to get a new access token. |
-| `watchCalendar(...)` | Sets up Google push notifications for bidirectional sync. |
+| `watchCalendar(...)` | Sets up Google push notifications channel (one-way; webhook is a no-op by design). |
 | `stopCalendarWatch(...)` | Stops a push notification channel. |
 
 ### SlotEventData interface
@@ -263,10 +263,9 @@ interface TaskEventData {
 
 ### Event color coding
 
-**Slots:**
-- `colorId: "7"` (Teal/Peacock) — Available slot (`isOpen: true`, no booking)
-- `colorId: "2"` (Green/Sage) — Booked slot (PENDING or CONFIRMED)
-- `colorId: "8"` (Grey/Graphite) — Blocked/closed slot **or** NO_SHOW booking
+**Bookings** (events live on the slot's `googleEventId`):
+- `colorId: "2"` (Green/Sage) — PENDING or CONFIRMED booking
+- `colorId: "8"` (Grey/Graphite) — NO_SHOW booking
 - `colorId: "10"` (Green/Basil) — COMPLETED booking (appointment was attended)
 
 **Tasks:**
@@ -276,16 +275,14 @@ interface TaskEventData {
 
 ### Event title format
 
-**Slots:**
+**Bookings** (GCal events are created when a booking is placed; the event ID is stored on the slot):
 
-| Booking state | Calendar event title | Color |
+| Booking status | Calendar event title | Color |
 |---|---|---|
-| No booking (open) | `Disponible` | Teal |
-| No booking (closed) | `Bloqueado` | Graphite |
 | PENDING | `Cita: ⏳ {patientName}` | Green |
 | CONFIRMED | `Cita: {patientName}` | Green |
 | CONFIRMED + conflict | `⚠️ Cita: {patientName}` | Green |
-| CANCELLED | `Disponible` | Teal |
+| CANCELLED | *(event deleted)* | — |
 | COMPLETED | `✓ Cita: {patientName}` | Basil |
 | NO_SHOW | `✗ Cita: {patientName}` | Graphite |
 
@@ -332,7 +329,7 @@ Every event created by tusalud.pro includes:
   }
 }
 ```
-This is how the webhook identifies which DB record to update when an event changes.
+The webhook reads these properties to identify the source record, but since the webhook is one-way (no DB writes), they are primarily for informational/debugging purposes. The `slotId` key on booking events links back to the appointment slot.
 
 ### Token refresh pattern
 ```typescript
@@ -383,19 +380,19 @@ GET    /api/doctors/[slug]/google-calendar/status
        channelExpiry: ISO datetime when the webhook push channel expires (null if not set up)
 
 POST   /api/doctors/[slug]/google-calendar/connect
-       Creates "tusalud.pro" calendar, runs initial sync (slots 60 days out + pending tasks)
-       Returns: { success, calendarId, syncedSlots, syncedTasks }
+       Creates "tusalud.pro" calendar, runs initial sync (active bookings 60 days out + pending tasks)
+       Returns: { success, calendarId, syncedBookings, syncedTasks }
 
 DELETE /api/doctors/[slug]/google-calendar/disconnect
        Deletes calendar from Google, clears all tokens and event IDs from DB
        Returns: { success }
 
 POST   /api/doctors/[slug]/google-calendar/resync
-       Full bidirectional resync — 3 phases:
+       Resync — 3 phases:
          1. List GCal events with source=tusalud.pro (next 90 days)
          2. Delete orphan GCal events (slotId/taskId no longer active in DB)
-         3. Upsert all active slots (next 60 days) and active tasks
-       Returns: { success, deletedOrphans, createdSlots, updatedSlots, createdTasks, updatedTasks }
+         3. Upsert all active bookings (next 60 days) and active tasks
+       Returns: { success, deletedOrphans, createdBookings, updatedBookings, createdTasks, updatedTasks }
 ```
 
 ### Webhook
@@ -404,9 +401,8 @@ POST /api/calendar/webhook
 Headers: X-Goog-Channel-Token (validated against GOOGLE_CALENDAR_WEBHOOK_SECRET)
          X-Goog-Resource-State (sync | exists | not_exists)
          X-Goog-Channel-Id (format: "doctor_{doctorId}_{randomHex}")
-Processes: moved events → update slot/task date+time in DB
-           deleted events → close slot / cancel task in DB
-           channel < 48h to expiry → fire-and-forget auto-renewal (defensive fallback)
+Processes: incoming pings → acknowledged with 200 (no DB writes — one-way by design)
+           channel < 48h to expiry → fire-and-forget auto-renewal (keeps channel alive)
 ```
 
 ---
