@@ -1,10 +1,12 @@
 import { Calendar, Clock, DollarSign, Lock, Unlock, Trash2, CheckSquare, Square, MapPin } from "lucide-react";
 import { formatLocalDate } from "@/lib/dates";
 import type { AppointmentSlot } from "../_hooks/useSlots";
+import { type SlotStatusFilter, applySlotStatusFilter } from "./SlotFiltersBar";
 
 interface Props {
   selectedDate: Date;
   slots: AppointmentSlot[];
+  statusFilter: SlotStatusFilter;
   selectedSlots: Set<string>;
   onToggleSelection: (id: string) => void;
   onToggleAllSlots: (ids: string[]) => void;
@@ -17,6 +19,7 @@ interface Props {
 export function DaySlotPanel({
   selectedDate,
   slots,
+  statusFilter,
   selectedSlots,
   onToggleSelection,
   onToggleAllSlots,
@@ -25,7 +28,8 @@ export function DaySlotPanel({
   onBookWithSlot,
   getSlotStatus,
 }: Props) {
-  const slotIds = slots.map((s) => s.id);
+  const visibleSlots = applySlotStatusFilter(slots, statusFilter);
+  const slotIds = visibleSlots.map((s) => s.id);
   const allSelected = slotIds.length > 0 && slotIds.every((id) => selectedSlots.has(id));
 
   return (
@@ -34,7 +38,7 @@ export function DaySlotPanel({
         <h3 className="font-semibold text-gray-900 text-sm">
           {formatLocalDate(selectedDate.toISOString(), { weekday: "long", month: "long", day: "numeric" })}
         </h3>
-        {slots.length > 1 && (
+        {visibleSlots.length > 1 && (
           <button
             onClick={() => onToggleAllSlots(slotIds)}
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
@@ -44,19 +48,21 @@ export function DaySlotPanel({
             ) : (
               <Square className="w-3.5 h-3.5" />
             )}
-            {allSelected ? "Deselect" : "Select all"}
+            {allSelected ? "Deseleccionar todos" : "Seleccionar todos"}
           </button>
         )}
       </div>
 
-      {slots.length === 0 ? (
+      {visibleSlots.length === 0 ? (
         <div className="text-center py-6 text-gray-400">
           <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-xs">Sin horarios este día</p>
+          <p className="text-xs">
+            {slots.length > 0 ? "Sin horarios con ese estado" : "Sin horarios este día"}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {slots.map((slot) => {
+          {visibleSlots.map((slot) => {
             const { label, color } = getSlotStatus(slot);
             const isSelected = selectedSlots.has(slot.id);
 

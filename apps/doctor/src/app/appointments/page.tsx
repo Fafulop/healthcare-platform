@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Sparkles, Star } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban } from "lucide-react";
 import { useCalendar } from "./_hooks/useCalendar";
 import { useSlots } from "./_hooks/useSlots";
 import { useBookings } from "./_hooks/useBookings";
@@ -15,6 +15,8 @@ import { CreateSlotsModal } from "./_components/CreateSlotsModal";
 import { BookPatientModal } from "./_components/BookPatientModal";
 import { AppointmentChatPanel } from "./_components/AppointmentChatPanel";
 import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
+import { BlockRangeModal } from "./_components/BlockRangeModal";
+import { SlotFiltersBar, type SlotStatusFilter } from "./_components/SlotFiltersBar";
 import type { AppointmentSlot } from "./_hooks/useSlots";
 import type { Booking } from "./_hooks/useBookings";
 
@@ -39,6 +41,8 @@ export default function AppointmentsV2Page() {
   const [bookPatientPreSlot, setBookPatientPreSlot] = useState<AppointmentSlot | null>(null);
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
+  const [blockRangeModalOpen, setBlockRangeModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<SlotStatusFilter>("all");
 
   const onRefresh = useCallback(async () => {
     await slotsHook.fetchSlots();
@@ -101,8 +105,9 @@ export default function AppointmentsV2Page() {
               <span className="sm:hidden">Reseña</span>
             </button>
             <button
-              onClick={() => setChatPanelOpen(true)}
-              className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
+              disabled
+              title="Próximamente"
+              className="flex items-center justify-center gap-2 bg-indigo-300 text-white font-semibold py-2 px-3 sm:px-4 rounded-md text-sm sm:text-base cursor-not-allowed opacity-60"
             >
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Chat IA Citas</span>
@@ -116,6 +121,14 @@ export default function AppointmentsV2Page() {
               <span className="sm:hidden">Agendar</span>
             </button>
             <button
+              onClick={() => setBlockRangeModalOpen(true)}
+              className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
+            >
+              <Ban className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Bloquear Periodo</span>
+              <span className="sm:hidden">Bloquear</span>
+            </button>
+            <button
               onClick={() => setShowCreateModal(true)}
               className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
             >
@@ -126,22 +139,27 @@ export default function AppointmentsV2Page() {
           </div>
         </div>
 
-        {/* View toggle */}
-        <div className="flex gap-2">
-          {(["calendar", "list"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => calendar.setViewMode(mode)}
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
-                calendar.viewMode === mode
-                  ? "bg-blue-50 text-blue-700"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <span className="hidden sm:inline">Vista de </span>
-              {mode === "calendar" ? "Calendario" : "Lista"}
-            </button>
-          ))}
+        {/* View toggle + filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex gap-2">
+            {(["calendar", "list"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => calendar.setViewMode(mode)}
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
+                  calendar.viewMode === mode
+                    ? "bg-blue-50 text-blue-700"
+                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <span className="hidden sm:inline">Vista de </span>
+                {mode === "calendar" ? "Calendario" : "Lista"}
+              </button>
+            ))}
+          </div>
+          <div className="sm:ml-4">
+            <SlotFiltersBar value={statusFilter} onChange={setStatusFilter} />
+          </div>
         </div>
       </div>
 
@@ -219,6 +237,7 @@ export default function AppointmentsV2Page() {
             <DaySlotPanel
               selectedDate={calendar.selectedDate}
               slots={slotsHook.slotsForSelectedDate}
+              statusFilter={statusFilter}
               selectedSlots={slotsHook.selectedSlots}
               onToggleSelection={slotsHook.toggleSlotSelection}
               onToggleAllSlots={slotsHook.toggleAllSlots}
@@ -235,6 +254,7 @@ export default function AppointmentsV2Page() {
             setListDate={calendar.setListDate}
             showAllSlots={calendar.showAllSlots}
             setShowAllSlots={calendar.setShowAllSlots}
+            statusFilter={statusFilter}
             selectedSlots={slotsHook.selectedSlots}
             onToggleSelection={slotsHook.toggleSlotSelection}
             onToggleAllSlots={slotsHook.toggleAllSlots}
@@ -268,6 +288,13 @@ export default function AppointmentsV2Page() {
       <GenerateReviewLinkModal
         isOpen={reviewLinkModalOpen}
         onClose={() => setReviewLinkModalOpen(false)}
+      />
+
+      <BlockRangeModal
+        isOpen={blockRangeModalOpen}
+        onClose={() => setBlockRangeModalOpen(false)}
+        doctorId={doctorId}
+        onSuccess={slotsHook.fetchSlots}
       />
 
       <AppointmentChatPanel

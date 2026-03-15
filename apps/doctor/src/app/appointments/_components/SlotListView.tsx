@@ -1,6 +1,7 @@
 import { Calendar, Clock, DollarSign, Lock, Unlock, Trash2, CheckSquare, Square, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { getLocalDateString } from "@/lib/dates";
 import type { AppointmentSlot } from "../_hooks/useSlots";
+import { type SlotStatusFilter, applySlotStatusFilter } from "./SlotFiltersBar";
 
 interface Props {
   slots: AppointmentSlot[];
@@ -8,6 +9,7 @@ interface Props {
   setListDate: (d: string) => void;
   showAllSlots: boolean;
   setShowAllSlots: (v: boolean) => void;
+  statusFilter: SlotStatusFilter;
   selectedSlots: Set<string>;
   onToggleSelection: (id: string) => void;
   onToggleAllSlots: (ids: string[]) => void;
@@ -24,6 +26,7 @@ export function SlotListView({
   setListDate,
   showAllSlots,
   setShowAllSlots,
+  statusFilter,
   selectedSlots,
   onToggleSelection,
   onToggleAllSlots,
@@ -34,7 +37,8 @@ export function SlotListView({
   getSlotStatus,
 }: Props) {
   const slotsForListDate = slots.filter((s) => s.date.split("T")[0] === listDate);
-  const visibleSlots = showAllSlots ? slots : slotsForListDate;
+  const dateFilteredSlots = showAllSlots ? slots : slotsForListDate;
+  const visibleSlots = applySlotStatusFilter(dateFilteredSlots, statusFilter);
   const slotIds = visibleSlots.map((s) => s.id);
   const allSelected = slotIds.length > 0 && slotIds.every((id) => selectedSlots.has(id));
 
@@ -125,7 +129,11 @@ export function SlotListView({
         <div className="text-center py-12 text-gray-400">
           <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
           <p className="text-sm">
-            {showAllSlots ? "No hay horarios creados" : "Sin horarios para esta fecha"}
+            {dateFilteredSlots.length > 0
+              ? "Sin horarios con ese estado"
+              : showAllSlots
+              ? "No hay horarios creados"
+              : "Sin horarios para esta fecha"}
           </p>
         </div>
       ) : (
