@@ -446,7 +446,7 @@ export function usePrescriptionDetail() {
       }
 
       // ── FOOTER (all pages) ──────────────────────────────────────────────────
-      const totalPages = doc.internal.getNumberOfPages();
+      const totalPages = (doc as any).getNumberOfPages();
       for (let p = 1; p <= totalPages; p++) {
         doc.setPage(p);
         doc.setFillColor(cr, cg, cb);
