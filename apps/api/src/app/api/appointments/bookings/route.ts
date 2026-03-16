@@ -184,8 +184,8 @@ export async function POST(request: Request) {
       };
       if (slot.googleEventId) {
         await updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slot.googleEventId, slotEventData);
-      } else if (autoConfirm) {
-        // Doctor-confirmed booking on a regular slot — create the GCal event now.
+      } else {
+        // Create GCal event for any new booking (PENDING from public app or CONFIRMED from doctor)
         const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slotEventData);
         await prisma.appointmentSlot.update({ where: { id: slot.id }, data: { googleEventId: eventId } });
       }

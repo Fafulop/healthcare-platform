@@ -89,14 +89,14 @@ export function PatientFormStep({
 
       {/* Tipo de visita */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de visita</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de visita *</label>
         <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
           {([{ val: true, label: "Primera vez" }, { val: false, label: "Recurrente" }] as const).map(
             ({ val, label }) => (
               <button
                 key={label}
                 type="button"
-                onClick={() => setIsFirstTime(isFirstTime === val ? null : val)}
+                onClick={() => setIsFirstTime(val)}
                 className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   isFirstTime === val
                     ? "bg-blue-600 text-white shadow-sm"
@@ -112,7 +112,7 @@ export function PatientFormStep({
 
       {/* Modalidad */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Modalidad</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Modalidad *</label>
         <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
           {(
             [
@@ -123,7 +123,7 @@ export function PatientFormStep({
             <button
               key={val}
               type="button"
-              onClick={() => setAppointmentMode(appointmentMode === val ? null : val)}
+              onClick={() => setAppointmentMode(val)}
               className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 appointmentMode === val
                   ? "bg-blue-600 text-white shadow-sm"

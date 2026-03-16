@@ -104,10 +104,12 @@ export async function POST(
       },
     });
 
+    let syncedBookings = 0;
     for (const slot of slots) {
+      const booking = slot.bookings[0];
+      if (!booking) continue; // slots with no active booking don't appear in GCal
       try {
         const dateStr = slot.date.toISOString().split("T")[0];
-        const booking = slot.bookings[0];
         const googleEventId = await createSlotEvent(
           accessToken,
           refreshToken,
@@ -118,7 +120,8 @@ export async function POST(
             startTime: slot.startTime,
             endTime: slot.endTime,
             isOpen: slot.isOpen,
-            patientName: booking?.patientName,
+            patientName: booking.patientName,
+            bookingStatus: booking.status as "PENDING" | "CONFIRMED",
             finalPrice: Number(slot.finalPrice),
           }
         );
@@ -126,6 +129,7 @@ export async function POST(
           where: { id: slot.id },
           data: { googleEventId },
         });
+        syncedBookings++;
       } catch (err) {
         console.error(`[Google Calendar] Failed to sync slot ${slot.id}:`, err);
       }
@@ -172,7 +176,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       calendarId,
-      syncedSlots: slots.length,
+      syncedSlots: syncedBookings,
       syncedTasks: tasks.length,
     });
   } catch (error) {

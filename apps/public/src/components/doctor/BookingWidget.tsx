@@ -144,6 +144,15 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
     if (!selectedSlot) return;
 
+    if (isFirstTime === null) {
+      setBookingError("Por favor selecciona el tipo de visita (Primera vez / Recurrente)");
+      return;
+    }
+    if (appointmentModes.length > 0 && appointmentMode === null) {
+      setBookingError("Por favor selecciona la modalidad (Presencial / Telemedicina)");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -400,13 +409,13 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
           {/* Primera vez / Recurrente */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de visita</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de visita *</label>
             <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
               {([{ val: true, label: "Primera vez" }, { val: false, label: "Recurrente" }] as const).map(({ val, label }) => (
                 <button
                   key={label}
                   type="button"
-                  onClick={() => setIsFirstTime(isFirstTime === val ? null : val)}
+                  onClick={() => setIsFirstTime(val)}
                   className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
                     isFirstTime === val
                       ? "bg-[var(--color-secondary)] text-white shadow-sm"
@@ -422,12 +431,12 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
           {/* Presencial / Telemedicina — only show relevant modes */}
           {(appointmentModes.includes('in_person') || appointmentModes.includes('teleconsult')) && (
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Modalidad</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Modalidad *</label>
               <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
                 {appointmentModes.includes('in_person') && (
                   <button
                     type="button"
-                    onClick={() => setAppointmentMode(appointmentMode === 'PRESENCIAL' ? null : 'PRESENCIAL')}
+                    onClick={() => setAppointmentMode('PRESENCIAL')}
                     className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
                       appointmentMode === 'PRESENCIAL'
                         ? "bg-[var(--color-secondary)] text-white shadow-sm"
@@ -440,7 +449,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 {appointmentModes.includes('teleconsult') && (
                   <button
                     type="button"
-                    onClick={() => setAppointmentMode(appointmentMode === 'TELEMEDICINA' ? null : 'TELEMEDICINA')}
+                    onClick={() => setAppointmentMode('TELEMEDICINA')}
                     className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
                       appointmentMode === 'TELEMEDICINA'
                         ? "bg-[var(--color-secondary)] text-white shadow-sm"
@@ -536,7 +545,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
             <button
               type="submit"
-              disabled={isSubmitting || (services.length > 0 && !selectedServiceId)}
+              disabled={isSubmitting || (services.length > 0 && !selectedServiceId) || isFirstTime === null || (appointmentModes.length > 0 && appointmentMode === null)}
               onClick={() => setBookingError(null)}
               className="w-full bg-[var(--color-secondary)] hover:bg-[var(--color-secondary-hover)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
             >

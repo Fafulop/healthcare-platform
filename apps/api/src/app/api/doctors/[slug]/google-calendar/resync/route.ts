@@ -156,19 +156,32 @@ export async function POST(
     let updatedSlots = 0;
 
     for (const slot of slots) {
-      const dateStr = slot.date.toISOString().split("T")[0];
       const booking = slot.bookings[0];
+
+      if (!booking) {
+        // No active booking — clean up any stale GCal event left from the old design
+        if (slot.googleEventId) {
+          try {
+            await calendarApi.events.delete({ calendarId, eventId: slot.googleEventId });
+            deletedOrphans++;
+          } catch { /* already gone */ }
+          await prisma.appointmentSlot.update({ where: { id: slot.id }, data: { googleEventId: null } }).catch(() => {});
+        }
+        continue;
+      }
+
+      const dateStr = slot.date.toISOString().split("T")[0];
       const slotData = {
         id: slot.id,
         date: dateStr,
         startTime: slot.startTime,
         endTime: slot.endTime,
         isOpen: slot.isOpen,
-        patientName: booking?.patientName,
-        bookingStatus: booking?.status as "PENDING" | "CONFIRMED" | undefined,
-        patientPhone: booking?.patientPhone,
-        patientEmail: booking?.patientEmail,
-        patientNotes: booking?.notes ?? undefined,
+        patientName: booking.patientName,
+        bookingStatus: booking.status as "PENDING" | "CONFIRMED",
+        patientPhone: booking.patientPhone,
+        patientEmail: booking.patientEmail,
+        patientNotes: booking.notes ?? undefined,
         finalPrice: Number(slot.finalPrice),
       };
 

@@ -139,28 +139,6 @@ export default function AppointmentsV2Page() {
           </div>
         </div>
 
-        {/* View toggle + filters */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex gap-2">
-            {(["calendar", "list"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => calendar.setViewMode(mode)}
-                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
-                  calendar.viewMode === mode
-                    ? "bg-blue-50 text-blue-700"
-                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <span className="hidden sm:inline">Vista de </span>
-                {mode === "calendar" ? "Calendario" : "Lista"}
-              </button>
-            ))}
-          </div>
-          <div className="sm:ml-4">
-            <SlotFiltersBar value={statusFilter} onChange={setStatusFilter} />
-          </div>
-        </div>
       </div>
 
       {/* Bulk actions bar (shown when slots selected) */}
@@ -222,8 +200,31 @@ export default function AppointmentsV2Page() {
         getStatusColor={bookingsHook.getStatusColor}
       />
 
+      {/* View toggle + filters */}
+      <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex gap-2">
+          {(["calendar", "list"] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => calendar.setViewMode(mode)}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
+                calendar.viewMode === mode
+                  ? "bg-blue-50 text-blue-700"
+                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <span className="hidden sm:inline">Vista de </span>
+              {mode === "calendar" ? "Calendario" : "Lista"}
+            </button>
+          ))}
+        </div>
+        <div className="sm:ml-4">
+          <SlotFiltersBar value={statusFilter} onChange={setStatusFilter} />
+        </div>
+      </div>
+
       {/* Calendar or list view */}
-      <div className="mt-6">
+      <div className="mt-4">
         {calendar.viewMode === "calendar" ? (
           <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
             <AppointmentsCalendar

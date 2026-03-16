@@ -200,6 +200,17 @@ export function BookPatientModal({
     setError("");
     setConflictError(null);
 
+    if (isFirstTime === null) {
+      setError("Por favor selecciona el tipo de visita (Primera vez / Recurrente)");
+      setIsSubmitting(false);
+      return;
+    }
+    if (appointmentMode === null) {
+      setError("Por favor selecciona la modalidad (Presencial / Telemedicina)");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       if (slotMode === "new") {
         const res = await authFetch(`${API_URL}/api/appointments/bookings/instant`, {
@@ -399,7 +410,7 @@ export function BookPatientModal({
             <button
               type="submit"
               form="book-patient-form"
-              disabled={isSubmitting || (services.length > 0 && !selectedServiceId)}
+              disabled={isSubmitting || (services.length > 0 && !selectedServiceId) || isFirstTime === null || appointmentMode === null}
               className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
