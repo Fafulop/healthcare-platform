@@ -99,6 +99,24 @@ export const ourFileRouter = {
     console.log("Video uploaded:", file.ufsUrl);
     return { uploadedBy: "doctor" };
   }),
+
+  // ============================================================================
+  // PRESCRIPTION PDF TEMPLATE
+  // ============================================================================
+
+  prescriptionLogo: f({
+    image: { maxFileSize: "4MB", maxFileCount: 1 },
+  }).onUploadComplete(async ({ file }) => {
+    console.log("Prescription logo uploaded:", file.ufsUrl);
+    return { uploadedBy: "doctor" };
+  }),
+
+  prescriptionSignature: f({
+    image: { maxFileSize: "2MB", maxFileCount: 1 },
+  }).onUploadComplete(async ({ file }) => {
+    console.log("Prescription signature uploaded:", file.ufsUrl);
+    return { uploadedBy: "doctor" };
+  }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

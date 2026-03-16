@@ -108,10 +108,11 @@ export default function ViewPrescriptionPage() {
             <>
               <button
                 onClick={handleDownloadPDF}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+                disabled={actionLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                Descargar PDF
+                {actionLoading ? 'Generando...' : 'Descargar PDF'}
               </button>
 
               <button
