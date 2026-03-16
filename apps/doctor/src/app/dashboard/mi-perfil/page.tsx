@@ -506,9 +506,6 @@ export default function MiPerfilPage() {
                 <div className="space-y-3">
                   <div className="text-xs text-gray-500 space-y-1">
                     <p>Calendario: <span className="font-mono text-gray-700">tusalud.pro</span></p>
-                    {calendarStatus.tokenExpiry && (
-                      <p>Token válido hasta: <span className="text-gray-700">{new Date(calendarStatus.tokenExpiry).toLocaleDateString("es-MX")}</span></p>
-                    )}
                     {calendarStatus.channelExpiry && (() => {
                       const expiry = new Date(calendarStatus.channelExpiry);
                       const expiringSoon = expiry < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);

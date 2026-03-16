@@ -67,8 +67,8 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
   // Visit context
-  const [isFirstTime, setIsFirstTime] = useState<boolean | null>(null);
-  const [appointmentMode, setAppointmentMode] = useState<'PRESENCIAL' | 'TELEMEDICINA' | null>(null);
+  const [isFirstTime, setIsFirstTime] = useState<boolean | null>(true);
+  const [appointmentMode, setAppointmentMode] = useState<'PRESENCIAL' | 'TELEMEDICINA' | null>('PRESENCIAL');
 
   // Form data
   const [formData, setFormData] = useState({
@@ -199,8 +199,8 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     setBookingStep("calendar");
     setConfirmationCode("");
     setSelectedServiceId(null);
-    setIsFirstTime(null);
-    setAppointmentMode(null);
+    setIsFirstTime(true);
+    setAppointmentMode('PRESENCIAL');
     fetchAvailability(); // Refresh availability
   };
 

@@ -67,8 +67,8 @@ export function BookPatientModal({
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
   // Visit context
-  const [isFirstTime, setIsFirstTime] = useState<boolean | null>(null);
-  const [appointmentMode, setAppointmentMode] = useState<"PRESENCIAL" | "TELEMEDICINA" | null>(null);
+  const [isFirstTime, setIsFirstTime] = useState<boolean | null>(true);
+  const [appointmentMode, setAppointmentMode] = useState<"PRESENCIAL" | "TELEMEDICINA" | null>("PRESENCIAL");
 
   // Patient form
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,8 +124,8 @@ export function BookPatientModal({
     setConflictError(null);
     setConfirmationCode("");
     setSelectedServiceId(null);
-    setIsFirstTime(null);
-    setAppointmentMode(null);
+    setIsFirstTime(true);
+    setAppointmentMode("PRESENCIAL");
     setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
     setSlotMode("existing");
     setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, locationId: clinicLocations[0]?.id ?? "" });

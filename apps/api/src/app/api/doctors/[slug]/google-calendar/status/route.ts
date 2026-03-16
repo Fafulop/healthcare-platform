@@ -23,6 +23,7 @@ export async function GET(
         user: {
           select: {
             googleAccessToken: true,
+            googleRefreshToken: true,
             googleTokenExpiry: true,
           },
         },
@@ -33,16 +34,20 @@ export async function GET(
       return NextResponse.json({ error: "Doctor not found" }, { status: 404 });
     }
 
-    const hasTokens = !!doctor.user?.googleAccessToken;
+    // hasRefreshToken is what matters — if present, the API auto-refreshes and no re-auth is needed.
+    // hasTokens kept for backwards compat (access token or refresh token present).
+    const hasRefreshToken = !!doctor.user?.googleRefreshToken;
+    const hasTokens = !!doctor.user?.googleAccessToken || hasRefreshToken;
 
     const connected =
       !!doctor.googleCalendarId &&
-      hasTokens &&
+      hasRefreshToken &&
       doctor.googleCalendarEnabled;
 
     return NextResponse.json({
       connected,
       hasTokens,
+      hasRefreshToken,
       calendarId: doctor.googleCalendarId ?? null,
       enabled: doctor.googleCalendarEnabled,
       tokenExpiry: doctor.user?.googleTokenExpiry ?? null,

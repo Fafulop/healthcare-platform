@@ -22,13 +22,11 @@ export function GoogleCalendarBanner() {
       .then((res) => res.json())
       .then((data) => {
         if (!data.connected && !data.enabled) return; // never connected — no banner
-        if (!data.hasTokens) {
-          setReason("missing");
-          setShow(true);
-          return;
-        }
-        if (data.tokenExpiry && new Date(data.tokenExpiry) < new Date()) {
-          setReason("expired");
+        // Only show banner when the refresh token is gone — that's the only case
+        // requiring true re-auth. Access token expiry is handled automatically by
+        // resolveTokens() on the API side, so it never needs user action.
+        if (!data.hasRefreshToken) {
+          setReason(data.hasTokens ? "expired" : "missing");
           setShow(true);
         }
       })
