@@ -3,6 +3,7 @@
 import { ArrowLeft, Save, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList } from '@/components/medical-records/MedicationList';
+import { ImagingStudyList, LabStudyList } from '@/components/medical-records/StudyList';
 import {
   AIDraftBanner,
   VoiceChatSidebar,
@@ -30,6 +31,8 @@ export default function NewPrescriptionPage() {
     doctorLicense, setDoctorLicense,
     expiresAt, setExpiresAt,
     medications, setMedications,
+    imagingStudies, setImagingStudies,
+    labStudies, setLabStudies,
     selectedEncounterId, setSelectedEncounterId,
     modalOpen, setModalOpen,
     sidebarOpen, setSidebarOpen,
@@ -42,6 +45,8 @@ export default function NewPrescriptionPage() {
     currentFormData,
     handleChatFieldUpdates,
     handleChatMedicationUpdates,
+    handleChatImagingStudyUpdates,
+    handleChatLabStudyUpdates,
     handleSubmit,
   } = useNewPrescriptionForm();
 
@@ -228,6 +233,24 @@ export default function NewPrescriptionPage() {
           />
         </div>
 
+        {/* Imaging Studies */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Imagen</h2>
+          <ImagingStudyList
+            studies={imagingStudies}
+            onChange={setImagingStudies}
+          />
+        </div>
+
+        {/* Lab Studies */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Laboratorio</h2>
+          <LabStudyList
+            studies={labStudies}
+            onChange={setLabStudies}
+          />
+        </div>
+
         {/* Actions */}
         <div className="flex items-center justify-end gap-3">
           <Link
@@ -298,6 +321,8 @@ export default function NewPrescriptionPage() {
           currentFormData={currentFormData}
           onUpdateFields={handleChatFieldUpdates}
           onUpdateMedications={handleChatMedicationUpdates}
+          onUpdateImagingStudies={handleChatImagingStudyUpdates}
+          onUpdateLabStudies={handleChatLabStudyUpdates}
         />
       )}
     </div>

@@ -3,6 +3,7 @@
 import { ArrowLeft, Edit, Send, Ban, Trash2, Download, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList } from '@/components/medical-records/MedicationList';
+import { ImagingStudyList, LabStudyList } from '@/components/medical-records/StudyList';
 import { formatDateLong } from '@/lib/practice-utils';
 import { getStatusLabel, getStatusColor } from '../_components/prescription-types';
 import { usePrescriptionDetail } from '../_components/usePrescriptionDetail';
@@ -217,7 +218,7 @@ export default function ViewPrescriptionPage() {
       </div>
 
       {/* Medications */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Medicamentos</h2>
         <MedicationList
           medications={prescription.medications}
@@ -225,6 +226,30 @@ export default function ViewPrescriptionPage() {
           readOnly
         />
       </div>
+
+      {/* Imaging Studies */}
+      {prescription.imagingStudies.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Imagen</h2>
+          <ImagingStudyList
+            studies={prescription.imagingStudies}
+            onChange={() => {}}
+            readOnly
+          />
+        </div>
+      )}
+
+      {/* Lab Studies */}
+      {prescription.labStudies.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Laboratorio</h2>
+          <LabStudyList
+            studies={prescription.labStudies}
+            onChange={() => {}}
+            readOnly
+          />
+        </div>
+      )}
 
       {/* Cancel Modal */}
       {showCancelModal && (

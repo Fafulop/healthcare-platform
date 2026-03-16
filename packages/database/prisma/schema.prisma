@@ -1485,6 +1485,8 @@ model Prescription {
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   encounter       ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
   medications     PrescriptionMedication[]
+  imagingStudies  PrescriptionImagingStudy[]
+  labStudies      PrescriptionLabStudy[]
 
   @@index([patientId, prescriptionDate])
   @@index([doctorId, status])
@@ -1516,6 +1518,48 @@ model PrescriptionMedication {
 
   @@index([prescriptionId, order])
   @@map("prescription_medications")
+  @@schema("medical_records")
+}
+
+/// Prescription Imaging Studies
+/// Imaging study orders within a prescription (e.g. X-ray, CT scan, MRI)
+model PrescriptionImagingStudy {
+  id             Int      @id @default(autoincrement())
+  prescriptionId String   @map("prescription_id")
+
+  studyName      String   @map("study_name") @db.VarChar(255)
+  region         String?  @db.VarChar(100)   // body region: "Tórax", "Abdomen"
+  indication     String?  @db.Text           // clinical reason
+  urgency        String?  @db.VarChar(100)   // "Urgente", "Rutina", "Electivo"
+  notes          String?  @db.Text
+
+  order          Int      @default(0)
+
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId, order])
+  @@map("prescription_imaging_studies")
+  @@schema("medical_records")
+}
+
+/// Prescription Lab Studies
+/// Laboratory study orders within a prescription (e.g. blood work, urinalysis)
+model PrescriptionLabStudy {
+  id             Int      @id @default(autoincrement())
+  prescriptionId String   @map("prescription_id")
+
+  studyName      String   @map("study_name") @db.VarChar(255)
+  indication     String?  @db.Text           // clinical reason
+  urgency        String?  @db.VarChar(100)   // "Urgente", "Rutina"
+  fasting        String?  @db.VarChar(255)   // fasting instructions: "Ayuno de 8 horas"
+  notes          String?  @db.Text
+
+  order          Int      @default(0)
+
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId, order])
+  @@map("prescription_lab_studies")
   @@schema("medical_records")
 }
 

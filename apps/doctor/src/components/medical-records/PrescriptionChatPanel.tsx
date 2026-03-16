@@ -5,6 +5,7 @@ import { Sparkles, X, Bot, User, Loader2, Send, Minus, ChevronUp } from 'lucide-
 import { VoiceRecordButton } from '@/components/voice-assistant/chat/VoiceRecordButton';
 import { usePrescriptionChat, type PrescriptionChatMessage, type PrescriptionFormData } from '@/hooks/usePrescriptionChat';
 import type { Medication } from './MedicationList';
+import type { ImagingStudy, LabStudy } from './StudyList';
 
 // -----------------------------------------------------------------------------
 // Markdown-like renderer (same pattern as EncounterChatPanel)
@@ -100,6 +101,8 @@ interface PrescriptionChatPanelProps {
   currentFormData: PrescriptionFormData;
   onUpdateFields: (updates: Record<string, any>) => void;
   onUpdateMedications: (medications: Medication[]) => void;
+  onUpdateImagingStudies: (studies: ImagingStudy[]) => void;
+  onUpdateLabStudies: (studies: LabStudy[]) => void;
 }
 
 export function PrescriptionChatPanel({
@@ -107,12 +110,16 @@ export function PrescriptionChatPanel({
   currentFormData,
   onUpdateFields,
   onUpdateMedications,
+  onUpdateImagingStudies,
+  onUpdateLabStudies,
 }: PrescriptionChatPanelProps) {
   const { messages, isLoading, isTranscribing, sendMessage, clearChat, voice } =
     usePrescriptionChat({
       currentFormData,
       onUpdateFields,
       onUpdateMedications,
+      onUpdateImagingStudies,
+      onUpdateLabStudies,
     });
 
   const scrollRef = useRef<HTMLDivElement>(null);

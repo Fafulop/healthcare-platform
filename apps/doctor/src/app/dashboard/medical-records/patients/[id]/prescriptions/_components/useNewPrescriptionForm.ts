@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import type { Medication } from '@/components/medical-records/MedicationList';
+import type { ImagingStudy, LabStudy } from '@/components/medical-records/StudyList';
 import type { PrescriptionFormData } from '@/hooks/usePrescriptionChat';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoicePrescriptionData, VoiceStructuredData } from '@/types/voice-assistant';
@@ -78,6 +79,8 @@ export function useNewPrescriptionForm() {
   const [medications, setMedications] = useState<Medication[]>([
     { drugName: '', dosage: '', frequency: '', instructions: '', order: 0 },
   ]);
+  const [imagingStudies, setImagingStudies] = useState<ImagingStudy[]>([]);
+  const [labStudies, setLabStudies] = useState<LabStudy[]>([]);
 
   useEffect(() => {
     if (session?.user?.doctorId) {
@@ -262,7 +265,9 @@ export function useNewPrescriptionForm() {
     doctorLicense,
     expiresAt,
     medications,
-  }), [prescriptionDate, diagnosis, clinicalNotes, doctorFullName, doctorLicense, expiresAt, medications]);
+    imagingStudies,
+    labStudies,
+  }), [prescriptionDate, diagnosis, clinicalNotes, doctorFullName, doctorLicense, expiresAt, medications, imagingStudies, labStudies]);
 
   // Chat IA callbacks
   const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
@@ -276,6 +281,14 @@ export function useNewPrescriptionForm() {
 
   const handleChatMedicationUpdates = useCallback((meds: Medication[]) => {
     setMedications(meds);
+  }, []);
+
+  const handleChatImagingStudyUpdates = useCallback((studies: ImagingStudy[]) => {
+    setImagingStudies(studies);
+  }, []);
+
+  const handleChatLabStudyUpdates = useCallback((studies: LabStudy[]) => {
+    setLabStudies(studies);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent, saveAndIssue: boolean = false) => {
@@ -344,6 +357,40 @@ export function useNewPrescriptionForm() {
         throw medError;
       }
 
+      // Add imaging studies
+      const validImagingStudies = imagingStudies.filter((s) => s.studyName.trim());
+      for (const study of validImagingStudies) {
+        const res = await fetch(
+          `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}/imaging-studies`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(study),
+          }
+        );
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Error al agregar estudio de imagen');
+        }
+      }
+
+      // Add lab studies
+      const validLabStudies = labStudies.filter((s) => s.studyName.trim());
+      for (const study of validLabStudies) {
+        const res = await fetch(
+          `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}/lab-studies`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(study),
+          }
+        );
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Error al agregar estudio de laboratorio');
+        }
+      }
+
       // If saveAndIssue, issue the prescription
       if (saveAndIssue) {
         const issueRes = await fetch(
@@ -391,6 +438,8 @@ export function useNewPrescriptionForm() {
     doctorLicense, setDoctorLicense,
     expiresAt, setExpiresAt,
     medications, setMedications,
+    imagingStudies, setImagingStudies,
+    labStudies, setLabStudies,
     selectedEncounterId, setSelectedEncounterId,
     // Voice
     modalOpen, setModalOpen,
@@ -405,6 +454,8 @@ export function useNewPrescriptionForm() {
     currentFormData,
     handleChatFieldUpdates,
     handleChatMedicationUpdates,
+    handleChatImagingStudyUpdates,
+    handleChatLabStudyUpdates,
     // Submit
     handleSubmit,
   };

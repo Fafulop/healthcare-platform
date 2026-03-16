@@ -3,6 +3,7 @@
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList } from '@/components/medical-records/MedicationList';
+import { ImagingStudyList, LabStudyList } from '@/components/medical-records/StudyList';
 import { useEditPrescriptionForm } from '../../_components/useEditPrescriptionForm';
 
 export default function EditPrescriptionPage() {
@@ -21,6 +22,8 @@ export default function EditPrescriptionPage() {
     doctorLicense, setDoctorLicense,
     expiresAt, setExpiresAt,
     medications, setMedications,
+    imagingStudies, setImagingStudies,
+    labStudies, setLabStudies,
     handleSubmit,
   } = useEditPrescriptionForm();
 
@@ -176,6 +179,24 @@ export default function EditPrescriptionPage() {
           <MedicationList
             medications={medications}
             onChange={setMedications}
+          />
+        </div>
+
+        {/* Imaging Studies */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Imagen</h2>
+          <ImagingStudyList
+            studies={imagingStudies}
+            onChange={setImagingStudies}
+          />
+        </div>
+
+        {/* Lab Studies */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Laboratorio</h2>
+          <LabStudyList
+            studies={labStudies}
+            onChange={setLabStudies}
           />
         </div>
 

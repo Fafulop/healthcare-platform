@@ -1,4 +1,5 @@
 import type { Medication } from '@/components/medical-records/MedicationList';
+import type { ImagingStudy, LabStudy } from '@/components/medical-records/StudyList';
 
 export interface PrescriptionDetails {
   id: string;
@@ -22,6 +23,8 @@ export interface PrescriptionDetails {
     sex: string;
   };
   medications: Medication[];
+  imagingStudies: ImagingStudy[];
+  labStudies: LabStudy[];
   createdAt: string;
   updatedAt: string;
 }

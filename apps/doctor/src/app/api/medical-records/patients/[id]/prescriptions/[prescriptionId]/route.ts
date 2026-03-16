@@ -35,6 +35,12 @@ export async function GET(
         medications: {
           orderBy: { order: 'asc' }
         },
+        imagingStudies: {
+          orderBy: { order: 'asc' }
+        },
+        labStudies: {
+          orderBy: { order: 'asc' }
+        },
         encounter: {
           select: {
             id: true,
@@ -158,9 +164,9 @@ export async function PUT(
         expiresAt: body.expiresAt !== undefined ? (body.expiresAt ? new Date(body.expiresAt) : null) : undefined,
       },
       include: {
-        medications: {
-          orderBy: { order: 'asc' }
-        }
+        medications: { orderBy: { order: 'asc' } },
+        imagingStudies: { orderBy: { order: 'asc' } },
+        labStudies: { orderBy: { order: 'asc' } },
       }
     });
 

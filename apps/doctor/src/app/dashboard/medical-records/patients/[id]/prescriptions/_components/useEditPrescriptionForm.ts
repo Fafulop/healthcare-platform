@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import type { Medication } from '@/components/medical-records/MedicationList';
+import type { ImagingStudy, LabStudy } from '@/components/medical-records/StudyList';
 import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-utils';
 import { validateMedications } from './prescription-types';
 
@@ -18,6 +19,8 @@ interface PrescriptionForEdit {
   doctorLicense: string;
   expiresAt?: string;
   medications: Medication[];
+  imagingStudies: ImagingStudy[];
+  labStudies: LabStudy[];
 }
 
 export function useEditPrescriptionForm() {
@@ -47,6 +50,8 @@ export function useEditPrescriptionForm() {
   const [doctorLicense, setDoctorLicense] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [imagingStudies, setImagingStudies] = useState<ImagingStudy[]>([]);
+  const [labStudies, setLabStudies] = useState<LabStudy[]>([]);
 
   useEffect(() => {
     if (session?.user?.doctorId) {
@@ -90,6 +95,8 @@ export function useEditPrescriptionForm() {
       setDoctorLicense(data.doctorLicense);
       setExpiresAt(data.expiresAt ? data.expiresAt.split('T')[0] : '');
       setMedications(data.medications || []);
+      setImagingStudies(data.imagingStudies || []);
+      setLabStudies(data.labStudies || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -137,10 +144,8 @@ export function useEditPrescriptionForm() {
         throw new Error(errorData.error || 'Error al actualizar prescripción');
       }
 
-      // Delete existing medications and add new ones
-      const existingMedicationIds = prescription?.medications?.map((m) => m.id) || [];
-
-      for (const medId of existingMedicationIds) {
+      // Replace medications: delete existing, add new
+      for (const medId of prescription?.medications?.map((m) => m.id) || []) {
         if (medId) {
           await fetch(
             `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/medications/${medId}`,
@@ -148,21 +153,42 @@ export function useEditPrescriptionForm() {
           );
         }
       }
-
-      // Add new medications
       for (const medication of validMedications) {
         const medRes = await fetch(
           `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/medications`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(medication),
-          }
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(medication) }
         );
+        if (!medRes.ok) throw new Error('Error al agregar medicamento');
+      }
 
-        if (!medRes.ok) {
-          throw new Error('Error al agregar medicamento');
-        }
+      // Replace imaging studies: delete existing, add new
+      for (const study of prescription?.imagingStudies?.filter((s) => s.id) || []) {
+        await fetch(
+          `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/imaging-studies/${study.id}`,
+          { method: 'DELETE' }
+        );
+      }
+      for (const study of imagingStudies.filter((s) => s.studyName.trim())) {
+        const res = await fetch(
+          `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/imaging-studies`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(study) }
+        );
+        if (!res.ok) throw new Error('Error al agregar estudio de imagen');
+      }
+
+      // Replace lab studies: delete existing, add new
+      for (const study of prescription?.labStudies?.filter((s) => s.id) || []) {
+        await fetch(
+          `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/lab-studies/${study.id}`,
+          { method: 'DELETE' }
+        );
+      }
+      for (const study of labStudies.filter((s) => s.studyName.trim())) {
+        const res = await fetch(
+          `/api/medical-records/patients/${patientId}/prescriptions/${prescriptionId}/lab-studies`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(study) }
+        );
+        if (!res.ok) throw new Error('Error al agregar estudio de laboratorio');
       }
 
       router.push(
@@ -195,6 +221,8 @@ export function useEditPrescriptionForm() {
     doctorLicense, setDoctorLicense,
     expiresAt, setExpiresAt,
     medications, setMedications,
+    imagingStudies, setImagingStudies,
+    labStudies, setLabStudies,
     // Submit
     handleSubmit,
   };

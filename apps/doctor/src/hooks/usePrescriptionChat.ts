@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useVoiceRecording, formatDuration } from './useVoiceRecording';
 import type { Medication } from '@/components/medical-records/MedicationList';
+import type { ImagingStudy, LabStudy } from '@/components/medical-records/StudyList';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -22,6 +23,8 @@ export interface PrescriptionFormData {
   doctorLicense: string;
   expiresAt: string;
   medications: Medication[];
+  imagingStudies: ImagingStudy[];
+  labStudies: LabStudy[];
 }
 
 interface MedicationAction {
@@ -37,6 +40,14 @@ interface ApiConversationMessage {
   content: string;
 }
 
+interface StudyAction {
+  type: 'add' | 'update' | 'remove' | 'replace_all';
+  index?: number;
+  study?: Partial<ImagingStudy> | Partial<LabStudy>;
+  updates?: Partial<ImagingStudy> | Partial<LabStudy>;
+  studies?: (Partial<ImagingStudy> | Partial<LabStudy>)[];
+}
+
 interface ApiResponse {
   success: boolean;
   data: {
@@ -44,6 +55,8 @@ interface ApiResponse {
     action: 'update_fields' | 'no_change';
     fieldUpdates?: Record<string, any>;
     medicationActions?: MedicationAction[];
+    imagingStudyActions?: StudyAction[];
+    labStudyActions?: StudyAction[];
   };
   error?: { code: string; message: string };
 }
@@ -52,6 +65,8 @@ interface UsePrescriptionChatOptions {
   currentFormData: PrescriptionFormData;
   onUpdateFields: (updates: Record<string, any>) => void;
   onUpdateMedications: (medications: Medication[]) => void;
+  onUpdateImagingStudies: (studies: ImagingStudy[]) => void;
+  onUpdateLabStudies: (studies: LabStudy[]) => void;
 }
 
 // -----------------------------------------------------------------------------
@@ -126,6 +141,43 @@ function applyMedicationActions(
   return result;
 }
 
+function applyStudyActions<T extends { studyName: string; order?: number }>(
+  current: T[],
+  actions: StudyAction[],
+  empty: () => T
+): T[] {
+  let result = [...current];
+  for (const action of actions) {
+    switch (action.type) {
+      case 'add':
+        if (action.study) {
+          result.push({ ...empty(), ...action.study, order: result.length } as T);
+        }
+        break;
+      case 'update': {
+        const idx = action.index ?? -1;
+        if (idx >= 0 && idx < result.length && action.updates) {
+          result[idx] = { ...result[idx], ...action.updates };
+        }
+        break;
+      }
+      case 'remove': {
+        const idx = action.index ?? -1;
+        if (idx >= 0 && idx < result.length) {
+          result = result.filter((_, i) => i !== idx).map((s, i) => ({ ...s, order: i }));
+        }
+        break;
+      }
+      case 'replace_all':
+        if (action.studies) {
+          result = action.studies.map((s, i) => ({ ...empty(), ...s, order: i } as T));
+        }
+        break;
+    }
+  }
+  return result;
+}
+
 // -----------------------------------------------------------------------------
 // Hook
 // -----------------------------------------------------------------------------
@@ -134,6 +186,8 @@ export function usePrescriptionChat({
   currentFormData,
   onUpdateFields,
   onUpdateMedications,
+  onUpdateImagingStudies,
+  onUpdateLabStudies,
 }: UsePrescriptionChatOptions) {
   const [messages, setMessages] = useState<PrescriptionChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -187,35 +241,56 @@ export function usePrescriptionChat({
           return;
         }
 
-        const { message = '', action, fieldUpdates, medicationActions } = json.data;
+        const { message = '', action, fieldUpdates, medicationActions, imagingStudyActions, labStudyActions } = json.data;
 
         let fieldCount = 0;
         let medCount = 0;
+        let imagingCount = 0;
+        let labCount = 0;
 
         const hasFieldUpdates = fieldUpdates && Object.keys(fieldUpdates).length > 0;
         const hasMedActions = medicationActions && medicationActions.length > 0;
+        const hasImagingActions = imagingStudyActions && imagingStudyActions.length > 0;
+        const hasLabActions = labStudyActions && labStudyActions.length > 0;
 
-        if (action !== 'no_change' || hasFieldUpdates || hasMedActions) {
-          // Apply flat field updates
+        if (action !== 'no_change' || hasFieldUpdates || hasMedActions || hasImagingActions || hasLabActions) {
           if (hasFieldUpdates) {
             onUpdateFields(fieldUpdates);
             fieldCount = Object.keys(fieldUpdates).length;
           }
-
-          // Apply medication actions
           if (hasMedActions) {
             const newMeds = applyMedicationActions(currentFormData.medications, medicationActions);
             onUpdateMedications(newMeds);
             medCount = medicationActions.length;
           }
+          if (hasImagingActions) {
+            const newStudies = applyStudyActions(
+              currentFormData.imagingStudies,
+              imagingStudyActions,
+              () => ({ studyName: '' })
+            );
+            onUpdateImagingStudies(newStudies as ImagingStudy[]);
+            imagingCount = imagingStudyActions.length;
+          }
+          if (hasLabActions) {
+            const newStudies = applyStudyActions(
+              currentFormData.labStudies,
+              labStudyActions,
+              () => ({ studyName: '' })
+            );
+            onUpdateLabStudies(newStudies as LabStudy[]);
+            labCount = labStudyActions.length;
+          }
         }
 
         let actionSummary: string | undefined;
-        if (fieldCount > 0 || medCount > 0) {
+        if (fieldCount > 0 || medCount > 0 || imagingCount > 0 || labCount > 0) {
           const parts: string[] = [];
           if (fieldCount > 0) parts.push(`${fieldCount} campo${fieldCount !== 1 ? 's' : ''}`);
           if (medCount > 0) parts.push(`${medCount} medicamento${medCount !== 1 ? 's' : ''}`);
-          actionSummary = `Se actualizaron ${parts.join(' y ')}`;
+          if (imagingCount > 0) parts.push(`${imagingCount} estudio${imagingCount !== 1 ? 's' : ''} de imagen`);
+          if (labCount > 0) parts.push(`${labCount} estudio${labCount !== 1 ? 's' : ''} de laboratorio`);
+          actionSummary = `Se actualizaron ${parts.join(', ')}`;
         }
 
         const assistantMsg: PrescriptionChatMessage = {
