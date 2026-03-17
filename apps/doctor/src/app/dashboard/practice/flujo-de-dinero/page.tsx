@@ -30,8 +30,8 @@ export default function FlujoDeDineroPage() {
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Flujo de Dinero</h1>
-            <p className="text-gray-600 mt-1">Gestiona tus ingresos y egresos</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Flujo de Dinero</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Gestiona tus ingresos y egresos</p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/dashboard/practice/areas" className="flex items-center gap-1.5 sm:gap-2 bg-slate-600 hover:bg-slate-700 text-white font-semibold px-3 sm:px-4 py-2 rounded-md transition-colors text-sm sm:text-base">

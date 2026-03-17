@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle } from "lucide-react";
 import { useCalendar } from "./_hooks/useCalendar";
 import { useSlots } from "./_hooks/useSlots";
 import { useBookings } from "./_hooks/useBookings";
@@ -64,6 +64,21 @@ export default function AppointmentsV2Page() {
     slotsHook.deleteSlot(slotId, bookingsHook.bookings as any);
   };
 
+  // Booking stats — computed from all bookings (not filtered by date)
+  const nowMx = new Date().toLocaleString("sv-SE", { timeZone: "America/Mexico_City" });
+  const isExpiredBooking = (b: Booking) => {
+    if (b.status !== "PENDING" && b.status !== "CONFIRMED") return false;
+    const date = (b.slot?.date ?? b.date ?? "").split("T")[0];
+    const endTime = b.slot?.endTime ?? b.endTime;
+    if (!date || !endTime) return false;
+    return `${date} ${endTime}:00` < nowMx;
+  };
+  const bookingStats = {
+    pending: bookingsHook.bookings.filter(b => b.status === "PENDING" && !isExpiredBooking(b)).length,
+    confirmed: bookingsHook.bookings.filter(b => b.status === "CONFIRMED" && !isExpiredBooking(b)).length,
+    expired: bookingsHook.bookings.filter(b => isExpiredBooking(b)).length,
+  };
+
   if (authStatus === "loading" || (authStatus === "authenticated" && slotsHook.loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -89,56 +104,83 @@ export default function AppointmentsV2Page() {
   return (
     <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestión de Citas</h1>
-            <p className="text-gray-600 mt-1 text-sm sm:text-base">Crea y gestiona tu disponibilidad</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <button
-              onClick={() => setReviewLinkModalOpen(true)}
-              className="flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
-            >
-              <Star className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">Enlace Reseña</span>
-              <span className="sm:hidden">Reseña</span>
-            </button>
-            <button
-              disabled
-              title="Próximamente"
-              className="flex items-center justify-center gap-2 bg-indigo-300 text-white font-semibold py-2 px-3 sm:px-4 rounded-md text-sm sm:text-base cursor-not-allowed opacity-60"
-            >
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Chat IA Citas</span>
-            </button>
-            <button
-              onClick={openBookModal}
-              className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
-            >
-              <CalendarPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">Agendar Cita</span>
-              <span className="sm:hidden">Agendar</span>
-            </button>
-            <button
-              onClick={() => setBlockRangeModalOpen(true)}
-              className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
-            >
-              <Ban className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">Bloquear Periodo</span>
-              <span className="sm:hidden">Bloquear</span>
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm sm:text-base"
-            >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">Crear Horarios</span>
-              <span className="sm:hidden">Crear</span>
-            </button>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestión de Citas</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Crea y gestiona tu disponibilidad</p>
+        </div>
+        <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
+          <button
+            onClick={() => setReviewLinkModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <Star className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Enlace Reseña</span>
+            <span className="sm:hidden">Reseña</span>
+          </button>
+          <button
+            disabled
+            title="Próximamente"
+            className="flex items-center justify-center gap-2 bg-indigo-300 text-white font-semibold py-2 px-3 sm:px-4 rounded-md text-sm cursor-not-allowed opacity-60"
+          >
+            <Sparkles className="w-4 h-4 flex-shrink-0" />
+            <span>Chat IA</span>
+          </button>
+          <button
+            onClick={openBookModal}
+            className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <CalendarPlus className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Agendar Cita</span>
+            <span className="sm:hidden">Agendar</span>
+          </button>
+          <button
+            onClick={() => setBlockRangeModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <Ban className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Bloquear Periodo</span>
+            <span className="sm:hidden">Bloquear</span>
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="col-span-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <Plus className="w-4 h-4 flex-shrink-0" />
+            Crear Horarios
+          </button>
+        </div>
+      </div>
+
+      {/* Booking stats */}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs sm:text-sm text-gray-600 mb-1">Pendientes</p>
+              <p className="text-xl sm:text-2xl font-bold text-yellow-600">{bookingStats.pending}</p>
+            </div>
+            <Clock className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-500 opacity-20" />
           </div>
         </div>
-
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs sm:text-sm text-gray-600 mb-1">Agendadas</p>
+              <p className="text-xl sm:text-2xl font-bold text-blue-600">{bookingStats.confirmed}</p>
+            </div>
+            <CalendarCheck className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600 opacity-20" />
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs sm:text-sm text-gray-600 mb-1">Vencidas</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600">{bookingStats.expired}</p>
+            </div>
+            <AlertTriangle className="w-8 h-8 sm:w-10 sm:h-10 text-red-600 opacity-20" />
+          </div>
+        </div>
       </div>
 
       {/* Bulk actions bar (shown when slots selected) */}
@@ -200,31 +242,39 @@ export default function AppointmentsV2Page() {
         getStatusColor={bookingsHook.getStatusColor}
       />
 
-      {/* View toggle + filters */}
-      <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex gap-2">
-          {(["calendar", "list"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => calendar.setViewMode(mode)}
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md font-medium transition-colors text-sm sm:text-base ${
-                calendar.viewMode === mode
-                  ? "bg-blue-50 text-blue-700"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <span className="hidden sm:inline">Vista de </span>
-              {mode === "calendar" ? "Calendario" : "Lista"}
-            </button>
-          ))}
+      {/* Controls card: view toggle + slot filters */}
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4 mt-6 mb-4">
+        {/* View toggle */}
+        <div className="flex gap-1 mb-3">
+          <button
+            onClick={() => calendar.setViewMode("calendar")}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              calendar.viewMode === "calendar"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Calendario
+          </button>
+          <button
+            onClick={() => calendar.setViewMode("list")}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              calendar.viewMode === "list"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Lista
+          </button>
         </div>
-        <div className="sm:ml-4">
+        {/* Slot status filter — always shown for both views */}
+        <div className="pt-3 border-t border-gray-100">
           <SlotFiltersBar value={statusFilter} onChange={setStatusFilter} />
         </div>
       </div>
 
       {/* Calendar or list view */}
-      <div className="mt-4">
+      <div>
         {calendar.viewMode === "calendar" ? (
           <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
             <AppointmentsCalendar

@@ -72,7 +72,7 @@ export function LedgerTable({
           <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
           {showAllEntries ? 'Todos los Movimientos' : 'Movimientos del Día'}
         </h3>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {!showAllEntries && (
             <>
               <button
@@ -89,7 +89,7 @@ export function LedgerTable({
                 type="date"
                 value={ledgerDate}
                 onChange={(e) => onLedgerDateChange(e.target.value)}
-                className="border border-gray-300 rounded-md px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-slate-300 w-[140px]"
+                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-slate-300 w-28 sm:w-[140px]"
               />
               <button
                 onClick={() => {
