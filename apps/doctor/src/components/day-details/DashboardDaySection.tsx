@@ -31,10 +31,10 @@ export function DashboardDaySection() {
 
   return (
     <div className="bg-white rounded-lg shadow mb-6 overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-2">
+      <div className="flex flex-col lg:grid lg:grid-cols-2">
 
-        {/* Left: Day itinerary */}
-        <div className="lg:border-r border-gray-200 flex flex-col">
+        {/* Left on desktop, bottom on mobile: Day itinerary */}
+        <div className="lg:order-1 order-2 lg:border-r border-gray-200 flex flex-col border-t lg:border-t-0">
           {/* Date navigation */}
           <div className="px-4 sm:px-6 py-3 border-b border-gray-200 flex items-center gap-1">
             <button
@@ -62,8 +62,8 @@ export function DashboardDaySection() {
           </div>
         </div>
 
-        {/* Right: Calendar with indicators */}
-        <div className="p-4 sm:p-6 border-t lg:border-t-0 border-gray-200">
+        {/* Right on desktop, top on mobile: Calendar with indicators */}
+        <div className="lg:order-2 order-1 p-4 sm:p-6">
           <MiniCalendar
             selectedDate={selectedDate}
             onDateSelect={handleDateSelect}
@@ -75,7 +75,7 @@ export function DashboardDaySection() {
           <div className="mt-3 flex items-center gap-5 text-xs text-gray-500">
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0" />
-              <span>Pendientes</span>
+              <span>Tareas</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
