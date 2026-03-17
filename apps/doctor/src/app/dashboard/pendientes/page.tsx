@@ -99,48 +99,22 @@ export default function PendientesPage() {
   return (
     <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Pendientes</h1>
-            <p className="text-gray-600 mt-1 text-sm sm:text-base">Gestiona tus tareas y seguimientos</p>
-          </div>
-          <button
-            onClick={() => router.push("/dashboard/pendientes/new")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 sm:px-4 rounded-md font-semibold flex items-center gap-2 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">Nueva Tarea</span>
-          </button>
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Pendientes</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Gestiona tus tareas y seguimientos</p>
         </div>
-
-        {/* View Toggle */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setViewMode('list')}
-            className={`px-4 py-2 rounded-md font-medium transition-colors ${
-              viewMode === 'list'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Lista
-          </button>
-          <button
-            onClick={() => setViewMode('calendar')}
-            className={`px-4 py-2 rounded-md font-medium transition-colors ${
-              viewMode === 'calendar'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Calendario
-          </button>
-        </div>
+        <button
+          onClick={() => router.push("/dashboard/pendientes/new")}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 sm:px-4 rounded-md font-semibold flex items-center gap-2 transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          <span className="hidden sm:inline">Nueva Tarea</span>
+        </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -179,14 +153,39 @@ export default function PendientesPage() {
         </div>
       </div>
 
-      {/* List View: Filters */}
-      {viewMode === 'list' && (
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-wrap gap-3">
+      {/* Controls card: view toggle + list filters */}
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-6">
+        {/* View toggle */}
+        <div className={`flex gap-1${viewMode === 'list' ? ' mb-3' : ''}`}>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              viewMode === 'calendar'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Calendario
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              viewMode === 'list'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Lista
+          </button>
+        </div>
+
+        {/* Filters — only in list mode */}
+        {viewMode === 'list' && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-3 border-t border-gray-100">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full"
             >
               <option value="">Todos los estados</option>
               <option value="PENDIENTE">Pendiente</option>
@@ -197,7 +196,7 @@ export default function PendientesPage() {
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full"
             >
               <option value="">Todas las prioridades</option>
               <option value="ALTA">Alta</option>
@@ -207,7 +206,7 @@ export default function PendientesPage() {
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full"
             >
               <option value="">Todas las categorías</option>
               <option value="SEGUIMIENTO">Seguimiento</option>
@@ -219,8 +218,8 @@ export default function PendientesPage() {
               <option value="OTRO">Otro</option>
             </select>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Bulk Action Bar */}
       {viewMode === 'list' && selectedIds.size > 0 && (

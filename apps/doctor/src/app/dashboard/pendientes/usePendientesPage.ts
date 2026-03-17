@@ -66,7 +66,7 @@ export function usePendientesPage() {
   const [listDate, setListDate] = useState<string>(getLocalDateString(new Date()));
   const [showAllTasks, setShowAllTasks] = useState(false);
 
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarTasks, setCalendarTasks] = useState<Task[]>([]);
   const [appointmentSlots, setAppointmentSlots] = useState<AppointmentSlot[]>([]);
