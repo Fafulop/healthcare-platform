@@ -83,15 +83,8 @@ export default function DoctorDashboardPage() {
         </p>
       </div>
 
-      {/* Stat cards + Calendar: flex-col with order swap on mobile (calendar first) */}
-      <div className="flex flex-col">
-        {/* Calendar: order-1 on mobile (above cards), order-2 on desktop (below cards) */}
-        <div className="order-1 sm:order-2">
-          <DashboardDaySection />
-        </div>
-
-        {/* Summary counters: order-2 on mobile, order-1 on desktop */}
-        <div className="order-2 sm:order-1 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+      {/* Summary counters */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <Link
             href="/appointments"
             className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
@@ -149,7 +142,9 @@ export default function DoctorDashboardPage() {
             </div>
           </Link>
         </div>
-      </div>
+
+      {/* Itinerario del día + Calendario */}
+      <DashboardDaySection />
 
       {/* Acciones Rápidas - Chat IA */}
       <div className="bg-white rounded-lg shadow mb-6">

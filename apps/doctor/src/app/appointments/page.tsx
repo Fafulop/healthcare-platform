@@ -277,26 +277,32 @@ export default function AppointmentsV2Page() {
       <div>
         {calendar.viewMode === "calendar" ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <DaySlotPanel
-              selectedDate={calendar.selectedDate}
-              slots={slotsHook.slotsForSelectedDate}
-              statusFilter={statusFilter}
-              selectedSlots={slotsHook.selectedSlots}
-              onToggleSelection={slotsHook.toggleSlotSelection}
-              onToggleAllSlots={slotsHook.toggleAllSlots}
-              onToggleOpen={slotsHook.toggleOpenSlot}
-              onDelete={handleDeleteSlot}
-              onBookWithSlot={openBookModalWithSlot}
-              getSlotStatus={slotsHook.getSlotStatus}
-            />
-            <AppointmentsCalendar
-              selectedDate={calendar.selectedDate}
-              onSelectDate={calendar.setSelectedDate}
-              calendarDays={calendar.calendarDays}
-              year={calendar.year}
-              month={calendar.month}
-              datesWithSlots={slotsHook.datesWithSlots}
-            />
+            {/* Calendar — top on mobile, right on desktop */}
+            <div className="lg:order-2">
+              <AppointmentsCalendar
+                selectedDate={calendar.selectedDate}
+                onSelectDate={calendar.setSelectedDate}
+                calendarDays={calendar.calendarDays}
+                year={calendar.year}
+                month={calendar.month}
+                datesWithSlots={slotsHook.datesWithSlots}
+              />
+            </div>
+            {/* Day panel — bottom on mobile, left on desktop */}
+            <div className="lg:order-1">
+              <DaySlotPanel
+                selectedDate={calendar.selectedDate}
+                slots={slotsHook.slotsForSelectedDate}
+                statusFilter={statusFilter}
+                selectedSlots={slotsHook.selectedSlots}
+                onToggleSelection={slotsHook.toggleSlotSelection}
+                onToggleAllSlots={slotsHook.toggleAllSlots}
+                onToggleOpen={slotsHook.toggleOpenSlot}
+                onDelete={handleDeleteSlot}
+                onBookWithSlot={openBookModalWithSlot}
+                getSlotStatus={slotsHook.getSlotStatus}
+              />
+            </div>
           </div>
         ) : (
           <SlotListView
