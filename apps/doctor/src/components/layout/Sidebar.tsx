@@ -135,7 +135,7 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
           />
           <NavItem
             icon={CheckSquare}
-            label="Pendientes"
+            label="Tareas"
             href="/dashboard/pendientes"
             active={pathname?.startsWith("/dashboard/pendientes")}
           />

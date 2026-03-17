@@ -155,7 +155,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
             />
             <NavItem
               icon={CheckSquare}
-              label="Pendientes"
+              label="Tareas"
               href="/dashboard/pendientes"
               active={pathname?.startsWith("/dashboard/pendientes")}
               onClick={onClose}

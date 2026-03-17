@@ -83,68 +83,73 @@ export default function DoctorDashboardPage() {
         </p>
       </div>
 
-      {/* Summary counters */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        <Link
-          href="/appointments"
-          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
-        >
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-yellow-50 flex items-center justify-center flex-shrink-0">
-            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xl sm:text-2xl font-bold text-gray-900">
-              {pendingCount === null ? "—" : pendingCount}
-            </p>
-            <p className="text-xs sm:text-sm text-gray-500 truncate">Citas por confirmar</p>
-          </div>
-        </Link>
-        <Link
-          href="/appointments"
-          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
-        >
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-            <CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xl sm:text-2xl font-bold text-gray-900">
-              {confirmedCount === null ? "—" : confirmedCount}
-            </p>
-            <p className="text-xs sm:text-sm text-gray-500 truncate">Citas agendadas</p>
-          </div>
-        </Link>
-        <Link
-          href="/dashboard/pendientes"
-          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
-        >
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-            <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xl sm:text-2xl font-bold text-gray-900">
-              {todayTasksCount === null ? "—" : todayTasksCount}
-            </p>
-            <p className="text-xs sm:text-sm text-gray-500 truncate">Pendientes hoy</p>
-          </div>
-        </Link>
-        <Link
-          href="/dashboard/practice/ventas"
-          className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
-        >
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
-            <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xl sm:text-2xl font-bold text-gray-900">
-              {ventasTotal === null ? "—" : `$${ventasTotal.toLocaleString("es-MX", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-            </p>
-            <p className="text-xs sm:text-sm text-gray-500 truncate">Ventas {monthLabel}</p>
-          </div>
-        </Link>
-      </div>
+      {/* Stat cards + Calendar: flex-col with order swap on mobile (calendar first) */}
+      <div className="flex flex-col">
+        {/* Calendar: order-1 on mobile (above cards), order-2 on desktop (below cards) */}
+        <div className="order-1 sm:order-2">
+          <DashboardDaySection />
+        </div>
 
-      {/* Itinerario del día + Calendario */}
-      <DashboardDaySection />
+        {/* Summary counters: order-2 on mobile, order-1 on desktop */}
+        <div className="order-2 sm:order-1 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          <Link
+            href="/appointments"
+            className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
+          >
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-yellow-50 flex items-center justify-center flex-shrink-0">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                {pendingCount === null ? "—" : pendingCount}
+              </p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">Citas por confirmar</p>
+            </div>
+          </Link>
+          <Link
+            href="/appointments"
+            className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
+          >
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                {confirmedCount === null ? "—" : confirmedCount}
+              </p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">Citas agendadas</p>
+            </div>
+          </Link>
+          <Link
+            href="/dashboard/pendientes"
+            className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
+          >
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+              <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                {todayTasksCount === null ? "—" : todayTasksCount}
+              </p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">Tareas hoy</p>
+            </div>
+          </Link>
+          <Link
+            href="/dashboard/practice/ventas"
+            className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
+          >
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                {ventasTotal === null ? "—" : `$${ventasTotal.toLocaleString("es-MX", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+              </p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">Ventas {monthLabel}</p>
+            </div>
+          </Link>
+        </div>
+      </div>
 
       {/* Acciones Rápidas - Chat IA */}
       <div className="bg-white rounded-lg shadow mb-6">
@@ -181,7 +186,7 @@ export default function DoctorDashboardPage() {
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <p className="font-medium text-gray-900">Nuevo Pendiente</p>
+                  <p className="font-medium text-gray-900">Nueva Tarea</p>
                   <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
                 </div>
                 <p className="text-sm text-gray-600 hidden sm:block">Crear tarea con Chat IA</p>

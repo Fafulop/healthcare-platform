@@ -90,7 +90,7 @@ export default function PendientesPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Cargando pendientes...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando tareas...</p>
         </div>
       </div>
     );
@@ -101,7 +101,7 @@ export default function PendientesPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Pendientes</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Tareas</h1>
           <p className="text-gray-600 mt-1 text-sm sm:text-base">Gestiona tus tareas y seguimientos</p>
         </div>
         <button
@@ -118,7 +118,7 @@ export default function PendientesPage() {
         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Pendientes</p>
+              <p className="text-sm text-gray-600 mb-1">Activas</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.totalPending}</p>
             </div>
             <CheckSquare className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600 opacity-20" />
@@ -253,8 +253,8 @@ export default function PendientesPage() {
       {/* Calendar View */}
       {viewMode === 'calendar' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          {/* Calendar Section */}
-          <div>
+          {/* Calendar Section — right on desktop, top on mobile */}
+          <div className="lg:order-2">
             {/* Calendar Navigation */}
             <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-4">
               <div className="flex items-center justify-between">
@@ -334,15 +334,9 @@ export default function PendientesPage() {
                         : getLocalDateString(new Date(t.dueDate));
                       return taskDateStr === dateStr;
                     });
-                    const daySlots = appointmentSlots.filter(s => {
-                      const slotDateStr = typeof s.date === 'string'
-                        ? s.date.split('T')[0]
-                        : getLocalDateString(new Date(s.date));
-                      return slotDateStr === dateStr;
-                    });
                     const isToday = dateStr === getLocalDateString(new Date());
                     const isSelected = selectedDate && getLocalDateString(selectedDate) === dateStr;
-                    const hasContent = dayTasks.length > 0 || daySlots.length > 0;
+                    const hasContent = dayTasks.length > 0;
 
                     days.push(
                       <button
@@ -373,7 +367,8 @@ export default function PendientesPage() {
             </div>
           </div>
 
-          {/* Day Details Panel */}
+          {/* Day Details Panel — left on desktop, bottom on mobile */}
+          <div className="lg:order-1">
           {selectedDate ? (
             <div className="bg-white rounded-lg shadow p-4 sm:p-6">
               <h3 className="text-lg font-semibold mb-4">
@@ -460,9 +455,6 @@ export default function PendientesPage() {
                   ...tasksForDay
                     .filter(t => t.startTime && t.endTime)
                     .map(t => ({ type: 'task' as const, startTime: t.startTime!, endTime: t.endTime!, data: t })),
-                  ...slotsForDay
-                    .filter(s => s.currentBookings > 0)
-                    .map(s => ({ type: 'appointment' as const, startTime: s.startTime, endTime: s.endTime, data: s }))
                 ];
 
                 timelineItems.sort((a, b) => {
@@ -481,7 +473,7 @@ export default function PendientesPage() {
                 const tasksWithoutTime = tasksForDay.filter(t => !t.startTime || !t.endTime);
 
                 if (timelineItems.length === 0 && tasksWithoutTime.length === 0) {
-                  return <p className="text-sm text-gray-500">Sin pendientes ni citas programadas</p>;
+                  return <p className="text-sm text-gray-500">Sin tareas para este día</p>;
                 }
 
                 return (
@@ -627,6 +619,7 @@ export default function PendientesPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
       )}
 
@@ -728,7 +721,7 @@ export default function PendientesPage() {
         {visibleTasks.length === 0 ? (
           <div className="text-center py-12">
             <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg mb-2">{showAllTasks ? "No hay pendientes" : "No hay tareas para este dia"}</p>
+            <p className="text-gray-600 text-lg mb-2">{showAllTasks ? "No hay tareas" : "No hay tareas para este día"}</p>
             <p className="text-gray-500 mb-4">{showAllTasks ? "Crea tu primera tarea para empezar" : "Navega a otro dia o crea una nueva tarea"}</p>
             <button
               onClick={() => router.push("/dashboard/pendientes/new")}

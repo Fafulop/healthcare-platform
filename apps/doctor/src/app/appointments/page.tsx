@@ -276,15 +276,7 @@ export default function AppointmentsV2Page() {
       {/* Calendar or list view */}
       <div>
         {calendar.viewMode === "calendar" ? (
-          <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
-            <AppointmentsCalendar
-              selectedDate={calendar.selectedDate}
-              onSelectDate={calendar.setSelectedDate}
-              calendarDays={calendar.calendarDays}
-              year={calendar.year}
-              month={calendar.month}
-              datesWithSlots={slotsHook.datesWithSlots}
-            />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <DaySlotPanel
               selectedDate={calendar.selectedDate}
               slots={slotsHook.slotsForSelectedDate}
@@ -296,6 +288,14 @@ export default function AppointmentsV2Page() {
               onDelete={handleDeleteSlot}
               onBookWithSlot={openBookModalWithSlot}
               getSlotStatus={slotsHook.getSlotStatus}
+            />
+            <AppointmentsCalendar
+              selectedDate={calendar.selectedDate}
+              onSelectDate={calendar.setSelectedDate}
+              calendarDays={calendar.calendarDays}
+              year={calendar.year}
+              month={calendar.month}
+              datesWithSlots={slotsHook.datesWithSlots}
             />
           </div>
         ) : (
