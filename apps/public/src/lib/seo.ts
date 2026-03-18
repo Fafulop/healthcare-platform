@@ -13,7 +13,8 @@ export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 
   const title = `${doctor.doctor_full_name} | ${doctor.primary_specialty} | ${doctor.city}`;
 
   // Meta description template from SEO_GUIDE
-  const description = `Dr. ${doctor.last_name}, ${doctor.primary_specialty} in ${doctor.city}. ${doctor.short_bio.substring(0, 100)}... | Book appointments, view services, credentials, and clinic location.`;
+  const bioSnippet = doctor.long_bio ? `${doctor.long_bio.substring(0, 100)}... ` : '';
+  const description = `Dr. ${doctor.last_name}, ${doctor.primary_specialty} in ${doctor.city}. ${bioSnippet}| Book appointments, view services, credentials, and clinic location.`;
 
   // Canonical URL
   const canonicalUrl = `${baseUrl}/doctores/${doctor.slug}`;

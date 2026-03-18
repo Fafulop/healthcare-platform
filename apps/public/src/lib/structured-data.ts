@@ -31,7 +31,7 @@ export function generatePhysicianSchema(
     '@context': 'https://schema.org',
     '@type': 'Physician',
     name: doctor.doctor_full_name,
-    description: doctor.short_bio,
+    description: doctor.long_bio,
     medicalSpecialty: doctor.primary_specialty,
     url: `${baseUrl}/doctores/${doctor.slug}`,
     image: doctor.hero_image.startsWith('http') ? doctor.hero_image : `${baseUrl}${doctor.hero_image}`,
@@ -65,7 +65,7 @@ export function generateMedicalBusinessSchema(doctor: DoctorProfile, baseUrl: st
     '@context': 'https://schema.org',
     '@type': 'MedicalBusiness',
     name: `Dr. ${doctor.doctor_full_name} - ${doctor.primary_specialty}`,
-    description: doctor.short_bio,
+    description: doctor.long_bio,
     image: doctor.hero_image.startsWith('http') ? doctor.hero_image : `${baseUrl}${doctor.hero_image}`,
     address: {
       '@type': 'PostalAddress',

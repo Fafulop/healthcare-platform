@@ -119,9 +119,9 @@ function DoctorCard({ doctor }: { doctor: DoctorProfile }) {
         </div>
 
         {/* Bio Preview */}
-        {doctor.short_bio && (
+        {doctor.long_bio && (
           <p className="text-sm text-[var(--color-neutral-medium)] line-clamp-3 mb-4">
-            {doctor.short_bio}
+            {doctor.long_bio}
           </p>
         )}
 

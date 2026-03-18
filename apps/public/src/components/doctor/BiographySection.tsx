@@ -3,16 +3,22 @@
 import React, { useState } from 'react';
 import { Award } from 'lucide-react';
 
+const PREVIEW_LENGTH = 300;
+
 interface BiographySectionProps {
   doctorLastName: string;
-  shortBio: string;
   longBio?: string;
   yearsExperience: number;
   id?: string;
 }
 
-export default function BiographySection({ doctorLastName, shortBio, longBio, yearsExperience, id }: BiographySectionProps) {
+export default function BiographySection({ doctorLastName, longBio, yearsExperience, id }: BiographySectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const needsTruncation = longBio && longBio.length > PREVIEW_LENGTH;
+  const displayText = longBio
+    ? (isExpanded || !needsTruncation ? longBio : longBio.substring(0, PREVIEW_LENGTH) + '…')
+    : '';
 
   return (
     <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
@@ -31,28 +37,21 @@ export default function BiographySection({ doctorLastName, shortBio, longBio, ye
         </div>
 
         {/* Biography Content */}
-        <div className="prose prose-lg max-w-none">
-          <p className="text-[var(--color-neutral-dark)] leading-relaxed mb-4">
-            {shortBio}
-          </p>
-
-          {/* Long Bio with Read More */}
-          {longBio && (
-            <>
-              {isExpanded && (
-                <p className="text-[var(--color-neutral-dark)] leading-relaxed mb-4">
-                  {longBio}
-                </p>
-              )}
+        {displayText && (
+          <div className="prose prose-lg max-w-none">
+            <p className="text-[var(--color-neutral-dark)] leading-relaxed mb-4">
+              {displayText}
+            </p>
+            {needsTruncation && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="text-[var(--color-secondary)] hover:text-[var(--color-secondary-hover)] font-semibold underline focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)] focus:ring-offset-2 rounded"
               >
                 {isExpanded ? 'Ver Menos' : 'Ver Más'}
               </button>
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );

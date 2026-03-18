@@ -48,7 +48,6 @@ export default function NewDoctorWizard() {
     procedures: [] as string[],
 
     // Step 4: Biography
-    short_bio: "",
     long_bio: "",
     years_experience: 1,
 
@@ -698,23 +697,6 @@ export default function NewDoctorWizard() {
                 Biografía
               </h2>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Biografía Corta *
-                </label>
-                <textarea
-                  value={formData.short_bio}
-                  onChange={(e) => updateField("short_bio", e.target.value)}
-                  placeholder="Especialista en cardiología con 10 años de experiencia..."
-                  rows={3}
-                  maxLength={300}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  {formData.short_bio.length}/300 caracteres
-                </p>
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
