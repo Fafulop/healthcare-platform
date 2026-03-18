@@ -137,18 +137,25 @@ export function usePendientesPage() {
 
   const handleToggleComplete = async (task: Task) => {
     const newStatus = task.status === "COMPLETADA" ? "PENDIENTE" : "COMPLETADA";
+    // Optimistic update — flip status immediately in both lists
+    const applyUpdate = (t: Task) => t.id === task.id ? { ...t, status: newStatus as Task["status"] } : t;
+    setTasks(prev => prev.map(applyUpdate));
+    setCalendarTasks(prev => prev.map(applyUpdate));
     try {
       const res = await fetch(`/api/medical-records/tasks/${task.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (res.ok) {
-        fetchTasks();
-      } else {
+      if (!res.ok) {
+        // Revert on failure
+        setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+        setCalendarTasks(prev => prev.map(t => t.id === task.id ? task : t));
         toast.error("Error al actualizar la tarea");
       }
     } catch {
+      setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+      setCalendarTasks(prev => prev.map(t => t.id === task.id ? task : t));
       toast.error("Error al actualizar la tarea");
     }
   };
