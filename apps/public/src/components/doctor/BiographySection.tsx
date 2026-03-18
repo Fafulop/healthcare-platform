@@ -29,12 +29,14 @@ export default function BiographySection({ doctorLastName, longBio, yearsExperie
         </h2>
 
         {/* Years of Experience Badge */}
+        {!!yearsExperience && (
         <div className="flex justify-center mb-6">
           <div className="inline-flex items-center gap-2 bg-[var(--color-secondary)] text-white px-6 py-3 rounded-[var(--radius-medium)]">
             <Award className="w-6 h-6" />
             <span className="text-lg font-semibold">{yearsExperience}+ Años de Experiencia</span>
           </div>
         </div>
+        )}
 
         {/* Biography Content */}
         {displayText && (

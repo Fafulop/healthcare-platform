@@ -51,7 +51,7 @@ const DEFAULT_FORM_DATA = {
   conditions: [] as string[],
   procedures: [] as string[],
   long_bio: "",
-  years_experience: 1,
+  years_experience: 0,
   education_items: [] as Array<{
     institution: string;
     program: string;
@@ -233,7 +233,7 @@ export default function MiPerfilPage() {
         conditions: d.conditions || [],
         procedures: d.procedures || [],
         long_bio: d.longBio || "",
-        years_experience: d.yearsExperience || 1,
+        years_experience: d.yearsExperience ?? 0,
         education_items: (d.educationItems || []).map((e: any) => ({
           institution: e.institution,
           program: e.program,
