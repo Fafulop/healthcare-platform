@@ -278,8 +278,8 @@ export async function PUT(
             create: (body.services_list || []).map((service: any) => ({
               serviceName: service.service_name,
               shortDescription: service.short_description,
-              durationMinutes: service.duration_minutes,
-              price: service.price,
+              durationMinutes: service.duration_minutes ?? 0,
+              price: service.price ?? 0,
               isBookingActive: service.is_booking_active ?? true,
             })),
           },
