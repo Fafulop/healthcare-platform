@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Clock, AlertCircle, User, Phone, Mail, Loader2 } from 'lucide-react';
+import { Clock, AlertCircle, User, Phone, Mail, Loader2, CheckCircle2 } from 'lucide-react';
 
 const PRIORITY_COLORS: Record<string, string> = {
   ALTA: 'bg-red-100 text-red-800',
@@ -53,9 +53,10 @@ interface Props {
   tasks: Task[];
   slots: AppointmentSlot[];
   loading: boolean;
+  onToggleComplete?: (taskId: string, currentStatus: string) => void;
 }
 
-export function DayItineraryContent({ tasks, slots, loading }: Props) {
+export function DayItineraryContent({ tasks, slots, loading, onToggleComplete }: Props) {
   const router = useRouter();
 
   // Conflict detection
@@ -159,24 +160,37 @@ export function DayItineraryContent({ tasks, slots, loading }: Props) {
                     : 'border-gray-200 hover:border-blue-300';
                   return (
                     <div key={`task-${task.id}`} className={`border rounded-lg p-3 transition-colors ${borderColor}`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
-                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
+                          </div>
+                          <button
+                            onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
+                            className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors text-sm"
+                          >
+                            {task.title}
+                          </button>
+                          {(hasTaskConflict || hasBookedWarning) && (
+                            <p className={`text-xs mt-1 font-medium ${hasTaskConflict ? 'text-red-600' : 'text-blue-600'}`}>
+                              {hasTaskConflict ? '⚠️ Conflicto con otro pendiente' : 'ℹ️ Cita reservada a esta hora'}
+                            </p>
+                          )}
+                          {task.patient && (
+                            <p className="text-xs text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
+                          )}
+                        </div>
+                        {onToggleComplete && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onToggleComplete(task.id, task.status); }}
+                            className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${task.status === 'COMPLETADA' ? 'text-green-600 hover:text-green-800 hover:bg-green-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
+                            title={task.status === 'COMPLETADA' ? 'Marcar pendiente' : 'Completar'}
+                          >
+                            <CheckCircle2 className="w-5 h-5" />
+                          </button>
+                        )}
                       </div>
-                      <button
-                        onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
-                        className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors text-sm"
-                      >
-                        {task.title}
-                      </button>
-                      {(hasTaskConflict || hasBookedWarning) && (
-                        <p className={`text-xs mt-1 font-medium ${hasTaskConflict ? 'text-red-600' : 'text-blue-600'}`}>
-                          {hasTaskConflict ? '⚠️ Conflicto con otro pendiente' : 'ℹ️ Cita reservada a esta hora'}
-                        </p>
-                      )}
-                      {task.patient && (
-                        <p className="text-xs text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
-                      )}
                     </div>
                   );
                 } else {
@@ -234,19 +248,32 @@ export function DayItineraryContent({ tasks, slots, loading }: Props) {
           <div className="space-y-2">
             {tasksWithoutTime.map(task => (
               <div key={`task-notime-${task.id}`} className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
-                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
+                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
+                    </div>
+                    <button
+                      onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
+                      className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors text-sm"
+                    >
+                      {task.title}
+                    </button>
+                    {task.patient && (
+                      <p className="text-xs text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
+                    )}
+                  </div>
+                  {onToggleComplete && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onToggleComplete(task.id, task.status); }}
+                      className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${task.status === 'COMPLETADA' ? 'text-green-600 hover:text-green-800 hover:bg-green-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
+                      title={task.status === 'COMPLETADA' ? 'Marcar pendiente' : 'Completar'}
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
-                  className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors text-sm"
-                >
-                  {task.title}
-                </button>
-                {task.patient && (
-                  <p className="text-xs text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
-                )}
               </div>
             ))}
           </div>

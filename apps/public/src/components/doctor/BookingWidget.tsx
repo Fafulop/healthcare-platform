@@ -65,6 +65,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
   // Service selection
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [freshServices, setFreshServices] = useState<Service[] | null>(null);
 
   // Visit context
   const [isFirstTime, setIsFirstTime] = useState<boolean | null>(true);
@@ -136,7 +137,13 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
   const handleSlotSelect = (slot: Slot) => {
     trackSlotSelected(doctorSlug, slot.date, slot.startTime, slot.finalPrice);
     setSelectedSlot(slot);
+    setSelectedServiceId(null);
     setBookingStep("form");
+    // Re-fetch services to avoid stale data from ISR page cache
+    fetch(`${API_URL}/api/doctors/${doctorSlug}/services`)
+      .then((r) => r.json())
+      .then((data) => { if (data.success) setFreshServices(data.data); })
+      .catch(() => { /* silently fall back to prop services */ });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -224,6 +231,9 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const selectedSlots = selectedDate ? slotsByDate[selectedDate] || [] : [];
 
+  // Always use the freshest services available; fall back to the ISR-rendered prop
+  const activeServices = freshServices ?? services;
+
   const goToPrevMonth = () => {
     setCurrentMonth(new Date(year, month - 1));
     setSelectedDate(null);
@@ -282,14 +292,14 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                     <strong>Consultorio:</strong> {selectedSlot.location.name}{selectedSlot.location.address ? ` — ${selectedSlot.location.address}` : ""}
                   </p>
                 )}
-                {selectedServiceId && services.find(s => s.id === selectedServiceId) && (
+                {selectedServiceId && activeServices.find(s => s.id === selectedServiceId) && (
                   <>
                     <p className="text-gray-900">
-                      <strong>Servicio:</strong> {services.find(s => s.id === selectedServiceId)!.service_name}
+                      <strong>Servicio:</strong> {activeServices.find(s => s.id === selectedServiceId)!.service_name}
                     </p>
-                    {services.find(s => s.id === selectedServiceId)!.price != null && (
+                    {activeServices.find(s => s.id === selectedServiceId)!.price != null && (
                       <p className="text-gray-900">
-                        <strong>Precio:</strong> ${services.find(s => s.id === selectedServiceId)!.price}
+                        <strong>Precio:</strong> ${activeServices.find(s => s.id === selectedServiceId)!.price}
                       </p>
                     )}
                   </>
@@ -362,22 +372,22 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 📍 {selectedSlot.location.name}{selectedSlot.location.address ? ` — ${selectedSlot.location.address}` : ""}
               </p>
             )}
-            {selectedServiceId && services.find(s => s.id === selectedServiceId)?.price != null && (
+            {selectedServiceId && activeServices.find(s => s.id === selectedServiceId)?.price != null && (
               <p className="text-xl font-bold text-[var(--color-secondary)] mt-2">
-                ${services.find(s => s.id === selectedServiceId)!.price}
+                ${activeServices.find(s => s.id === selectedServiceId)!.price}
               </p>
             )}
           </div>
 
           {/* Service Selector */}
-          {services.length > 0 && (
+          {activeServices.length > 0 && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Stethoscope className="inline w-4 h-4 mr-1" />
                 Servicio *
               </label>
               <div className="space-y-2">
-                {services.map((service) => (
+                {activeServices.map((service) => (
                   <button
                     key={service.id}
                     type="button"
@@ -545,7 +555,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
             <button
               type="submit"
-              disabled={isSubmitting || (services.length > 0 && !selectedServiceId) || isFirstTime === null || (appointmentModes.length > 0 && appointmentMode === null)}
+              disabled={isSubmitting || (activeServices.length > 0 && !selectedServiceId) || isFirstTime === null || (appointmentModes.length > 0 && appointmentMode === null)}
               onClick={() => setBookingError(null)}
               className="w-full bg-[var(--color-secondary)] hover:bg-[var(--color-secondary-hover)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
             >

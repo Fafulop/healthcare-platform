@@ -149,10 +149,23 @@ export function useDashboardCalendar() {
     ),
   ];
 
+  const refreshDay = () => {
+    const dateStr = getLocalDateString(selectedDate);
+    setLoadingDay(true);
+    fetchCalendarMonth(viewMonth)
+      .then(data => {
+        setMonthData(data);
+        setDayData(filterForDate(data, dateStr));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingDay(false));
+  };
+
   return {
     selectedDate,
     handleDateSelect,
     handleMonthChange,
+    refreshDay,
     taskDates,
     appointmentDates,
     dayTasks: dayData.tasks,

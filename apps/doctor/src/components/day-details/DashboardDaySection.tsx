@@ -10,12 +10,27 @@ export function DashboardDaySection() {
     selectedDate,
     handleDateSelect,
     handleMonthChange,
+    refreshDay,
     taskDates,
     appointmentDates,
     dayTasks,
     daySlots,
     loading,
   } = useDashboardCalendar();
+
+  const handleToggleComplete = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'COMPLETADA' ? 'PENDIENTE' : 'COMPLETADA';
+    try {
+      const res = await fetch(`/api/medical-records/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) refreshDay();
+    } catch {
+      // silently ignore
+    }
+  };
 
   const goToPrevDay = () => {
     const d = new Date(selectedDate);
@@ -58,7 +73,7 @@ export function DashboardDaySection() {
 
           {/* Itinerary */}
           <div className="p-4 sm:p-6 flex-1 min-h-[280px]">
-            <DayItineraryContent tasks={dayTasks} slots={daySlots} loading={loading} />
+            <DayItineraryContent tasks={dayTasks} slots={daySlots} loading={loading} onToggleComplete={handleToggleComplete} />
           </div>
         </div>
 

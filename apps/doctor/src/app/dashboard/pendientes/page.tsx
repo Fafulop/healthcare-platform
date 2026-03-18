@@ -522,6 +522,13 @@ export default function PendientesPage() {
                                           <p className="text-sm text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
                                         )}
                                       </div>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleToggleComplete(task); }}
+                                        className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${task.status === "COMPLETADA" ? "text-green-600 hover:text-green-800 hover:bg-green-50" : "text-gray-400 hover:text-green-600 hover:bg-green-50"}`}
+                                        title={task.status === "COMPLETADA" ? "Marcar pendiente" : "Completar"}
+                                      >
+                                        <CheckCircle2 className="w-5 h-5" />
+                                      </button>
                                     </div>
                                   </div>
                                 );
@@ -602,6 +609,13 @@ export default function PendientesPage() {
                                     <p className="text-sm text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
                                   )}
                                 </div>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleToggleComplete(task); }}
+                                  className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${task.status === "COMPLETADA" ? "text-green-600 hover:text-green-800 hover:bg-green-50" : "text-gray-400 hover:text-green-600 hover:bg-green-50"}`}
+                                  title={task.status === "COMPLETADA" ? "Marcar pendiente" : "Completar"}
+                                >
+                                  <CheckCircle2 className="w-5 h-5" />
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -783,10 +797,10 @@ export default function PendientesPage() {
                     <div className="flex gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleToggleComplete(task)}
-                        className={`p-2 rounded transition-colors ${task.status === "COMPLETADA" ? "text-green-600 hover:text-green-800 hover:bg-green-50" : "text-gray-400 hover:text-green-600 hover:bg-green-50"}`}
+                        className={`p-2.5 rounded-lg transition-colors ${task.status === "COMPLETADA" ? "text-green-600 hover:text-green-800 hover:bg-green-50" : "text-gray-400 hover:text-green-600 hover:bg-green-50"}`}
                         title={task.status === "COMPLETADA" ? "Marcar pendiente" : "Completar"}
                       >
-                        <CheckCircle2 className="w-4 h-4" />
+                        <CheckCircle2 className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => router.push(`/dashboard/pendientes/${task.id}/edit`)}
@@ -910,10 +924,10 @@ export default function PendientesPage() {
                         <div className="flex justify-end gap-1">
                           <button
                             onClick={() => handleToggleComplete(task)}
-                            className={`p-2 rounded transition-colors ${task.status === "COMPLETADA" ? "text-green-600 hover:text-green-800 hover:bg-green-50" : "text-gray-400 hover:text-green-600 hover:bg-green-50"}`}
+                            className={`p-2.5 rounded-lg transition-colors ${task.status === "COMPLETADA" ? "text-green-600 hover:text-green-800 hover:bg-green-50" : "text-gray-400 hover:text-green-600 hover:bg-green-50"}`}
                             title={task.status === "COMPLETADA" ? "Marcar pendiente" : "Completar"}
                           >
-                            <CheckCircle2 className="w-4 h-4" />
+                            <CheckCircle2 className="w-5 h-5" />
                           </button>
                           <button
                             onClick={() => router.push(`/dashboard/pendientes/${task.id}/edit`)}
