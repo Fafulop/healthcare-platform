@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Users, Loader2, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
@@ -9,7 +9,7 @@ import { PatientCard, type Patient } from '@/components/medical-records/PatientC
 import { PatientSearchBar } from '@/components/medical-records/PatientSearchBar';
 
 export default function PatientsPage() {
-  const { data: session, status } = useSession({
+  const { status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
@@ -22,45 +22,40 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchPatients();
-  }, [statusFilter, session]);
-
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async (searchValue: string, statusValue: string) => {
     setLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams({
-        status: statusFilter,
-        ...(search && { search })
-      });
-
+      const params = new URLSearchParams({ status: statusValue, ...(searchValue && { search: searchValue }) });
       const res = await fetch(`/api/medical-records/patients?${params}`);
-
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Error fetching patients');
       }
-
       const data = await res.json();
-
-      if (!data?.data || !Array.isArray(data.data)) {
-        throw new Error('Invalid response format');
-      }
-
+      if (!data?.data || !Array.isArray(data.data)) throw new Error('Invalid response format');
       setPatients(data.data);
     } catch (err: any) {
-      console.error('Error fetching patients:', err);
       setError(err.message || 'Error loading patients');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchPatients();
-  };
+  // Immediate fetch on statusFilter change
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    fetchPatients(search, statusFilter);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, status]);
+
+  // Debounced fetch on search change
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const timer = setTimeout(() => fetchPatients(search, statusFilter), 350);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   if (status === "loading" || loading) {
     return (
@@ -77,51 +72,55 @@ export default function PatientsPage() {
     <div className="p-4 sm:p-6">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Expedientes Médicos</h1>
-            <p className="text-gray-600 mt-1">
-              Gestiona los expedientes de tus pacientes
-            </p>
+            <p className="text-gray-600 mt-1 text-sm">Gestiona los expedientes de tus pacientes</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Link
               href="/dashboard/medical-records/custom-templates"
-              className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
+              className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
             >
-              <FileText className="w-5 h-5" />
-              Plantillas Personalizadas
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Plantillas</span>
             </Link>
             <Link
               href="/dashboard/medical-records/patients/new"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center justify-center gap-2 transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center gap-2 transition-colors text-sm"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               Nuevo Paciente
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Search & Filter */}
       <PatientSearchBar
         search={search}
         statusFilter={statusFilter}
         onSearchChange={setSearch}
         onStatusChange={setStatusFilter}
-        onSubmit={handleSearch}
       />
 
-      {/* Error Message */}
+      {/* Error */}
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
           <p className="text-red-800">{error}</p>
         </div>
       )}
 
-      {/* Lista de Pacientes */}
+      {/* Count */}
+      {patients.length > 0 && (
+        <p className="text-sm text-gray-500 mb-3">
+          {patients.length} paciente{patients.length !== 1 ? 's' : ''}
+        </p>
+      )}
+
+      {/* Patient Grid */}
       {patients.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {patients.map((patient) => (
             <PatientCard key={patient.id} patient={patient} />
           ))}
@@ -131,15 +130,17 @@ export default function PatientsPage() {
           <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg mb-2">No se encontraron pacientes</p>
           <p className="text-gray-400 text-sm mb-4">
-            Comienza agregando tu primer paciente
+            {search ? `Sin resultados para "${search}"` : 'Comienza agregando tu primer paciente'}
           </p>
-          <Link
-            href="/dashboard/medical-records/patients/new"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Nuevo Paciente
-          </Link>
+          {!search && (
+            <Link
+              href="/dashboard/medical-records/patients/new"
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Nuevo Paciente
+            </Link>
+          )}
         </div>
       )}
     </div>

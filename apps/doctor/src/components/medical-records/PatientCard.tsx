@@ -1,6 +1,6 @@
 'use client';
 
-import { Users } from 'lucide-react';
+import { User, Phone } from 'lucide-react';
 import Link from 'next/link';
 
 export interface Patient {
@@ -64,7 +64,7 @@ export function PatientCard({ patient }: PatientCardProps) {
               />
             ) : (
               <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
-                <Users className="w-8 h-8 text-gray-400" />
+                <User className="w-8 h-8 text-gray-400" />
               </div>
             )}
           </div>
@@ -80,8 +80,9 @@ export function PatientCard({ patient }: PatientCardProps) {
 
             {/* Contact */}
             {patient.phone && (
-              <p className="text-sm text-gray-600 mt-1 truncate">
-                📱 {patient.phone}
+              <p className="text-sm text-gray-600 mt-1 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{patient.phone}</span>
               </p>
             )}
 

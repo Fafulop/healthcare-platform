@@ -656,7 +656,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                             <span>{formatDate(media.captureDate)}</span>
                             <span>•</span>
-                            <span className="capitalize">{media.mediaType}</span>
+                            <span>{{ image: 'Imagen', video: 'Video', audio: 'Audio' }[media.mediaType] ?? media.mediaType}</span>
                             {media.category && <><span>•</span><span className="capitalize">{media.category}</span></>}
                           </div>
                         </div>
@@ -668,27 +668,27 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                       </div>
                     </div>
 
-                    <div className="p-4 flex gap-4">
+                    <div className="p-4 flex gap-3 sm:gap-4">
                       <div className="flex-shrink-0">
                         {media.mediaType === 'image' && (
-                          <img src={media.fileUrl} alt={media.description || media.fileName} className="w-32 h-32 object-cover rounded-md" />
+                          <img src={media.fileUrl} alt={media.description || media.fileName} className="w-20 h-20 sm:w-32 sm:h-32 object-cover rounded-md" />
                         )}
                         {media.mediaType === 'video' && (
-                          <div className="w-32 h-32 bg-gray-100 rounded-md flex items-center justify-center relative">
+                          <div className="w-20 h-20 sm:w-32 sm:h-32 bg-gray-100 rounded-md flex items-center justify-center relative">
                             {media.thumbnailUrl
                               ? <img src={media.thumbnailUrl} alt={media.description || media.fileName} className="w-full h-full object-cover rounded-md" />
-                              : <Video className="w-12 h-12 text-gray-400" />
+                              : <Video className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400" />
                             }
                             <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center rounded-md">
-                              <div className="w-8 h-8 bg-white bg-opacity-90 rounded-full flex items-center justify-center">
-                                <div className="w-0 h-0 border-t-[6px] border-t-transparent border-l-[10px] border-l-gray-800 border-b-[6px] border-b-transparent ml-1" />
+                              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white bg-opacity-90 rounded-full flex items-center justify-center">
+                                <div className="w-0 h-0 border-t-[5px] border-t-transparent border-l-[9px] border-l-gray-800 border-b-[5px] border-b-transparent ml-1" />
                               </div>
                             </div>
                           </div>
                         )}
                         {media.mediaType === 'audio' && (
-                          <div className="w-32 h-32 bg-purple-50 rounded-md flex items-center justify-center">
-                            <Mic className="w-12 h-12 text-purple-500" />
+                          <div className="w-20 h-20 sm:w-32 sm:h-32 bg-purple-50 rounded-md flex items-center justify-center">
+                            <Mic className="w-10 h-10 sm:w-12 sm:h-12 text-purple-500" />
                           </div>
                         )}
                       </div>

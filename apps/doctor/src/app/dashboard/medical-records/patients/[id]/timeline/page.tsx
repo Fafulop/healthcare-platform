@@ -118,33 +118,33 @@ export default function PatientTimelinePage() {
           Volver al Paciente
         </Link>
 
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Clock className="w-8 h-8 text-blue-600" />
+            <Clock className="w-7 h-7 text-blue-600 flex-shrink-0" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                 Línea de Tiempo Clínica
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-gray-600 mt-0.5 text-sm sm:text-base">
                 {patient.firstName} {patient.lastName} • {calculateAge(patient.dateOfBirth)} años
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={handleExportPDF}
               disabled={exportingPDF || !timelineData}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2 text-sm"
+              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2 text-sm transition-colors"
             >
               {exportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {exportingPDF ? 'Generando...' : 'Exportar PDF'}
+              <span className="hidden sm:inline">{exportingPDF ? 'Generando...' : 'Exportar PDF'}</span>
             </button>
             <Link
               href={`/dashboard/medical-records/patients/${patientId}/encounters/new`}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm font-semibold transition-colors"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               Nueva Consulta
             </Link>
           </div>
@@ -154,7 +154,7 @@ export default function PatientTimelinePage() {
       {/* Stats summary */}
       {timeline.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-3xl font-bold text-blue-600">
                 {timeline.filter((item: any) => item.type === 'encounter').length}
