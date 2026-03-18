@@ -66,6 +66,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
   // Service selection
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [freshServices, setFreshServices] = useState<Service[] | null>(null);
+  const [loadingServices, setLoadingServices] = useState(false);
 
   // Visit context
   const [isFirstTime, setIsFirstTime] = useState<boolean | null>(true);
@@ -138,12 +139,15 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     trackSlotSelected(doctorSlug, slot.date, slot.startTime, slot.finalPrice);
     setSelectedSlot(slot);
     setSelectedServiceId(null);
+    setFreshServices(null);
+    setLoadingServices(true);
     setBookingStep("form");
     // Re-fetch services to avoid stale data from ISR page cache
     fetch(`${API_URL}/api/doctors/${doctorSlug}/services`)
       .then((r) => r.json())
       .then((data) => { if (data.success) setFreshServices(data.data); })
-      .catch(() => { /* silently fall back to prop services */ });
+      .catch(() => { setFreshServices(services); })
+      .finally(() => { setLoadingServices(false); });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -380,7 +384,19 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
           </div>
 
           {/* Service Selector */}
-          {activeServices.length > 0 && (
+          {loadingServices ? (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Stethoscope className="inline w-4 h-4 mr-1" />
+                Servicio *
+              </label>
+              <div className="space-y-2">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ) : activeServices.length > 0 && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Stethoscope className="inline w-4 h-4 mr-1" />
@@ -555,7 +571,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
             <button
               type="submit"
-              disabled={isSubmitting || (activeServices.length > 0 && !selectedServiceId) || isFirstTime === null || (appointmentModes.length > 0 && appointmentMode === null)}
+              disabled={isSubmitting || loadingServices || (activeServices.length > 0 && !selectedServiceId) || isFirstTime === null || (appointmentModes.length > 0 && appointmentMode === null)}
               onClick={() => setBookingError(null)}
               className="w-full bg-[var(--color-secondary)] hover:bg-[var(--color-secondary-hover)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
             >
