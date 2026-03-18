@@ -124,6 +124,7 @@ export async function POST(request: Request) {
             shortDescription: service.short_description,
             durationMinutes: service.duration_minutes,
             price: service.price,
+            isBookingActive: service.is_booking_active ?? true,
           })),
         },
         // Create related education items

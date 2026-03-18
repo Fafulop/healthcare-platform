@@ -47,6 +47,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
       short_description: string;
       duration_minutes: number;
       price: number;
+      is_booking_active: boolean;
     }>,
 
     // Step 3: Conditions & Procedures
@@ -146,6 +147,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
           short_description: s.shortDescription,
           duration_minutes: s.durationMinutes,
           price: s.price,
+          is_booking_active: s.isBookingActive ?? true,
         })),
 
         conditions: doctor.conditions || [],
@@ -291,6 +293,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
           short_description: "",
           duration_minutes: 30,
           price: 50,
+          is_booking_active: true,
         },
       ],
     }));
@@ -732,7 +735,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Precio (USD)
+                            Precio (MXN)
                           </label>
                           <input
                             type="number"
@@ -743,6 +746,27 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                           />
                         </div>
+                      </div>
+
+                      {/* Booking active toggle */}
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Activo para reservas de pacientes</p>
+                          <p className="text-xs text-gray-400">Si está desactivado, no aparece cuando un paciente agenda una cita</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => updateService(index, "is_booking_active", !service.is_booking_active)}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            service.is_booking_active ? "bg-blue-600" : "bg-gray-200"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              service.is_booking_active ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
                       </div>
                     </div>
                   ))}

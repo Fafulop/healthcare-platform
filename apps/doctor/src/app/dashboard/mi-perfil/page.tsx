@@ -46,6 +46,7 @@ const DEFAULT_FORM_DATA = {
     short_description: string;
     duration_minutes: number;
     price: number;
+    is_booking_active: boolean;
   }>,
   conditions: [] as string[],
   procedures: [] as string[],
@@ -228,6 +229,7 @@ export default function MiPerfilPage() {
           short_description: s.shortDescription,
           duration_minutes: s.durationMinutes,
           price: s.price,
+          is_booking_active: s.isBookingActive ?? true,
         })),
         conditions: d.conditions || [],
         procedures: d.procedures || [],

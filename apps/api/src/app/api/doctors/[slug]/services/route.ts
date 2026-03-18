@@ -14,6 +14,7 @@ export async function GET(
       where: { slug },
       select: {
         services: {
+          where: { isBookingActive: true },
           select: {
             id: true,
             serviceName: true,

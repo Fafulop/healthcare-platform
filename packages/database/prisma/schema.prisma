@@ -205,6 +205,7 @@ model Service {
   shortDescription   String   @map("short_description")
   durationMinutes    Int      @map("duration_minutes")
   price              Float?
+  isBookingActive    Boolean  @default(true) @map("is_booking_active")
 
   doctor             Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   bookings           Booking[]
