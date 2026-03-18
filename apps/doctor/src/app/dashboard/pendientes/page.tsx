@@ -78,6 +78,7 @@ export default function PendientesPage() {
     stats,
     visibleTasks,
     isOverdue,
+    handleToggleComplete,
     handleDelete,
     toggleSelection,
     toggleSelectAll,
@@ -781,6 +782,13 @@ export default function PendientesPage() {
                     </div>
                     <div className="flex gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
+                        onClick={() => handleToggleComplete(task)}
+                        className={`p-2 rounded transition-colors ${task.status === "COMPLETADA" ? "text-green-600 hover:text-green-800 hover:bg-green-50" : "text-gray-400 hover:text-green-600 hover:bg-green-50"}`}
+                        title={task.status === "COMPLETADA" ? "Marcar pendiente" : "Completar"}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => router.push(`/dashboard/pendientes/${task.id}/edit`)}
                         className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
                         title="Editar"
@@ -900,6 +908,13 @@ export default function PendientesPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
+                          <button
+                            onClick={() => handleToggleComplete(task)}
+                            className={`p-2 rounded transition-colors ${task.status === "COMPLETADA" ? "text-green-600 hover:text-green-800 hover:bg-green-50" : "text-gray-400 hover:text-green-600 hover:bg-green-50"}`}
+                            title={task.status === "COMPLETADA" ? "Marcar pendiente" : "Completar"}
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => router.push(`/dashboard/pendientes/${task.id}/edit`)}
                             className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"

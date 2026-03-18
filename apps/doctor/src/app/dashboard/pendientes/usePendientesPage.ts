@@ -303,6 +303,7 @@ export function usePendientesPage() {
     stats,
     visibleTasks,
     isOverdue,
+    handleToggleComplete,
     handleDelete,
     toggleSelection,
     toggleSelectAll,
