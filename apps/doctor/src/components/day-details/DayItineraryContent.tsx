@@ -1,46 +1,15 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { Clock, AlertCircle, User, Phone, Mail, Loader2, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { TaskDetailModal, type Task } from './TaskDetailModal';
+import { AppointmentDetailModal, type AppointmentSlot } from './AppointmentDetailModal';
 
 const PRIORITY_COLORS: Record<string, string> = {
   ALTA: 'bg-red-100 text-red-800',
   MEDIA: 'bg-yellow-100 text-yellow-800',
   BAJA: 'bg-green-100 text-green-800',
 };
-
-interface Booking {
-  id: string;
-  patientName: string;
-  patientEmail: string;
-  patientPhone: string;
-  status: string;
-}
-
-interface AppointmentSlot {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  isOpen: boolean;
-  currentBookings: number;
-  maxBookings: number;
-  bookings?: Booking[];
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  dueDate: string | null;
-  startTime: string | null;
-  endTime: string | null;
-  priority: 'ALTA' | 'MEDIA' | 'BAJA';
-  status: 'PENDIENTE' | 'EN_PROGRESO' | 'COMPLETADA' | 'CANCELADA';
-  category: string;
-  patientId: string | null;
-  patient: { id: string; firstName: string; lastName: string } | null;
-}
 
 function getSlotDisplayStatus(slot: AppointmentSlot) {
   if (!slot.isOpen) return { label: 'Cerrado', color: 'bg-gray-200 text-gray-700' };
@@ -57,7 +26,8 @@ interface Props {
 }
 
 export function DayItineraryContent({ tasks, slots, loading, onToggleComplete }: Props) {
-  const router = useRouter();
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
 
   // Conflict detection
   const taskTaskConflictIds = new Set<string>();
@@ -138,147 +108,148 @@ export function DayItineraryContent({ tasks, slots, loading, onToggleComplete }:
   }
 
   return (
-    <div className="space-y-4">
-      {Array.from(timeSlots.entries()).map(([timeKey, items]) => {
-        const [startTime, endTime] = timeKey.split('-');
-        return (
-          <div key={timeKey} className="border-l-4 border-yellow-400 pl-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-yellow-600" />
-              <h4 className="font-semibold text-gray-900">{startTime} - {endTime}</h4>
-            </div>
-            <div className="space-y-2">
-              {items.map(item => {
-                if (item.type === 'task') {
-                  const task = item.data as Task;
-                  const hasTaskConflict = taskTaskConflictIds.has(task.id);
-                  const hasBookedWarning = bookedAppointmentWarningIds.has(task.id);
-                  const borderColor = hasTaskConflict
-                    ? 'border-red-300 bg-red-50'
-                    : hasBookedWarning
-                    ? 'border-blue-300 bg-blue-50'
-                    : 'border-gray-200 hover:border-blue-300';
-                  return (
-                    <div key={`task-${task.id}`} className={`border rounded-lg p-3 transition-colors ${borderColor}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
+    <>
+      <div className="space-y-4">
+        {Array.from(timeSlots.entries()).map(([timeKey, items]) => {
+          const [startTime, endTime] = timeKey.split('-');
+          return (
+            <div key={timeKey} className="border-l-4 border-yellow-400 pl-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-4 h-4 text-yellow-600" />
+                <h4 className="font-semibold text-gray-900">{startTime} - {endTime}</h4>
+              </div>
+              <div className="space-y-2">
+                {items.map(item => {
+                  if (item.type === 'task') {
+                    const task = item.data as Task;
+                    const hasTaskConflict = taskTaskConflictIds.has(task.id);
+                    const hasBookedWarning = bookedAppointmentWarningIds.has(task.id);
+                    const borderColor = hasTaskConflict
+                      ? 'border-red-300 bg-red-50'
+                      : hasBookedWarning
+                      ? 'border-blue-300 bg-blue-50'
+                      : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30';
+                    return (
+                      <div
+                        key={`task-${task.id}`}
+                        className={`border rounded-lg p-3 transition-colors cursor-pointer ${borderColor}`}
+                        onClick={() => setSelectedTask(task)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
+                              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
+                            </div>
+                            <p className="font-medium text-gray-900 text-sm">{task.title}</p>
+                            {(hasTaskConflict || hasBookedWarning) && (
+                              <p className={`text-xs mt-1 font-medium ${hasTaskConflict ? 'text-red-600' : 'text-blue-600'}`}>
+                                {hasTaskConflict ? '⚠️ Conflicto con otro pendiente' : 'ℹ️ Cita reservada a esta hora'}
+                              </p>
+                            )}
+                            {task.patient && (
+                              <p className="text-xs text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
+                            )}
                           </div>
-                          <button
-                            onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
-                            className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors text-sm"
-                          >
-                            {task.title}
-                          </button>
-                          {(hasTaskConflict || hasBookedWarning) && (
-                            <p className={`text-xs mt-1 font-medium ${hasTaskConflict ? 'text-red-600' : 'text-blue-600'}`}>
-                              {hasTaskConflict ? '⚠️ Conflicto con otro pendiente' : 'ℹ️ Cita reservada a esta hora'}
-                            </p>
-                          )}
-                          {task.patient && (
-                            <p className="text-xs text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
+                          {onToggleComplete && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onToggleComplete(task.id, task.status); }}
+                              className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${task.status === 'COMPLETADA' ? 'text-green-600 hover:text-green-800 hover:bg-green-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
+                              title={task.status === 'COMPLETADA' ? 'Marcar pendiente' : 'Completar'}
+                            >
+                              <CheckCircle2 className="w-5 h-5" />
+                            </button>
                           )}
                         </div>
-                        {onToggleComplete && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onToggleComplete(task.id, task.status); }}
-                            className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${task.status === 'COMPLETADA' ? 'text-green-600 hover:text-green-800 hover:bg-green-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
-                            title={task.status === 'COMPLETADA' ? 'Marcar pendiente' : 'Completar'}
-                          >
-                            <CheckCircle2 className="w-5 h-5" />
-                          </button>
+                      </div>
+                    );
+                  } else {
+                    const slot = item.data as AppointmentSlot;
+                    const hasTaskOverlap = slotTaskOverlapIds.has(slot.id);
+                    const slotStatus = getSlotDisplayStatus(slot);
+                    const activeBookings = slot.bookings?.filter(b => b.status !== 'CANCELLED') ?? [];
+                    return (
+                      <div
+                        key={`slot-${slot.id}`}
+                        className={`border rounded-lg p-3 transition-colors cursor-pointer ${hasTaskOverlap ? 'border-blue-300 bg-blue-50 hover:border-blue-400' : 'border-gray-200 hover:border-green-300 hover:bg-green-50/30'}`}
+                        onClick={() => setSelectedSlot(slot)}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">Cita</span>
+                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${slotStatus.color}`}>{slotStatus.label}</span>
+                        </div>
+                        <p className={`font-medium text-sm ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
+                          {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
+                        </p>
+                        {activeBookings.length > 0 && (
+                          <div className="mt-1.5 space-y-1">
+                            {activeBookings.map(booking => (
+                              <p key={booking.id} className="text-xs text-gray-600 truncate">• {booking.patientName}</p>
+                            ))}
+                          </div>
+                        )}
+                        {hasTaskOverlap && (
+                          <p className="text-xs text-blue-600 font-medium mt-1">ℹ️ Pendiente a esta hora</p>
                         )}
                       </div>
-                    </div>
-                  );
-                } else {
-                  const slot = item.data as AppointmentSlot;
-                  const hasTaskOverlap = slotTaskOverlapIds.has(slot.id);
-                  const slotStatus = getSlotDisplayStatus(slot);
-                  const activeBookings = slot.bookings?.filter(b => b.status !== 'CANCELLED') ?? [];
-                  return (
-                    <div key={`slot-${slot.id}`} className={`border rounded-lg p-3 ${hasTaskOverlap ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">Cita</span>
-                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${slotStatus.color}`}>{slotStatus.label}</span>
-                      </div>
-                      <p className={`font-medium text-sm ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
-                        {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
-                      </p>
-                      {activeBookings.length > 0 && (
-                        <div className="mt-2 space-y-2">
-                          {activeBookings.map(booking => (
-                            <div key={booking.id} className="bg-white border border-gray-100 rounded p-2">
-                              <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                                <User className="w-3 h-3 text-gray-500" />
-                                {booking.patientName}
-                              </div>
-                              <div className="mt-1 space-y-0.5">
-                                <div className="flex items-center gap-2 text-xs text-gray-600">
-                                  <Mail className="w-3 h-3" />{booking.patientEmail}
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-gray-600">
-                                  <Phone className="w-3 h-3" />{booking.patientPhone}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {hasTaskOverlap && (
-                        <p className="text-xs text-blue-600 font-medium mt-1">ℹ️ Pendiente a esta hora</p>
-                      )}
-                    </div>
-                  );
-                }
-              })}
+                    );
+                  }
+                })}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
 
-      {tasksWithoutTime.length > 0 && (
-        <div className="border-l-4 border-gray-300 pl-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-4 h-4 text-gray-500" />
-            <h4 className="font-semibold text-gray-700">Sin hora específica</h4>
-          </div>
-          <div className="space-y-2">
-            {tasksWithoutTime.map(task => (
-              <div key={`task-notime-${task.id}`} className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
-                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
+        {tasksWithoutTime.length > 0 && (
+          <div className="border-l-4 border-gray-300 pl-4">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="w-4 h-4 text-gray-500" />
+              <h4 className="font-semibold text-gray-700">Sin hora específica</h4>
+            </div>
+            <div className="space-y-2">
+              {tasksWithoutTime.map(task => (
+                <div
+                  key={`task-notime-${task.id}`}
+                  className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors cursor-pointer"
+                  onClick={() => setSelectedTask(task)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
+                      </div>
+                      <p className="font-medium text-gray-900 text-sm">{task.title}</p>
+                      {task.patient && (
+                        <p className="text-xs text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
+                      )}
                     </div>
-                    <button
-                      onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
-                      className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors text-sm"
-                    >
-                      {task.title}
-                    </button>
-                    {task.patient && (
-                      <p className="text-xs text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
+                    {onToggleComplete && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleComplete(task.id, task.status); }}
+                        className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${task.status === 'COMPLETADA' ? 'text-green-600 hover:text-green-800 hover:bg-green-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
+                        title={task.status === 'COMPLETADA' ? 'Marcar pendiente' : 'Completar'}
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                      </button>
                     )}
                   </div>
-                  {onToggleComplete && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onToggleComplete(task.id, task.status); }}
-                      className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${task.status === 'COMPLETADA' ? 'text-green-600 hover:text-green-800 hover:bg-green-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
-                      title={task.status === 'COMPLETADA' ? 'Marcar pendiente' : 'Completar'}
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                    </button>
-                  )}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      <TaskDetailModal
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onToggleComplete={onToggleComplete}
+      />
+      <AppointmentDetailModal
+        slot={selectedSlot}
+        onClose={() => setSelectedSlot(null)}
+      />
+    </>
   );
 }

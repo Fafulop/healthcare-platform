@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { X, Clock, AlertCircle, User, Phone, Mail, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Clock, AlertCircle, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MiniCalendar } from './MiniCalendar';
+import { TaskDetailModal } from './TaskDetailModal';
+import { AppointmentDetailModal } from './AppointmentDetailModal';
 
 interface Task {
   id: string;
@@ -57,8 +58,17 @@ const PRIORITY_COLORS: Record<string, string> = {
 import { getLocalDateString } from '@/lib/dates';
 
 export function DayDetailsModal({ isOpen, onClose, tasks, slots, selectedDate, onDateChange, loading = false }: DayDetailsModalProps) {
-  const router = useRouter();
   const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedTask(null);
+      setSelectedSlot(null);
+      setShowCalendar(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -319,7 +329,11 @@ export function DayDetailsModal({ isOpen, onClose, tasks, slots, selectedDate, o
                             : 'border-gray-200 hover:border-blue-300';
 
                           return (
-                            <div key={`task-${task.id}`} className={`border rounded-lg p-3 transition-colors ${borderColor}`}>
+                            <div
+                              key={`task-${task.id}`}
+                              className={`border rounded-lg p-3 transition-colors cursor-pointer ${borderColor}`}
+                              onClick={() => setSelectedTask(task)}
+                            >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
@@ -330,15 +344,7 @@ export function DayDetailsModal({ isOpen, onClose, tasks, slots, selectedDate, o
                                       {task.priority}
                                     </span>
                                   </div>
-                                  <button
-                                    onClick={() => {
-                                      router.push(`/dashboard/pendientes/${task.id}`);
-                                      onClose();
-                                    }}
-                                    className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors"
-                                  >
-                                    {task.title}
-                                  </button>
+                                  <p className="font-medium text-gray-900 text-sm">{task.title}</p>
                                   {(hasTaskConflict || hasBookedWarning) && (
                                     <p className={`text-sm mt-1 ${
                                       hasTaskConflict ? 'text-red-600 font-medium' :
@@ -364,54 +370,32 @@ export function DayDetailsModal({ isOpen, onClose, tasks, slots, selectedDate, o
                           const activeBookings = slot.bookings?.filter(b => b.status !== 'CANCELLED') || [];
 
                           return (
-                            <div key={`slot-${slot.id}`} className={`border rounded-lg p-3 ${
-                              hasTaskOverlap
-                                ? 'border-blue-300 bg-blue-50'
-                                : 'border-gray-200'
-                            }`}>
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">
-                                      Cita
-                                    </span>
-                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${slotStatus.color}`}>
-                                      {slotStatus.label}
-                                    </span>
-                                  </div>
-                                  <p className={`font-medium ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
-                                    {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
-                                  </p>
-                                  {/* Patient Info from Bookings */}
-                                  {activeBookings.length > 0 && (
-                                    <div className="mt-2 space-y-2">
-                                      {activeBookings.map((booking) => (
-                                        <div key={booking.id} className="bg-white border border-gray-100 rounded p-2">
-                                          <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                                            <User className="w-3 h-3 text-gray-500" />
-                                            {booking.patientName}
-                                          </div>
-                                          <div className="mt-1 space-y-0.5">
-                                            <div className="flex items-center gap-2 text-xs text-gray-600">
-                                              <Mail className="w-3 h-3" />
-                                              {booking.patientEmail}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-xs text-gray-600">
-                                              <Phone className="w-3 h-3" />
-                                              {booking.patientPhone}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {hasTaskOverlap && (
-                                    <p className="text-sm text-blue-600 font-medium mt-1">
-                                      ℹ️ Pendiente a esta hora
-                                    </p>
-                                  )}
-                                </div>
+                            <div
+                              key={`slot-${slot.id}`}
+                              className={`border rounded-lg p-3 transition-colors cursor-pointer ${
+                                hasTaskOverlap
+                                  ? 'border-blue-300 bg-blue-50 hover:border-blue-400'
+                                  : 'border-gray-200 hover:border-green-300 hover:bg-green-50/30'
+                              }`}
+                              onClick={() => setSelectedSlot(slot)}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">Cita</span>
+                                <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${slotStatus.color}`}>{slotStatus.label}</span>
                               </div>
+                              <p className={`font-medium text-sm ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
+                                {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
+                              </p>
+                              {activeBookings.length > 0 && (
+                                <div className="mt-1.5 space-y-1">
+                                  {activeBookings.map(booking => (
+                                    <p key={booking.id} className="text-xs text-gray-600 truncate">• {booking.patientName}</p>
+                                  ))}
+                                </div>
+                              )}
+                              {hasTaskOverlap && (
+                                <p className="text-xs text-blue-600 font-medium mt-1">ℹ️ Pendiente a esta hora</p>
+                              )}
                             </div>
                           );
                         }
@@ -430,33 +414,19 @@ export function DayDetailsModal({ isOpen, onClose, tasks, slots, selectedDate, o
                   </div>
                   <div className="space-y-2">
                     {tasksWithoutTime.map(task => (
-                      <div key={`task-notime-${task.id}`} className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">
-                                Pendiente
-                              </span>
-                              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>
-                                {task.priority}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => {
-                                router.push(`/dashboard/pendientes/${task.id}`);
-                                onClose();
-                              }}
-                              className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors"
-                            >
-                              {task.title}
-                            </button>
-                            {task.patient && (
-                              <p className="text-sm text-gray-500 mt-1">
-                                Paciente: {task.patient.firstName} {task.patient.lastName}
-                              </p>
-                            )}
-                          </div>
+                      <div
+                        key={`task-notime-${task.id}`}
+                        className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors cursor-pointer"
+                        onClick={() => setSelectedTask(task)}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">Pendiente</span>
+                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
                         </div>
+                        <p className="font-medium text-gray-900 text-sm">{task.title}</p>
+                        {task.patient && (
+                          <p className="text-xs text-gray-500 mt-1">Paciente: {task.patient.firstName} {task.patient.lastName}</p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -466,6 +436,17 @@ export function DayDetailsModal({ isOpen, onClose, tasks, slots, selectedDate, o
           )}
         </div>
       </div>
+
+      <TaskDetailModal
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+        zIndex="z-[70]"
+      />
+      <AppointmentDetailModal
+        slot={selectedSlot}
+        onClose={() => setSelectedSlot(null)}
+        zIndex="z-[70]"
+      />
     </div>
   );
 }
