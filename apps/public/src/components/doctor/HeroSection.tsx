@@ -54,12 +54,14 @@ export default function HeroSection({ doctor, onBookingClick, googleAdsId }: Her
             </h1>
 
             {/* Years of Experience Badge - E-E-A-T Signal for SEO */}
+            {doctor.years_experience > 0 && (
             <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
               <Award className="w-5 h-5 text-yellow-600" />
               <span className="text-base font-semibold text-[var(--color-neutral-dark)]">
                 {doctor.years_experience}+ Años de Experiencia
               </span>
             </div>
+            )}
 
             {/* Review Rating - Trust Signal + Rich Snippet Eligibility */}
             {doctor.reviewStats && doctor.reviewStats.reviewCount > 0 && (

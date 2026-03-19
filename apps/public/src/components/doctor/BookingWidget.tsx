@@ -288,9 +288,11 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 <p className="text-gray-900">
                   <strong>Hora:</strong> {selectedSlot.startTime} - {selectedSlot.endTime}
                 </p>
+                {!!selectedSlot.duration && (
                 <p className="text-gray-900">
                   <strong>Duración:</strong> {selectedSlot.duration} minutos
                 </p>
+                )}
                 {selectedSlot.location && (
                   <p className="text-gray-900">
                     <strong>Consultorio:</strong> {selectedSlot.location.name}{selectedSlot.location.address ? ` — ${selectedSlot.location.address}` : ""}
@@ -416,10 +418,12 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                   >
                     <p className="text-sm font-semibold text-gray-900">{service.service_name}</p>
                     <div className="flex items-center gap-3 mt-0.5">
+                      {!!service.duration_minutes && (
                       <span className="text-xs text-gray-500 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {service.duration_minutes} min
                       </span>
+                      )}
                       {service.price !== undefined && (
                         <span className="text-xs font-medium text-[var(--color-secondary)] flex items-center gap-1">
                           <DollarSign className="w-3 h-3" />
@@ -682,7 +686,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                             className="flex flex-col items-center justify-center p-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:border-blue-400 rounded-md transition-all hover:scale-105"
                           >
                             <span className="text-[11px] font-bold text-gray-900 leading-tight">{slot.startTime}</span>
-                            <span className="text-[9px] text-blue-600 leading-tight">{slot.duration} min</span>
+                            {!!slot.duration && <span className="text-[9px] text-blue-600 leading-tight">{slot.duration} min</span>}
                             {slot.location && (
                               <span className="text-[8px] text-gray-500 leading-tight truncate w-full text-center">{slot.location.name}</span>
                             )}

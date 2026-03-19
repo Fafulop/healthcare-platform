@@ -67,10 +67,12 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
                 {/* Service Details */}
                 <div className="space-y-2">
                   {/* Duration - Desktop only */}
+                  {!!service.duration_minutes && (
                   <div className="hidden md:flex items-center gap-2 text-sm text-[var(--color-neutral-medium)]">
                     <Clock className="w-4 h-4" />
                     <span>{service.duration_minutes} minutos</span>
                   </div>
+                  )}
 
                   {/* Price */}
                   {service.price !== undefined && (
@@ -125,6 +127,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
                 <h4 className="font-semibold text-gray-700 mb-3">Detalles</h4>
 
                 {/* Duration */}
+                {!!selectedService.duration_minutes && (
                 <div className="flex items-center gap-3">
                   <Clock className="w-5 h-5 text-[var(--color-secondary)]" />
                   <div>
@@ -132,6 +135,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
                     <p className="font-medium text-gray-900">{selectedService.duration_minutes} minutos</p>
                   </div>
                 </div>
+                )}
 
                 {/* Price */}
                 {selectedService.price !== undefined && (
