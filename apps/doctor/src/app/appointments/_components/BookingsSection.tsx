@@ -1,7 +1,7 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, Phone, Mail, DollarSign } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown } from "lucide-react";
 import { formatLocalDate } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
-import type { Booking } from "../_hooks/useBookings";
+import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
 
 interface Props {
   bookings: Booking[];
@@ -18,6 +18,16 @@ interface Props {
   onUpdateStatus: (id: string, status: string) => void;
   onDeleteBooking: (id: string, patientName: string) => void;
   getStatusColor: (status: string, endTime?: string, date?: string) => string;
+  sortColumn: SortColumn;
+  sortDirection: SortDirection;
+  onSort: (column: SortColumn) => void;
+}
+
+function SortIcon({ column, sortColumn, sortDirection }: { column: SortColumn; sortColumn: SortColumn; sortDirection: SortDirection }) {
+  if (column !== sortColumn) return <ChevronsUpDown className="w-3 h-3 opacity-40" />;
+  return sortDirection === "asc"
+    ? <ChevronUp className="w-3 h-3" />
+    : <ChevronDown className="w-3 h-3" />;
 }
 
 export function BookingsSection({
@@ -35,6 +45,9 @@ export function BookingsSection({
   onUpdateStatus,
   onDeleteBooking,
   getStatusColor,
+  sortColumn,
+  sortDirection,
+  onSort,
 }: Props) {
   return (
     <div className="bg-white rounded-lg shadow p-4 sm:p-6">
@@ -106,19 +119,20 @@ export function BookingsSection({
               onChange={(e) => setBookingFilterStatus(e.target.value)}
               className="text-xs sm:text-sm border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
+              <option value="ACTIVE">Activas</option>
               <option value="">Todos los estados</option>
               <option value="PENDING">Pendiente</option>
-              <option value="CONFIRMED">Confirmada</option>
-              <option value="CANCELLED">Cancelada</option>
+              <option value="CONFIRMED">Agendada</option>
               <option value="COMPLETED">Completada</option>
               <option value="NO_SHOW">No asistió</option>
+              <option value="CANCELLED">Cancelada</option>
             </select>
-            {(bookingFilterDate || bookingFilterPatient || bookingFilterStatus) && (
+            {(bookingFilterDate || bookingFilterPatient || bookingFilterStatus !== "ACTIVE") && (
               <button
                 onClick={() => {
                   setBookingFilterDate("");
                   setBookingFilterPatient("");
-                  setBookingFilterStatus("");
+                  setBookingFilterStatus("ACTIVE");
                 }}
                 className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 whitespace-nowrap"
               >
@@ -192,11 +206,32 @@ export function BookingsSection({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100">
-                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">PACIENTE</th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">FECHA Y HORA</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">
+                        <button
+                          onClick={() => onSort("patient")}
+                          className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                        >
+                          PACIENTE <SortIcon column="patient" sortColumn={sortColumn} sortDirection={sortDirection} />
+                        </button>
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">
+                        <button
+                          onClick={() => onSort("date")}
+                          className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                        >
+                          FECHA Y HORA <SortIcon column="date" sortColumn={sortColumn} sortDirection={sortDirection} />
+                        </button>
+                      </th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">CONTACTO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">PRECIO</th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">ESTADO</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">
+                        <button
+                          onClick={() => onSort("status")}
+                          className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                        >
+                          ESTADO <SortIcon column="status" sortColumn={sortColumn} sortDirection={sortDirection} />
+                        </button>
+                      </th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">ACCIONES</th>
                     </tr>
                   </thead>

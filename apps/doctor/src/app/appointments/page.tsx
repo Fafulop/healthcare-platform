@@ -240,6 +240,9 @@ export default function AppointmentsV2Page() {
           slotsHook.fetchSlots();
         }}
         getStatusColor={bookingsHook.getStatusColor}
+        sortColumn={bookingsHook.sortColumn}
+        sortDirection={bookingsHook.sortDirection}
+        onSort={bookingsHook.toggleSort}
       />
 
       {/* Controls card: view toggle + slot filters */}

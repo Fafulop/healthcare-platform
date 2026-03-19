@@ -6,6 +6,27 @@ import { getLocalDateString } from "@/lib/dates";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
+export type SortColumn = "patient" | "date" | "status";
+export type SortDirection = "asc" | "desc";
+
+const STATUS_SORT_ORDER: Record<string, number> = {
+  PENDING: 0,
+  CONFIRMED: 1,
+  VENCIDA: 2,
+  COMPLETED: 3,
+  NO_SHOW: 4,
+  CANCELLED: 5,
+};
+
+function getEffectiveStatus(booking: Booking, nowLocal: string): string {
+  if (booking.status === "PENDING" || booking.status === "CONFIRMED") {
+    const date = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
+    const endTime = booking.slot?.endTime ?? booking.endTime;
+    if (date && endTime && `${date} ${endTime}:00` < nowLocal) return "VENCIDA";
+  }
+  return booking.status;
+}
+
 export interface Booking {
   id: string;
   slotId: string | null;
@@ -30,11 +51,20 @@ export interface Booking {
 export function useBookings(doctorId: string | undefined) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsCollapsed, setBookingsCollapsed] = useState(false);
-  const [bookingFilterDate, setBookingFilterDate] = useState<string>(
-    getLocalDateString(new Date())
-  );
+  const [bookingFilterDate, setBookingFilterDate] = useState<string>("");
   const [bookingFilterPatient, setBookingFilterPatient] = useState<string>("");
-  const [bookingFilterStatus, setBookingFilterStatus] = useState<string>("");
+  const [bookingFilterStatus, setBookingFilterStatus] = useState<string>("ACTIVE");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("status");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const toggleSort = (column: SortColumn) => {
+    if (column === sortColumn) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
 
   const fetchBookings = useCallback(async () => {
     if (!doctorId) return;
@@ -113,20 +143,42 @@ export function useBookings(doctorId: string | undefined) {
     setBookingFilterDate(getLocalDateString(base));
   };
 
-  const filteredBookings = bookings.filter((booking) => {
-    const bookingDate = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
-    if (bookingFilterDate && bookingDate !== bookingFilterDate) return false;
-    if (bookingFilterPatient) {
-      const search = bookingFilterPatient.toLowerCase();
-      if (
-        !booking.patientName.toLowerCase().includes(search) &&
-        !booking.patientEmail.toLowerCase().includes(search)
-      )
+  const nowLocal = new Date().toLocaleString("sv-SE", { timeZone: "America/Mexico_City" });
+
+  const filteredBookings = bookings
+    .filter((booking) => {
+      const bookingDate = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
+      if (bookingFilterDate && bookingDate !== bookingFilterDate) return false;
+      if (bookingFilterPatient) {
+        const search = bookingFilterPatient.toLowerCase();
+        if (
+          !booking.patientName.toLowerCase().includes(search) &&
+          !booking.patientEmail.toLowerCase().includes(search)
+        )
+          return false;
+      }
+      if (bookingFilterStatus === "ACTIVE") {
+        if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") return false;
+      } else if (bookingFilterStatus && booking.status !== bookingFilterStatus) {
         return false;
-    }
-    if (bookingFilterStatus && booking.status !== bookingFilterStatus) return false;
-    return true;
-  });
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      let cmp = 0;
+      if (sortColumn === "status") {
+        const sa = STATUS_SORT_ORDER[getEffectiveStatus(a, nowLocal)] ?? 99;
+        const sb = STATUS_SORT_ORDER[getEffectiveStatus(b, nowLocal)] ?? 99;
+        cmp = sa - sb;
+      } else if (sortColumn === "date") {
+        const da = `${(a.slot?.date ?? a.date ?? "").split("T")[0]} ${a.slot?.startTime ?? a.startTime ?? ""}`;
+        const db = `${(b.slot?.date ?? b.date ?? "").split("T")[0]} ${b.slot?.startTime ?? b.startTime ?? ""}`;
+        cmp = da < db ? -1 : da > db ? 1 : 0;
+      } else if (sortColumn === "patient") {
+        cmp = a.patientName.localeCompare(b.patientName, "es");
+      }
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
 
   const getStatusColor = (status: string, slotEndTime?: string, slotDate?: string) => {
     if ((status === "PENDING" || status === "CONFIRMED") && slotEndTime && slotDate) {
@@ -168,5 +220,8 @@ export function useBookings(doctorId: string | undefined) {
     deleteBooking,
     shiftBookingFilterDate,
     getStatusColor,
+    sortColumn,
+    sortDirection,
+    toggleSort,
   };
 }
