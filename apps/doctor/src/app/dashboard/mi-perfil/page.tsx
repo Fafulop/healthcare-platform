@@ -2,7 +2,7 @@
 
 
 import { useState, useEffect } from "react";
-import { Loader2, Calendar, CheckCircle2, XCircle, RefreshCw, AlertTriangle } from "lucide-react";
+import { Loader2, Calendar, CheckCircle2, XCircle, RefreshCw, AlertTriangle, MessageCircle } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { authFetch } from "@/lib/auth-fetch";
@@ -111,6 +111,13 @@ export default function MiPerfilPage() {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarMessage, setCalendarMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Telegram notification state
+  const [telegramChatId, setTelegramChatId] = useState<string | null>(null);
+  const [telegramInput, setTelegramInput] = useState("");
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [telegramMessage, setTelegramMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [telegramLoaded, setTelegramLoaded] = useState(false);
+
   const slug = doctorProfile?.slug;
 
   // Fetch full profile data
@@ -123,6 +130,13 @@ export default function MiPerfilPage() {
   useEffect(() => {
     if (activeTab === "integraciones" && slug && calendarStatus === null) {
       fetchCalendarStatus();
+    }
+  }, [activeTab, slug]);
+
+  // Fetch Telegram status when Integraciones tab is opened
+  useEffect(() => {
+    if (activeTab === "integraciones" && slug && !telegramLoaded) {
+      fetchTelegramStatus();
     }
   }, [activeTab, slug]);
 
@@ -196,6 +210,58 @@ export default function MiPerfilPage() {
       setCalendarMessage({ type: "error", text: err instanceof Error ? err.message : "Error al desconectar" });
     } finally {
       setCalendarLoading(false);
+    }
+  };
+
+  const fetchTelegramStatus = async () => {
+    if (!slug) return;
+    try {
+      const res = await authFetch(`${API_URL}/api/doctors/${slug}/telegram`);
+      const data = await res.json();
+      setTelegramChatId(data.chatId ?? null);
+      setTelegramInput(data.chatId ?? "");
+    } catch {
+      setTelegramChatId(null);
+    } finally {
+      setTelegramLoaded(true);
+    }
+  };
+
+  const handleTelegramSave = async () => {
+    if (!slug || !telegramInput.trim()) return;
+    setTelegramLoading(true);
+    setTelegramMessage(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/doctors/${slug}/telegram`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: telegramInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al guardar");
+      setTelegramChatId(data.chatId);
+      setTelegramMessage({ type: "success", text: "Chat ID guardado. Recibirás notificaciones en Telegram." });
+    } catch (err) {
+      setTelegramMessage({ type: "error", text: err instanceof Error ? err.message : "Error al guardar" });
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleTelegramRemove = async () => {
+    if (!slug) return;
+    setTelegramLoading(true);
+    setTelegramMessage(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/doctors/${slug}/telegram`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al desconectar");
+      setTelegramChatId(null);
+      setTelegramInput("");
+      setTelegramMessage({ type: "success", text: "Telegram desconectado." });
+    } catch (err) {
+      setTelegramMessage({ type: "error", text: err instanceof Error ? err.message : "Error al desconectar" });
+    } finally {
+      setTelegramLoading(false);
     }
   };
 
@@ -551,6 +617,71 @@ export default function MiPerfilPage() {
                   {calendarLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
                   Conectar Google Calendar
                 </button>
+              )}
+            </div>
+
+            {/* Telegram card */}
+            <div className="border border-gray-200 rounded-lg p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[#229ED9] flex items-center justify-center flex-shrink-0">
+                  <MessageCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 text-sm">Telegram</p>
+                  <p className="text-xs text-gray-500">Recibe una notificación en Telegram cuando un paciente agenda una cita</p>
+                </div>
+                {telegramChatId && (
+                  <span className="ml-auto flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Activo
+                  </span>
+                )}
+              </div>
+
+              {telegramMessage && (
+                <div className={`text-xs rounded-lg px-3 py-2 ${telegramMessage.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                  {telegramMessage.text}
+                </div>
+              )}
+
+              {!telegramLoaded ? (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Verificando estado...
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 space-y-1">
+                    <p className="font-medium text-gray-700">Cómo obtener tu Chat ID:</p>
+                    <p>1. Abre Telegram y busca el bot <span className="font-mono text-gray-900">@tusalud_bot</span></p>
+                    <p>2. Presiona <span className="font-medium">Start</span> — el bot te responderá con tu Chat ID</p>
+                    <p>3. Copia el número y pégalo aquí</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={telegramInput}
+                      onChange={(e) => setTelegramInput(e.target.value)}
+                      placeholder="Ej: 123456789"
+                      className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                    <button
+                      onClick={handleTelegramSave}
+                      disabled={telegramLoading || !telegramInput.trim()}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-[#229ED9] text-white rounded-lg text-sm font-medium hover:bg-[#1a8cbf] disabled:opacity-50 transition-colors"
+                    >
+                      {telegramLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Guardar
+                    </button>
+                    {telegramChatId && (
+                      <button
+                        onClick={handleTelegramRemove}
+                        disabled={telegramLoading}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>

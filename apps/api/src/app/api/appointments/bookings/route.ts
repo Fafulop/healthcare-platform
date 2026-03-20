@@ -8,6 +8,7 @@ import {
   sendDoctorSMS,
   isSMSEnabled,
 } from '@/lib/sms';
+import { sendNewBookingTelegram, isTelegramConfigured } from '@/lib/telegram';
 import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
@@ -222,6 +223,25 @@ export async function POST(request: Request) {
 
       // TODO: Send email to patient (future implementation)
       // sendPatientEmail(emailDetails, 'PENDING').catch(...)
+    }
+
+    // Send Telegram notification to doctor for PENDING bookings (from public portal)
+    if (bookingStatus === 'PENDING' && isTelegramConfigured()) {
+      prisma.doctor.findUnique({
+        where: { id: slot.doctorId },
+        select: { telegramChatId: true },
+      }).then((doc) => {
+        if (!doc?.telegramChatId) return;
+        return sendNewBookingTelegram(doc.telegramChatId, {
+          patientName,
+          patientPhone,
+          serviceName: serviceName ?? null,
+          date: slot.date.toISOString(),
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          confirmationCode,
+        });
+      }).catch((err) => console.error('Telegram notification failed:', err));
     }
 
     // Log activity (non-blocking)

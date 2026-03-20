@@ -111,6 +111,9 @@ model Doctor {
   prescriptionSignatureUrl  String?   @map("prescription_signature_url") @db.VarChar(500)
   prescriptionColorScheme   String?   @default("blue") @map("prescription_color_scheme") @db.VarChar(50)
 
+  // Telegram notifications
+  telegramChatId            String?   @map("telegram_chat_id")
+
   // Relations
   user               User?     // 1:1 relation - optional (can have doctors without user accounts)
   clinicLocations    ClinicLocation[]
