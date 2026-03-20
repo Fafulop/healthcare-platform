@@ -651,7 +651,7 @@ export default function MiPerfilPage() {
                 <div className="space-y-3">
                   <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 space-y-1">
                     <p className="font-medium text-gray-700">Cómo obtener tu Chat ID:</p>
-                    <p>1. Abre Telegram y busca el bot <span className="font-mono text-gray-900">@tusalud_bot</span></p>
+                    <p>1. Abre Telegram y busca el bot <span className="font-mono text-gray-900">@Tusalud_citas_bot</span></p>
                     <p>2. Presiona <span className="font-medium">Start</span> — el bot te responderá con tu Chat ID</p>
                     <p>3. Copia el número y pégalo aquí</p>
                   </div>

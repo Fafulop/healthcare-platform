@@ -4,6 +4,17 @@
 **Scope:** API app (notification dispatch + bot webhook) + Doctor app (Integraciones UI)
 **Type:** Outbound only — app sends messages to doctor via Telegram Bot API
 
+## Production Configuration (already set up)
+
+| What | Value |
+|---|---|
+| Bot token env var | `TELEGRAM_BOT_TOKEN` set on Railway `api` service |
+| API domain | `healthcareapi-production-fb70.up.railway.app` |
+| Webhook URL (registered) | `https://healthcareapi-production-fb70.up.railway.app/api/telegram/webhook` |
+| Doctor app URL | `doctor.tusalud.pro` |
+
+The webhook is already registered. No setup steps remain for the developer — only doctors need to link their Chat ID.
+
 ---
 
 ## Overview
