@@ -28,7 +28,14 @@
       "Bash(xargs grep:*)",
       "Bash(find:*)",
       "Bash(D:/node.exe:*)",
-      "Bash(export:*)"
+      "Bash(export:*)",
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:support.google.com)",
+      "WebSearch",
+      "WebFetch(domain:developers.facebook.com)",
+      "WebFetch(domain:web.facebook.com)",
+      "WebFetch(domain:www.facebook.com)"
     ]
   }
 }
