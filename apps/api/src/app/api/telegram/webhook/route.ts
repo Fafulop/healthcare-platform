@@ -33,7 +33,7 @@ export async function POST(request: Request) {
         text:
           `👋 ¡Hola ${firstName}!\n\n` +
           `Tu Chat ID es:\n<code>${chatId}</code>\n\n` +
-          `Copia ese número y pégalo en tu perfil de tusalud.pro → Integraciones → Telegram para activar las notificaciones de citas.`,
+          `Copia ese número y pégalo en tu perfil de doctor.tusalud.pro → Integraciones → Telegram para activar las notificaciones de citas.`,
         parse_mode: 'HTML',
       }),
     });
