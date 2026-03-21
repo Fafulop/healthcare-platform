@@ -176,6 +176,7 @@ export default function NotasPage() {
               loading={loadingNotes}
               onSelectNote={handleSelectNote}
               hasFilter={filterTemaId !== null || search.trim() !== ''}
+              selectedNoteId={selectedNote?.id ?? null}
             />
           )}
         </div>

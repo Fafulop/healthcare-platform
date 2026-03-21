@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
-import { Mic, Square, Loader2, X, Trash2, CheckSquare } from 'lucide-react';
+import { useRef, useEffect, useState } from 'react';
+import { Mic, Square, Loader2, X, Trash2, CheckSquare, Check } from 'lucide-react';
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { TemaCombobox } from './TemaCombobox';
 import { SubtemaCombobox } from './SubtemaCombobox';
@@ -48,20 +48,56 @@ export function NoteEditor({
   openTaskModal,
   toggleRecording,
 }: Props) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const prevSavingRef = useRef(false);
+  const [justSaved, setJustSaved] = useState(false);
 
-  // Auto-focus on open
+  // Split content into title (first line) and body (rest)
+  const firstNewline = editorContent.indexOf('\n');
+  const titleValue = firstNewline === -1 ? editorContent : editorContent.slice(0, firstNewline);
+  const bodyValue = firstNewline === -1 ? '' : editorContent.slice(firstNewline + 1);
+
+  function onTitleChange(v: string) {
+    // Titles can't contain newlines — strip them
+    handleContentChange(v.replace(/\n/g, '') + '\n' + bodyValue);
+  }
+
+  function onBodyChange(v: string) {
+    handleContentChange(titleValue + '\n' + v);
+  }
+
+  // Auto-focus title on open + reset save feedback state
   useEffect(() => {
-    textareaRef.current?.focus();
+    titleRef.current?.focus();
+    setJustSaved(false);
+    prevSavingRef.current = false;
   }, [isNewNote, selectedNoteId]);
 
-  // Auto-grow textarea
+  // Auto-grow body textarea
   useEffect(() => {
-    const el = textareaRef.current;
+    const el = bodyRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
-  }, [editorContent]);
+  }, [bodyValue]);
+
+  // "Guardado ✓" feedback: fires when saving transitions false→true→false with isDirty=false
+  useEffect(() => {
+    if (prevSavingRef.current && !saving && !isDirty) {
+      setJustSaved(true);
+      const timer = setTimeout(() => setJustSaved(false), 2000);
+      return () => clearTimeout(timer);
+    }
+    prevSavingRef.current = saving;
+  }, [saving, isDirty]);
+
+  function handleSaveShortcut(e: React.KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      if (isDirty && !saving && !recording && !transcribing) saveNote();
+    }
+  }
 
   async function handleClose() {
     if (isDirty) {
@@ -121,21 +157,46 @@ export function NoteEditor({
         </div>
       </div>
 
-      {/* Textarea */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        <textarea
-          ref={textareaRef}
-          value={editorContent}
-          onChange={(e) => handleContentChange(e.target.value)}
-          placeholder="Escribe tu nota aquí..."
-          rows={6}
-          className="w-full resize-none border-none outline-none text-sm text-gray-800 leading-relaxed placeholder-gray-300 bg-transparent min-h-full"
-          style={{ minHeight: '200px' }}
-        />
+      {/* Content area: scrolls as a unit */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Title */}
+        <div className="px-5 pt-4 pb-1">
+          <input
+            ref={titleRef}
+            type="text"
+            value={titleValue}
+            onChange={(e) => onTitleChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); bodyRef.current?.focus(); }
+              handleSaveShortcut(e);
+            }}
+            placeholder="Título (opcional)"
+            className="w-full text-lg font-semibold text-gray-900 placeholder-gray-300 border-none outline-none bg-transparent"
+          />
+        </div>
+
+        {/* Divider only when title has content */}
+        {titleValue.trim() !== '' && (
+          <div className="mx-5 border-t border-gray-100" />
+        )}
+
+        {/* Body */}
+        <div className="px-5 py-3">
+          <textarea
+            ref={bodyRef}
+            value={bodyValue}
+            onChange={(e) => onBodyChange(e.target.value)}
+            onKeyDown={handleSaveShortcut}
+            placeholder="Escribe tu nota aquí..."
+            rows={4}
+            className="w-full resize-none border-none outline-none text-sm text-gray-700 leading-relaxed placeholder-gray-300 bg-transparent"
+            style={{ minHeight: '120px' }}
+          />
+        </div>
       </div>
 
       {/* Bottom bar: whisper + task + save */}
-      <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-t border-gray-100">
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-t border-gray-100 flex-shrink-0">
         {/* Whisper */}
         <button
           onClick={toggleRecording}
@@ -174,17 +235,26 @@ export function NoteEditor({
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
           >
             <CheckSquare className="w-3.5 h-3.5" />
-            <span>Crear tarea</span>
+            <span className="hidden sm:inline">Crear tarea</span>
           </button>
 
           {/* Save */}
           <button
             onClick={saveNote}
             disabled={!isDirty || saving || recording || transcribing}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed ${
+              justSaved
+                ? 'bg-green-600 text-white opacity-100'
+                : 'bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-40'
+            }`}
           >
             {saving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : justSaved ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Guardado</span>
+              </>
             ) : (
               <span>Guardar</span>
             )}

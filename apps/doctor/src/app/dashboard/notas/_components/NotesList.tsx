@@ -8,6 +8,7 @@ interface Props {
   loading: boolean;
   onSelectNote: (note: Note) => void;
   hasFilter: boolean;
+  selectedNoteId?: string | null;
 }
 
 function relativeDate(isoString: string): string {
@@ -25,11 +26,16 @@ function relativeDate(isoString: string): string {
   return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
 }
 
-function firstLine(content: string): string {
-  return content.split('\n')[0]?.trim() || 'Nota vacía';
+// Returns the first two non-empty lines of content as title + excerpt
+function parseContent(content: string): { title: string; excerpt: string } {
+  const lines = content.split('\n').map((l) => l.trim()).filter((l) => l !== '');
+  return {
+    title: lines[0] || 'Nota vacía',
+    excerpt: lines[1] || '',
+  };
 }
 
-export function NotesList({ notes, loading, onSelectNote, hasFilter }: Props) {
+export function NotesList({ notes, loading, onSelectNote, hasFilter, selectedNoteId }: Props) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center flex-1 text-gray-400 gap-2">
@@ -52,36 +58,47 @@ export function NotesList({ notes, loading, onSelectNote, hasFilter }: Props) {
 
   return (
     <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
-      {notes.map((note) => (
-        <button
-          key={note.id}
-          onClick={() => onSelectNote(note)}
-          className="w-full text-left px-4 py-3 hover:bg-white transition-colors group"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium text-gray-900 truncate flex-1 leading-snug">
-              {firstLine(note.content)}
-            </p>
-            <span className="text-xs text-gray-400 flex-shrink-0 mt-0.5">
-              {relativeDate(note.updatedAt)}
-            </span>
-          </div>
-          {(note.tema || note.subtema) && (
-            <div className="flex items-center gap-1.5 mt-1.5">
-              {note.tema && (
-                <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">
-                  {note.tema.name}
-                </span>
-              )}
-              {note.subtema && (
-                <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">
-                  {note.subtema.name}
-                </span>
-              )}
+      {notes.map((note) => {
+        const { title, excerpt } = parseContent(note.content);
+        const isActive = note.id === selectedNoteId;
+        return (
+          <button
+            key={note.id}
+            onClick={() => onSelectNote(note)}
+            className={`w-full text-left px-4 py-3 transition-colors group ${
+              isActive ? 'bg-white border-l-2 border-gray-900' : 'hover:bg-white border-l-2 border-transparent'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-medium text-gray-900 truncate flex-1 leading-snug">
+                {title}
+              </p>
+              <span className="text-xs text-gray-400 flex-shrink-0 mt-0.5">
+                {relativeDate(note.updatedAt)}
+              </span>
             </div>
-          )}
-        </button>
-      ))}
+            {excerpt && (
+              <p className="text-xs text-gray-400 truncate mt-0.5 leading-snug">
+                {excerpt}
+              </p>
+            )}
+            {(note.tema || note.subtema) && (
+              <div className="flex items-center gap-1.5 mt-1.5">
+                {note.tema && (
+                  <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">
+                    {note.tema.name}
+                  </span>
+                )}
+                {note.subtema && (
+                  <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">
+                    {note.subtema.name}
+                  </span>
+                )}
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
