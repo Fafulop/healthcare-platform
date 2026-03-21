@@ -12,6 +12,7 @@ interface Props {
   filterSubtemaId: string | null;
   setSearch: (v: string) => void;
   setFilter: (temaId: string | null, subtemaId?: string | null) => void;
+  onSearchActive?: () => void;
 }
 
 export function NotesSidebar({
@@ -22,6 +23,7 @@ export function NotesSidebar({
   filterSubtemaId,
   setSearch,
   setFilter,
+  onSearchActive,
 }: Props) {
   const [expandedTemas, setExpandedTemas] = useState<Set<string>>(new Set());
 
@@ -54,7 +56,7 @@ export function NotesSidebar({
             type="text"
             placeholder="Buscar..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); onSearchActive?.(); }}
             className="w-full pl-7 pr-2 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400"
           />
         </div>

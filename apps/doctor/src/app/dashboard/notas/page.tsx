@@ -69,6 +69,18 @@ export default function NotasPage() {
     setMobileView('sidebar');
   }
 
+  // Sidebar navigation: always closes editor (with guard) and shows NotesList
+  // On mobile also switches to main panel so the list becomes visible
+  async function handleSetFilter(temaId: string | null, subtemaId?: string | null) {
+    if (isDirty) {
+      const ok = await practiceConfirm('¿Descartar los cambios sin guardar?', 'Cambios sin guardar');
+      if (!ok) return;
+    }
+    closeEditor();
+    setFilter(temaId, subtemaId ?? null);
+    setMobileView('main');
+  }
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
@@ -112,7 +124,8 @@ export default function NotasPage() {
             filterTemaId={filterTemaId}
             filterSubtemaId={filterSubtemaId}
             setSearch={setSearch}
-            setFilter={setFilter}
+            setFilter={handleSetFilter}
+            onSearchActive={() => setMobileView('main')}
           />
         </div>
 
