@@ -281,6 +281,7 @@ export function BookingsSection({
                               booking={booking}
                               onUpdateStatus={onUpdateStatus}
                               onDeleteBooking={onDeleteBooking}
+                              onOpenFormLinkModal={onOpenFormLinkModal}
                             />
                           </td>
                         </tr>
