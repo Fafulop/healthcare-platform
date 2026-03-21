@@ -209,6 +209,7 @@ export function useFormBuilderState(options: UseFormBuilderStateOptions = {}) {
       description: options.initialMetadata?.description ?? '',
       icon: options.initialMetadata?.icon,
       color: options.initialMetadata?.color,
+      isPreAppointment: options.initialMetadata?.isPreAppointment,
     },
     fields: options.initialFields ?? [],
     selectedFieldId: null,

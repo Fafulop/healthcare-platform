@@ -41,7 +41,7 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
       setLoadingTemplates(true);
       try {
         const res = await authFetch(
-          `${API_URL}/api/custom-templates?isPreAppointment=true`
+          `/api/custom-templates?isPreAppointment=true`
         );
         const data = await res.json();
         if (data.success) {

@@ -2,7 +2,7 @@
 
 import {
   Plus, Edit, Trash2, Star, FileText, Loader2,
-  AlertCircle, CheckCircle, Settings, ArrowLeft,
+  AlertCircle, CheckCircle, Settings, ArrowLeft, ClipboardList,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCustomTemplatesPage } from './_components/useCustomTemplatesPage';
@@ -127,6 +127,12 @@ export default function CustomTemplatesPage() {
                           <span className="font-medium text-gray-900">{template.name}</span>
                           {template.isDefault && (
                             <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                          )}
+                          {template.isPreAppointment && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded">
+                              <ClipboardList className="w-3 h-3" />
+                              Pre-cita
+                            </span>
                           )}
                         </div>
                         {template.description && (
