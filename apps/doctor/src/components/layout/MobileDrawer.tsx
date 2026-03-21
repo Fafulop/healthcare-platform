@@ -14,6 +14,7 @@ import {
   FileText,
   Video,
   CheckSquare,
+  NotebookPen,
   UserCog,
   BarChart3,
   HelpCircle,
@@ -158,6 +159,13 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               label="Tareas"
               href="/dashboard/pendientes"
               active={pathname?.startsWith("/dashboard/pendientes")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={NotebookPen}
+              label="Notas"
+              href="/dashboard/notas"
+              active={pathname?.startsWith("/dashboard/notas")}
               onClick={onClose}
             />
             <NavItem

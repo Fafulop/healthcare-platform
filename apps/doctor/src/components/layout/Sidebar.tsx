@@ -16,6 +16,7 @@ import {
   Package,
   Video,
   CheckSquare,
+  NotebookPen,
   UserCog,
   BarChart3,
   HelpCircle,
@@ -138,6 +139,12 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             label="Tareas"
             href="/dashboard/pendientes"
             active={pathname?.startsWith("/dashboard/pendientes")}
+          />
+          <NavItem
+            icon={NotebookPen}
+            label="Notas"
+            href="/dashboard/notas"
+            active={pathname?.startsWith("/dashboard/notas")}
           />
           <NavItem
             icon={BarChart3}

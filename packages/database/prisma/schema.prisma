@@ -145,6 +145,9 @@ model Doctor {
   patients           Patient[]
   encounterTemplates EncounterTemplate[]
   tasks              Task[]
+  doctorNotes        DoctorNote[]
+  noteTemas          NoteTema[]
+  noteSubtemas       NoteSubtema[]
 
   // LLM Usage Tracking
   llmTokenUsages     LlmTokenUsage[]
@@ -1726,6 +1729,63 @@ model Task {
   @@index([doctorId, priority])
   @@index([patientId])
   @@map("tasks")
+  @@schema("medical_records")
+}
+
+// -----------------------------------------------------------------------------
+// NOTAS HUB
+// -----------------------------------------------------------------------------
+
+model NoteTema {
+  id        String        @id @default(cuid())
+  doctorId  String        @map("doctor_id")
+  name      String
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  doctor    Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  subtemas  NoteSubtema[]
+  notes     DoctorNote[]
+
+  @@unique([doctorId, name])
+  @@index([doctorId])
+  @@map("note_temas")
+  @@schema("medical_records")
+}
+
+model NoteSubtema {
+  id        String       @id @default(cuid())
+  temaId    String       @map("tema_id")
+  doctorId  String       @map("doctor_id")
+  name      String
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  tema      NoteTema     @relation(fields: [temaId], references: [id], onDelete: Cascade)
+  doctor    Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  notes     DoctorNote[]
+
+  @@unique([temaId, name])
+  @@index([temaId])
+  @@index([doctorId])
+  @@map("note_subtemas")
+  @@schema("medical_records")
+}
+
+model DoctorNote {
+  id        String       @id @default(cuid())
+  doctorId  String       @map("doctor_id")
+  content   String       @default("")
+  temaId    String?      @map("tema_id")
+  subtemaId String?      @map("subtema_id")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  doctor    Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  tema      NoteTema?    @relation(fields: [temaId], references: [id], onDelete: SetNull)
+  subtema   NoteSubtema? @relation(fields: [subtemaId], references: [id], onDelete: SetNull)
+
+  @@index([doctorId])
+  @@index([temaId])
+  @@map("doctor_notes")
   @@schema("medical_records")
 }
 
