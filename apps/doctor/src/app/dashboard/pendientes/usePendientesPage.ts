@@ -70,7 +70,7 @@ export function usePendientesPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarTasks, setCalendarTasks] = useState<Task[]>([]);
   const [appointmentSlots, setAppointmentSlots] = useState<AppointmentSlot[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [calendarLoading, setCalendarLoading] = useState(false);
 
   const fetchTasks = useCallback(async () => {
@@ -166,6 +166,7 @@ export function usePendientesPage() {
       const res = await fetch(`/api/medical-records/tasks/${id}`, { method: "DELETE" });
       if (res.ok) {
         setTasks((prev) => prev.filter((t) => t.id !== id));
+        setCalendarTasks((prev) => prev.filter((t) => t.id !== id));
         setSelectedIds((prev) => {
           const next = new Set(prev);
           next.delete(id);

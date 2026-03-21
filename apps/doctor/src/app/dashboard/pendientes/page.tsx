@@ -474,6 +474,14 @@ export default function PendientesPage() {
                 const tasksWithoutTime = tasksForDay.filter(t => !t.startTime || !t.endTime);
 
                 if (timelineItems.length === 0 && tasksWithoutTime.length === 0) {
+                  if (calendarLoading) {
+                    return (
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Cargando...
+                      </div>
+                    );
+                  }
                   return <p className="text-sm text-gray-500">Sin tareas para este día</p>;
                 }
 
@@ -507,7 +515,7 @@ export default function PendientesPage() {
                                           <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
                                         </div>
                                         <button
-                                          onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
+                                          onClick={() => setViewingTask(task)}
                                           className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors"
                                         >
                                           {task.title}
@@ -600,7 +608,7 @@ export default function PendientesPage() {
                                     <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
                                   </div>
                                   <button
-                                    onClick={() => router.push(`/dashboard/pendientes/${task.id}`)}
+                                    onClick={() => setViewingTask(task)}
                                     className="font-medium text-gray-900 hover:text-blue-600 text-left transition-colors"
                                   >
                                     {task.title}
