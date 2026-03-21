@@ -176,6 +176,12 @@ export function BookingsSection({
                               {booking.serviceName}
                             </p>
                           )}
+                          {booking.isFirstTime === true && (
+                            <span className="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">Primera vez</span>
+                          )}
+                          {booking.isFirstTime === false && (
+                            <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">Recurrente</span>
+                          )}
                         </div>
                         <BookingStatusBadge
                           status={booking.status}
@@ -251,6 +257,12 @@ export function BookingsSection({
                             <p className="font-medium text-gray-900">{booking.patientName}</p>
                             {booking.serviceName && (
                               <p className="text-xs text-blue-600">{booking.serviceName}</p>
+                            )}
+                            {booking.isFirstTime === true && (
+                              <span className="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">Primera vez</span>
+                            )}
+                            {booking.isFirstTime === false && (
+                              <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">Recurrente</span>
                             )}
                           </td>
                           <td className="py-3 px-3 text-gray-600">
@@ -356,7 +368,7 @@ function StatusActions({
           href={`/dashboard/medical-records/formularios/${booking.formLink.id}`}
           className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 border border-green-200 flex items-center gap-1 hover:bg-green-200"
         >
-          <CheckCircle className="w-3 h-3" /> Enviado
+          <CheckCircle className="w-3 h-3" /> Recibido
         </Link>
       )}
       {isTerminal && (
