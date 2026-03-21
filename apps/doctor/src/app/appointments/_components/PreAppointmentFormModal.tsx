@@ -110,30 +110,30 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
   // Patient already submitted — show read-only state
   if (booking.formLink?.status === "SUBMITTED") {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
-          <div className="bg-purple-600 px-6 py-4 rounded-t-lg flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <ClipboardList className="w-5 h-5" />
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4 text-violet-500" />
               Formulario Pre-Cita
             </h2>
-            <button onClick={handleClose} className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors">
-              <X className="w-5 h-5" />
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 rounded p-1 transition-colors">
+              <X className="w-4 h-4" />
             </button>
           </div>
           <div className="p-6 text-center space-y-4">
-            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-              <Check className="w-7 h-7 text-green-600" />
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+              <Check className="w-5 h-5 text-gray-700" />
             </div>
             <div>
-              <p className="font-semibold text-gray-900">El paciente ya envió este formulario</p>
-              <p className="text-sm text-gray-500 mt-1">{booking.patientName} completó el formulario pre-cita.</p>
+              <p className="font-semibold text-gray-900">El paciente completó el formulario</p>
+              <p className="text-sm text-gray-500 mt-1">{booking.patientName} ya envió sus respuestas.</p>
             </div>
             <Link
               href={`/dashboard/medical-records/formularios/${booking.formLink.id}`}
-              className="inline-flex items-center gap-2 text-sm text-purple-600 hover:text-purple-800 font-medium"
+              className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 font-medium border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-3.5 h-3.5" />
               Ver respuestas
             </Link>
           </div>
@@ -149,29 +149,29 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
   const displayUrl = generatedUrl ?? existingPendingUrl;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
         {/* Header */}
-        <div className="bg-purple-600 px-6 py-4 rounded-t-lg flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <ClipboardList className="w-5 h-5" />
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-violet-500" />
             Formulario Pre-Cita
           </h2>
-          <button onClick={handleClose} className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors">
-            <X className="w-5 h-5" />
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 rounded p-1 transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-500">
             Paciente: <span className="font-medium text-gray-900">{booking.patientName}</span>
           </p>
 
           {/* Generated / existing URL card */}
           {displayUrl && (
-            <div className={`border rounded-lg p-3 ${generatedUrl ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"}`}>
-              <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${generatedUrl ? "text-green-700" : "text-blue-700"}`}>
-                {generatedUrl ? "Enlace generado ✓" : "Enlace activo"}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                {generatedUrl ? "Enlace generado" : "Enlace activo"}
               </p>
               <p className="text-sm text-gray-800 break-all font-mono">{displayUrl}</p>
             </div>
@@ -179,7 +179,7 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
 
           {/* Existing pending notice */}
           {existingPendingUrl && !generatedUrl && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-3 py-2">
               Ya existe un enlace activo. Generar uno nuevo invalidará el anterior.
             </p>
           )}
@@ -189,7 +189,7 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
             <div className="flex gap-2">
               <button
                 onClick={() => handleCopy(displayUrl)}
-                className="flex-1 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 transition-colors flex items-center justify-center gap-2"
               >
                 {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                 {copied ? "¡Copiado!" : "Copiar"}
@@ -209,14 +209,14 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
           {/* Template selector + generate */}
           {loadingTemplates ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
+              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
             </div>
           ) : templates.length === 0 ? (
             <div className="text-center py-4 space-y-2">
               <p className="text-sm text-gray-500">No tienes plantillas pre-cita creadas.</p>
               <a
                 href="/dashboard/medical-records/custom-templates/new"
-                className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+                className="text-sm text-gray-700 hover:text-gray-900 font-medium underline"
               >
                 Crear plantilla pre-cita →
               </a>
@@ -224,13 +224,13 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
           ) : (
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">
                   Plantilla
                 </label>
                 <select
                   value={selectedTemplateId}
                   onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
                 >
                   <option value="">Selecciona una plantilla</option>
                   {templates.map((t) => (
@@ -242,7 +242,7 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
               <button
                 onClick={handleGenerate}
                 disabled={generating || !selectedTemplateId}
-                className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
               >
                 {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardList className="w-4 h-4" />}
                 {generating ? "Generando..." : (existingPendingUrl || generatedUrl) ? "Regenerar enlace" : "Generar enlace"}

@@ -138,7 +138,7 @@ export function BlockRangeModal({ isOpen, onClose, doctorId, onSuccess }: Props)
                 onClick={() => { setAction("block"); reset(); }}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors ${
                   action === "block"
-                    ? "bg-gray-700 text-white"
+                    ? "bg-gray-900 text-white"
                     : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
@@ -149,7 +149,7 @@ export function BlockRangeModal({ isOpen, onClose, doctorId, onSuccess }: Props)
                 onClick={() => { setAction("unblock"); reset(); }}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors ${
                   action === "unblock"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-gray-900 text-white"
                     : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
@@ -167,7 +167,7 @@ export function BlockRangeModal({ isOpen, onClose, doctorId, onSuccess }: Props)
                 type="date"
                 value={startDate}
                 onChange={(e) => { setStartDate(e.target.value); reset(); }}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-400"
               />
             </div>
             <div>
@@ -177,7 +177,7 @@ export function BlockRangeModal({ isOpen, onClose, doctorId, onSuccess }: Props)
                 value={endDate}
                 min={startDate}
                 onChange={(e) => { setEndDate(e.target.value); reset(); }}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-400"
               />
             </div>
           </div>
@@ -189,7 +189,7 @@ export function BlockRangeModal({ isOpen, onClose, doctorId, onSuccess }: Props)
                 type="checkbox"
                 checked={useTimeRange}
                 onChange={(e) => { setUseTimeRange(e.target.checked); reset(); }}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-400"
+                className="rounded border-gray-300 focus:ring-gray-400"
               />
               <span className="text-sm text-gray-600">Filtrar por horario (opcional)</span>
             </label>
@@ -202,7 +202,7 @@ export function BlockRangeModal({ isOpen, onClose, doctorId, onSuccess }: Props)
                     type="time"
                     value={startTime}
                     onChange={(e) => { setStartTime(e.target.value); reset(); }}
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-400"
                   />
                 </div>
                 <div>
@@ -211,7 +211,7 @@ export function BlockRangeModal({ isOpen, onClose, doctorId, onSuccess }: Props)
                     type="time"
                     value={endTime}
                     onChange={(e) => { setEndTime(e.target.value); reset(); }}
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-400"
                   />
                 </div>
               </div>
@@ -283,7 +283,7 @@ export function BlockRangeModal({ isOpen, onClose, doctorId, onSuccess }: Props)
 
               <button
                 onClick={reset}
-                className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+                className="text-xs text-gray-500 hover:text-gray-700 mt-1"
               >
                 Recalcular
               </button>
@@ -302,11 +302,7 @@ export function BlockRangeModal({ isOpen, onClose, doctorId, onSuccess }: Props)
           <button
             onClick={handleApply}
             disabled={!canApply || applying}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-              action === "block"
-                ? "bg-gray-700 hover:bg-gray-800"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
+            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-gray-900 hover:bg-gray-800"
           >
             {applying ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Aplicando...</>

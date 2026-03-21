@@ -64,28 +64,28 @@ export function GenerateReviewLinkModal({ isOpen, onClose }: Props) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
         {/* Header */}
-        <div className="bg-yellow-500 px-6 py-4 rounded-t-lg flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Star className="w-5 h-5" />
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <Star className="w-4 h-4 text-amber-500" />
             Generar Enlace de Reseña
           </h2>
-          <button onClick={handleClose} className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors">
-            <X className="w-5 h-5" />
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 rounded p-1 transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
           {!generatedUrl ? (
             <>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-500">
                 Genera un enlace único para que cualquier paciente pueda dejar una opinión en tu perfil público.
               </p>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">
                   Nombre del paciente <span className="text-gray-400">(opcional)</span>
                 </label>
                 <input
@@ -93,7 +93,7 @@ export function GenerateReviewLinkModal({ isOpen, onClose }: Props) {
                   value={patientName}
                   onChange={(e) => setPatientName(e.target.value)}
                   placeholder="Ej: Juan García"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
                 />
                 <p className="text-xs text-gray-400 mt-1">
                   Se pre-llenará en el formulario de reseña.
@@ -103,7 +103,7 @@ export function GenerateReviewLinkModal({ isOpen, onClose }: Props) {
               <button
                 onClick={handleGenerate}
                 disabled={loading}
-                className="w-full py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
                 {loading ? "Generando..." : "Generar Enlace"}
@@ -111,21 +111,21 @@ export function GenerateReviewLinkModal({ isOpen, onClose }: Props) {
             </>
           ) : (
             <>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">
-                  Enlace generado ✓
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Enlace generado
                 </p>
-                <p className="text-sm text-green-900 break-all font-mono">{generatedUrl}</p>
+                <p className="text-sm text-gray-800 break-all font-mono">{generatedUrl}</p>
               </div>
 
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-400">
                 Este enlace es de un solo uso. Cuando el paciente lo use quedará desactivado.
               </p>
 
               <div className="flex gap-2">
                 <button
                   onClick={handleCopy}
-                  className="flex-1 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 transition-colors flex items-center justify-center gap-2"
                 >
                   {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                   {copied ? "¡Copiado!" : "Copiar enlace"}
@@ -143,7 +143,7 @@ export function GenerateReviewLinkModal({ isOpen, onClose }: Props) {
 
               <button
                 onClick={() => { setGeneratedUrl(null); setPatientName(""); }}
-                className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
               >
                 Generar otro enlace
               </button>
