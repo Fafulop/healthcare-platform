@@ -18,6 +18,9 @@ import {
   UserCog,
   BarChart3,
   HelpCircle,
+  Calendar,
+  Users,
+  DollarSign,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -118,6 +121,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto">
+          {/* Group 1 — Profile & content */}
           <div className="py-2">
             {doctorProfile && (
               <>
@@ -154,6 +158,26 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               active={pathname?.startsWith("/dashboard/blog")}
               onClick={onClose}
             />
+          </div>
+
+          <hr className="border-gray-200" />
+
+          {/* Group 2 — Clinical */}
+          <div className="py-2">
+            <NavItem
+              icon={Calendar}
+              label="Mis Citas"
+              href="/appointments"
+              active={pathname === "/appointments"}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={Users}
+              label="Expedientes Médicos"
+              href="/dashboard/medical-records"
+              active={pathname?.startsWith("/dashboard/medical-records")}
+              onClick={onClose}
+            />
             <NavItem
               icon={CheckSquare}
               label="Tareas"
@@ -173,6 +197,19 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               label="Reportes"
               href="/dashboard/reportes"
               active={pathname?.startsWith("/dashboard/reportes")}
+              onClick={onClose}
+            />
+          </div>
+
+          <hr className="border-gray-200" />
+
+          {/* Group 3 — Practice management */}
+          <div className="py-2">
+            <NavItem
+              icon={DollarSign}
+              label="Flujo de Dinero"
+              href="/dashboard/practice/flujo-de-dinero"
+              active={pathname?.startsWith("/dashboard/practice/flujo-de-dinero")}
               onClick={onClose}
             />
             <NavItem

@@ -6,7 +6,7 @@ import {
   Home,
   Users,
   Calendar,
-  DollarSign,
+  CheckSquare,
   Menu,
 } from "lucide-react";
 
@@ -80,10 +80,10 @@ export default function BottomNav({ onMoreClick, isDrawerOpen }: BottomNavProps)
           active={pathname === "/appointments"}
         />
         <NavItem
-          icon={DollarSign}
-          label="Flujo"
-          href="/dashboard/practice/flujo-de-dinero"
-          active={pathname?.startsWith("/dashboard/practice/flujo-de-dinero")}
+          icon={CheckSquare}
+          label="Tareas"
+          href="/dashboard/pendientes"
+          active={pathname?.startsWith("/dashboard/pendientes")}
         />
         <NavItem
           icon={Menu}

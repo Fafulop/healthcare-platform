@@ -67,7 +67,7 @@ export default function NotasPage() {
 
   function handleCloseEditor() {
     closeEditor();
-    setMobileView('sidebar');
+    setMobileView('main'); // on mobile: go back to NotesList, not sidebar
   }
 
   // Sidebar navigation: always closes editor (with guard) and shows NotesList
@@ -137,15 +137,15 @@ export default function NotasPage() {
             ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}
           `}
         >
-          {/* Mobile back button — only when no editor open (editor has its own X button with dirty guard) */}
+          {/* Mobile back button — only in NotesList view; goes to sidebar index */}
           {!editorOpen && (
             <div className="md:hidden flex items-center px-3 py-2 border-b border-gray-200 bg-white flex-shrink-0">
               <button
-                onClick={handleCloseEditor}
+                onClick={() => setMobileView('sidebar')}
                 className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Notas
+                Índice
               </button>
             </div>
           )}
