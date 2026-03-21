@@ -1,4 +1,5 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle } from "lucide-react";
+import Link from "next/link";
 import { formatLocalDate } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
 import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
@@ -17,6 +18,7 @@ interface Props {
   shiftBookingFilterDate: (days: number) => void;
   onUpdateStatus: (id: string, status: string) => void;
   onDeleteBooking: (id: string, patientName: string) => void;
+  onOpenFormLinkModal: (booking: Booking) => void;
   getStatusColor: (status: string, endTime?: string, date?: string) => string;
   sortColumn: SortColumn;
   sortDirection: SortDirection;
@@ -44,6 +46,7 @@ export function BookingsSection({
   shiftBookingFilterDate,
   onUpdateStatus,
   onDeleteBooking,
+  onOpenFormLinkModal,
   getStatusColor,
   sortColumn,
   sortDirection,
@@ -195,6 +198,7 @@ export function BookingsSection({
                         booking={booking}
                         onUpdateStatus={onUpdateStatus}
                         onDeleteBooking={onDeleteBooking}
+                        onOpenFormLinkModal={onOpenFormLinkModal}
                       />
                     </div>
                   );
@@ -297,10 +301,12 @@ function StatusActions({
   booking,
   onUpdateStatus,
   onDeleteBooking,
+  onOpenFormLinkModal,
 }: {
   booking: Booking;
   onUpdateStatus: (id: string, status: string) => void;
   onDeleteBooking: (id: string, patientName: string) => void;
+  onOpenFormLinkModal: (booking: Booking) => void;
 }) {
   const isTerminal = ["CANCELLED", "COMPLETED", "NO_SHOW"].includes(booking.status);
 
@@ -335,6 +341,22 @@ function StatusActions({
             Cancelar
           </button>
         </>
+      )}
+      {booking.status === "CONFIRMED" && (
+        <button
+          onClick={() => onOpenFormLinkModal(booking)}
+          className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
+        >
+          Formulario
+        </button>
+      )}
+      {booking.formLink?.status === "SUBMITTED" && (
+        <Link
+          href={`/dashboard/medical-records/formularios/${booking.formLink.id}`}
+          className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 border border-green-200 flex items-center gap-1 hover:bg-green-200"
+        >
+          <CheckCircle className="w-3 h-3" /> Enviado
+        </Link>
       )}
       {isTerminal && (
         <button

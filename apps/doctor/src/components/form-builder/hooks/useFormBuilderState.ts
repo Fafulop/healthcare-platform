@@ -10,6 +10,7 @@ export interface FormBuilderMetadata {
   description: string;
   icon?: string;
   color?: string;
+  isPreAppointment?: boolean;
 }
 
 export interface FormBuilderState {

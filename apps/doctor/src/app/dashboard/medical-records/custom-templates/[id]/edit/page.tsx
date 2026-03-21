@@ -53,6 +53,7 @@ export default function EditCustomTemplatePage() {
     icon?: string;
     color?: string;
     customFields: FieldDefinition[];
+    isPreAppointment: boolean;
   }) => {
     const res = await fetch(`/api/custom-templates/${templateId}`, {
       method: 'PUT',

@@ -120,6 +120,20 @@ export function Toolbar({ onSave, saving, onToggleAIChat, showAIChat }: ToolbarP
         </button>
       </div>
 
+      {/* Pre-appointment toggle */}
+      <div className="mt-2 flex items-center gap-2">
+        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
+          <input
+            type="checkbox"
+            checked={metadata.isPreAppointment ?? false}
+            onChange={(e) => setMetadata({ isPreAppointment: e.target.checked })}
+            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+          />
+          Usar como formulario pre-cita
+          <span className="text-xs text-gray-400">(permite enviar a pacientes antes de su cita)</span>
+        </label>
+      </div>
+
       {/* Validation errors */}
       {hasErrors && (
         <div className="mt-3">

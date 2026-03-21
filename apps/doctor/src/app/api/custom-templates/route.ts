@@ -13,13 +13,14 @@ import type { FieldDefinition } from '@/types/custom-encounter';
 export async function GET(request: NextRequest) {
   try {
     const { doctorId } = await requireDoctorAuth(request);
+    const { searchParams } = new URL(request.url);
+    const isPreAppointmentFilter = searchParams.get('isPreAppointment');
+
+    const where: any = { doctorId, isCustom: true, isActive: true };
+    if (isPreAppointmentFilter === 'true') where.isPreAppointment = true;
 
     const templates = await prisma.encounterTemplate.findMany({
-      where: {
-        doctorId,
-        isCustom: true,
-        isActive: true,
-      },
+      where,
       orderBy: [
         { displayOrder: 'asc' },
         { createdAt: 'desc' },
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest) {
         defaultValues: {},
         useSOAPMode: false,
         isDefault: body.isDefault || false,
+        isPreAppointment: body.isPreAppointment ?? false,
         isActive: true,
         displayOrder: body.displayOrder || 0,
       },

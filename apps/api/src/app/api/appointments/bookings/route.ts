@@ -358,6 +358,13 @@ export async function GET(request: Request) {
             clinicPhone: true,
           },
         },
+        formLink: {
+          select: {
+            id: true,
+            token: true,
+            status: true,
+          },
+        },
       },
       orderBy: [{ createdAt: 'desc' }],
     });

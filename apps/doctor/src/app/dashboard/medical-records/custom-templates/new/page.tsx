@@ -21,6 +21,7 @@ export default function NewCustomTemplatePage() {
     icon?: string;
     color?: string;
     customFields: FieldDefinition[];
+    isPreAppointment: boolean;
   }) => {
     const res = await fetch('/api/custom-templates', {
       method: 'POST',

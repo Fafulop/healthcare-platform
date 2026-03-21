@@ -127,6 +127,7 @@ model Doctor {
   articles           Article[]
   reviews            Review[]
   reviewLinks        ReviewLink[]
+  appointmentFormLinks AppointmentFormLink[]
   activityLogs       ActivityLog[]
 
   // Practice Management Relations (NEW)
@@ -403,6 +404,7 @@ model Booking {
   doctor             Doctor           @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   service            Service?         @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   review             Review?
+  formLink           AppointmentFormLink?
 
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
@@ -466,6 +468,38 @@ model ReviewLink {
 
   @@map("review_links")
   @@index([doctorId])
+  @@schema("public")
+}
+
+// Pre-appointment form link — doctor sends to patient before a confirmed booking
+enum AppointmentFormStatus {
+  PENDING    // Link sent, patient hasn't filled it yet
+  SUBMITTED  // Patient submitted the form
+
+  @@schema("public")
+}
+
+model AppointmentFormLink {
+  id             String                @id @default(cuid())
+  token          String                @unique
+  doctorId       String                @map("doctor_id")
+  bookingId      String                @unique @map("booking_id")
+  templateId     String                @map("template_id")  // plain ref — EncounterTemplate.id (cross-schema, no FK)
+  status         AppointmentFormStatus @default(PENDING)
+  submissionData Json?                 @map("submission_data")
+  submittedAt    DateTime?             @map("submitted_at")
+  patientName    String                @map("patient_name")
+  patientEmail   String                @map("patient_email")
+
+  doctor         Doctor               @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  booking        Booking              @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  @@index([doctorId])
+  @@index([doctorId, status])
+  @@map("appointment_form_links")
   @@schema("public")
 }
 
@@ -1631,8 +1665,9 @@ model EncounterTemplate {
   defaultValues   Json     @map("default_values")    // Pre-filled values
 
   // Custom Template Configuration (NEW)
-  isCustom        Boolean  @default(false) @map("is_custom")  // Distinguish custom vs standard templates
-  customFields    Json?    @map("custom_fields")              // Array of FieldDefinition for custom templates
+  isCustom           Boolean  @default(false) @map("is_custom")           // Distinguish custom vs standard templates
+  customFields       Json?    @map("custom_fields")                       // Array of FieldDefinition for custom templates
+  isPreAppointment   Boolean  @default(false) @map("is_pre_appointment")  // Available for pre-appointment form links
 
   // Settings
   useSOAPMode     Boolean  @default(false) @map("use_soap_mode")
@@ -1654,6 +1689,7 @@ model EncounterTemplate {
   @@unique([doctorId, name])
   @@index([doctorId, isActive])
   @@index([doctorId, isCustom])
+  @@index([doctorId, isPreAppointment])
   @@map("encounter_templates")
   @@schema("medical_records")
 }

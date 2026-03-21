@@ -15,6 +15,7 @@ import { CreateSlotsModal } from "./_components/CreateSlotsModal";
 import { BookPatientModal } from "./_components/BookPatientModal";
 import { AppointmentChatPanel } from "./_components/AppointmentChatPanel";
 import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
+import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
 import { BlockRangeModal } from "./_components/BlockRangeModal";
 import { SlotFiltersBar, type SlotStatusFilter } from "./_components/SlotFiltersBar";
 import type { AppointmentSlot } from "./_hooks/useSlots";
@@ -42,6 +43,8 @@ export default function AppointmentsV2Page() {
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
   const [blockRangeModalOpen, setBlockRangeModalOpen] = useState(false);
+  const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
+  const [formLinkBooking, setFormLinkBooking] = useState<Booking | null>(null);
   const [statusFilter, setStatusFilter] = useState<SlotStatusFilter>("all");
 
   const onRefresh = useCallback(async () => {
@@ -243,6 +246,10 @@ export default function AppointmentsV2Page() {
         sortColumn={bookingsHook.sortColumn}
         sortDirection={bookingsHook.sortDirection}
         onSort={bookingsHook.toggleSort}
+        onOpenFormLinkModal={(booking) => {
+          setFormLinkBooking(booking);
+          setFormLinkModalOpen(true);
+        }}
       />
 
       {/* Controls card: view toggle + slot filters */}
@@ -355,6 +362,13 @@ export default function AppointmentsV2Page() {
         onClose={() => setBlockRangeModalOpen(false)}
         doctorId={doctorId}
         onSuccess={slotsHook.fetchSlots}
+      />
+
+      <PreAppointmentFormModal
+        booking={formLinkBooking}
+        isOpen={formLinkModalOpen}
+        onClose={() => { setFormLinkModalOpen(false); setFormLinkBooking(null); }}
+        onSuccess={bookingsHook.fetchBookings}
       />
 
       <AppointmentChatPanel

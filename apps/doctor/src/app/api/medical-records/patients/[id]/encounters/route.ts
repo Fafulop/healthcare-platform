@@ -80,7 +80,7 @@ export async function POST(
     // Validate encounter type
     validateEnum(
       body.encounterType,
-      ['consultation', 'follow-up', 'emergency', 'telemedicine'] as const,
+      ['consultation', 'follow-up', 'emergency', 'telemedicine', 'pre-cita'] as const,
       'encounterType'
     );
 

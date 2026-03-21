@@ -119,6 +119,7 @@ export async function PUT(
     if (body.customFields !== undefined) updateData.customFields = body.customFields;
     if (body.isDefault !== undefined) updateData.isDefault = body.isDefault;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
+    if (body.isPreAppointment !== undefined) updateData.isPreAppointment = body.isPreAppointment;
     if (body.displayOrder !== undefined) updateData.displayOrder = body.displayOrder;
 
     // Update template

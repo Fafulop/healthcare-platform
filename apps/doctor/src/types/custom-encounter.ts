@@ -79,6 +79,7 @@ export interface CustomEncounterTemplate {
   // Settings
   isDefault: boolean;
   isActive: boolean;
+  isPreAppointment: boolean;
   displayOrder: number;
 
   // Usage tracking
@@ -100,6 +101,7 @@ export interface CreateCustomTemplateInput {
   color?: string;
   customFields: FieldDefinition[];
   isDefault?: boolean;
+  isPreAppointment?: boolean;
 }
 
 /**
@@ -113,6 +115,7 @@ export interface UpdateCustomTemplateInput {
   customFields?: FieldDefinition[];
   isDefault?: boolean;
   isActive?: boolean;
+  isPreAppointment?: boolean;
   displayOrder?: number;
 }
 

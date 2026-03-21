@@ -46,6 +46,11 @@ export interface Booking {
   startTime?: string | null;
   endTime?: string | null;
   duration?: number | null;
+  formLink?: {
+    id: string;
+    token: string;
+    status: 'PENDING' | 'SUBMITTED';
+  } | null;
 }
 
 export function useBookings(doctorId: string | undefined) {
