@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Users, Loader2, FileText, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
@@ -21,6 +21,7 @@ export default function PatientsPage() {
   const [statusFilter, setStatusFilter] = useState('active');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const initialFetchDone = useRef(false);
 
   const fetchPatients = useCallback(async (searchValue: string, statusValue: string) => {
     setLoading(true);
@@ -42,31 +43,24 @@ export default function PatientsPage() {
     }
   }, []);
 
-  // Immediate fetch on statusFilter change
+  // Initial fetch + statusFilter changes (immediate)
   useEffect(() => {
     if (status !== 'authenticated') return;
+    initialFetchDone.current = true;
     fetchPatients(search, statusFilter);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, status]);
 
-  // Debounced fetch on search change
+  // Debounced search — skips initial mount (statusFilter effect handles that)
   useEffect(() => {
     if (status !== 'authenticated') return;
-    const timer = setTimeout(() => fetchPatients(search, statusFilter), 350);
+    // On mount, initialFetchDone is false until the statusFilter effect runs first;
+    // skip this effect on that first render to avoid double-fetch.
+    if (!initialFetchDone.current) return;
+    const timer = setTimeout(() => fetchPatients(search, statusFilter), search ? 350 : 0);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
-
-  if (status === "loading" || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Cargando expedientes médicos...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 sm:p-6">
@@ -119,14 +113,18 @@ export default function PatientsPage() {
       )}
 
       {/* Count */}
-      {patients.length > 0 && (
+      {!loading && patients.length > 0 && (
         <p className="text-sm text-gray-500 mb-3">
           {patients.length} paciente{patients.length !== 1 ? 's' : ''}
         </p>
       )}
 
       {/* Patient Grid */}
-      {patients.length > 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        </div>
+      ) : patients.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {patients.map((patient) => (
             <PatientCard key={patient.id} patient={patient} />
