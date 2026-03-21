@@ -46,6 +46,7 @@ export default function NotasPage() {
   } = notesPage;
 
   const editorOpen = isNewNote || selectedNote !== null;
+  const activeNoteId = selectedNote?.id ?? null;
 
   // Mobile: show sidebar or main panel
   const [mobileView, setMobileView] = useState<'sidebar' | 'main'>('sidebar');
@@ -167,7 +168,7 @@ export default function NotasPage() {
               deleteNote={deleteNote}
               closeEditor={handleCloseEditor}
               openTaskModal={openTaskModal}
-              selectedNoteId={selectedNote?.id ?? null}
+              selectedNoteId={activeNoteId}
               toggleRecording={toggleRecording}
             />
           ) : (
@@ -176,7 +177,7 @@ export default function NotasPage() {
               loading={loadingNotes}
               onSelectNote={handleSelectNote}
               hasFilter={filterTemaId !== null || search.trim() !== ''}
-              selectedNoteId={selectedNote?.id ?? null}
+              selectedNoteId={activeNoteId}
             />
           )}
         </div>
