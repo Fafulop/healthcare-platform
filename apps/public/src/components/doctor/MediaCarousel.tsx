@@ -1,6 +1,6 @@
 // Media Carousel - Client-side only component with lazy loading
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import type { CarouselItem } from '@/types/doctor';
@@ -13,21 +13,35 @@ interface MediaCarouselProps {
 export default function MediaCarousel({ items, id }: MediaCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   if (!items || items.length === 0) return null;
 
-  const goToPrevious = () => {
+  const stopVideo = () => {
     setIsVideoPlaying(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
+
+  const goToPrevious = () => {
+    stopVideo();
     setCurrentIndex((prevIndex) =>
       prevIndex === 0 ? items.length - 1 : prevIndex - 1
     );
   };
 
   const goToNext = () => {
-    setIsVideoPlaying(false);
+    stopVideo();
     setCurrentIndex((prevIndex) =>
       prevIndex === items.length - 1 ? 0 : prevIndex + 1
     );
+  };
+
+  const handlePlayClick = () => {
+    setIsVideoPlaying(true);
+    videoRef.current?.play();
   };
 
   const currentItem = items[currentIndex];
@@ -65,60 +79,30 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
                 />
               </>
             ) : (
-              // Video player
-              <div className="relative w-full h-full">
-                {!isVideoPlaying ? (
-                  <>
-                    {currentItem.thumbnail ? (
-                      <>
-                        {/* Blurred thumbnail background */}
-                        <Image
-                          src={currentItem.thumbnail}
-                          alt=""
-                          fill
-                          aria-hidden="true"
-                          className="object-cover scale-110 blur-2xl opacity-50"
-                          sizes="(max-width: 768px) 100vw, 896px"
-                        />
-                        {/* Main thumbnail — contained */}
-                        <Image
-                          src={currentItem.thumbnail}
-                          alt={currentItem.alt}
-                          fill
-                          className="object-contain"
-                          loading="lazy"
-                          sizes="(max-width: 768px) 100vw, 896px"
-                        />
-                      </>
-                    ) : (
-                      <video
-                        src={currentItem.src}
-                        preload="metadata"
-                        muted
-                        className="w-full h-full object-contain"
-                      />
-                    )}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-                      <button
-                        onClick={() => setIsVideoPlaying(true)}
-                        className="w-16 h-16 rounded-full bg-white flex items-center justify-center hover:bg-[var(--color-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-                        aria-label="Reproducir video"
-                      >
-                        <Play className="w-8 h-8 text-[var(--color-secondary)]" />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <video
-                    src={currentItem.src}
-                    controls
-                    autoPlay
-                    preload="none"
-                    className="w-full h-full object-contain"
-                    onEnded={() => setIsVideoPlaying(false)}
-                  >
-                    Tu navegador no soporta videos HTML5.
-                  </video>
+              // Video player — single element, play via ref to avoid double-click
+              <div className="relative w-full h-full bg-black">
+                <video
+                  key={currentItem.src}
+                  ref={videoRef}
+                  src={currentItem.src}
+                  controls={isVideoPlaying}
+                  preload="metadata"
+                  poster={currentItem.thumbnail || undefined}
+                  className="w-full h-full object-contain"
+                  onEnded={() => setIsVideoPlaying(false)}
+                >
+                  Tu navegador no soporta videos HTML5.
+                </video>
+                {!isVideoPlaying && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <button
+                      onClick={handlePlayClick}
+                      className="w-16 h-16 rounded-full bg-white flex items-center justify-center hover:bg-[var(--color-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-white"
+                      aria-label="Reproducir video"
+                    >
+                      <Play className="w-8 h-8 text-[var(--color-secondary)]" />
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -159,7 +143,7 @@ export default function MediaCarousel({ items, id }: MediaCarouselProps) {
               {items.map((_, index) => (
                 <button
                   key={index}
-                  onClick={() => setCurrentIndex(index)}
+                  onClick={() => { stopVideo(); setCurrentIndex(index); }}
                   className={`w-2 h-2 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)] focus:ring-offset-2 ${
                     index === currentIndex
                       ? 'bg-[var(--color-primary)] w-8'
