@@ -78,7 +78,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
                   {service.price !== undefined && (
                     <div className="flex items-center gap-2 text-lg font-bold text-[var(--color-secondary)]">
                       <DollarSign className="w-5 h-5" />
-                      <span>${service.price}</span>
+                      <span>{service.price}</span>
                     </div>
                   )}
                 </div>
@@ -143,7 +143,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
                     <DollarSign className="w-5 h-5 text-[var(--color-secondary)]" />
                     <div>
                       <p className="text-sm text-gray-500">Precio</p>
-                      <p className="text-2xl font-bold text-[var(--color-secondary)]">${selectedService.price}</p>
+                      <p className="text-2xl font-bold text-[var(--color-secondary)]">{selectedService.price}</p>
                     </div>
                   </div>
                 )}

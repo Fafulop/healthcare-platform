@@ -54,7 +54,7 @@ export const ourFileRouter = {
   // Video uploader (intro videos, facility tours)
   doctorVideos: f({
     video: {
-      maxFileSize: "64MB",
+      maxFileSize: "256MB",
       maxFileCount: 5
     }
   })
