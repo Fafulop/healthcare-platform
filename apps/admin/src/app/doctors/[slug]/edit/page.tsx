@@ -14,6 +14,16 @@ import ColorPaletteSelector from "@/components/ColorPaletteSelector";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 const PUBLIC_URL = process.env.NEXT_PUBLIC_PUBLIC_URL || 'http://localhost:3000';
 
+const CLINIC_DAYS = [
+  { key: "monday", label: "Lunes" },
+  { key: "tuesday", label: "Martes" },
+  { key: "wednesday", label: "Miércoles" },
+  { key: "thursday", label: "Jueves" },
+  { key: "friday", label: "Viernes" },
+  { key: "saturday", label: "Sábado" },
+  { key: "sunday", label: "Domingo" },
+];
+
 // Edit doctor wizard - reuses creation wizard structure but loads existing data
 export default function EditDoctorWizard({ params }: { params: Promise<{ slug: string }> }) {
   // Unwrap params Promise (Next.js 15 requirement)
@@ -74,22 +84,38 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
       year: string;
     }>,
 
-    // Step 7: Clinic Info
-    clinic_info: {
-      address: "",
-      phone: "",
-      whatsapp: "",
-      hours: {
-        monday: "9:00 AM - 6:00 PM",
-        tuesday: "9:00 AM - 6:00 PM",
-        wednesday: "9:00 AM - 6:00 PM",
-        thursday: "9:00 AM - 6:00 PM",
-        friday: "9:00 AM - 5:00 PM",
-        saturday: "Closed",
-        sunday: "Closed",
+    // Step 7: Clinic Locations
+    clinic_locations: [
+      {
+        id: undefined as string | undefined,
+        name: "Consultorio Principal",
+        address: "",
+        phone: "",
+        whatsapp: "",
+        hours: {
+          monday: "9:00 AM - 6:00 PM",
+          tuesday: "9:00 AM - 6:00 PM",
+          wednesday: "9:00 AM - 6:00 PM",
+          thursday: "9:00 AM - 6:00 PM",
+          friday: "9:00 AM - 5:00 PM",
+          saturday: "Cerrado",
+          sunday: "Cerrado",
+        },
+        geoLat: 0,
+        geoLng: 0,
+        isDefault: true,
       },
-      geo: { lat: 0, lng: 0 },
-    },
+    ] as Array<{
+      id?: string;
+      name: string;
+      address: string;
+      phone: string;
+      whatsapp: string;
+      hours: Record<string, string>;
+      geoLat: number;
+      geoLng: number;
+      isDefault: boolean;
+    }>,
 
     // Step 8: FAQs
     faqs: [] as Array<{
@@ -169,24 +195,45 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
           year: c.year,
         })),
 
-        clinic_info: {
-          address: doctor.clinicAddress || "",
-          phone: doctor.clinicPhone || "",
-          whatsapp: doctor.clinicWhatsapp || "",
-          hours: doctor.clinicHours || {
-            monday: "9:00 AM - 6:00 PM",
-            tuesday: "9:00 AM - 6:00 PM",
-            wednesday: "9:00 AM - 6:00 PM",
-            thursday: "9:00 AM - 6:00 PM",
-            friday: "9:00 AM - 5:00 PM",
-            saturday: "Closed",
-            sunday: "Closed",
-          },
-          geo: {
-            lat: doctor.clinicGeoLat || 0,
-            lng: doctor.clinicGeoLng || 0,
-          },
-        },
+        clinic_locations: doctor.clinicLocations?.length > 0
+          ? doctor.clinicLocations.map((loc: any) => ({
+              id: loc.id,
+              name: loc.name || "Consultorio Principal",
+              address: loc.address || "",
+              phone: loc.phone || "",
+              whatsapp: loc.whatsapp || "",
+              hours: loc.hours || {
+                monday: "9:00 AM - 6:00 PM",
+                tuesday: "9:00 AM - 6:00 PM",
+                wednesday: "9:00 AM - 6:00 PM",
+                thursday: "9:00 AM - 6:00 PM",
+                friday: "9:00 AM - 5:00 PM",
+                saturday: "Cerrado",
+                sunday: "Cerrado",
+              },
+              geoLat: loc.geoLat ?? 0,
+              geoLng: loc.geoLng ?? 0,
+              isDefault: loc.isDefault ?? true,
+            }))
+          : [{
+              id: undefined,
+              name: "Consultorio Principal",
+              address: doctor.clinicAddress || "",
+              phone: doctor.clinicPhone || "",
+              whatsapp: doctor.clinicWhatsapp || "",
+              hours: doctor.clinicHours || {
+                monday: "9:00 AM - 6:00 PM",
+                tuesday: "9:00 AM - 6:00 PM",
+                wednesday: "9:00 AM - 6:00 PM",
+                thursday: "9:00 AM - 6:00 PM",
+                friday: "9:00 AM - 5:00 PM",
+                saturday: "Cerrado",
+                sunday: "Cerrado",
+              },
+              geoLat: doctor.clinicGeoLat ?? 0,
+              geoLng: doctor.clinicGeoLng ?? 0,
+              isDefault: true,
+            }],
 
         faqs: (doctor.faqs || []).map((f: any) => ({
           question: f.question,
@@ -223,10 +270,54 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const updateClinicField = (field: string, value: any) => {
+  const updateClinicLocation = (index: number, field: string, value: any) => {
+    setFormData((prev) => {
+      const locs = [...prev.clinic_locations];
+      locs[index] = { ...locs[index], [field]: value };
+      return { ...prev, clinic_locations: locs };
+    });
+  };
+
+  const updateClinicLocationHour = (index: number, day: string, value: string) => {
+    setFormData((prev) => {
+      const locs = [...prev.clinic_locations];
+      locs[index] = { ...locs[index], hours: { ...locs[index].hours, [day]: value } };
+      return { ...prev, clinic_locations: locs };
+    });
+  };
+
+  const addSecondLocation = () => {
     setFormData((prev) => ({
       ...prev,
-      clinic_info: { ...prev.clinic_info, [field]: value },
+      clinic_locations: [
+        ...prev.clinic_locations,
+        {
+          id: undefined,
+          name: "Consultorio 2",
+          address: "",
+          phone: "",
+          whatsapp: "",
+          hours: {
+            monday: "9:00 AM - 6:00 PM",
+            tuesday: "9:00 AM - 6:00 PM",
+            wednesday: "9:00 AM - 6:00 PM",
+            thursday: "9:00 AM - 6:00 PM",
+            friday: "9:00 AM - 5:00 PM",
+            saturday: "Cerrado",
+            sunday: "Cerrado",
+          },
+          geoLat: 0,
+          geoLng: 0,
+          isDefault: false,
+        },
+      ],
+    }));
+  };
+
+  const removeSecondLocation = () => {
+    setFormData((prev) => ({
+      ...prev,
+      clinic_locations: prev.clinic_locations.slice(0, 1),
     }));
   };
 
@@ -1038,291 +1129,146 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
             </div>
           )}
 
-          {/* Step 7: Clinic Info */}
+          {/* Step 7: Clinic Locations */}
           {currentStep === 7 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 Información de Clínica
               </h2>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Dirección *
-                </label>
-                <input
-                  type="text"
-                  value={formData.clinic_info.address}
-                  onChange={(e) => updateClinicField("address", e.target.value)}
-                  placeholder="Av. Principal 123, Col. Centro"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  required
-                />
-              </div>
+              {formData.clinic_locations.map((loc, index) => {
+                const title = index === 0 ? "Consultorio Principal" : "Consultorio 2";
+                return (
+                  <div key={loc.id ?? index} className="border border-gray-200 rounded-lg p-5 space-y-5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+                      {index === 1 && (
+                        <button
+                          type="button"
+                          onClick={removeSecondLocation}
+                          className="text-xs text-red-600 hover:text-red-700 font-medium"
+                        >
+                          Eliminar segundo consultorio
+                        </button>
+                      )}
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Teléfono *
-                </label>
-                <input
-                  type="tel"
-                  value={formData.clinic_info.phone}
-                  onChange={(e) => updateClinicField("phone", e.target.value)}
-                  placeholder="+52 33 1234 5678"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  required
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del consultorio</label>
+                      <input
+                        type="text"
+                        value={loc.name}
+                        onChange={(e) => updateClinicLocation(index, "name", e.target.value)}
+                        placeholder={title}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  WhatsApp
-                </label>
-                <input
-                  type="tel"
-                  value={formData.clinic_info.whatsapp}
-                  onChange={(e) => updateClinicField("whatsapp", e.target.value)}
-                  placeholder="+52 33 1234 5678"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Dirección *</label>
+                      <input
+                        type="text"
+                        value={loc.address}
+                        onChange={(e) => updateClinicLocation(index, "address", e.target.value)}
+                        placeholder="Av. Principal 123, Col. Centro"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
 
-              {/* Google Maps Coordinates */}
-              <div className="border-t pt-6 mt-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                  Coordenadas de Google Maps
-                </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <input
+                          type="tel"
+                          value={loc.phone}
+                          onChange={(e) => updateClinicLocation(index, "phone", e.target.value)}
+                          placeholder="+52 33 1234 5678"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp</label>
+                        <input
+                          type="tel"
+                          value={loc.whatsapp}
+                          onChange={(e) => updateClinicLocation(index, "whatsapp", e.target.value)}
+                          placeholder="+52 33 1234 5678"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                      </div>
+                    </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-800 mb-2">
-                    📍 Las coordenadas permiten que el enlace "Ver en Google Maps" lleve directamente a la ubicación exacta de la clínica.
-                  </p>
-                  <p className="text-xs text-blue-700">
-                    Si no las agregas, el enlace buscará por dirección (menos preciso).
-                  </p>
-                </div>
+                    {/* Office Hours */}
+                    <div className="border-t pt-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Horario de Atención</h4>
+                      <div className="space-y-2">
+                        {CLINIC_DAYS.map(({ key, label }) => (
+                          <div key={key} className="grid grid-cols-3 gap-3 items-center">
+                            <label className="text-sm font-medium text-gray-600">{label}</label>
+                            <input
+                              type="text"
+                              value={(loc.hours as Record<string, string>)[key] || ""}
+                              onChange={(e) => updateClinicLocationHour(index, key, e.target.value)}
+                              placeholder="9:00 AM - 6:00 PM"
+                              className="col-span-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Usa "Cerrado" para días sin atención.</p>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Latitud
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={formData.clinic_info.geo.lat}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clinic_info: {
-                            ...prev.clinic_info,
-                            geo: { ...prev.clinic_info.geo, lat: parseFloat(e.target.value) || 0 }
-                          }
-                        }));
-                      }}
-                      placeholder="20.6737777"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
+                    {/* Geo Coordinates */}
+                    <div className="border-t pt-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Coordenadas de Google Maps</h4>
+                      <div className="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Latitud</label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={loc.geoLat}
+                            onChange={(e) => updateClinicLocation(index, "geoLat", parseFloat(e.target.value) || 0)}
+                            placeholder="20.6737777"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Longitud</label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={loc.geoLng}
+                            onChange={(e) => updateClinicLocation(index, "geoLng", parseFloat(e.target.value) || 0)}
+                            placeholder="-103.3723871"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const q = encodeURIComponent(loc.address || "Mexico");
+                          window.open(`https://www.google.com/maps/search/${q}`, "_blank");
+                        }}
+                        className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                      >
+                        Buscar Dirección en Google Maps
+                      </button>
+                    </div>
                   </div>
+                );
+              })}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Longitud
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={formData.clinic_info.geo.lng}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clinic_info: {
-                            ...prev.clinic_info,
-                            geo: { ...prev.clinic_info.geo, lng: parseFloat(e.target.value) || 0 }
-                          }
-                        }));
-                      }}
-                      placeholder="-103.3723871"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
-                </div>
-
+              {formData.clinic_locations.length < 2 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    const searchQuery = encodeURIComponent(formData.clinic_info.address || 'Guadalajara, Mexico');
-                    window.open(`https://www.google.com/maps/search/${searchQuery}`, '_blank');
-                  }}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm"
+                  onClick={addSecondLocation}
+                  className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
                 >
-                  🗺️ Buscar Dirección en Google Maps
+                  + Agregar segundo consultorio
                 </button>
-
-                <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-700 font-semibold mb-1">¿Cómo obtener las coordenadas?</p>
-                  <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
-                    <li>Haz clic en "Buscar Dirección en Google Maps"</li>
-                    <li>Encuentra la ubicación exacta en el mapa</li>
-                    <li>Haz clic derecho en el pin rojo</li>
-                    <li>Copia los números que aparecen arriba (ej: 20.6737777, -103.3723871)</li>
-                    <li>Pega el primer número en Latitud y el segundo en Longitud</li>
-                  </ol>
-                </div>
-              </div>
-
-              {/* Office Hours */}
-              <div className="border-t pt-6 mt-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                  Horario de Atención
-                </h3>
-                <div className="space-y-3">
-                  {/* Monday */}
-                  <div className="grid grid-cols-3 gap-3 items-center">
-                    <label className="text-sm font-medium text-gray-700">Lunes</label>
-                    <input
-                      type="text"
-                      value={formData.clinic_info.hours.monday}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clinic_info: {
-                            ...prev.clinic_info,
-                            hours: { ...prev.clinic_info.hours, monday: e.target.value }
-                          }
-                        }));
-                      }}
-                      placeholder="9:00 AM - 6:00 PM"
-                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
-
-                  {/* Tuesday */}
-                  <div className="grid grid-cols-3 gap-3 items-center">
-                    <label className="text-sm font-medium text-gray-700">Martes</label>
-                    <input
-                      type="text"
-                      value={formData.clinic_info.hours.tuesday}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clinic_info: {
-                            ...prev.clinic_info,
-                            hours: { ...prev.clinic_info.hours, tuesday: e.target.value }
-                          }
-                        }));
-                      }}
-                      placeholder="9:00 AM - 6:00 PM"
-                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
-
-                  {/* Wednesday */}
-                  <div className="grid grid-cols-3 gap-3 items-center">
-                    <label className="text-sm font-medium text-gray-700">Miércoles</label>
-                    <input
-                      type="text"
-                      value={formData.clinic_info.hours.wednesday}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clinic_info: {
-                            ...prev.clinic_info,
-                            hours: { ...prev.clinic_info.hours, wednesday: e.target.value }
-                          }
-                        }));
-                      }}
-                      placeholder="9:00 AM - 6:00 PM"
-                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
-
-                  {/* Thursday */}
-                  <div className="grid grid-cols-3 gap-3 items-center">
-                    <label className="text-sm font-medium text-gray-700">Jueves</label>
-                    <input
-                      type="text"
-                      value={formData.clinic_info.hours.thursday}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clinic_info: {
-                            ...prev.clinic_info,
-                            hours: { ...prev.clinic_info.hours, thursday: e.target.value }
-                          }
-                        }));
-                      }}
-                      placeholder="9:00 AM - 6:00 PM"
-                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
-
-                  {/* Friday */}
-                  <div className="grid grid-cols-3 gap-3 items-center">
-                    <label className="text-sm font-medium text-gray-700">Viernes</label>
-                    <input
-                      type="text"
-                      value={formData.clinic_info.hours.friday}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clinic_info: {
-                            ...prev.clinic_info,
-                            hours: { ...prev.clinic_info.hours, friday: e.target.value }
-                          }
-                        }));
-                      }}
-                      placeholder="9:00 AM - 5:00 PM"
-                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
-
-                  {/* Saturday */}
-                  <div className="grid grid-cols-3 gap-3 items-center">
-                    <label className="text-sm font-medium text-gray-700">Sábado</label>
-                    <input
-                      type="text"
-                      value={formData.clinic_info.hours.saturday}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clinic_info: {
-                            ...prev.clinic_info,
-                            hours: { ...prev.clinic_info.hours, saturday: e.target.value }
-                          }
-                        }));
-                      }}
-                      placeholder="Closed"
-                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
-
-                  {/* Sunday */}
-                  <div className="grid grid-cols-3 gap-3 items-center">
-                    <label className="text-sm font-medium text-gray-700">Domingo</label>
-                    <input
-                      type="text"
-                      value={formData.clinic_info.hours.sunday}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          clinic_info: {
-                            ...prev.clinic_info,
-                            hours: { ...prev.clinic_info.hours, sunday: e.target.value }
-                          }
-                        }));
-                      }}
-                      placeholder="Closed"
-                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-600">
-                    💡 Tip: Use "Cerrado" o "Closed" para días sin atención
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           )}
 

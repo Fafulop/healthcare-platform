@@ -28,6 +28,33 @@ export default function SidebarContactInfo({ doctorSlug, clinicInfo, clinicLocat
       ? `https://www.google.com/maps?q=${loc.geoLat},${loc.geoLng}`
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}`;
 
+  // Use compact rows when there are 2 locations to avoid squeezing the booking calendar
+  if (locations.length > 1) {
+    return (
+      <div className="px-4 pb-4">
+        <div className="space-y-1">
+          {locations.map((loc) => (
+            <a
+              key={loc.id}
+              href={getMapsUrl(loc)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => doctorSlug && trackMapClick(doctorSlug, 'sidebar')}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--color-neutral-light)] transition-colors bg-blue-50 border border-blue-200"
+            >
+              <Navigation className="w-4 h-4 text-[var(--color-secondary)] flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-[var(--color-secondary)] uppercase tracking-wide leading-tight">{loc.name}</p>
+                <p className="text-xs text-[var(--color-neutral-dark)] truncate">{loc.address}</p>
+              </div>
+              <span className="text-xs font-semibold text-[var(--color-secondary)] flex-shrink-0">Maps →</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 pb-6">
       <Card shadow="none" padding="lg">
@@ -45,11 +72,8 @@ export default function SidebarContactInfo({ doctorSlug, clinicInfo, clinicLocat
                 <Navigation className="w-6 h-6 text-[var(--color-secondary)]" />
               </div>
               <div className="flex-1 min-w-0">
-                {locations.length > 1 && (
-                  <p className="text-xs font-bold text-[var(--color-secondary)] uppercase tracking-wide mb-1">{loc.name}</p>
-                )}
                 <p className="text-sm text-[var(--color-neutral-medium)] mb-1 font-semibold uppercase tracking-wide">
-                  {locations.length === 1 ? 'Dirección' : ''}
+                  Dirección
                 </p>
                 <p className="text-base font-medium text-[var(--color-neutral-dark)] leading-relaxed mb-2">
                   {loc.address}
