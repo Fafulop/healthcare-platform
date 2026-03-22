@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         heroImage: body.hero_image,
         locationSummary: body.location_summary,
         city: body.city,
-        shortBio: body.short_bio,
+        shortBio: body.short_bio || '',
         longBio: body.long_bio || '',
         yearsExperience: body.years_experience,
         conditions: body.conditions || [],
