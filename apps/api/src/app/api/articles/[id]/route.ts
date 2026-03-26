@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { revalidatePublicPath } from '@/lib/revalidate';
 
 export async function GET(
   request: Request,
@@ -140,6 +141,16 @@ export async function PUT(
     });
 
     console.log(`✅ Article updated: ${article.slug} by ${doctor.doctorFullName}`);
+
+    // Revalidate public pages whenever the article is published or was already published
+    if (article.status === 'PUBLISHED') {
+      revalidatePublicPath(`/doctores/${doctor.slug}/blog`);
+      revalidatePublicPath(`/doctores/${doctor.slug}/blog/${article.slug}`);
+    } else if (isUnpublishing) {
+      // Article was just unpublished — clear both listing and individual page cache
+      revalidatePublicPath(`/doctores/${doctor.slug}/blog`);
+      revalidatePublicPath(`/doctores/${doctor.slug}/blog/${existingArticle.slug}`);
+    }
 
     return NextResponse.json({
       success: true,

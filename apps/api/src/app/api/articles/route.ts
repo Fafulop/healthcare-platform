@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { revalidatePublicPath } from '@/lib/revalidate';
 
 export async function GET(request: Request) {
   try {
@@ -104,6 +105,11 @@ export async function POST(request: Request) {
     });
 
     console.log(`✅ Article created: ${article.slug} by ${doctor.doctorFullName}`);
+
+    if (article.status === 'PUBLISHED') {
+      revalidatePublicPath(`/doctores/${doctor.slug}/blog`);
+      revalidatePublicPath(`/doctores/${doctor.slug}/blog/${article.slug}`);
+    }
 
     return NextResponse.json({
       success: true,
