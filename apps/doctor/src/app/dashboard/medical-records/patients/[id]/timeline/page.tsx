@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Plus, Clock, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, Plus, Clock, Loader2, Download, NotebookPen } from 'lucide-react';
 import Link from 'next/link';
 import { TimelineView } from '@/components/medical-records/TimelineView';
 import { calculateAge } from '@/lib/practice-utils';
@@ -154,7 +154,7 @@ export default function PatientTimelinePage() {
       {/* Stats summary */}
       {timeline.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-3xl font-bold text-blue-600">
                 {timeline.filter((item: any) => item.type === 'encounter').length}
@@ -172,6 +172,12 @@ export default function PatientTimelinePage() {
                 {timeline.filter((item: any) => item.type === 'media').length}
               </div>
               <div className="text-sm text-gray-600 mt-1">Documentos</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-amber-600">
+                {timeline.filter((item: any) => item.type === 'note').length}
+              </div>
+              <div className="text-sm text-gray-600 mt-1">Notas</div>
             </div>
           </div>
         </div>

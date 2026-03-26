@@ -1,9 +1,21 @@
 'use client';
 
-import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { usePatientProfile } from '../_components/usePatientProfile';
+
+interface RecentNote {
+  id: string;
+  content: string;
+  updatedAt: string;
+}
+
+function parseNoteTitle(content: string): string {
+  const first = content.split('\n').map((l) => l.trim()).find((l) => l !== '');
+  return first || 'Nota vacía';
+}
 
 export default function PatientProfilePage() {
   const {
@@ -17,6 +29,18 @@ export default function PatientProfilePage() {
     formatDate,
     handleArchive,
   } = usePatientProfile();
+
+  const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
+
+  useEffect(() => {
+    if (!patientId) return;
+    fetch(`/api/medical-records/patients/${patientId}/notes`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setRecentNotes(d.data.slice(0, 3));
+      })
+      .catch(() => {});
+  }, [patientId]);
 
   if (sessionStatus === 'loading' || loading) {
     return (
@@ -122,6 +146,13 @@ export default function PatientProfilePage() {
               <span>Prescripciones</span>
             </Link>
             <Link
+              href={`/dashboard/medical-records/patients/${patient.id}/notas`}
+              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-sm transition-colors"
+            >
+              <NotebookPen className="w-4 h-4 flex-shrink-0" />
+              <span>Notas</span>
+            </Link>
+            <Link
               href={`/dashboard/medical-records/patients/${patient.id}/encounters/new`}
               className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5 text-sm font-semibold transition-colors"
             >
@@ -203,6 +234,53 @@ export default function PatientProfilePage() {
               <p className="text-gray-900 whitespace-pre-wrap">{patient.generalNotes}</p>
             </div>
           )}
+
+          {/* Recent Notes */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <NotebookPen className="w-5 h-5" />
+                Notas Recientes
+              </h2>
+              <Link
+                href={`/dashboard/medical-records/patients/${patient.id}/notas`}
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Ver todas
+              </Link>
+            </div>
+            {recentNotes.length > 0 ? (
+              <div className="space-y-2">
+                {recentNotes.map((note) => (
+                  <Link
+                    key={note.id}
+                    href={`/dashboard/medical-records/patients/${patient.id}/notas`}
+                    className="block px-3 py-2.5 rounded-md border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {parseNoteTitle(note.content)}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(note.updatedAt).toLocaleDateString('es-MX', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-gray-500">
+                <NotebookPen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm">No hay notas</p>
+                <Link
+                  href={`/dashboard/medical-records/patients/${patient.id}/notas`}
+                  className="text-blue-600 hover:text-blue-800 text-sm mt-1 inline-block"
+                >
+                  Crear primera nota
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Encounters List */}
           <div className="bg-white rounded-lg shadow p-6">

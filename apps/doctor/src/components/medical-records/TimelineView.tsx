@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Activity, Image as ImageIcon, Video, Mic, Pill, ChevronDown, ChevronUp, ExternalLink, Loader2 } from 'lucide-react';
+import { FileText, Activity, Image as ImageIcon, Video, Mic, Pill, ChevronDown, ChevronUp, ExternalLink, Loader2, NotebookPen } from 'lucide-react';
 import Link from 'next/link';
 
 interface TimelineEncounter {
@@ -80,10 +80,17 @@ interface FullPrescriptionData {
   }>;
 }
 
+interface TimelineNote {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface TimelineItem {
-  type: 'encounter' | 'media' | 'prescription';
+  type: 'encounter' | 'media' | 'prescription' | 'note';
   date: string;
-  data: TimelineEncounter | TimelineMedia | TimelinePrescription;
+  data: TimelineEncounter | TimelineMedia | TimelinePrescription | TimelineNote;
 }
 
 interface TimelineViewProps {
@@ -705,6 +712,48 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
 
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 rounded-b-lg">
                       <span className="text-xs text-purple-600 font-medium">Ver documentos y galería →</span>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          );
+        }
+
+        // ── NOTE ─────────────────────────────────────────────────────────
+        if (item.type === 'note') {
+          const note = item.data as TimelineNote;
+          const lines = note.content.split('\n').map((l) => l.trim()).filter((l) => l !== '');
+          const noteTitle = lines[0] || 'Nota vacía';
+          const noteExcerpt = lines.slice(1).join(' ').slice(0, 150);
+
+          return (
+            <div key={note.id} className="relative">
+              {!isLast && <div className="absolute left-6 top-16 bottom-0 w-0.5 bg-gray-200 -mb-8" />}
+              <div className="absolute left-4 top-4 w-4 h-4 rounded-full bg-amber-400 border-4 border-white shadow" />
+              <div className="ml-14">
+                <Link href={`/dashboard/medical-records/patients/${patientId}/notas`}>
+                  <div className="bg-white rounded-lg shadow border border-gray-200 hover:border-amber-200 hover:shadow-md transition-all cursor-pointer">
+                    <div className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <NotebookPen className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                            <h3 className="text-base font-semibold text-gray-900 truncate">{noteTitle}</h3>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {new Date(note.createdAt).toLocaleDateString('es-MX', {
+                              day: 'numeric', month: 'long', year: 'numeric'
+                            })}
+                          </p>
+                          {noteExcerpt && (
+                            <p className="text-sm text-gray-500 mt-2 line-clamp-2">{noteExcerpt}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 bg-amber-50 border-t border-amber-100 rounded-b-lg">
+                      <span className="text-xs text-amber-600 font-medium">Ver notas del paciente →</span>
                     </div>
                   </div>
                 </Link>

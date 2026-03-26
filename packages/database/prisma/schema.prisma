@@ -146,6 +146,7 @@ model Doctor {
   encounterTemplates EncounterTemplate[]
   tasks              Task[]
   doctorNotes        DoctorNote[]
+  patientNotes       PatientNote[]
   noteTemas          NoteTema[]
   noteSubtemas       NoteSubtema[]
 
@@ -1309,6 +1310,7 @@ model Patient {
   prescriptions        Prescription[]
   auditLogs            PatientAuditLog[]
   tasks                Task[]
+  patientNotes         PatientNote[]
 
   @@unique([doctorId, internalId])
   @@index([doctorId, status])
@@ -1786,6 +1788,26 @@ model DoctorNote {
   @@index([doctorId])
   @@index([temaId])
   @@map("doctor_notes")
+  @@schema("medical_records")
+}
+
+/// Patient Notes
+/// Free-form notes written by the doctor about a specific patient
+model PatientNote {
+  id        String   @id @default(cuid())
+  patientId String   @map("patient_id")
+  doctorId  String   @map("doctor_id")
+  content   String   @default("") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, updatedAt])
+  @@index([doctorId])
+  @@map("patient_notes")
   @@schema("medical_records")
 }
 

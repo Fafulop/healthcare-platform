@@ -24,8 +24,8 @@ export async function GET(
       );
     }
 
-    // Get complete timeline - encounters, media and prescriptions
-    const [encounters, media, prescriptions] = await Promise.all([
+    // Get complete timeline - encounters, media, prescriptions, and notes
+    const [encounters, media, prescriptions, patientNotes] = await Promise.all([
       prisma.clinicalEncounter.findMany({
         where: { patientId, doctorId },
         orderBy: { encounterDate: 'desc' },
@@ -90,7 +90,12 @@ export async function GET(
           },
           createdAt: true,
         }
-      })
+      }),
+      prisma.patientNote.findMany({
+        where: { patientId, doctorId },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, content: true, createdAt: true, updatedAt: true },
+      }),
     ]);
 
     // Build unified timeline
@@ -109,7 +114,12 @@ export async function GET(
         type: 'prescription',
         date: p.prescriptionDate,
         data: p
-      }))
+      })),
+      ...patientNotes.map(n => ({
+        type: 'note',
+        date: n.createdAt,
+        data: n
+      })),
     ];
 
     // Sort by date (most recent first)
