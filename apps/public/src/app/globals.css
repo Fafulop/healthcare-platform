@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Safelist classes used inside DB-stored blog article HTML (image alignment).
+   Tailwind v4 can't scan runtime HTML strings, so we force-include them here. */
+@source inline("float-left float-right clear-both max-w-[50%] max-w-full mr-4 ml-4 mb-2 my-4 mx-auto w-full");
+
 /* Design System Variables - Notion + Unobravo Inspired */
 :root {
   /* Brand Colors - Professional Blue Palette */

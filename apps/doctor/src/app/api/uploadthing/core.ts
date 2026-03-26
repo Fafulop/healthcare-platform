@@ -101,6 +101,17 @@ export const ourFileRouter = {
   }),
 
   // ============================================================================
+  // BLOG
+  // ============================================================================
+
+  blogImages: f({
+    image: { maxFileSize: "8MB", maxFileCount: 1 },
+  }).onUploadComplete(async ({ file }) => {
+    console.log("Blog image uploaded:", file.ufsUrl);
+    return { uploadedBy: "doctor" };
+  }),
+
+  // ============================================================================
   // PRESCRIPTION PDF TEMPLATE
   // ============================================================================
 

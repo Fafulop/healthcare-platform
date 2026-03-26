@@ -1,20 +1,38 @@
 "use client";
 
 import { useEditor, EditorContent } from '@tiptap/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import StarterKit from '@tiptap/starter-kit';
-import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
+import Color from '@tiptap/extension-color';
+import TextStyle from '@tiptap/extension-text-style';
+import Highlight from '@tiptap/extension-highlight';
+import { useUploadThing } from '@/lib/uploadthing';
+import { ImageWithAlignment, type ImageAlignment } from './ImageAlignmentExtension';
 import {
   Bold,
   Italic,
+  Underline as UnderlineIcon,
+  Strikethrough,
   List,
   ListOrdered,
   Heading2,
   Heading3,
+  AlignLeft as TextAlignLeft,
+  AlignCenter as TextAlignCenter,
+  AlignRight as TextAlignRight,
+  AlignJustify,
   LinkIcon,
   ImageIcon,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Maximize2,
+  Highlighter,
+  Baseline,
+  Loader2,
   Undo,
   Redo,
 } from 'lucide-react';
@@ -31,13 +49,18 @@ export default function RichTextEditor({
   placeholder = 'Start writing your article...',
 }: RichTextEditorProps) {
   const isInitialLoad = useRef(true);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const { startUpload, isUploading } = useUploadThing('blogImages');
 
   const editor = useEditor(
     {
       extensions: [
         StarterKit,
-        Image.configure({
-          inline: true,
+        ImageWithAlignment.configure({
+          inline: false,
           allowBase64: true,
         }),
         Link.configure({
@@ -49,6 +72,12 @@ export default function RichTextEditor({
         Placeholder.configure({
           placeholder,
         }),
+        TextAlign.configure({
+          types: ['heading', 'paragraph', 'bulletList', 'orderedList', 'blockquote'],
+        }),
+        TextStyle,
+        Color,
+        Highlight.configure({ multicolor: false }),
       ],
       content,
       immediatelyRender: false,
@@ -89,11 +118,35 @@ export default function RichTextEditor({
   };
 
   const addImage = () => {
-    const url = window.prompt('Enter image URL:');
-    if (url) {
+    imageInputRef.current?.click();
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editor) return;
+    // Reset so the same file can be picked again later
+    e.target.value = '';
+    setUploadError(null);
+
+    try {
+      const result = await startUpload([file]);
+      if (!result || result.length === 0) throw new Error('Error al subir imagen');
+      const url = result[0]?.url;
+      if (!url) throw new Error('Error al subir imagen');
       editor.chain().focus().setImage({ src: url }).run();
+    } catch {
+      setUploadError('No se pudo subir la imagen. Intenta de nuevo.');
     }
   };
+
+  const setAlignment = (alignment: ImageAlignment) => {
+    editor.chain().focus().updateAttributes('image', { alignment }).run();
+  };
+
+  const activeAlignment: ImageAlignment =
+    (editor.getAttributes('image').alignment as ImageAlignment) ?? 'center';
+
+  const imageIsSelected = editor.isActive('image');
 
   const ToolbarButton = ({
     onClick,
@@ -143,6 +196,47 @@ export default function RichTextEditor({
           <Italic className="w-4 h-4" />
         </ToolbarButton>
 
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          isActive={editor.isActive('underline')}
+          title="Underline (Ctrl+U)"
+        >
+          <UnderlineIcon className="w-4 h-4" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          isActive={editor.isActive('strike')}
+          title="Strikethrough"
+        >
+          <Strikethrough className="w-4 h-4" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleHighlight().run()}
+          isActive={editor.isActive('highlight')}
+          title="Highlight"
+        >
+          <Highlighter className="w-4 h-4" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => colorInputRef.current?.click()}
+          isActive={!!editor.getAttributes('textStyle').color}
+          title="Text color"
+        >
+          <Baseline className="w-4 h-4" />
+        </ToolbarButton>
+
+        {editor.getAttributes('textStyle').color && (
+          <ToolbarButton
+            onClick={() => editor.chain().focus().unsetColor().run()}
+            title="Remove color"
+          >
+            <span className="text-xs font-bold leading-none">✕</span>
+          </ToolbarButton>
+        )}
+
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
         <ToolbarButton
@@ -182,6 +276,40 @@ export default function RichTextEditor({
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
         <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign('left').run()}
+          isActive={editor.isActive({ textAlign: 'left' })}
+          title="Align left"
+        >
+          <TextAlignLeft className="w-4 h-4" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign('center').run()}
+          isActive={editor.isActive({ textAlign: 'center' })}
+          title="Align center"
+        >
+          <TextAlignCenter className="w-4 h-4" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign('right').run()}
+          isActive={editor.isActive({ textAlign: 'right' })}
+          title="Align right"
+        >
+          <TextAlignRight className="w-4 h-4" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+          isActive={editor.isActive({ textAlign: 'justify' })}
+          title="Justify"
+        >
+          <AlignJustify className="w-4 h-4" />
+        </ToolbarButton>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        <ToolbarButton
           onClick={addLink}
           isActive={editor.isActive('link')}
           title="Add Link"
@@ -189,8 +317,8 @@ export default function RichTextEditor({
           <LinkIcon className="w-4 h-4" />
         </ToolbarButton>
 
-        <ToolbarButton onClick={addImage} title="Add Image">
-          <ImageIcon className="w-4 h-4" />
+        <ToolbarButton onClick={addImage} disabled={isUploading} title="Upload Image">
+          {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
         </ToolbarButton>
 
         <div className="w-px h-6 bg-gray-300 mx-1" />
@@ -212,13 +340,72 @@ export default function RichTextEditor({
         </ToolbarButton>
       </div>
 
+      {/* Image upload error */}
+      {uploadError && (
+        <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {uploadError}
+        </div>
+      )}
+
+      {/* Image alignment toolbar — visible only when an image is selected */}
+      {imageIsSelected && (
+        <div className="border-b border-gray-300 bg-blue-50 px-2 py-1 flex items-center gap-1 text-xs text-blue-700">
+          <span className="mr-1 font-medium">Alinear imagen:</span>
+          <ToolbarButton
+            onClick={() => setAlignment('left')}
+            isActive={activeAlignment === 'left'}
+            title="Flotar a la izquierda (texto rodea)"
+          >
+            <AlignLeft className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => setAlignment('center')}
+            isActive={activeAlignment === 'center'}
+            title="Centrar"
+          >
+            <AlignCenter className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => setAlignment('right')}
+            isActive={activeAlignment === 'right'}
+            title="Flotar a la derecha (texto rodea)"
+          >
+            <AlignRight className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => setAlignment('full')}
+            isActive={activeAlignment === 'full'}
+            title="Ancho completo"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </ToolbarButton>
+        </div>
+      )}
+
       {/* Editor Content */}
       <EditorContent editor={editor} />
 
       {/* Character count */}
       <div className="border-t border-gray-300 bg-gray-50 px-4 py-2 text-xs text-gray-500">
-        {editor.storage.characterCount?.characters() || 0} characters
+        {editor.getText().length} characters
       </div>
+
+      {/* Hidden file input for image upload */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageFileChange}
+      />
+
+      {/* Hidden color picker for text color — onBlur fires once when picker closes, avoiding undo stack pollution */}
+      <input
+        ref={colorInputRef}
+        type="color"
+        className="hidden"
+        onBlur={(e) => editor.chain().focus().setColor(e.target.value).run()}
+      />
     </div>
   );
 }
