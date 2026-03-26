@@ -32,6 +32,8 @@ export default function ServicesSection({ formData, setFormData }: ServicesSecti
     }));
   };
 
+  const activeCount = formData.services_list.filter((s: any) => s.is_booking_active).length;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -58,7 +60,9 @@ export default function ServicesSection({ formData, setFormData }: ServicesSecti
                 <h3 className="font-semibold text-gray-700 text-sm">Servicio {index + 1}</h3>
                 <button
                   onClick={() => removeService(index)}
-                  className="text-red-600 hover:text-red-700 text-sm"
+                  disabled={service.is_booking_active && activeCount === 1}
+                  title={service.is_booking_active && activeCount === 1 ? "Debe haber al menos 1 servicio activo para reservas" : undefined}
+                  className="text-red-600 hover:text-red-700 text-sm disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Eliminar
                 </button>
@@ -124,12 +128,16 @@ export default function ServicesSection({ formData, setFormData }: ServicesSecti
                 <div>
                   <p className="text-sm font-medium text-gray-700">Activo para reservas de pacientes</p>
                   <p className="text-xs text-gray-400">Si está desactivado, este servicio no aparece cuando un paciente agenda una cita</p>
+                  {service.is_booking_active && activeCount === 1 && (
+                    <p className="text-xs text-amber-600 mt-0.5">Debe haber al menos 1 servicio activo</p>
+                  )}
                 </div>
                 <button
                   type="button"
                   onClick={() => updateService(index, "is_booking_active", !service.is_booking_active)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    service.is_booking_active ? "bg-blue-600" : "bg-gray-200"
+                  disabled={service.is_booking_active && activeCount === 1}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed ${
+                    service.is_booking_active ? "bg-blue-600" : "bg-gray-200 cursor-pointer"
                   }`}
                 >
                   <span

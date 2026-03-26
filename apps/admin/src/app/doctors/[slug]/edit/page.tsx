@@ -496,6 +496,15 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
     }));
   };
 
+  const moveMedia = (index: number, direction: "up" | "down") => {
+    setFormData((prev) => {
+      const items = [...prev.carousel_items];
+      const swapIndex = direction === "up" ? index - 1 : index + 1;
+      [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+      return { ...prev, carousel_items: items };
+    });
+  };
+
   const updateMedia = (index: number, field: string, value: any) => {
     setFormData((prev) => ({
       ...prev,
@@ -775,7 +784,9 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
                         <h3 className="font-semibold text-gray-700">Servicio {index + 1}</h3>
                         <button
                           onClick={() => removeService(index)}
-                          className="text-red-600 hover:text-red-700 text-sm"
+                          disabled={service.is_booking_active && formData.services_list.filter((s) => s.is_booking_active).length === 1}
+                          title={service.is_booking_active && formData.services_list.filter((s) => s.is_booking_active).length === 1 ? "Debe haber al menos 1 servicio activo para reservas" : undefined}
+                          className="text-red-600 hover:text-red-700 text-sm disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           Eliminar
                         </button>
@@ -842,12 +853,16 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
                         <div>
                           <p className="text-sm font-medium text-gray-700">Activo para reservas de pacientes</p>
                           <p className="text-xs text-gray-400">Si está desactivado, no aparece cuando un paciente agenda una cita</p>
+                          {service.is_booking_active && formData.services_list.filter((s) => s.is_booking_active).length === 1 && (
+                            <p className="text-xs text-amber-600 mt-0.5">Debe haber al menos 1 servicio activo</p>
+                          )}
                         </div>
                         <button
                           type="button"
                           onClick={() => updateService(index, "is_booking_active", !service.is_booking_active)}
-                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            service.is_booking_active ? "bg-blue-600" : "bg-gray-200"
+                          disabled={service.is_booking_active && formData.services_list.filter((s) => s.is_booking_active).length === 1}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed ${
+                            service.is_booking_active ? "bg-blue-600" : "bg-gray-200 cursor-pointer"
                           }`}
                         >
                           <span
@@ -1410,12 +1425,30 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
                           <span className="text-xs font-medium text-gray-500">
                             {item.type === "image" ? "📸 Foto" : "🎥 Video"} #{index + 1}
                           </span>
-                          <button
-                            onClick={() => removeMedia(index)}
-                            className="text-red-600 hover:text-red-700 text-xs"
-                          >
-                            Eliminar
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => moveMedia(index, "up")}
+                              disabled={index === 0}
+                              className="text-gray-400 hover:text-gray-600 disabled:opacity-20 text-xs px-1"
+                              title="Mover arriba"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              onClick={() => moveMedia(index, "down")}
+                              disabled={index === formData.carousel_items.length - 1}
+                              className="text-gray-400 hover:text-gray-600 disabled:opacity-20 text-xs px-1"
+                              title="Mover abajo"
+                            >
+                              ↓
+                            </button>
+                            <button
+                              onClick={() => removeMedia(index)}
+                              className="text-red-600 hover:text-red-700 text-xs ml-1"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
                         </div>
 
                         {item.type === "image" ? (

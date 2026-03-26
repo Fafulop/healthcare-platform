@@ -11,36 +11,43 @@ interface GeneralInfoSectionProps {
 export default function GeneralInfoSection({ formData, updateField }: GeneralInfoSectionProps) {
   return (
     <div className="space-y-6">
-      {/* Read-only identity fields */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
-        <p className="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wide">
-          Datos de identidad (solo editables por administrador)
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">Nombre Completo</label>
-            <p className="px-3 py-2 bg-gray-100 rounded-lg text-gray-700 text-sm">
-              {formData.doctor_full_name || "—"}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">Apellido</label>
-            <p className="px-3 py-2 bg-gray-100 rounded-lg text-gray-700 text-sm">
-              {formData.last_name || "—"}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">Ciudad</label>
-            <p className="px-3 py-2 bg-gray-100 rounded-lg text-gray-700 text-sm">
-              {formData.city || "—"}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">Slug (URL)</label>
-            <p className="px-3 py-2 bg-gray-100 rounded-lg text-gray-700 text-sm">
-              /doctors/{formData.slug || "—"}
-            </p>
-          </div>
+      {/* Identity fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+          <input
+            type="text"
+            value={formData.doctor_full_name}
+            onChange={(e) => updateField("doctor_full_name", e.target.value)}
+            placeholder="Dr. Nombre"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
+          <input
+            type="text"
+            value={formData.last_name}
+            onChange={(e) => updateField("last_name", e.target.value)}
+            placeholder="Apellido"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+          <input
+            type="text"
+            value={formData.city}
+            onChange={(e) => updateField("city", e.target.value)}
+            placeholder="Guadalajara"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-500 mb-1">Slug (URL)</label>
+          <p className="px-3 py-2 bg-gray-100 rounded-lg text-gray-700 text-sm">
+            /doctors/{formData.slug || "—"}
+          </p>
         </div>
       </div>
 

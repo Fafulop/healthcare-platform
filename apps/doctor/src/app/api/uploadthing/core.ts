@@ -94,7 +94,7 @@ export const ourFileRouter = {
   }),
 
   doctorVideos: f({
-    video: { maxFileSize: "64MB", maxFileCount: 5 },
+    video: { maxFileSize: "256MB", maxFileCount: 5 },
   }).onUploadComplete(async ({ file }) => {
     console.log("Video uploaded:", file.ufsUrl);
     return { uploadedBy: "doctor" };

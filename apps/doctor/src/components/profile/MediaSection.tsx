@@ -24,6 +24,15 @@ export default function MediaSection({ formData, setFormData }: MediaSectionProp
     }));
   };
 
+  const moveMedia = (index: number, direction: "up" | "down") => {
+    setFormData((prev: any) => {
+      const items = [...prev.carousel_items];
+      const swapIndex = direction === "up" ? index - 1 : index + 1;
+      [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+      return { ...prev, carousel_items: items };
+    });
+  };
+
   return (
     <div className="space-y-8">
       {/* Clinic Photos */}
@@ -87,12 +96,30 @@ export default function MediaSection({ formData, setFormData }: MediaSectionProp
                   <span className="text-xs font-medium text-gray-500">
                     {item.type === "image" ? "Foto" : "Video"} #{index + 1}
                   </span>
-                  <button
-                    onClick={() => removeMedia(index)}
-                    className="text-red-600 hover:text-red-700 text-xs"
-                  >
-                    Eliminar
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => moveMedia(index, "up")}
+                      disabled={index === 0}
+                      className="text-gray-400 hover:text-gray-600 disabled:opacity-20 text-xs px-1"
+                      title="Mover arriba"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => moveMedia(index, "down")}
+                      disabled={index === formData.carousel_items.length - 1}
+                      className="text-gray-400 hover:text-gray-600 disabled:opacity-20 text-xs px-1"
+                      title="Mover abajo"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      onClick={() => removeMedia(index)}
+                      className="text-red-600 hover:text-red-700 text-xs ml-1"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
 
                 {item.type === "image" ? (
