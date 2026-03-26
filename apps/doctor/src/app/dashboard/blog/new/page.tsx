@@ -3,9 +3,10 @@
 import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Send, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, Send, Loader2, AlertCircle, Eye } from "lucide-react";
 import RichTextEditor from "@/components/blog/RichTextEditor";
 import ThumbnailUpload from "@/components/blog/ThumbnailUpload";
+import BlogPreviewModal from "@/components/blog/BlogPreviewModal";
 import { generateSlug, isValidSlug } from "@/lib/slug-generator";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -34,6 +35,7 @@ export default function NewArticlePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Auto-generate slug from title
   useEffect(() => {
@@ -133,8 +135,27 @@ export default function NewArticlePage() {
               <ArrowLeft className="w-4 h-4" />
               Volver al Blog
             </button>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Nuevo Artículo</h1>
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Nuevo Artículo</h1>
+              <button
+                type="button"
+                onClick={() => setShowPreview(true)}
+                className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Eye className="w-4 h-4" />
+                Vista previa
+              </button>
+            </div>
           </div>
+
+          {showPreview && (
+            <BlogPreviewModal
+              title={formData.title}
+              thumbnail={formData.thumbnail}
+              content={formData.content}
+              onClose={() => setShowPreview(false)}
+            />
+          )}
 
         {/* Error Message */}
         {error && (

@@ -3,6 +3,7 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import { useEffect, useRef, useState } from 'react';
 import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
@@ -10,7 +11,7 @@ import Color from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import { useUploadThing } from '@/lib/uploadthing';
-import { ImageWithAlignment, type ImageAlignment } from './ImageAlignmentExtension';
+import { ImageWithAlignment, getDefaultWidth, type ImageAlignment } from './ResizableImageExtension';
 import {
   Bold,
   Italic,
@@ -59,6 +60,7 @@ export default function RichTextEditor({
     {
       extensions: [
         StarterKit,
+        Underline,
         ImageWithAlignment.configure({
           inline: false,
           allowBase64: true,
@@ -140,11 +142,24 @@ export default function RichTextEditor({
   };
 
   const setAlignment = (alignment: ImageAlignment) => {
-    editor.chain().focus().updateAttributes('image', { alignment }).run();
+    const currentWidth = editor.getAttributes('image').width as string | null;
+    // Reset width to alignment default when switching alignment
+    editor.chain().focus().updateAttributes('image', {
+      alignment,
+      width: currentWidth ?? getDefaultWidth(alignment),
+    }).run();
+  };
+
+  const setImageWidth = (width: string) => {
+    editor.chain().focus().updateAttributes('image', { width }).run();
   };
 
   const activeAlignment: ImageAlignment =
     (editor.getAttributes('image').alignment as ImageAlignment) ?? 'center';
+
+  const activeWidth: string =
+    (editor.getAttributes('image').width as string | null) ??
+    getDefaultWidth(activeAlignment);
 
   const imageIsSelected = editor.isActive('image');
 
@@ -347,38 +362,71 @@ export default function RichTextEditor({
         </div>
       )}
 
-      {/* Image alignment toolbar — visible only when an image is selected */}
+      {/* Image contextual toolbar — visible only when an image is selected */}
       {imageIsSelected && (
-        <div className="border-b border-gray-300 bg-blue-50 px-2 py-1 flex items-center gap-1 text-xs text-blue-700">
-          <span className="mr-1 font-medium">Alinear imagen:</span>
-          <ToolbarButton
-            onClick={() => setAlignment('left')}
-            isActive={activeAlignment === 'left'}
-            title="Flotar a la izquierda (texto rodea)"
-          >
-            <AlignLeft className="w-4 h-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => setAlignment('center')}
-            isActive={activeAlignment === 'center'}
-            title="Centrar"
-          >
-            <AlignCenter className="w-4 h-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => setAlignment('right')}
-            isActive={activeAlignment === 'right'}
-            title="Flotar a la derecha (texto rodea)"
-          >
-            <AlignRight className="w-4 h-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => setAlignment('full')}
-            isActive={activeAlignment === 'full'}
-            title="Ancho completo"
-          >
-            <Maximize2 className="w-4 h-4" />
-          </ToolbarButton>
+        <div className="border-b border-gray-300 bg-blue-50 px-2 py-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          {/* Alignment */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-medium text-blue-700 mr-1">Alinear:</span>
+            <ToolbarButton
+              onClick={() => setAlignment('left')}
+              isActive={activeAlignment === 'left'}
+              title="Flotar a la izquierda (texto rodea)"
+            >
+              <AlignLeft className="w-4 h-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => setAlignment('center')}
+              isActive={activeAlignment === 'center'}
+              title="Centrar"
+            >
+              <AlignCenter className="w-4 h-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => setAlignment('right')}
+              isActive={activeAlignment === 'right'}
+              title="Flotar a la derecha (texto rodea)"
+            >
+              <AlignRight className="w-4 h-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => setAlignment('full')}
+              isActive={activeAlignment === 'full'}
+              title="Ancho completo"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </ToolbarButton>
+          </div>
+
+          {/* Size presets — hidden for 'full' since it always renders at 100% */}
+          {activeAlignment !== 'full' && (
+            <>
+              <div className="w-px h-5 bg-blue-200" />
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-medium text-blue-700 mr-1">Tamaño:</span>
+                {(['25%', '50%', '75%', '100%'] as const).map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => setImageWidth(w)}
+                    title={`Ancho ${w}`}
+                    className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                      activeWidth === w
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-blue-700 border border-blue-300 hover:bg-blue-100'
+                    }`}
+                  >
+                    {w}
+                  </button>
+                ))}
+                <span className="text-xs text-blue-500 ml-1">
+                  ·{' '}
+                  <span className="font-mono">{activeWidth}</span>
+                  <span className="text-blue-400"> (arrastra el borde →)</span>
+                </span>
+              </div>
+            </>
+          )}
         </div>
       )}
 

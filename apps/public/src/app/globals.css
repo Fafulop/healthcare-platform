@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /* Safelist classes used inside DB-stored blog article HTML (image alignment).
    Tailwind v4 can't scan runtime HTML strings, so we force-include them here. */

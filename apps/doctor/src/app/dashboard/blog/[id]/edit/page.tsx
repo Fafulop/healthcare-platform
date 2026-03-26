@@ -3,9 +3,10 @@
 import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Send, Loader2, AlertCircle, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Save, Send, Loader2, AlertCircle, AlertTriangle, Eye } from "lucide-react";
 import RichTextEditor from "@/components/blog/RichTextEditor";
 import ThumbnailUpload from "@/components/blog/ThumbnailUpload";
+import BlogPreviewModal from "@/components/blog/BlogPreviewModal";
 import { isValidSlug } from "@/lib/slug-generator";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -51,6 +52,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slugChanged, setSlugChanged] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Unwrap params
   useEffect(() => {
@@ -222,11 +224,32 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
             <ArrowLeft className="w-4 h-4" />
             Volver al Blog
           </button>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Editar Artículo</h1>
-          {article?.status === 'PUBLISHED' && (
-            <p className="text-sm text-green-600 mt-1">Este artículo está publicado actualmente</p>
-          )}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Editar Artículo</h1>
+              {article?.status === 'PUBLISHED' && (
+                <p className="text-sm text-green-600 mt-1">Este artículo está publicado actualmente</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPreview(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              Vista previa
+            </button>
           </div>
+          </div>
+
+          {showPreview && (
+            <BlogPreviewModal
+              title={formData.title}
+              thumbnail={formData.thumbnail}
+              content={formData.content}
+              onClose={() => setShowPreview(false)}
+            />
+          )}
 
         {/* SEO Warning for Slug Changes */}
         {slugChanged && article?.status === 'PUBLISHED' && (
@@ -407,7 +430,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ id: stri
 
               <button
                 type="button"
-                onClick={() => handleSubmit(article?.status === 'PUBLISHED' ? 'PUBLISHED' : 'PUBLISHED')}
+                onClick={() => handleSubmit('PUBLISHED')}
                 disabled={saving}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 order-1 sm:order-3"
               >
