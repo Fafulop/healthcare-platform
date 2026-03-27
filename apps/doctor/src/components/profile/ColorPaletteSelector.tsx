@@ -27,7 +27,7 @@ export default function ColorPaletteSelector({
     onSelect(selectedId);
   };
 
-  const palettes = Object.values(COLOR_PALETTES);
+  const palettes = ['professional', 'healthcare'].map((id) => COLOR_PALETTES[id]);
 
   return (
     <div className="space-y-4">
