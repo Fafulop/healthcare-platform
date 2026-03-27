@@ -132,8 +132,10 @@ export interface DoctorProfile {
   // Social/Professional Links (optional)
   social_links?: {
     linkedin?: string;
-    researchgate?: string;
     twitter?: string;
+    instagram?: string;
+    facebook?: string;
+    tiktok?: string;
   };
 
   // Color Palette (for personalized branding)
