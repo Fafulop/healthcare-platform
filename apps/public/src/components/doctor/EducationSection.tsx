@@ -2,7 +2,6 @@
 import React from 'react';
 import { GraduationCap } from 'lucide-react';
 import Card from '../ui/Card';
-import BlobDecoration from '../ui/BlobDecoration';
 import type { Education } from '@/types/doctor';
 
 interface EducationSectionProps {
@@ -14,10 +13,8 @@ export default function EducationSection({ educationItems, id }: EducationSectio
   if (!educationItems || educationItems.length === 0) return null;
 
   return (
-    <section id={id} className="relative py-16 bg-[var(--color-bg-yellow-light)] overflow-hidden">
-      <BlobDecoration variant="blob2" color="gradient-purple" position="bottom-right" size="lg" opacity={20} blur={false} />
-      <BlobDecoration variant="blob4" color="primary" position="top-left" size="md" opacity={16} blur={false} className="hidden md:block" />
-      <div className="relative max-w-5xl mx-auto px-4">
+    <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
+      <div className="max-w-5xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
           Educación y Formación

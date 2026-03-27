@@ -2,7 +2,6 @@
 'use client';
 import React, { useState } from 'react';
 import { Award } from 'lucide-react';
-import BlobDecoration from '../ui/BlobDecoration';
 
 const PREVIEW_LENGTH = 300;
 
@@ -22,10 +21,8 @@ export default function BiographySection({ doctorLastName, longBio, yearsExperie
     : '';
 
   return (
-    <section id={id} className="relative py-16 bg-[var(--color-bg-yellow-light)] overflow-hidden">
-      <BlobDecoration variant="blob3" color="gradient-blue" position="top-right" size="md" opacity={22} blur={false} className="hidden md:block" />
-      <BlobDecoration variant="blob1" color="secondary" position="bottom-left" size="lg" opacity={18} blur={false} />
-      <div className="relative max-w-4xl mx-auto px-4">
+    <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
+      <div className="max-w-4xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-6 text-center">
           Acerca de la Dra. {doctorLastName}
