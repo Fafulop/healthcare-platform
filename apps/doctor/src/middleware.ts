@@ -6,6 +6,7 @@ export async function middleware(request: NextRequest) {
   console.log(`[DOCTOR MIDDLEWARE] Path: ${request.nextUrl.pathname}`);
 
   const isLoginPage = request.nextUrl.pathname === "/login";
+  const isConsentPage = request.nextUrl.pathname === "/consent";
   const isAuthPage = request.nextUrl.pathname.startsWith("/api/auth");
   const isUploadThingRoute = request.nextUrl.pathname.startsWith("/api/uploadthing");
 
@@ -36,6 +37,14 @@ export async function middleware(request: NextRequest) {
     const signOutUrl = new URL("/api/auth/signout", request.url);
     signOutUrl.searchParams.set("callbackUrl", "/login");
     return NextResponse.redirect(signOutUrl);
+  }
+
+  // Redirect to consent page if doctor hasn't accepted privacy policy.
+  // Allow through if already on /consent (prevents redirect loop).
+  if (!session.user.privacyConsentAt && !isConsentPage) {
+    console.log(`[DOCTOR MIDDLEWARE] User ${session.user.email} has not accepted privacy policy — redirecting to /consent`);
+    const consentUrl = new URL("/consent", request.url);
+    return NextResponse.redirect(consentUrl);
   }
 
   console.log(`[DOCTOR MIDDLEWARE] Access granted to ${session.user.email}`);

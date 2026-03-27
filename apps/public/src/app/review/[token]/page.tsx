@@ -27,6 +27,7 @@ export default function ReviewPage() {
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
   const [patientName, setPatientName] = useState('');
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -60,12 +61,17 @@ export default function ReviewPage() {
     e.preventDefault();
 
     if (rating === 0) {
-      setError('Please select a rating');
+      setError('Por favor selecciona una calificación');
       return;
     }
 
     if (comment.trim().length < 10) {
-      setError('Please write at least 10 characters in your review');
+      setError('Por favor escribe al menos 10 caracteres en tu reseña');
+      return;
+    }
+
+    if (!privacyConsent) {
+      setError('Debes aceptar el Aviso de Privacidad para enviar tu opinión');
       return;
     }
 
@@ -282,6 +288,25 @@ export default function ReviewPage() {
               </p>
             </div>
 
+            {/* Aviso de Privacidad */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyConsent}
+                  onChange={(e) => setPrivacyConsent(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-600 rounded"
+                />
+                <span className="text-xs text-gray-600 leading-snug">
+                  Acepto el{' '}
+                  <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+                    Aviso de Privacidad
+                  </a>
+                  {' '}y consiento que mi opinión y nombre (si lo proporcioné) sean publicados en el perfil del médico. *
+                </span>
+              </label>
+            </div>
+
             {/* Error */}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -292,7 +317,7 @@ export default function ReviewPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !privacyConsent}
               className="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {submitting ? 'Enviando...' : 'Enviar opinión'}

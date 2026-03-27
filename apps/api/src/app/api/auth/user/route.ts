@@ -23,6 +23,7 @@ export async function POST(request: Request) {
         image: true,
         role: true,
         doctorId: true,
+        privacyConsentAt: true,
       },
     });
 
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
           image: true,
           role: true,
           doctorId: true,
+          privacyConsentAt: true,
         },
       });
 

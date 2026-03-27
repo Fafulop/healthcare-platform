@@ -29,6 +29,8 @@ model User {
   googleRefreshToken String?   @map("google_refresh_token")
   googleTokenExpiry  DateTime? @map("google_token_expiry")
 
+  privacyConsentAt  DateTime? @map("privacy_consent_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -90,6 +92,9 @@ model Doctor {
   // Social links (optional)
   socialLinkedin     String?   @map("social_linkedin")
   socialTwitter      String?   @map("social_twitter")
+  socialInstagram    String?   @map("social_instagram")
+  socialFacebook     String?   @map("social_facebook")
+  socialTiktok       String?   @map("social_tiktok")
 
   // Color palette for personalized branding
   colorPalette       String    @default("warm") @map("color_palette")

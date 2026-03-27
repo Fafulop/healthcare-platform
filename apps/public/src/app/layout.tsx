@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import Link from "next/link";
 import { Suspense } from "react";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import CookieBanner from "@/components/CookieBanner";
 import "./globals.css";
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || '';
@@ -52,7 +54,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif' }}>
+      <body className="antialiased" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif', paddingBottom: '3rem' }}>
         {/* Google Analytics 4 */}
         {GA_MEASUREMENT_ID && (
           <>
@@ -81,6 +83,19 @@ export default function RootLayout({
         </Suspense>
 
         {children}
+
+        <CookieBanner />
+
+        <footer style={{ borderTop: '1px solid #e5e7eb', padding: '1rem 1.5rem', textAlign: 'center' }}>
+          <p style={{ fontSize: '0.75rem', color: '#9ca3af', margin: 0 }}>
+            © {new Date().getFullYear()} tusalud.pro &nbsp;·&nbsp;{" "}
+            <Link href="/privacidad" style={{ color: '#6b7280', textDecoration: 'underline' }}>Aviso de Privacidad</Link>
+            &nbsp;·&nbsp;{" "}
+            <Link href="/terminos" style={{ color: '#6b7280', textDecoration: 'underline' }}>Términos de Servicio</Link>
+            &nbsp;·&nbsp;{" "}
+            <Link href="/eliminacion-de-datos" style={{ color: '#6b7280', textDecoration: 'underline' }}>Eliminación de Datos</Link>
+          </p>
+        </footer>
       </body>
     </html>
   );

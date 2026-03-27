@@ -63,6 +63,8 @@ export default function FormularioCitaPage() {
   const [formPayload, setFormPayload] = useState<FormPayload | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, any>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [privacyError, setPrivacyError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -142,6 +144,11 @@ export default function FormularioCitaPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validateFields()) return;
+    if (!privacyConsent) {
+      setPrivacyError('Debes aceptar el Aviso de Privacidad para enviar el formulario');
+      return;
+    }
+    setPrivacyError('');
 
     setSubmitting(true);
     setSubmitError('');
@@ -415,6 +422,29 @@ export default function FormularioCitaPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {fields.map((field) => renderField(field))}
 
+            {/* Aviso de Privacidad — obligatorio por LFPDPPP 2025 (datos sensibles de salud) */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+              <p className="text-xs text-gray-600 mb-2 font-medium">Consentimiento de tratamiento de datos personales</p>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyConsent}
+                  onChange={(e) => { setPrivacyConsent(e.target.checked); setPrivacyError(''); }}
+                  className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-600 rounded"
+                />
+                <span className="text-xs text-gray-600 leading-snug">
+                  He leído y acepto el{' '}
+                  <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+                    Aviso de Privacidad
+                  </a>
+                  . Consiento expresamente el tratamiento de mis datos personales de salud (incluyendo información médica, síntomas y antecedentes) para ser compartidos con el médico que me atenderá. *
+                </span>
+              </label>
+              {privacyError && (
+                <p className="text-xs text-red-600 mt-2">{privacyError}</p>
+              )}
+            </div>
+
             {submitError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                 {submitError}
@@ -423,7 +453,7 @@ export default function FormularioCitaPage() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !privacyConsent}
               className="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {submitting ? 'Enviando...' : 'Enviar formulario'}

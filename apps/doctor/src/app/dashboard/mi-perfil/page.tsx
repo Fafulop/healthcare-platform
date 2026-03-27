@@ -84,7 +84,7 @@ const DEFAULT_FORM_DATA = {
   }>,
   appointment_modes: ["in_person", "teleconsult"],
   next_available_date: new Date().toISOString().split("T")[0],
-  social_links: {} as { linkedin?: string; twitter?: string },
+  social_links: {} as { linkedin?: string; twitter?: string; instagram?: string; facebook?: string; tiktok?: string },
   color_palette: "professional",
 };
 
@@ -351,6 +351,9 @@ export default function MiPerfilPage() {
         social_links: {
           linkedin: d.socialLinkedin || "",
           twitter: d.socialTwitter || "",
+          instagram: d.socialInstagram || "",
+          facebook: d.socialFacebook || "",
+          tiktok: d.socialTiktok || "",
         },
         color_palette: d.colorPalette || "professional",
       });

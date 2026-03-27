@@ -105,6 +105,9 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
     social_links: {
       linkedin: doctor.socialLinkedin || undefined,
       twitter: doctor.socialTwitter || undefined,
+      instagram: doctor.socialInstagram || undefined,
+      facebook: doctor.socialFacebook || undefined,
+      tiktok: doctor.socialTiktok || undefined,
     },
 
     // Reviews (added from API)

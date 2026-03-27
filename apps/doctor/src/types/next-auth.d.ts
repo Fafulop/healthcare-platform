@@ -9,6 +9,7 @@ declare module "next-auth" {
       id: string;
       role: string;
       doctorId: string | null;
+      privacyConsentAt: string | null;
     } & DefaultSession["user"];
   }
 
@@ -29,5 +30,6 @@ declare module "next-auth/jwt" {
     userId?: string;
     role?: string;
     doctorId?: string | null;
+    privacyConsentAt?: string | null;
   }
 }

@@ -128,6 +128,54 @@ export default function FaqsSocialSection({ formData, updateField, setFormData }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Instagram</label>
+            <input
+              type="url"
+              value={formData.social_links?.instagram || ""}
+              onChange={(e) =>
+                updateField("social_links", {
+                  ...formData.social_links,
+                  instagram: e.target.value,
+                })
+              }
+              placeholder="https://instagram.com/tu-perfil"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Facebook</label>
+            <input
+              type="url"
+              value={formData.social_links?.facebook || ""}
+              onChange={(e) =>
+                updateField("social_links", {
+                  ...formData.social_links,
+                  facebook: e.target.value,
+                })
+              }
+              placeholder="https://facebook.com/tu-pagina"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">TikTok</label>
+            <input
+              type="url"
+              value={formData.social_links?.tiktok || ""}
+              onChange={(e) =>
+                updateField("social_links", {
+                  ...formData.social_links,
+                  tiktok: e.target.value,
+                })
+              }
+              placeholder="https://tiktok.com/@tu-perfil"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
         </div>
       </div>
     </div>

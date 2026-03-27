@@ -25,7 +25,14 @@ export const authConfig: NextAuthConfig = {
       return true;
     },
 
-    async jwt({ token, user, account, trigger }: any) {
+    async jwt({ token, user, account, trigger, session }: any) {
+      // If the client passed a privacyConsentAt directly via update(), apply it immediately
+      // without re-fetching from the DB (avoids race condition on consent save).
+      if (trigger === "update" && session?.privacyConsentAt !== undefined) {
+        token.privacyConsentAt = session.privacyConsentAt;
+        return token;
+      }
+
       // On sign in, on explicit update, or when doctorId is missing (user may
       // have been linked to a doctor profile after their initial login)
       if (user || trigger === "update" || !token.doctorId) {
@@ -49,6 +56,7 @@ export const authConfig: NextAuthConfig = {
             token.doctorId = dbUser.doctorId;
             token.name = dbUser.name;
             token.picture = dbUser.image;
+            token.privacyConsentAt = dbUser.privacyConsentAt ?? null;
           } else {
             console.error('[JWT CALLBACK] API response not OK:', response.status);
           }
@@ -87,6 +95,7 @@ export const authConfig: NextAuthConfig = {
         session.user.id = token.userId as string;
         session.user.role = token.role as string;
         session.user.doctorId = token.doctorId as string | null;
+        session.user.privacyConsentAt = token.privacyConsentAt as string | null;
       }
 
       return session;

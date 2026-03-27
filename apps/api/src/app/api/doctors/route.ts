@@ -116,6 +116,9 @@ export async function POST(request: Request) {
         clinicGeoLng: body.clinic_locations?.[0]?.geoLng ?? body.clinic_info?.geo?.lng,
         socialLinkedin: body.social_links?.linkedin,
         socialTwitter: body.social_links?.twitter,
+        socialInstagram: body.social_links?.instagram,
+        socialFacebook: body.social_links?.facebook,
+        socialTiktok: body.social_links?.tiktok,
         googleAdsId: body.google_ads_id || null,
         // Create related services
         services: {

@@ -12,7 +12,7 @@ export default function PrivacidadPage() {
         Política de Privacidad
       </h1>
       <p style={{ color: '#6b7280', marginBottom: '2.5rem', fontSize: '0.95rem' }}>
-        Última actualización: 19 de marzo de 2026
+        Última actualización: 27 de marzo de 2026
       </p>
 
       <section style={{ marginBottom: '2rem' }}>
@@ -35,13 +35,22 @@ export default function PrivacidadPage() {
       <section style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>2. Qué datos recopilamos</h2>
 
+        <p style={{ lineHeight: 1.7, marginBottom: '0.75rem', fontSize: '0.9rem', color: '#4b5563' }}>
+          Los datos marcados con <strong style={{ color: '#dc2626' }}>* dato sensible</strong> son datos personales
+          de salud que reciben protección especial bajo la LFPDPPP y requieren tu consentimiento expreso para
+          ser tratados.
+        </p>
+
         <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', marginTop: '1rem' }}>Pacientes</h3>
         <ul style={{ lineHeight: 1.8, paddingLeft: '1.5rem' }}>
           <li>Nombre completo</li>
           <li>Dirección de correo electrónico</li>
-          <li>Número de teléfono</li>
-          <li>Información de la cita (fecha, hora, médico, motivo de consulta)</li>
+          <li>Número de teléfono y WhatsApp</li>
+          <li>Fecha, hora y médico de la cita</li>
+          <li>Motivo de consulta <strong style={{ color: '#dc2626' }}>* dato sensible</strong></li>
+          <li>Información médica del formulario previo a la cita: síntomas, antecedentes, medicamentos, alergias, condiciones crónicas <strong style={{ color: '#dc2626' }}>* dato sensible</strong></li>
           <li>Código de confirmación de cita</li>
+          <li>Nombre y calificación de reseña (si el paciente decide dejarla)</li>
           <li>Datos de navegación (páginas visitadas, eventos de interacción) recopilados automáticamente</li>
         </ul>
 
@@ -51,7 +60,7 @@ export default function PrivacidadPage() {
           <li>Dirección y teléfono del consultorio</li>
           <li>Cuenta de Google (para autenticación vía Google OAuth)</li>
           <li>Token de acceso a Google Calendar (si el médico habilita la integración)</li>
-          <li>Expedientes clínicos de sus pacientes (gestionados por el propio médico dentro de la plataforma)</li>
+          <li>Expedientes clínicos de sus pacientes: diagnósticos, notas clínicas, recetas, tratamientos <strong style={{ color: '#dc2626' }}>* dato sensible</strong></li>
           <li>Datos de práctica: ventas, compras, cotizaciones, flujo de caja</li>
         </ul>
 
@@ -65,14 +74,30 @@ export default function PrivacidadPage() {
 
       <section style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>3. Para qué usamos tus datos</h2>
-        <ul style={{ lineHeight: 1.8, paddingLeft: '1.5rem' }}>
-          <li>Prestación del servicio: agendar y gestionar citas, enviar confirmaciones y recordatorios</li>
-          <li>Identificación y autenticación de médicos en la plataforma</li>
-          <li>Comunicación contigo sobre tu cita o cuenta</li>
-          <li>Mejora del servicio mediante análisis de uso (Google Analytics 4)</li>
-          <li>Atribución de tráfico publicitario para médicos que usan Google Ads a través de la plataforma</li>
+
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Finalidades que requieren tu consentimiento</h3>
+        <p style={{ lineHeight: 1.7, marginBottom: '0.5rem', fontSize: '0.9rem', color: '#4b5563' }}>
+          Para estas finalidades solicitamos tu consentimiento expreso en el formulario correspondiente.
+          Puedes retirar tu consentimiento en cualquier momento escribiendo a{' '}
+          <a href="mailto:privacidad@tusalud.pro" style={{ color: '#2563eb' }}>privacidad@tusalud.pro</a>.
+        </p>
+        <ul style={{ lineHeight: 1.8, paddingLeft: '1.5rem', marginBottom: '1.25rem' }}>
+          <li>Tratamiento de tu información médica: motivo de consulta, síntomas, antecedentes, medicamentos y alergias del formulario previo a la cita — para ser compartidos con el médico que te atenderá</li>
+          <li>Publicar tu reseña y nombre en el perfil del médico (si decides dejar una opinión)</li>
           <li>Sincronización de citas con Google Calendar (solo si el médico lo activa)</li>
-          <li>Cumplimiento de obligaciones legales</li>
+        </ul>
+
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Finalidades que no requieren consentimiento</h3>
+        <p style={{ lineHeight: 1.7, marginBottom: '0.5rem', fontSize: '0.9rem', color: '#4b5563' }}>
+          Estas finalidades se basan en obligación legal, ejecución del contrato de servicio o interés legítimo.
+        </p>
+        <ul style={{ lineHeight: 1.8, paddingLeft: '1.5rem' }}>
+          <li>Agendar y gestionar tu cita médica: nombre, correo, teléfono (ejecución del contrato de servicio)</li>
+          <li>Autenticación e identificación de médicos en la plataforma (ejecución del contrato)</li>
+          <li>Envío de confirmaciones y recordatorios de cita (ejecución del contrato)</li>
+          <li>Mejora del servicio mediante análisis de uso agregado — Google Analytics 4 (interés legítimo)</li>
+          <li>Atribución de tráfico publicitario para médicos con Google Ads activo (interés legítimo, contrato con el médico)</li>
+          <li>Cumplimiento de obligaciones legales: fiscales, clínicas y de seguridad</li>
         </ul>
       </section>
 
@@ -113,12 +138,31 @@ export default function PrivacidadPage() {
 
       <section style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>5. Retención de datos</h2>
+        <p style={{ lineHeight: 1.7, marginBottom: '0.75rem' }}>
+          Los plazos de retención varían según el tipo de dato:
+        </p>
+        <ul style={{ lineHeight: 1.8, paddingLeft: '1.5rem', marginBottom: '0.75rem' }}>
+          <li>
+            <strong>Datos de contacto de pacientes</strong> (nombre, correo, teléfono): se conservan mientras
+            la cita esté activa y hasta por <strong>2 años</strong> después de la última interacción, salvo
+            que la ley exija un plazo mayor.
+          </li>
+          <li>
+            <strong>Expedientes clínicos y datos de salud</strong>: conforme a la NOM-004-SSA3-2012, se
+            conservan por un mínimo de <strong>5 años</strong> a partir de la última consulta registrada,
+            o hasta 3 años después de la mayoría de edad si el paciente es menor. Este plazo prevalece
+            sobre cualquier solicitud de eliminación de datos clínicos.
+          </li>
+          <li>
+            <strong>Registros fiscales y de facturación</strong>: conforme a la legislación fiscal mexicana
+            (SAT), se conservan por el plazo legalmente requerido.
+          </li>
+        </ul>
         <p style={{ lineHeight: 1.7 }}>
-          Conservamos los datos personales de pacientes mientras la cita esté activa y hasta por 2 años
-          después de su última interacción con la plataforma, salvo que la ley exija un plazo mayor. Los
-          médicos pueden eliminar sus expedientes y datos en cualquier momento desde su panel. Ante una
-          solicitud de eliminación, procesamos la baja en un máximo de 30 días hábiles contados desde
-          la verificación de identidad del solicitante.
+          Los médicos pueden eliminar desde su panel los datos no clínicos de sus pacientes. Los expedientes
+          clínicos están sujetos al plazo mínimo de conservación indicado arriba. Ante una solicitud de
+          eliminación, procesamos la baja de los datos que no estén sujetos a retención legal en un máximo
+          de 30 días hábiles contados desde la verificación de identidad del solicitante.
         </p>
       </section>
 
@@ -126,14 +170,13 @@ export default function PrivacidadPage() {
         <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>6. Tus derechos</h2>
         <p style={{ lineHeight: 1.7, marginBottom: '0.75rem' }}>
           De acuerdo con la Ley Federal de Protección de Datos Personales en Posesión de los Particulares
-          (LFPDPPP) y, en lo aplicable, el RGPD, tienes derecho a:
+          (LFPDPPP, publicada el 20 de marzo de 2025), tienes derecho a:
         </p>
         <ul style={{ lineHeight: 1.8, paddingLeft: '1.5rem' }}>
-          <li><strong>Acceso:</strong> conocer qué datos tenemos sobre ti</li>
-          <li><strong>Rectificación:</strong> corregir datos inexactos</li>
+          <li><strong>Acceso:</strong> conocer qué datos tenemos sobre ti y cómo los usamos</li>
+          <li><strong>Rectificación:</strong> corregir datos inexactos o incompletos</li>
           <li><strong>Cancelación:</strong> solicitar la eliminación de tus datos</li>
-          <li><strong>Oposición:</strong> oponerte al tratamiento de tus datos</li>
-          <li><strong>Portabilidad:</strong> recibir tus datos en formato estructurado</li>
+          <li><strong>Oposición:</strong> oponerte al uso de tus datos para finalidades específicas</li>
         </ul>
         <p style={{ marginTop: '0.75rem', lineHeight: 1.7 }}>
           Para ejercer cualquiera de estos derechos, escríbenos a{" "}
@@ -156,7 +199,7 @@ export default function PrivacidadPage() {
         </p>
       </section>
 
-      <section style={{ marginBottom: '2rem' }}>
+      <section id="cookies" style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>8. Cookies y rastreo</h2>
         <p style={{ lineHeight: 1.7 }}>
           Utilizamos Google Analytics 4 para análisis de tráfico. GA4 puede usar cookies de primera parte.

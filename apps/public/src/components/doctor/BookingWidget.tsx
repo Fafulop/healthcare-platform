@@ -83,6 +83,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
   const [confirmationCode, setConfirmationCode] = useState("");
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   useEffect(() => {
     fetchAvailability();
@@ -163,6 +164,10 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
       setBookingError("Por favor selecciona la modalidad (Presencial / Telemedicina)");
       return;
     }
+    if (!privacyConsent) {
+      setBookingError("Debes aceptar el Aviso de Privacidad para continuar");
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -211,6 +216,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     setConfirmationCode("");
     setSelectedServiceId(null);
     setIsFirstTime(true);
+    setPrivacyConsent(false);
     setAppointmentMode('PRESENCIAL');
     fetchAvailability(); // Refresh availability
   };
@@ -567,6 +573,25 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
               />
             </div>
 
+            {/* Aviso de Privacidad */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyConsent}
+                  onChange={(e) => { setPrivacyConsent(e.target.checked); setBookingError(null); }}
+                  className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-600 rounded"
+                />
+                <span className="text-xs text-gray-600 leading-snug">
+                  He leído y acepto el{" "}
+                  <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+                    Aviso de Privacidad
+                  </a>
+                  {" "}y consiento el tratamiento de mis datos personales para gestionar mi cita médica. *
+                </span>
+              </label>
+            </div>
+
             {bookingError && (
               <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                 {bookingError}
@@ -575,7 +600,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
             <button
               type="submit"
-              disabled={isSubmitting || loadingServices || (activeServices.length > 0 && !selectedServiceId) || isFirstTime === null || (appointmentModes.length > 0 && appointmentMode === null)}
+              disabled={isSubmitting || loadingServices || (activeServices.length > 0 && !selectedServiceId) || isFirstTime === null || (appointmentModes.length > 0 && appointmentMode === null) || !privacyConsent}
               onClick={() => setBookingError(null)}
               className="w-full bg-[var(--color-secondary)] hover:bg-[var(--color-secondary-hover)] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
             >
