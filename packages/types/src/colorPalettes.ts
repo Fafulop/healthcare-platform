@@ -68,27 +68,6 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
     },
   },
 
-  sunshine: {
-    id: 'sunshine',
-    name: 'Cálido Amarillo',
-    description: 'Amarillo cálido suave con acentos dorados - Energía positiva',
-    type: 'single',
-    colors: {
-      primary: '#F59E0B',           // Warm amber/gold
-      primaryLight: '#FEF3C7',      // Very light yellow
-      primaryDark: '#D97706',       // Deep amber
-      secondary: '#CA8A04',         // Rich gold
-      secondaryLight: '#FCD34D',    // Light gold
-      secondaryDark: '#92400E',     // Dark brown-gold
-      accent: '#0891B2',            // Teal accent for contrast
-      bgYellowLight: '#FFFBEB',     // Creamy light yellow
-      bgGreenLight: '#FEF9C3',      // Pale yellow tint
-      success: '#10B981',
-      warning: '#F59E0B',
-      error: '#EF4444',
-    },
-  },
-
 };
 
 // Helper function to get palette by ID
