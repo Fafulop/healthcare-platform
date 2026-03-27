@@ -114,7 +114,7 @@ export default function FaqsSocialSection({ formData, updateField, setFormData }
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Twitter / X</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">X (Twitter)</label>
             <input
               type="url"
               value={formData.social_links?.twitter || ""}
@@ -124,7 +124,7 @@ export default function FaqsSocialSection({ formData, updateField, setFormData }
                   twitter: e.target.value,
                 })
               }
-              placeholder="https://twitter.com/tu-perfil"
+              placeholder="https://x.com/tu-perfil"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
