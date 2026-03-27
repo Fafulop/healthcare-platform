@@ -20,9 +20,9 @@
   --color-neutral-light: #F9FAFB;
   --color-neutral-white: #FFFFFF;
 
-  /* Background Colors - Warm cream tones */
-  --color-bg-green-light: #F2F0EB;
-  --color-bg-yellow-light: #FAF8F5;
+  /* Background Colors - Subtle tints */
+  --color-bg-green-light: #F8FAFC;
+  --color-bg-yellow-light: #FAFAF9;
 
   /* Status Colors */
   --color-success: #10B981;
@@ -30,7 +30,7 @@
   --color-error: #E54545;
 
   /* Background and Foreground */
-  --background: #FAF8F5;
+  --background: #FFFFFF;
   --foreground: #1F2937;
 
   /* Typography - Font Families */
@@ -58,8 +58,8 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  --color-bg-green-light: #F2F0EB;
-  --color-bg-yellow-light: #FAF8F5;
+  --color-bg-green-light: #F8FAFC;
+  --color-bg-yellow-light: #FAFAF9;
 
   /* Spacing Scale - 8px base unit */
   --spacing-xs: 4px;

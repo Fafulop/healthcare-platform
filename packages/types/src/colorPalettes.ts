@@ -39,8 +39,8 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
       secondaryLight: '#3B82F6',    // Medium blue
       secondaryDark: '#1E293B',     // Almost black blue
       accent: '#F59E0B',            // Warm amber
-      bgYellowLight: '#FAF8F5',     // Warm cream
-      bgGreenLight: '#F2F0EB',      // Slightly deeper cream
+      bgYellowLight: '#FAFAF9',     // Warm white
+      bgGreenLight: '#F8FAFC',      // Subtle blue-gray tint
       success: '#10B981',
       warning: '#F59E0B',
       error: '#EF4444',
@@ -60,8 +60,8 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
       secondaryLight: '#14B8A6',    // Bright teal
       secondaryDark: '#134E4A',     // Forest teal
       accent: '#D97706',            // Warm amber
-      bgYellowLight: '#FAF8F5',     // Warm cream (matches professional)
-      bgGreenLight: '#E6F2EF',      // Light tint of blob green (#0F766E)
+      bgYellowLight: '#F9FAFB',     // Warm gray background
+      bgGreenLight: '#F1F7F6',      // Very light tint of secondary #0F766E (~6% on white)
       success: '#10B981',
       warning: '#F59E0B',
       error: '#EF4444',
