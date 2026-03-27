@@ -39,8 +39,8 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
       secondaryLight: '#3B82F6',    // Medium blue
       secondaryDark: '#1E293B',     // Almost black blue
       accent: '#F59E0B',            // Warm amber
-      bgYellowLight: '#FAFAF9',     // Warm white
-      bgGreenLight: '#F8FAFC',      // Subtle blue-gray tint
+      bgYellowLight: '#FAF8F5',     // Warm cream
+      bgGreenLight: '#F2F0EB',      // Slightly deeper cream
       success: '#10B981',
       warning: '#F59E0B',
       error: '#EF4444',
@@ -60,29 +60,8 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
       secondaryLight: '#14B8A6',    // Bright teal
       secondaryDark: '#134E4A',     // Forest teal
       accent: '#D97706',            // Warm amber
-      bgYellowLight: '#F9FAFB',     // Warm gray background
-      bgGreenLight: '#ECFDF5',      // Subtle teal tint
-      success: '#10B981',
-      warning: '#F59E0B',
-      error: '#EF4444',
-    },
-  },
-
-  minimal: {
-    id: 'minimal',
-    name: 'Minimalista',
-    description: 'Tonos grises cálidos con acentos sutiles - Estilo Notion',
-    type: 'single',
-    colors: {
-      primary: '#64748B',           // Slate
-      primaryLight: '#F1F5F9',      // Almost white
-      primaryDark: '#475569',       // Medium slate
-      secondary: '#334155',         // Dark slate
-      secondaryLight: '#64748B',    // Medium slate
-      secondaryDark: '#1E293B',     // Almost black
-      accent: '#F59E0B',            // Warm amber
-      bgYellowLight: '#FAFAF9',     // Warm white
-      bgGreenLight: '#F8FAFC',      // Cool white
+      bgYellowLight: '#FAF8F5',     // Warm cream (matches professional)
+      bgGreenLight: '#E6F2EF',      // Light tint of blob green (#0F766E)
       success: '#10B981',
       warning: '#F59E0B',
       error: '#EF4444',
@@ -110,26 +89,6 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
     },
   },
 
-  rose: {
-    id: 'rose',
-    name: 'Rosa Suave',
-    description: 'Rosa suave profesional con tonos mauve - Calidez y confianza',
-    type: 'single',
-    colors: {
-      primary: '#EC4899',           // Soft rose pink
-      primaryLight: '#FCE7F3',      // Very light pink
-      primaryDark: '#DB2777',       // Deep pink
-      secondary: '#BE185D',         // Dark rose
-      secondaryLight: '#F472B6',    // Light pink
-      secondaryDark: '#831843',     // Deep burgundy
-      accent: '#D97706',            // Gold accent for warmth
-      bgYellowLight: '#FFF5F7',     // Blush white
-      bgGreenLight: '#FDF2F8',      // Pale pink tint
-      success: '#10B981',
-      warning: '#F59E0B',
-      error: '#EF4444',
-    },
-  },
 };
 
 // Helper function to get palette by ID

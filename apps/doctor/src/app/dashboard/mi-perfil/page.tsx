@@ -85,7 +85,7 @@ const DEFAULT_FORM_DATA = {
   appointment_modes: ["in_person", "teleconsult"],
   next_available_date: new Date().toISOString().split("T")[0],
   social_links: {} as { linkedin?: string; twitter?: string },
-  color_palette: "warm",
+  color_palette: "professional",
 };
 
 export default function MiPerfilPage() {
@@ -352,7 +352,7 @@ export default function MiPerfilPage() {
           linkedin: d.socialLinkedin || "",
           twitter: d.socialTwitter || "",
         },
-        color_palette: d.colorPalette || "warm",
+        color_palette: d.colorPalette || "professional",
       });
 
       // Load reviews data

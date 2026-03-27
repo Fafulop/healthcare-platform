@@ -271,7 +271,7 @@ export default function DoctorsListPage() {
           linkedin: doctor.socialLinkedin,
           twitter: doctor.socialTwitter,
         },
-        color_palette: doctor.colorPalette || "warm",
+        color_palette: doctor.colorPalette || "professional",
         google_ads_id: trimmed || null,
       };
 
@@ -437,7 +437,7 @@ export default function DoctorsListPage() {
                           className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition"
                         >
                           <div className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: '#F59E0B' }} />
-                          {doctor.colorPalette || 'warm'}
+                          {doctor.colorPalette || 'professional'}
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -617,7 +617,7 @@ export default function DoctorsListPage() {
                   </div>
                 ) : (
                   <ColorPaletteSelector
-                    currentPaletteId={selectedDoctor.colorPalette || 'warm'}
+                    currentPaletteId={selectedDoctor.colorPalette || 'professional'}
                     onSelect={handleUpdatePalette}
                     isModal={true}
                   />

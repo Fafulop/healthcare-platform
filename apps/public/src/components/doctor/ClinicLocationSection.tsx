@@ -3,6 +3,7 @@
 import React from 'react';
 import { MapPin, Clock, ExternalLink } from 'lucide-react';
 import Card from '../ui/Card';
+import BlobDecoration from '../ui/BlobDecoration';
 import { trackMapClick } from '@/lib/analytics';
 import type { ClinicInfo, ClinicLocationItem } from '@/types/doctor';
 
@@ -59,8 +60,10 @@ export default function ClinicLocationSection({ doctorSlug, clinicInfo, clinicLo
   };
 
   return (
-    <section id={id} className="py-16 bg-[var(--color-bg-green-light)]">
-      <div className="max-w-5xl mx-auto px-4">
+    <section id={id} className="relative py-16 bg-[var(--color-bg-green-light)] overflow-hidden">
+      <BlobDecoration variant="blob4" color="gradient-purple" position="top-left" size="lg" opacity={20} blur={false} />
+      <BlobDecoration variant="blob2" color="primary" position="bottom-right" size="md" opacity={18} blur={false} className="hidden md:block" />
+      <div className="relative max-w-5xl mx-auto px-4">
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
           Ubicación de la Clínica
         </h2>

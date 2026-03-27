@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, X, Maximize2 } from 'lucide-react';
+import BlobDecoration from '../ui/BlobDecoration';
 import type { Credential } from '@/types/doctor';
 
 interface CredentialsSectionProps {
@@ -31,8 +32,10 @@ export default function CredentialsSection({ certificates, id }: CredentialsSect
   const currentCertificate = certificates[currentIndex];
 
   return (
-    <section id={id} className="py-16 bg-[var(--color-bg-green-light)]">
-      <div className="max-w-5xl mx-auto px-4">
+    <section id={id} className="relative py-16 bg-[var(--color-bg-green-light)] overflow-hidden">
+      <BlobDecoration variant="blob1" color="gradient-blue" position="top-right" size="lg" opacity={24} blur={false} />
+      <BlobDecoration variant="blob3" color="accent" position="bottom-left" size="md" opacity={20} blur={false} />
+      <div className="relative max-w-5xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
           Certificaciones y Diplomas

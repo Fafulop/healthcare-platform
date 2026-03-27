@@ -271,7 +271,7 @@ export async function PUT(
           clinicGeoLng: defaultLoc?.geoLng ?? body.clinic_info?.geo?.lng ?? existingDoctor.clinicGeoLng,
           socialLinkedin: body.social_links?.linkedin,
           socialTwitter: body.social_links?.twitter,
-          colorPalette: body.color_palette || 'warm',
+          colorPalette: body.color_palette || 'professional',
           googleAdsId: body.google_ads_id !== undefined ? (body.google_ads_id || null) : undefined,
           // Create new related services
           services: {

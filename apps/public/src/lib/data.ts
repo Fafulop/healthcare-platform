@@ -112,7 +112,7 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
     reviewStats: doctor.reviewStats || { averageRating: 0, reviewCount: 0 },
 
     // Color Palette (for personalized branding)
-    color_palette: doctor.colorPalette || 'warm',
+    color_palette: doctor.colorPalette || 'professional',
 
     // Google Ads - Per-doctor Ads account ID
     google_ads_id: doctor.googleAdsId || undefined,

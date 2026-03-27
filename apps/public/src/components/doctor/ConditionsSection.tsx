@@ -1,6 +1,7 @@
 // Conditions Treated Section - High-value SEO keywords
 import React from 'react';
 import { CheckCircle } from 'lucide-react';
+import BlobDecoration from '../ui/BlobDecoration';
 
 interface ConditionsSectionProps {
   conditions: string[];
@@ -14,8 +15,10 @@ export default function ConditionsSection({ conditions, procedures, id }: Condit
   }
 
   return (
-    <section id={id} className="py-16 bg-[var(--color-bg-green-light)]">
-      <div className="max-w-7xl mx-auto px-4">
+    <section id={id} className="relative py-16 bg-[var(--color-bg-green-light)] overflow-hidden">
+      <BlobDecoration variant="blob1" color="primary" position="top-right" size="lg" opacity={20} blur={false} />
+      <BlobDecoration variant="blob3" color="accent" position="bottom-left" size="md" opacity={18} blur={false} />
+      <div className="relative max-w-7xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-10 text-center">
           Condiciones y Procedimientos

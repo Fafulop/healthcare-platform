@@ -9,7 +9,7 @@ interface ColorPaletteProviderProps {
 }
 
 export default function ColorPaletteProvider({
-  paletteId = 'warm',
+  paletteId = 'professional',
   children
 }: ColorPaletteProviderProps) {
   const palette = getPaletteById(paletteId);

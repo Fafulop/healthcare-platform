@@ -135,7 +135,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
     appointment_modes: ["in_person", "teleconsult"],
     next_available_date: new Date().toISOString().split("T")[0],
     social_links: {},
-    color_palette: "warm",
+    color_palette: "professional",
   });
 
   // Fetch existing doctor data on mount
@@ -255,7 +255,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
           linkedin: doctor.socialLinkedin,
           twitter: doctor.socialTwitter,
         },
-        color_palette: doctor.colorPalette || "warm",
+        color_palette: doctor.colorPalette || "professional",
       });
 
       setIsLoading(false);
