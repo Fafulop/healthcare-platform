@@ -50,6 +50,40 @@ export async function sendTelegramMessage(chatId: string, text: string): Promise
   }
 }
 
+export interface FormSubmittedDetails {
+  patientName: string;
+  date: string | null;   // ISO date string YYYY-MM-DD, nullable for freeform bookings
+  startTime: string | null;
+}
+
+/**
+ * Send a form-submitted notification to the doctor
+ */
+export async function sendFormSubmittedTelegram(
+  chatId: string,
+  details: FormSubmittedDetails
+): Promise<boolean> {
+  const dateLine = details.date
+    ? `\nFecha: ${new Date(details.date + 'T12:00:00').toLocaleDateString('es-MX', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'America/Mexico_City',
+      })}`
+    : '';
+  const timeLine = details.startTime ? `\nHora: ${details.startTime}` : '';
+
+  const message =
+    `📋 <b>Formulario recibido</b>\n` +
+    `\nPaciente: ${details.patientName}` +
+    dateLine +
+    timeLine +
+    `\n\nEl paciente llenó su formulario pre-consulta.`;
+
+  return sendTelegramMessage(chatId, message);
+}
+
 /**
  * Send a new pending booking notification to the doctor
  */

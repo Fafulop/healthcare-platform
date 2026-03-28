@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import { isTelegramConfigured, sendFormSubmittedTelegram } from '@/lib/telegram';
 
 // Returns today's date as YYYY-MM-DD in Mexico City timezone.
 function todayMexicoCity(): string {
@@ -154,14 +155,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch form link with booking slot for expiry check
+    // Fetch form link with booking slot for expiry check + doctor for Telegram
     const formLink = await prisma.appointmentFormLink.findUnique({
       where: { token },
       include: {
+        doctor: { select: { telegramChatId: true } },
         booking: {
           select: {
             date: true,
-            slot: { select: { date: true } },
+            startTime: true,
+            slot: { select: { date: true, startTime: true } },
           },
         },
       },
@@ -198,6 +201,15 @@ export async function POST(request: Request) {
         submittedAt: new Date(),
       },
     });
+
+    // Notify doctor via Telegram (fire-and-forget)
+    if (isTelegramConfigured() && formLink.doctor?.telegramChatId) {
+      sendFormSubmittedTelegram(formLink.doctor.telegramChatId, {
+        patientName: formLink.patientName,
+        date: appointmentDate,
+        startTime: resolveAppointmentTime(formLink.booking.slot, formLink.booking.startTime),
+      }).catch((err) => console.error('Telegram form-submitted notification failed:', err));
+    }
 
     return NextResponse.json(
       { success: true, message: '¡Formulario enviado exitosamente!' },
