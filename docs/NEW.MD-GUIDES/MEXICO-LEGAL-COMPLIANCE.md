@@ -361,12 +361,14 @@ La inscripción en registros de proveedores gubernamentales es **permanente mien
 - Contenido: © año · Aviso de Privacidad · Términos de Servicio · Eliminación de Datos
 
 **Cookie Banner — `apps/public/src/components/CookieBanner.tsx`:**
+- ⏸ **Componente construido pero deshabilitado** — comentado en `apps/public/src/app/layout.tsx`
+- Para re-habilitar: descomentar `<CookieBanner />` y añadir `import CookieBanner from "@/components/CookieBanner"` en `layout.tsx`
 - Banner fijo en la parte inferior, aparece en primera visita
 - Texto: "Este sitio utiliza cookies de Google Analytics para análisis de tráfico agregado." + link a `/privacidad#cookies`
 - Dismissable con botón "Entendido" — guarda `cookie-notice-v1` en localStorage
 - Solo muestra en el cliente (useEffect) — sin riesgo de hydration mismatch
 - Bump a `cookie-notice-v2` si la política cambia y se necesita re-mostrar a usuarios existentes
-- `paddingBottom: '3rem'` en `<body>` evita que el banner tape el footer
+- `paddingBottom: '3rem'` en `<body>` ya está activo — no genera problema con el banner desactivado
 
 ---
 
@@ -424,7 +426,7 @@ Flujo: pantalla de consentimiento post-login con timestamp en DB. Se ejecuta una
 | Link `/privacidad` en footer (todas las páginas) | ✅ Hecho | — | Footer en root `layout.tsx` — usa `Link` de Next.js |
 | Corregir retención: 2 años → 5 años (datos clínicos) | ✅ Hecho | — | `/privacidad` sección 5 — 3 categorías diferenciadas, contradicción con eliminación resuelta |
 | Actualizar `/privacidad` para LFPDPPP 2025 | ✅ Hecho | — | Datos sensibles marcados, finalidades divididas, RGPD removido, derechos ARCO corregidos (portabilidad no es LFPDPPP) |
-| Política de cookies explícita (GA4 activo) | ✅ Hecho | — | Banner `CookieBanner.tsx` — informativo, dismissable, clave `cookie-notice-v1` en localStorage |
+| Política de cookies explícita (GA4 activo) | ⏸ Deshabilitado | 🟠 **Medio** | Componente `CookieBanner.tsx` construido pero desactivado — re-habilitar en `layout.tsx` cuando se decida |
 | Designar Oficial de Privacidad formalmente | ⬜ Pendiente | 🟡 **Medio** | LFPDPPP 2025 — obligatorio |
 | Revisar GIIS vigentes en dgis.salud.gob.mx | ⬜ Pendiente | 🟡 **Medio** | Determina si NOM-024 aplica |
 | Revisión NOM-024 para módulo recetas | ⬜ Pendiente | 🟡 **Medio** | Si alguna GIIS aplica |

@@ -3,7 +3,6 @@ import Script from "next/script";
 import Link from "next/link";
 import { Suspense } from "react";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
-import CookieBanner from "@/components/CookieBanner";
 import "./globals.css";
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || '';
@@ -84,7 +83,7 @@ export default function RootLayout({
 
         {children}
 
-        <CookieBanner />
+        {/* <CookieBanner /> — disabled, re-enable by importing CookieBanner from "@/components/CookieBanner" */}
 
         <footer style={{ borderTop: '1px solid #e5e7eb', padding: '1rem 1.5rem', textAlign: 'center' }}>
           <p style={{ fontSize: '0.75rem', color: '#9ca3af', margin: 0 }}>
