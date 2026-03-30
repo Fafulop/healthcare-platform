@@ -98,12 +98,12 @@ export function SuccessStep({
       </div>
 
       {isRescheduled && (
-        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-left mb-4">
-          <Mail className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg text-left mb-4">
+          <Mail className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-amber-800">Envía el correo de confirmación</p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              El paciente aún tiene el correo de la cita anterior. Usa el botón <strong>Correo</strong> en la nueva cita para notificarle la nueva fecha y horario.
+            <p className="text-sm font-semibold text-green-800">Correo enviado automáticamente</p>
+            <p className="text-xs text-green-700 mt-0.5">
+              Se notificó al paciente la nueva fecha y horario de su cita.
             </p>
           </div>
         </div>

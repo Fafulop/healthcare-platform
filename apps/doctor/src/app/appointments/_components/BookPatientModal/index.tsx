@@ -38,7 +38,7 @@ interface Props {
   onClose: () => void;
   doctorId: string;
   clinicLocations: ClinicLocation[];
-  onSuccess: () => void;
+  onSuccess: (newBookingId: string) => void;
   preSelectedSlot?: AppointmentSlot | null;
   rescheduleBooking?: Booking | null;
 }
@@ -276,7 +276,7 @@ export function BookPatientModal({
         setConfirmationCode(data.data.confirmationCode);
         setWasRescheduled(!!rescheduleBooking);
         setStep("success");
-        onSuccess();
+        onSuccess(data.data.id);
         return;
       }
 
@@ -307,7 +307,7 @@ export function BookPatientModal({
       setConfirmationCode(bookingData.data.confirmationCode);
       setWasRescheduled(!!rescheduleBooking);
       setStep("success");
-      onSuccess();
+      onSuccess(bookingData.data.id);
     } catch {
       setError("Error de conexión. Por favor intenta de nuevo.");
     } finally {

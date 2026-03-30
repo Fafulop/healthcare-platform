@@ -246,6 +246,7 @@ export async function POST(request: Request) {
         success: true,
         message: 'Cita creada y confirmada exitosamente',
         data: {
+          id: booking.id,
           confirmationCode,
           bookingId: booking.id,
           slotId: slot.id,

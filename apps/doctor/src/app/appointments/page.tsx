@@ -415,7 +415,7 @@ export default function AppointmentsV2Page() {
         onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); }}
         doctorId={doctorId}
         clinicLocations={slotsHook.clinicLocations}
-        onSuccess={async () => {
+        onSuccess={async (newBookingId: string) => {
           const toCancel = rescheduleBookingRef.current;
           if (toCancel) {
             rescheduleBookingRef.current = null;
@@ -429,6 +429,12 @@ export default function AppointmentsV2Page() {
               if (!data.success) toast.error("No se pudo cancelar la cita anterior automáticamente");
             } catch {
               toast.error("No se pudo cancelar la cita anterior automáticamente");
+            }
+            // Auto-send rescheduled confirmation email to patient
+            try {
+              await bookingsHook.sendConfirmationEmail(newBookingId);
+            } catch {
+              toast.error("No se pudo enviar el correo de reagendación");
             }
           }
           await onRefresh();
