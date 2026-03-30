@@ -69,6 +69,44 @@ function createRawMessage(
 
 // ─── Send ─────────────────────────────────────────────────────────────────────
 
+export interface AppointmentReminderEmailData {
+  patientName: string;
+  patientEmail: string;
+  doctorName: string;
+  specialty: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  serviceName?: string | null;
+  appointmentMode?: string | null;
+  confirmationCode: string;
+  clinicName?: string;
+  clinicAddress?: string;
+  clinicPhone?: string;
+}
+
+export async function sendAppointmentReminderEmail(
+  data: AppointmentReminderEmailData,
+  accessToken: string,
+  refreshToken: string | null,
+  fromName: string,
+  fromEmail: string
+): Promise<void> {
+  const auth = buildAuthedClient(accessToken, refreshToken);
+  const gmail = google.gmail({ version: 'v1', auth });
+
+  const subject = `Recordatorio: Tu cita es hoy a las ${data.startTime} hrs – ${data.doctorName}`;
+  const htmlBody = buildReminderEmailHtml(data);
+  const from = `${fromName} <${fromEmail}>`;
+
+  const raw = createRawMessage(from, data.patientEmail, subject, htmlBody);
+
+  await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: { raw },
+  });
+}
+
 export async function sendAppointmentConfirmationEmail(
   data: AppointmentEmailData,
   accessToken: string,
@@ -243,6 +281,113 @@ function buildAppointmentEmailHtml(data: AppointmentEmailData): string {
         </tr>
 
         ${notesSection}
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8faff;padding:24px 40px;border-top:1px solid #e5ecf5;text-align:center;">
+            <p style="margin:0;color:#888;font-size:13px;">Si tienes alguna pregunta, responde este correo o contáctanos directamente.</p>
+            <p style="margin:10px 0 0;color:#bbb;font-size:11px;">tusalud.pro · Plataforma de salud digital en México</p>
+            <p style="margin:8px 0 0;font-size:11px;color:#bbb;">Tus datos son tratados conforme a nuestro <a href="https://tusalud.pro/privacidad" style="color:#93c5fd;text-decoration:none;">Aviso de Privacidad</a> · <a href="mailto:privacidad@tusalud.pro" style="color:#93c5fd;text-decoration:none;">privacidad@tusalud.pro</a></p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+}
+
+function buildReminderEmailHtml(data: AppointmentReminderEmailData): string {
+  const formattedDate = formatEmailDate(data.date);
+  const modeLabel = data.appointmentMode === 'TELEMEDICINA' ? 'Telemedicina (en línea)' : 'Presencial';
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px;">
+  <tr>
+    <td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#0369a1,#0284c7);padding:32px 40px;text-align:center;">
+            <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">tusalud.pro</p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">⏰ Recordatorio de Cita</h1>
+          </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+          <td style="padding:32px 40px 20px;">
+            <p style="margin:0 0 8px;color:#1a1a2e;font-size:16px;">Hola <strong>${escapeHtml(data.patientName)}</strong>,</p>
+            <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">Te recordamos que tienes una cita médica <strong>hoy en aproximadamente 2 horas</strong>. Te esperamos.</p>
+          </td>
+        </tr>
+
+        <!-- Details card -->
+        <tr>
+          <td style="padding:0 40px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f8ff;border:1px solid #dce8ff;border-radius:10px;overflow:hidden;">
+
+              <!-- Date & time -->
+              <tr>
+                <td style="padding:20px 24px;border-bottom:1px solid #dce8ff;background:#eef3ff;">
+                  <p style="margin:0 0 3px;color:#0284c7;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">Fecha y hora</p>
+                  <p style="margin:0;color:#1a1a2e;font-size:18px;font-weight:700;text-transform:capitalize;">${formattedDate}</p>
+                  <p style="margin:4px 0 0;color:#555;font-size:14px;">${escapeHtml(data.startTime)} – ${escapeHtml(data.endTime)} hrs</p>
+                </td>
+              </tr>
+
+              <!-- Doctor -->
+              <tr>
+                <td style="padding:14px 24px;border-bottom:1px solid #dce8ff;">
+                  <p style="margin:0 0 3px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Médico</p>
+                  <p style="margin:0;color:#1a1a2e;font-size:14px;font-weight:600;">${escapeHtml(data.doctorName)}</p>
+                  ${data.specialty ? `<p style="margin:3px 0 0;color:#666;font-size:13px;">${escapeHtml(data.specialty)}</p>` : ''}
+                </td>
+              </tr>
+
+              ${data.serviceName ? `
+              <tr>
+                <td style="padding:14px 24px;border-bottom:1px solid #dce8ff;">
+                  <p style="margin:0 0 3px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Servicio</p>
+                  <p style="margin:0;color:#1a1a2e;font-size:14px;">${escapeHtml(data.serviceName)}</p>
+                </td>
+              </tr>` : ''}
+
+              ${data.clinicAddress ? `
+              <tr>
+                <td style="padding:14px 24px;border-bottom:1px solid #dce8ff;">
+                  <p style="margin:0 0 3px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Consultorio</p>
+                  ${data.clinicName ? `<p style="margin:0;color:#1a1a2e;font-size:14px;font-weight:500;">${escapeHtml(data.clinicName)}</p>` : ''}
+                  <p style="margin:${data.clinicName ? '3px' : '0'} 0 0;color:#555;font-size:13px;">${escapeHtml(data.clinicAddress)}</p>
+                  ${data.clinicPhone ? `<p style="margin:3px 0 0;color:#555;font-size:13px;">${escapeHtml(data.clinicPhone)}</p>` : ''}
+                </td>
+              </tr>` : ''}
+
+              <!-- Mode -->
+              <tr>
+                <td style="padding:14px 24px;border-bottom:1px solid #dce8ff;">
+                  <p style="margin:0 0 3px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Modalidad</p>
+                  <p style="margin:0;color:#1a1a2e;font-size:14px;">${modeLabel}</p>
+                </td>
+              </tr>
+
+              <!-- Confirmation code -->
+              <tr>
+                <td style="padding:16px 24px;">
+                  <p style="margin:0 0 6px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Código de confirmación</p>
+                  <p style="margin:0;display:inline-block;background:#0284c7;color:#fff;font-size:18px;font-weight:700;letter-spacing:0.15em;padding:8px 16px;border-radius:6px;">${escapeHtml(data.confirmationCode)}</p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
 
         <!-- Footer -->
         <tr>

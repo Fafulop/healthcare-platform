@@ -119,6 +119,9 @@ model Doctor {
   // Telegram notifications
   telegramChatId            String?   @map("telegram_chat_id")
 
+  // Appointment reminder emails (sent automatically 2h before)
+  reminderEmailEnabled      Boolean   @default(false) @map("reminder_email_enabled")
+
   // Relations
   user               User?     // 1:1 relation - optional (can have doctors without user accounts)
   clinicLocations    ClinicLocation[]
@@ -408,6 +411,9 @@ model Booking {
 
   // Rescheduling
   isRescheduled      Boolean       @default(false) @map("is_rescheduled")
+
+  // Reminder email (sent automatically 2h before appointment)
+  reminderEmailSentAt      DateTime? @map("reminder_email_sent_at")
 
   // Google Calendar sync (freeform bookings store event ID here; slot-based use slot.googleEventId)
   googleEventId      String?       @map("google_event_id")

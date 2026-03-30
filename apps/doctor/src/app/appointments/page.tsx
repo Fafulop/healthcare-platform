@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { useCalendar } from "./_hooks/useCalendar";
@@ -50,11 +50,36 @@ export default function AppointmentsV2Page() {
   const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
   const [formLinkBooking, setFormLinkBooking] = useState<Booking | null>(null);
   const [statusFilter, setStatusFilter] = useState<SlotStatusFilter>("all");
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [togglingReminder, setTogglingReminder] = useState(false);
 
   const onRefresh = useCallback(async () => {
     await slotsHook.fetchSlots();
     await bookingsHook.fetchBookings();
   }, [slotsHook, bookingsHook]);
+
+  // Fetch reminder setting on mount
+  useEffect(() => {
+    if (!doctorId) return;
+    authFetch("/api/doctor/reminders")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setReminderEnabled(d.reminderEmailEnabled); })
+      .catch(() => {});
+  }, [doctorId]);
+
+  const handleToggleReminder = useCallback(async () => {
+    setTogglingReminder(true);
+    const next = !reminderEnabled;
+    try {
+      const res = await authFetch("/api/doctor/reminders", {
+        method: "PATCH",
+        body: JSON.stringify({ reminderEmailEnabled: next }),
+      });
+      const data = await res.json();
+      if (data.success) setReminderEnabled(data.reminderEmailEnabled);
+    } catch { /* keep current state */ }
+    setTogglingReminder(false);
+  }, [reminderEnabled]);
 
   const openBookModal = () => {
     rescheduleBookingRef.current = null;
@@ -168,6 +193,31 @@ export default function AppointmentsV2Page() {
             Crear Horarios
           </button>
         </div>
+      </div>
+
+      {/* Reminder email toggle */}
+      <div className="bg-white rounded-lg shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          {reminderEnabled
+            ? <Bell className="w-4 h-4 text-blue-600 shrink-0" />
+            : <BellOff className="w-4 h-4 text-gray-400 shrink-0" />
+          }
+          <div>
+            <p className="text-sm font-medium text-gray-900">Recordatorio automático por correo</p>
+            <p className="text-xs text-gray-500">Envía un correo al paciente 2 horas antes de su cita agendada</p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggleReminder}
+          disabled={togglingReminder}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-60 ${
+            reminderEnabled ? "bg-blue-600" : "bg-gray-200"
+          }`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+            reminderEnabled ? "translate-x-6" : "translate-x-1"
+          }`} />
+        </button>
       </div>
 
       {/* Booking stats */}
