@@ -34,6 +34,9 @@ export interface AppointmentEmailData {
   confirmationCode: string;
   finalPrice: number;
   notes?: string | null;
+  clinicName?: string;
+  clinicAddress?: string;
+  clinicPhone?: string;
 }
 
 // ─── MIME builder ─────────────────────────────────────────────────────────────
@@ -197,6 +200,17 @@ function buildAppointmentEmailHtml(data: AppointmentEmailData): string {
               ${serviceRow}
               ${visitRow}
 
+              <!-- Clinic location -->
+              ${data.clinicAddress ? `
+              <tr>
+                <td style="padding:14px 24px;border-bottom:1px solid #dce8ff;">
+                  <p style="margin:0 0 3px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Consultorio</p>
+                  ${data.clinicName ? `<p style="margin:0;color:#1a1a2e;font-size:14px;font-weight:500;">${escapeHtml(data.clinicName)}</p>` : ''}
+                  <p style="margin:${data.clinicName ? '3px' : '0'} 0 0;color:#555;font-size:13px;">${escapeHtml(data.clinicAddress)}</p>
+                  ${data.clinicPhone ? `<p style="margin:3px 0 0;color:#555;font-size:13px;">${escapeHtml(data.clinicPhone)}</p>` : ''}
+                </td>
+              </tr>` : ''}
+
               <!-- Mode -->
               <tr>
                 <td style="padding:14px 24px;border-bottom:1px solid #dce8ff;">
@@ -232,6 +246,7 @@ function buildAppointmentEmailHtml(data: AppointmentEmailData): string {
           <td style="background:#f8faff;padding:24px 40px;border-top:1px solid #e5ecf5;text-align:center;">
             <p style="margin:0;color:#888;font-size:13px;">Si tienes alguna pregunta, responde este correo o contáctanos directamente.</p>
             <p style="margin:10px 0 0;color:#bbb;font-size:11px;">tusalud.pro · Plataforma de salud digital en México</p>
+            <p style="margin:8px 0 0;font-size:11px;color:#bbb;">Tus datos son tratados conforme a nuestro <a href="https://tusalud.pro/privacidad" style="color:#93c5fd;text-decoration:none;">Aviso de Privacidad</a> · <a href="mailto:privacidad@tusalud.pro" style="color:#93c5fd;text-decoration:none;">privacidad@tusalud.pro</a></p>
           </td>
         </tr>
 

@@ -29,12 +29,21 @@ export async function POST(
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        slot: { select: { date: true, startTime: true, endTime: true } },
+        slot: {
+          select: {
+            date: true,
+            startTime: true,
+            endTime: true,
+            location: { select: { name: true, address: true, phone: true } },
+          },
+        },
         doctor: {
           select: {
             id: true,
             doctorFullName: true,
             primarySpecialty: true,
+            clinicAddress: true,
+            clinicPhone: true,
             user: {
               select: {
                 id: true,
@@ -127,6 +136,11 @@ export async function POST(
     const startTime = booking.slot?.startTime ?? booking.startTime ?? '';
     const endTime = booking.slot?.endTime ?? booking.endTime ?? '';
 
+    // Location: slot.location → fallback to doctor's default clinicAddress (same pattern as SMS)
+    const clinicName = booking.slot?.location?.name ?? undefined;
+    const clinicAddress = booking.slot?.location?.address ?? booking.doctor.clinicAddress ?? undefined;
+    const clinicPhone = booking.slot?.location?.phone ?? booking.doctor.clinicPhone ?? undefined;
+
     // 4. Send email
     try {
       await sendAppointmentConfirmationEmail(
@@ -144,6 +158,9 @@ export async function POST(
           confirmationCode: booking.confirmationCode ?? '',
           finalPrice: Number(booking.finalPrice),
           notes: booking.notes,
+          clinicName,
+          clinicAddress,
+          clinicPhone,
         },
         accessToken,
         refreshToken,
