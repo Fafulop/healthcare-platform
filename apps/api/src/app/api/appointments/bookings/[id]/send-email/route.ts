@@ -141,7 +141,7 @@ export async function POST(
           serviceName: booking.serviceName,
           appointmentMode: booking.appointmentMode,
           isFirstTime: booking.isFirstTime,
-          confirmationCode: booking.confirmationCode,
+          confirmationCode: booking.confirmationCode ?? '',
           finalPrice: Number(booking.finalPrice),
           notes: booking.notes,
         },
