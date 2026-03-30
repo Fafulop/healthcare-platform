@@ -47,6 +47,7 @@ export interface Booking {
   endTime?: string | null;
   duration?: number | null;
   confirmationEmailSentAt?: string | null;
+  isRescheduled?: boolean;
   formLink?: {
     id: string;
     token: string;

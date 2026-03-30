@@ -1,4 +1,4 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2 } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { formatLocalDate } from "@/lib/dates";
@@ -21,6 +21,7 @@ interface Props {
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
   onSendEmail: (id: string) => Promise<void>;
+  onReschedule: (booking: Booking) => void;
   getStatusColor: (status: string, endTime?: string, date?: string) => string;
   sortColumn: SortColumn;
   sortDirection: SortDirection;
@@ -50,6 +51,7 @@ export function BookingsSection({
   onDeleteBooking,
   onOpenFormLinkModal,
   onSendEmail,
+  onReschedule,
   getStatusColor,
   sortColumn,
   sortDirection,
@@ -209,6 +211,7 @@ export function BookingsSection({
                         onDeleteBooking={onDeleteBooking}
                         onOpenFormLinkModal={onOpenFormLinkModal}
                         onSendEmail={onSendEmail}
+                        onReschedule={onReschedule}
                       />
                     </div>
                   );
@@ -299,6 +302,7 @@ export function BookingsSection({
                               onDeleteBooking={onDeleteBooking}
                               onOpenFormLinkModal={onOpenFormLinkModal}
                               onSendEmail={onSendEmail}
+                              onReschedule={onReschedule}
                             />
                           </td>
                         </tr>
@@ -321,15 +325,26 @@ function StatusActions({
   onDeleteBooking,
   onOpenFormLinkModal,
   onSendEmail,
+  onReschedule,
 }: {
   booking: Booking;
   onUpdateStatus: (id: string, status: string) => void;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
   onSendEmail: (id: string) => Promise<void>;
+  onReschedule: (booking: Booking) => void;
 }) {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const isTerminal = ["CANCELLED", "COMPLETED", "NO_SHOW"].includes(booking.status);
+
+  const bookingDate = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
+  const endTime = booking.slot?.endTime ?? booking.endTime;
+  const nowMx = new Date().toLocaleString("sv-SE", { timeZone: "America/Mexico_City" });
+  const isVencida =
+    (booking.status === "PENDING" || booking.status === "CONFIRMED") &&
+    !!bookingDate && !!endTime &&
+    `${bookingDate} ${endTime}:00` < nowMx;
+  const canReschedule = booking.status === "CONFIRMED" || isVencida;
 
   const handleSendEmail = async () => {
     setIsSendingEmail(true);
@@ -368,6 +383,15 @@ function StatusActions({
             Cancelar
           </button>
         </>
+      )}
+      {canReschedule && (
+        <button
+          onClick={() => onReschedule(booking)}
+          className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1"
+        >
+          <CalendarClock className="w-3 h-3" />
+          Reagendar
+        </button>
       )}
       {booking.status === "CONFIRMED" && (
         <>

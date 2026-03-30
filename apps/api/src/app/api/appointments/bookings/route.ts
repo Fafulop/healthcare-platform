@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       serviceId,
       isFirstTime,
       appointmentMode,
+      isRescheduled,
     } = body;
 
     // Validation
@@ -127,6 +128,7 @@ export async function POST(request: Request) {
             confirmationCode,
             reviewToken,
             status: bookingStatus,
+            isRescheduled: isRescheduled === true,
             ...(autoConfirm && { confirmedAt: new Date() }),
           },
         });

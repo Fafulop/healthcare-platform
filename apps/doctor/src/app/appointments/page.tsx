@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle } from "lucide-react";
+import { authFetch } from "@/lib/auth-fetch";
+import { toast } from "@/lib/practice-toast";
 import { useCalendar } from "./_hooks/useCalendar";
 import { useSlots } from "./_hooks/useSlots";
 import { useBookings } from "./_hooks/useBookings";
@@ -40,6 +42,8 @@ export default function AppointmentsV2Page() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
   const [bookPatientPreSlot, setBookPatientPreSlot] = useState<AppointmentSlot | null>(null);
+  const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
+  const rescheduleBookingRef = useRef<Booking | null>(null);
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
   const [blockRangeModalOpen, setBlockRangeModalOpen] = useState(false);
@@ -53,11 +57,22 @@ export default function AppointmentsV2Page() {
   }, [slotsHook, bookingsHook]);
 
   const openBookModal = () => {
+    rescheduleBookingRef.current = null;
+    setRescheduleBooking(null);
     setBookPatientPreSlot(null);
     setBookPatientModalOpen(true);
   };
 
+  const handleReschedule = useCallback((booking: Booking) => {
+    rescheduleBookingRef.current = booking;
+    setRescheduleBooking(booking);
+    setBookPatientPreSlot(null);
+    setBookPatientModalOpen(true);
+  }, []);
+
   const openBookModalWithSlot = (slot: AppointmentSlot) => {
+    rescheduleBookingRef.current = null;
+    setRescheduleBooking(null);
     setBookPatientPreSlot(slot);
     setBookPatientModalOpen(true);
   };
@@ -251,6 +266,7 @@ export default function AppointmentsV2Page() {
           setFormLinkModalOpen(true);
         }}
         onSendEmail={bookingsHook.sendConfirmationEmail}
+        onReschedule={handleReschedule}
       />
 
       {/* Controls card: view toggle + slot filters */}
@@ -346,11 +362,29 @@ export default function AppointmentsV2Page() {
 
       <BookPatientModal
         isOpen={bookPatientModalOpen}
-        onClose={() => setBookPatientModalOpen(false)}
+        onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); }}
         doctorId={doctorId}
         clinicLocations={slotsHook.clinicLocations}
-        onSuccess={onRefresh}
+        onSuccess={async () => {
+          const toCancel = rescheduleBookingRef.current;
+          if (toCancel) {
+            rescheduleBookingRef.current = null;
+            setRescheduleBooking(null);
+            try {
+              const res = await authFetch(
+                `${process.env.NEXT_PUBLIC_API_URL || ""}/api/appointments/bookings/${toCancel.id}`,
+                { method: "PATCH", body: JSON.stringify({ status: "CANCELLED" }) }
+              );
+              const data = await res.json();
+              if (!data.success) toast.error("No se pudo cancelar la cita anterior automáticamente");
+            } catch {
+              toast.error("No se pudo cancelar la cita anterior automáticamente");
+            }
+          }
+          await onRefresh();
+        }}
         preSelectedSlot={bookPatientPreSlot}
+        rescheduleBooking={rescheduleBooking}
       />
 
       <GenerateReviewLinkModal

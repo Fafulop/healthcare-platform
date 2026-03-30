@@ -37,6 +37,7 @@ export interface AppointmentEmailData {
   clinicName?: string;
   clinicAddress?: string;
   clinicPhone?: string;
+  isRescheduled?: boolean;
 }
 
 // ─── MIME builder ─────────────────────────────────────────────────────────────
@@ -78,7 +79,9 @@ export async function sendAppointmentConfirmationEmail(
   const auth = buildAuthedClient(accessToken, refreshToken);
   const gmail = google.gmail({ version: 'v1', auth });
 
-  const subject = `Confirmación de cita – ${data.doctorName}`;
+  const subject = data.isRescheduled
+    ? `Reagendación de cita – ${data.doctorName}`
+    : `Confirmación de cita – ${data.doctorName}`;
   const htmlBody = buildAppointmentEmailHtml(data);
   const from = `${fromName} <${fromEmail}>`;
 
@@ -160,9 +163,9 @@ function buildAppointmentEmailHtml(data: AppointmentEmailData): string {
 
         <!-- Header -->
         <tr>
-          <td style="background:linear-gradient(135deg,#1d4ed8,#2563eb);padding:32px 40px;text-align:center;">
+          <td style="background:linear-gradient(135deg,${data.isRescheduled ? '#b45309,#d97706' : '#1d4ed8,#2563eb'});padding:32px 40px;text-align:center;">
             <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">tusalud.pro</p>
-            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Cita Confirmada</h1>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">${data.isRescheduled ? 'Cita Reagendada' : 'Cita Confirmada'}</h1>
           </td>
         </tr>
 
@@ -170,7 +173,7 @@ function buildAppointmentEmailHtml(data: AppointmentEmailData): string {
         <tr>
           <td style="padding:32px 40px 20px;">
             <p style="margin:0 0 8px;color:#1a1a2e;font-size:16px;">Hola <strong>${escapeHtml(data.patientName)}</strong>,</p>
-            <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">Tu cita médica ha sido confirmada. A continuación encontrarás todos los detalles.</p>
+            <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">${data.isRescheduled ? 'Tu cita médica ha sido <strong>reagendada</strong> a una nueva fecha y horario. A continuación encontrarás los detalles actualizados.' : 'Tu cita médica ha sido confirmada. A continuación encontrarás todos los detalles.'}</p>
           </td>
         </tr>
 

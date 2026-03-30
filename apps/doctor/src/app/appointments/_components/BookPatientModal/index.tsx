@@ -5,6 +5,7 @@ import { X, Loader2, ChevronRight } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { getLocalDateString, formatLocalDate } from "@/lib/dates";
 import type { AppointmentSlot, ClinicLocation } from "../../_hooks/useSlots";
+import type { Booking } from "../../_hooks/useBookings";
 import { SlotPickerStep } from "./SlotPickerStep";
 import type { NewSlotForm } from "./SlotPickerStep";
 import { PatientFormStep } from "./PatientFormStep";
@@ -39,6 +40,7 @@ interface Props {
   clinicLocations: ClinicLocation[];
   onSuccess: () => void;
   preSelectedSlot?: AppointmentSlot | null;
+  rescheduleBooking?: Booking | null;
 }
 
 export function BookPatientModal({
@@ -48,6 +50,7 @@ export function BookPatientModal({
   clinicLocations,
   onSuccess,
   preSelectedSlot = null,
+  rescheduleBooking = null,
 }: Props) {
   const initialStep: Step = preSelectedSlot ? "form" : "slot";
 
@@ -82,6 +85,9 @@ export function BookPatientModal({
     patientWhatsapp: "",
     notes: "",
   });
+
+  // Tracks whether this booking was a reschedule (captured at submit, stable for SuccessStep)
+  const [wasRescheduled, setWasRescheduled] = useState(false);
 
   // "Nuevo horario" mode
   const [slotMode, setSlotMode] = useState<"existing" | "new">("existing");
@@ -124,12 +130,19 @@ export function BookPatientModal({
     setConflictError(null);
     setConfirmationCode("");
     setSelectedServiceId(null);
-    setIsFirstTime(true);
-    setAppointmentMode("PRESENCIAL");
-    setFormData({ patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
+    setIsFirstTime(rescheduleBooking?.isFirstTime ?? true);
+    setAppointmentMode((rescheduleBooking?.appointmentMode as "PRESENCIAL" | "TELEMEDICINA" | null) ?? "PRESENCIAL");
+    setFormData(rescheduleBooking ? {
+      patientName: rescheduleBooking.patientName,
+      patientEmail: rescheduleBooking.patientEmail,
+      patientPhone: rescheduleBooking.patientPhone,
+      patientWhatsapp: rescheduleBooking.patientWhatsapp ?? "",
+      notes: "",
+    } : { patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
+    setWasRescheduled(false);
     setSlotMode("existing");
     setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, locationId: clinicLocations[0]?.id ?? "" });
-  }, [preSelectedSlot, clinicLocations]);
+  }, [preSelectedSlot, clinicLocations, rescheduleBooking]);
 
   useEffect(() => {
     if (isOpen) {
@@ -137,7 +150,17 @@ export function BookPatientModal({
       if (!preSelectedSlot) fetchAvailableSlots();
       authFetch("/api/doctor/services")
         .then((r) => r.json())
-        .then((d) => { if (d.success) setServices(d.data); })
+        .then((d) => {
+          if (d.success) {
+            setServices(d.data);
+            if (rescheduleBooking?.serviceName) {
+              const match = (d.data as DoctorService[]).find(
+                (s) => s.serviceName === rescheduleBooking.serviceName
+              );
+              if (match) setSelectedServiceId(match.id);
+            }
+          }
+        })
         .catch(() => {});
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -229,6 +252,7 @@ export function BookPatientModal({
             serviceId: selectedServiceId || undefined,
             isFirstTime,
             appointmentMode: appointmentMode || undefined,
+            isRescheduled: !!rescheduleBooking,
             ...(newSlotForm.locationId ? { locationId: newSlotForm.locationId } : {}),
           }),
         });
@@ -250,6 +274,7 @@ export function BookPatientModal({
         }
 
         setConfirmationCode(data.data.confirmationCode);
+        setWasRescheduled(!!rescheduleBooking);
         setStep("success");
         onSuccess();
         return;
@@ -269,6 +294,7 @@ export function BookPatientModal({
           serviceId: selectedServiceId || undefined,
           isFirstTime,
           appointmentMode: appointmentMode || undefined,
+          isRescheduled: !!rescheduleBooking,
         }),
       });
       const bookingData = await bookingRes.json();
@@ -279,6 +305,7 @@ export function BookPatientModal({
       }
 
       setConfirmationCode(bookingData.data.confirmationCode);
+      setWasRescheduled(!!rescheduleBooking);
       setStep("success");
       onSuccess();
     } catch {
@@ -302,8 +329,13 @@ export function BookPatientModal({
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Agendar Cita</h2>
-            {step === "slot" && (
+            <h2 className="text-lg font-bold text-gray-900">
+              {rescheduleBooking ? "Reagendar Cita" : "Agendar Cita"}
+            </h2>
+            {rescheduleBooking && step === "slot" && (
+              <p className="text-sm text-amber-600 font-medium">Paciente: {rescheduleBooking.patientName}</p>
+            )}
+            {step === "slot" && !rescheduleBooking && (
               <p className="text-sm text-gray-500">Selecciona una fecha y horario</p>
             )}
             {step === "form" && displaySlot && (
@@ -393,6 +425,7 @@ export function BookPatientModal({
               selectedService={selectedService}
               confirmationCode={confirmationCode}
               onClose={handleClose}
+              isRescheduled={wasRescheduled}
             />
           )}
         </div>

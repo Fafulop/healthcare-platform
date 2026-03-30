@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, DollarSign, Stethoscope } from "lucide-react";
+import { CheckCircle, DollarSign, Stethoscope, Mail } from "lucide-react";
 import { formatLocalDate } from "@/lib/dates";
 
 interface DoctorService {
@@ -21,6 +21,7 @@ interface Props {
   selectedService: DoctorService | null;
   confirmationCode: string;
   onClose: () => void;
+  isRescheduled?: boolean;
 }
 
 export function SuccessStep({
@@ -29,15 +30,20 @@ export function SuccessStep({
   selectedService,
   confirmationCode,
   onClose,
+  isRescheduled = false,
 }: Props) {
   return (
     <div className="text-center py-6">
-      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <CheckCircle className="w-9 h-9 text-green-600" />
+      <div className={`w-16 h-16 ${isRescheduled ? "bg-amber-100" : "bg-green-100"} rounded-full flex items-center justify-center mx-auto mb-4`}>
+        <CheckCircle className={`w-9 h-9 ${isRescheduled ? "text-amber-600" : "text-green-600"}`} />
       </div>
-      <h3 className="text-xl font-bold text-gray-900 mb-1">Cita Confirmada</h3>
+      <h3 className="text-xl font-bold text-gray-900 mb-1">
+        {isRescheduled ? "Cita Reagendada" : "Cita Confirmada"}
+      </h3>
       <p className="text-sm text-gray-500 mb-6">
-        La cita ha sido agendada y confirmada exitosamente
+        {isRescheduled
+          ? "La cita ha sido reagendada exitosamente con la nueva fecha y horario"
+          : "La cita ha sido agendada y confirmada exitosamente"}
       </p>
 
       <div className="bg-gray-50 rounded-xl p-5 text-left space-y-3 mb-6">
@@ -90,6 +96,18 @@ export function SuccessStep({
           </code>
         </div>
       </div>
+
+      {isRescheduled && (
+        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-left mb-4">
+          <Mail className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Envía el correo de confirmación</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              El paciente aún tiene el correo de la cita anterior. Usa el botón <strong>Correo</strong> en la nueva cita para notificarle la nueva fecha y horario.
+            </p>
+          </div>
+        </div>
+      )}
 
       <button
         onClick={onClose}

@@ -406,6 +406,9 @@ model Booking {
   reviewToken        String?       @unique @map("review_token")
   reviewTokenUsed    Boolean       @default(false) @map("review_token_used")
 
+  // Rescheduling
+  isRescheduled      Boolean       @default(false) @map("is_rescheduled")
+
   // Google Calendar sync (freeform bookings store event ID here; slot-based use slot.googleEventId)
   googleEventId      String?       @map("google_event_id")
 

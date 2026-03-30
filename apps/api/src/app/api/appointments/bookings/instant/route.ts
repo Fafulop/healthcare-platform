@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       isFirstTime,
       appointmentMode,
       locationId,     // optional — links to ClinicLocation
+      isRescheduled,
     } = body;
 
     if (!doctorId || !date || !startTime || !duration || !patientName || !patientEmail || !patientPhone) {
@@ -150,6 +151,7 @@ export async function POST(request: Request) {
             confirmationCode,
             reviewToken,
             status: 'CONFIRMED',
+            isRescheduled: isRescheduled === true,
             confirmedAt: new Date(),
           },
         });

@@ -161,6 +161,7 @@ export async function POST(
           clinicName,
           clinicAddress,
           clinicPhone,
+          isRescheduled: booking.isRescheduled,
         },
         accessToken,
         refreshToken,
