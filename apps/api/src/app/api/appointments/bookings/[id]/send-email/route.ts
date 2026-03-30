@@ -166,9 +166,17 @@ export async function POST(
       throw gmailError;
     }
 
+    // 5. Persist send timestamp
+    const sentAt = new Date();
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { confirmationEmailSentAt: sentAt },
+    });
+
     return NextResponse.json({
       success: true,
       message: `Correo de confirmación enviado a ${booking.patientEmail}`,
+      sentAt: sentAt.toISOString(),
     });
   } catch (error) {
     console.error('Error sending appointment confirmation email:', error);

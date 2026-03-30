@@ -397,9 +397,10 @@ model Booking {
   notes              String?       @db.Text
 
   // Confirmation
-  confirmationCode   String?       @unique @map("confirmation_code")
-  confirmedAt        DateTime?     @map("confirmed_at")
-  cancelledAt        DateTime?     @map("cancelled_at")
+  confirmationCode         String?   @unique @map("confirmation_code")
+  confirmedAt              DateTime? @map("confirmed_at")
+  cancelledAt              DateTime? @map("cancelled_at")
+  confirmationEmailSentAt  DateTime? @map("confirmation_email_sent_at")
 
   // Review System
   reviewToken        String?       @unique @map("review_token")

@@ -380,14 +380,21 @@ function StatusActions({
           <button
             onClick={handleSendEmail}
             disabled={isSendingEmail}
+            title={
+              booking.confirmationEmailSentAt
+                ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                : "Enviar correo de confirmación al paciente"
+            }
             className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSendingEmail ? (
               <Loader2 className="w-3 h-3 animate-spin" />
+            ) : booking.confirmationEmailSentAt ? (
+              <CheckCircle className="w-3 h-3 text-teal-600" />
             ) : (
               <Send className="w-3 h-3" />
             )}
-            {isSendingEmail ? "Enviando..." : "Correo"}
+            {isSendingEmail ? "Enviando..." : booking.confirmationEmailSentAt ? "Reenviar" : "Correo"}
           </button>
         </>
       )}

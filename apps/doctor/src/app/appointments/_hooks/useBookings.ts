@@ -46,6 +46,7 @@ export interface Booking {
   startTime?: string | null;
   endTime?: string | null;
   duration?: number | null;
+  confirmationEmailSentAt?: string | null;
   formLink?: {
     id: string;
     token: string;
@@ -150,6 +151,14 @@ export function useBookings(doctorId: string | undefined) {
 
       if (data.success) {
         toast.success(data.message || "Correo enviado exitosamente");
+        // Update local state so button reflects sent timestamp immediately
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === bookingId
+              ? { ...b, confirmationEmailSentAt: data.sentAt ?? new Date().toISOString() }
+              : b
+          )
+        );
       } else if (data.code === "GMAIL_SCOPE_MISSING" || data.code === "NO_GOOGLE_TOKEN" || data.code === "TOKEN_EXPIRED") {
         toast.error(data.error);
       } else {
