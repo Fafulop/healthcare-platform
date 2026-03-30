@@ -140,6 +140,26 @@ export function useBookings(doctorId: string | undefined) {
     }
   };
 
+  const sendConfirmationEmail = async (bookingId: string): Promise<void> => {
+    try {
+      const response = await authFetch(
+        `${API_URL}/api/appointments/bookings/${bookingId}/send-email`,
+        { method: "POST" }
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message || "Correo enviado exitosamente");
+      } else if (data.code === "GMAIL_SCOPE_MISSING" || data.code === "NO_GOOGLE_TOKEN" || data.code === "TOKEN_EXPIRED") {
+        toast.error(data.error);
+      } else {
+        toast.error(data.error || "Error al enviar el correo");
+      }
+    } catch {
+      toast.error("Error al enviar el correo");
+    }
+  };
+
   const shiftBookingFilterDate = (days: number) => {
     const base = bookingFilterDate
       ? new Date(bookingFilterDate + "T00:00:00")
@@ -223,6 +243,7 @@ export function useBookings(doctorId: string | undefined) {
     fetchBookings,
     updateBookingStatus,
     deleteBooking,
+    sendConfirmationEmail,
     shiftBookingFilterDate,
     getStatusColor,
     sortColumn,

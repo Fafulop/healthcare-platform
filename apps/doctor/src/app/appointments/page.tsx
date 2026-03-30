@@ -250,6 +250,7 @@ export default function AppointmentsV2Page() {
           setFormLinkBooking(booking);
           setFormLinkModalOpen(true);
         }}
+        onSendEmail={bookingsHook.sendConfirmationEmail}
       />
 
       {/* Controls card: view toggle + slot filters */}

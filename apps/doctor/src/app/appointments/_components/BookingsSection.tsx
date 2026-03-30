@@ -1,4 +1,5 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2 } from "lucide-react";
+import { useState } from "react";
 import Link from "next/link";
 import { formatLocalDate } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
@@ -19,6 +20,7 @@ interface Props {
   onUpdateStatus: (id: string, status: string) => void;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
+  onSendEmail: (id: string) => Promise<void>;
   getStatusColor: (status: string, endTime?: string, date?: string) => string;
   sortColumn: SortColumn;
   sortDirection: SortDirection;
@@ -47,6 +49,7 @@ export function BookingsSection({
   onUpdateStatus,
   onDeleteBooking,
   onOpenFormLinkModal,
+  onSendEmail,
   getStatusColor,
   sortColumn,
   sortDirection,
@@ -205,6 +208,7 @@ export function BookingsSection({
                         onUpdateStatus={onUpdateStatus}
                         onDeleteBooking={onDeleteBooking}
                         onOpenFormLinkModal={onOpenFormLinkModal}
+                        onSendEmail={onSendEmail}
                       />
                     </div>
                   );
@@ -294,6 +298,7 @@ export function BookingsSection({
                               onUpdateStatus={onUpdateStatus}
                               onDeleteBooking={onDeleteBooking}
                               onOpenFormLinkModal={onOpenFormLinkModal}
+                              onSendEmail={onSendEmail}
                             />
                           </td>
                         </tr>
@@ -315,13 +320,22 @@ function StatusActions({
   onUpdateStatus,
   onDeleteBooking,
   onOpenFormLinkModal,
+  onSendEmail,
 }: {
   booking: Booking;
   onUpdateStatus: (id: string, status: string) => void;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
+  onSendEmail: (id: string) => Promise<void>;
 }) {
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const isTerminal = ["CANCELLED", "COMPLETED", "NO_SHOW"].includes(booking.status);
+
+  const handleSendEmail = async () => {
+    setIsSendingEmail(true);
+    await onSendEmail(booking.id);
+    setIsSendingEmail(false);
+  };
 
   return (
     <div className="flex gap-1 flex-wrap">
@@ -356,12 +370,26 @@ function StatusActions({
         </>
       )}
       {booking.status === "CONFIRMED" && (
-        <button
-          onClick={() => onOpenFormLinkModal(booking)}
-          className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
-        >
-          Formulario
-        </button>
+        <>
+          <button
+            onClick={() => onOpenFormLinkModal(booking)}
+            className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
+          >
+            Formulario
+          </button>
+          <button
+            onClick={handleSendEmail}
+            disabled={isSendingEmail}
+            className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isSendingEmail ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Send className="w-3 h-3" />
+            )}
+            {isSendingEmail ? "Enviando..." : "Correo"}
+          </button>
+        </>
       )}
       {booking.formLink?.status === "SUBMITTED" && (
         <Link
