@@ -1,7 +1,7 @@
 import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
-import { formatLocalDate } from "@/lib/dates";
+import { formatLocalDate, getLocalDateString } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
 import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
 
@@ -103,14 +103,16 @@ export function BookingsSection({
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
-              {bookingFilterDate && (
-                <button
-                  onClick={() => setBookingFilterDate("")}
-                  className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 whitespace-nowrap"
-                >
-                  Todas
-                </button>
-              )}
+              <button
+                onClick={() => setBookingFilterDate("")}
+                className={`text-sm font-medium px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${
+                  !bookingFilterDate
+                    ? "bg-blue-600 text-white"
+                    : "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200"
+                }`}
+              >
+                Todas
+              </button>
             </div>
             <div className="flex-1 relative">
               <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -138,7 +140,7 @@ export function BookingsSection({
             {(bookingFilterDate || bookingFilterPatient || bookingFilterStatus !== "ACTIVE") && (
               <button
                 onClick={() => {
-                  setBookingFilterDate("");
+                  setBookingFilterDate(getLocalDateString(new Date()));
                   setBookingFilterPatient("");
                   setBookingFilterStatus("ACTIVE");
                 }}

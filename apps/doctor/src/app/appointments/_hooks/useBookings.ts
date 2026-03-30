@@ -58,7 +58,7 @@ export interface Booking {
 export function useBookings(doctorId: string | undefined) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsCollapsed, setBookingsCollapsed] = useState(false);
-  const [bookingFilterDate, setBookingFilterDate] = useState<string>("");
+  const [bookingFilterDate, setBookingFilterDate] = useState<string>(() => getLocalDateString(new Date()));
   const [bookingFilterPatient, setBookingFilterPatient] = useState<string>("");
   const [bookingFilterStatus, setBookingFilterStatus] = useState<string>("ACTIVE");
   const [sortColumn, setSortColumn] = useState<SortColumn>("status");
