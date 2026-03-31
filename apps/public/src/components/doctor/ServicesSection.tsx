@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { Clock, DollarSign, X } from 'lucide-react';
 import Card from '../ui/Card';
+import BlobDecoration from '../ui/BlobDecoration';
 import type { Service } from '@/types/doctor';
 
 interface ServicesSectionProps {
@@ -30,8 +31,10 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
 
   return (
     <>
-      <section id={id} className="py-16 bg-[var(--color-bg-yellow-light)]">
-        <div className="max-w-7xl mx-auto px-4">
+      <section id={id} className="relative overflow-hidden py-16 bg-[var(--color-bg-yellow-light)]">
+        <BlobDecoration variant="blob4" color="gradient-primary" position="top-left" size="lg" opacity={18} blur={true} />
+        <BlobDecoration variant="blob2" color="gradient-secondary" position="bottom-right" size="lg" opacity={18} blur={true} />
+        <div className="relative max-w-7xl mx-auto px-4">
           {/* H2 - Major section */}
           <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
             Servicios

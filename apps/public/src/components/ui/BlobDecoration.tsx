@@ -3,7 +3,7 @@
 
 interface BlobDecorationProps {
   variant?: 'blob1' | 'blob2' | 'blob3' | 'blob4';
-  color?: 'primary' | 'secondary' | 'accent' | 'gradient-blue' | 'gradient-purple';
+  color?: 'primary' | 'secondary' | 'accent' | 'gradient-primary' | 'gradient-secondary';
   position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
   size?: 'sm' | 'md' | 'lg' | 'xl';
   opacity?: number; // 1-100 (percentage)
@@ -40,19 +40,19 @@ export default function BlobDecoration({
   // Color fills - support gradients using CSS variables
   const getColorFill = () => {
     switch (color) {
-      case 'gradient-blue':
+      case 'gradient-primary':
         return (
           <defs>
-            <linearGradient id={`gradient-blue-${variant}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id={`gradient-primary-${variant}-${position}`} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={1} />
               <stop offset="100%" stopColor="var(--color-secondary)" stopOpacity={1} />
             </linearGradient>
           </defs>
         );
-      case 'gradient-purple':
+      case 'gradient-secondary':
         return (
           <defs>
-            <linearGradient id={`gradient-purple-${variant}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id={`gradient-secondary-${variant}-${position}`} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="var(--color-secondary)" stopOpacity={1} />
               <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={1} />
             </linearGradient>
@@ -65,10 +65,10 @@ export default function BlobDecoration({
 
   const getFillColor = () => {
     switch (color) {
-      case 'gradient-blue':
-        return `url(#gradient-blue-${variant})`;
-      case 'gradient-purple':
-        return `url(#gradient-purple-${variant})`;
+      case 'gradient-primary':
+        return `url(#gradient-primary-${variant}-${position})`;
+      case 'gradient-secondary':
+        return `url(#gradient-secondary-${variant}-${position})`;
       case 'primary':
         return 'var(--color-primary)';
       case 'secondary':

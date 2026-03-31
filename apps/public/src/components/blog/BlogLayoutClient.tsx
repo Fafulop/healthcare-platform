@@ -42,8 +42,8 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, children }: B
     <>
       <main className="relative min-h-screen pb-16 md:pb-0 bg-[var(--color-bg-yellow-light)] overflow-hidden">
         {/* Visible organic blobs */}
-        <BlobDecoration variant="blob3" color="gradient-purple" position="top-right" size="xl" opacity={33} blur={false} />
-        <BlobDecoration variant="blob1" color="gradient-blue" position="bottom-left" size="xl" opacity={36} blur={false} />
+        <BlobDecoration variant="blob3" color="gradient-secondary" position="top-right" size="xl" opacity={33} blur={false} />
+        <BlobDecoration variant="blob1" color="gradient-primary" position="bottom-left" size="xl" opacity={36} blur={false} />
         <BlobDecoration variant="blob2" color="accent" position="bottom-right" size="lg" opacity={25} blur={false} className="hidden md:block" />
 
         <div className="relative profile-layout-container">

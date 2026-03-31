@@ -69,7 +69,7 @@ export default function ReviewsSection({
       aria-labelledby="reviews-heading"
     >
       {/* Organic blobs for visual interest */}
-      <BlobDecoration variant="blob2" color="gradient-purple" position="top-left" size="lg" opacity={28} blur={false} />
+      <BlobDecoration variant="blob2" color="gradient-secondary" position="top-left" size="lg" opacity={28} blur={false} />
       <BlobDecoration variant="blob4" color="primary" position="bottom-right" size="md" opacity={20} blur={false} />
 
       <div className="relative max-w-4xl mx-auto px-4">

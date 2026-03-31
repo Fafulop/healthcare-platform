@@ -19,8 +19,8 @@ export default function HeroSection({ doctor, onBookingClick, googleAdsId }: Her
   return (
     <section id="inicio" className="relative overflow-hidden bg-[var(--color-bg-yellow-light)] py-12 md:py-16">
       {/* Visible organic blobs */}
-      <BlobDecoration variant="blob1" color="gradient-blue" position="top-right" size="xl" opacity={35} blur={false} />
-      <BlobDecoration variant="blob3" color="gradient-purple" position="bottom-left" size="lg" opacity={30} blur={false} />
+      <BlobDecoration variant="blob1" color="gradient-primary" position="top-right" size="xl" opacity={35} blur={false} />
+      <BlobDecoration variant="blob3" color="gradient-secondary" position="bottom-left" size="lg" opacity={30} blur={false} />
       <BlobDecoration variant="blob2" color="primary" position="top-left" size="md" opacity={25} blur={false} className="hidden md:block" />
 
       <div className="relative px-4 lg:px-0">

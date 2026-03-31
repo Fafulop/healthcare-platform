@@ -17,8 +17,8 @@ export default async function DoctorsPage() {
   return (
     <div className="relative min-h-screen bg-[var(--color-bg-yellow-light)] overflow-hidden">
       {/* Visible organic blobs throughout page */}
-      <BlobDecoration variant="blob1" color="gradient-blue" position="top-right" size="xl" opacity={38} blur={false} />
-      <BlobDecoration variant="blob3" color="gradient-purple" position="bottom-left" size="xl" opacity={32} blur={false} />
+      <BlobDecoration variant="blob1" color="gradient-primary" position="top-right" size="xl" opacity={38} blur={false} />
+      <BlobDecoration variant="blob3" color="gradient-secondary" position="bottom-left" size="xl" opacity={32} blur={false} />
       <BlobDecoration variant="blob4" color="secondary" position="center" size="lg" opacity={22} blur={false} className="hidden lg:block" />
 
       {/* Header */}
