@@ -28,7 +28,7 @@ export default function SidebarContactInfo({ doctorSlug, clinicInfo, clinicLocat
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}`;
 
   return (
-    <div className="px-4 pb-4">
+    <div className="h-full px-4 py-4">
       <div className="space-y-1">
         {locations.map((loc) => (
           <a
