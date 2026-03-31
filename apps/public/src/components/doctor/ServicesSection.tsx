@@ -32,8 +32,8 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
   return (
     <>
       <section id={id} className="relative overflow-hidden py-16 bg-[var(--color-bg-yellow-light)]">
-        <BlobDecoration variant="blob4" color="gradient-primary" position="top-left" size="lg" opacity={18} blur={true} />
-        <BlobDecoration variant="blob2" color="gradient-secondary" position="bottom-right" size="lg" opacity={18} blur={true} />
+        <BlobDecoration variant="blob4" color="gradient-primary" position="top-left" size="lg" opacity={30} blur={false} />
+        <BlobDecoration variant="blob2" color="gradient-secondary" position="bottom-right" size="lg" opacity={28} blur={false} />
         <div className="relative max-w-7xl mx-auto px-4">
           {/* H2 - Major section */}
           <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">

@@ -15,8 +15,8 @@ export default function EducationSection({ educationItems, id }: EducationSectio
 
   return (
     <section id={id} className="relative overflow-hidden py-16 bg-[var(--color-bg-yellow-light)]">
-      <BlobDecoration variant="blob1" color="gradient-secondary" position="top-right" size="lg" opacity={18} blur={true} />
-      <BlobDecoration variant="blob3" color="gradient-primary" position="bottom-left" size="lg" opacity={18} blur={true} />
+      <BlobDecoration variant="blob1" color="gradient-secondary" position="top-right" size="lg" opacity={30} blur={false} />
+      <BlobDecoration variant="blob3" color="gradient-primary" position="bottom-left" size="lg" opacity={28} blur={false} />
       <div className="relative max-w-5xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
