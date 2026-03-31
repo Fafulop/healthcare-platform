@@ -26,7 +26,7 @@ export default function EducationSection({ educationItems, id }: EducationSectio
         {/* Education List */}
         <div className="space-y-4">
           {educationItems.map((item, index) => (
-            <Card key={index} shadow="light" padding="lg">
+            <Card key={index} shadow="light" padding="lg" className="border border-black">
               <div className="flex gap-4">
                 {/* Icon */}
                 <div className="flex-shrink-0">

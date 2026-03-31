@@ -47,7 +47,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
                 key={index}
                 shadow="light"
                 padding="lg"
-                className="border-t-4 border-[var(--color-accent)] hover:shadow-[var(--shadow-medium)] transition-shadow md:cursor-default cursor-pointer"
+                className="border-t-4 border-t-[var(--color-accent)] border border-black hover:shadow-[var(--shadow-medium)] transition-shadow md:cursor-default cursor-pointer"
                 onClick={() => openModal(service)}
               >
                 {/* H3 - Service name */}

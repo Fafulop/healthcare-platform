@@ -71,7 +71,7 @@ export default function ClinicLocationSection({ doctorSlug, clinicInfo, clinicLo
             {locations.map((loc) => {
               const mapsUrl = getMapsUrl(loc);
               return (
-                <Card key={loc.id} shadow="light" padding="lg">
+                <Card key={loc.id} shadow="light" padding="lg" className="border border-black">
                   <h3 className="text-xl font-semibold text-[var(--color-neutral-dark)] mb-6">{loc.name}</h3>
 
                   <div className="flex items-start gap-3 mb-6">
@@ -105,7 +105,7 @@ export default function ClinicLocationSection({ doctorSlug, clinicInfo, clinicLo
         ) : (
           /* Single location: address left, hours right */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card shadow="light" padding="lg">
+            <Card shadow="light" padding="lg" className="border border-black">
               <h3 className="text-xl font-semibold text-[var(--color-neutral-dark)] mb-6">
                 Información de Contacto
               </h3>
@@ -127,7 +127,7 @@ export default function ClinicLocationSection({ doctorSlug, clinicInfo, clinicLo
               </div>
             </Card>
 
-            <Card shadow="light" padding="lg">
+            <Card shadow="light" padding="lg" className="border border-black">
               <h3 className="text-xl font-semibold text-[var(--color-neutral-dark)] mb-6 flex items-center gap-2">
                 <Clock className="w-6 h-6 text-[var(--color-secondary)]" />
                 Horario de Atención
