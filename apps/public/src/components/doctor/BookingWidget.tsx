@@ -694,7 +694,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
               </div>
 
               {/* Available Time Slots */}
-              {selectedDate && (
+              {selectedDate && !onDayClick && (
                 <div className="border-t pt-1.5 mt-1.5">
                   {selectedSlots.length === 0 ? (
                     <p className="text-xs text-gray-500 text-center py-2">

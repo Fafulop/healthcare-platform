@@ -6,6 +6,7 @@ import SidebarContactInfo from "@/components/doctor/SidebarContactInfo";
 import SidebarCTA from "@/components/doctor/SidebarCTA";
 import BookingModal from "@/components/doctor/BookingModal";
 import BlobDecoration from "@/components/ui/BlobDecoration";
+import type { ClinicLocationItem } from "@/types/doctor";
 
 interface BlogLayoutClientProps {
   doctorSlug: string;
@@ -19,10 +20,11 @@ interface BlogLayoutClientProps {
       lng: number;
     };
   };
+  clinicLocations?: ClinicLocationItem[];
   children: React.ReactNode;
 }
 
-export default function BlogLayoutClient({ doctorSlug, clinicInfo, children }: BlogLayoutClientProps) {
+export default function BlogLayoutClient({ doctorSlug, clinicInfo, clinicLocations, children }: BlogLayoutClientProps) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -70,7 +72,7 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, children }: B
                 />
 
                 {/* Contact Information - Quick access (Desktop Only) */}
-                <SidebarContactInfo doctorSlug={doctorSlug} clinicInfo={clinicInfo} />
+                <SidebarContactInfo doctorSlug={doctorSlug} clinicInfo={clinicInfo} clinicLocations={clinicLocations} />
               </div>
             </div>
           </aside>
