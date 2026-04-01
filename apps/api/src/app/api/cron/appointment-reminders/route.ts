@@ -164,6 +164,7 @@ export async function POST(request: Request) {
           clinicName,
           clinicAddress,
           clinicPhone,
+          meetLink:        booking.meetLink ?? null,
         },
         accessToken,
         refreshToken,

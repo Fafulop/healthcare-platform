@@ -47,6 +47,7 @@ export interface Booking {
   endTime?: string | null;
   duration?: number | null;
   confirmationEmailSentAt?: string | null;
+  meetLink?: string | null;
   isRescheduled?: boolean;
   formLink?: {
     id: string;
@@ -152,11 +153,15 @@ export function useBookings(doctorId: string | undefined) {
 
       if (data.success) {
         toast.success(data.message || "Correo enviado exitosamente");
-        // Update local state so button reflects sent timestamp immediately
+        // Update local state so button reflects sent timestamp and Meet link immediately
         setBookings((prev) =>
           prev.map((b) =>
             b.id === bookingId
-              ? { ...b, confirmationEmailSentAt: data.sentAt ?? new Date().toISOString() }
+              ? {
+                  ...b,
+                  confirmationEmailSentAt: data.sentAt ?? new Date().toISOString(),
+                  ...(data.meetLink ? { meetLink: data.meetLink } : {}),
+                }
               : b
           )
         );

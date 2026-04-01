@@ -418,6 +418,9 @@ model Booking {
   // Google Calendar sync (freeform bookings store event ID here; slot-based use slot.googleEventId)
   googleEventId      String?       @map("google_event_id")
 
+  // Telemedicine (Google Meet link, created when appointmentMode = TELEMEDICINA)
+  meetLink           String?       @map("meet_link")
+
   // Relations
   slot               AppointmentSlot? @relation(fields: [slotId], references: [id], onDelete: Cascade)
   doctor             Doctor           @relation(fields: [doctorId], references: [id], onDelete: Cascade)

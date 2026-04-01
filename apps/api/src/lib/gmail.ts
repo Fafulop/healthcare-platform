@@ -38,6 +38,7 @@ export interface AppointmentEmailData {
   clinicAddress?: string;
   clinicPhone?: string;
   isRescheduled?: boolean;
+  meetLink?: string | null;
 }
 
 // ─── MIME builder ─────────────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ export interface AppointmentReminderEmailData {
   clinicName?: string;
   clinicAddress?: string;
   clinicPhone?: string;
+  meetLink?: string | null;
 }
 
 export async function sendAppointmentReminderEmail(
@@ -260,6 +262,17 @@ function buildAppointmentEmailHtml(data: AppointmentEmailData): string {
                 </td>
               </tr>
 
+              ${data.appointmentMode === 'TELEMEDICINA' && data.meetLink ? `
+              <!-- Google Meet link -->
+              <tr>
+                <td style="padding:16px 24px;border-bottom:1px solid #dce8ff;background:#f0f7ff;">
+                  <p style="margin:0 0 6px;color:#1a73e8;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">Enlace de videollamada (Google Meet)</p>
+                  <p style="margin:0 0 12px;color:#555;font-size:13px;line-height:1.5;">Tu consulta será por videollamada. Únete desde el siguiente enlace a la hora de tu cita. No necesitas descargar ninguna aplicación.</p>
+                  <a href="${escapeHtml(data.meetLink)}" style="display:inline-block;background:#1a73e8;color:#ffffff;font-size:14px;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Unirse a Google Meet</a>
+                  <p style="margin:10px 0 0;color:#888;font-size:11px;word-break:break-all;">${escapeHtml(data.meetLink)}</p>
+                </td>
+              </tr>` : ''}
+
               <!-- Price -->
               <tr>
                 <td style="padding:14px 24px;border-bottom:1px solid #dce8ff;">
@@ -376,6 +389,17 @@ function buildReminderEmailHtml(data: AppointmentReminderEmailData): string {
                   <p style="margin:0;color:#1a1a2e;font-size:14px;">${modeLabel}</p>
                 </td>
               </tr>
+
+              ${data.appointmentMode === 'TELEMEDICINA' && data.meetLink ? `
+              <!-- Google Meet link (reminder) -->
+              <tr>
+                <td style="padding:16px 24px;border-bottom:1px solid #dce8ff;background:#f0f7ff;">
+                  <p style="margin:0 0 6px;color:#1a73e8;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">Tu cita es por videollamada — Google Meet</p>
+                  <p style="margin:0 0 12px;color:#555;font-size:13px;line-height:1.5;">En aproximadamente 2 horas inicia tu consulta en línea. Únete desde el siguiente enlace, no necesitas descargar nada.</p>
+                  <a href="${escapeHtml(data.meetLink)}" style="display:inline-block;background:#1a73e8;color:#ffffff;font-size:14px;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Unirse ahora a Google Meet</a>
+                  <p style="margin:10px 0 0;color:#888;font-size:11px;word-break:break-all;">${escapeHtml(data.meetLink)}</p>
+                </td>
+              </tr>` : ''}
 
               <!-- Confirmation code -->
               <tr>

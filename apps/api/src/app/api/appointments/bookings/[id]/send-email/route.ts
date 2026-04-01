@@ -5,8 +5,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { resolveTokens } from '@/lib/google-calendar';
+import { resolveTokens, ensureMeetLink } from '@/lib/google-calendar';
 import { sendAppointmentConfirmationEmail } from '@/lib/gmail';
+import { getCalendarTokens } from '@/lib/appointments-utils';
 
 export async function POST(
   request: Request,
@@ -34,6 +35,7 @@ export async function POST(
             date: true,
             startTime: true,
             endTime: true,
+            googleEventId: true,
             location: { select: { name: true, address: true, phone: true } },
           },
         },
@@ -141,7 +143,45 @@ export async function POST(
     const clinicAddress = booking.slot?.location?.address ?? booking.doctor.clinicAddress ?? undefined;
     const clinicPhone = booking.slot?.location?.phone ?? booking.doctor.clinicPhone ?? undefined;
 
-    // 4. Send email
+    // 4. For TELEMEDICINA: create or fetch Google Meet link
+    let meetLink: string | null = booking.meetLink ?? null;
+
+    if (booking.appointmentMode === 'TELEMEDICINA' && !meetLink) {
+      try {
+        const calTokens = await getCalendarTokens(booking.doctorId);
+        const calAccessToken = calTokens?.accessToken ?? accessToken;
+        const calRefreshToken = calTokens?.refreshToken ?? refreshToken;
+        const calendarId = calTokens?.calendarId ?? 'primary';
+        const googleEventId = booking.slot?.googleEventId ?? booking.googleEventId ?? null;
+
+        const result = await ensureMeetLink(
+          calAccessToken,
+          calRefreshToken,
+          calendarId,
+          googleEventId,
+          bookingId,
+          {
+            date: date.split('T')[0],
+            startTime,
+            endTime,
+            patientName: booking.patientName,
+          }
+        );
+
+        if (result) {
+          meetLink = result.meetUrl;
+          await prisma.booking.update({
+            where: { id: bookingId },
+            data: { meetLink },
+          });
+        }
+      } catch (meetError) {
+        // Non-blocking: log and continue sending email without Meet link
+        console.error('[Meet] Failed to create Meet link:', meetError);
+      }
+    }
+
+    // 5. Send email
     try {
       await sendAppointmentConfirmationEmail(
         {
@@ -162,6 +202,7 @@ export async function POST(
           clinicAddress,
           clinicPhone,
           isRescheduled: booking.isRescheduled,
+          meetLink,
         },
         accessToken,
         refreshToken,
@@ -195,6 +236,7 @@ export async function POST(
       success: true,
       message: `Correo de confirmación enviado a ${booking.patientEmail}`,
       sentAt: sentAt.toISOString(),
+      meetLink: meetLink ?? undefined,
     });
   } catch (error) {
     console.error('Error sending appointment confirmation email:', error);

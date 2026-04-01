@@ -1,4 +1,4 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { formatLocalDate, getLocalDateString } from "@/lib/dates";
@@ -403,25 +403,47 @@ function StatusActions({
           >
             Formulario
           </button>
-          <button
-            onClick={handleSendEmail}
-            disabled={isSendingEmail}
-            title={
-              booking.confirmationEmailSentAt
-                ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-                : "Enviar correo de confirmación al paciente"
-            }
-            className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isSendingEmail ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : booking.confirmationEmailSentAt ? (
-              <CheckCircle className="w-3 h-3 text-teal-600" />
-            ) : (
-              <Send className="w-3 h-3" />
-            )}
-            {isSendingEmail ? "Enviando..." : booking.confirmationEmailSentAt ? "Reenviar" : "Correo"}
-          </button>
+          {booking.appointmentMode === "TELEMEDICINA" ? (
+            <button
+              onClick={handleSendEmail}
+              disabled={isSendingEmail}
+              title={
+                booking.meetLink
+                  ? `Meet creado · ${booking.confirmationEmailSentAt ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Enviar correo con enlace Google Meet al paciente"}`
+                  : "Crear Google Meet y enviar correo al paciente"
+              }
+              className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSendingEmail ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : booking.meetLink ? (
+                <CheckCircle className="w-3 h-3 text-blue-600" />
+              ) : (
+                <Video className="w-3 h-3" />
+              )}
+              {isSendingEmail ? "Enviando..." : booking.meetLink ? "Reenviar Meet" : "Enviar Meet"}
+            </button>
+          ) : (
+            <button
+              onClick={handleSendEmail}
+              disabled={isSendingEmail}
+              title={
+                booking.confirmationEmailSentAt
+                  ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                  : "Enviar correo de confirmación al paciente"
+              }
+              className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSendingEmail ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : booking.confirmationEmailSentAt ? (
+                <CheckCircle className="w-3 h-3 text-teal-600" />
+              ) : (
+                <Send className="w-3 h-3" />
+              )}
+              {isSendingEmail ? "Enviando..." : booking.confirmationEmailSentAt ? "Reenviar" : "Correo"}
+            </button>
+          )}
         </>
       )}
       {booking.formLink?.status === "SUBMITTED" && (

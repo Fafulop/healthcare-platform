@@ -366,6 +366,86 @@ export async function watchCalendar(
   };
 }
 
+// ─── Google Meet ─────────────────────────────────────────────────────────────
+
+// Creates or fetches a Google Meet link for a telemedicine booking.
+// If googleEventId is provided, patches the existing event with conferenceData.
+// If no event exists, creates a minimal calendar event to obtain the Meet URL.
+// The requestId is derived from bookingId and is idempotent — calling again returns the same URL.
+export async function ensureMeetLink(
+  accessToken: string,
+  refreshToken: string | null,
+  calendarId: string,
+  googleEventId: string | null,
+  bookingId: string,
+  fallback: {
+    date: string;        // YYYY-MM-DD
+    startTime: string;   // HH:MM
+    endTime: string;     // HH:MM
+    patientName: string;
+  }
+): Promise<{ meetUrl: string; newEventId?: string } | null> {
+  const auth = buildAuthedClient(accessToken, refreshToken);
+  const calendar = google.calendar({ version: 'v3', auth });
+  const requestId = `meet-${bookingId}`;
+
+  if (googleEventId) {
+    try {
+      const { data } = await calendar.events.patch({
+        calendarId,
+        eventId: googleEventId,
+        conferenceDataVersion: 1,
+        requestBody: {
+          conferenceData: {
+            createRequest: {
+              requestId,
+              conferenceSolutionKey: { type: 'hangoutsMeet' },
+            },
+          },
+        },
+      });
+
+      const meetUrl =
+        data.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri ?? null;
+      if (meetUrl) return { meetUrl };
+    } catch {
+      // Fall through to create a new event
+    }
+  }
+
+  // No existing event or patch failed — create a minimal event to get a Meet link
+  const { data } = await calendar.events.insert({
+    calendarId,
+    conferenceDataVersion: 1,
+    requestBody: {
+      summary: `Telemedicina: ${fallback.patientName}`,
+      start: {
+        dateTime: `${fallback.date}T${fallback.startTime}:00`,
+        timeZone: 'America/Mexico_City',
+      },
+      end: {
+        dateTime: `${fallback.date}T${fallback.endTime}:00`,
+        timeZone: 'America/Mexico_City',
+      },
+      conferenceData: {
+        createRequest: {
+          requestId,
+          conferenceSolutionKey: { type: 'hangoutsMeet' },
+        },
+      },
+      extendedProperties: {
+        private: { source: 'tusalud.pro', bookingId },
+      },
+    },
+  });
+
+  const meetUrl =
+    data.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri ?? null;
+
+  if (!meetUrl) return null;
+  return { meetUrl, newEventId: data.id ?? undefined };
+}
+
 export async function stopCalendarWatch(
   accessToken: string,
   refreshToken: string | null,
