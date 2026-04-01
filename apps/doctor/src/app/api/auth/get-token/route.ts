@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         userId: user.id,
         role: user.role,
         doctorId: user.doctorId,
+        sessionVersion: user.sessionVersion ?? 0,
       },
       secret,
       {

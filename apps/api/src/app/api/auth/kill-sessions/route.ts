@@ -1,17 +1,19 @@
 import { prisma } from '@healthcare/database';
 import { NextResponse } from 'next/server';
-import { validateAuthToken } from '@/lib/auth';
+import { validateAuthToken, AuthError } from '@/lib/auth';
 
 export async function PATCH(request: Request) {
   let authUser: Awaited<ReturnType<typeof validateAuthToken>>;
 
   try {
-    authUser = await validateAuthToken(request);
+    // skipVersionCheck: kill-sessions must work even when the token's version
+    // is stale — that's precisely the situation it needs to fix.
+    authUser = await validateAuthToken(request, { skipVersionCheck: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unauthorized' },
-      { status: 401 }
-    );
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {

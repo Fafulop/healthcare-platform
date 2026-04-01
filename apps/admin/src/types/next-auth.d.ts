@@ -9,6 +9,7 @@ declare module "next-auth" {
       id: string;
       role: string;
       doctorId: string | null;
+      sessionVersion: number;
     } & DefaultSession["user"];
   }
 

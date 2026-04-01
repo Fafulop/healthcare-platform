@@ -6,6 +6,20 @@
 import { prisma } from '@healthcare/database';
 import jwt from 'jsonwebtoken';
 
+/**
+ * Thrown for authentication/authorization failures.
+ * Routes catch this to return the correct HTTP status (401/403)
+ * instead of a misleading 500.
+ */
+export class AuthError extends Error {
+  status: number;
+  constructor(message: string, status = 401) {
+    super(message);
+    this.name = 'AuthError';
+    this.status = status;
+  }
+}
+
 interface JWTPayload {
   email: string;
   sub?: string;  // NextAuth includes user ID as 'sub'
@@ -19,7 +33,10 @@ interface JWTPayload {
  * Extract and validate JWT token from request
  * Returns user info if valid, throws error if invalid
  */
-export async function validateAuthToken(request: Request): Promise<{
+export async function validateAuthToken(
+  request: Request,
+  options?: { skipVersionCheck?: boolean }
+): Promise<{
   email: string;
   role: string;
   userId: string;
@@ -28,7 +45,7 @@ export async function validateAuthToken(request: Request): Promise<{
   const authHeader = request.headers.get('authorization');
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid authorization header');
+    throw new AuthError('Missing or invalid authorization header');
   }
 
   const token = authHeader.substring(7);  // Remove 'Bearer ' prefix
@@ -60,7 +77,7 @@ export async function validateAuthToken(request: Request): Promise<{
     console.log('[AUTH DEBUG] Token verified successfully for:', payload.email);
 
     if (!payload.email) {
-      throw new Error('Token missing email claim');
+      throw new AuthError('Token missing email claim');
     }
 
     // Verify user still exists in database
@@ -76,13 +93,14 @@ export async function validateAuthToken(request: Request): Promise<{
     });
 
     if (!user) {
-      throw new Error('User not found in database');
+      throw new AuthError('User not found in database');
     }
 
     // Reject sessions that predate a kill-all-sessions action.
     // Tokens issued before the feature have no sessionVersion — treat as 0.
-    if ((payload.sessionVersion ?? 0) !== user.sessionVersion) {
-      throw new Error('Session has been invalidated - please log in again');
+    // skipVersionCheck is used by kill-sessions itself to avoid a deadlock.
+    if (!options?.skipVersionCheck && (payload.sessionVersion ?? 0) !== user.sessionVersion) {
+      throw new AuthError('Session has been invalidated - please log in again');
     }
 
     return {
@@ -92,13 +110,14 @@ export async function validateAuthToken(request: Request): Promise<{
       doctorId: user.doctorId,
     };
   } catch (error) {
+    if (error instanceof AuthError) throw error;
     if (error instanceof jwt.TokenExpiredError) {
-      throw new Error('Session expired - please log in again');
+      throw new AuthError('Session expired - please log in again');
     }
     if (error instanceof jwt.JsonWebTokenError) {
-      throw new Error('Invalid token signature');
+      throw new AuthError('Invalid token signature');
     }
-    throw new Error(`Token validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new AuthError(`Token validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -109,7 +128,7 @@ export async function requireAdminAuth(request: Request) {
   const user = await validateAuthToken(request);
 
   if (user.role !== 'ADMIN') {
-    throw new Error('Admin access required');
+    throw new AuthError('Admin access required', 403);
   }
 
   return user;
@@ -123,7 +142,7 @@ export async function requireDoctorAuth(request: Request) {
   const user = await validateAuthToken(request);
 
   if (!['DOCTOR', 'ADMIN'].includes(user.role)) {
-    throw new Error('Doctor or Admin access required');
+    throw new AuthError('Doctor or Admin access required', 403);
   }
 
   return user;
@@ -136,7 +155,7 @@ export async function requireStaffAuth(request: Request) {
   const user = await validateAuthToken(request);
 
   if (!['ADMIN', 'DOCTOR'].includes(user.role)) {
-    throw new Error('Staff access required');
+    throw new AuthError('Staff access required', 403);
   }
 
   return user;

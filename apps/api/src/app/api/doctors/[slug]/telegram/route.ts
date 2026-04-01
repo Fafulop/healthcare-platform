@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { requireDoctorAuth } from '@/lib/auth';
+import { requireDoctorAuth, AuthError } from '@/lib/auth';
 
 export async function GET(
   request: Request,
@@ -25,9 +25,11 @@ export async function GET(
 
     return NextResponse.json({ chatId: doctor.telegramChatId ?? null });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
-    const status = message.includes('access required') ? 403 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -52,9 +54,11 @@ export async function PUT(
 
     return NextResponse.json({ chatId: doctor.telegramChatId });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
-    const status = message.includes('access required') ? 403 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -73,8 +77,10 @@ export async function DELETE(
 
     return NextResponse.json({ chatId: null });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
-    const status = message.includes('access required') ? 403 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

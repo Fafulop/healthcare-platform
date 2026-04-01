@@ -97,6 +97,7 @@ export const authConfig: NextAuthConfig = {
         session.user.role = token.role as string;
         session.user.doctorId = token.doctorId as string | null;
         session.user.privacyConsentAt = token.privacyConsentAt as string | null;
+        session.user.sessionVersion = token.sessionVersion as number ?? 0;
       }
 
       return session;
