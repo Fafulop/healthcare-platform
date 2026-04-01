@@ -79,8 +79,9 @@ export async function validateAuthToken(request: Request): Promise<{
       throw new Error('User not found in database');
     }
 
-    // Reject sessions that predate a kill-all-sessions action
-    if (payload.sessionVersion !== undefined && payload.sessionVersion !== user.sessionVersion) {
+    // Reject sessions that predate a kill-all-sessions action.
+    // Tokens issued before the feature have no sessionVersion — treat as 0.
+    if ((payload.sessionVersion ?? 0) !== user.sessionVersion) {
       throw new Error('Session has been invalidated - please log in again');
     }
 
