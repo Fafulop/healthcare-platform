@@ -24,6 +24,7 @@ export async function POST(request: Request) {
         role: true,
         doctorId: true,
         privacyConsentAt: true,
+        sessionVersion: true,
       },
     });
 
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
           role: true,
           doctorId: true,
           privacyConsentAt: true,
+          sessionVersion: true,
         },
       });
 

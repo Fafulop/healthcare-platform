@@ -29,5 +29,6 @@ declare module "next-auth/jwt" {
     userId?: string;
     role?: string;
     doctorId?: string | null;
+    sessionVersion?: number;
   }
 }

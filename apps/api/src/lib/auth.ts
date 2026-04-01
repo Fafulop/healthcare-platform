@@ -12,6 +12,7 @@ interface JWTPayload {
   iat?: number;
   exp?: number;
   jti?: string;
+  sessionVersion?: number;
 }
 
 /**
@@ -70,11 +71,17 @@ export async function validateAuthToken(request: Request): Promise<{
         email: true,
         role: true,
         doctorId: true,
+        sessionVersion: true,
       },
     });
 
     if (!user) {
       throw new Error('User not found in database');
+    }
+
+    // Reject sessions that predate a kill-all-sessions action
+    if (payload.sessionVersion !== undefined && payload.sessionVersion !== user.sessionVersion) {
+      throw new Error('Session has been invalidated - please log in again');
     }
 
     return {

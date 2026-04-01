@@ -29,6 +29,7 @@ model User {
   googleRefreshToken String?   @map("google_refresh_token")
   googleTokenExpiry  DateTime? @map("google_token_expiry")
 
+  sessionVersion    Int       @default(0) @map("session_version")
   privacyConsentAt  DateTime? @map("privacy_consent_at")
 
   createdAt DateTime @default(now()) @map("created_at")

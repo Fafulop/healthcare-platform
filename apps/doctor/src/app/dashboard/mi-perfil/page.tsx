@@ -2,8 +2,8 @@
 
 
 import { useState, useEffect } from "react";
-import { Loader2, Calendar, CheckCircle2, XCircle, RefreshCw, AlertTriangle, MessageCircle } from "lucide-react";
-import { signIn } from "next-auth/react";
+import { Loader2, Calendar, CheckCircle2, XCircle, RefreshCw, AlertTriangle, MessageCircle, ShieldOff } from "lucide-react";
+import { signIn, signOut } from "next-auth/react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { authFetch } from "@/lib/auth-fetch";
 import GeneralInfoSection from "@/components/profile/GeneralInfoSection";
@@ -118,6 +118,10 @@ export default function MiPerfilPage() {
   const [telegramMessage, setTelegramMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [telegramLoaded, setTelegramLoaded] = useState(false);
 
+  // Kill sessions state
+  const [killSessionsLoading, setKillSessionsLoading] = useState(false);
+  const [killSessionsMessage, setKillSessionsMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   const slug = doctorProfile?.slug;
 
   // Fetch full profile data
@@ -139,6 +143,22 @@ export default function MiPerfilPage() {
       fetchTelegramStatus();
     }
   }, [activeTab, slug]);
+
+  const handleKillSessions = async () => {
+    setKillSessionsLoading(true);
+    setKillSessionsMessage(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/auth/kill-sessions`, { method: "PATCH" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al cerrar sesiones");
+      }
+      await signOut({ callbackUrl: "/login" });
+    } catch (err) {
+      setKillSessionsMessage({ type: "error", text: err instanceof Error ? err.message : "Error al cerrar sesiones" });
+      setKillSessionsLoading(false);
+    }
+  };
 
   const fetchCalendarStatus = async () => {
     if (!slug) return;
@@ -621,6 +641,34 @@ export default function MiPerfilPage() {
                   Conectar Google Calendar
                 </button>
               )}
+            </div>
+
+            {/* Sessions card */}
+            <div className="border border-gray-200 rounded-lg p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                  <ShieldOff className="w-5 h-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 text-sm">Sesiones activas</p>
+                  <p className="text-xs text-gray-500">Cierra todas las sesiones abiertas en otros dispositivos. Tendrás que volver a iniciar sesión.</p>
+                </div>
+              </div>
+
+              {killSessionsMessage && (
+                <div className={`text-xs rounded-lg px-3 py-2 ${killSessionsMessage.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                  {killSessionsMessage.text}
+                </div>
+              )}
+
+              <button
+                onClick={handleKillSessions}
+                disabled={killSessionsLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
+              >
+                {killSessionsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldOff className="w-4 h-4" />}
+                Cerrar todas las sesiones
+              </button>
             </div>
 
             {/* Telegram card */}

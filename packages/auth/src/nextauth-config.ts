@@ -57,6 +57,7 @@ export const authConfig: NextAuthConfig = {
             token.name = dbUser.name;
             token.picture = dbUser.image;
             token.privacyConsentAt = dbUser.privacyConsentAt ?? null;
+            token.sessionVersion = dbUser.sessionVersion;
           } else {
             console.error('[JWT CALLBACK] API response not OK:', response.status);
           }

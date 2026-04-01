@@ -31,5 +31,6 @@ declare module "next-auth/jwt" {
     role?: string;
     doctorId?: string | null;
     privacyConsentAt?: string | null;
+    sessionVersion?: number;
   }
 }
