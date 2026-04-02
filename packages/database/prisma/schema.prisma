@@ -15,10 +15,11 @@ datasource db {
 // User authentication model for staff (doctors + admins)
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  image     String?  // Google profile picture
-  role      Role     @default(DOCTOR)
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  name          String?
+  image         String?   // Google profile picture
+  role          Role      @default(DOCTOR)
 
   // Optional: Link to doctor profile if user is a doctor
   doctorId  String?  @unique @map("doctor_id")
