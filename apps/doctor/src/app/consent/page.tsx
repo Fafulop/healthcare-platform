@@ -27,11 +27,9 @@ export default function ConsentPage() {
         throw new Error("Error al guardar el consentimiento");
       }
 
-      const data = await response.json();
-
-      // Pass the saved timestamp directly to update() so the JWT callback sets it
-      // immediately without re-fetching from the DB (avoids race condition).
-      await update({ privacyConsentAt: data.privacyConsentAt });
+      // DB is now source of truth — trigger a session refresh so session()
+      // re-reads privacyConsentAt from the User row.
+      await update({});
 
       router.replace("/dashboard");
     } catch (err) {

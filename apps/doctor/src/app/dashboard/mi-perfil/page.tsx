@@ -118,9 +118,13 @@ export default function MiPerfilPage() {
   const [telegramMessage, setTelegramMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [telegramLoaded, setTelegramLoaded] = useState(false);
 
-  // Kill sessions state
+  // Active sessions state
+  type SessionItem = { id: string; createdAt: string; expires: string; current: boolean };
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [killSessionsLoading, setKillSessionsLoading] = useState(false);
-  const [killSessionsMessage, setKillSessionsMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const slug = doctorProfile?.slug;
 
@@ -144,9 +148,30 @@ export default function MiPerfilPage() {
     }
   }, [activeTab, slug]);
 
+  // Fetch active sessions when Integraciones tab is opened
+  useEffect(() => {
+    if (activeTab === "integraciones" && sessions.length === 0 && !sessionsLoading) {
+      fetchSessions();
+    }
+  }, [activeTab]);
+
+  const fetchSessions = async () => {
+    setSessionsLoading(true);
+    setSessionsError(null);
+    try {
+      const res = await fetch("/api/auth/sessions");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al cargar sesiones");
+      setSessions(data.data);
+    } catch (err) {
+      setSessionsError(err instanceof Error ? err.message : "Error al cargar sesiones");
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
   const handleKillSessions = async () => {
     setKillSessionsLoading(true);
-    setKillSessionsMessage(null);
     try {
       const res = await authFetch(`${API_URL}/api/auth/kill-sessions`, { method: "PATCH" });
       if (!res.ok) {
@@ -155,8 +180,23 @@ export default function MiPerfilPage() {
       }
       await signOut({ callbackUrl: "/login" });
     } catch (err) {
-      setKillSessionsMessage({ type: "error", text: err instanceof Error ? err.message : "Error al cerrar sesiones" });
       setKillSessionsLoading(false);
+    }
+  };
+
+  const handleRevokeSession = async (id: string) => {
+    setRevokingId(id);
+    try {
+      const res = await fetch(`/api/auth/sessions/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al revocar sesión");
+      }
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      // silently fail — session list will still show the item
+    } finally {
+      setRevokingId(null);
     }
   };
 
@@ -651,24 +691,67 @@ export default function MiPerfilPage() {
                 </div>
                 <div>
                   <p className="font-medium text-gray-900 text-sm">Sesiones activas</p>
-                  <p className="text-xs text-gray-500">Cierra todas las sesiones abiertas en otros dispositivos. Tendrás que volver a iniciar sesión.</p>
+                  <p className="text-xs text-gray-500">Administra los dispositivos donde tienes sesión abierta.</p>
                 </div>
               </div>
 
-              {killSessionsMessage && (
-                <div className={`text-xs rounded-lg px-3 py-2 ${killSessionsMessage.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
-                  {killSessionsMessage.text}
+              {sessionsLoading && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando sesiones...
                 </div>
               )}
 
-              <button
-                onClick={handleKillSessions}
-                disabled={killSessionsLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
-              >
-                {killSessionsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldOff className="w-4 h-4" />}
-                Cerrar todas las sesiones
-              </button>
+              {sessionsError && (
+                <div className="text-xs rounded-lg px-3 py-2 bg-red-50 text-red-700 border border-red-200">
+                  {sessionsError}
+                </div>
+              )}
+
+              {!sessionsLoading && !sessionsError && sessions.length === 0 && (
+                <p className="text-xs text-gray-500">No hay sesiones activas.</p>
+              )}
+
+              {!sessionsLoading && !sessionsError && sessions.length > 0 && (
+                <div className="divide-y divide-gray-100">
+                  {sessions.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between py-3 gap-3">
+                      <div className="text-xs text-gray-600">
+                        <p className="font-medium text-gray-800">Sesión activa</p>
+                        <p className="text-gray-500">
+                          Iniciado: {new Date(s.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
+                          {" · "}
+                          {new Date(s.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      {s.current ? (
+                        <span className="flex-shrink-0 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2.5 py-1">
+                          Este dispositivo
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleRevokeSession(s.id)}
+                          disabled={revokingId === s.id}
+                          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+                        >
+                          {revokingId === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                          Revocar
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={handleKillSessions}
+                  disabled={killSessionsLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
+                >
+                  {killSessionsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldOff className="w-4 h-4" />}
+                  Cerrar todas
+                </button>
+              </div>
             </div>
 
             {/* Telegram card */}

@@ -1,7 +1,22 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@healthcare/database";
+
+// Wrap adapter to assign correct role on new user creation.
+// Default adapter only sets email, name, image — no knowledge of ADMIN_EMAILS.
+const adapter = PrismaAdapter(prisma);
+const customAdapter = {
+  ...adapter,
+  createUser: async (data: any) => {
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map((e: string) => e.trim()).filter(Boolean);
+    const role = adminEmails.includes(data.email) ? 'ADMIN' : 'DOCTOR';
+    return prisma.user.create({ data: { ...data, role } });
+  },
+};
 
 export const authConfig: NextAuthConfig = {
+  adapter: customAdapter as any,
   trustHost: true,
   providers: [
     GoogleProvider({
@@ -19,87 +34,48 @@ export const authConfig: NextAuthConfig = {
   ],
 
   callbacks: {
-    async signIn({ user, account, profile }: any) {
-      // Allow all Google authentications
-      // Role verification happens via API calls after login
+    async signIn({ user, account }: any) {
+      if (account?.provider === 'google' && user.email) {
+        try {
+          // Copy OAuth tokens to User model (Google Calendar integration reads from here)
+          await prisma.user.update({
+            where: { email: user.email },
+            data: {
+              googleAccessToken: account.access_token ?? null,
+              googleRefreshToken: account.refresh_token ?? null,
+              googleTokenExpiry: account.expires_at
+                ? new Date(account.expires_at * 1000)
+                : null,
+            },
+          });
+
+          // Clean up expired sessions for this user on each new login
+          await prisma.session.deleteMany({
+            where: {
+              userId: user.id,
+              expires: { lt: new Date() },
+            },
+          });
+        } catch (error) {
+          console.error('[SIGN-IN CALLBACK] Error:', error);
+          // Do not block login if these operations fail
+        }
+      }
       return true;
     },
 
-    async jwt({ token, user, account, trigger, session }: any) {
-      // If the client passed a privacyConsentAt directly via update(), apply it immediately
-      // without re-fetching from the DB (avoids race condition on consent save).
-      if (trigger === "update" && session?.privacyConsentAt !== undefined) {
-        token.privacyConsentAt = session.privacyConsentAt;
-        return token;
-      }
-
-      // On sign in, on explicit update, or when doctorId is missing (user may
-      // have been linked to a doctor profile after their initial login)
-      if (user || trigger === "update" || !token.doctorId) {
-        try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-
-          const response = await fetch(`${apiUrl}/api/auth/user`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: user?.email || token.email,
-              name: user?.name || token.name,
-              image: user?.image || token.picture,
-            }),
-          });
-
-          if (response.ok) {
-            const dbUser = await response.json();
-            token.userId = dbUser.id;
-            token.role = dbUser.role;
-            token.doctorId = dbUser.doctorId;
-            token.name = dbUser.name;
-            token.picture = dbUser.image;
-            token.privacyConsentAt = dbUser.privacyConsentAt ?? null;
-            token.sessionVersion = dbUser.sessionVersion;
-          } else {
-            console.error('[JWT CALLBACK] API response not OK:', response.status);
-          }
-        } catch (error) {
-          console.error("[JWT CALLBACK] Error fetching user from API:", error);
-          // Continue with existing token if API fails
-        }
-      }
-
-      // On fresh sign-in, account contains Google OAuth tokens — save them to DB.
-      // account is only present on the first jwt() call after OAuth login.
-      if (account?.provider === "google" && account.access_token) {
-        try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-          await fetch(`${apiUrl}/api/auth/google-calendar/tokens`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: user?.email || token.email,
-              accessToken: account.access_token,
-              refreshToken: account.refresh_token ?? null,
-              expiresAt: account.expires_at ? new Date(account.expires_at * 1000).toISOString() : null,
-            }),
-          });
-        } catch (error) {
-          console.error("[JWT CALLBACK] Error saving Google Calendar tokens:", error);
-        }
-      }
-
-      return token;
-    },
-
-    async session({ session, token }: any) {
-      // Attach user info to session
-      if (session.user) {
-        session.user.id = token.userId as string;
-        session.user.role = token.role as string;
-        session.user.doctorId = token.doctorId as string | null;
-        session.user.privacyConsentAt = token.privacyConsentAt as string | null;
-        session.user.sessionVersion = token.sessionVersion as number ?? 0;
-      }
-
+    // session() with database strategy receives:
+    //   session — the Session row (session.id is this session's cuid)
+    //   user    — the full DB User row loaded by the adapter (all custom fields included)
+    // No JWT, no token — everything comes directly from the DB.
+    async session({ session, user }: any) {
+      session.user.id = user.id;
+      session.user.role = user.role;
+      session.user.doctorId = user.doctorId ?? null;
+      session.user.sessionVersion = user.sessionVersion ?? 0;
+      session.user.privacyConsentAt = user.privacyConsentAt ?? null;
+      // Expose session row id so /api/auth/sessions can identify the current session
+      session.sessionId = session.id;
       return session;
     },
   },
@@ -110,7 +86,7 @@ export const authConfig: NextAuthConfig = {
   },
 
   session: {
-    strategy: "jwt" as const,
+    strategy: "database" as const,
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 

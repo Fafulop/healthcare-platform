@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect to consent page if doctor hasn't accepted privacy policy.
   // Allow through if already on /consent (prevents redirect loop).
-  if (!session.user.privacyConsentAt && !isConsentPage) {
+  if (session.user.privacyConsentAt == null && !isConsentPage) {
     console.log(`[DOCTOR MIDDLEWARE] User ${session.user.email} has not accepted privacy policy — redirecting to /consent`);
     const consentUrl = new URL("/consent", request.url);
     return NextResponse.redirect(consentUrl);

@@ -9,6 +9,9 @@
     "./config": "./src/nextauth-config.ts",
     "./middleware": "./src/middleware.ts"
   },
+  "dependencies": {
+    "@auth/prisma-adapter": "^2.11.1"
+  },
   "peerDependencies": {
     "next-auth": "^5.0.0-beta.25"
   },

@@ -17,10 +17,17 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    await prisma.user.update({
-      where: { id: authUser.userId },
-      data: { sessionVersion: { increment: 1 } },
-    });
+    await prisma.$transaction([
+      // 1. Delete all NextAuth DB sessions → doctor app + admin app immediately locked out
+      prisma.session.deleteMany({
+        where: { userId: authUser.userId },
+      }),
+      // 2. Increment sessionVersion → apps/api Bearer JWTs rejected on next API call
+      prisma.user.update({
+        where: { id: authUser.userId },
+        data: { sessionVersion: { increment: 1 } },
+      }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
