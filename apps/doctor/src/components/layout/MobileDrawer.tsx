@@ -73,7 +73,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-72 bg-white z-50 lg:hidden transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full w-72 bg-white z-50 lg:hidden flex flex-col transform transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -129,7 +129,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
                   icon={UserCog}
                   label="Editar Perfil"
                   href="/dashboard/mi-perfil"
-                  active={pathname?.startsWith("/dashboard/mi-perfil")}
+                  active={pathname.startsWith("/dashboard/mi-perfil")}
                   onClick={onClose}
                 />
                 <a
@@ -148,14 +148,14 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               icon={Video}
               label="Contenido Audiovisual"
               href="/dashboard/contenido-audiovisual"
-              active={pathname?.startsWith("/dashboard/contenido-audiovisual")}
+              active={pathname.startsWith("/dashboard/contenido-audiovisual")}
               onClick={onClose}
             />
             <NavItem
               icon={FileText}
               label="Mi Blog"
               href="/dashboard/blog"
-              active={pathname?.startsWith("/dashboard/blog")}
+              active={pathname.startsWith("/dashboard/blog")}
               onClick={onClose}
             />
           </div>
@@ -175,28 +175,28 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               icon={Users}
               label="Expedientes Médicos"
               href="/dashboard/medical-records"
-              active={pathname?.startsWith("/dashboard/medical-records")}
+              active={pathname.startsWith("/dashboard/medical-records")}
               onClick={onClose}
             />
             <NavItem
               icon={CheckSquare}
               label="Tareas"
               href="/dashboard/pendientes"
-              active={pathname?.startsWith("/dashboard/pendientes")}
+              active={pathname.startsWith("/dashboard/pendientes")}
               onClick={onClose}
             />
             <NavItem
               icon={NotebookPen}
               label="Notas"
               href="/dashboard/notas"
-              active={pathname?.startsWith("/dashboard/notas")}
+              active={pathname.startsWith("/dashboard/notas")}
               onClick={onClose}
             />
             <NavItem
               icon={BarChart3}
               label="Reportes"
               href="/dashboard/reportes"
-              active={pathname?.startsWith("/dashboard/reportes")}
+              active={pathname.startsWith("/dashboard/reportes")}
               onClick={onClose}
             />
           </div>
@@ -209,42 +209,42 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               icon={DollarSign}
               label="Flujo de Dinero"
               href="/dashboard/practice/flujo-de-dinero"
-              active={pathname?.startsWith("/dashboard/practice/flujo-de-dinero")}
+              active={pathname.startsWith("/dashboard/practice/flujo-de-dinero")}
               onClick={onClose}
             />
             <NavItem
               icon={ShoppingCart}
               label="Ventas"
               href="/dashboard/practice/ventas"
-              active={pathname?.startsWith("/dashboard/practice/ventas")}
+              active={pathname.startsWith("/dashboard/practice/ventas")}
               onClick={onClose}
             />
             <NavItem
               icon={ShoppingBag}
               label="Compras"
               href="/dashboard/practice/compras"
-              active={pathname?.startsWith("/dashboard/practice/compras")}
+              active={pathname.startsWith("/dashboard/practice/compras")}
               onClick={onClose}
             />
             <NavItem
               icon={Package}
               label="Productos y Servicios"
               href="/dashboard/practice/products"
-              active={pathname?.startsWith("/dashboard/practice/products")}
+              active={pathname.startsWith("/dashboard/practice/products")}
               onClick={onClose}
             />
             <NavItem
               icon={HelpCircle}
               label="Ayuda"
               href="/dashboard/ayuda"
-              active={pathname?.startsWith("/dashboard/ayuda")}
+              active={pathname.startsWith("/dashboard/ayuda")}
               onClick={onClose}
             />
           </div>
         </nav>
 
         {/* Cerrar Sesión */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 safe-area-bottom">
           <button
             onClick={() => {
               onClose();
