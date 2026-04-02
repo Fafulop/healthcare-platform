@@ -50,6 +50,23 @@ export default function DashboardRootLayout({
     }
   }, [status, session?.user?.doctorId, update]);
 
+  // Role check — only DOCTOR and ADMIN can access the doctor portal
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.role) {
+      const allowedRoles = ["DOCTOR", "ADMIN"];
+      if (!allowedRoles.includes(session.user.role)) {
+        redirect("/login");
+      }
+    }
+  }, [status, session?.user?.role]);
+
+  // Consent check — redirect to /consent if doctor hasn't accepted privacy policy
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.privacyConsentAt == null) {
+      redirect("/consent");
+    }
+  }, [status, session?.user?.privacyConsentAt]);
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

@@ -1,53 +1,29 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@healthcare/auth";
 
-export async function middleware(request: NextRequest) {
-  console.log(`[DOCTOR MIDDLEWARE] Path: ${request.nextUrl.pathname}`);
+const PUBLIC_PREFIXES = ["/login", "/api/auth", "/api/uploadthing"];
 
-  const isLoginPage = request.nextUrl.pathname === "/login";
-  const isConsentPage = request.nextUrl.pathname === "/consent";
-  const isAuthPage = request.nextUrl.pathname.startsWith("/api/auth");
-  const isUploadThingRoute = request.nextUrl.pathname.startsWith("/api/uploadthing");
+// Middleware runs on Edge runtime — Prisma cannot run here.
+// We do a lightweight session cookie check only.
+// Role and consent checks happen in the dashboard layout (Node.js).
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-  // Allow access to login, auth, and UploadThing routes (no auth needed)
-  if (isLoginPage || isAuthPage || isUploadThingRoute) {
-    console.log(`[DOCTOR MIDDLEWARE] Allowing public route`);
+  // Allow public routes through without auth check
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  const session = await auth();
-  console.log(`[DOCTOR MIDDLEWARE] Session:`, session?.user ? `email=${session.user.email}, role=${session.user.role}` : 'null');
+  // Check for NextAuth v5 database session cookie
+  // Production uses __Secure- prefix (HTTPS), development does not
+  const sessionCookie =
+    request.cookies.get("__Secure-authjs.session-token") ||
+    request.cookies.get("authjs.session-token");
 
-  // Redirect to login if no session
-  if (!session || !session.user) {
-    console.log(`[DOCTOR MIDDLEWARE] No session, redirecting to login`);
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+  if (!sessionCookie) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Check if user has DOCTOR or ADMIN role
-  // Admins can access doctor portal for testing/support
-  // If user has a session but no role or wrong role, sign them out
-  const allowedRoles = ["DOCTOR", "ADMIN"];
-  if (!session.user.role || !allowedRoles.includes(session.user.role)) {
-    console.log(`⚠️ [DOCTOR MIDDLEWARE] User ${session.user.email} has invalid role: ${session.user.role} - redirecting to signout`);
-
-    // Redirect to signout to clear the invalid session
-    const signOutUrl = new URL("/api/auth/signout", request.url);
-    signOutUrl.searchParams.set("callbackUrl", "/login");
-    return NextResponse.redirect(signOutUrl);
-  }
-
-  // Redirect to consent page if doctor hasn't accepted privacy policy.
-  // Allow through if already on /consent (prevents redirect loop).
-  if (session.user.privacyConsentAt == null && !isConsentPage) {
-    console.log(`[DOCTOR MIDDLEWARE] User ${session.user.email} has not accepted privacy policy — redirecting to /consent`);
-    const consentUrl = new URL("/consent", request.url);
-    return NextResponse.redirect(consentUrl);
-  }
-
-  console.log(`[DOCTOR MIDDLEWARE] Access granted to ${session.user.email}`);
   return NextResponse.next();
 }
 
