@@ -31,7 +31,7 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   const { token } = await tokenResponse.json();
 
   // Make the authenticated request
-  return fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -39,4 +39,13 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
       ...options.headers,
     },
   });
+
+  // If the API rejects the session (e.g. kill-sessions was used on another device),
+  // redirect to login so the user is not left in a broken state.
+  if (response.status === 401) {
+    window.location.href = '/login';
+    throw new Error('Session invalidated - redirecting to login');
+  }
+
+  return response;
 }

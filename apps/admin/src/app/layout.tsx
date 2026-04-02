@@ -3,6 +3,7 @@ import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
 import { extractRouterConfig } from "uploadthing/server";
 import { ourFileRouter } from "./api/uploadthing/core";
 import { SessionProvider } from "./providers/SessionProvider";
+import { AdminGuard } from "@/components/AdminGuard";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,7 +20,9 @@ export default function RootLayout({
     <html lang="es">
       <body className="antialiased bg-gray-50">
         <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <AdminGuard>{children}</AdminGuard>
+        </SessionProvider>
       </body>
     </html>
   );

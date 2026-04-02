@@ -90,6 +90,14 @@ PrismaClientValidationError: In order to run Prisma Client on edge runtime
 
 The plan showed two separate `await` calls. The actual implementation wraps them in `prisma.$transaction([...])` so both succeed or both fail atomically.
 
+### 7. Admin Middleware Had the Same Edge Runtime Bug
+
+**Problem:** `apps/admin/src/middleware.ts` also called `auth()`, which triggered the same `PrismaClientValidationError` on Edge runtime — causing all admin logins to fail silently (cookie-based redirect loop).
+
+**Fix:** Same two-layer split as the doctor app:
+- **Middleware (Edge):** Cookie-only check, no `auth()`, no Prisma.
+- **`AdminGuard` client component (Node.js):** Wraps all protected pages via root layout. Uses `useSession({ required: true })` + `useEffect` role check. Split into `AdminGuard` (reads `usePathname`, skips public routes) and `AdminProtected` (owns `useSession`) to avoid conditional hook calls and render-time `redirect()` issues.
+
 ---
 
 ## Service-by-Service Impact
@@ -103,8 +111,8 @@ Only the `kill-sessions` route changed — it now deletes Session rows before in
 ### apps/doctor — The Main Beneficiary
 50+ internal API routes now benefit from DB session validation without any individual route changes. The middleware redirects to login when the session cookie is missing. Role and consent checks happen in the dashboard layout.
 
-### apps/admin — Automatically Covered
-Uses the same `@healthcare/auth` package. Admin sessions go into the same `sessions` table. No files changed beyond `next-auth.d.ts` type declarations.
+### apps/admin — Also Required Middleware Fix
+Uses the same `@healthcare/auth` package. Admin sessions go into the same `sessions` table. However, the admin middleware also called `auth()` — which has the same Edge runtime Prisma crash as the doctor middleware. Fixed with the same pattern: cookie-only middleware + `AdminGuard` client component (wraps all protected pages via root layout) that uses `useSession()` to enforce `role === "ADMIN"`. See deviation #7 below.
 
 ---
 
@@ -486,6 +494,10 @@ Verifies `target.userId === session.user.id` before deleting — prevents a doct
 | `apps/admin/src/types/next-auth.d.ts` | AdapterUser augmentation, sessionId |
 | `apps/doctor/src/middleware.ts` | Rewritten — lightweight cookie check only (no Prisma) |
 | `apps/doctor/src/app/dashboard/layout.tsx` | Added role + consent checks via useSession() |
+| `apps/doctor/src/lib/auth-fetch.ts` | Added 401 auto-redirect to `/login` when API rejects invalidated session |
+| `apps/admin/src/middleware.ts` | Rewritten — same cookie-only pattern as doctor (was calling auth() on Edge) |
+| `apps/admin/src/app/layout.tsx` | Wrapped children in `<AdminGuard>` |
+| `apps/admin/src/components/AdminGuard.tsx` | New — client component enforcing ADMIN role via useSession() |
 | `apps/doctor/src/app/consent/page.tsx` | `update({})` instead of `update({ privacyConsentAt })` |
 | `apps/api/src/app/api/auth/kill-sessions/route.ts` | deleteMany sessions + sessionVersion in $transaction |
 | `apps/doctor/src/app/api/auth/sessions/route.ts` | New — GET + DELETE all sessions |
@@ -497,7 +509,6 @@ Verifies `target.userId === session.user.id` before deleting — prevents a doct
 | File | Why |
 |------|-----|
 | `apps/api/src/lib/auth.ts` | validateAuthToken and sessionVersion check unchanged |
-| `apps/doctor/src/lib/auth-fetch.ts` | 401 redirect already in place |
 | `apps/doctor/src/lib/medical-auth.ts` | Calls `auth()` on Node.js — automatically benefits |
 | `apps/doctor/src/app/api/auth/get-token/route.ts` | Session shape preserved by session() callback |
 | `apps/admin/src/app/api/auth/get-token/route.ts` | Same |
@@ -573,8 +584,9 @@ Then in `nextauth-config.ts`:
 - Restore `jwt()` callback
 - Remove `signIn()` DB operations
 
-In `apps/doctor/src/middleware.ts`:
+In `apps/doctor/src/middleware.ts` and `apps/admin/src/middleware.ts`:
 - Restore the `auth()` call and role/consent checks
+- Remove `AdminGuard` from admin root layout
 
 In `apps/doctor/src/app/consent/page.tsx`:
 - Restore `await update({ privacyConsentAt: data.privacyConsentAt })`
