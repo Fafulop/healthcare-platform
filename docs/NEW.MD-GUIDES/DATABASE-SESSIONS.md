@@ -1,17 +1,17 @@
 # Database Sessions Migration
 
-**Last Updated:** 2026-04-01
+**Last Updated:** 2026-04-02
+**Status:** ✅ Implemented and deployed
 
 ---
 
-## Why We Are Doing This
+## Why We Did This
 
-The doctor app uses NextAuth's **JWT strategy** — sessions are stateless signed cookies that live for 30 days. There is no server-side record of who is logged in or on which device.
+The doctor app used NextAuth's **JWT strategy** — sessions were stateless signed cookies with no server-side record. This meant:
 
-This means:
-- A doctor can have unlimited open sessions across unlimited devices
-- Logging out on one device does not affect any other device
-- The kill switch only partially works — `apps/api` routes are protected via `sessionVersion`, but 50+ internal doctor app routes authenticate via NextAuth session cookie directly and ignore `sessionVersion` entirely
+- A doctor could have unlimited open sessions across unlimited devices
+- Logging out on one device did not affect any other device
+- The kill switch only partially worked — `apps/api` routes were protected via `sessionVersion`, but 50+ internal doctor app routes authenticated via NextAuth session cookie directly and ignored `sessionVersion` entirely
 
 **The fix:** Switch NextAuth to **database strategy**. Every login creates a row in a `sessions` table. Every request looks up that row. Killing sessions = deleting rows. All devices are immediately logged out on their next request.
 
@@ -41,193 +41,82 @@ Kill switch → deleteMany Session rows for user → ALL devices logged out imme
 
 ---
 
-## Service-by-Service Impact Analysis
+## What Changed From the Original Plan
+
+Several things worked differently in practice than expected. These are documented here so future developers understand the decisions.
+
+### 1. `emailVerified` Field Required on User Model
+
+**Problem:** `@auth/prisma-adapter` v2 requires an `emailVerified DateTime?` field on the User model. Without it, the adapter's internal queries fail silently during the OAuth callback, redirecting users to `/auth/error`.
+
+**Fix:** Added `emailVerified DateTime? @map("email_verified")` to the User model and ran a separate migration (`add-email-verified-to-users.sql`).
+
+### 2. `allowDangerousEmailAccountLinking` Required for Existing Users
+
+**Problem:** After deploying, existing users who had accounts in the `users` table but no row in the new `accounts` table triggered `OAuthAccountNotLinked` — NextAuth refused to link their Google identity to their existing user record as a security measure.
+
+**Fix:** Added `allowDangerousEmailAccountLinking: true` to the Google provider config. This is safe because the app is Google-only — there is no password auth that could be used to hijack accounts by email.
+
+### 3. Doctor Auto-Linking Removed
+
+**Plan said:** `signIn()` would auto-link users to doctor profiles by matching `user.email` against `doctor.email`.
+
+**Reality:** The `Doctor` model has no `email` field. Additionally, the old `jwt()` callback called `/api/auth/user` which also did NOT do auto-linking — it just returned whatever `doctorId` was already in the DB. Auto-linking was never happening in production.
+
+**Result:** Doctor linking is done manually by admin during onboarding. The `session()` callback reads `doctorId` directly from the DB User row — if it's already set, it works. The auto-linking code was removed.
+
+### 4. Middleware Cannot Use Prisma (Edge Runtime)
+
+**Problem:** Next.js middleware runs on the **Edge runtime**. Prisma standard client requires Node.js. With database sessions strategy, every `auth()` call in middleware triggers a Prisma session lookup — this fails on Edge with:
+```
+PrismaClientValidationError: In order to run Prisma Client on edge runtime
+```
+
+**Plan said:** The middleware would call `auth()` for session lookup, role check, and consent check.
+
+**Reality:** This is architecturally impossible with Prisma on Edge.
+
+**Fix:** Split into two layers:
+- **Middleware (Edge):** Lightweight session cookie check only — no Prisma, no `auth()`. If the cookie `authjs.session-token` (or `__Secure-authjs.session-token` in production) is absent, redirect to `/login`.
+- **Dashboard layout (Node.js):** Full auth check using `useSession()` — handles role check and consent redirect.
+
+### 5. `@healthcare/database` Must Be an Explicit Dependency
+
+**Problem:** Railway's build could not resolve `@healthcare/database` in `packages/auth` because it was not declared as a dependency — it was resolved implicitly via workspace hoisting locally but not in the Railway build environment.
+
+**Fix:** Added `"@healthcare/database": "workspace:*"` to `packages/auth/package.json` dependencies.
+
+### 6. Kill Sessions Wrapped in Transaction
+
+The plan showed two separate `await` calls. The actual implementation wraps them in `prisma.$transaction([...])` so both succeed or both fail atomically.
+
+---
+
+## Service-by-Service Impact
 
 ### apps/public — Zero Impact
-
-No NextAuth. No `@healthcare/auth`. No auth of any kind. The public site handles doctor profiles, blog articles, and booking/review links via URL tokens — none of this requires authentication. The middleware only does www → non-www redirects. This service is completely unaffected by the migration.
-
----
+No NextAuth, no auth of any kind. Completely unaffected.
 
 ### apps/api — One Change Only
-
-Does **not** use NextAuth at all. Has no `[...nextauth]` handler, no session management, no JWT cookie handling. It only validates incoming **Bearer JWTs** via `validateAuthToken()` in `src/lib/auth.ts`.
-
-The database sessions migration has exactly one effect here: the `kill-sessions` route must also delete Session rows from the DB in addition to incrementing `sessionVersion`.
-
-Everything else — `validateAuthToken`, `sessionVersion` check, `AuthError`, role helpers — is completely unchanged.
-
----
+Only the `kill-sessions` route changed — it now deletes Session rows before incrementing `sessionVersion`. Everything else (`validateAuthToken`, `sessionVersion` check, role helpers) is unchanged.
 
 ### apps/doctor — The Main Beneficiary
-
-Uses `@healthcare/auth` for all authentication. The strategy change in `packages/auth` automatically propagates here.
-
-**Middleware** (`src/middleware.ts`) calls `auth()`. With database strategy, `auth()` now performs a DB session lookup on every request. This is precisely what fixes the 50+ internal routes — they all go through middleware which calls `auth()`. If the session row is deleted, `auth()` returns null, middleware redirects to login. The fix requires zero changes to any of the 50+ individual route files.
-
-**`get-token` route** calls `auth()` then reads `session.user.*`. If the session was killed (row deleted from DB), `auth()` returns null → get-token returns 401 → authFetch redirects to login. Works correctly without changes.
-
-**`medical-auth.ts`** (used by server components and internal API routes) also calls `auth()` internally. Same benefit. No changes needed.
-
-**`useSession()` hooks** in 30+ pages work regardless of JWT vs database strategy as long as the session shape is maintained by the `session()` callback.
-
-**`consent/page.tsx`** — requires a small change. See dedicated section below.
-
----
+50+ internal API routes now benefit from DB session validation without any individual route changes. The middleware redirects to login when the session cookie is missing. Role and consent checks happen in the dashboard layout.
 
 ### apps/admin — Automatically Covered
-
-Uses the same `@healthcare/auth` package. Stricter middleware (ADMIN role only). Same `get-token` pattern. Fully covered by the `packages/auth` change. Admin sessions go into the same `sessions` table as doctor sessions, isolated by `userId`.
-
-No files in `apps/admin` need changes beyond the `next-auth.d.ts` type declarations.
-
----
-
-### packages/auth — The Core Change
-
-The `nextauth-config.ts` is the most significant file to change. Currently:
-
-- `jwt()` callback runs on every request, calls `NEXT_PUBLIC_API_URL/api/auth/user` to fetch/create the user, stores Google tokens, sets custom claims
-- `session()` callback copies JWT claims to the session object
-- `signIn()` callback just returns `true` (no logic)
-
-With database strategy:
-- `jwt()` callback is never called — removed entirely
-- `session()` callback receives the full DB `User` object directly — no API call needed
-- `signIn()` callback takes over: Google token copy, doctor linking, expired session cleanup
-- A custom `adapter.createUser` wrapper handles admin role assignment
-
----
-
-## Critical Finding: Consent Page
-
-`apps/doctor/src/app/consent/page.tsx` calls:
-```typescript
-await update({ privacyConsentAt: data.privacyConsentAt });
-```
-
-This works today because the `jwt()` callback has a special `trigger === "update"` case that immediately applies the consent timestamp to the JWT without re-fetching from the DB — avoiding a race condition where the middleware would still see `privacyConsentAt: null` on the redirect.
-
-**With database strategy this changes completely.** The `jwt()` callback is gone. The `session()` callback re-fetches the User row from DB on every `auth()` call. So after consent is saved to the DB, calling `update()` triggers a session refresh, and `session()` automatically picks up the new `privacyConsentAt` from the DB.
-
-The fix is minimal: remove the data argument from `update()`.
-
-```typescript
-// Before
-await update({ privacyConsentAt: data.privacyConsentAt });
-
-// After — DB is source of truth, just trigger a refresh
-await update({});
-```
-
-The `trigger === "update"` special case in `jwt()` disappears naturally since `jwt()` is removed entirely.
-
----
-
-## Key Design Decisions
-
-### 1. Google OAuth Tokens Stay in User Model
-
-The `User` model currently stores Google OAuth tokens directly (`googleAccessToken`, `googleRefreshToken`, `googleTokenExpiry`). The Prisma adapter will also write OAuth tokens to the new `Account` model automatically. We continue writing them to the `User` model via the `signIn()` callback so the Google Calendar integration (which reads `user.googleRefreshToken`) requires zero changes.
-
-Double-write is intentional. Migrating tokens from User → Account is a separate future task.
-
-### 2. sessionVersion Is Kept
-
-`apps/api` authenticates via a separate Bearer JWT (created by `/api/auth/get-token`, 1-hour expiry). Deleting Session rows does not invalidate these. The `sessionVersion` increment in kill-sessions handles `apps/api`. Both operations happen together: delete Session rows + increment `sessionVersion`.
-
-### 3. No userAgent Storage (Scoped Out)
-
-Storing the browser/device string requires injecting the HTTP request into the adapter's `createSession` call, which has no clean mechanism in NextAuth v5. The "Sesiones activas" UI will show sessions by creation date only — no device name. Can be added later via a separate metadata approach.
-
-### 4. adapter.createUser Must Be Overridden
-
-The Prisma adapter auto-creates new users with only `email`, `name`, `image`. It has no knowledge of the `ADMIN_EMAILS` env var. Without an override, new admin users silently get `role: DOCTOR`. The adapter's `createUser` method is wrapped to include the role assignment logic.
-
----
-
-## Known Issues and Resolutions
-
-| Issue | Resolution |
-|---|---|
-| Admin role lost on new user creation | Override `adapter.createUser` to check `ADMIN_EMAILS` |
-| `userAgent` has no injection point in adapter | Scoped out — sessions show date only |
-| `current` session needs sessionToken in session object | Expose `session.id` via `session()` callback + type augmentation |
-| `AdapterUser` missing custom fields | Extend `AdapterUser` interface in `next-auth.d.ts` |
-| `privacyConsentAt` type mismatch (Date vs string) | Change type to `Date \| string \| null` |
-| Expired sessions accumulate indefinitely | Delete expired sessions per user on each new login in `signIn()` |
-| Consent `update()` passes data to removed `jwt()` | Change to `await update({})` — DB is now source of truth |
-| `/api/auth/sessions` bypassed by middleware | Route does its own `auth()` check internally — same pattern as all `/api/auth/` routes |
-| `trigger === "update"` special case in jwt() | Disappears naturally — jwt() is removed, DB handles it |
+Uses the same `@healthcare/auth` package. Admin sessions go into the same `sessions` table. No files changed beyond `next-auth.d.ts` type declarations.
 
 ---
 
 ## Database Schema Changes
 
-**`packages/database/prisma/schema.prisma`**
+**Two migrations were required** (not one as originally planned):
 
-Three new models. All `@@schema("public")`. User gets two new relations.
+### Migration 1: `add-db-sessions.sql`
 
-```prisma
-model Account {
-  id                String  @id @default(cuid())
-  userId            String  @map("user_id")
-  type              String
-  provider          String
-  providerAccountId String  @map("provider_account_id")
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
-  @@schema("public")
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique @map("session_token")
-  userId       String   @map("user_id")
-  expires      DateTime
-  createdAt    DateTime @default(now()) @map("created_at")
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
-  @@schema("public")
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@map("verification_tokens")
-  @@schema("public")
-}
-```
-
-User model additions (relations only — no new columns on the `users` table):
-```prisma
-model User {
-  // ... all existing fields unchanged ...
-  accounts Account[]
-  sessions Session[]
-}
-```
-
-**`packages/database/prisma/migrations/add-db-sessions.sql`**
+Three new tables. All in `public` schema.
 
 ```sql
--- Migration: Add NextAuth database session tables
--- Purpose: Switch from JWT strategy to database sessions for multi-device session management
--- Date: 2026-04-01
-
 CREATE TABLE IF NOT EXISTS public.accounts (
   id                  TEXT PRIMARY KEY,
   user_id             TEXT NOT NULL,
@@ -266,50 +155,89 @@ CREATE TABLE IF NOT EXISTS public.verification_tokens (
 );
 ```
 
+### Migration 2: `add-email-verified-to-users.sql`
+
+Required by `@auth/prisma-adapter` v2. Not in the original plan.
+
+```sql
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS email_verified TIMESTAMP(3);
+```
+
+### Schema.prisma Changes
+
+User model gains `emailVerified` field + two relations:
+
+```prisma
+model User {
+  // ... existing fields ...
+  emailVerified DateTime? @map("email_verified")  // NEW — required by prisma adapter
+  accounts      Account[]                          // NEW relation
+  sessions      Session[]                          // NEW relation
+}
+```
+
+Three new models added: `Account`, `Session`, `VerificationToken` (all `@@schema("public")`).
+
 ---
 
 ## Auth Package Changes
 
-**`packages/auth/package.json`** — add dependency:
+### `packages/auth/package.json`
+
 ```json
-"@auth/prisma-adapter": "^1.x"
+"dependencies": {
+  "@auth/prisma-adapter": "^2.11.1",
+  "@healthcare/database": "workspace:*"
+}
 ```
 
-**`packages/auth/src/nextauth-config.ts`** — full rewrite of callbacks
+Both are required. `@healthcare/database` must be explicit (not just hoisted) for Railway builds.
+
+### `packages/auth/src/nextauth-config.ts`
 
 ```typescript
+import NextAuth, { type NextAuthConfig } from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@healthcare/database";
 
-// Wrap adapter to inject admin role assignment on new user creation.
-// The default adapter only sets email, name, image — it has no knowledge of ADMIN_EMAILS.
+// Wrap adapter to assign correct role on new user creation.
+// Default adapter only sets email, name, image — no knowledge of ADMIN_EMAILS.
 const adapter = PrismaAdapter(prisma);
 const customAdapter = {
   ...adapter,
   createUser: async (data: any) => {
-    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean);
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map((e: string) => e.trim()).filter(Boolean);
     const role = adminEmails.includes(data.email) ? 'ADMIN' : 'DOCTOR';
     return prisma.user.create({ data: { ...data, role } });
   },
 };
 
-export const authConfig = {
-  adapter: customAdapter,
-
-  session: {
-    strategy: "database",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
+export const authConfig: NextAuthConfig = {
+  adapter: customAdapter as any,
+  trustHost: true,
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true, // Required for existing users migrating from JWT
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+          scope: "openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.send",
+        },
+      },
+    }),
+  ],
 
   callbacks: {
-    // signIn() replaces all of jwt()'s first-login responsibilities:
-    // 1. Copy Google OAuth tokens to User model (Google Calendar reads from here)
-    // 2. Link user to doctor profile if email matches
-    // 3. Clean up expired sessions to prevent table accumulation
     async signIn({ user, account }: any) {
       if (account?.provider === 'google' && user.email) {
         try {
-          // Copy OAuth tokens to User model (Google Calendar integration depends on this)
+          // Copy OAuth tokens to User model (Google Calendar integration reads from here)
           await prisma.user.update({
             where: { email: user.email },
             data: {
@@ -320,24 +248,6 @@ export const authConfig = {
                 : null,
             },
           });
-
-          // Link to doctor profile if email matches an existing doctor and not yet linked
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email },
-            select: { doctorId: true },
-          });
-          if (!existingUser?.doctorId) {
-            const doctor = await prisma.doctor.findFirst({
-              where: { email: user.email },
-              select: { id: true },
-            });
-            if (doctor) {
-              await prisma.user.update({
-                where: { email: user.email },
-                data: { doctorId: doctor.id },
-              });
-            }
-          }
 
           // Clean up expired sessions for this user on each new login
           await prisma.session.deleteMany({
@@ -354,9 +264,9 @@ export const authConfig = {
       return true;
     },
 
-    // session() callback — database strategy signature: { session, user }
-    // `user` is the full DB User row loaded by the adapter (all custom fields included)
-    // `session` is the Session row — session.id is this session's cuid
+    // session() with database strategy receives:
+    //   session — the Session row (session.id is this session's cuid)
+    //   user    — the full DB User row loaded by the adapter
     // No JWT, no token — everything comes directly from the DB.
     async session({ session, user }: any) {
       session.user.id = user.id;
@@ -364,19 +274,22 @@ export const authConfig = {
       session.user.doctorId = user.doctorId ?? null;
       session.user.sessionVersion = user.sessionVersion ?? 0;
       session.user.privacyConsentAt = user.privacyConsentAt ?? null;
-      // Expose session row id so the /api/auth/sessions route can mark the current session
+      // Expose session row id so /api/auth/sessions can identify the current session
       session.sessionId = session.id;
       return session;
     },
 
-    // jwt() callback is NOT called with database strategy. Removed entirely.
-    // The trigger === "update" / privacyConsentAt special case is also gone —
-    // the DB is now the source of truth and session() re-reads it on every refresh.
+    // jwt() callback is NOT present — database strategy does not call it.
   },
 
   pages: {
     signIn: '/login',
     error: '/auth/error',
+  },
+
+  session: {
+    strategy: "database" as const,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
   debug: process.env.NODE_ENV === 'development',
@@ -385,40 +298,96 @@ export const authConfig = {
 export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
 ```
 
-**What disappears vs what moves:**
+**What moved vs what disappeared from the old `jwt()` callback:**
 
-| Was in `jwt()` | Moves to |
+| Was in `jwt()` | Now |
 |---|---|
-| Call `/api/auth/user` to create/fetch user | `adapter.createUser` override (role) + `signIn()` (doctor link) |
+| Call `/api/auth/user` to create/fetch user | `adapter.createUser` override handles role; user creation is automatic |
 | Store Google tokens to User model | `signIn()` callback |
-| Set role, doctorId, sessionVersion, privacyConsentAt on token | `session()` reads directly from DB User row |
-| `trigger === "update"` for consent race condition fix | Removed — DB is source of truth, `update({})` triggers re-read |
-| Token refresh logic | Removed — no JWT to refresh |
+| Set role, doctorId, sessionVersion, privacyConsentAt | `session()` reads directly from DB User row |
+| `trigger === "update"` for consent race condition | Removed — DB is source of truth, `update({})` triggers re-read |
+| Doctor auto-linking by email | Removed — Doctor model has no email field; linking is manual |
+
+---
+
+## Middleware Change (Edge Runtime Constraint)
+
+**`apps/doctor/src/middleware.ts`** — completely rewritten.
+
+The original plan assumed `auth()` could be called in middleware. This is impossible because Next.js middleware runs on the **Edge runtime** and Prisma cannot run there.
+
+```typescript
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+const PUBLIC_PREFIXES = ["/login", "/api/auth", "/api/uploadthing"];
+
+// Middleware runs on Edge runtime — Prisma cannot run here.
+// We do a lightweight session cookie check only.
+// Role and consent checks happen in the dashboard layout (Node.js).
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  // Check for NextAuth v5 database session cookie
+  // Production uses __Secure- prefix (HTTPS), development does not
+  const sessionCookie =
+    request.cookies.get("__Secure-authjs.session-token") ||
+    request.cookies.get("authjs.session-token");
+
+  if (!sessionCookie) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  return NextResponse.next();
+}
+```
+
+**Role and consent checks** moved to `apps/doctor/src/app/dashboard/layout.tsx` via `useSession()`:
+
+```typescript
+// Role check — only DOCTOR and ADMIN can access the doctor portal
+useEffect(() => {
+  if (status === "authenticated" && session?.user?.role) {
+    const allowedRoles = ["DOCTOR", "ADMIN"];
+    if (!allowedRoles.includes(session.user.role)) {
+      redirect("/login");
+    }
+  }
+}, [status, session?.user?.role]);
+
+// Consent check — redirect to /consent if doctor hasn't accepted privacy policy
+useEffect(() => {
+  if (status === "authenticated" && session?.user?.privacyConsentAt == null) {
+    redirect("/consent");
+  }
+}, [status, session?.user?.privacyConsentAt]);
+```
+
+**Trade-off:** Cookie existence check in middleware means a user with a deleted session token passes middleware (cookie still exists) but hits a 401 in any API call or server component that calls `auth()` (Node.js), redirecting them to login. The gap is one request — acceptable.
 
 ---
 
 ## Type Declaration Changes
 
-**`apps/doctor/src/types/next-auth.d.ts`** and **`apps/admin/src/types/next-auth.d.ts`**
-
+**`apps/doctor/src/types/next-auth.d.ts`:**
 ```typescript
-import { DefaultSession } from "next-auth";
-
 declare module "next-auth" {
   interface Session {
-    sessionId?: string; // current session's DB id — used by /api/auth/sessions to mark current
+    sessionId?: string;
     user: {
       id: string;
       role: string;
       doctorId: string | null;
+      privacyConsentAt: Date | string | null; // Date from DB, string when serialized
       sessionVersion: number;
-      privacyConsentAt: Date | string | null; // Date when coming from DB, string when serialized to client
     } & DefaultSession["user"];
   }
 }
 
-// Required so the session() callback can access custom fields on the `user` parameter.
-// Without this, TypeScript errors on user.role, user.doctorId, etc.
 declare module "next-auth/adapters" {
   interface AdapterUser {
     role: string;
@@ -427,41 +396,23 @@ declare module "next-auth/adapters" {
     privacyConsentAt: Date | null;
   }
 }
-
-// JWT interface extensions below are dead code after database strategy migration
-// (jwt() callback is removed). Kept to avoid breaking any imports but can be cleaned up later.
-declare module "next-auth/jwt" {
-  interface JWT {
-    userId?: string;
-    role?: string;
-    doctorId?: string | null;
-    sessionVersion?: number;
-  }
-}
 ```
 
-`privacyConsentAt` is doctor-app specific and only present in `apps/doctor/src/types/next-auth.d.ts`, not admin.
+`privacyConsentAt` is doctor-app specific and not in `apps/admin/src/types/next-auth.d.ts`.
 
 ---
 
 ## Consent Page Change
 
-**`apps/doctor/src/app/consent/page.tsx`** — line 34
-
 ```typescript
 // Before — passes data to jwt() trigger="update" which no longer exists
 await update({ privacyConsentAt: data.privacyConsentAt });
 
-// After — DB already has the value, just trigger a session refresh
+// After — DB is source of truth, just trigger a session refresh
 await update({});
 ```
 
-The consent flow after migration:
-1. Doctor accepts → `POST /api/auth/consent` → saves `privacyConsentAt` to DB ✓
-2. `await update({})` → triggers session refresh → `session()` callback re-reads User row → picks up `privacyConsentAt` ✓
-3. `router.replace("/dashboard")` → middleware sees `session.user.privacyConsentAt` is set → allows through ✓
-
-No race condition. No special-case logic. The DB is the source of truth.
+Flow: `POST /api/auth/consent` saves timestamp to DB → `update({})` triggers session refresh → `session()` re-reads User row → picks up `privacyConsentAt` → `router.replace("/dashboard")` proceeds.
 
 ---
 
@@ -469,256 +420,136 @@ No race condition. No special-case logic. The DB is the source of truth.
 
 **`apps/api/src/app/api/auth/kill-sessions/route.ts`**
 
+Both operations wrapped in a transaction so they succeed or fail together:
+
 ```typescript
-// After auth validation, do both operations atomically:
-
-// 1. Delete all NextAuth DB sessions → doctor app + admin app immediately locked out
-await prisma.session.deleteMany({
-  where: { userId: authUser.userId },
-});
-
-// 2. Increment sessionVersion → apps/api Bearer JWTs rejected on next API call
-await prisma.user.update({
-  where: { id: authUser.userId },
-  data: { sessionVersion: { increment: 1 } },
-});
+await prisma.$transaction([
+  // 1. Delete all NextAuth DB sessions → doctor + admin apps immediately locked out
+  prisma.session.deleteMany({
+    where: { userId: authUser.userId },
+  }),
+  // 2. Increment sessionVersion → apps/api Bearer JWTs rejected on next call
+  prisma.user.update({
+    where: { id: authUser.userId },
+    data: { sessionVersion: { increment: 1 } },
+  }),
+]);
 ```
 
-`skipVersionCheck: true` is still required. The kill-sessions endpoint is called from the doctor app via `authFetch` which uses a Bearer JWT. If that JWT has a stale `sessionVersion`, the endpoint would reject itself before it could fix anything. `skipVersionCheck` allows the endpoint to proceed even with a stale token — JWT signature and user existence are still validated.
+`skipVersionCheck: true` still required — the endpoint is called via Bearer JWT which may have a stale `sessionVersion`. Without it the endpoint would reject itself.
 
 ---
 
-## New: Active Sessions API
+## Active Sessions API (New)
 
-**`apps/doctor/src/app/api/auth/sessions/route.ts`** — new file
-
-This route lives under `/api/auth/` which the middleware skips for all requests. The route performs its own `auth()` check — the same pattern used by every other `/api/auth/` route (`get-token`, `consent`, `user`).
+### `apps/doctor/src/app/api/auth/sessions/route.ts`
 
 ```
-GET    /api/auth/sessions      → list all non-expired sessions for current user
-DELETE /api/auth/sessions      → delete all sessions (kill all devices)
+GET    /api/auth/sessions   → list non-expired sessions for current user
+DELETE /api/auth/sessions   → delete all sessions (used by "Cerrar todas")
 ```
 
 Response per session:
 ```json
 {
   "id": "cuid",
-  "createdAt": "2026-04-01T10:00:00Z",
-  "expires": "2026-05-01T10:00:00Z",
+  "createdAt": "2026-04-02T10:00:00Z",
+  "expires": "2026-05-02T10:00:00Z",
   "current": true
 }
 ```
 
-`current: true` — determined by comparing `session.sessionId` (the current session's DB id, exposed by the `session()` callback) against each row's `id`.
+`current` is determined by comparing `session.sessionId` (exposed by `session()` callback) against each row's `id`. The `sessionToken` field is never returned.
 
-**`apps/doctor/src/app/api/auth/sessions/[id]/route.ts`** — new file
+### `apps/doctor/src/app/api/auth/sessions/[id]/route.ts`
 
 ```
 DELETE /api/auth/sessions/[id] → revoke one specific session
 ```
 
-Must verify the session row's `userId` matches the authenticated user before deleting — prevents a doctor from revoking another doctor's session.
-
----
-
-## Mi Perfil UI Changes
-
-**`apps/doctor/src/app/dashboard/mi-perfil/page.tsx`**
-
-Replace the existing "Sesiones activas" card (kill-all button only) with a full session list.
-
-```
-Sesiones activas
-┌──────────────────────────────────────────────────┐
-│  Sesión activa               [Este dispositivo]  │
-│  Iniciado: 1 abr 2026 · 10:00 AM                 │
-│                                                  │
-│  Sesión activa                       [Revocar]   │
-│  Iniciado: 28 mar 2026 · 06:32 PM                │
-│                                                  │
-│  Sesión activa                       [Revocar]   │
-│  Iniciado: 15 mar 2026 · 09:15 AM                │
-│                                  [Cerrar todas]  │
-└──────────────────────────────────────────────────┘
-```
-
-No device names (userAgent scoped out). Sessions identified by creation date. Current session shows "Este dispositivo" with no Revoke button. "Cerrar todas" calls `DELETE /api/auth/sessions` then `signOut()`.
+Verifies `target.userId === session.user.id` before deleting — prevents a doctor from revoking another doctor's session. Returns 403 if ownership check fails.
 
 ---
 
 ## Complete File List
 
-### Files That Change
+### Files That Changed
 
-| File | Type | What Changes |
-|------|------|-------------|
-| `packages/database/prisma/schema.prisma` | Modified | Add Account, Session, VerificationToken + User relations |
-| `packages/database/prisma/migrations/add-db-sessions.sql` | New | SQL for 3 new tables |
-| `packages/auth/package.json` | Modified | Add `@auth/prisma-adapter` dependency |
-| `packages/auth/src/nextauth-config.ts` | Rewritten | Adapter, strategy change, new signIn(), new session(), remove jwt() |
-| `apps/doctor/src/types/next-auth.d.ts` | Modified | Add AdapterUser, sessionId, fix privacyConsentAt type |
-| `apps/admin/src/types/next-auth.d.ts` | Modified | Add AdapterUser, sessionId |
-| `apps/doctor/src/app/consent/page.tsx` | Modified | `update({})` instead of `update({ privacyConsentAt })` |
-| `apps/api/src/app/api/auth/kill-sessions/route.ts` | Modified | Add `deleteMany sessions` before sessionVersion increment |
-| `apps/doctor/src/app/api/auth/sessions/route.ts` | New | GET + DELETE all sessions |
-| `apps/doctor/src/app/api/auth/sessions/[id]/route.ts` | New | DELETE one session |
-| `apps/doctor/src/app/dashboard/mi-perfil/page.tsx` | Modified | Active sessions list UI |
+| File | What Changed |
+|------|-------------|
+| `packages/database/prisma/schema.prisma` | `emailVerified` on User; Account, Session, VerificationToken models; User relations |
+| `packages/database/prisma/migrations/add-db-sessions.sql` | New — 3 new tables |
+| `packages/database/prisma/migrations/add-email-verified-to-users.sql` | New — `email_verified` column on users |
+| `packages/auth/package.json` | Added `@auth/prisma-adapter` + `@healthcare/database` dependencies |
+| `packages/auth/src/nextauth-config.ts` | Full rewrite — adapter, database strategy, new signIn()/session(), removed jwt() |
+| `apps/doctor/src/types/next-auth.d.ts` | AdapterUser augmentation, sessionId, privacyConsentAt type fix |
+| `apps/admin/src/types/next-auth.d.ts` | AdapterUser augmentation, sessionId |
+| `apps/doctor/src/middleware.ts` | Rewritten — lightweight cookie check only (no Prisma) |
+| `apps/doctor/src/app/dashboard/layout.tsx` | Added role + consent checks via useSession() |
+| `apps/doctor/src/app/consent/page.tsx` | `update({})` instead of `update({ privacyConsentAt })` |
+| `apps/api/src/app/api/auth/kill-sessions/route.ts` | deleteMany sessions + sessionVersion in $transaction |
+| `apps/doctor/src/app/api/auth/sessions/route.ts` | New — GET + DELETE all sessions |
+| `apps/doctor/src/app/api/auth/sessions/[id]/route.ts` | New — DELETE one session |
+| `apps/doctor/src/app/dashboard/mi-perfil/page.tsx` | Active sessions list UI |
 
-### Files That Do NOT Change
+### Files That Did NOT Change
 
 | File | Why |
 |------|-----|
 | `apps/api/src/lib/auth.ts` | validateAuthToken and sessionVersion check unchanged |
-| `apps/api/src/middleware.ts` | Does not exist — api uses validateAuthToken per-route |
-| `apps/doctor/src/lib/auth-fetch.ts` | No change — 401 redirect already in place |
-| `apps/doctor/src/lib/medical-auth.ts` | Calls `auth()` internally — automatically benefits |
-| `apps/doctor/src/middleware.ts` | `auth()` works identically — no code change needed |
-| `apps/admin/src/middleware.ts` | Same |
-| `apps/doctor/src/app/api/auth/get-token/route.ts` | Reads `session.user.*` — shape preserved by session() callback |
+| `apps/doctor/src/lib/auth-fetch.ts` | 401 redirect already in place |
+| `apps/doctor/src/lib/medical-auth.ts` | Calls `auth()` on Node.js — automatically benefits |
+| `apps/doctor/src/app/api/auth/get-token/route.ts` | Session shape preserved by session() callback |
 | `apps/admin/src/app/api/auth/get-token/route.ts` | Same |
-| `apps/doctor/src/app/api/auth/[...nextauth]/route.ts` | Handlers come from shared package — no change |
-| `apps/admin/src/app/api/auth/[...nextauth]/route.ts` | Same |
 | All `useSession()` hooks in 30+ pages | Session shape is identical |
-| All 50+ internal doctor app API routes | Protected automatically via middleware DB session lookup |
+| All 50+ internal doctor app API routes | Protected by middleware cookie check + Node.js auth() |
 | **Entire `apps/public`** | No auth — completely unaffected |
-
----
-
-## Phased Implementation Plan
-
-Each phase ends with a checkpoint. Do not start the next phase until the checkpoint passes on a local test.
-
----
-
-### Phase 1 — Schema and Basic Login
-
-**Goal:** Tables created, adapter initializes, Google OAuth login works, session row appears in DB.
-
-Steps:
-1. Add `@auth/prisma-adapter` to `packages/auth/package.json`
-2. Add Account, Session, VerificationToken models to `schema.prisma`
-3. Add `accounts` and `sessions` relations to User model
-4. Create `add-db-sessions.sql`
-5. Run migration on local DB: `cd packages/database && npx prisma db execute --file prisma/migrations/add-db-sessions.sql --schema prisma/schema.prisma`
-6. Run `pnpm db:generate`
-7. Add `adapter: customAdapter` and `session: { strategy: "database" }` to `nextauth-config.ts`
-8. Keep `jwt()` callback in place for now — it will not run with database strategy but leave it until Phase 2
-
-**Checkpoint:**
-- Doctor logs in via Google OAuth ✓
-- Session persists across page refreshes ✓
-- One row in `public.sessions` table ✓
-- One row in `public.accounts` table ✓
-- No crash or auth loop ✓
-
----
-
-### Phase 2 — Custom Fields and Middleware
-
-**Goal:** role, doctorId, sessionVersion, privacyConsentAt all flow correctly. Middleware works. Consent redirect works. get-token works. Consent page update() fixed.
-
-Steps:
-1. Add `AdapterUser` augmentation to both `next-auth.d.ts` files
-2. Add `sessionId` to `Session` interface in both `next-auth.d.ts` files
-3. Fix `privacyConsentAt` type to `Date | string | null`
-4. Write the `session()` callback reading from `user` (DB object) and exposing `sessionId`
-5. Remove `jwt()` callback entirely
-6. Fix consent page: `await update({})` instead of `await update({ privacyConsentAt })`
-
-**Checkpoint:**
-- Doctor logs in → middleware allows through (role check passes) ✓
-- New doctor without consent → redirected to /consent ✓
-- Doctor accepts consent → redirected to /dashboard immediately ✓
-- `GET /api/auth/get-token` returns valid JWT with correct `role`, `doctorId`, `sessionVersion` ✓
-- `authFetch` to `apps/api` succeeds (apps/api validates the Bearer JWT) ✓
-- `useSession()` in pages returns correct `user.role`, `user.doctorId` ✓
-- Admin user logs in → gets access to admin app ✓
-
----
-
-### Phase 3 — Kill Sessions
-
-**Goal:** Kill switch deletes DB session rows. All devices locked out immediately.
-
-Steps:
-1. Add `signIn()` callback: Google token copy + doctor linking + expired session cleanup
-2. Add `adapter.createUser` override for admin role assignment
-3. Update `kill-sessions` route: add `deleteMany sessions` before `sessionVersion` increment
-
-**Checkpoint (requires two devices or browsers):**
-- Log in on computer AND phone → two rows in `sessions` table ✓
-- Use kill switch on computer → `signOut()` → redirected to /login ✓
-- On phone, make any request (open a page, create a task) → immediate redirect to /login ✓
-- Create a task after kill switch from phone → task is NOT created (blocked at middleware) ✓
-- New admin user (email in ADMIN_EMAILS) logs in → gets role ADMIN, not DOCTOR ✓
-- Re-login after kill → new session row created → everything works again ✓
-
----
-
-### Phase 4 — Active Sessions UI
-
-**Goal:** Doctor sees a list of active sessions, can revoke individual ones.
-
-Steps:
-1. Create `apps/doctor/src/app/api/auth/sessions/route.ts` — GET (list) + DELETE (kill all)
-2. Create `apps/doctor/src/app/api/auth/sessions/[id]/route.ts` — DELETE (revoke one)
-3. Update Mi Perfil page with sessions list card
-
-**Checkpoint:**
-- Mi Perfil → Integraciones shows session list with creation dates ✓
-- Current session shows "Este dispositivo" with no Revoke button ✓
-- Revoking another session → that device redirected to /login on next request ✓
-- "Cerrar todas" → current device signed out, all others locked out ✓
-- Revoking a session that belongs to a different user → 403 ✓
 
 ---
 
 ## Edge Cases
 
 ### All users logged out on deploy
-Expected and unavoidable. JWT cookies are not recognized after switching to database strategy. Every doctor logs in once after deploy. Announce in advance.
+Expected. JWT cookies are not recognized after switching to database strategy. Every doctor logs in once after deploy.
+
+### Existing users with no accounts row
+Handled by `allowDangerousEmailAccountLinking: true` on the Google provider. On first login after migration, the adapter auto-creates the accounts row linking their Google identity to their existing user record.
 
 ### Google Calendar integration
-OAuth tokens continue to flow to the `User` model via `signIn()`. The `Account` model also receives them from the adapter. Google Calendar code reads from User — no changes needed anywhere in the calendar integration.
+OAuth tokens continue to flow to the `User` model via `signIn()`. Google Calendar code reads from User — no changes needed.
 
-### apps/api Bearer JWTs (up to 1-hour gap)
-Deleting Session rows invalidates doctor app sessions immediately. Bearer JWTs (1-hour expiry, used by apps/api) are still valid until they expire OR until `sessionVersion` is incremented. The kill switch does both. Maximum exposure window: however long until the current Bearer JWT expires (worst case 1 hour). Acceptable for this use case.
+### apps/api Bearer JWTs
+Deleting Session rows invalidates doctor app sessions immediately. Bearer JWTs (1-hour expiry) are invalidated by the `sessionVersion` increment. Maximum exposure window after kill switch: up to 1 hour for API calls. Acceptable.
 
 ### Session accumulation
-The `signIn()` callback deletes expired sessions for the user on each new login. No scheduled job needed. Worst case: a doctor who hasn't logged in for months accumulates a handful of expired rows — cleaned on next login.
-
-### Admin app shares sessions table
-Both doctor and admin apps write to the same `sessions` table (same DB, same auth config). Sessions isolated by `userId`. Kill switch only affects the authenticated user's sessions.
-
-### New admin users (ADMIN_EMAILS)
-The `adapter.createUser` override checks `ADMIN_EMAILS` and assigns the correct role at creation time. Existing users already have their role in the DB and are unaffected.
+The `signIn()` callback deletes expired sessions per user on each new login. No scheduled job needed.
 
 ### skipVersionCheck still required
-The `PATCH /api/auth/kill-sessions` endpoint in `apps/api` is called with a Bearer JWT. If the Bearer JWT carries a stale `sessionVersion`, the endpoint would reject itself before it could fix anything. `skipVersionCheck: true` lets the endpoint proceed even with a stale token — JWT signature and user existence are still fully validated.
+The kill-sessions endpoint is called with a Bearer JWT that may carry a stale `sessionVersion`. Without `skipVersionCheck: true`, the endpoint would reject itself. JWT signature and user existence are still fully validated.
 
-### Doctor linking race condition
-`signIn()` checks `existingUser.doctorId` before querying for a matching doctor — avoids an unnecessary DB query for already-linked users. The query is safe to run multiple times (idempotent).
+### Cookie check gap in middleware
+With the new middleware, a user whose session was deleted (killed) still passes the cookie check on the next request — the cookie exists but the DB row is gone. On that next request, any `auth()` call (in a server component or `/api/auth/` route) returns null and redirects to login. Gap: one request. Acceptable trade-off for Edge compatibility.
 
 ---
 
-## Deploy Checklist
+## Deploy Checklist (What Was Actually Run)
 
 ```
-1.  Add @auth/prisma-adapter to packages/auth/package.json
-2.  Add 3 models + User relations to schema.prisma
-3.  Create packages/database/prisma/migrations/add-db-sessions.sql
-4.  Run migration locally:
-    cd packages/database
-    npx prisma db execute --file prisma/migrations/add-db-sessions.sql --schema prisma/schema.prisma
-5.  pnpm db:generate
-6.  Implement Phase 1 → test checkpoint
-7.  Implement Phase 2 → test checkpoint
-8.  Implement Phase 3 → test checkpoint (two devices)
-9.  Implement Phase 4 → test checkpoint
-10. Run migration against Railway BEFORE pushing code:
-    npx prisma db execute --file packages/database/prisma/migrations/add-db-sessions.sql --url "postgresql://postgres:PASSWORD@yamanote.proxy.rlwy.net:51502/railway"
-11. git push → Railway deploys
-12. All existing JWT sessions invalidated → doctors log in fresh (expected)
+1.  Add @auth/prisma-adapter and @healthcare/database to packages/auth/package.json
+2.  Add emailVerified to User model in schema.prisma
+3.  Add Account, Session, VerificationToken models to schema.prisma
+4.  Create add-db-sessions.sql and add-email-verified-to-users.sql
+5.  Run both migrations on local DB:
+      cd packages/database
+      npx prisma db execute --file prisma/migrations/add-db-sessions.sql --schema prisma/schema.prisma
+      npx prisma db execute --file prisma/migrations/add-email-verified-to-users.sql --schema prisma/schema.prisma
+6.  pnpm db:generate
+7.  Run both migrations on Railway BEFORE pushing code:
+      npx prisma db execute --file prisma/migrations/add-db-sessions.sql --url "RAILWAY_URL"
+      npx prisma db execute --file prisma/migrations/add-email-verified-to-users.sql --url "RAILWAY_URL"
+8.  git push → Railway deploys
+9.  All existing JWT sessions invalidated → doctors log in fresh (expected)
+    On first login, accounts rows are auto-created (allowDangerousEmailAccountLinking)
 ```
 
 ---
@@ -733,6 +564,19 @@ If the migration breaks authentication entirely:
 DROP TABLE IF EXISTS public.sessions;
 DROP TABLE IF EXISTS public.accounts;
 DROP TABLE IF EXISTS public.verification_tokens;
+ALTER TABLE public.users DROP COLUMN IF EXISTS email_verified;
 ```
 
-Then revert `nextauth-config.ts` to JWT strategy (`strategy: "jwt"`, restore `jwt()` callback, remove adapter) and redeploy. Doctors log in again with fresh JWT cookies. The `consent/page.tsx` `update()` call should also be reverted.
+Then in `nextauth-config.ts`:
+- Remove `adapter`, `allowDangerousEmailAccountLinking`
+- Change `strategy: "database"` back to `strategy: "jwt"`
+- Restore `jwt()` callback
+- Remove `signIn()` DB operations
+
+In `apps/doctor/src/middleware.ts`:
+- Restore the `auth()` call and role/consent checks
+
+In `apps/doctor/src/app/consent/page.tsx`:
+- Restore `await update({ privacyConsentAt: data.privacyConsentAt })`
+
+Redeploy. Doctors log in fresh with new JWT cookies.
