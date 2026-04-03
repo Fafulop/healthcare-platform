@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { TabNav } from "./_components/TabNav";
 import { CitasGuide } from "./_components/CitasGuide";
+import { ExpedientesGuide } from "./_components/ExpedientesGuide";
 
 const TABS = [
   {
@@ -22,7 +23,6 @@ const TABS = [
     id: "expedientes",
     label: "Expedientes",
     icon: <FolderOpen className="w-4 h-4" />,
-    disabled: true,
   },
   {
     id: "perfil",
@@ -68,7 +68,8 @@ function AyudaContent() {
       <TabNav tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
       <div className="mt-5">
         {activeTab === "citas" && <CitasGuide />}
-        {activeTab !== "citas" && activeTabData && (
+        {activeTab === "expedientes" && <ExpedientesGuide />}
+        {activeTab !== "citas" && activeTab !== "expedientes" && activeTabData && (
           <ComingSoonTab label={activeTabData.label} />
         )}
       </div>
