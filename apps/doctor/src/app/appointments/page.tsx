@@ -3,7 +3,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle } from "lucide-react";
+import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { useCalendar } from "./_hooks/useCalendar";
@@ -192,6 +193,14 @@ export default function AppointmentsV2Page() {
             <Plus className="w-4 h-4 flex-shrink-0" />
             Crear Horarios
           </button>
+          <Link
+            href="/dashboard/ayuda?tab=citas"
+            title="Ver guía de Citas"
+            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 font-medium py-2 px-3 rounded-md transition-colors text-sm"
+          >
+            <HelpCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Ayuda</span>
+          </Link>
         </div>
       </div>
 
