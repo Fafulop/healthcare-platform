@@ -19,7 +19,7 @@ export function WorkflowStep({
   tip,
 }: WorkflowStepProps) {
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-3 sm:gap-4">
       {/* Number circle + vertical line */}
       <div className="flex flex-col items-center">
         <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-bold">

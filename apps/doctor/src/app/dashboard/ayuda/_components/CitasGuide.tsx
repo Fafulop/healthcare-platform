@@ -61,7 +61,7 @@ export function CitasGuide() {
     <div className="space-y-4">
 
       {/* ── Overview ── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 bg-blue-50 rounded-lg">
             <CalendarDays className="w-5 h-5 text-blue-600" />
@@ -366,7 +366,7 @@ export function CitasGuide() {
             <p className="font-semibold text-gray-800 mb-2">Filtros disponibles</p>
             <ul className="space-y-1.5">
               {[
-                "Fecha: navega con las flechas ◀ ▶ o escribe una fecha. Clic en "Todas" para ver todas las fechas.",
+                'Fecha: navega con las flechas ◀ ▶ o escribe una fecha. Clic en "Todas" para ver todas las fechas.',
                 "Paciente: búsqueda por nombre o email (coincidencia parcial, sin importar mayúsculas).",
                 "Estado: Activas (Pendiente + Agendada), Todos los estados, o un estado específico.",
                 "Limpiar filtros: aparece cuando hay algún filtro activo.",

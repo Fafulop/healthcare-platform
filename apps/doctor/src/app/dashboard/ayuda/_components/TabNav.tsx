@@ -27,7 +27,7 @@ export function TabNav({ tabs, activeTab, onChange }: TabNavProps) {
             key={tab.id}
             onClick={() => !isDisabled && onChange(tab.id)}
             disabled={isDisabled}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+            className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
               isActive
                 ? "bg-gray-900 text-white"
                 : isDisabled
