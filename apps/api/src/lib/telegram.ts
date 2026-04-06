@@ -64,7 +64,7 @@ export async function sendFormSubmittedTelegram(
   details: FormSubmittedDetails
 ): Promise<boolean> {
   const dateLine = details.date
-    ? `\nFecha: ${new Date(details.date + 'T12:00:00').toLocaleDateString('es-MX', {
+    ? `\nFecha: ${new Date(details.date + 'T12:00:00Z').toLocaleDateString('es-MX', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -91,7 +91,7 @@ export async function sendNewBookingTelegram(
   chatId: string,
   details: NewBookingDetails
 ): Promise<boolean> {
-  const formattedDate = new Date(details.date).toLocaleDateString('es-MX', {
+  const formattedDate = new Date(details.date.substring(0, 10) + 'T12:00:00Z').toLocaleDateString('es-MX', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
