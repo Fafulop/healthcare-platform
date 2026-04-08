@@ -20,8 +20,6 @@ import {
   Plus,
   Ban,
   Trash2,
-  Lock,
-  Unlock,
   User,
   MapPin,
   XCircle,
@@ -158,7 +156,7 @@ export function CitasGuide() {
             </div>
             <p className="text-xs text-blue-700 leading-relaxed">
               Citas ya <strong>confirmadas con fecha y hora futura</strong>. Pueden llegar a este estado de tres formas:
-              confirmando una cita Pendiente, agendando directamente desde el consultorio (Ruta B1 o B2),
+              confirmando una cita Pendiente, agendando directamente desde el consultorio,
               o reagendando una cita existente. Son las citas "listas" en tu agenda.
             </p>
             <p className="text-xs text-blue-600 font-semibold mt-auto pt-1 border-t border-blue-200">
@@ -226,33 +224,6 @@ export function CitasGuide() {
           ))}
         </div>
 
-        {/* Per-slot buttons */}
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Botones por horario (dentro de cada tarjeta de slot)
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              {
-                btn: <Btn color="bg-green-600 text-white">Agendar</Btn>,
-                desc: "Reserva este horario para un paciente. Se desactiva si el slot está cerrado o lleno.",
-              },
-              {
-                btn: <><Btn color="bg-blue-100 text-blue-700"><Unlock className="w-3 h-3" />Abrir</Btn>{" "}<Btn color="bg-gray-100 text-gray-700"><Lock className="w-3 h-3" />Cerrar</Btn></>,
-                desc: "Abre o cierra la disponibilidad del horario para reservas desde la app pública.",
-              },
-              {
-                btn: <Btn color="bg-red-50 text-red-600"><Trash2 className="w-3 h-3" />Eliminar</Btn>,
-                desc: "Elimina el horario. Solo funciona si no hay citas activas en él.",
-              },
-            ].map((item, i) => (
-              <div key={i} className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
-                <div>{item.btn}</div>
-                <p className="text-xs text-gray-600">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
       </SectionAccordion>
 
       {/* ── Configurar disponibilidad ── */}
@@ -327,21 +298,6 @@ export function CitasGuide() {
           </div>
         </div>
 
-        {/* Bulk actions */}
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 mb-2">Acciones en bloque (selección múltiple)</p>
-          <p className="text-xs text-gray-500 mb-2">
-            En ambas vistas puedes marcar varios horarios con el checkbox. Al seleccionar al menos uno aparece la barra de acciones:
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Btn color="bg-green-100 text-green-700">Abrir</Btn>
-            <Btn color="bg-gray-100 text-gray-700">Cerrar</Btn>
-            <Btn color="bg-red-100 text-red-700">Eliminar</Btn>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            "Seleccionar todos" y "Deseleccionar todos" aparecen en el encabezado del panel cuando hay más de un horario visible.
-          </p>
-        </div>
       </SectionAccordion>
 
       {/* ── Cómo se agenda una cita ── */}
@@ -357,7 +313,7 @@ export function CitasGuide() {
           paths={[
             {
               badge: "public",
-              label: "Ruta A",
+              label: "",
               title: "El paciente agenda desde el perfil público",
               accentColor: "indigo",
               steps: [
@@ -372,7 +328,7 @@ export function CitasGuide() {
             },
             {
               badge: "doctor",
-              label: "Ruta B1",
+              label: "",
               title: "Doctor agenda en horario existente",
               accentColor: "gray",
               steps: [
@@ -386,7 +342,7 @@ export function CitasGuide() {
             },
             {
               badge: "doctor",
-              label: "Ruta B2",
+              label: "",
               title: "Doctor crea horario nuevo al momento",
               accentColor: "gray",
               steps: [

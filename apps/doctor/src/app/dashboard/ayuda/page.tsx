@@ -79,7 +79,7 @@ function AyudaContent() {
 
 export default function AyudaPage() {
   return (
-    <div className="p-4 sm:p-6 max-w-4xl">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="mb-5">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
           Centro de ayuda
