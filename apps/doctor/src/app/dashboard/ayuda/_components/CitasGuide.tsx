@@ -499,7 +499,8 @@ export function CitasGuide({ view = 'status' }: { view?: 'status' | 'acciones' }
             </div>
             <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
               <p className="font-semibold text-blue-800 mb-1">Botón "Todas"</p>
-              <p className="text-blue-600">Quita el filtro de fecha y muestra <strong>todas las citas</strong> sin importar cuándo son. Ideal para buscar una cita específica o ver el historial completo.</p>
+              <p className="text-blue-600">Quita el filtro de fecha y restablece el estado a <strong>Activas</strong> — muestra Pendiente, Agendada y Vencida <strong>de todas las fechas</strong>. También limpia la búsqueda de paciente.</p>
+              <p className="text-blue-500 mt-1">⚠️ <strong>No muestra Completadas, Canceladas ni No asistió.</strong> Para ver el historial completo, cambia el desplegable de estado a <strong>"Todos los estados"</strong>.</p>
             </div>
           </div>
         </div>
@@ -521,8 +522,8 @@ export function CitasGuide({ view = 'status' }: { view?: 'status' | 'acciones' }
                 <p className="font-semibold text-gray-800">Filtro de estado <span className="font-normal text-gray-400">(desplegable)</span></p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {[
-                    { label: "Activas", color: "bg-gray-100 text-gray-600", note: "Por defecto — muestra Pendiente + Agendada" },
-                    { label: "Todos los estados", color: "bg-gray-100 text-gray-600", note: "Muestra absolutamente todo el historial" },
+                    { label: "Activas", color: "bg-gray-100 text-gray-600", note: "Por defecto — Pendiente + Agendada + Vencida" },
+                    { label: "Todos los estados", color: "bg-gray-100 text-gray-600", note: "Incluye Completada, Cancelada y No asistió" },
                     { label: "Pendiente", color: "bg-yellow-100 text-yellow-700" },
                     { label: "Agendada", color: "bg-blue-100 text-blue-700" },
                     { label: "Completada", color: "bg-green-100 text-green-700" },
