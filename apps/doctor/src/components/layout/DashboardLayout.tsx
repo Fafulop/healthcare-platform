@@ -23,7 +23,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div
+      className="flex h-screen bg-gray-50"
+      style={{
+        backgroundImage: "url('/medical-pattern.svg')",
+        backgroundSize: "500px 500px",
+      }}
+    >
       {/* Desktop Sidebar - hidden on mobile */}
       <div className="hidden lg:block">
         <Sidebar doctorProfile={doctorProfile} />
