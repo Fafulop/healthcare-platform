@@ -24,6 +24,13 @@ import {
   Unlock,
   User,
   MapPin,
+  XCircle,
+  UserX,
+  CheckCheck,
+  RefreshCw,
+  Filter,
+  ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import { SectionAccordion } from "./SectionAccordion";
 import { WorkflowStep } from "./WorkflowStep";
@@ -117,6 +124,73 @@ export function CitasGuide() {
           </div>
         </div>
       </div>
+
+      {/* ── Tarjetas de resumen ── */}
+      <SectionAccordion
+        title="Tarjetas de resumen: Pendientes · Agendadas · Vencidas"
+        subtitle="Los tres contadores en la parte superior de la página y qué significan"
+        icon={LayoutGrid}
+        accentColor="gray"
+        defaultOpen
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+          {/* Pendientes */}
+          <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 flex-shrink-0" />
+              <p className="text-sm font-semibold text-yellow-800">Pendientes</p>
+            </div>
+            <p className="text-xs text-yellow-700 leading-relaxed">
+              Citas solicitadas por un paciente desde la <strong>app pública</strong> que aún <strong>no has confirmado</strong>.
+              El paciente eligió un horario y completó sus datos, pero la cita queda en espera hasta que tú la apruebes o canceles.
+              Cada nueva solicitud incrementa este contador.
+            </p>
+            <p className="text-xs text-yellow-600 font-semibold mt-auto pt-1 border-t border-yellow-200">
+              Requieren acción tuya: confirmar o cancelar
+            </p>
+          </div>
+
+          {/* Agendadas */}
+          <div className="p-4 bg-blue-50 rounded-xl border border-blue-200 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0" />
+              <p className="text-sm font-semibold text-blue-800">Agendadas</p>
+            </div>
+            <p className="text-xs text-blue-700 leading-relaxed">
+              Citas ya <strong>confirmadas con fecha y hora futura</strong>. Pueden llegar a este estado de tres formas:
+              confirmando una cita Pendiente, agendando directamente desde el consultorio (Ruta B1 o B2),
+              o reagendando una cita existente. Son las citas "listas" en tu agenda.
+            </p>
+            <p className="text-xs text-blue-600 font-semibold mt-auto pt-1 border-t border-blue-200">
+              Todo en orden — solo monitorear
+            </p>
+          </div>
+
+          {/* Vencidas */}
+          <div className="p-4 bg-red-50 rounded-xl border border-red-200 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600 flex-shrink-0" />
+              <p className="text-sm font-semibold text-red-800">Vencidas</p>
+            </div>
+            <p className="text-xs text-red-700 leading-relaxed">
+              Citas cuya <strong>fecha y hora ya pasaron</strong> sin que se registrara el resultado:
+              no se marcaron como Completada, No asistió ni Cancelada. El sistema las clasifica
+              automáticamente como vencidas. Deben cerrarse manualmente para mantener el historial limpio.
+            </p>
+            <p className="text-xs text-red-600 font-semibold mt-auto pt-1 border-t border-red-200">
+              Pendientes de cierre — actualizar estado
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-xs text-gray-500 flex items-start gap-2">
+          <Info className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+          <span>
+            Los tres contadores se actualizan automáticamente al entrar a la página y cada vez que cambias el estado de una cita.
+            No muestran citas en estados terminales (Completada, Cancelada, No asistió).
+          </span>
+        </div>
+      </SectionAccordion>
 
       {/* ── Botones principales ── */}
       <SectionAccordion
@@ -354,35 +428,344 @@ export function CitasGuide() {
         </div>
       </SectionAccordion>
 
-      {/* ── Gestión de citas (tabla) ── */}
+      {/* ── Tabla Todas las Citas ── */}
       <SectionAccordion
-        title="Tabla de citas — filtros y navegación"
-        subtitle="Buscar, filtrar, ordenar y navegar tus reservaciones"
-        icon={User}
+        title='Tabla "Todas las Citas" — navegación, filtros y ordenamiento'
+        subtitle="Cómo ver, filtrar y ordenar todas tus reservaciones"
+        icon={Filter}
         accentColor="blue"
       >
-        <div className="space-y-4 text-sm text-gray-600">
-          <div>
-            <p className="font-semibold text-gray-800 mb-2">Filtros disponibles</p>
-            <ul className="space-y-1.5">
-              {[
-                'Fecha: navega con las flechas ◀ ▶ o escribe una fecha. Clic en "Todas" para ver todas las fechas.',
-                "Paciente: búsqueda por nombre o email (coincidencia parcial, sin importar mayúsculas).",
-                "Estado: Activas (Pendiente + Agendada), Todos los estados, o un estado específico.",
-                "Limpiar filtros: aparece cuando hay algún filtro activo.",
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2">
-                  <ArrowRight className="w-3 h-3 text-gray-300 mt-0.5 flex-shrink-0" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+        {/* Vista por defecto */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-start gap-2 mb-4">
+          <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+          <span>
+            <strong>Por defecto la tabla muestra las citas del día de hoy</strong> con filtro de estado en
+            "Activas" (Pendiente + Agendada). Esto es lo primero que ves al entrar a la página de Citas.
+          </span>
+        </div>
+
+        {/* Navegación de fecha */}
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Navegación por fecha</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <p className="font-semibold text-gray-800 mb-1">◀ ▶ Flechas</p>
+              <p className="text-gray-500">Avanza o retrocede un día a la vez. Útil para revisar la agenda día a día.</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <p className="font-semibold text-gray-800 mb-1">Campo de fecha</p>
+              <p className="text-gray-500">Escribe o selecciona una fecha específica para saltar directamente a ese día.</p>
+            </div>
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="font-semibold text-blue-800 mb-1">Botón "Todas"</p>
+              <p className="text-blue-600">Quita el filtro de fecha y muestra <strong>todas las citas</strong> sin importar cuándo son. Ideal para buscar una cita específica o ver el historial completo.</p>
+            </div>
           </div>
-          <div>
-            <p className="font-semibold text-gray-800 mb-2">Ordenamiento</p>
-            <p>Clic en las columnas <strong>PACIENTE</strong>, <strong>FECHA Y HORA</strong> o <strong>ESTADO</strong> para ordenar. Un segundo clic invierte el orden (asc ↔ desc).</p>
-            <p className="mt-1 text-xs text-gray-500">El orden por defecto es por estado: Pendiente → Agendada → Vencida → Completada → No asistió → Cancelada.</p>
+        </div>
+
+        {/* Filtros */}
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Filtros disponibles</p>
+          <div className="space-y-2 text-xs">
+            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <User className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-gray-800">Buscar paciente</p>
+                <p className="text-gray-500 mt-0.5">Escribe el nombre o correo del paciente. La búsqueda es parcial y no distingue mayúsculas (ej. "mar" encuentra "María García").</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-gray-800">Filtro de estado <span className="font-normal text-gray-400">(desplegable)</span></p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {[
+                    { label: "Activas", color: "bg-gray-100 text-gray-600", note: "Por defecto — muestra Pendiente + Agendada" },
+                    { label: "Todos los estados", color: "bg-gray-100 text-gray-600", note: "Muestra absolutamente todo el historial" },
+                    { label: "Pendiente", color: "bg-yellow-100 text-yellow-700" },
+                    { label: "Agendada", color: "bg-blue-100 text-blue-700" },
+                    { label: "Completada", color: "bg-green-100 text-green-700" },
+                    { label: "No asistió", color: "bg-orange-100 text-orange-700" },
+                    { label: "Cancelada", color: "bg-red-100 text-red-700" },
+                    { label: "Vencida", color: "bg-red-100 text-red-800" },
+                  ].map((s) => (
+                    <span key={s.label} className={`px-2 py-0.5 rounded-full text-xs font-medium border border-transparent ${s.color}`}>
+                      {s.label}
+                      {s.note && <span className="text-gray-400 font-normal ml-1">— {s.note}</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
+              <XCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-amber-800">Botón "Limpiar"</p>
+                <p className="text-amber-700 mt-0.5">Aparece automáticamente cuando hay algún filtro activo. Un solo clic restablece la vista al estado por defecto (hoy + Activas).</p>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Ordenamiento por columna */}
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Ordenamiento por columna</p>
+          <p className="text-xs text-gray-600 mb-2">
+            Haz clic en el encabezado de cualquiera de estas columnas para ordenar. Un segundo clic invierte el orden (ascendente ↔ descendente).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            {[
+              { col: "PACIENTE", desc: "Orden alfabético por nombre del paciente." },
+              { col: "FECHA Y HORA", desc: "Ordena cronológicamente, del más próximo al más lejano o viceversa." },
+              { col: "ESTADO", desc: "Agrupa por estado." },
+            ].map((c) => (
+              <div key={c.col} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <p className="font-semibold text-gray-700 font-mono text-xs mb-1">{c.col}</p>
+                <p className="text-gray-500">{c.desc}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Orden por defecto (sin ordenar): Pendiente → Agendada → Vencida → Completada → No asistió → Cancelada.
+          </p>
+        </div>
+
+        {/* Datos en cada fila */}
+        <div className="pt-3 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Información visible en cada fila</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-gray-600">
+            {[
+              "Nombre completo del paciente",
+              "Correo electrónico y teléfono",
+              "Servicio o motivo de consulta",
+              "Modalidad: Presencial o Telemedicina",
+              "Fecha y hora de la cita",
+              "Estado actual (badge de color)",
+              "Botones de acciones disponibles",
+            ].map((f) => (
+              <div key={f} className="flex items-center gap-2 py-0.5">
+                <ArrowRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                <span>{f}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </SectionAccordion>
+
+      {/* ── Columna de acciones ── */}
+      <SectionAccordion
+        title="Columna de acciones — qué hace cada botón"
+        subtitle="Guía detallada de cada acción disponible por cita según su estado"
+        icon={CheckCircle2}
+        accentColor="indigo"
+      >
+        <p className="text-xs text-gray-500 mb-4">
+          Los botones disponibles en cada fila cambian según el <strong>estado actual</strong> de la cita y la <strong>modalidad</strong> (Presencial o Telemedicina). Aquí se explica cada uno en detalle.
+        </p>
+
+        <div className="space-y-3">
+
+          {/* Confirmar */}
+          <div className="p-3 rounded-xl border border-blue-200 bg-blue-50">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Btn color="bg-blue-600 text-white"><CheckCircle2 className="w-3 h-3" />Confirmar</Btn>
+              <span className="text-xs text-gray-400">Solo en estado</span>
+              <Tag>Pendiente</Tag>
+            </div>
+            <p className="text-xs text-blue-800">
+              Aprueba una cita solicitada desde la app pública. El estado cambia a <strong>Agendada</strong>.
+            </p>
+            <div className="mt-1.5 p-2 bg-blue-100 rounded-lg text-xs text-blue-700 flex items-start gap-1.5">
+              <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              <span><strong>Importante:</strong> Confirmar NO envía email automáticamente. Después de confirmar, debes enviar la confirmación manualmente con el botón <strong>Correo</strong> o <strong>Enviar Meet</strong> que aparece en la misma fila.</span>
+            </div>
+          </div>
+
+          {/* Completar */}
+          <div className="p-3 rounded-xl border border-green-200 bg-green-50">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Btn color="bg-green-600 text-white"><CheckCheck className="w-3 h-3" />Completar</Btn>
+              <span className="text-xs text-gray-400">Disponible en</span>
+              <Tag>Pendiente</Tag>
+              <Tag>Agendada</Tag>
+              <Tag>Vencida</Tag>
+            </div>
+            <p className="text-xs text-green-800">
+              Registra que la consulta se <strong>realizó exitosamente</strong>. El estado cambia a <strong>Completada</strong>.
+              Úsalo cuando el paciente asistió y la consulta concluyó. Es un estado terminal: solo se puede eliminar el registro después.
+            </p>
+          </div>
+
+          {/* No asistió */}
+          <div className="p-3 rounded-xl border border-orange-200 bg-orange-50">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Btn color="bg-orange-500 text-white"><UserX className="w-3 h-3" />No asistió</Btn>
+              <span className="text-xs text-gray-400">Disponible en</span>
+              <Tag>Pendiente</Tag>
+              <Tag>Agendada</Tag>
+              <Tag>Vencida</Tag>
+            </div>
+            <p className="text-xs text-orange-800">
+              Registra que el paciente <strong>no se presentó</strong> a la cita. El estado cambia a <strong>No asistió</strong>.
+              Útil para llevar estadísticas de ausentismo. Es un estado terminal.
+            </p>
+          </div>
+
+          {/* Cancelar */}
+          <div className="p-3 rounded-xl border border-red-200 bg-red-50">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Btn color="bg-red-600 text-white"><XCircle className="w-3 h-3" />Cancelar</Btn>
+              <span className="text-xs text-gray-400">Disponible en</span>
+              <Tag>Pendiente</Tag>
+              <Tag>Agendada</Tag>
+            </div>
+            <p className="text-xs text-red-800">
+              Cancela la cita. Antes de ejecutarse, el sistema pide <strong>confirmación explícita</strong> para evitar cancelaciones accidentales.
+              Al confirmar, el estado cambia a <strong>Cancelada</strong> y se envía notificación automática al paciente por email.
+              Es un estado terminal.
+            </p>
+          </div>
+
+          {/* Reagendar */}
+          <div className="p-3 rounded-xl border border-amber-200 bg-amber-50">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Btn color="bg-amber-500 text-white"><CalendarClock className="w-3 h-3" />Reagendar</Btn>
+              <span className="text-xs text-gray-400">Disponible en</span>
+              <Tag>Agendada</Tag>
+              <Tag>Vencida</Tag>
+            </div>
+            <p className="text-xs text-amber-800">
+              Abre el asistente de agenda con los datos del paciente ya pre-cargados. Permite seleccionar un nuevo horario
+              existente o crear uno al momento. Al confirmar, el sistema <strong>cancela automáticamente la cita anterior</strong>,
+              crea la nueva cita en estado Agendada y <strong>envía email de confirmación automáticamente</strong> al paciente con el nuevo horario.
+            </p>
+          </div>
+
+          {/* Correo / Reenviar */}
+          <div className="p-3 rounded-xl border border-teal-200 bg-teal-50">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Btn color="bg-teal-600 text-white"><Send className="w-3 h-3" />Correo</Btn>
+              <span className="text-xs text-gray-400">→ después del primer envío:</span>
+              <Btn color="bg-teal-100 text-teal-700"><RefreshCw className="w-3 h-3" />Reenviar</Btn>
+              <span className="text-xs text-gray-400">Solo en</span>
+              <Tag>Agendada</Tag>
+              <Tag>Presencial</Tag>
+            </div>
+            <p className="text-xs text-teal-800">
+              <strong>Correo:</strong> Envía el email de confirmación al paciente por primera vez. El correo incluye
+              fecha, hora y dirección del consultorio. Una vez enviado, el botón cambia a <strong>Reenviar</strong>.
+            </p>
+            <p className="text-xs text-teal-700 mt-1">
+              <strong>Reenviar:</strong> Reenvía el mismo correo de confirmación (útil si el paciente no lo recibió).
+              El tooltip del botón muestra la fecha y hora del último envío.
+            </p>
+          </div>
+
+          {/* Enviar Meet / Reenviar Meet */}
+          <div className="p-3 rounded-xl border border-blue-200 bg-blue-50">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Btn color="bg-blue-600 text-white"><Video className="w-3 h-3" />Enviar Meet</Btn>
+              <span className="text-xs text-gray-400">→ después:</span>
+              <Btn color="bg-blue-100 text-blue-700"><RefreshCw className="w-3 h-3" />Reenviar Meet</Btn>
+              <span className="text-xs text-gray-400">Solo en</span>
+              <Tag>Agendada</Tag>
+              <Tag>Telemedicina</Tag>
+            </div>
+            <p className="text-xs text-blue-800">
+              <strong>Enviar Meet:</strong> Crea automáticamente un <strong>Google Meet</strong>, guarda el link en la cita
+              y envía el correo de confirmación al paciente con el link incluido. Una vez enviado, cambia a <strong>Reenviar Meet</strong>.
+            </p>
+            <p className="text-xs text-blue-700 mt-1">
+              <strong>Reenviar Meet:</strong> Reenvía el correo con el <strong>mismo link de Meet</strong> (no se genera uno nuevo).
+              El tooltip muestra el timestamp del último envío.
+            </p>
+            <p className="text-xs text-blue-600 mt-1.5 bg-blue-100 rounded px-2 py-1">
+              Si hay un error de permisos de Gmail, aparece un mensaje específico indicando qué autorizar en tu cuenta de Google.
+            </p>
+          </div>
+
+          {/* Formulario / Recibido */}
+          <div className="p-3 rounded-xl border border-purple-200 bg-purple-50">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Btn color="bg-purple-600 text-white"><FileText className="w-3 h-3" />Formulario</Btn>
+              <span className="text-xs text-gray-400">→ al completarse cambia a:</span>
+              <Btn color="bg-green-100 text-green-700"><CheckCircle2 className="w-3 h-3" />Recibido</Btn>
+              <span className="text-xs text-gray-400">Solo en</span>
+              <Tag>Agendada</Tag>
+            </div>
+            <p className="text-xs text-purple-800">
+              <strong>Formulario:</strong> Abre un modal para seleccionar una plantilla de formulario pre-consulta.
+              Genera un link único que puedes copiar o enviar por WhatsApp. El paciente llena el formulario desde su dispositivo.
+              Si no tienes plantillas, el modal te redirige a crearlas en la sección de Expedientes.
+            </p>
+            <p className="text-xs text-purple-700 mt-1">
+              <strong>Recibido (verde):</strong> Aparece automáticamente cuando el paciente envió el formulario.
+              Funciona como un acceso directo a las respuestas dentro de la sección de Expedientes.
+            </p>
+          </div>
+
+          {/* Eliminar */}
+          <div className="p-3 rounded-xl border border-gray-200 bg-gray-50">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Btn color="bg-red-50 text-red-600"><Trash2 className="w-3 h-3" />Eliminar</Btn>
+              <span className="text-xs text-gray-400">Solo en estados terminales:</span>
+              <Tag>Completada</Tag>
+              <Tag>No asistió</Tag>
+              <Tag>Cancelada</Tag>
+            </div>
+            <p className="text-xs text-gray-700">
+              Elimina permanentemente el registro de la cita. Solo está disponible en estados terminales
+              (la cita ya no puede cambiar de estado). Pide confirmación antes de ejecutarse.
+              Una vez eliminado, el registro no puede recuperarse.
+            </p>
+          </div>
+
+        </div>
+
+        {/* Resumen visual de disponibilidad */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Resumen: qué botones aparecen según el estado</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="text-left p-2 font-semibold text-gray-600 rounded-tl-lg">Botón</th>
+                  <th className="text-center p-2 font-semibold text-yellow-700">Pendiente</th>
+                  <th className="text-center p-2 font-semibold text-blue-700">Agendada</th>
+                  <th className="text-center p-2 font-semibold text-red-800">Vencida</th>
+                  <th className="text-center p-2 font-semibold text-green-700 rounded-tr-lg">Terminal*</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {[
+                  { btn: "Confirmar", states: [true, false, false, false] },
+                  { btn: "Completar", states: [true, true, true, false] },
+                  { btn: "No asistió", states: [true, true, true, false] },
+                  { btn: "Cancelar", states: [true, true, false, false] },
+                  { btn: "Reagendar", states: [false, true, true, false] },
+                  { btn: "Correo / Reenviar", states: [false, true, false, false] },
+                  { btn: "Enviar Meet / Reenviar Meet", states: [false, true, false, false] },
+                  { btn: "Formulario / Recibido", states: [false, true, false, false] },
+                  { btn: "Eliminar", states: [false, false, false, true] },
+                ].map((row) => (
+                  <tr key={row.btn} className="hover:bg-gray-50">
+                    <td className="p-2 font-medium text-gray-700">{row.btn}</td>
+                    {row.states.map((active, i) => (
+                      <td key={i} className="p-2 text-center">
+                        {active ? (
+                          <span className="text-green-600 font-bold">✓</span>
+                        ) : (
+                          <span className="text-gray-200">—</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">* Terminal = Completada, No asistió o Cancelada.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Correo/Meet solo aparece en citas Agendadas según la modalidad: Correo para Presencial, Enviar Meet para Telemedicina.</p>
         </div>
       </SectionAccordion>
 

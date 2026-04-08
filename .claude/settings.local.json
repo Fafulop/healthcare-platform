@@ -35,7 +35,12 @@
       "WebSearch",
       "WebFetch(domain:developers.facebook.com)",
       "WebFetch(domain:web.facebook.com)",
-      "WebFetch(domain:www.facebook.com)"
+      "WebFetch(domain:www.facebook.com)",
+      "Bash(find C:Users52331docs-front/apps/admin/src -type f \\\\\\(-name *.tsx -o -name *.ts -o -name *.jsx -o -name *.js \\\\\\))",
+      "Bash(npm install:*)",
+      "Bash(where node:*)",
+      "Bash(where tsc:*)",
+      "Bash(find /c/Users/52331/docs-front -path */.next -prune -o -type f \\\\\\(-name *booking* -o -name *appointment* \\\\\\) -print)"
     ]
   }
 }
