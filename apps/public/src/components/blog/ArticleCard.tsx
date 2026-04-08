@@ -57,7 +57,7 @@ export function ArticleCard({
         )}
 
         {/* Content */}
-        <div className="p-6 flex-1 flex flex-col">
+        <div className="p-4 md:p-6 flex-1 flex flex-col">
           {/* Title */}
           <h2 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 hover:text-blue-600 transition-colors">
             {title}

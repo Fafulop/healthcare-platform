@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DynamicBookingWidget } from "@/components/doctor/DynamicSections";
 import SidebarContactInfo from "@/components/doctor/SidebarContactInfo";
 import SidebarCTA from "@/components/doctor/SidebarCTA";
+import StickyMobileCTA from "@/components/doctor/StickyMobileCTA";
 import BookingModal from "@/components/doctor/BookingModal";
 import BlobDecoration from "@/components/ui/BlobDecoration";
 import type { ClinicLocationItem } from "@/types/doctor";
@@ -42,11 +43,13 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, clinicLocatio
 
   return (
     <>
-      <main className="relative min-h-screen pb-16 md:pb-0 bg-[var(--color-bg-yellow-light)] overflow-hidden">
-        {/* Visible organic blobs */}
-        <BlobDecoration variant="blob3" color="gradient-secondary" position="top-right" size="xl" opacity={33} blur={false} />
-        <BlobDecoration variant="blob1" color="gradient-primary" position="bottom-left" size="xl" opacity={36} blur={false} />
-        <BlobDecoration variant="blob2" color="accent" position="bottom-right" size="lg" opacity={25} blur={false} className="hidden md:block" />
+      <main className="relative min-h-screen pb-16 md:pb-0 bg-[var(--color-bg-yellow-light)]">
+        {/* Blob wrapper — overflow-hidden here only clips decorations, not the sticky sidebar */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <BlobDecoration variant="blob3" color="gradient-secondary" position="top-right" size="xl" opacity={33} blur={false} />
+          <BlobDecoration variant="blob1" color="gradient-primary" position="bottom-left" size="xl" opacity={36} blur={false} />
+          <BlobDecoration variant="blob2" color="accent" position="bottom-right" size="lg" opacity={25} blur={false} className="hidden md:block" />
+        </div>
 
         <div className="relative profile-layout-container">
           {/* LEFT COLUMN - Content from children */}
@@ -79,6 +82,13 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, clinicLocatio
           </aside>
         </div>
       </main>
+
+      {/* Sticky Mobile CTA — visible only on mobile, mirrors the desktop sidebar */}
+      <StickyMobileCTA
+        doctorSlug={doctorSlug}
+        whatsappNumber={clinicInfo.whatsapp}
+        onBookingClick={openBookingModal}
+      />
 
       {/* Booking Modal */}
       <BookingModal

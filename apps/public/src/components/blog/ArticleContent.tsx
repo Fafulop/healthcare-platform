@@ -16,6 +16,11 @@ export function ArticleContent({ content }: ArticleContentProps) {
       <style>{`
         .article-content img[style] { margin: 0 !important; }
         .article-content::after { content: ''; display: table; clear: both; }
+        @media (max-width: 767px) {
+          .article-content img { float: none !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+          .article-content h2 { font-size: 1.25rem !important; margin-top: 1.5rem !important; margin-bottom: 0.75rem !important; }
+          .article-content h3 { font-size: 1.125rem !important; margin-top: 1.25rem !important; margin-bottom: 0.5rem !important; }
+        }
       `}</style>
       <div
         className="article-content prose prose-lg max-w-none

@@ -84,10 +84,10 @@ export default async function BlogListingPage({ params }: BlogListingPageProps) 
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2">
             Blog de {doctor.doctor_full_name}
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-base md:text-lg text-gray-600">
             Artículos y consejos de salud por {doctor.doctor_full_name}, {doctor.primary_specialty}
           </p>
         </div>

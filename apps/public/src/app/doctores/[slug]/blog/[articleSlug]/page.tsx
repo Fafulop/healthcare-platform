@@ -117,7 +117,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             {/* Article Header */}
             <article>
               <header className="mb-8">
-                <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
                   {article.title}
                 </h1>
 
