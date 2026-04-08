@@ -10,6 +10,7 @@ import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken, calcEndTime } from '@/lib/appointments-utils';
 import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
+import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
 export async function POST(request: Request) {
   try {
@@ -220,7 +221,8 @@ export async function POST(request: Request) {
       finalPrice,
     });
 
-    // Sync to Google Calendar (fire-and-forget) — event ID stored on the slot (not the booking)
+    // Sync to Google Calendar (fire-and-forget) — event ID stored on the slot (not the booking).
+    // Auto-send confirmation email chained after sync so googleEventId is persisted before ensureMeetLink runs (TELEMEDICINA).
     getCalendarTokens(doctorId).then(async tokens => {
       if (!tokens) return;
       const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, {
@@ -239,7 +241,12 @@ export async function POST(request: Request) {
         where: { id: slot.id },
         data: { googleEventId: eventId },
       });
-    }).catch((err) => console.error('[GCal sync] createSlotEvent (instant booking):', err));
+    }).catch((err) => console.error('[GCal sync] createSlotEvent (instant booking):', err))
+    .finally(() => {
+      sendBookingConfirmationEmail(booking.id).catch((err) =>
+        console.error('[Email] auto-send confirmation (instant POST):', err)
+      );
+    });
 
     return NextResponse.json(
       {

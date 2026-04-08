@@ -12,8 +12,10 @@ import {
   logBookingCompleted,
   logBookingNoShow,
 } from '@/lib/activity-logger';
-import { createSlotEvent, updateSlotEvent, deleteEvent } from '@/lib/google-calendar';
+import { createSlotEvent, updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
 import { getCalendarTokens } from '@/lib/appointments-utils';
+import { sendAppointmentCancellationEmail } from '@/lib/gmail';
+import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -164,7 +166,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
-          error: `Invalid transition: cannot go from ${currentStatus} to ${newStatus}`,
+          error: `Transición no permitida: no se puede cambiar de ${currentStatus} a ${newStatus}`,
         },
         { status: 400 }
       );
@@ -238,6 +240,52 @@ export async function PATCH(
       if (newStatus === 'CANCELLED') logBookingCancelled(bookingLogParams);
       else if (newStatus === 'COMPLETED') logBookingCompleted(bookingLogParams);
       else if (newStatus === 'NO_SHOW') logBookingNoShow(bookingLogParams);
+
+      // Send cancellation email to patient (fire-and-forget)
+      if (newStatus === 'CANCELLED' && currentBooking.patientEmail) {
+        (async () => {
+          try {
+            const doctor = await prisma.doctor.findUnique({
+              where: { id: currentBooking.doctorId },
+              select: {
+                doctorFullName: true,
+                primarySpecialty: true,
+                clinicPhone: true,
+                clinicAddress: true,
+                user: {
+                  select: {
+                    email: true,
+                    googleAccessToken: true,
+                    googleRefreshToken: true,
+                    googleTokenExpiry: true,
+                  },
+                },
+              },
+            });
+            if (!doctor?.user?.googleAccessToken || !doctor.user.email) return;
+            const { accessToken, refreshToken } = await resolveTokens(doctor.user);
+            await sendAppointmentCancellationEmail(
+              {
+                patientName: currentBooking.patientName,
+                patientEmail: currentBooking.patientEmail,
+                doctorName: doctor.doctorFullName,
+                specialty: doctor.primarySpecialty,
+                date: bookingDateStr,
+                startTime: bookingStartTime,
+                endTime: currentBooking.slot?.endTime ?? currentBooking.endTime ?? '',
+                clinicPhone: doctor.clinicPhone,
+                clinicAddress: doctor.clinicAddress,
+              },
+              accessToken,
+              refreshToken,
+              doctor.doctorFullName,
+              doctor.user.email
+            );
+          } catch (err) {
+            console.error('[Email] sendCancellationEmail failed:', err);
+          }
+        })();
+      }
 
       // GCal sync — freeform bookings use booking.googleEventId; slot-based use slot.googleEventId
       const gcalEventId = currentBooking.slot?.googleEventId ?? currentBooking.googleEventId;
@@ -335,8 +383,6 @@ export async function PATCH(
         console.error('SMS confirmation notification failed:', error)
       );
 
-      // TODO: Send confirmation email to patient (future implementation)
-      // sendPatientEmail(emailDetails, 'CONFIRMED').catch(...)
     }
 
     // Log activity for non-terminal status changes
@@ -351,8 +397,9 @@ export async function PATCH(
       });
     }
 
-    // Sync to Google Calendar (fire-and-forget)
-    // Regular slots have no event until confirmed — create one here if needed.
+    // Sync to Google Calendar (fire-and-forget), then auto-send confirmation email.
+    // Email is chained after GCal sync so slot.googleEventId is persisted before
+    // ensureMeetLink runs — prevents duplicate calendar events for TELEMEDICINA.
     getCalendarTokens(currentBooking.doctorId).then(async tokens => {
       if (!tokens) return;
       const dateStr = slot.date.toISOString().split('T')[0];
@@ -404,7 +451,15 @@ export async function PATCH(
           data: { googleEventId: eventId },
         });
       }
-    }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking CONFIRMED):', err));
+    }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking CONFIRMED):', err))
+    .finally(() => {
+      // Auto-send confirmation email after GCal sync (outside smsEnabled — always fires)
+      if (newStatus === 'CONFIRMED') {
+        sendBookingConfirmationEmail(updatedBooking.id).catch((err) =>
+          console.error('[Email] auto-send confirmation (PATCH CONFIRMED):', err)
+        );
+      }
+    });
 
     const statusMessages: Record<string, string> = {
       CONFIRMED: 'Booking confirmed successfully',

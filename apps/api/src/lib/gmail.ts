@@ -133,6 +133,41 @@ export async function sendAppointmentConfirmationEmail(
   });
 }
 
+export interface AppointmentCancellationEmailData {
+  patientName: string;
+  patientEmail: string;
+  doctorName: string;
+  specialty?: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  serviceName?: string | null;
+  clinicPhone?: string | null;
+  clinicAddress?: string | null;
+}
+
+export async function sendAppointmentCancellationEmail(
+  data: AppointmentCancellationEmailData,
+  accessToken: string,
+  refreshToken: string | null,
+  fromName: string,
+  fromEmail: string
+): Promise<void> {
+  const auth = buildAuthedClient(accessToken, refreshToken);
+  const gmail = google.gmail({ version: 'v1', auth });
+
+  const subject = `Tu cita ha sido cancelada – ${data.doctorName}`;
+  const htmlBody = buildCancellationEmailHtml(data);
+  const from = `${fromName} <${fromEmail}>`;
+
+  const raw = createRawMessage(from, data.patientEmail, subject, htmlBody);
+
+  await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: { raw },
+  });
+}
+
 // ─── HTML template ────────────────────────────────────────────────────────────
 
 function formatEmailDate(dateStr: string): string {
@@ -410,6 +445,108 @@ function buildReminderEmailHtml(data: AppointmentReminderEmailData): string {
               </tr>
 
             </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8faff;padding:24px 40px;border-top:1px solid #e5ecf5;text-align:center;">
+            <p style="margin:0;color:#888;font-size:13px;">Si tienes alguna pregunta, responde este correo o contáctanos directamente.</p>
+            <p style="margin:10px 0 0;color:#bbb;font-size:11px;">tusalud.pro · Plataforma de salud digital en México</p>
+            <p style="margin:8px 0 0;font-size:11px;color:#bbb;">Tus datos son tratados conforme a nuestro <a href="https://tusalud.pro/privacidad" style="color:#93c5fd;text-decoration:none;">Aviso de Privacidad</a> · <a href="mailto:privacidad@tusalud.pro" style="color:#93c5fd;text-decoration:none;">privacidad@tusalud.pro</a></p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+}
+
+function buildCancellationEmailHtml(data: AppointmentCancellationEmailData): string {
+  const formattedDate = formatEmailDate(data.date);
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px;">
+  <tr>
+    <td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#b91c1c,#dc2626);padding:32px 40px;text-align:center;">
+            <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">tusalud.pro</p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Cita Cancelada</h1>
+          </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+          <td style="padding:32px 40px 20px;">
+            <p style="margin:0 0 8px;color:#1a1a2e;font-size:16px;">Hola <strong>${escapeHtml(data.patientName)}</strong>,</p>
+            <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">
+              Lamentamos informarte que tu cita médica ha sido <strong>cancelada</strong>.
+              ${escapeHtml(data.doctorName)} lamenta mucho este inconveniente.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Details card -->
+        <tr>
+          <td style="padding:0 40px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff5f5;border:1px solid #fecaca;border-radius:10px;overflow:hidden;">
+
+              <!-- Date & time -->
+              <tr>
+                <td style="padding:20px 24px;border-bottom:1px solid #fecaca;background:#fee2e2;">
+                  <p style="margin:0 0 3px;color:#dc2626;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">Cita cancelada</p>
+                  <p style="margin:0;color:#1a1a2e;font-size:18px;font-weight:700;text-transform:capitalize;">${formattedDate}</p>
+                  <p style="margin:4px 0 0;color:#555;font-size:14px;">${escapeHtml(data.startTime)} – ${escapeHtml(data.endTime)} hrs</p>
+                </td>
+              </tr>
+
+              <!-- Doctor -->
+              <tr>
+                <td style="padding:14px 24px;border-bottom:1px solid #fecaca;">
+                  <p style="margin:0 0 3px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Médico</p>
+                  <p style="margin:0;color:#1a1a2e;font-size:14px;font-weight:600;">${escapeHtml(data.doctorName)}</p>
+                  ${data.specialty ? `<p style="margin:3px 0 0;color:#666;font-size:13px;">${escapeHtml(data.specialty)}</p>` : ''}
+                </td>
+              </tr>
+
+              ${data.serviceName ? `
+              <tr>
+                <td style="padding:14px 24px;border-bottom:1px solid #fecaca;">
+                  <p style="margin:0 0 3px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Servicio</p>
+                  <p style="margin:0;color:#1a1a2e;font-size:14px;">${escapeHtml(data.serviceName)}</p>
+                </td>
+              </tr>` : ''}
+
+              <!-- Contact for clarification -->
+              ${data.clinicAddress || data.clinicPhone ? `
+              <tr>
+                <td style="padding:14px 24px;">
+                  <p style="margin:0 0 3px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">¿Necesitas más información?</p>
+                  ${data.clinicAddress ? `<p style="margin:0;color:#555;font-size:13px;">${escapeHtml(data.clinicAddress)}</p>` : ''}
+                  ${data.clinicPhone ? `<p style="margin:${data.clinicAddress ? '3px' : '0'} 0 0;color:#555;font-size:13px;">Puedes contactarnos directamente al <strong>${escapeHtml(data.clinicPhone)}</strong>.</p>` : ''}
+                </td>
+              </tr>` : ''}
+
+            </table>
+          </td>
+        </tr>
+
+        <!-- Apology note -->
+        <tr>
+          <td style="padding:0 40px 28px;">
+            <p style="margin:0;color:#555;font-size:14px;line-height:1.6;background:#fff5f5;border-left:3px solid #dc2626;padding:14px 18px;border-radius:0 8px 8px 0;">
+              Pedimos una disculpa por los inconvenientes que esto pueda causar. Si deseas reagendar tu cita o tienes alguna duda, no dudes en ponerte en contacto con nosotros.
+            </p>
           </td>
         </tr>
 

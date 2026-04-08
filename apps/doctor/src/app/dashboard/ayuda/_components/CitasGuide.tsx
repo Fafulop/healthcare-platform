@@ -533,7 +533,7 @@ export function CitasGuide() {
             </p>
             <div className="mt-1.5 p-2 bg-blue-100 rounded-lg text-xs text-blue-700 flex items-start gap-1.5">
               <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-              <span><strong>Importante:</strong> Confirmar NO envía email automáticamente. Después de confirmar, debes enviar la confirmación manualmente con el botón <strong>Correo</strong> o <strong>Enviar Meet</strong> que aparece en la misma fila.</span>
+              <span><strong>Importante:</strong> Al confirmar, el sistema <strong>envía automáticamente el email de confirmación</strong> al paciente. El botón aparecerá directamente como <strong>Reenviar</strong> (o <strong>Reenviar Meet</strong> en telemedicina) en caso de que necesites enviarlo de nuevo.</span>
             </div>
           </div>
 
@@ -600,40 +600,43 @@ export function CitasGuide() {
           {/* Correo / Reenviar */}
           <div className="p-3 rounded-xl border border-teal-200 bg-teal-50">
             <div className="flex flex-wrap items-center gap-2 mb-1.5">
-              <Btn color="bg-teal-600 text-white"><Send className="w-3 h-3" />Correo</Btn>
-              <span className="text-xs text-gray-400">→ después del primer envío:</span>
               <Btn color="bg-teal-100 text-teal-700"><RefreshCw className="w-3 h-3" />Reenviar</Btn>
+              <span className="text-xs text-gray-400">estado por defecto · si el email falló:</span>
+              <Btn color="bg-teal-600 text-white"><Send className="w-3 h-3" />Correo</Btn>
               <span className="text-xs text-gray-400">Solo en</span>
               <Tag>Agendada</Tag>
               <Tag>Presencial</Tag>
             </div>
             <p className="text-xs text-teal-800">
-              <strong>Correo:</strong> Envía el email de confirmación al paciente por primera vez. El correo incluye
-              fecha, hora y dirección del consultorio. Una vez enviado, el botón cambia a <strong>Reenviar</strong>.
+              El email de confirmación se <strong>envía automáticamente</strong> al agendarse o confirmarse la cita.
+              Por eso el botón aparece como <strong>Reenviar</strong> por defecto — úsalo si el paciente no lo recibió.
+              El tooltip muestra la fecha y hora del último envío.
             </p>
             <p className="text-xs text-teal-700 mt-1">
-              <strong>Reenviar:</strong> Reenvía el mismo correo de confirmación (útil si el paciente no lo recibió).
-              El tooltip del botón muestra la fecha y hora del último envío.
+              <strong>Correo</strong> aparece únicamente si el envío automático falló por algún motivo técnico (sin tokens de Gmail, etc.).
             </p>
           </div>
 
           {/* Enviar Meet / Reenviar Meet */}
           <div className="p-3 rounded-xl border border-blue-200 bg-blue-50">
             <div className="flex flex-wrap items-center gap-2 mb-1.5">
-              <Btn color="bg-blue-600 text-white"><Video className="w-3 h-3" />Enviar Meet</Btn>
-              <span className="text-xs text-gray-400">→ después:</span>
               <Btn color="bg-blue-100 text-blue-700"><RefreshCw className="w-3 h-3" />Reenviar Meet</Btn>
+              <span className="text-xs text-gray-400">estado por defecto · si el email falló:</span>
+              <Btn color="bg-blue-600 text-white"><Video className="w-3 h-3" />Enviar Meet</Btn>
               <span className="text-xs text-gray-400">Solo en</span>
               <Tag>Agendada</Tag>
               <Tag>Telemedicina</Tag>
             </div>
             <p className="text-xs text-blue-800">
-              <strong>Enviar Meet:</strong> Crea automáticamente un <strong>Google Meet</strong>, guarda el link en la cita
-              y envía el correo de confirmación al paciente con el link incluido. Una vez enviado, cambia a <strong>Reenviar Meet</strong>.
+              Al agendarse o confirmarse una cita de telemedicina, el sistema <strong>crea automáticamente un Google Meet</strong>
+              y envía el correo con el link incluido. Por eso el botón aparece como <strong>Reenviar Meet</strong> por defecto.
+              El tooltip muestra la fecha del último envío.
             </p>
             <p className="text-xs text-blue-700 mt-1">
               <strong>Reenviar Meet:</strong> Reenvía el correo con el <strong>mismo link de Meet</strong> (no se genera uno nuevo).
-              El tooltip muestra el timestamp del último envío.
+            </p>
+            <p className="text-xs text-blue-700 mt-1">
+              <strong>Enviar Meet:</strong> Aparece si el envío automático falló. Crea el Meet y envía el correo manualmente.
             </p>
             <p className="text-xs text-blue-600 mt-1.5 bg-blue-100 rounded px-2 py-1">
               Si hay un error de permisos de Gmail, aparece un mensaje específico indicando qué autorizar en tu cuenta de Google.
@@ -725,6 +728,122 @@ export function CitasGuide() {
         </div>
       </SectionAccordion>
 
+      {/* ── Estados y acciones disponibles ── */}
+      <SectionAccordion
+        title="Estados — qué puedes hacer en cada uno"
+        subtitle="Acciones disponibles y bloqueadas según el estado actual de la cita"
+        icon={CalendarDays}
+        accentColor="gray"
+      >
+        <div className="space-y-3">
+
+          {/* ── PENDIENTE ── */}
+          <div className="rounded-xl border border-yellow-200 overflow-hidden">
+            <div className="bg-yellow-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">Pendiente</span>
+              <span className="text-xs text-yellow-700">Cita solicitada desde la app pública, aún sin confirmar por el doctor</span>
+            </div>
+            <div className="p-4 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100 space-y-1">
+                  <Btn color="bg-blue-600 text-white"><CheckCircle2 className="w-3 h-3" />Confirmar</Btn>
+                  <p className="text-blue-700">Cambia el estado a <strong>Agendada</strong>. El horario sigue ocupado. El sistema <strong>envía automáticamente el email de confirmación</strong> al paciente. Una vez confirmada también se habilitan <strong>Reenviar</strong>, <strong>Reagendar</strong> y <strong>Formulario</strong>.</p>
+                </div>
+                <div className="p-2.5 bg-red-50 rounded-lg border border-red-100 space-y-1">
+                  <Btn color="bg-red-600 text-white"><XCircle className="w-3 h-3" />Cancelar</Btn>
+                  <p className="text-red-700">Pide confirmación previa. Cambia a <strong>Cancelada</strong> y <strong>el horario vuelve a aparecer disponible</strong> en la app pública. Se envía automáticamente un email al paciente informando que su cita fue cancelada, expresando las disculpas del doctor e indicando que puede comunicarse para cualquier aclaración. Una vez cancelada, el único paso adicional posible es <strong>Eliminar</strong> el registro.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-500">
+                <AlertTriangle className="w-3.5 h-3.5 text-gray-300 mt-0.5 flex-shrink-0" />
+                <span><strong>Completar</strong> y <strong>No asistió</strong> aparecen en la fila pero están bloqueados — una cita no puede cerrarse sin confirmarse primero.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── AGENDADA ── */}
+          <div className="rounded-xl border border-blue-200 overflow-hidden">
+            <div className="bg-blue-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">Agendada</span>
+              <span className="text-xs text-blue-700">Cita confirmada con fecha futura — es el estado principal de trabajo</span>
+            </div>
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 bg-green-50 rounded-lg border border-green-100 space-y-1">
+                <Btn color="bg-green-600 text-white"><CheckCheck className="w-3 h-3" />Completar</Btn>
+                <p className="text-green-700">Registra que la consulta se realizó. Estado → <strong>Completada</strong>. El horario queda liberado. Una vez completada, el único paso adicional posible es <strong>Eliminar</strong> el registro.</p>
+              </div>
+              <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-100 space-y-1">
+                <Btn color="bg-orange-500 text-white"><UserX className="w-3 h-3" />No asistió</Btn>
+                <p className="text-orange-700">Registra que el paciente no se presentó. Estado → <strong>No asistió</strong>. El horario queda liberado. Una vez marcada, el único paso adicional posible es <strong>Eliminar</strong> el registro.</p>
+              </div>
+              <div className="p-2.5 bg-red-50 rounded-lg border border-red-100 space-y-1">
+                <Btn color="bg-red-600 text-white"><XCircle className="w-3 h-3" />Cancelar</Btn>
+                <p className="text-red-700">Pide confirmación previa. Estado → <strong>Cancelada</strong>. Se envía automáticamente un email al paciente informando que su cita fue cancelada, expresando las disculpas del doctor e indicando que puede comunicarse para cualquier aclaración. El horario vuelve a aparecer disponible en la app pública.</p>
+              </div>
+              <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100 space-y-1">
+                <Btn color="bg-amber-500 text-white"><CalendarClock className="w-3 h-3" />Reagendar</Btn>
+                <p className="text-amber-700">Cancela esta cita (horario liberado en app pública) y crea una nueva Agendada en el nuevo horario. Email automático al paciente.</p>
+              </div>
+              <div className="p-2.5 bg-teal-50 rounded-lg border border-teal-100 space-y-1">
+                <Btn color="bg-teal-100 text-teal-700"><RefreshCw className="w-3 h-3" />Reenviar / Reenviar Meet</Btn>
+                <p className="text-teal-700">El email ya fue enviado automáticamente. Usa <strong>Reenviar</strong> (presencial) o <strong>Reenviar Meet</strong> (telemedicina) si el paciente no lo recibió.</p>
+              </div>
+              <div className="p-2.5 bg-purple-50 rounded-lg border border-purple-100 space-y-1">
+                <Btn color="bg-purple-600 text-white"><FileText className="w-3 h-3" />Formulario</Btn>
+                <p className="text-purple-700">Genera link de formulario pre-consulta para enviar al paciente. Cuando lo completa, cambia a <strong>Recibido</strong>.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── VENCIDA ── */}
+          <div className="rounded-xl border border-red-200 overflow-hidden">
+            <div className="bg-red-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-300">Vencida</span>
+              <span className="text-xs text-red-700">Cita cuya fecha y hora ya pasaron sin registrar resultado</span>
+            </div>
+            <div className="p-4 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="p-2.5 bg-green-50 rounded-lg border border-green-100 space-y-1">
+                  <Btn color="bg-green-600 text-white"><CheckCheck className="w-3 h-3" />Completar</Btn>
+                  <p className="text-green-700">La consulta sí se realizó aunque no se cerró a tiempo. Estado → <strong>Completada</strong>. El horario queda liberado.</p>
+                </div>
+                <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-100 space-y-1">
+                  <Btn color="bg-orange-500 text-white"><UserX className="w-3 h-3" />No asistió</Btn>
+                  <p className="text-orange-700">El paciente no fue y no se registró en su momento. Estado → <strong>No asistió</strong>. El horario queda liberado.</p>
+                </div>
+                <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100 space-y-1">
+                  <Btn color="bg-amber-500 text-white"><CalendarClock className="w-3 h-3" />Reagendar</Btn>
+                  <p className="text-amber-700">Mueve la cita a una nueva fecha. El horario vencido se libera y se crea una nueva cita <strong>Agendada</strong> en el nuevo horario.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-700">
+                <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-400" />
+                <span>Las vencidas requieren cierre manual. <strong>Completar</strong> o <strong>No asistió</strong> son las opciones más comunes; <strong>Reagendar</strong> si el paciente sigue interesado en una nueva fecha.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── ESTADOS TERMINALES ── */}
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Completada</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-200">No asistió</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">Cancelada</span>
+              <span className="text-xs text-gray-500">Estados terminales — la cita ya no puede cambiar</span>
+            </div>
+            <div className="p-4">
+              <div className="flex items-start gap-3 text-xs text-gray-600">
+                <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1 w-full">
+                  <Btn color="bg-red-50 text-red-600"><Trash2 className="w-3 h-3" />Eliminar</Btn>
+                  <p className="text-gray-500 mt-1">Única acción disponible. Elimina permanentemente el registro de la cita. Pide confirmación antes de ejecutarse.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </SectionAccordion>
+
       {/* ── Gestión de citas pendientes ── */}
       <SectionAccordion
         title="Confirmar o rechazar citas pendientes"
@@ -752,7 +871,7 @@ export function CitasGuide() {
                 <p className="font-semibold text-blue-800 flex items-center gap-1 mb-1">
                   <Btn color="bg-blue-100 text-blue-700">Confirmar</Btn>
                 </p>
-                <p className="text-blue-700">Estado → Agendada. Debes enviar el email manualmente con el botón "Correo" o "Enviar Meet" que aparece en la fila.</p>
+                <p className="text-blue-700">Estado → Agendada. El sistema <strong>envía automáticamente el email de confirmación</strong> al paciente. El botón en la fila aparece directamente como <strong>Reenviar</strong> (o <strong>Reenviar Meet</strong> para telemedicina).</p>
               </div>
               <div className="p-2 bg-red-50 rounded-lg border border-red-200 text-xs">
                 <p className="font-semibold text-red-800 flex items-center gap-1 mb-1">

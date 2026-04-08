@@ -13,6 +13,7 @@ import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
+import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
 // POST - Create a booking
 export async function POST(request: Request) {
@@ -192,7 +193,16 @@ export async function POST(request: Request) {
         const eventId = await createSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, slotEventData);
         await prisma.appointmentSlot.update({ where: { id: slot.id }, data: { googleEventId: eventId } });
       }
-    }).catch((err) => console.error('[GCal sync] booking POST:', err));
+    }).catch((err) => console.error('[GCal sync] booking POST:', err))
+    .finally(() => {
+      // Auto-send confirmation email when doctor books directly (autoConfirm).
+      // Chained after GCal sync so googleEventId is persisted before ensureMeetLink runs (TELEMEDICINA).
+      if (autoConfirm) {
+        sendBookingConfirmationEmail(booking.id).catch((err) =>
+          console.error('[Email] auto-send confirmation (booking POST):', err)
+        );
+      }
+    });
 
     // Send SMS notifications (async, non-blocking)
     const smsEnabled = await isSMSEnabled();
@@ -223,8 +233,6 @@ export async function POST(request: Request) {
         console.error('SMS doctor notification failed:', error)
       );
 
-      // TODO: Send email to patient (future implementation)
-      // sendPatientEmail(emailDetails, 'PENDING').catch(...)
     }
 
     // Send Telegram notification to doctor for PENDING bookings (from public portal)
