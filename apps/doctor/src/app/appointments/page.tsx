@@ -439,12 +439,7 @@ export default function AppointmentsV2Page() {
             } catch {
               toast.error("No se pudo cancelar la cita anterior automáticamente");
             }
-            // Auto-send rescheduled confirmation email to patient
-            try {
-              await bookingsHook.sendConfirmationEmail(newBookingId);
-            } catch {
-              toast.error("No se pudo enviar el correo de reagendación");
-            }
+            // Confirmation email is sent automatically by the API (sendBookingConfirmationEmail in .finally())
           }
           await onRefresh();
         }}
