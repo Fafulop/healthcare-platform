@@ -141,7 +141,7 @@ export function BookingsSection({
               <option value="NO_SHOW">No asistió</option>
               <option value="CANCELLED">Cancelada</option>
             </select>
-            {(bookingFilterDate || bookingFilterPatient || bookingFilterStatus !== "ACTIVE") && (
+            {(bookingFilterDate !== getLocalDateString(new Date()) || bookingFilterPatient || bookingFilterStatus !== "ACTIVE") && (
               <button
                 onClick={() => {
                   setBookingFilterDate(getLocalDateString(new Date()));
