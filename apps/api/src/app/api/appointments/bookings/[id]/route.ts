@@ -263,7 +263,7 @@ export async function PATCH(
               },
             });
             if (!doctor?.user?.googleAccessToken || !doctor.user.email) {
-              console.warn('[Email] cancellation email skipped — doctor has no Google tokens for booking', bookingId);
+              console.warn('[Email] cancellation email skipped — doctor has no Google tokens for booking', id);
               return;
             }
             const { accessToken, refreshToken } = await resolveTokens(doctor.user);
