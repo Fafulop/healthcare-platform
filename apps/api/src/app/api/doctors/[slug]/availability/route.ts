@@ -102,7 +102,25 @@ export async function GET(
     });
 
     // Filter out fully booked slots using live booking count (not stale currentBookings field)
-    const slots = allSlots.filter(slot => slot._count.bookings < slot.maxBookings);
+    // Also filter out slots on today that have already passed or are within 1 hour from now.
+    // All times are evaluated in America/Mexico_City since that's where clinics operate.
+    // sv-SE locale with a named timezone gives a "YYYY-MM-DD HH:MM:SS" string that is easy to parse.
+    const nowMXStr = new Date().toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
+    const todayMX = nowMXStr.split(' ')[0]; // "YYYY-MM-DD"
+    const [currentHour, currentMinute] = nowMXStr.split(' ')[1].slice(0, 5).split(':').map(Number);
+    // Cutoff = current time + 60 minutes. Slots starting at or before this are hidden.
+    const cutoffTotalMinutes = currentHour * 60 + currentMinute + 60;
+    // If cutoff overflows past midnight, use "24:00" which is > any valid HH:MM slot time.
+    const cutoffTime = cutoffTotalMinutes >= 24 * 60
+      ? '24:00'
+      : `${String(Math.floor(cutoffTotalMinutes / 60)).padStart(2, '0')}:${String(cutoffTotalMinutes % 60).padStart(2, '0')}`;
+
+    const slots = allSlots.filter(slot => {
+      if (slot._count.bookings >= slot.maxBookings) return false; // fully booked
+      const dateKey = slot.date.toISOString().split('T')[0];
+      if (dateKey !== todayMX) return true;            // not today → always visible
+      return slot.startTime > cutoffTime;              // today → hide if within 1 hour
+    });
 
     // Group slots by date for easier frontend consumption
     const slotsByDate: Record<string, any[]> = {};

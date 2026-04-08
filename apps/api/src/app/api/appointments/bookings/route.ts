@@ -112,6 +112,27 @@ export async function POST(request: Request) {
         if (!freshSlot.isPublic) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
         if (!freshSlot.isOpen) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
 
+        // For public bookings (not doctor/admin), reject slots that have already passed or
+        // start within 1 hour of the current time in America/Mexico_City.
+        if (!autoConfirm) {
+          const nowMXStr = new Date().toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
+          const todayMX = nowMXStr.split(' ')[0];
+          const slotDateKey = freshSlot.date.toISOString().split('T')[0];
+          if (slotDateKey < todayMX) {
+            throw Object.assign(new Error('SLOT_PAST'), { bookingError: true });
+          }
+          if (slotDateKey === todayMX) {
+            const [h, m] = nowMXStr.split(' ')[1].slice(0, 5).split(':').map(Number);
+            const cutoff = h * 60 + m + 60;
+            const cutoffTime = cutoff >= 24 * 60
+              ? '24:00'
+              : `${String(Math.floor(cutoff / 60)).padStart(2, '0')}:${String(cutoff % 60).padStart(2, '0')}`;
+            if (freshSlot.startTime <= cutoffTime) {
+              throw Object.assign(new Error('SLOT_TOO_SOON'), { bookingError: true });
+            }
+          }
+        }
+
         const b = await tx.booking.create({
           data: {
             slotId,
@@ -138,9 +159,11 @@ export async function POST(request: Request) {
     } catch (txErr: any) {
       if (txErr?.bookingError) {
         const statusCode = txErr.message === 'SLOT_NOT_FOUND' ? 404 : 400;
-        const msg = txErr.message === 'SLOT_NOT_FOUND'
-          ? 'Appointment slot not found'
-          : 'This slot is not available for booking';
+        const msg =
+          txErr.message === 'SLOT_NOT_FOUND' ? 'Appointment slot not found' :
+          txErr.message === 'SLOT_PAST' ? 'Este horario ya pasó y no está disponible para reservar' :
+          txErr.message === 'SLOT_TOO_SOON' ? 'Este horario ya no está disponible (menos de 1 hora de anticipación requerida)' :
+          'This slot is not available for booking';
         return NextResponse.json({ success: false, error: msg }, { status: statusCode });
       }
       // DB unique index violation = slot already has an active booking
