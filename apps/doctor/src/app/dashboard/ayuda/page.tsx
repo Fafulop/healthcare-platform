@@ -15,8 +15,13 @@ import { ExpedientesGuide } from "./_components/ExpedientesGuide";
 
 const TABS = [
   {
-    id: "citas",
-    label: "Citas",
+    id: "citas-acciones",
+    label: "Citas: Acciones",
+    icon: <CalendarDays className="w-4 h-4" />,
+  },
+  {
+    id: "citas-status",
+    label: "Citas: Flujos",
     icon: <CalendarDays className="w-4 h-4" />,
   },
   {
@@ -58,7 +63,7 @@ function AyudaContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
     const tab = searchParams.get("tab");
-    return TABS.find((t) => t.id === tab && !t.disabled) ? tab! : "citas";
+    return TABS.find((t) => t.id === tab && !t.disabled) ? tab! : "citas-acciones";
   });
 
   const activeTabData = TABS.find((t) => t.id === activeTab);
@@ -67,9 +72,10 @@ function AyudaContent() {
     <>
       <TabNav tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
       <div className="mt-5">
-        {activeTab === "citas" && <CitasGuide />}
+        {activeTab === "citas-acciones" && <CitasGuide view="acciones" />}
+        {activeTab === "citas-status" && <CitasGuide view="status" />}
         {activeTab === "expedientes" && <ExpedientesGuide />}
-        {activeTab !== "citas" && activeTab !== "expedientes" && activeTabData && (
+        {activeTab !== "citas-acciones" && activeTab !== "citas-status" && activeTab !== "expedientes" && activeTabData && (
           <ComingSoonTab label={activeTabData.label} />
         )}
       </div>

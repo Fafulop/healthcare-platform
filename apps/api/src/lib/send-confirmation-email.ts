@@ -29,6 +29,7 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
           clinicPhone: true,
           user: {
             select: {
+              id: true,
               email: true,
               googleAccessToken: true,
               googleRefreshToken: true,
@@ -43,7 +44,13 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
   if (!booking?.patientEmail) return;
   if (!booking.doctor.user?.googleAccessToken || !booking.doctor.user?.email) return;
 
-  const { accessToken, refreshToken } = await resolveTokens(booking.doctor.user);
+  const { accessToken, refreshToken, updatedToken } = await resolveTokens(booking.doctor.user);
+  if (updatedToken && booking.doctor.user?.id) {
+    await prisma.user.update({
+      where: { id: booking.doctor.user.id },
+      data: { googleAccessToken: updatedToken.accessToken, googleTokenExpiry: updatedToken.expiresAt },
+    });
+  }
 
   const date = booking.slot?.date
     ? booking.slot.date.toISOString()
@@ -63,13 +70,16 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
       const calAccessToken = calTokens?.accessToken ?? accessToken;
       const calRefreshToken = calTokens?.refreshToken ?? refreshToken;
       const calendarId = calTokens?.calendarId ?? 'primary';
-      const googleEventId = booking.slot?.googleEventId ?? booking.googleEventId ?? null;
 
+      // Always pass null for googleEventId so ensureMeetLink uses the INSERT path
+      // (creates a standalone Meet event). Patching a freshly-created slot event can
+      // return a "pending" conference with no entryPoints; a fresh INSERT is guaranteed
+      // to return the Meet URL in the same response.
       const result = await ensureMeetLink(
         calAccessToken,
         calRefreshToken,
         calendarId,
-        googleEventId,
+        null,
         bookingId,
         {
           date: date.split('T')[0],
@@ -79,8 +89,10 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
         }
       );
 
-      if (result) {
+      if (result?.meetUrl) {
         meetLink = result.meetUrl;
+      } else {
+        console.warn('[Meet] ensureMeetLink returned null for booking', bookingId, '— email will be sent without Meet link');
       }
     } catch (meetError) {
       // Non-blocking: send email without Meet link if creation fails

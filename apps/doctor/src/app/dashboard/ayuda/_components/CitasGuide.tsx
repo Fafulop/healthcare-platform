@@ -61,67 +61,10 @@ function Tag({ children }: { children: ReactNode }) {
   );
 }
 
-export function CitasGuide() {
-  return (
-    <div className="space-y-4">
-
-      {/* ── Overview ── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="p-2 bg-blue-50 rounded-lg">
-            <CalendarDays className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">Página de Citas</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Gestiona tu disponibilidad, agenda citas y lleva seguimiento de todos tus pacientes programados.
-            </p>
-          </div>
-        </div>
-
-        {/* View modes */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-            <LayoutGrid className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-gray-800">Vista Calendario</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Navega por mes, selecciona un día y ve los horarios en el panel lateral derecho.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-            <List className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-gray-800">Vista Lista</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Ve todos tus horarios en tabla. Filtra por estado o cambia entre "Filtrar por fecha" y "Todos los horarios".
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Status reference */}
-        <div className="pt-4 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Estados de una cita
-          </p>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {[
-              { label: "Pendiente", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-              { label: "Agendada", color: "bg-blue-100 text-blue-700 border-blue-200" },
-              { label: "Completada", color: "bg-green-100 text-green-700 border-green-200" },
-              { label: "No asistió", color: "bg-orange-100 text-orange-700 border-orange-200" },
-              { label: "Cancelada", color: "bg-red-100 text-red-700 border-red-200" },
-              { label: "Vencida", color: "bg-red-100 text-red-800 border-red-300" },
-            ].map((s) => (
-              <span key={s.label} className={`px-2 py-0.5 rounded-full border font-medium ${s.color}`}>
-                {s.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
+export function CitasGuide({ view = 'status' }: { view?: 'status' | 'acciones' }) {
+  if (view === 'acciones') {
+    return (
+      <div className="space-y-4">
 
       {/* ── Tarjetas de resumen ── */}
       <SectionAccordion
@@ -190,321 +133,119 @@ export function CitasGuide() {
         </div>
       </SectionAccordion>
 
-      {/* ── Botones principales ── */}
+      {/* ── Estados y acciones disponibles ── */}
       <SectionAccordion
-        title="Referencia de botones principales"
-        subtitle="Qué hace cada botón en la barra superior"
-        icon={Info}
-        accentColor="gray"
-        defaultOpen
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            {
-              btn: <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Crear Horarios</Btn>,
-              desc: "Abre el modal para crear nuevos horarios disponibles (uno o varios días).",
-            },
-            {
-              btn: <Btn color="bg-green-600 text-white"><CalendarPlus className="w-3 h-3" />Agendar Cita</Btn>,
-              desc: "Abre el asistente para reservar una cita directamente desde el consultorio.",
-            },
-            {
-              btn: <Btn color="bg-gray-700 text-white"><Ban className="w-3 h-3" />Bloquear Periodo</Btn>,
-              desc: "Cierra o reabre horarios en un rango de fechas (vacaciones, días libres).",
-            },
-            {
-              btn: <Btn color="bg-yellow-500 text-white"><Star className="w-3 h-3" />Enlace Reseña</Btn>,
-              desc: "Genera un link único para que el paciente deje una reseña en tu perfil público.",
-            },
-          ].map((item, i) => (
-            <div key={i} className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
-              <div>{item.btn}</div>
-              <p className="text-xs text-gray-600">{item.desc}</p>
-            </div>
-          ))}
-        </div>
-
-      </SectionAccordion>
-
-      {/* ── Configurar disponibilidad ── */}
-      <SectionAccordion
-        title="Configurar disponibilidad"
-        subtitle="Crear horarios y bloquear periodos"
-        icon={CalendarPlus}
-        accentColor="green"
-        defaultOpen
-      >
-        {/* Crear horarios */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Crear Horarios</Btn>
-            <AppBadge variant="doctor" />
-          </div>
-          <div className="space-y-0">
-            <WorkflowStep number={1} title="Abrir el modal">
-              Clic en el botón azul <strong>Crear Horarios</strong> en la esquina superior derecha.
-            </WorkflowStep>
-            <WorkflowStep number={2} title="Elegir tipo de horario" icon={CalendarDays}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200 text-xs">
-                  <p className="font-medium text-gray-800">Día único</p>
-                  <p className="text-gray-500 mt-0.5">Selecciona una fecha específica.</p>
-                </div>
-                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200 text-xs">
-                  <p className="font-medium text-gray-800">Patrón recurrente</p>
-                  <p className="text-gray-500 mt-0.5">Elige días de semana (Lun–Dom) y rango de fechas.</p>
-                </div>
-              </div>
-            </WorkflowStep>
-            <WorkflowStep number={3} title="Configurar horario" icon={Clock}
-              tip="Activa 'Descanso entre citas' si necesitas tiempo entre pacientes (ej. 10 min para notas).">
-              Hora de inicio, hora de fin, duración (30 o 60 min). Opcionalmente activa descanso entre citas.
-            </WorkflowStep>
-            <WorkflowStep number={4} title="Seleccionar consultorio" icon={MapPin}>
-              Si tienes más de una ubicación, elige en cuál. Con una sola, se selecciona automáticamente.
-            </WorkflowStep>
-            <WorkflowStep number={5} title="Revisar vista previa">
-              El sistema muestra cuántos horarios se crearán. Conflictos con horarios existentes aparecen en rojo.
-            </WorkflowStep>
-            <WorkflowStep number={6} title="Confirmar">
-              Clic en <strong>Crear</strong>. Los horarios aparecen en el calendario de inmediato.
-            </WorkflowStep>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-100 pt-4">
-          {/* Bloquear periodo */}
-          <div className="flex items-center gap-2 mb-3">
-            <Btn color="bg-gray-700 text-white"><Ban className="w-3 h-3" />Bloquear Periodo</Btn>
-            <AppBadge variant="doctor" />
-          </div>
-          <div className="space-y-0">
-            <WorkflowStep number={1} title="Abrir el modal">
-              Clic en el botón gris oscuro <strong>Bloquear Periodo</strong>.
-            </WorkflowStep>
-            <WorkflowStep number={2} title="Elegir acción">
-              <strong>Bloquear</strong> (cerrar horarios) o <strong>Desbloquear</strong> (reabrir horarios ya cerrados).
-            </WorkflowStep>
-            <WorkflowStep number={3} title="Definir rango de fechas">
-              Fecha de inicio y fin. Opcionalmente filtra por franja horaria dentro del día.
-            </WorkflowStep>
-            <WorkflowStep number={4} title="Ver vista previa"
-              tip="Horarios con citas activas (Pendiente o Agendada) NO se bloquean automáticamente — aparecen en amarillo.">
-              Verde = cambiarán. Amarillo = se omiten por tener citas activas.
-            </WorkflowStep>
-            <WorkflowStep number={5} title="Confirmar">
-              Clic en <strong>Aplicar</strong>. Los horarios afectados se actualizan de inmediato.
-            </WorkflowStep>
-          </div>
-        </div>
-
-      </SectionAccordion>
-
-      {/* ── Cómo se agenda una cita ── */}
-      <SectionAccordion
-        title="Cómo se agenda una cita"
-        subtitle="3 rutas posibles: app pública, horario existente, o nuevo horario"
+        title="Estados — qué puedes hacer en cada uno"
+        subtitle="Acciones disponibles y bloqueadas según el estado actual de la cita"
         icon={CalendarDays}
-        accentColor="indigo"
-        defaultOpen
+        accentColor="gray"
       >
-        <WorkflowPath
-          heading="Elige la ruta según el caso"
-          paths={[
-            {
-              badge: "public",
-              label: "",
-              title: "El paciente agenda desde el perfil público",
-              accentColor: "indigo",
-              steps: [
-                "Paciente visita tu perfil en la app pública",
-                'Clic en "Agendar Cita" (hero o barra lateral)',
-                "Selecciona fecha disponible en el calendario",
-                "Elige el horario y completa sus datos",
-                "Cita creada con estado PENDIENTE",
-                "Tú recibes notificación → debes confirmar manualmente",
-              ],
-              note: "El paciente puede cancelar desde el enlace en su email de confirmación.",
-            },
-            {
-              badge: "doctor",
-              label: "",
-              title: "Doctor agenda en horario existente",
-              accentColor: "gray",
-              steps: [
-                'Clic en el botón verde "Agendar Cita"',
-                "Selecciona un horario abierto del listado",
-                "Llena los datos del paciente",
-                "Confirma — cita queda AGENDADA de inmediato",
-                "Email de confirmación se envía automáticamente",
-              ],
-              note: "Ideal cuando el paciente llama o escribe para apartar un horario ya existente.",
-            },
-            {
-              badge: "doctor",
-              label: "",
-              title: "Doctor crea horario nuevo al momento",
-              accentColor: "gray",
-              steps: [
-                'Clic en "Agendar Cita" → selecciona "Nuevo horario"',
-                "Ingresa fecha y hora personalizadas",
-                "Llena los datos del paciente",
-                "Confirma — horario y cita se crean juntos",
-                "Email de confirmación se envía automáticamente",
-              ],
-              note: "Útil para citas de urgencia o fuera de tu disponibilidad habitual.",
-            },
-          ]}
-        />
+        <div className="space-y-3">
 
-        {/* Patient form fields */}
-        <div className="mt-2 p-4 bg-gray-50 rounded-xl border border-gray-200">
-          <div className="flex items-center gap-2 mb-3">
-            <Info className="w-4 h-4 text-gray-400" />
-            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Datos que se solicitan al agendar (Rutas B1 y B2)
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600">
-            {[
-              "Nombre completo del paciente",
-              "Correo electrónico",
-              "Teléfono",
-              "WhatsApp (opcional)",
-              "Servicio / motivo de consulta",
-              "¿Primera vez? (sí / no)",
-              "Modalidad: Presencial o Telemedicina",
-            ].map((field) => (
-              <div key={field} className="flex items-center gap-2">
-                <ArrowRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                <span>{field}</span>
+          {/* ── PENDIENTE ── */}
+          <div className="rounded-xl border border-yellow-200 overflow-hidden">
+            <div className="bg-yellow-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">Pendiente</span>
+              <span className="text-xs text-yellow-700">Cita solicitada desde la app pública, aún sin confirmar por el doctor</span>
+            </div>
+            <div className="p-4 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100 space-y-1">
+                  <Btn color="bg-blue-600 text-white"><CheckCircle2 className="w-3 h-3" />Confirmar</Btn>
+                  <p className="text-blue-700">Cambia el estado a <strong>Agendada</strong>. El horario sigue ocupado. El sistema <strong>envía automáticamente el email de confirmación</strong> al paciente. Una vez confirmada también se habilitan <strong>Reenviar</strong>, <strong>Reagendar</strong> y <strong>Formulario</strong>.</p>
+                </div>
+                <div className="p-2.5 bg-red-50 rounded-lg border border-red-100 space-y-1">
+                  <Btn color="bg-red-600 text-white"><XCircle className="w-3 h-3" />Cancelar</Btn>
+                  <p className="text-red-700">Pide confirmación previa. Cambia a <strong>Cancelada</strong> y <strong>el horario vuelve a aparecer disponible</strong> en la app pública. Se envía automáticamente un email al paciente informando que su cita fue cancelada, expresando las disculpas del doctor e indicando que puede comunicarse para cualquier aclaración. Una vez cancelada, el único paso adicional posible es <strong>Eliminar</strong> el registro.</p>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </SectionAccordion>
-
-      {/* ── Tabla Todas las Citas ── */}
-      <SectionAccordion
-        title='Tabla "Todas las Citas" — navegación, filtros y ordenamiento'
-        subtitle="Cómo ver, filtrar y ordenar todas tus reservaciones"
-        icon={Filter}
-        accentColor="blue"
-      >
-        {/* Vista por defecto */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-start gap-2 mb-4">
-          <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
-          <span>
-            <strong>Por defecto la tabla muestra las citas del día de hoy</strong> con filtro de estado en
-            "Activas" (Pendiente + Agendada). Esto es lo primero que ves al entrar a la página de Citas.
-          </span>
-        </div>
-
-        {/* Navegación de fecha */}
-        <div className="mb-4">
-          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Navegación por fecha</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <p className="font-semibold text-gray-800 mb-1">◀ ▶ Flechas</p>
-              <p className="text-gray-500">Avanza o retrocede un día a la vez. Útil para revisar la agenda día a día.</p>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <p className="font-semibold text-gray-800 mb-1">Campo de fecha</p>
-              <p className="text-gray-500">Escribe o selecciona una fecha específica para saltar directamente a ese día.</p>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="font-semibold text-blue-800 mb-1">Botón "Todas"</p>
-              <p className="text-blue-600">Quita el filtro de fecha y muestra <strong>todas las citas</strong> sin importar cuándo son. Ideal para buscar una cita específica o ver el historial completo.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Filtros */}
-        <div className="mb-4">
-          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Filtros disponibles</p>
-          <div className="space-y-2 text-xs">
-            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <User className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-gray-800">Buscar paciente</p>
-                <p className="text-gray-500 mt-0.5">Escribe el nombre o correo del paciente. La búsqueda es parcial y no distingue mayúsculas (ej. "mar" encuentra "María García").</p>
+              <div className="flex items-start gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-500">
+                <AlertTriangle className="w-3.5 h-3.5 text-gray-300 mt-0.5 flex-shrink-0" />
+                <span><strong>Completar</strong> y <strong>No asistió</strong> aparecen en la fila pero están bloqueados — una cita no puede cerrarse sin confirmarse primero.</span>
               </div>
             </div>
-            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-gray-800">Filtro de estado <span className="font-normal text-gray-400">(desplegable)</span></p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {[
-                    { label: "Activas", color: "bg-gray-100 text-gray-600", note: "Por defecto — muestra Pendiente + Agendada" },
-                    { label: "Todos los estados", color: "bg-gray-100 text-gray-600", note: "Muestra absolutamente todo el historial" },
-                    { label: "Pendiente", color: "bg-yellow-100 text-yellow-700" },
-                    { label: "Agendada", color: "bg-blue-100 text-blue-700" },
-                    { label: "Completada", color: "bg-green-100 text-green-700" },
-                    { label: "No asistió", color: "bg-orange-100 text-orange-700" },
-                    { label: "Cancelada", color: "bg-red-100 text-red-700" },
-                    { label: "Vencida", color: "bg-red-100 text-red-800" },
-                  ].map((s) => (
-                    <span key={s.label} className={`px-2 py-0.5 rounded-full text-xs font-medium border border-transparent ${s.color}`}>
-                      {s.label}
-                      {s.note && <span className="text-gray-400 font-normal ml-1">— {s.note}</span>}
-                    </span>
-                  ))}
+          </div>
+
+          {/* ── AGENDADA ── */}
+          <div className="rounded-xl border border-blue-200 overflow-hidden">
+            <div className="bg-blue-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">Agendada</span>
+              <span className="text-xs text-blue-700">Cita confirmada con fecha futura — es el estado principal de trabajo</span>
+            </div>
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 bg-green-50 rounded-lg border border-green-100 space-y-1">
+                <Btn color="bg-green-600 text-white"><CheckCheck className="w-3 h-3" />Completar</Btn>
+                <p className="text-green-700">Registra que la consulta se realizó. Estado → <strong>Completada</strong>. El horario queda liberado. Una vez completada, el único paso adicional posible es <strong>Eliminar</strong> el registro.</p>
+              </div>
+              <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-100 space-y-1">
+                <Btn color="bg-orange-500 text-white"><UserX className="w-3 h-3" />No asistió</Btn>
+                <p className="text-orange-700">Registra que el paciente no se presentó. Estado → <strong>No asistió</strong>. El horario queda liberado. Una vez marcada, el único paso adicional posible es <strong>Eliminar</strong> el registro.</p>
+              </div>
+              <div className="p-2.5 bg-red-50 rounded-lg border border-red-100 space-y-1">
+                <Btn color="bg-red-600 text-white"><XCircle className="w-3 h-3" />Cancelar</Btn>
+                <p className="text-red-700">Pide confirmación previa. Estado → <strong>Cancelada</strong>. Se envía automáticamente un email al paciente informando que su cita fue cancelada, expresando las disculpas del doctor e indicando que puede comunicarse para cualquier aclaración. El horario vuelve a aparecer disponible en la app pública.</p>
+              </div>
+              <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100 space-y-1">
+                <Btn color="bg-amber-500 text-white"><CalendarClock className="w-3 h-3" />Reagendar</Btn>
+                <p className="text-amber-700">Cancela esta cita (horario liberado en app pública) y crea una nueva Agendada en el nuevo horario. Email automático al paciente.</p>
+              </div>
+              <div className="p-2.5 bg-teal-50 rounded-lg border border-teal-100 space-y-1">
+                <Btn color="bg-teal-100 text-teal-700"><RefreshCw className="w-3 h-3" />Reenviar / Reenviar Meet</Btn>
+                <p className="text-teal-700">El email ya fue enviado automáticamente. Usa <strong>Reenviar</strong> (presencial) o <strong>Reenviar Meet</strong> (telemedicina) si el paciente no lo recibió.</p>
+              </div>
+              <div className="p-2.5 bg-purple-50 rounded-lg border border-purple-100 space-y-1">
+                <Btn color="bg-purple-600 text-white"><FileText className="w-3 h-3" />Formulario</Btn>
+                <p className="text-purple-700">Genera link de formulario pre-consulta para enviar al paciente. Cuando lo completa, cambia a <strong>Recibido</strong>.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── VENCIDA ── */}
+          <div className="rounded-xl border border-red-200 overflow-hidden">
+            <div className="bg-red-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-300">Vencida</span>
+              <span className="text-xs text-red-700">Cita cuya fecha y hora ya pasaron sin registrar resultado</span>
+            </div>
+            <div className="p-4 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="p-2.5 bg-green-50 rounded-lg border border-green-100 space-y-1">
+                  <Btn color="bg-green-600 text-white"><CheckCheck className="w-3 h-3" />Completar</Btn>
+                  <p className="text-green-700">La consulta sí se realizó aunque no se cerró a tiempo. Estado → <strong>Completada</strong>. El horario queda liberado.</p>
+                </div>
+                <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-100 space-y-1">
+                  <Btn color="bg-orange-500 text-white"><UserX className="w-3 h-3" />No asistió</Btn>
+                  <p className="text-orange-700">El paciente no fue y no se registró en su momento. Estado → <strong>No asistió</strong>. El horario queda liberado.</p>
+                </div>
+                <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100 space-y-1">
+                  <Btn color="bg-amber-500 text-white"><CalendarClock className="w-3 h-3" />Reagendar</Btn>
+                  <p className="text-amber-700">Mueve la cita a una nueva fecha. El horario vencido se libera y se crea una nueva cita <strong>Agendada</strong> en el nuevo horario.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-700">
+                <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-400" />
+                <span>Las vencidas requieren cierre manual. <strong>Completar</strong> o <strong>No asistió</strong> son las opciones más comunes; <strong>Reagendar</strong> si el paciente sigue interesado en una nueva fecha.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── ESTADOS TERMINALES ── */}
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Completada</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-200">No asistió</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">Cancelada</span>
+              <span className="text-xs text-gray-500">Estados terminales — la cita ya no puede cambiar</span>
+            </div>
+            <div className="p-4">
+              <div className="flex items-start gap-3 text-xs text-gray-600">
+                <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1 w-full">
+                  <Btn color="bg-red-50 text-red-600"><Trash2 className="w-3 h-3" />Eliminar</Btn>
+                  <p className="text-gray-500 mt-1">Única acción disponible. Elimina permanentemente el registro de la cita. Pide confirmación antes de ejecutarse.</p>
                 </div>
               </div>
             </div>
-            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
-              <XCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-amber-800">Botón "Limpiar"</p>
-                <p className="text-amber-700 mt-0.5">Aparece automáticamente cuando hay algún filtro activo. Un solo clic restablece la vista al estado por defecto (hoy + Activas).</p>
-              </div>
-            </div>
           </div>
-        </div>
 
-        {/* Ordenamiento por columna */}
-        <div className="mb-4">
-          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Ordenamiento por columna</p>
-          <p className="text-xs text-gray-600 mb-2">
-            Haz clic en el encabezado de cualquiera de estas columnas para ordenar. Un segundo clic invierte el orden (ascendente ↔ descendente).
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-            {[
-              { col: "PACIENTE", desc: "Orden alfabético por nombre del paciente." },
-              { col: "FECHA Y HORA", desc: "Ordena cronológicamente, del más próximo al más lejano o viceversa." },
-              { col: "ESTADO", desc: "Agrupa por estado." },
-            ].map((c) => (
-              <div key={c.col} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                <p className="font-semibold text-gray-700 font-mono text-xs mb-1">{c.col}</p>
-                <p className="text-gray-500">{c.desc}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-gray-400 mt-2">
-            Orden por defecto (sin ordenar): Pendiente → Agendada → Vencida → Completada → No asistió → Cancelada.
-          </p>
-        </div>
-
-        {/* Datos en cada fila */}
-        <div className="pt-3 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Información visible en cada fila</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-gray-600">
-            {[
-              "Nombre completo del paciente",
-              "Correo electrónico y teléfono",
-              "Servicio o motivo de consulta",
-              "Modalidad: Presencial o Telemedicina",
-              "Fecha y hora de la cita",
-              "Estado actual (badge de color)",
-              "Botones de acciones disponibles",
-            ].map((f) => (
-              <div key={f} className="flex items-center gap-2 py-0.5">
-                <ArrowRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                <span>{f}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </SectionAccordion>
 
@@ -728,119 +469,386 @@ export function CitasGuide() {
         </div>
       </SectionAccordion>
 
-      {/* ── Estados y acciones disponibles ── */}
+      {/* ── Tabla Todas las Citas ── */}
       <SectionAccordion
-        title="Estados — qué puedes hacer en cada uno"
-        subtitle="Acciones disponibles y bloqueadas según el estado actual de la cita"
-        icon={CalendarDays}
-        accentColor="gray"
+        title='Tabla "Todas las Citas" — navegación, filtros y ordenamiento'
+        subtitle="Cómo ver, filtrar y ordenar todas tus reservaciones"
+        icon={Filter}
+        accentColor="blue"
       >
-        <div className="space-y-3">
+        {/* Vista por defecto */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-start gap-2 mb-4">
+          <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+          <span>
+            <strong>Por defecto la tabla muestra las citas del día de hoy</strong> con filtro de estado en
+            "Activas" (Pendiente + Agendada). Esto es lo primero que ves al entrar a la página de Citas.
+          </span>
+        </div>
 
-          {/* ── PENDIENTE ── */}
-          <div className="rounded-xl border border-yellow-200 overflow-hidden">
-            <div className="bg-yellow-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">Pendiente</span>
-              <span className="text-xs text-yellow-700">Cita solicitada desde la app pública, aún sin confirmar por el doctor</span>
+        {/* Navegación de fecha */}
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Navegación por fecha</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <p className="font-semibold text-gray-800 mb-1">◀ ▶ Flechas</p>
+              <p className="text-gray-500">Avanza o retrocede un día a la vez. Útil para revisar la agenda día a día.</p>
             </div>
-            <div className="p-4 space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100 space-y-1">
-                  <Btn color="bg-blue-600 text-white"><CheckCircle2 className="w-3 h-3" />Confirmar</Btn>
-                  <p className="text-blue-700">Cambia el estado a <strong>Agendada</strong>. El horario sigue ocupado. El sistema <strong>envía automáticamente el email de confirmación</strong> al paciente. Una vez confirmada también se habilitan <strong>Reenviar</strong>, <strong>Reagendar</strong> y <strong>Formulario</strong>.</p>
-                </div>
-                <div className="p-2.5 bg-red-50 rounded-lg border border-red-100 space-y-1">
-                  <Btn color="bg-red-600 text-white"><XCircle className="w-3 h-3" />Cancelar</Btn>
-                  <p className="text-red-700">Pide confirmación previa. Cambia a <strong>Cancelada</strong> y <strong>el horario vuelve a aparecer disponible</strong> en la app pública. Se envía automáticamente un email al paciente informando que su cita fue cancelada, expresando las disculpas del doctor e indicando que puede comunicarse para cualquier aclaración. Una vez cancelada, el único paso adicional posible es <strong>Eliminar</strong> el registro.</p>
+            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <p className="font-semibold text-gray-800 mb-1">Campo de fecha</p>
+              <p className="text-gray-500">Escribe o selecciona una fecha específica para saltar directamente a ese día.</p>
+            </div>
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="font-semibold text-blue-800 mb-1">Botón "Todas"</p>
+              <p className="text-blue-600">Quita el filtro de fecha y muestra <strong>todas las citas</strong> sin importar cuándo son. Ideal para buscar una cita específica o ver el historial completo.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Filtros */}
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Filtros disponibles</p>
+          <div className="space-y-2 text-xs">
+            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <User className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-gray-800">Buscar paciente</p>
+                <p className="text-gray-500 mt-0.5">Escribe el nombre o correo del paciente. La búsqueda es parcial y no distingue mayúsculas (ej. "mar" encuentra "María García").</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-gray-800">Filtro de estado <span className="font-normal text-gray-400">(desplegable)</span></p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {[
+                    { label: "Activas", color: "bg-gray-100 text-gray-600", note: "Por defecto — muestra Pendiente + Agendada" },
+                    { label: "Todos los estados", color: "bg-gray-100 text-gray-600", note: "Muestra absolutamente todo el historial" },
+                    { label: "Pendiente", color: "bg-yellow-100 text-yellow-700" },
+                    { label: "Agendada", color: "bg-blue-100 text-blue-700" },
+                    { label: "Completada", color: "bg-green-100 text-green-700" },
+                    { label: "No asistió", color: "bg-orange-100 text-orange-700" },
+                    { label: "Cancelada", color: "bg-red-100 text-red-700" },
+                    { label: "Vencida", color: "bg-red-100 text-red-800" },
+                  ].map((s) => (
+                    <span key={s.label} className={`px-2 py-0.5 rounded-full text-xs font-medium border border-transparent ${s.color}`}>
+                      {s.label}
+                      {s.note && <span className="text-gray-400 font-normal ml-1">— {s.note}</span>}
+                    </span>
+                  ))}
                 </div>
               </div>
-              <div className="flex items-start gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-500">
-                <AlertTriangle className="w-3.5 h-3.5 text-gray-300 mt-0.5 flex-shrink-0" />
-                <span><strong>Completar</strong> y <strong>No asistió</strong> aparecen en la fila pero están bloqueados — una cita no puede cerrarse sin confirmarse primero.</span>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
+              <XCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-amber-800">Botón "Limpiar"</p>
+                <p className="text-amber-700 mt-0.5">Aparece automáticamente cuando hay algún filtro activo. Un solo clic restablece la vista al estado por defecto (hoy + Activas).</p>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* ── AGENDADA ── */}
-          <div className="rounded-xl border border-blue-200 overflow-hidden">
-            <div className="bg-blue-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">Agendada</span>
-              <span className="text-xs text-blue-700">Cita confirmada con fecha futura — es el estado principal de trabajo</span>
-            </div>
-            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 bg-green-50 rounded-lg border border-green-100 space-y-1">
-                <Btn color="bg-green-600 text-white"><CheckCheck className="w-3 h-3" />Completar</Btn>
-                <p className="text-green-700">Registra que la consulta se realizó. Estado → <strong>Completada</strong>. El horario queda liberado. Una vez completada, el único paso adicional posible es <strong>Eliminar</strong> el registro.</p>
+        {/* Ordenamiento por columna */}
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Ordenamiento por columna</p>
+          <p className="text-xs text-gray-600 mb-2">
+            Haz clic en el encabezado de cualquiera de estas columnas para ordenar. Un segundo clic invierte el orden (ascendente ↔ descendente).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            {[
+              { col: "PACIENTE", desc: "Orden alfabético por nombre del paciente." },
+              { col: "FECHA Y HORA", desc: "Ordena cronológicamente, del más próximo al más lejano o viceversa." },
+              { col: "ESTADO", desc: "Agrupa por estado." },
+            ].map((c) => (
+              <div key={c.col} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <p className="font-semibold text-gray-700 font-mono text-xs mb-1">{c.col}</p>
+                <p className="text-gray-500">{c.desc}</p>
               </div>
-              <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-100 space-y-1">
-                <Btn color="bg-orange-500 text-white"><UserX className="w-3 h-3" />No asistió</Btn>
-                <p className="text-orange-700">Registra que el paciente no se presentó. Estado → <strong>No asistió</strong>. El horario queda liberado. Una vez marcada, el único paso adicional posible es <strong>Eliminar</strong> el registro.</p>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Orden por defecto (sin ordenar): Pendiente → Agendada → Vencida → Completada → No asistió → Cancelada.
+          </p>
+        </div>
+
+        {/* Datos en cada fila */}
+        <div className="pt-3 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Información visible en cada fila</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-gray-600">
+            {[
+              "Nombre completo del paciente",
+              "Correo electrónico y teléfono",
+              "Servicio o motivo de consulta",
+              "Modalidad: Presencial o Telemedicina",
+              "Fecha y hora de la cita",
+              "Estado actual (badge de color)",
+              "Botones de acciones disponibles",
+            ].map((f) => (
+              <div key={f} className="flex items-center gap-2 py-0.5">
+                <ArrowRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                <span>{f}</span>
               </div>
-              <div className="p-2.5 bg-red-50 rounded-lg border border-red-100 space-y-1">
-                <Btn color="bg-red-600 text-white"><XCircle className="w-3 h-3" />Cancelar</Btn>
-                <p className="text-red-700">Pide confirmación previa. Estado → <strong>Cancelada</strong>. Se envía automáticamente un email al paciente informando que su cita fue cancelada, expresando las disculpas del doctor e indicando que puede comunicarse para cualquier aclaración. El horario vuelve a aparecer disponible en la app pública.</p>
-              </div>
-              <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100 space-y-1">
-                <Btn color="bg-amber-500 text-white"><CalendarClock className="w-3 h-3" />Reagendar</Btn>
-                <p className="text-amber-700">Cancela esta cita (horario liberado en app pública) y crea una nueva Agendada en el nuevo horario. Email automático al paciente.</p>
-              </div>
-              <div className="p-2.5 bg-teal-50 rounded-lg border border-teal-100 space-y-1">
-                <Btn color="bg-teal-100 text-teal-700"><RefreshCw className="w-3 h-3" />Reenviar / Reenviar Meet</Btn>
-                <p className="text-teal-700">El email ya fue enviado automáticamente. Usa <strong>Reenviar</strong> (presencial) o <strong>Reenviar Meet</strong> (telemedicina) si el paciente no lo recibió.</p>
-              </div>
-              <div className="p-2.5 bg-purple-50 rounded-lg border border-purple-100 space-y-1">
-                <Btn color="bg-purple-600 text-white"><FileText className="w-3 h-3" />Formulario</Btn>
-                <p className="text-purple-700">Genera link de formulario pre-consulta para enviar al paciente. Cuando lo completa, cambia a <strong>Recibido</strong>.</p>
-              </div>
+            ))}
+          </div>
+        </div>
+      </SectionAccordion>
+
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+
+      {/* ── Overview ── */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="p-2 bg-blue-50 rounded-lg">
+            <CalendarDays className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Página de Citas</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Gestiona tu disponibilidad, agenda citas y lleva seguimiento de todos tus pacientes programados.
+            </p>
+          </div>
+        </div>
+
+        {/* View modes */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+            <LayoutGrid className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Vista Calendario</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Navega por mes, selecciona un día y ve los horarios en el panel lateral derecho.
+              </p>
             </div>
           </div>
-
-          {/* ── VENCIDA ── */}
-          <div className="rounded-xl border border-red-200 overflow-hidden">
-            <div className="bg-red-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-300">Vencida</span>
-              <span className="text-xs text-red-700">Cita cuya fecha y hora ya pasaron sin registrar resultado</span>
-            </div>
-            <div className="p-4 space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                <div className="p-2.5 bg-green-50 rounded-lg border border-green-100 space-y-1">
-                  <Btn color="bg-green-600 text-white"><CheckCheck className="w-3 h-3" />Completar</Btn>
-                  <p className="text-green-700">La consulta sí se realizó aunque no se cerró a tiempo. Estado → <strong>Completada</strong>. El horario queda liberado.</p>
-                </div>
-                <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-100 space-y-1">
-                  <Btn color="bg-orange-500 text-white"><UserX className="w-3 h-3" />No asistió</Btn>
-                  <p className="text-orange-700">El paciente no fue y no se registró en su momento. Estado → <strong>No asistió</strong>. El horario queda liberado.</p>
-                </div>
-                <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100 space-y-1">
-                  <Btn color="bg-amber-500 text-white"><CalendarClock className="w-3 h-3" />Reagendar</Btn>
-                  <p className="text-amber-700">Mueve la cita a una nueva fecha. El horario vencido se libera y se crea una nueva cita <strong>Agendada</strong> en el nuevo horario.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-700">
-                <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-400" />
-                <span>Las vencidas requieren cierre manual. <strong>Completar</strong> o <strong>No asistió</strong> son las opciones más comunes; <strong>Reagendar</strong> si el paciente sigue interesado en una nueva fecha.</span>
-              </div>
+          <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+            <List className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Vista Lista</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Ve todos tus horarios en tabla. Filtra por estado o cambia entre "Filtrar por fecha" y "Todos los horarios".
+              </p>
             </div>
           </div>
+        </div>
 
-          {/* ── ESTADOS TERMINALES ── */}
-          <div className="rounded-xl border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 px-4 py-2.5 flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Completada</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-200">No asistió</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">Cancelada</span>
-              <span className="text-xs text-gray-500">Estados terminales — la cita ya no puede cambiar</span>
+        {/* Status reference */}
+        <div className="pt-4 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            Estados de una cita
+          </p>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {[
+              { label: "Pendiente", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+              { label: "Agendada", color: "bg-blue-100 text-blue-700 border-blue-200" },
+              { label: "Completada", color: "bg-green-100 text-green-700 border-green-200" },
+              { label: "No asistió", color: "bg-orange-100 text-orange-700 border-orange-200" },
+              { label: "Cancelada", color: "bg-red-100 text-red-700 border-red-200" },
+              { label: "Vencida", color: "bg-red-100 text-red-800 border-red-300" },
+            ].map((s) => (
+              <span key={s.label} className={`px-2 py-0.5 rounded-full border font-medium ${s.color}`}>
+                {s.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Botones principales ── */}
+      <SectionAccordion
+        title="Referencia de botones principales"
+        subtitle="Qué hace cada botón en la barra superior"
+        icon={Info}
+        accentColor="gray"
+        defaultOpen
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            {
+              btn: <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Crear Horarios</Btn>,
+              desc: "Abre el modal para crear nuevos horarios disponibles (uno o varios días).",
+            },
+            {
+              btn: <Btn color="bg-green-600 text-white"><CalendarPlus className="w-3 h-3" />Agendar Cita</Btn>,
+              desc: "Abre el asistente para reservar una cita directamente desde el consultorio.",
+            },
+            {
+              btn: <Btn color="bg-gray-700 text-white"><Ban className="w-3 h-3" />Bloquear Periodo</Btn>,
+              desc: "Cierra o reabre horarios en un rango de fechas (vacaciones, días libres).",
+            },
+            {
+              btn: <Btn color="bg-yellow-500 text-white"><Star className="w-3 h-3" />Enlace Reseña</Btn>,
+              desc: "Genera un link único para que el paciente deje una reseña en tu perfil público.",
+            },
+          ].map((item, i) => (
+            <div key={i} className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
+              <div>{item.btn}</div>
+              <p className="text-xs text-gray-600">{item.desc}</p>
             </div>
-            <div className="p-4">
-              <div className="flex items-start gap-3 text-xs text-gray-600">
-                <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1 w-full">
-                  <Btn color="bg-red-50 text-red-600"><Trash2 className="w-3 h-3" />Eliminar</Btn>
-                  <p className="text-gray-500 mt-1">Única acción disponible. Elimina permanentemente el registro de la cita. Pide confirmación antes de ejecutarse.</p>
+          ))}
+        </div>
+
+      </SectionAccordion>
+
+      {/* ── Configurar disponibilidad ── */}
+      <SectionAccordion
+        title="Configurar disponibilidad"
+        subtitle="Crear horarios y bloquear periodos"
+        icon={CalendarPlus}
+        accentColor="green"
+        defaultOpen
+      >
+        {/* Crear horarios */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Crear Horarios</Btn>
+            <AppBadge variant="doctor" />
+          </div>
+          <div className="space-y-0">
+            <WorkflowStep number={1} title="Abrir el modal">
+              Clic en el botón azul <strong>Crear Horarios</strong> en la esquina superior derecha.
+            </WorkflowStep>
+            <WorkflowStep number={2} title="Elegir tipo de horario" icon={CalendarDays}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200 text-xs">
+                  <p className="font-medium text-gray-800">Día único</p>
+                  <p className="text-gray-500 mt-0.5">Selecciona una fecha específica.</p>
+                </div>
+                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200 text-xs">
+                  <p className="font-medium text-gray-800">Patrón recurrente</p>
+                  <p className="text-gray-500 mt-0.5">Elige días de semana (Lun–Dom) y rango de fechas.</p>
                 </div>
               </div>
-            </div>
+            </WorkflowStep>
+            <WorkflowStep number={3} title="Configurar horario" icon={Clock}
+              tip="Activa 'Descanso entre citas' si necesitas tiempo entre pacientes (ej. 10 min para notas).">
+              Hora de inicio, hora de fin, duración (30 o 60 min). Opcionalmente activa descanso entre citas.
+            </WorkflowStep>
+            <WorkflowStep number={4} title="Seleccionar consultorio" icon={MapPin}>
+              Si tienes más de una ubicación, elige en cuál. Con una sola, se selecciona automáticamente.
+            </WorkflowStep>
+            <WorkflowStep number={5} title="Revisar vista previa">
+              El sistema muestra cuántos horarios se crearán. Conflictos con horarios existentes aparecen en rojo.
+            </WorkflowStep>
+            <WorkflowStep number={6} title="Confirmar">
+              Clic en <strong>Crear</strong>. Los horarios aparecen en el calendario de inmediato.
+            </WorkflowStep>
           </div>
+        </div>
 
+        <div className="border-t border-gray-100 pt-4">
+          {/* Bloquear periodo */}
+          <div className="flex items-center gap-2 mb-3">
+            <Btn color="bg-gray-700 text-white"><Ban className="w-3 h-3" />Bloquear Periodo</Btn>
+            <AppBadge variant="doctor" />
+          </div>
+          <div className="space-y-0">
+            <WorkflowStep number={1} title="Abrir el modal">
+              Clic en el botón gris oscuro <strong>Bloquear Periodo</strong>.
+            </WorkflowStep>
+            <WorkflowStep number={2} title="Elegir acción">
+              <strong>Bloquear</strong> (cerrar horarios) o <strong>Desbloquear</strong> (reabrir horarios ya cerrados).
+            </WorkflowStep>
+            <WorkflowStep number={3} title="Definir rango de fechas">
+              Fecha de inicio y fin. Opcionalmente filtra por franja horaria dentro del día.
+            </WorkflowStep>
+            <WorkflowStep number={4} title="Ver vista previa"
+              tip="Horarios con citas activas (Pendiente o Agendada) NO se bloquean automáticamente — aparecen en amarillo.">
+              Verde = cambiarán. Amarillo = se omiten por tener citas activas.
+            </WorkflowStep>
+            <WorkflowStep number={5} title="Confirmar">
+              Clic en <strong>Aplicar</strong>. Los horarios afectados se actualizan de inmediato.
+            </WorkflowStep>
+          </div>
+        </div>
+
+      </SectionAccordion>
+
+      {/* ── Cómo se agenda una cita ── */}
+      <SectionAccordion
+        title="Cómo se agenda una cita"
+        subtitle="3 rutas posibles: app pública, horario existente, o nuevo horario"
+        icon={CalendarDays}
+        accentColor="indigo"
+        defaultOpen
+      >
+        <WorkflowPath
+          heading="Elige la ruta según el caso"
+          paths={[
+            {
+              badge: "public",
+              label: "",
+              title: "El paciente agenda desde el perfil público",
+              accentColor: "indigo",
+              steps: [
+                "Paciente visita tu perfil en la app pública",
+                'Clic en "Agendar Cita" (hero o barra lateral)',
+                "Selecciona fecha disponible en el calendario",
+                "Elige el horario y completa sus datos",
+                "Cita creada con estado PENDIENTE",
+                "Tú recibes notificación → debes confirmar manualmente",
+              ],
+              note: "El paciente puede cancelar desde el enlace en su email de confirmación.",
+            },
+            {
+              badge: "doctor",
+              label: "",
+              title: "Doctor agenda en horario existente",
+              accentColor: "gray",
+              steps: [
+                'Clic en el botón verde "Agendar Cita"',
+                "Selecciona un horario abierto del listado",
+                "Llena los datos del paciente",
+                "Confirma — cita queda AGENDADA de inmediato",
+                "Email de confirmación se envía automáticamente",
+              ],
+              note: "Ideal cuando el paciente llama o escribe para apartar un horario ya existente.",
+            },
+            {
+              badge: "doctor",
+              label: "",
+              title: "Doctor crea horario nuevo al momento",
+              accentColor: "gray",
+              steps: [
+                'Clic en "Agendar Cita" → selecciona "Nuevo horario"',
+                "Ingresa fecha y hora personalizadas",
+                "Llena los datos del paciente",
+                "Confirma — horario y cita se crean juntos",
+                "Email de confirmación se envía automáticamente",
+              ],
+              note: "Útil para citas de urgencia o fuera de tu disponibilidad habitual.",
+            },
+          ]}
+        />
+
+        {/* Patient form fields */}
+        <div className="mt-2 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="flex items-center gap-2 mb-3">
+            <Info className="w-4 h-4 text-gray-400" />
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              Datos que se solicitan al agendar (Rutas B1 y B2)
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600">
+            {[
+              "Nombre completo del paciente",
+              "Correo electrónico",
+              "Teléfono",
+              "WhatsApp (opcional)",
+              "Servicio / motivo de consulta",
+              "¿Primera vez? (sí / no)",
+              "Modalidad: Presencial o Telemedicina",
+            ].map((field) => (
+              <div key={field} className="flex items-center gap-2">
+                <ArrowRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                <span>{field}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </SectionAccordion>
 
