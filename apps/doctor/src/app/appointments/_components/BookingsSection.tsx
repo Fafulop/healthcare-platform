@@ -104,9 +104,13 @@ export function BookingsSection({
                 <ChevronRight className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setBookingFilterDate("")}
+                onClick={() => {
+                  setBookingFilterDate("");
+                  setBookingFilterStatus("ACTIVE");
+                  setBookingFilterPatient("");
+                }}
                 className={`text-sm font-medium px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${
-                  !bookingFilterDate
+                  !bookingFilterDate && bookingFilterStatus === "ACTIVE" && !bookingFilterPatient
                     ? "bg-blue-600 text-white"
                     : "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200"
                 }`}
