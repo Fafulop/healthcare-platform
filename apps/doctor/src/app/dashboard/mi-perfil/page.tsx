@@ -117,6 +117,9 @@ export default function MiPerfilPage() {
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [telegramMessage, setTelegramMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [telegramLoaded, setTelegramLoaded] = useState(false);
+  const [telegramNotifyBooking, setTelegramNotifyBooking] = useState(true);
+  const [telegramNotifyForm, setTelegramNotifyForm] = useState(true);
+  const [telegramToggleLoading, setTelegramToggleLoading] = useState<string | null>(null);
 
   // Active sessions state
   type SessionItem = { id: string; createdAt: string; expires: string; current: boolean };
@@ -280,10 +283,33 @@ export default function MiPerfilPage() {
       const data = await res.json();
       setTelegramChatId(data.chatId ?? null);
       setTelegramInput(data.chatId ?? "");
+      setTelegramNotifyBooking(data.notifyBooking ?? true);
+      setTelegramNotifyForm(data.notifyForm ?? true);
     } catch {
       setTelegramChatId(null);
     } finally {
       setTelegramLoaded(true);
+    }
+  };
+
+  const handleTelegramToggle = async (field: "notifyBooking" | "notifyForm", value: boolean) => {
+    if (!slug) return;
+    setTelegramToggleLoading(field);
+    if (field === "notifyBooking") setTelegramNotifyBooking(value);
+    else setTelegramNotifyForm(value);
+    try {
+      const res = await authFetch(`${API_URL}/api/doctors/${slug}/telegram`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field === "notifyBooking" ? "notifyBooking" : "notifyForm"]: value }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // revert on error
+      if (field === "notifyBooking") setTelegramNotifyBooking(!value);
+      else setTelegramNotifyForm(!value);
+    } finally {
+      setTelegramToggleLoading(null);
     }
   };
 
@@ -317,6 +343,8 @@ export default function MiPerfilPage() {
       if (!res.ok) throw new Error("Error al desconectar");
       setTelegramChatId(null);
       setTelegramInput("");
+      setTelegramNotifyBooking(true);
+      setTelegramNotifyForm(true);
       setTelegramMessage({ type: "success", text: "Telegram desconectado." });
     } catch (err) {
       setTelegramMessage({ type: "error", text: err instanceof Error ? err.message : "Error al desconectar" });
@@ -815,6 +843,38 @@ export default function MiPerfilPage() {
                       </button>
                     )}
                   </div>
+
+                  {telegramChatId && (
+                    <div className="border-t border-gray-100 pt-3 space-y-2">
+                      <p className="text-xs font-medium text-gray-700">Tipos de notificación</p>
+                      {[
+                        { field: "notifyBooking" as const, label: "Nueva cita pendiente", description: "Cuando un paciente agenda desde el portal público" },
+                        { field: "notifyForm" as const, label: "Formulario pre-consulta", description: "Cuando un paciente envía su formulario" },
+                      ].map(({ field, label, description }) => {
+                        const enabled = field === "notifyBooking" ? telegramNotifyBooking : telegramNotifyForm;
+                        const loading = telegramToggleLoading === field;
+                        return (
+                          <div key={field} className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-medium text-gray-800">{label}</p>
+                              <p className="text-xs text-gray-500">{description}</p>
+                            </div>
+                            <button
+                              onClick={() => handleTelegramToggle(field, !enabled)}
+                              disabled={!!telegramToggleLoading}
+                              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${enabled ? "bg-[#229ED9]" : "bg-gray-200"}`}
+                              role="switch"
+                              aria-checked={enabled}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${enabled ? "translate-x-4" : "translate-x-0"}`}>
+                                {loading && <Loader2 className="w-3 h-3 animate-spin text-gray-400 mt-0.5 ml-0.5" />}
+                              </span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

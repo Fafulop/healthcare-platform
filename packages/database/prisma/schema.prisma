@@ -165,6 +165,8 @@ model Doctor {
 
   // Telegram notifications
   telegramChatId            String?   @map("telegram_chat_id")
+  telegramNotifyBooking     Boolean   @default(true) @map("telegram_notify_booking")
+  telegramNotifyForm        Boolean   @default(true) @map("telegram_notify_form")
 
   // Appointment reminder emails (sent automatically 2h before)
   reminderEmailEnabled      Boolean   @default(false) @map("reminder_email_enabled")

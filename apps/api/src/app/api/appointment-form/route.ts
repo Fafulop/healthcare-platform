@@ -159,7 +159,7 @@ export async function POST(request: Request) {
     const formLink = await prisma.appointmentFormLink.findUnique({
       where: { token },
       include: {
-        doctor: { select: { telegramChatId: true } },
+        doctor: { select: { telegramChatId: true, telegramNotifyForm: true } },
         booking: {
           select: {
             date: true,
@@ -203,7 +203,7 @@ export async function POST(request: Request) {
     });
 
     // Notify doctor via Telegram (fire-and-forget)
-    if (isTelegramConfigured() && formLink.doctor?.telegramChatId) {
+    if (isTelegramConfigured() && formLink.doctor?.telegramChatId && formLink.doctor?.telegramNotifyForm) {
       sendFormSubmittedTelegram(formLink.doctor.telegramChatId, {
         patientName: formLink.patientName,
         date: appointmentDate,

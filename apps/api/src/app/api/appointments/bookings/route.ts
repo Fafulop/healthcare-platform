@@ -262,9 +262,9 @@ export async function POST(request: Request) {
     if (bookingStatus === 'PENDING' && isTelegramConfigured()) {
       prisma.doctor.findUnique({
         where: { id: slot.doctorId },
-        select: { telegramChatId: true },
+        select: { telegramChatId: true, telegramNotifyBooking: true },
       }).then((doc) => {
-        if (!doc?.telegramChatId) return;
+        if (!doc?.telegramChatId || !doc.telegramNotifyBooking) return;
         return sendNewBookingTelegram(doc.telegramChatId, {
           patientName,
           patientPhone,

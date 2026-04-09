@@ -16,14 +16,18 @@ export async function GET(
 
     const doctor = await prisma.doctor.findUnique({
       where: { slug },
-      select: { telegramChatId: true },
+      select: { telegramChatId: true, telegramNotifyBooking: true, telegramNotifyForm: true },
     });
 
     if (!doctor) {
       return NextResponse.json({ error: 'Doctor not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ chatId: doctor.telegramChatId ?? null });
+    return NextResponse.json({
+      chatId: doctor.telegramChatId ?? null,
+      notifyBooking: doctor.telegramNotifyBooking,
+      notifyForm: doctor.telegramNotifyForm,
+    });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
@@ -41,18 +45,38 @@ export async function PUT(
     const { slug } = await params;
     await requireDoctorAuth(request);
 
-    const { chatId } = await request.json();
-    if (!chatId || typeof chatId !== 'string' || chatId.trim() === '') {
-      return NextResponse.json({ error: 'chatId is required' }, { status: 400 });
+    const { chatId, notifyBooking, notifyForm } = await request.json();
+
+    const updateData: {
+      telegramChatId?: string;
+      telegramNotifyBooking?: boolean;
+      telegramNotifyForm?: boolean;
+    } = {};
+
+    if (chatId !== undefined) {
+      if (!chatId || typeof chatId !== 'string' || chatId.trim() === '') {
+        return NextResponse.json({ error: 'chatId must be a non-empty string' }, { status: 400 });
+      }
+      updateData.telegramChatId = chatId.trim();
+    }
+    if (notifyBooking !== undefined) updateData.telegramNotifyBooking = Boolean(notifyBooking);
+    if (notifyForm !== undefined) updateData.telegramNotifyForm = Boolean(notifyForm);
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
     }
 
     const doctor = await prisma.doctor.update({
       where: { slug },
-      data: { telegramChatId: chatId.trim() },
-      select: { telegramChatId: true },
+      data: updateData,
+      select: { telegramChatId: true, telegramNotifyBooking: true, telegramNotifyForm: true },
     });
 
-    return NextResponse.json({ chatId: doctor.telegramChatId });
+    return NextResponse.json({
+      chatId: doctor.telegramChatId,
+      notifyBooking: doctor.telegramNotifyBooking,
+      notifyForm: doctor.telegramNotifyForm,
+    });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
@@ -70,12 +94,17 @@ export async function DELETE(
     const { slug } = await params;
     await requireDoctorAuth(request);
 
-    await prisma.doctor.update({
+    const doctor = await prisma.doctor.update({
       where: { slug },
       data: { telegramChatId: null },
+      select: { telegramNotifyBooking: true, telegramNotifyForm: true },
     });
 
-    return NextResponse.json({ chatId: null });
+    return NextResponse.json({
+      chatId: null,
+      notifyBooking: doctor.telegramNotifyBooking,
+      notifyForm: doctor.telegramNotifyForm,
+    });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
