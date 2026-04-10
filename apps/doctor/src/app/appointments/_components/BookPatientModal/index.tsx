@@ -133,7 +133,6 @@ export function BookPatientModal({
     setCurrentMonth(new Date());
     setError("");
     setConflictError(null);
-    setConfirmationCode("");
     setSelectedServiceId(null);
     setIsFirstTime(rescheduleBooking?.isFirstTime ?? true);
     setAppointmentMode((rescheduleBooking?.appointmentMode as "PRESENCIAL" | "TELEMEDICINA" | null) ?? "PRESENCIAL");
