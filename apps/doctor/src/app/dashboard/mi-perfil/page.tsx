@@ -124,6 +124,8 @@ export default function MiPerfilPage() {
   const [telegramReminderOffset, setTelegramReminderOffset] = useState(60);
   const [telegramNotifyTaskReminder, setTelegramNotifyTaskReminder] = useState(true);
   const [telegramTaskReminderOffset, setTelegramTaskReminderOffset] = useState(60);
+  const [telegramDailySummaryEnabled, setTelegramDailySummaryEnabled] = useState(false);
+  const [telegramDailySummaryTime, setTelegramDailySummaryTime] = useState("08:00");
   const [telegramToggleLoading, setTelegramToggleLoading] = useState<string | null>(null);
 
   // Active sessions state
@@ -295,6 +297,8 @@ export default function MiPerfilPage() {
       setTelegramReminderOffset(data.reminderOffsetMinutes ?? 60);
       setTelegramNotifyTaskReminder(data.notifyTaskReminder ?? true);
       setTelegramTaskReminderOffset(data.taskReminderOffsetMinutes ?? 60);
+      setTelegramDailySummaryEnabled(data.dailySummaryEnabled ?? false);
+      setTelegramDailySummaryTime(data.dailySummaryTime ?? "08:00");
     } catch {
       setTelegramChatId(null);
     } finally {
@@ -303,7 +307,7 @@ export default function MiPerfilPage() {
   };
 
   const handleTelegramToggle = async (
-    field: "notifyBooking" | "notifyForm" | "notifyReminderConfirmed" | "notifyReminderPending" | "notifyTaskReminder",
+    field: "notifyBooking" | "notifyForm" | "notifyReminderConfirmed" | "notifyReminderPending" | "notifyTaskReminder" | "dailySummaryEnabled",
     value: boolean
   ) => {
     if (!slug) return;
@@ -313,7 +317,8 @@ export default function MiPerfilPage() {
     else if (field === "notifyForm") setTelegramNotifyForm(value);
     else if (field === "notifyReminderConfirmed") setTelegramNotifyReminderConfirmed(value);
     else if (field === "notifyReminderPending") setTelegramNotifyReminderPending(value);
-    else setTelegramNotifyTaskReminder(value);
+    else if (field === "notifyTaskReminder") setTelegramNotifyTaskReminder(value);
+    else setTelegramDailySummaryEnabled(value);
     try {
       const res = await authFetch(`${API_URL}/api/doctors/${slug}/telegram`, {
         method: "PUT",
@@ -327,7 +332,8 @@ export default function MiPerfilPage() {
       else if (field === "notifyForm") setTelegramNotifyForm(!value);
       else if (field === "notifyReminderConfirmed") setTelegramNotifyReminderConfirmed(!value);
       else if (field === "notifyReminderPending") setTelegramNotifyReminderPending(!value);
-      else setTelegramNotifyTaskReminder(!value);
+      else if (field === "notifyTaskReminder") setTelegramNotifyTaskReminder(!value);
+      else setTelegramDailySummaryEnabled(!value);
     } finally {
       setTelegramToggleLoading(null);
     }
@@ -344,6 +350,20 @@ export default function MiPerfilPage() {
       });
     } catch {
       // silent — offset will be re-fetched on next tab open
+    }
+  };
+
+  const handleTelegramDailySummaryTimeChange = async (time: string) => {
+    if (!slug) return;
+    setTelegramDailySummaryTime(time);
+    try {
+      await authFetch(`${API_URL}/api/doctors/${slug}/telegram`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dailySummaryTime: time }),
+      });
+    } catch {
+      // silent — will be re-fetched on next tab open
     }
   };
 
@@ -398,6 +418,8 @@ export default function MiPerfilPage() {
       setTelegramReminderOffset(60);
       setTelegramNotifyTaskReminder(true);
       setTelegramTaskReminderOffset(60);
+      setTelegramDailySummaryEnabled(false);
+      setTelegramDailySummaryTime("08:00");
       setTelegramMessage({ type: "success", text: "Telegram desconectado." });
     } catch (err) {
       setTelegramMessage({ type: "error", text: err instanceof Error ? err.message : "Error al desconectar" });
@@ -1011,6 +1033,41 @@ export default function MiPerfilPage() {
                             </div>
                           );
                         })}
+                      </div>
+
+                      {/* Daily summary */}
+                      <div className="space-y-2 border-t border-gray-100 pt-3">
+                        <p className="text-xs font-medium text-gray-700">Resumen diario</p>
+                        <p className="text-xs text-gray-500">Recibe un mensaje cada día con todas tus citas y tareas programadas</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-medium text-gray-800">Activar resumen diario</p>
+                          <button
+                            onClick={() => handleTelegramToggle("dailySummaryEnabled", !telegramDailySummaryEnabled)}
+                            disabled={!!telegramToggleLoading}
+                            className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${telegramDailySummaryEnabled ? "bg-[#229ED9]" : "bg-gray-200"}`}
+                            role="switch"
+                            aria-checked={telegramDailySummaryEnabled}
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${telegramDailySummaryEnabled ? "translate-x-4" : "translate-x-0"}`}>
+                              {telegramToggleLoading === "dailySummaryEnabled" && <Loader2 className="w-3 h-3 animate-spin text-gray-400 mt-0.5 ml-0.5" />}
+                            </span>
+                          </button>
+                        </div>
+                        {telegramDailySummaryEnabled && (
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs text-gray-500">Hora de envío (hora México)</p>
+                            <select
+                              value={telegramDailySummaryTime}
+                              onChange={(e) => handleTelegramDailySummaryTimeChange(e.target.value)}
+                              className="text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            >
+                              {Array.from({ length: 24 }, (_, h) => {
+                                const hh = String(h).padStart(2, "0");
+                                return <option key={hh} value={`${hh}:00`}>{`${hh}:00`}</option>;
+                              })}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

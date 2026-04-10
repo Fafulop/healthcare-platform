@@ -25,6 +25,8 @@ export async function GET(
         telegramReminderOffsetMinutes: true,
         telegramNotifyTaskReminder: true,
         telegramTaskReminderOffsetMinutes: true,
+        telegramDailySummaryEnabled: true,
+        telegramDailySummaryTime: true,
       },
     });
 
@@ -41,6 +43,8 @@ export async function GET(
       reminderOffsetMinutes: doctor.telegramReminderOffsetMinutes,
       notifyTaskReminder: doctor.telegramNotifyTaskReminder,
       taskReminderOffsetMinutes: doctor.telegramTaskReminderOffsetMinutes,
+      dailySummaryEnabled: doctor.telegramDailySummaryEnabled,
+      dailySummaryTime: doctor.telegramDailySummaryTime,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -59,7 +63,7 @@ export async function PUT(
     const { slug } = await params;
     await requireDoctorAuth(request);
 
-    const { chatId, notifyBooking, notifyForm, notifyReminderConfirmed, notifyReminderPending, reminderOffsetMinutes, notifyTaskReminder, taskReminderOffsetMinutes } = await request.json();
+    const { chatId, notifyBooking, notifyForm, notifyReminderConfirmed, notifyReminderPending, reminderOffsetMinutes, notifyTaskReminder, taskReminderOffsetMinutes, dailySummaryEnabled, dailySummaryTime } = await request.json();
 
     const updateData: {
       telegramChatId?: string;
@@ -70,6 +74,8 @@ export async function PUT(
       telegramReminderOffsetMinutes?: number;
       telegramNotifyTaskReminder?: boolean;
       telegramTaskReminderOffsetMinutes?: number;
+      telegramDailySummaryEnabled?: boolean;
+      telegramDailySummaryTime?: string;
     } = {};
 
     if (chatId !== undefined) {
@@ -97,6 +103,13 @@ export async function PUT(
       }
       updateData.telegramTaskReminderOffsetMinutes = offset;
     }
+    if (dailySummaryEnabled !== undefined) updateData.telegramDailySummaryEnabled = Boolean(dailySummaryEnabled);
+    if (dailySummaryTime !== undefined) {
+      if (typeof dailySummaryTime !== 'string' || !/^\d{2}:00$/.test(dailySummaryTime)) {
+        return NextResponse.json({ error: 'Invalid dailySummaryTime — must be HH:00' }, { status: 400 });
+      }
+      updateData.telegramDailySummaryTime = dailySummaryTime;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
@@ -114,6 +127,8 @@ export async function PUT(
         telegramReminderOffsetMinutes: true,
         telegramNotifyTaskReminder: true,
         telegramTaskReminderOffsetMinutes: true,
+        telegramDailySummaryEnabled: true,
+        telegramDailySummaryTime: true,
       },
     });
 
@@ -126,6 +141,8 @@ export async function PUT(
       reminderOffsetMinutes: doctor.telegramReminderOffsetMinutes,
       notifyTaskReminder: doctor.telegramNotifyTaskReminder,
       taskReminderOffsetMinutes: doctor.telegramTaskReminderOffsetMinutes,
+      dailySummaryEnabled: doctor.telegramDailySummaryEnabled,
+      dailySummaryTime: doctor.telegramDailySummaryTime,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -155,6 +172,8 @@ export async function DELETE(
         telegramReminderOffsetMinutes: true,
         telegramNotifyTaskReminder: true,
         telegramTaskReminderOffsetMinutes: true,
+        telegramDailySummaryEnabled: true,
+        telegramDailySummaryTime: true,
       },
     });
 
@@ -167,6 +186,8 @@ export async function DELETE(
       reminderOffsetMinutes: doctor.telegramReminderOffsetMinutes,
       notifyTaskReminder: doctor.telegramNotifyTaskReminder,
       taskReminderOffsetMinutes: doctor.telegramTaskReminderOffsetMinutes,
+      dailySummaryEnabled: doctor.telegramDailySummaryEnabled,
+      dailySummaryTime: doctor.telegramDailySummaryTime,
     });
   } catch (error) {
     if (error instanceof AuthError) {

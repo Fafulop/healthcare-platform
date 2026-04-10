@@ -172,6 +172,9 @@ model Doctor {
   telegramReminderOffsetMinutes     Int       @default(60)   @map("telegram_reminder_offset_minutes")
   telegramNotifyTaskReminder        Boolean   @default(true) @map("telegram_notify_task_reminder")
   telegramTaskReminderOffsetMinutes Int       @default(60)   @map("telegram_task_reminder_offset_minutes")
+  telegramDailySummaryEnabled       Boolean   @default(false) @map("telegram_daily_summary_enabled")
+  telegramDailySummaryTime          String    @default("08:00") @map("telegram_daily_summary_time") @db.VarChar(5)
+  telegramDailySummarySentAt        DateTime? @map("telegram_daily_summary_sent_at")
 
   // Appointment reminder emails (sent automatically 2h before)
   reminderEmailEnabled      Boolean   @default(false) @map("reminder_email_enabled")
