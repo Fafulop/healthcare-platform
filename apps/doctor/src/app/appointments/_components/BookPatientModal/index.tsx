@@ -325,7 +325,6 @@ export function BookPatientModal({
         return;
       }
 
-      setConfirmationCode(bookingData.data.confirmationCode);
       setWasRescheduled(!!rescheduleBooking);
       setStep("success");
       onSuccess(bookingData.data.id);
