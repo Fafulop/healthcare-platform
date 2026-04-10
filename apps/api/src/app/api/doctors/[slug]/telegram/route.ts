@@ -16,7 +16,14 @@ export async function GET(
 
     const doctor = await prisma.doctor.findUnique({
       where: { slug },
-      select: { telegramChatId: true, telegramNotifyBooking: true, telegramNotifyForm: true },
+      select: {
+        telegramChatId: true,
+        telegramNotifyBooking: true,
+        telegramNotifyForm: true,
+        telegramNotifyReminderConfirmed: true,
+        telegramNotifyReminderPending: true,
+        telegramReminderOffsetMinutes: true,
+      },
     });
 
     if (!doctor) {
@@ -27,6 +34,9 @@ export async function GET(
       chatId: doctor.telegramChatId ?? null,
       notifyBooking: doctor.telegramNotifyBooking,
       notifyForm: doctor.telegramNotifyForm,
+      notifyReminderConfirmed: doctor.telegramNotifyReminderConfirmed,
+      notifyReminderPending: doctor.telegramNotifyReminderPending,
+      reminderOffsetMinutes: doctor.telegramReminderOffsetMinutes,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -45,12 +55,15 @@ export async function PUT(
     const { slug } = await params;
     await requireDoctorAuth(request);
 
-    const { chatId, notifyBooking, notifyForm } = await request.json();
+    const { chatId, notifyBooking, notifyForm, notifyReminderConfirmed, notifyReminderPending, reminderOffsetMinutes } = await request.json();
 
     const updateData: {
       telegramChatId?: string;
       telegramNotifyBooking?: boolean;
       telegramNotifyForm?: boolean;
+      telegramNotifyReminderConfirmed?: boolean;
+      telegramNotifyReminderPending?: boolean;
+      telegramReminderOffsetMinutes?: number;
     } = {};
 
     if (chatId !== undefined) {
@@ -61,6 +74,15 @@ export async function PUT(
     }
     if (notifyBooking !== undefined) updateData.telegramNotifyBooking = Boolean(notifyBooking);
     if (notifyForm !== undefined) updateData.telegramNotifyForm = Boolean(notifyForm);
+    if (notifyReminderConfirmed !== undefined) updateData.telegramNotifyReminderConfirmed = Boolean(notifyReminderConfirmed);
+    if (notifyReminderPending !== undefined) updateData.telegramNotifyReminderPending = Boolean(notifyReminderPending);
+    if (reminderOffsetMinutes !== undefined) {
+      const offset = Number(reminderOffsetMinutes);
+      if (![15, 30, 60, 120, 240, 1440].includes(offset)) {
+        return NextResponse.json({ error: 'Invalid reminderOffsetMinutes' }, { status: 400 });
+      }
+      updateData.telegramReminderOffsetMinutes = offset;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
@@ -69,13 +91,23 @@ export async function PUT(
     const doctor = await prisma.doctor.update({
       where: { slug },
       data: updateData,
-      select: { telegramChatId: true, telegramNotifyBooking: true, telegramNotifyForm: true },
+      select: {
+        telegramChatId: true,
+        telegramNotifyBooking: true,
+        telegramNotifyForm: true,
+        telegramNotifyReminderConfirmed: true,
+        telegramNotifyReminderPending: true,
+        telegramReminderOffsetMinutes: true,
+      },
     });
 
     return NextResponse.json({
       chatId: doctor.telegramChatId,
       notifyBooking: doctor.telegramNotifyBooking,
       notifyForm: doctor.telegramNotifyForm,
+      notifyReminderConfirmed: doctor.telegramNotifyReminderConfirmed,
+      notifyReminderPending: doctor.telegramNotifyReminderPending,
+      reminderOffsetMinutes: doctor.telegramReminderOffsetMinutes,
     });
   } catch (error) {
     if (error instanceof AuthError) {

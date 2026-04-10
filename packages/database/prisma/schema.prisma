@@ -164,9 +164,12 @@ model Doctor {
   prescriptionColorScheme   String?   @default("blue") @map("prescription_color_scheme") @db.VarChar(50)
 
   // Telegram notifications
-  telegramChatId            String?   @map("telegram_chat_id")
-  telegramNotifyBooking     Boolean   @default(true) @map("telegram_notify_booking")
-  telegramNotifyForm        Boolean   @default(true) @map("telegram_notify_form")
+  telegramChatId                    String?   @map("telegram_chat_id")
+  telegramNotifyBooking             Boolean   @default(true) @map("telegram_notify_booking")
+  telegramNotifyForm                Boolean   @default(true) @map("telegram_notify_form")
+  telegramNotifyReminderConfirmed   Boolean   @default(true) @map("telegram_notify_reminder_confirmed")
+  telegramNotifyReminderPending     Boolean   @default(true) @map("telegram_notify_reminder_pending")
+  telegramReminderOffsetMinutes     Int       @default(60)   @map("telegram_reminder_offset_minutes")
 
   // Appointment reminder emails (sent automatically 2h before)
   reminderEmailEnabled      Boolean   @default(false) @map("reminder_email_enabled")
@@ -463,6 +466,9 @@ model Booking {
 
   // Reminder email (sent automatically 2h before appointment)
   reminderEmailSentAt      DateTime? @map("reminder_email_sent_at")
+
+  // Telegram appointment reminder (sent automatically before appointment, per doctor offset)
+  telegramReminderSentAt   DateTime? @map("telegram_reminder_sent_at")
 
   // Google Calendar sync (freeform bookings store event ID here; slot-based use slot.googleEventId)
   googleEventId      String?       @map("google_event_id")

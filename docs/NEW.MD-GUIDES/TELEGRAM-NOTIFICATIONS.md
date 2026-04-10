@@ -174,8 +174,10 @@ Removes the doctor's Telegram Chat ID (disables notifications).
 
 **Response:**
 ```json
-{ "chatId": null }
+{ "chatId": null, "notifyBooking": true, "notifyForm": true }
 ```
+
+> Toggle values returned reflect the current DB state (which remains at their last saved values — removing the Chat ID does not reset the toggles in the DB).
 
 ---
 
@@ -305,7 +307,7 @@ The Telegram card is the second card in the **Integraciones** tab, below Google 
 
 **Save:** PUT with `{ chatId }` → updates `telegramChatId` state + shows success message.
 
-**Remove:** DELETE → clears `telegramChatId` + `telegramInput` + shows success message. Remove button only renders when `telegramChatId` is set.
+**Remove:** DELETE → clears `telegramChatId` + `telegramInput`, resets both toggle states to `true` (matching DB defaults), and shows success message. Remove button only renders when `telegramChatId` is set.
 
 **Active badge:** Green "Activo" badge shows in the card header when `telegramChatId` is set.
 

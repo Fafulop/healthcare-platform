@@ -84,6 +84,48 @@ export async function sendFormSubmittedTelegram(
   return sendTelegramMessage(chatId, message);
 }
 
+export interface AppointmentReminderDetails {
+  patientName: string;
+  patientPhone: string;
+  serviceName: string | null;
+  date: string;       // YYYY-MM-DD (MX local date)
+  startTime: string;  // HH:MM
+  endTime: string;    // HH:MM
+  confirmationCode: string;
+  status: 'CONFIRMED' | 'PENDING';
+}
+
+/**
+ * Send a scheduled appointment reminder to the doctor
+ */
+export async function sendAppointmentReminderTelegram(
+  chatId: string,
+  details: AppointmentReminderDetails
+): Promise<boolean> {
+  const formattedDate = new Date(details.date + 'T12:00:00Z').toLocaleDateString('es-MX', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'America/Mexico_City',
+  });
+
+  const statusLabel = details.status === 'CONFIRMED' ? 'Agendada ✅' : 'Pendiente ⏳';
+  const serviceLine = details.serviceName ? `\nServicio: ${details.serviceName}` : '';
+
+  const message =
+    `⏰ <b>Recordatorio de cita</b>\n` +
+    `\nPaciente: ${details.patientName}` +
+    `\nTel: ${details.patientPhone}` +
+    serviceLine +
+    `\nFecha: ${formattedDate}` +
+    `\nHora: ${details.startTime} - ${details.endTime}` +
+    `\nEstado: ${statusLabel}` +
+    `\nCódigo: ${details.confirmationCode}`;
+
+  return sendTelegramMessage(chatId, message);
+}
+
 /**
  * Send a new pending booking notification to the doctor
  */

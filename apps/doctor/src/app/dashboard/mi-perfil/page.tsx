@@ -119,6 +119,9 @@ export default function MiPerfilPage() {
   const [telegramLoaded, setTelegramLoaded] = useState(false);
   const [telegramNotifyBooking, setTelegramNotifyBooking] = useState(true);
   const [telegramNotifyForm, setTelegramNotifyForm] = useState(true);
+  const [telegramNotifyReminderConfirmed, setTelegramNotifyReminderConfirmed] = useState(true);
+  const [telegramNotifyReminderPending, setTelegramNotifyReminderPending] = useState(true);
+  const [telegramReminderOffset, setTelegramReminderOffset] = useState(60);
   const [telegramToggleLoading, setTelegramToggleLoading] = useState<string | null>(null);
 
   // Active sessions state
@@ -285,6 +288,9 @@ export default function MiPerfilPage() {
       setTelegramInput(data.chatId ?? "");
       setTelegramNotifyBooking(data.notifyBooking ?? true);
       setTelegramNotifyForm(data.notifyForm ?? true);
+      setTelegramNotifyReminderConfirmed(data.notifyReminderConfirmed ?? true);
+      setTelegramNotifyReminderPending(data.notifyReminderPending ?? true);
+      setTelegramReminderOffset(data.reminderOffsetMinutes ?? 60);
     } catch {
       setTelegramChatId(null);
     } finally {
@@ -292,24 +298,46 @@ export default function MiPerfilPage() {
     }
   };
 
-  const handleTelegramToggle = async (field: "notifyBooking" | "notifyForm", value: boolean) => {
+  const handleTelegramToggle = async (
+    field: "notifyBooking" | "notifyForm" | "notifyReminderConfirmed" | "notifyReminderPending",
+    value: boolean
+  ) => {
     if (!slug) return;
     setTelegramToggleLoading(field);
+    // Optimistic update
     if (field === "notifyBooking") setTelegramNotifyBooking(value);
-    else setTelegramNotifyForm(value);
+    else if (field === "notifyForm") setTelegramNotifyForm(value);
+    else if (field === "notifyReminderConfirmed") setTelegramNotifyReminderConfirmed(value);
+    else setTelegramNotifyReminderPending(value);
     try {
       const res = await authFetch(`${API_URL}/api/doctors/${slug}/telegram`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field === "notifyBooking" ? "notifyBooking" : "notifyForm"]: value }),
+        body: JSON.stringify({ [field]: value }),
       });
       if (!res.ok) throw new Error();
     } catch {
       // revert on error
       if (field === "notifyBooking") setTelegramNotifyBooking(!value);
-      else setTelegramNotifyForm(!value);
+      else if (field === "notifyForm") setTelegramNotifyForm(!value);
+      else if (field === "notifyReminderConfirmed") setTelegramNotifyReminderConfirmed(!value);
+      else setTelegramNotifyReminderPending(!value);
     } finally {
       setTelegramToggleLoading(null);
+    }
+  };
+
+  const handleTelegramReminderOffsetChange = async (minutes: number) => {
+    if (!slug) return;
+    setTelegramReminderOffset(minutes);
+    try {
+      await authFetch(`${API_URL}/api/doctors/${slug}/telegram`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reminderOffsetMinutes: minutes }),
+      });
+    } catch {
+      // silent — offset will be re-fetched on next tab open
     }
   };
 
@@ -345,6 +373,9 @@ export default function MiPerfilPage() {
       setTelegramInput("");
       setTelegramNotifyBooking(true);
       setTelegramNotifyForm(true);
+      setTelegramNotifyReminderConfirmed(true);
+      setTelegramNotifyReminderPending(true);
+      setTelegramReminderOffset(60);
       setTelegramMessage({ type: "success", text: "Telegram desconectado." });
     } catch (err) {
       setTelegramMessage({ type: "error", text: err instanceof Error ? err.message : "Error al desconectar" });
@@ -845,34 +876,83 @@ export default function MiPerfilPage() {
                   </div>
 
                   {telegramChatId && (
-                    <div className="border-t border-gray-100 pt-3 space-y-2">
-                      <p className="text-xs font-medium text-gray-700">Tipos de notificación</p>
-                      {[
-                        { field: "notifyBooking" as const, label: "Nueva cita pendiente", description: "Cuando un paciente agenda desde el portal público" },
-                        { field: "notifyForm" as const, label: "Formulario pre-consulta", description: "Cuando un paciente envía su formulario" },
-                      ].map(({ field, label, description }) => {
-                        const enabled = field === "notifyBooking" ? telegramNotifyBooking : telegramNotifyForm;
-                        const loading = telegramToggleLoading === field;
-                        return (
-                          <div key={field} className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs font-medium text-gray-800">{label}</p>
-                              <p className="text-xs text-gray-500">{description}</p>
+                    <div className="border-t border-gray-100 pt-3 space-y-4">
+                      {/* Instant notifications */}
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-gray-700">Notificaciones instantáneas</p>
+                        {[
+                          { field: "notifyBooking" as const, label: "Nueva cita pendiente", description: "Cuando un paciente agenda desde el portal público" },
+                          { field: "notifyForm" as const, label: "Formulario pre-consulta", description: "Cuando un paciente envía su formulario" },
+                        ].map(({ field, label, description }) => {
+                          const enabled = field === "notifyBooking" ? telegramNotifyBooking : telegramNotifyForm;
+                          const loading = telegramToggleLoading === field;
+                          return (
+                            <div key={field} className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-medium text-gray-800">{label}</p>
+                                <p className="text-xs text-gray-500">{description}</p>
+                              </div>
+                              <button
+                                onClick={() => handleTelegramToggle(field, !enabled)}
+                                disabled={!!telegramToggleLoading}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${enabled ? "bg-[#229ED9]" : "bg-gray-200"}`}
+                                role="switch"
+                                aria-checked={enabled}
+                              >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${enabled ? "translate-x-4" : "translate-x-0"}`}>
+                                  {loading && <Loader2 className="w-3 h-3 animate-spin text-gray-400 mt-0.5 ml-0.5" />}
+                                </span>
+                              </button>
                             </div>
-                            <button
-                              onClick={() => handleTelegramToggle(field, !enabled)}
-                              disabled={!!telegramToggleLoading}
-                              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${enabled ? "bg-[#229ED9]" : "bg-gray-200"}`}
-                              role="switch"
-                              aria-checked={enabled}
-                            >
-                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${enabled ? "translate-x-4" : "translate-x-0"}`}>
-                                {loading && <Loader2 className="w-3 h-3 animate-spin text-gray-400 mt-0.5 ml-0.5" />}
-                              </span>
-                            </button>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
+
+                      {/* Reminder notifications */}
+                      <div className="space-y-2 border-t border-gray-100 pt-3">
+                        <p className="text-xs font-medium text-gray-700">Recordatorios de cita</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs text-gray-500">Enviar recordatorio</p>
+                          <select
+                            value={telegramReminderOffset}
+                            onChange={(e) => handleTelegramReminderOffsetChange(Number(e.target.value))}
+                            className="text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          >
+                            <option value={15}>15 min antes</option>
+                            <option value={30}>30 min antes</option>
+                            <option value={60}>1 hora antes</option>
+                            <option value={120}>2 horas antes</option>
+                            <option value={240}>4 horas antes</option>
+                            <option value={1440}>1 día antes</option>
+                          </select>
+                        </div>
+                        {[
+                          { field: "notifyReminderConfirmed" as const, label: "Citas confirmadas (Agendadas)", description: "Recordatorio para citas ya confirmadas" },
+                          { field: "notifyReminderPending" as const, label: "Citas pendientes", description: "Recordatorio para citas aún sin confirmar" },
+                        ].map(({ field, label, description }) => {
+                          const enabled = field === "notifyReminderConfirmed" ? telegramNotifyReminderConfirmed : telegramNotifyReminderPending;
+                          const loading = telegramToggleLoading === field;
+                          return (
+                            <div key={field} className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-medium text-gray-800">{label}</p>
+                                <p className="text-xs text-gray-500">{description}</p>
+                              </div>
+                              <button
+                                onClick={() => handleTelegramToggle(field, !enabled)}
+                                disabled={!!telegramToggleLoading}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${enabled ? "bg-[#229ED9]" : "bg-gray-200"}`}
+                                role="switch"
+                                aria-checked={enabled}
+                              >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${enabled ? "translate-x-4" : "translate-x-0"}`}>
+                                  {loading && <Loader2 className="w-3 h-3 animate-spin text-gray-400 mt-0.5 ml-0.5" />}
+                                </span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
