@@ -40,12 +40,9 @@ export async function POST(request: Request) {
     } = body;
 
     // Validation
-    if (!slotId || !patientName || !patientEmail || !patientPhone) {
+    if (!slotId || !patientName) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'slotId, patientName, patientEmail, and patientPhone are required',
-        },
+        { success: false, error: 'slotId and patientName are required' },
         { status: 400 }
       );
     }
@@ -60,6 +57,43 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Appointment slot not found' },
         { status: 404 }
+      );
+    }
+
+    // Fetch doctor booking field settings to determine which fields are required
+    const isDoctor = callerRole === 'DOCTOR' || callerRole === 'ADMIN';
+    const doctorFieldSettings = await prisma.doctor.findUnique({
+      where: { id: slotForValidation.doctorId },
+      select: {
+        bookingPublicEmailRequired:      true,
+        bookingPublicPhoneRequired:      true,
+        bookingPublicWhatsappRequired:   true,
+        bookingHorariosEmailRequired:    true,
+        bookingHorariosPhoneRequired:    true,
+        bookingHorariosWhatsappRequired: true,
+      },
+    });
+
+    const emailRequired    = isDoctor
+      ? (doctorFieldSettings?.bookingHorariosEmailRequired    ?? true)
+      : (doctorFieldSettings?.bookingPublicEmailRequired      ?? true);
+    const phoneRequired    = isDoctor
+      ? (doctorFieldSettings?.bookingHorariosPhoneRequired    ?? true)
+      : (doctorFieldSettings?.bookingPublicPhoneRequired      ?? true);
+    const whatsappRequired = isDoctor
+      ? (doctorFieldSettings?.bookingHorariosWhatsappRequired ?? true)
+      : (doctorFieldSettings?.bookingPublicWhatsappRequired   ?? true);
+
+    const missing = [
+      emailRequired    && !patientEmail    ? 'patientEmail'    : null,
+      phoneRequired    && !patientPhone    ? 'patientPhone'    : null,
+      whatsappRequired && !patientWhatsapp ? 'patientWhatsapp' : null,
+    ].filter(Boolean);
+
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { success: false, error: `Faltan campos requeridos: ${missing.join(', ')}` },
+        { status: 400 }
       );
     }
 

@@ -9,10 +9,12 @@ import type { Booking } from "../../_hooks/useBookings";
 import { SlotPickerStep } from "./SlotPickerStep";
 import type { NewSlotForm } from "./SlotPickerStep";
 import { PatientFormStep } from "./PatientFormStep";
-import type { PatientFormData } from "./PatientFormStep";
+import type { PatientFormData, PatientFieldSettings } from "./PatientFormStep";
 import { SuccessStep } from "./SuccessStep";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+const DEFAULT_FIELD_SETTINGS: PatientFieldSettings = { emailRequired: true, phoneRequired: true, whatsappRequired: true };
 
 interface DoctorService {
   id: string;
@@ -75,7 +77,6 @@ export function BookPatientModal({
 
   // Patient form
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [confirmationCode, setConfirmationCode] = useState("");
   const [error, setError] = useState("");
   const [conflictError, setConflictError] = useState<string | null>(null);
   const [formData, setFormData] = useState<PatientFormData>({
@@ -88,6 +89,10 @@ export function BookPatientModal({
 
   // Tracks whether this booking was a reschedule (captured at submit, stable for SuccessStep)
   const [wasRescheduled, setWasRescheduled] = useState(false);
+
+  // Booking field settings per flow
+  const [horariosSettings, setHorariosSettings] = useState<PatientFieldSettings>(DEFAULT_FIELD_SETTINGS);
+  const [instantSettings, setInstantSettings] = useState<PatientFieldSettings>(DEFAULT_FIELD_SETTINGS);
 
   // "Nuevo horario" mode
   const [slotMode, setSlotMode] = useState<"existing" | "new">("existing");
@@ -159,6 +164,24 @@ export function BookPatientModal({
               );
               if (match) setSelectedServiceId(match.id);
             }
+          }
+        })
+        .catch(() => {});
+      authFetch("/api/doctor/booking-field-settings")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.data) {
+            const raw = d.data;
+            setHorariosSettings({
+              emailRequired:    raw.bookingHorariosEmailRequired,
+              phoneRequired:    raw.bookingHorariosPhoneRequired,
+              whatsappRequired: raw.bookingHorariosWhatsappRequired,
+            });
+            setInstantSettings({
+              emailRequired:    raw.bookingInstantEmailRequired,
+              phoneRequired:    raw.bookingInstantPhoneRequired,
+              whatsappRequired: raw.bookingInstantWhatsappRequired,
+            });
           }
         })
         .catch(() => {});
@@ -273,7 +296,6 @@ export function BookPatientModal({
           return;
         }
 
-        setConfirmationCode(data.data.confirmationCode);
         setWasRescheduled(!!rescheduleBooking);
         setStep("success");
         onSuccess(data.data.id);
@@ -414,6 +436,7 @@ export function BookPatientModal({
                 formData={formData}
                 setFormData={setFormData}
                 error={error}
+                fieldSettings={slotMode === "new" ? instantSettings : horariosSettings}
               />
             </form>
           )}
@@ -423,7 +446,6 @@ export function BookPatientModal({
               patientName={formData.patientName}
               displaySlot={displaySlot}
               selectedService={selectedService}
-              confirmationCode={confirmationCode}
               onClose={handleClose}
               isRescheduled={wasRescheduled}
             />

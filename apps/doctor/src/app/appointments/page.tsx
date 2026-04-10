@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
@@ -20,6 +20,7 @@ import { AppointmentChatPanel } from "./_components/AppointmentChatPanel";
 import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
 import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
 import { BlockRangeModal } from "./_components/BlockRangeModal";
+import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsModal";
 import { SlotFiltersBar, type SlotStatusFilter } from "./_components/SlotFiltersBar";
 import type { AppointmentSlot } from "./_hooks/useSlots";
 import type { Booking } from "./_hooks/useBookings";
@@ -48,6 +49,7 @@ export default function AppointmentsV2Page() {
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
   const [blockRangeModalOpen, setBlockRangeModalOpen] = useState(false);
+  const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
   const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
   const [formLinkBooking, setFormLinkBooking] = useState<Booking | null>(null);
   const [statusFilter, setStatusFilter] = useState<SlotStatusFilter>("all");
@@ -188,15 +190,23 @@ export default function AppointmentsV2Page() {
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="col-span-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
           >
             <Plus className="w-4 h-4 flex-shrink-0" />
             Crear Horarios
           </button>
+          <button
+            onClick={() => setBookingFieldSettingsOpen(true)}
+            className="flex items-center justify-center gap-2 bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Campos de Cita</span>
+            <span className="sm:hidden">Campos</span>
+          </button>
           <Link
             href="/dashboard/ayuda?tab=citas"
             title="Ver guía de Citas"
-            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 font-medium py-2 px-3 rounded-md transition-colors text-sm"
+            className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 font-medium py-2 px-3 rounded-md transition-colors text-sm"
           >
             <HelpCircle className="w-4 h-4 flex-shrink-0" />
             <span className="hidden sm:inline">Ayuda</span>
@@ -464,6 +474,11 @@ export default function AppointmentsV2Page() {
         isOpen={formLinkModalOpen}
         onClose={() => { setFormLinkModalOpen(false); setFormLinkBooking(null); }}
         onSuccess={bookingsHook.fetchBookings}
+      />
+
+      <BookingFieldSettingsModal
+        isOpen={bookingFieldSettingsOpen}
+        onClose={() => setBookingFieldSettingsOpen(false)}
       />
 
       <AppointmentChatPanel

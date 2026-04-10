@@ -85,9 +85,31 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [privacyConsent, setPrivacyConsent] = useState(false);
 
+  // Per-doctor field requirements for the public booking flow
+  const [fieldSettings, setFieldSettings] = useState({
+    emailRequired: true,
+    phoneRequired: true,
+    whatsappRequired: true,
+  });
+
   useEffect(() => {
     fetchAvailability();
   }, [currentMonth, doctorSlug]);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/doctors/${doctorSlug}/booking-field-settings`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setFieldSettings({
+            emailRequired:    d.data.bookingPublicEmailRequired,
+            phoneRequired:    d.data.bookingPublicPhoneRequired,
+            whatsappRequired: d.data.bookingPublicWhatsappRequired,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [doctorSlug]);
 
   // Set selected date and navigate to its month when initialDate changes
   useEffect(() => {
@@ -273,11 +295,6 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
           </div>
           <h3 className="text-2xl font-bold text-[var(--color-secondary)] mb-2">¡Reserva Confirmada!</h3>
           <p className="text-gray-600 mb-4">Tu cita ha sido agendada exitosamente.</p>
-
-          <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 mb-6 shadow-sm">
-            <p className="text-sm text-green-800 mb-1 font-medium">Código de Confirmación</p>
-            <p className="text-2xl font-bold text-green-900 tracking-wider">{confirmationCode}</p>
-          </div>
 
           {selectedSlot && (
             <div className="bg-blue-50 rounded-xl p-4 mb-6 text-left border-2 border-blue-200">
@@ -518,7 +535,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <Mail className="inline w-4 h-4 mr-1" />
-                Correo Electrónico *
+                Correo Electrónico {fieldSettings.emailRequired ? "*" : "(opcional)"}
               </label>
               <input
                 type="email"
@@ -526,14 +543,14 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 onChange={(e) => setFormData({ ...formData, patientEmail: e.target.value })}
                 placeholder="juan@example.com"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
+                required={fieldSettings.emailRequired}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <Phone className="inline w-4 h-4 mr-1" />
-                Número de Teléfono *
+                Número de Teléfono {fieldSettings.phoneRequired ? "*" : "(opcional)"}
               </label>
               <input
                 type="tel"
@@ -541,14 +558,14 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 onChange={(e) => setFormData({ ...formData, patientPhone: e.target.value })}
                 placeholder="+52 33 1234 5678"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
+                required={fieldSettings.phoneRequired}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <MessageSquare className="inline w-4 h-4 mr-1" />
-                WhatsApp (opcional)
+                WhatsApp {fieldSettings.whatsappRequired ? "*" : "(opcional)"}
               </label>
               <input
                 type="tel"
@@ -556,6 +573,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                 onChange={(e) => setFormData({ ...formData, patientWhatsapp: e.target.value })}
                 placeholder="+52 33 1234 5678"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required={fieldSettings.whatsappRequired}
               />
               <p className="text-xs text-gray-500 mt-1">Para confirmación de cita</p>
             </div>

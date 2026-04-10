@@ -266,7 +266,7 @@ export function CreateSlotsModal({
                   onClick={() => setMode(m)}
                   className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg font-medium transition-all text-sm ${
                     mode === m
-                      ? "bg-gray-900 text-white"
+                      ? "bg-blue-600 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -335,7 +335,7 @@ export function CreateSlotsModal({
                         onClick={() => toggleDay(index)}
                         className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                           daysOfWeek.includes(index)
-                            ? "bg-gray-900 text-white"
+                            ? "bg-blue-600 text-white"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                       >
@@ -400,7 +400,7 @@ export function CreateSlotsModal({
                     onClick={() => setDuration(d)}
                     className={`flex-1 py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                       duration === d
-                        ? "bg-gray-900 text-white"
+                        ? "bg-blue-600 text-white"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
                   >
@@ -479,7 +479,7 @@ export function CreateSlotsModal({
                     onClick={() => setLocationId(loc.id)}
                     className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all border ${
                       locationId === loc.id
-                        ? "border-gray-900 bg-gray-900 text-white"
+                        ? "border-blue-600 bg-blue-600 text-white"
                         : "border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300"
                     }`}
                   >
@@ -564,7 +564,7 @@ export function CreateSlotsModal({
             <button
               type="submit"
               disabled={isSubmitting || previewSlots === 0}
-              className="flex-1 px-4 sm:px-6 py-2 sm:py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
+              className="flex-1 px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
             >
               {isSubmitting ? (
                 <>

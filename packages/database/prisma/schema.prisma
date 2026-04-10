@@ -179,6 +179,17 @@ model Doctor {
   // Appointment reminder emails (sent automatically 2h before)
   reminderEmailEnabled      Boolean   @default(false) @map("reminder_email_enabled")
 
+  // Booking field requirements per flow (true = required, false = optional)
+  bookingPublicEmailRequired      Boolean @default(true) @map("booking_public_email_required")
+  bookingPublicPhoneRequired      Boolean @default(true) @map("booking_public_phone_required")
+  bookingPublicWhatsappRequired   Boolean @default(true) @map("booking_public_whatsapp_required")
+  bookingHorariosEmailRequired    Boolean @default(true) @map("booking_horarios_email_required")
+  bookingHorariosPhoneRequired    Boolean @default(true) @map("booking_horarios_phone_required")
+  bookingHorariosWhatsappRequired Boolean @default(true) @map("booking_horarios_whatsapp_required")
+  bookingInstantEmailRequired     Boolean @default(true) @map("booking_instant_email_required")
+  bookingInstantPhoneRequired     Boolean @default(true) @map("booking_instant_phone_required")
+  bookingInstantWhatsappRequired  Boolean @default(true) @map("booking_instant_whatsapp_required")
+
   // Relations
   user               User?     // 1:1 relation - optional (can have doctors without user accounts)
   clinicLocations    ClinicLocation[]

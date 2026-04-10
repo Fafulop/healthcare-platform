@@ -34,9 +34,36 @@ export async function POST(request: Request) {
       isRescheduled,
     } = body;
 
-    if (!doctorId || !date || !startTime || !duration || !patientName || !patientEmail || !patientPhone) {
+    if (!doctorId || !date || !startTime || !duration || !patientName) {
       return NextResponse.json(
         { success: false, error: 'Faltan campos requeridos' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch doctor booking field settings for instant flow
+    const doctorFieldSettings = await prisma.doctor.findUnique({
+      where: { id: doctorId },
+      select: {
+        bookingInstantEmailRequired:     true,
+        bookingInstantPhoneRequired:     true,
+        bookingInstantWhatsappRequired:  true,
+      },
+    });
+
+    const emailRequired    = doctorFieldSettings?.bookingInstantEmailRequired    ?? true;
+    const phoneRequired    = doctorFieldSettings?.bookingInstantPhoneRequired    ?? true;
+    const whatsappRequired = doctorFieldSettings?.bookingInstantWhatsappRequired ?? true;
+
+    const missing = [
+      emailRequired    && !patientEmail    ? 'patientEmail'    : null,
+      phoneRequired    && !patientPhone    ? 'patientPhone'    : null,
+      whatsappRequired && !patientWhatsapp ? 'patientWhatsapp' : null,
+    ].filter(Boolean);
+
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { success: false, error: `Faltan campos requeridos: ${missing.join(', ')}` },
         { status: 400 }
       );
     }

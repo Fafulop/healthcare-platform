@@ -17,6 +17,12 @@ export interface PatientFormData {
   notes: string;
 }
 
+export interface PatientFieldSettings {
+  emailRequired: boolean;
+  phoneRequired: boolean;
+  whatsappRequired: boolean;
+}
+
 interface Props {
   services: DoctorService[];
   selectedServiceId: string | null;
@@ -28,6 +34,7 @@ interface Props {
   formData: PatientFormData;
   setFormData: (f: PatientFormData) => void;
   error: string;
+  fieldSettings?: PatientFieldSettings;
 }
 
 export function PatientFormStep({
@@ -41,6 +48,7 @@ export function PatientFormStep({
   formData,
   setFormData,
   error,
+  fieldSettings = { emailRequired: true, phoneRequired: true, whatsappRequired: true },
 }: Props) {
   return (
     <div className="space-y-4">
@@ -153,12 +161,14 @@ export function PatientFormStep({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Email {fieldSettings.emailRequired ? "*" : <span className="text-gray-400 font-normal">(opcional)</span>}
+        </label>
         <div className="relative">
           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="email"
-            required
+            required={fieldSettings.emailRequired}
             value={formData.patientEmail}
             onChange={(e) => setFormData({ ...formData, patientEmail: e.target.value })}
             className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -168,12 +178,14 @@ export function PatientFormStep({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Teléfono {fieldSettings.phoneRequired ? "*" : <span className="text-gray-400 font-normal">(opcional)</span>}
+        </label>
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="tel"
-            required
+            required={fieldSettings.phoneRequired}
             value={formData.patientPhone}
             onChange={(e) => setFormData({ ...formData, patientPhone: e.target.value })}
             className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -184,12 +196,13 @@ export function PatientFormStep({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          WhatsApp <span className="text-gray-400 font-normal">(opcional)</span>
+          WhatsApp {fieldSettings.whatsappRequired ? "*" : <span className="text-gray-400 font-normal">(opcional)</span>}
         </label>
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="tel"
+            required={fieldSettings.whatsappRequired}
             value={formData.patientWhatsapp}
             onChange={(e) => setFormData({ ...formData, patientWhatsapp: e.target.value })}
             className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

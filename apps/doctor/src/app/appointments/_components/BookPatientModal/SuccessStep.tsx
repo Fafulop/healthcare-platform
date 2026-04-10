@@ -19,7 +19,6 @@ interface Props {
   patientName: string;
   displaySlot: DisplaySlot | null;
   selectedService: DoctorService | null;
-  confirmationCode: string;
   onClose: () => void;
   isRescheduled?: boolean;
 }
@@ -28,7 +27,6 @@ export function SuccessStep({
   patientName,
   displaySlot,
   selectedService,
-  confirmationCode,
   onClose,
   isRescheduled = false,
 }: Props) {
@@ -89,12 +87,6 @@ export function SuccessStep({
             )}
           </>
         )}
-        <div className="border-t pt-3 flex justify-between items-center">
-          <span className="text-gray-500 text-sm">Código</span>
-          <code className="text-base bg-white border border-gray-200 px-3 py-1 rounded-lg font-mono font-bold tracking-widest">
-            {confirmationCode}
-          </code>
-        </div>
       </div>
 
       {isRescheduled && (
