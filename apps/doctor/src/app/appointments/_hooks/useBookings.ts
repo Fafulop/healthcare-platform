@@ -49,6 +49,7 @@ export interface Booking {
   confirmationEmailSentAt?: string | null;
   meetLink?: string | null;
   isRescheduled?: boolean;
+  extendedBlockMinutes?: number | null;
   formLink?: {
     id: string;
     token: string;
@@ -114,6 +115,26 @@ export function useBookings(doctorId: string | undefined) {
       }
     } catch {
       toast.error("Error al actualizar estado");
+    }
+  };
+
+  const updateExtendedBlock = async (bookingId: string, extendedBlockMinutes: number | null) => {
+    try {
+      const response = await authFetch(
+        `${API_URL}/api/appointments/bookings/${bookingId}`,
+        { method: "PATCH", body: JSON.stringify({ extendedBlockMinutes }) }
+      );
+      const data = await response.json();
+      if (data.success) {
+        toast.success("Bloqueo actualizado");
+        setBookings((prev) =>
+          prev.map((b) => b.id === bookingId ? { ...b, extendedBlockMinutes } : b)
+        );
+      } else {
+        toast.error(data.error || "Error al actualizar el bloqueo");
+      }
+    } catch {
+      toast.error("Error al actualizar el bloqueo");
     }
   };
 
@@ -257,6 +278,7 @@ export function useBookings(doctorId: string | undefined) {
     setBookingFilterStatus,
     fetchBookings,
     updateBookingStatus,
+    updateExtendedBlock,
     deleteBooking,
     sendConfirmationEmail,
     shiftBookingFilterDate,

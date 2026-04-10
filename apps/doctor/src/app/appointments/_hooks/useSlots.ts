@@ -21,6 +21,7 @@ export interface AppointmentSlot {
   currentBookings: number;
   maxBookings: number;
   location: { name: string; address: string } | null;
+  isBlockedByBooking?: boolean;
 }
 
 export interface ClinicLocation {

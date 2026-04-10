@@ -480,6 +480,10 @@ model Booking {
   // Rescheduling
   isRescheduled      Boolean       @default(false) @map("is_rescheduled")
 
+  // Extended block: how many minutes AFTER the appointment starts to block subsequent slots.
+  // null = default (block only the slot's own duration). Set by doctor on CONFIRMED bookings.
+  extendedBlockMinutes Int?        @map("extended_block_minutes")
+
   // Reminder email (sent automatically 2h before appointment)
   reminderEmailSentAt      DateTime? @map("reminder_email_sent_at")
 

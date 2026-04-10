@@ -197,7 +197,7 @@ export function BookPatientModal({
   const availableSlots = useMemo(() => {
     const today = todayStr();
     return slots
-      .filter((s) => s.isOpen && s.currentBookings < s.maxBookings && s.date.split("T")[0] >= today)
+      .filter((s) => s.isOpen && s.currentBookings < s.maxBookings && !s.isBlockedByBooking && s.date.split("T")[0] >= today)
       .sort((a, b) => {
         const d = a.date.localeCompare(b.date);
         return d !== 0 ? d : a.startTime.localeCompare(b.startTime);

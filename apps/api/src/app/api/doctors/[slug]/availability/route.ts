@@ -115,12 +115,58 @@ export async function GET(
       ? '24:00'
       : `${String(Math.floor(cutoffTotalMinutes / 60)).padStart(2, '0')}:${String(cutoffTotalMinutes % 60).padStart(2, '0')}`;
 
-    const slots = allSlots.filter(slot => {
+    const preBlockSlots = allSlots.filter(slot => {
       if (slot._count.bookings >= slot.maxBookings) return false; // fully booked
       const dateKey = slot.date.toISOString().split('T')[0];
       if (dateKey !== todayMX) return true;            // not today → always visible
       return slot.startTime > cutoffTime;              // today → hide if within 1 hour
     });
+
+    // Fetch CONFIRMED bookings for this doctor/date range to apply extended block windows.
+    // Any slot whose startTime falls within [booking.startTime, booking.startTime + extendedBlockMinutes)
+    // is hidden from public availability.
+    const confirmedBookings = await prisma.booking.findMany({
+      where: {
+        doctorId: doctor.id,
+        status: 'CONFIRMED',
+        OR: [
+          { slot: { date: dateFilter } },
+          { AND: [{ slotId: null }, { date: dateFilter }] },
+        ],
+      },
+      select: {
+        extendedBlockMinutes: true,
+        slot: { select: { date: true, startTime: true, duration: true } },
+        date: true,
+        startTime: true,
+        duration: true,
+      },
+    });
+
+    // Build extended block windows
+    const blockWindows: Array<{ dateKey: string; startMin: number; endMin: number }> = [];
+    for (const b of confirmedBookings) {
+      const rawDate = b.slot?.date ?? b.date;
+      const rawStart = b.slot?.startTime ?? b.startTime;
+      const rawDur = b.slot?.duration ?? b.duration;
+      if (!rawDate || !rawStart || !rawDur) continue;
+      const dateKey = (rawDate instanceof Date ? rawDate : new Date(rawDate)).toISOString().split('T')[0];
+      const [sh, sm] = rawStart.split(':').map(Number);
+      const startMin = sh * 60 + sm;
+      const blockDur = b.extendedBlockMinutes ?? rawDur;
+      blockWindows.push({ dateKey, startMin, endMin: startMin + blockDur });
+    }
+
+    const slots = blockWindows.length === 0
+      ? preBlockSlots
+      : preBlockSlots.filter(slot => {
+          const dateKey = slot.date.toISOString().split('T')[0];
+          const [sh, sm] = slot.startTime.split(':').map(Number);
+          const slotMin = sh * 60 + sm;
+          return !blockWindows.some(
+            w => w.dateKey === dateKey && slotMin >= w.startMin && slotMin < w.endMin
+          );
+        });
 
     // Group slots by date for easier frontend consumption
     const slotsByDate: Record<string, any[]> = {};

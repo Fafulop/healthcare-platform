@@ -1,5 +1,5 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video } from "lucide-react";
-import { useState } from "react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { formatLocalDate, getLocalDateString } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
@@ -18,6 +18,7 @@ interface Props {
   setBookingFilterStatus: (v: string) => void;
   shiftBookingFilterDate: (days: number) => void;
   onUpdateStatus: (id: string, status: string) => void;
+  onUpdateExtendedBlock: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
   onSendEmail: (id: string) => Promise<void>;
@@ -48,6 +49,7 @@ export function BookingsSection({
   setBookingFilterStatus,
   shiftBookingFilterDate,
   onUpdateStatus,
+  onUpdateExtendedBlock,
   onDeleteBooking,
   onOpenFormLinkModal,
   onSendEmail,
@@ -214,6 +216,7 @@ export function BookingsSection({
                       <StatusActions
                         booking={booking}
                         onUpdateStatus={onUpdateStatus}
+                        onUpdateExtendedBlock={onUpdateExtendedBlock}
                         onDeleteBooking={onDeleteBooking}
                         onOpenFormLinkModal={onOpenFormLinkModal}
                         onSendEmail={onSendEmail}
@@ -305,6 +308,7 @@ export function BookingsSection({
                             <StatusActions
                               booking={booking}
                               onUpdateStatus={onUpdateStatus}
+                              onUpdateExtendedBlock={onUpdateExtendedBlock}
                               onDeleteBooking={onDeleteBooking}
                               onOpenFormLinkModal={onOpenFormLinkModal}
                               onSendEmail={onSendEmail}
@@ -325,9 +329,99 @@ export function BookingsSection({
   );
 }
 
+function minsToTime(totalMins: number): string {
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function timeToMins(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function ExtendedBlockControl({
+  booking,
+  onUpdate,
+}: {
+  booking: Booking;
+  onUpdate: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
+}) {
+  const rawStartTime = booking.slot?.startTime ?? booking.startTime ?? null;
+  if (!rawStartTime) return null;
+  const startTime = rawStartTime;
+  const slotDuration = booking.slot?.duration ?? booking.duration ?? 60;
+  const startMin = timeToMins(startTime);
+  const currentBlockMins = booking.extendedBlockMinutes ?? slotDuration;
+  const blockEndTime = minsToTime(startMin + currentBlockMins);
+
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(blockEndTime);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(minsToTime(startMin + (booking.extendedBlockMinutes ?? slotDuration)));
+  }, [booking.extendedBlockMinutes, startMin, slotDuration]);
+
+  const handleSave = async () => {
+    const endMin = timeToMins(value);
+    if (endMin <= startMin) return;
+    setSaving(true);
+    await onUpdate(booking.id, endMin - startMin);
+    setSaving(false);
+    setEditing(false);
+  };
+
+  const isCustom = booking.extendedBlockMinutes != null && booking.extendedBlockMinutes !== slotDuration;
+
+  return (
+    <div className="flex items-center gap-1 mt-1.5 w-full flex-wrap">
+      <Clock className="w-3 h-3 text-indigo-400 shrink-0" />
+      {editing ? (
+        <>
+          <span className="text-xs text-gray-500">Bloquear hasta:</span>
+          <input
+            type="time"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="text-xs border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="text-xs px-1.5 py-0.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+          >
+            {saving ? "..." : "OK"}
+          </button>
+          <button
+            onClick={() => { setEditing(false); setValue(blockEndTime); }}
+            className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
+          >
+            ✕
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="text-xs text-gray-400">Bloqueo:</span>
+          <span className={`text-xs font-medium ${isCustom ? "text-indigo-600" : "text-gray-500"}`}>
+            {startTime}–{blockEndTime}
+          </span>
+          <button
+            onClick={() => setEditing(true)}
+            className="text-xs px-1.5 py-0.5 rounded text-indigo-600 hover:bg-indigo-50 border border-indigo-200"
+          >
+            Editar
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function StatusActions({
   booking,
   onUpdateStatus,
+  onUpdateExtendedBlock,
   onDeleteBooking,
   onOpenFormLinkModal,
   onSendEmail,
@@ -335,6 +429,7 @@ function StatusActions({
 }: {
   booking: Booking;
   onUpdateStatus: (id: string, status: string) => void;
+  onUpdateExtendedBlock: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
   onSendEmail: (id: string) => Promise<void>;
@@ -465,6 +560,9 @@ function StatusActions({
         >
           Eliminar
         </button>
+      )}
+      {booking.status === "CONFIRMED" && (
+        <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
       )}
     </div>
   );

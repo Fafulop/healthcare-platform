@@ -147,13 +147,62 @@ export async function GET(request: Request) {
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
     });
 
+    // Fetch CONFIRMED bookings to compute extended block windows.
+    // These control which slots are soft-blocked beyond the booked slot itself.
+    const bookingDateFilter = where.date ? where.date : undefined;
+    const confirmedBookings = await prisma.booking.findMany({
+      where: {
+        doctorId,
+        status: 'CONFIRMED',
+        ...(bookingDateFilter
+          ? {
+              OR: [
+                { slot: { date: bookingDateFilter } },
+                { AND: [{ slotId: null }, { date: bookingDateFilter }] },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        extendedBlockMinutes: true,
+        slot: { select: { date: true, startTime: true, duration: true } },
+        date: true,
+        startTime: true,
+        duration: true,
+      },
+    });
+
+    // Build block windows: { dateKey, startMin, endMin }
+    const blockWindows: Array<{ dateKey: string; startMin: number; endMin: number }> = [];
+    for (const b of confirmedBookings) {
+      const rawDate = b.slot?.date ?? b.date;
+      const rawStart = b.slot?.startTime ?? b.startTime;
+      const rawDur = b.slot?.duration ?? b.duration;
+      if (!rawDate || !rawStart || !rawDur) continue;
+      const dateKey = (rawDate instanceof Date ? rawDate : new Date(rawDate)).toISOString().split('T')[0];
+      const [sh, sm] = rawStart.split(':').map(Number);
+      const startMin = sh * 60 + sm;
+      const blockMin = b.extendedBlockMinutes ?? rawDur;
+      blockWindows.push({ dateKey, startMin, endMin: startMin + blockMin });
+    }
+
     // Compute currentBookings from live active bookings — not the stale denormalized counter.
-    const data = slots.map(({ bookings, location, ...slot }) => ({
-      ...slot,
-      location: location ?? null,
-      currentBookings: bookings.length,
-      bookings,
-    }));
+    // Also attach isBlockedByBooking for client-side filtering in Horarios disponibles.
+    const data = slots.map(({ bookings, location, ...slot }) => {
+      const dateKey = slot.date.toISOString().split('T')[0];
+      const [sh, sm] = slot.startTime.split(':').map(Number);
+      const slotMin = sh * 60 + sm;
+      const isBlockedByBooking = blockWindows.some(
+        w => w.dateKey === dateKey && slotMin >= w.startMin && slotMin < w.endMin
+      );
+      return {
+        ...slot,
+        location: location ?? null,
+        currentBookings: bookings.length,
+        bookings,
+        isBlockedByBooking,
+      };
+    });
 
     return NextResponse.json({
       success: true,

@@ -93,7 +93,7 @@ export async function GET(
   }
 }
 
-// PATCH - Update booking status
+// PATCH - Update booking status OR extendedBlockMinutes
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -101,7 +101,39 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status: newStatus, confirmationCode: bodyConfirmationCode } = body;
+    const { status: newStatus, extendedBlockMinutes, confirmationCode: bodyConfirmationCode } = body;
+
+    // ── Extended block update (no status change) ──────────────────────────────
+    if (extendedBlockMinutes !== undefined && newStatus === undefined) {
+      const auth = await validateAuthToken(request);
+      const { role: callerRole, doctorId: callerDoctorId } = auth;
+
+      const booking = await prisma.booking.findUnique({ where: { id } });
+      if (!booking) {
+        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+      }
+      if (callerRole === 'DOCTOR' && booking.doctorId !== callerDoctorId) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      }
+      if (booking.status !== 'CONFIRMED' && booking.status !== 'PENDING') {
+        return NextResponse.json(
+          { success: false, error: 'Solo se puede modificar el bloqueo en citas activas' },
+          { status: 400 }
+        );
+      }
+
+      const value = extendedBlockMinutes === null ? null : Number(extendedBlockMinutes);
+      if (value !== null && (isNaN(value) || value <= 0)) {
+        return NextResponse.json({ success: false, error: 'Valor de bloqueo inválido' }, { status: 400 });
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id },
+        data: { extendedBlockMinutes: value },
+      });
+      return NextResponse.json({ success: true, data: updated });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     if (!newStatus) {
       return NextResponse.json(
