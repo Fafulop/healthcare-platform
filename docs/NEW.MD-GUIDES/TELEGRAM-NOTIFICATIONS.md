@@ -1,6 +1,7 @@
 # Telegram Notifications Guide
 
 **Implemented:** 2026-03-20
+**Last Updated:** 2026-04-09
 **Scope:** API app (notification dispatch + bot webhook) + Doctor app (Integraciones UI)
 **Type:** Outbound only — app sends messages to doctor via Telegram Bot API
 
@@ -20,82 +21,111 @@ The webhook is already registered. No setup steps remain for the developer — o
 
 ## Overview
 
-Two events trigger a Telegram notification to the doctor:
+Six types of Telegram notifications are sent to the doctor, each with a distinctive emoji so the doctor instantly recognizes the type at a glance:
 
-1. **New pending booking** — when a patient books from the public portal (status `PENDING`)
-2. **Form submitted** — when a patient submits their pre-consultation form
+| Emoji | Type | Trigger |
+|---|---|---|
+| 🆕 | New pending booking | Patient books from public portal (status `PENDING`) |
+| 📝 | Form submitted | Patient submits pre-consultation form |
+| 📌 | Task reminder | Scheduled cron — N minutes before task start time |
+| ✅ | Appointment reminder (confirmed) | Scheduled cron — N minutes before appointment |
+| ⏳ | Appointment reminder (pending) | Scheduled cron — N minutes before appointment |
+| 📅 | Daily agenda summary | Scheduled cron — once per day at doctor's configured hour |
 
-Notifications are **per-doctor** — each doctor links their own Telegram account via a Chat ID stored on their profile.
+Notifications are **per-doctor** — each doctor links their own Telegram account via a Chat ID stored on their profile. Each notification type can be individually toggled on/off.
+
+---
+
+## Architecture
+
+### Instant notifications (fire-and-forget)
+
+New booking and form-submitted notifications fire immediately when the event occurs, using `.then().catch()` so they never block the HTTP response:
 
 ```
-Public portal patient books appointment
+Patient books appointment (public portal)
          │
          ▼
-POST /api/appointments/bookings
-  bookingStatus = PENDING (no auth = public user)
+POST /api/appointments/bookings  (status = PENDING)
          │
-         ├── SMS to patient (existing)
-         ├── SMS to doctor (existing)
-         └── Telegram to doctor ──► Doctor's Telegram app
-                                    "🗓 Nueva cita pendiente
-                                     Paciente: Juan García
-                                     Tel: 5512345678
-                                     Fecha: viernes, 20 de marzo de 2026
-                                     Hora: 10:00 - 11:00
-                                     Código: ABC-1234"
+         └── 🆕 Telegram to doctor (fire-and-forget)
 
 Patient submits pre-consultation form
          │
          ▼
 POST /api/appointment-form
          │
-         └── Telegram to doctor ──► Doctor's Telegram app
-                                    "📋 Formulario recibido
-                                     Paciente: Juan García
-                                     Fecha: viernes, 20 de marzo de 2026
-                                     Hora: 10:00
-                                     El paciente llenó su formulario pre-consulta."
+         └── 📝 Telegram to doctor (fire-and-forget)
 ```
 
-> **PENDING only:** Booking Telegram fires only when `bookingStatus === 'PENDING'`. Bookings created directly by the doctor from the dashboard are auto-confirmed (`CONFIRMED`) and do not trigger Telegram.
+### Scheduled notifications (Railway cron)
 
----
+Reminders and the daily summary are sent by the Railway cron service (runs every 15 min), which calls protected API endpoints. See [RAILWAY-CRON.md](RAILWAY-CRON.md) for cron architecture.
 
-## Architecture
-
-### How it works
-
-1. Doctor creates a Telegram bot via **@BotFather** → gets a token → added to Railway env vars
-2. Doctor opens the bot (`@Tusalud_citas_bot`), sends any message → bot replies with their Chat ID
-3. Doctor pastes the Chat ID in **Integraciones** tab of their profile → saved to `doctors.telegram_chat_id`
-4. On every `PENDING` booking or form submission, the API fires a fire-and-forget fetch to `api.telegram.org/sendMessage`
+```
+Railway Cron (every 15 min)
+         │
+         ├── POST /api/cron/telegram-reminders       ← 📌 Task reminders + ✅/⏳ Appointment reminders
+         ├── POST /api/cron/telegram-task-reminders   ← 📌 Task reminders
+         └── POST /api/cron/telegram-daily-summary    ← 📅 Daily summary
+```
 
 ### No polling, no webhooks for notifications
 
-The notification flow is **purely outbound** — the API calls Telegram's REST API directly. No background jobs, no queues, no webhooks needed on our side for sending.
+The notification flow is **purely outbound** — the API calls Telegram's REST API directly. No background jobs, no queues.
 
-The **bot webhook** (`/api/telegram/webhook`) only exists so the bot can reply to a doctor who messages it, telling them their Chat ID. It has zero involvement in the notification flow.
+The **bot webhook** (`/api/telegram/webhook`) only exists so the bot can reply to a doctor who messages it with their Chat ID. It has zero involvement in the notification dispatch flow.
 
 ---
 
 ## Database
 
-### Schema change
-
-Three fields on the `Doctor` model (`public` schema):
+### Doctor model fields (`public.doctors`)
 
 ```prisma
-// packages/database/prisma/schema.prisma
 model Doctor {
-  // ...
-  telegramChatId         String?  @map("telegram_chat_id")
-  telegramNotifyBooking  Boolean  @default(true) @map("telegram_notify_booking")
-  telegramNotifyForm     Boolean  @default(true) @map("telegram_notify_form")
-  // ...
+  // Connection
+  telegramChatId                    String?   @map("telegram_chat_id")
+
+  // Instant notifications
+  telegramNotifyBooking             Boolean   @default(true)  @map("telegram_notify_booking")
+  telegramNotifyForm                Boolean   @default(true)  @map("telegram_notify_form")
+
+  // Appointment reminders
+  telegramNotifyReminderConfirmed   Boolean   @default(true)  @map("telegram_notify_reminder_confirmed")
+  telegramNotifyReminderPending     Boolean   @default(true)  @map("telegram_notify_reminder_pending")
+  telegramReminderOffsetMinutes     Int       @default(60)    @map("telegram_reminder_offset_minutes")
+
+  // Task reminders
+  telegramNotifyTaskReminder        Boolean   @default(true)  @map("telegram_notify_task_reminder")
+  telegramTaskReminderOffsetMinutes Int       @default(60)    @map("telegram_task_reminder_offset_minutes")
+
+  // Daily summary
+  telegramDailySummaryEnabled       Boolean   @default(false) @map("telegram_daily_summary_enabled")
+  telegramDailySummaryTime          String    @default("08:00") @map("telegram_daily_summary_time") @db.VarChar(5)
+  telegramDailySummarySentAt        DateTime? @map("telegram_daily_summary_sent_at")
 }
 ```
 
+### Booking model (`public.bookings`)
+
+```prisma
+telegramReminderSentAt  DateTime?  @map("telegram_reminder_sent_at")
+```
+
+Stamped after sending the appointment reminder. Prevents duplicate sends if the cron fires again in the same window.
+
+### Task model (`medical_records.tasks`)
+
+```prisma
+telegramReminderSentAt  DateTime?  @map("telegram_reminder_sent_at")
+```
+
+Same deduplication stamp for task reminders.
+
 ### Migrations
+
+All migrations are idempotent (`IF NOT EXISTS`):
 
 ```sql
 -- packages/database/prisma/migrations/add_telegram_chat_id.sql  (2026-03-20)
@@ -105,9 +135,28 @@ ALTER TABLE public.doctors ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
 ALTER TABLE public.doctors
   ADD COLUMN IF NOT EXISTS telegram_notify_booking BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS telegram_notify_form    BOOLEAN NOT NULL DEFAULT true;
-```
 
-Both migrations are idempotent (`IF NOT EXISTS` / `DEFAULT true` means existing doctors keep all notifications enabled).
+-- packages/database/prisma/migrations/add-telegram-reminders.sql  (2026-04-09)
+ALTER TABLE public.doctors
+  ADD COLUMN IF NOT EXISTS telegram_notify_reminder_confirmed BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS telegram_notify_reminder_pending   BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS telegram_reminder_offset_minutes   INTEGER NOT NULL DEFAULT 60;
+ALTER TABLE public.bookings
+  ADD COLUMN IF NOT EXISTS telegram_reminder_sent_at TIMESTAMP(3);
+
+-- packages/database/prisma/migrations/add-telegram-task-reminders.sql  (2026-04-09)
+ALTER TABLE public.doctors
+  ADD COLUMN IF NOT EXISTS telegram_notify_task_reminder         BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS telegram_task_reminder_offset_minutes INTEGER NOT NULL DEFAULT 60;
+ALTER TABLE medical_records.tasks
+  ADD COLUMN IF NOT EXISTS telegram_reminder_sent_at TIMESTAMP(3);
+
+-- packages/database/prisma/migrations/add-telegram-daily-summary.sql  (2026-04-09)
+ALTER TABLE public.doctors
+  ADD COLUMN IF NOT EXISTS telegram_daily_summary_enabled  BOOLEAN    NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS telegram_daily_summary_time     VARCHAR(5) NOT NULL DEFAULT '08:00',
+  ADD COLUMN IF NOT EXISTS telegram_daily_summary_sent_at  TIMESTAMP(3);
+```
 
 ---
 
@@ -117,71 +166,99 @@ Both migrations are idempotent (`IF NOT EXISTS` / `DEFAULT true` means existing 
 
 | File | Purpose |
 |---|---|
-| `apps/api/src/lib/telegram.ts` | Notification library — `sendTelegramMessage`, `sendNewBookingTelegram`, `sendFormSubmittedTelegram`, `isTelegramConfigured` |
-| `packages/database/prisma/migrations/add-telegram-notify-toggles.sql` | DB migration for per-type toggle columns |
-| `apps/api/src/app/api/telegram/webhook/route.ts` | Bot webhook — echoes the sender's Chat ID back to them |
-| `apps/api/src/app/api/doctors/[slug]/telegram/route.ts` | GET / PUT / DELETE — manage a doctor's `telegramChatId` |
-| `packages/database/prisma/migrations/add_telegram_chat_id.sql` | DB migration |
+| `apps/api/src/lib/telegram.ts` | Notification library — all send functions and interfaces |
+| `apps/api/src/app/api/telegram/webhook/route.ts` | Bot webhook — echoes Chat ID back to doctor |
+| `apps/api/src/app/api/doctors/[slug]/telegram/route.ts` | GET / PUT / DELETE — manage all Telegram settings |
+| `apps/api/src/app/api/cron/telegram-reminders/route.ts` | Cron endpoint — appointment reminders |
+| `apps/api/src/app/api/cron/telegram-task-reminders/route.ts` | Cron endpoint — task reminders |
+| `apps/api/src/app/api/cron/telegram-daily-summary/route.ts` | Cron endpoint — daily agenda summary |
+| `packages/database/prisma/migrations/add_telegram_chat_id.sql` | Migration |
+| `packages/database/prisma/migrations/add-telegram-notify-toggles.sql` | Migration |
+| `packages/database/prisma/migrations/add-telegram-reminders.sql` | Migration |
+| `packages/database/prisma/migrations/add-telegram-task-reminders.sql` | Migration |
+| `packages/database/prisma/migrations/add-telegram-daily-summary.sql` | Migration |
 
 ### Modified files
 
 | File | Change |
 |---|---|
-| `packages/database/prisma/schema.prisma` | Added `telegramChatId` field to `Doctor` model |
-| `apps/api/src/app/api/appointments/bookings/route.ts` | Added Telegram dispatch after booking creation |
-| `apps/api/src/app/api/appointment-form/route.ts` | Added Telegram dispatch after form submission |
-| `apps/doctor/src/app/dashboard/mi-perfil/page.tsx` | Added Telegram card to Integraciones tab |
+| `packages/database/prisma/schema.prisma` | Added 11 Telegram fields to Doctor, 1 to Booking, 1 to Task |
+| `apps/api/src/app/api/appointments/bookings/route.ts` | Added 🆕 Telegram dispatch after PENDING booking |
+| `apps/api/src/app/api/appointment-form/route.ts` | Added 📝 Telegram dispatch after form submission |
+| `apps/doctor/src/app/dashboard/mi-perfil/page.tsx` | Added full Telegram settings UI to Integraciones tab |
 
 ---
 
 ## API Reference
 
 ### `GET /api/doctors/[slug]/telegram`
-Returns the doctor's current Telegram Chat ID.
+
+Returns the doctor's current Telegram settings.
 
 **Auth:** Doctor JWT required
 
 **Response:**
 ```json
-{ "chatId": "123456789", "notifyBooking": true, "notifyForm": true }
-// or
-{ "chatId": null, "notifyBooking": true, "notifyForm": true }
+{
+  "chatId": "123456789",
+  "notifyBooking": true,
+  "notifyForm": true,
+  "notifyReminderConfirmed": true,
+  "notifyReminderPending": true,
+  "reminderOffsetMinutes": 60,
+  "notifyTaskReminder": true,
+  "taskReminderOffsetMinutes": 60,
+  "dailySummaryEnabled": false,
+  "dailySummaryTime": "08:00"
+}
 ```
+
+`chatId` is `null` if not set. `telegramDailySummarySentAt` is server-only and never returned.
 
 ---
 
 ### `PUT /api/doctors/[slug]/telegram`
+
 Updates the doctor's Telegram settings. All fields are optional — send only what you want to change.
 
 **Auth:** Doctor JWT required
 
 **Body (all optional, at least one required):**
 ```json
-{ "chatId": "123456789", "notifyBooking": true, "notifyForm": false }
+{
+  "chatId": "123456789",
+  "notifyBooking": true,
+  "notifyForm": false,
+  "notifyReminderConfirmed": true,
+  "notifyReminderPending": false,
+  "reminderOffsetMinutes": 30,
+  "notifyTaskReminder": true,
+  "taskReminderOffsetMinutes": 60,
+  "dailySummaryEnabled": true,
+  "dailySummaryTime": "07:00"
+}
 ```
 
-**Response:**
-```json
-{ "chatId": "123456789", "notifyBooking": true, "notifyForm": false }
-```
+**Validations:**
+- `reminderOffsetMinutes` and `taskReminderOffsetMinutes`: must be one of `[15, 30, 60, 120, 240, 1440]`
+- `dailySummaryTime`: must match `/^\d{2}:00$/` (whole hours only, e.g. `"07:00"`)
+
+**Response:** same shape as GET
 
 ---
 
 ### `DELETE /api/doctors/[slug]/telegram`
-Removes the doctor's Telegram Chat ID (disables notifications).
+
+Removes the doctor's Telegram Chat ID (disables all notifications). Toggle preferences are retained in the DB.
 
 **Auth:** Doctor JWT required
 
-**Response:**
-```json
-{ "chatId": null, "notifyBooking": true, "notifyForm": true }
-```
-
-> Toggle values returned reflect the current DB state (which remains at their last saved values — removing the Chat ID does not reset the toggles in the DB).
+**Response:** same shape as GET with `chatId: null`
 
 ---
 
 ### `POST /api/telegram/webhook`
+
 Receives Telegram updates (messages sent to the bot). Replies to the sender with their Chat ID.
 
 **Auth:** None — public endpoint (called by Telegram servers)
@@ -190,20 +267,69 @@ Receives Telegram updates (messages sent to the bot). Replies to the sender with
 
 ---
 
+### `POST /api/cron/telegram-reminders`
+
+Sends appointment reminder notifications. Called every 15 min by the Railway cron service.
+
+**Auth:** `Authorization: Bearer <CRON_SECRET>`
+
+**Logic:**
+- Fetches CONFIRMED and PENDING bookings for today and tomorrow with no `telegramReminderSentAt`
+- Per-doctor: computes `appointmentTime − offset` using "fake UTC" arithmetic (MX local times treated as UTC-0)
+- Fires if the trigger time falls in the current 15-min window
+- Stamps `telegramReminderSentAt` after send to prevent duplicates
+
+**Response:** `{ success, sent, skipped, errors? }`
+
+---
+
+### `POST /api/cron/telegram-task-reminders`
+
+Sends task reminder notifications. Called every 15 min by the Railway cron service.
+
+**Auth:** `Authorization: Bearer <CRON_SECRET>`
+
+**Logic:**
+- Fetches PENDIENTE and EN_PROGRESO tasks for today and tomorrow with no `telegramReminderSentAt`
+- Tasks without a `startTime` use `07:00` MX as their effective reference time
+- Same fake UTC offset arithmetic as appointment reminders
+- Stamps `telegramReminderSentAt` after send
+
+**Response:** `{ success, sent, skipped, errors? }`
+
+---
+
+### `POST /api/cron/telegram-daily-summary`
+
+Sends the daily agenda summary. Called every 15 min by the Railway cron service; fires at most once per doctor per calendar day.
+
+**Auth:** `Authorization: Bearer <CRON_SECRET>`
+
+**Logic:**
+- "Today" is always the Mexico City calendar date at cron fire time
+- Per-doctor: checks if already sent today (compares `telegramDailySummarySentAt` as MX local date)
+- Checks if now falls in the doctor's configured 15-min send window (whole-hour comparison)
+- Fetches all CONFIRMED + PENDING appointments for the full day (00:00–23:59 MX)
+- Fetches all tasks regardless of status for the full day
+- Appointments sorted in application code to handle mixed slot/freeform bookings
+- Tasks without `startTime` sorted to bottom
+- Stamps `telegramDailySummarySentAt` on Doctor after send
+
+**Response:** `{ success, sent, skipped, errors? }`
+
+---
+
 ## Notification Library (`apps/api/src/lib/telegram.ts`)
 
 ### `isTelegramConfigured(): boolean`
-Returns `true` if `TELEGRAM_BOT_TOKEN` env var is set. Used as a guard before any Telegram call — if not configured, the notification is silently skipped (no error thrown).
+Returns `true` if `TELEGRAM_BOT_TOKEN` env var is set. Used as a guard before any Telegram call.
 
 ### `sendTelegramMessage(chatId, text): Promise<boolean>`
-Low-level function. Sends an HTML-formatted message to any Telegram chat. Returns `true` on success, `false` on failure (logs error, does not throw).
+Low-level function. Sends an HTML-formatted message (`parse_mode: HTML`). Returns `true` on success, `false` on failure — never throws.
 
 ### `sendNewBookingTelegram(chatId, details): Promise<boolean>`
-Formats a pending booking notification and calls `sendTelegramMessage`. `details` shape: `NewBookingDetails`.
-
-Message format:
 ```
-🗓 Nueva cita pendiente
+🆕 Nueva cita pendiente
 
 Paciente: {patientName}
 Tel: {patientPhone}
@@ -213,14 +339,9 @@ Hora: {startTime} - {endTime}
 Código: {confirmationCode}
 ```
 
-Date is parsed as `details.date.substring(0, 10) + 'T12:00:00Z'` to avoid timezone shifts, then formatted in `es-MX` locale with `timeZone: 'America/Mexico_City'`.
-
 ### `sendFormSubmittedTelegram(chatId, details): Promise<boolean>`
-Formats a pre-consultation form submission notification and calls `sendTelegramMessage`. `details` shape: `FormSubmittedDetails` (`patientName`, `date: string | null`, `startTime: string | null`). Both `date` and `startTime` are optional — freeform bookings may not have them.
-
-Message format:
 ```
-📋 Formulario recibido
+📝 Formulario recibido
 
 Paciente: {patientName}
 Fecha: {weekday, day month year}   ← omitted if date is null
@@ -229,38 +350,71 @@ Hora: {startTime}                  ← omitted if startTime is null
 El paciente llenó su formulario pre-consulta.
 ```
 
+### `sendAppointmentReminderTelegram(chatId, details): Promise<boolean>`
+
+Header emoji is dynamic based on status:
+```
+✅ Recordatorio de cita · Agendada    ← status CONFIRMED
+⏳ Recordatorio de cita · Pendiente   ← status PENDING
+
+Paciente: {patientName}
+Tel: {patientPhone}
+Servicio: {serviceName}              ← omitted if no service
+Fecha: {weekday, day month year}
+Hora: {startTime} - {endTime}
+Código: {confirmationCode}
+```
+
+### `sendTaskReminderTelegram(chatId, details): Promise<boolean>`
+```
+📌 Recordatorio de tarea
+
+{title}
+{description}                        ← omitted if null
+
+Fecha: {weekday, day month year}
+Hora: {startTime} - {endTime}        ← omitted if no startTime
+Paciente: {patientName}              ← omitted if null
+Prioridad: 🔴 Alta | 🟡 Media | 🟢 Baja
+Categoría: {category}
+```
+
+### `sendDailySummaryTelegram(chatId, date, appointments, tasks): Promise<boolean>`
+```
+📅 Agenda del día
+{weekday, day month year}
+
+🗓 CITAS (N)
+• 09:00 - 10:00 | Juan García | Consulta general | Agendada
+• 11:00 - 12:00 | María López | Agendada
+
+📋 TAREAS (N)
+• 08:00 | Revisar resultados | Juan García 🔴
+• Sin hora | Llamar al laboratorio 🟡
+```
+
 ---
 
 ## Booking Route Integration
 
 Location: `apps/api/src/app/api/appointments/bookings/route.ts`
 
-The Telegram block runs after the SMS block, fire-and-forget (`.then().catch()` — never awaited, never blocks the HTTP response):
+Fire-and-forget dispatch for new PENDING bookings:
 
 ```typescript
-if (bookingStatus === 'PENDING' && isTelegramConfigured()) {
+if (bookingStatus === 'PENDING' && doctor.telegramNotifyBooking && isTelegramConfigured()) {
   prisma.doctor.findUnique({
     where: { id: slot.doctorId },
     select: { telegramChatId: true },
   }).then((doc) => {
     if (!doc?.telegramChatId) return;
-    return sendNewBookingTelegram(doc.telegramChatId, {
-      patientName,
-      patientPhone,
-      serviceName: serviceName ?? null,
-      date: slot.date.toISOString(),
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      confirmationCode,
-    });
+    return sendNewBookingTelegram(doc.telegramChatId, { ... });
   }).catch((err) => console.error('Telegram notification failed:', err));
 }
 ```
 
-Key notes:
-- Uses `slot` (from transaction result) — not `bookingWithSlot` — to avoid a null-safety issue
-- `isTelegramConfigured()` is checked first to skip the DB query entirely if no token is set
-- If the doctor has no `telegramChatId`, the `.then` returns early — no Telegram call made
+- `isTelegramConfigured()` checked first to skip the DB query if no token is set
+- Uses `slot` from transaction result — not `bookingWithSlot` — to avoid null-safety issues
 
 ---
 
@@ -268,10 +422,8 @@ Key notes:
 
 Location: `apps/api/src/app/api/appointment-form/route.ts`
 
-After marking the form as `SUBMITTED`, fires a Telegram notification to the doctor (fire-and-forget):
-
 ```typescript
-if (isTelegramConfigured() && formLink.doctor?.telegramChatId) {
+if (isTelegramConfigured() && formLink.doctor?.telegramChatId && formLink.doctor?.telegramNotifyForm) {
   sendFormSubmittedTelegram(formLink.doctor.telegramChatId, {
     patientName: formLink.patientName,
     date: appointmentDate,
@@ -280,10 +432,7 @@ if (isTelegramConfigured() && formLink.doctor?.telegramChatId) {
 }
 ```
 
-Key notes:
-- `appointmentDate` is `null` for freeform bookings (no slot) — the function handles it gracefully
-- `startTime` is also nullable for the same reason
-- The doctor's `telegramChatId` is fetched as part of the same `findUnique` that validates the token — no extra DB round-trip
+`date` and `startTime` are nullable for freeform bookings — handled gracefully.
 
 ---
 
@@ -291,29 +440,39 @@ Key notes:
 
 Location: `apps/doctor/src/app/dashboard/mi-perfil/page.tsx`
 
-The Telegram card is the second card in the **Integraciones** tab, below Google Calendar.
+The Telegram card is in the **Integraciones** tab. It is divided into sections that appear once a Chat ID is linked:
 
-**State variables:**
-- `telegramChatId` — saved value from DB (null if not set)
-- `telegramInput` — controlled input value
-- `telegramLoading` — disables buttons while saving/deleting
-- `telegramMessage` — success/error feedback
-- `telegramLoaded` — prevents re-fetching on tab re-visits
-- `telegramNotifyBooking` — whether booking notifications are enabled (default `true`)
-- `telegramNotifyForm` — whether form-submission notifications are enabled (default `true`)
-- `telegramToggleLoading` — tracks which toggle is currently saving (`"notifyBooking"` | `"notifyForm"` | `null`)
+### State variables
 
-**Load behavior:** Fetches `/api/doctors/[slug]/telegram` the first time the Integraciones tab is opened (`telegramLoaded` gate).
+| Variable | Default | Purpose |
+|---|---|---|
+| `telegramChatId` | `null` | Saved Chat ID from DB |
+| `telegramInput` | `""` | Controlled input |
+| `telegramLoading` | `false` | Disables buttons while saving |
+| `telegramMessage` | `""` | Success/error feedback |
+| `telegramLoaded` | `false` | Prevents re-fetch on tab revisits |
+| `telegramNotifyBooking` | `true` | Toggle for booking notifications |
+| `telegramNotifyForm` | `true` | Toggle for form notifications |
+| `telegramNotifyReminderConfirmed` | `true` | Toggle for confirmed reminders |
+| `telegramNotifyReminderPending` | `true` | Toggle for pending reminders |
+| `telegramReminderOffset` | `60` | Appointment reminder offset (minutes) |
+| `telegramNotifyTaskReminder` | `true` | Toggle for task reminders |
+| `telegramTaskReminderOffset` | `60` | Task reminder offset (minutes) |
+| `telegramDailySummaryEnabled` | `false` | Toggle for daily summary |
+| `telegramDailySummaryTime` | `"08:00"` | Hour to send daily summary |
 
-**Save:** PUT with `{ chatId }` → updates `telegramChatId` state + shows success message.
+### UI sections (visible only when Chat ID is set)
 
-**Remove:** DELETE → clears `telegramChatId` + `telegramInput`, resets both toggle states to `true` (matching DB defaults), and shows success message. Remove button only renders when `telegramChatId` is set.
+1. **Notificaciones instantáneas** — toggles for new booking and form submission
+2. **Recordatorios de tareas** — task reminder toggle + offset dropdown (15m, 30m, 1h, 2h, 4h, 1 día)
+3. **Recordatorios de cita** — confirmed and pending toggles + shared offset dropdown
+4. **Resumen diario** — enable toggle + hour dropdown (00:00–23:00); hour picker only shown when enabled
 
-**Active badge:** Green "Activo" badge shows in the card header when `telegramChatId` is set.
+Each toggle saves immediately (optimistic update, reverts on error). Offset dropdowns save immediately on change.
 
-**Notification toggles:** Once a Chat ID is linked, a "Tipos de notificación" section appears below the input with two toggle switches — one per notification type. Each toggle saves immediately on click (optimistic update with revert on error). Toggles are hidden when no Chat ID is set.
+**Remove:** Clears Chat ID in DB, resets all 9 state vars to defaults. Does not reset DB toggle values.
 
-The UI instructs doctors to open `@Tusalud_citas_bot` (already hardcoded — no code change needed).
+**Active badge:** Green "Activo" badge in card header when Chat ID is set.
 
 ---
 
@@ -323,95 +482,100 @@ The UI instructs doctors to open `@Tusalud_citas_bot` (already hardcoded — no 
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | `apps/api` (Railway) | Bot token from @BotFather. Format: `123456:ABC-DEFxxx` |
 
-If `TELEGRAM_BOT_TOKEN` is not set, all Telegram calls are silently skipped. No errors, no crashes.
+If `TELEGRAM_BOT_TOKEN` is not set, all Telegram calls are silently skipped (no errors, no crashes).
 
 ---
 
-## Setup Instructions (one-time, done by developer)
-
-All steps below are already completed for production. Documented here for reference or re-setup.
+## Setup Instructions (one-time, already done)
 
 ### 1. Create the bot via @BotFather
 
 - Open Telegram → search `@BotFather` → send `/newbot`
 - Pick a name and username (`@Tusalud_citas_bot`)
-- BotFather gives you a token like `7123456789:AAF...` — copy it
+- Copy the token
 
-### 2. Add the token to Railway
+### 2. Add token to Railway
 
-Railway dashboard → `api` service → Variables → add:
-```
-TELEGRAM_BOT_TOKEN=<your token>
-```
-Redeploy the `api` service.
+Railway dashboard → `api` service → Variables → add `TELEGRAM_BOT_TOKEN=<token>` → redeploy.
 
-### 3. Register the webhook (one curl command)
-
-Each doctor needs to message the bot to get their Chat ID. For the bot to be able to reply, Telegram needs to know where to send incoming messages — that's what this step does. Run it once after deploying:
+### 3. Register the webhook
 
 ```bash
 curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<your-api-domain>/api/telegram/webhook"
 ```
 
-Expected response:
-```json
-{ "ok": true, "result": true, "description": "Webhook was set" }
-```
-
-Verify at any time:
-```bash
-curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
-```
+Verify: `curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"`
 
 ---
 
 ## Doctor Setup Instructions (per doctor, done once)
 
 1. Open Telegram → search `@Tusalud_citas_bot` → press **Start**
-2. The bot auto-replies: *"Tu Chat ID es: `123456789`"*
-3. Go to dashboard → **Mi Perfil** → **Integraciones** tab → Telegram section
-4. Paste the number → click **Guardar**
-5. Green "Activo" badge appears — done
+2. Bot replies: *"Tu Chat ID es: `123456789`"*
+3. Dashboard → **Mi Perfil** → **Integraciones** → Telegram section
+4. Paste the number → **Guardar**
+5. Green "Activo" badge appears — configure notification preferences below
 
-To stop notifications: click the red ✕ button in the same section.
+To stop notifications: click the red ✕ button.
+
+---
+
+## Fake UTC Arithmetic (timezone note)
+
+Reminder windows use MX local time but avoid DST complications via "fake UTC":
+
+```typescript
+// MX local time as a string, e.g. "2026-04-09 10:30:00"
+const nowMxStr = new Date().toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
+const nowMxHHMM = nowMxStr.slice(11, 16); // "10:30"
+
+// Treat HH:MM as if it were UTC — DST cancels out since both sides use the same convention
+const nowFakeMs = Date.parse(`2026-01-01T${nowMxHHMM}:00Z`);
+const apptFakeMs = Date.parse(`2026-01-01T${apptHHMM}:00Z`);
+const triggerFakeMs = apptFakeMs - offsetMinutes * 60 * 1000;
+// Fire if triggerFakeMs falls in [nowFakeMs, nowFakeMs + 15min)
+```
 
 ---
 
 ## Telegram Bot API Reference
 
-All calls use the REST API:
 ```
 POST https://api.telegram.org/bot<TOKEN>/sendMessage
 ```
 
-Required parameters:
-- `chat_id` — the doctor's Telegram numeric ID (stored as TEXT in DB)
-- `text` — message content
-- `parse_mode` — `"HTML"` (supports `<b>`, `<code>` tags)
+Parameters: `chat_id`, `text`, `parse_mode: "HTML"` (supports `<b>`, `<code>` tags).
 
-Telegram chat IDs are 64-bit integers. Stored as `TEXT` in PostgreSQL to avoid integer overflow issues.
+Chat IDs are 64-bit integers, stored as `TEXT` in PostgreSQL to avoid overflow issues.
 
 ---
 
 ## Troubleshooting
 
-### Doctor not receiving notifications
-
+### Doctor not receiving instant notifications (booking / form)
 1. Check `TELEGRAM_BOT_TOKEN` is set on the `api` Railway service
-2. Check the doctor has a `telegramChatId` saved (visible in Integraciones tab — "Activo" badge)
-3. Check Railway deploy logs for `Telegram notification failed:` or `Telegram form-submitted notification failed:` errors
-4. Verify the bot token is valid: `curl "https://api.telegram.org/bot<TOKEN>/getMe"`
+2. Confirm doctor has Chat ID saved (green "Activo" badge in Integraciones)
+3. Check the relevant toggle is on (Notificaciones instantáneas section)
+4. Check Railway API logs for `Telegram notification failed:` errors
+
+### Doctor not receiving scheduled reminders
+1. Check Railway cron logs — `sent=0` means no eligible records found
+2. Confirm doctor has `telegramChatId` set and the relevant toggle is on
+3. Confirm the offset is reasonable (e.g. 1-day-before only fires if the reminder hasn't already been sent)
+4. Check `telegramReminderSentAt` on the booking/task — if already stamped, it won't fire again
 
 ### Bot doesn't reply when doctor messages it
-
-1. Verify the webhook is registered: `curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"`
+1. Verify webhook: `curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"`
 2. Check `url` field matches `https://<API_DOMAIN>/api/telegram/webhook`
-3. Check Railway logs for the `api` service for errors on `POST /api/telegram/webhook`
+3. Check API service logs for errors on `POST /api/telegram/webhook`
 
-### `invalid date` in notification message
+### Daily summary not arriving
+1. Check Railway cron logs for `[telegram-daily-summary]` lines
+2. Confirm `telegramDailySummaryEnabled = true` and correct `telegramDailySummaryTime` in DB
+3. Check `telegramDailySummarySentAt` — if stamped today (MX date), it won't resend until tomorrow
 
-Would appear as "Invalid Date" in the formatted date line. The date is parsed as `date.substring(0, 10) + 'T12:00:00Z'` — if the incoming `date` string is malformed this will produce an invalid Date object. Check the `date` column format in `AppointmentSlot` — should be a valid `DateTime`.
+### `invalid date` in notification
+Date is parsed as `date.substring(0, 10) + 'T12:00:00Z'`. Check that the `date` field is a valid `DateTime` in the source table.
 
 ### Webhook registration fails
-
-Telegram requires the webhook URL to be **HTTPS** and reachable from the internet. Local development URLs (`localhost`) will not work. Register only against the production Railway API URL.
+Telegram requires the webhook URL to be HTTPS and internet-reachable. `localhost` URLs will not work.
