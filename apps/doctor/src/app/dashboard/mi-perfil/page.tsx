@@ -122,6 +122,8 @@ export default function MiPerfilPage() {
   const [telegramNotifyReminderConfirmed, setTelegramNotifyReminderConfirmed] = useState(true);
   const [telegramNotifyReminderPending, setTelegramNotifyReminderPending] = useState(true);
   const [telegramReminderOffset, setTelegramReminderOffset] = useState(60);
+  const [telegramNotifyTaskReminder, setTelegramNotifyTaskReminder] = useState(true);
+  const [telegramTaskReminderOffset, setTelegramTaskReminderOffset] = useState(60);
   const [telegramToggleLoading, setTelegramToggleLoading] = useState<string | null>(null);
 
   // Active sessions state
@@ -291,6 +293,8 @@ export default function MiPerfilPage() {
       setTelegramNotifyReminderConfirmed(data.notifyReminderConfirmed ?? true);
       setTelegramNotifyReminderPending(data.notifyReminderPending ?? true);
       setTelegramReminderOffset(data.reminderOffsetMinutes ?? 60);
+      setTelegramNotifyTaskReminder(data.notifyTaskReminder ?? true);
+      setTelegramTaskReminderOffset(data.taskReminderOffsetMinutes ?? 60);
     } catch {
       setTelegramChatId(null);
     } finally {
@@ -299,7 +303,7 @@ export default function MiPerfilPage() {
   };
 
   const handleTelegramToggle = async (
-    field: "notifyBooking" | "notifyForm" | "notifyReminderConfirmed" | "notifyReminderPending",
+    field: "notifyBooking" | "notifyForm" | "notifyReminderConfirmed" | "notifyReminderPending" | "notifyTaskReminder",
     value: boolean
   ) => {
     if (!slug) return;
@@ -308,7 +312,8 @@ export default function MiPerfilPage() {
     if (field === "notifyBooking") setTelegramNotifyBooking(value);
     else if (field === "notifyForm") setTelegramNotifyForm(value);
     else if (field === "notifyReminderConfirmed") setTelegramNotifyReminderConfirmed(value);
-    else setTelegramNotifyReminderPending(value);
+    else if (field === "notifyReminderPending") setTelegramNotifyReminderPending(value);
+    else setTelegramNotifyTaskReminder(value);
     try {
       const res = await authFetch(`${API_URL}/api/doctors/${slug}/telegram`, {
         method: "PUT",
@@ -321,7 +326,8 @@ export default function MiPerfilPage() {
       if (field === "notifyBooking") setTelegramNotifyBooking(!value);
       else if (field === "notifyForm") setTelegramNotifyForm(!value);
       else if (field === "notifyReminderConfirmed") setTelegramNotifyReminderConfirmed(!value);
-      else setTelegramNotifyReminderPending(!value);
+      else if (field === "notifyReminderPending") setTelegramNotifyReminderPending(!value);
+      else setTelegramNotifyTaskReminder(!value);
     } finally {
       setTelegramToggleLoading(null);
     }
@@ -335,6 +341,20 @@ export default function MiPerfilPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reminderOffsetMinutes: minutes }),
+      });
+    } catch {
+      // silent — offset will be re-fetched on next tab open
+    }
+  };
+
+  const handleTelegramTaskReminderOffsetChange = async (minutes: number) => {
+    if (!slug) return;
+    setTelegramTaskReminderOffset(minutes);
+    try {
+      await authFetch(`${API_URL}/api/doctors/${slug}/telegram`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskReminderOffsetMinutes: minutes }),
       });
     } catch {
       // silent — offset will be re-fetched on next tab open
@@ -376,6 +396,8 @@ export default function MiPerfilPage() {
       setTelegramNotifyReminderConfirmed(true);
       setTelegramNotifyReminderPending(true);
       setTelegramReminderOffset(60);
+      setTelegramNotifyTaskReminder(true);
+      setTelegramTaskReminderOffset(60);
       setTelegramMessage({ type: "success", text: "Telegram desconectado." });
     } catch (err) {
       setTelegramMessage({ type: "error", text: err instanceof Error ? err.message : "Error al desconectar" });
@@ -908,7 +930,44 @@ export default function MiPerfilPage() {
                         })}
                       </div>
 
-                      {/* Reminder notifications */}
+                      {/* Task reminder notifications */}
+                      <div className="space-y-2 border-t border-gray-100 pt-3">
+                        <p className="text-xs font-medium text-gray-700">Recordatorios de tareas</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs text-gray-500">Enviar recordatorio</p>
+                          <select
+                            value={telegramTaskReminderOffset}
+                            onChange={(e) => handleTelegramTaskReminderOffsetChange(Number(e.target.value))}
+                            className="text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          >
+                            <option value={15}>15 min antes</option>
+                            <option value={30}>30 min antes</option>
+                            <option value={60}>1 hora antes</option>
+                            <option value={120}>2 horas antes</option>
+                            <option value={240}>4 horas antes</option>
+                            <option value={1440}>1 día antes</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-medium text-gray-800">Recordatorio de tareas pendientes</p>
+                            <p className="text-xs text-gray-500">Tareas sin hora usan las 07:00 como referencia</p>
+                          </div>
+                          <button
+                            onClick={() => handleTelegramToggle("notifyTaskReminder", !telegramNotifyTaskReminder)}
+                            disabled={!!telegramToggleLoading}
+                            className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${telegramNotifyTaskReminder ? "bg-[#229ED9]" : "bg-gray-200"}`}
+                            role="switch"
+                            aria-checked={telegramNotifyTaskReminder}
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${telegramNotifyTaskReminder ? "translate-x-4" : "translate-x-0"}`}>
+                              {telegramToggleLoading === "notifyTaskReminder" && <Loader2 className="w-3 h-3 animate-spin text-gray-400 mt-0.5 ml-0.5" />}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Appointment reminder notifications */}
                       <div className="space-y-2 border-t border-gray-100 pt-3">
                         <p className="text-xs font-medium text-gray-700">Recordatorios de cita</p>
                         <div className="flex items-center justify-between gap-3">

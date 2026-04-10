@@ -84,6 +84,52 @@ export async function sendFormSubmittedTelegram(
   return sendTelegramMessage(chatId, message);
 }
 
+export interface TaskReminderDetails {
+  title: string;
+  description: string | null;
+  date: string;             // YYYY-MM-DD (MX local date)
+  startTime: string | null; // HH:MM, null if no time set (reminder sent at 07:00)
+  endTime: string | null;
+  priority: string;         // ALTA | MEDIA | BAJA
+  category: string;
+  patientName: string | null;
+}
+
+/**
+ * Send a scheduled task reminder to the doctor
+ */
+export async function sendTaskReminderTelegram(
+  chatId: string,
+  details: TaskReminderDetails
+): Promise<boolean> {
+  const formattedDate = new Date(details.date + 'T12:00:00Z').toLocaleDateString('es-MX', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'America/Mexico_City',
+  });
+
+  const priorityLabel: Record<string, string> = { ALTA: '🔴 Alta', MEDIA: '🟡 Media', BAJA: '🟢 Baja' };
+  const timeLine = details.startTime
+    ? `\nHora: ${details.startTime}${details.endTime ? ` - ${details.endTime}` : ''}`
+    : '';
+  const descriptionLine = details.description ? `\n\n${details.description}` : '';
+  const patientLine = details.patientName ? `\nPaciente: ${details.patientName}` : '';
+
+  const message =
+    `📋 <b>Recordatorio de tarea</b>\n` +
+    `\n<b>${details.title}</b>` +
+    descriptionLine +
+    `\n\nFecha: ${formattedDate}` +
+    timeLine +
+    patientLine +
+    `\nPrioridad: ${priorityLabel[details.priority] ?? details.priority}` +
+    `\nCategoría: ${details.category}`;
+
+  return sendTelegramMessage(chatId, message);
+}
+
 export interface AppointmentReminderDetails {
   patientName: string;
   patientPhone: string;

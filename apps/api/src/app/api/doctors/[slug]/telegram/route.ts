@@ -23,6 +23,8 @@ export async function GET(
         telegramNotifyReminderConfirmed: true,
         telegramNotifyReminderPending: true,
         telegramReminderOffsetMinutes: true,
+        telegramNotifyTaskReminder: true,
+        telegramTaskReminderOffsetMinutes: true,
       },
     });
 
@@ -37,6 +39,8 @@ export async function GET(
       notifyReminderConfirmed: doctor.telegramNotifyReminderConfirmed,
       notifyReminderPending: doctor.telegramNotifyReminderPending,
       reminderOffsetMinutes: doctor.telegramReminderOffsetMinutes,
+      notifyTaskReminder: doctor.telegramNotifyTaskReminder,
+      taskReminderOffsetMinutes: doctor.telegramTaskReminderOffsetMinutes,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -55,7 +59,7 @@ export async function PUT(
     const { slug } = await params;
     await requireDoctorAuth(request);
 
-    const { chatId, notifyBooking, notifyForm, notifyReminderConfirmed, notifyReminderPending, reminderOffsetMinutes } = await request.json();
+    const { chatId, notifyBooking, notifyForm, notifyReminderConfirmed, notifyReminderPending, reminderOffsetMinutes, notifyTaskReminder, taskReminderOffsetMinutes } = await request.json();
 
     const updateData: {
       telegramChatId?: string;
@@ -64,6 +68,8 @@ export async function PUT(
       telegramNotifyReminderConfirmed?: boolean;
       telegramNotifyReminderPending?: boolean;
       telegramReminderOffsetMinutes?: number;
+      telegramNotifyTaskReminder?: boolean;
+      telegramTaskReminderOffsetMinutes?: number;
     } = {};
 
     if (chatId !== undefined) {
@@ -83,6 +89,14 @@ export async function PUT(
       }
       updateData.telegramReminderOffsetMinutes = offset;
     }
+    if (notifyTaskReminder !== undefined) updateData.telegramNotifyTaskReminder = Boolean(notifyTaskReminder);
+    if (taskReminderOffsetMinutes !== undefined) {
+      const offset = Number(taskReminderOffsetMinutes);
+      if (![15, 30, 60, 120, 240, 1440].includes(offset)) {
+        return NextResponse.json({ error: 'Invalid taskReminderOffsetMinutes' }, { status: 400 });
+      }
+      updateData.telegramTaskReminderOffsetMinutes = offset;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
@@ -98,6 +112,8 @@ export async function PUT(
         telegramNotifyReminderConfirmed: true,
         telegramNotifyReminderPending: true,
         telegramReminderOffsetMinutes: true,
+        telegramNotifyTaskReminder: true,
+        telegramTaskReminderOffsetMinutes: true,
       },
     });
 
@@ -108,6 +124,8 @@ export async function PUT(
       notifyReminderConfirmed: doctor.telegramNotifyReminderConfirmed,
       notifyReminderPending: doctor.telegramNotifyReminderPending,
       reminderOffsetMinutes: doctor.telegramReminderOffsetMinutes,
+      notifyTaskReminder: doctor.telegramNotifyTaskReminder,
+      taskReminderOffsetMinutes: doctor.telegramTaskReminderOffsetMinutes,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -129,13 +147,26 @@ export async function DELETE(
     const doctor = await prisma.doctor.update({
       where: { slug },
       data: { telegramChatId: null },
-      select: { telegramNotifyBooking: true, telegramNotifyForm: true },
+      select: {
+        telegramNotifyBooking: true,
+        telegramNotifyForm: true,
+        telegramNotifyReminderConfirmed: true,
+        telegramNotifyReminderPending: true,
+        telegramReminderOffsetMinutes: true,
+        telegramNotifyTaskReminder: true,
+        telegramTaskReminderOffsetMinutes: true,
+      },
     });
 
     return NextResponse.json({
       chatId: null,
       notifyBooking: doctor.telegramNotifyBooking,
       notifyForm: doctor.telegramNotifyForm,
+      notifyReminderConfirmed: doctor.telegramNotifyReminderConfirmed,
+      notifyReminderPending: doctor.telegramNotifyReminderPending,
+      reminderOffsetMinutes: doctor.telegramReminderOffsetMinutes,
+      notifyTaskReminder: doctor.telegramNotifyTaskReminder,
+      taskReminderOffsetMinutes: doctor.telegramTaskReminderOffsetMinutes,
     });
   } catch (error) {
     if (error instanceof AuthError) {

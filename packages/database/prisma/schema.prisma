@@ -170,6 +170,8 @@ model Doctor {
   telegramNotifyReminderConfirmed   Boolean   @default(true) @map("telegram_notify_reminder_confirmed")
   telegramNotifyReminderPending     Boolean   @default(true) @map("telegram_notify_reminder_pending")
   telegramReminderOffsetMinutes     Int       @default(60)   @map("telegram_reminder_offset_minutes")
+  telegramNotifyTaskReminder        Boolean   @default(true) @map("telegram_notify_task_reminder")
+  telegramTaskReminderOffsetMinutes Int       @default(60)   @map("telegram_task_reminder_offset_minutes")
 
   // Appointment reminder emails (sent automatically 2h before)
   reminderEmailEnabled      Boolean   @default(false) @map("reminder_email_enabled")
@@ -1792,6 +1794,9 @@ model Task {
 
   // Google Calendar sync
   googleEventId String?   @map("google_event_id")
+
+  // Telegram reminder (sent automatically before due date+time, per doctor offset)
+  telegramReminderSentAt DateTime? @map("telegram_reminder_sent_at")
 
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
