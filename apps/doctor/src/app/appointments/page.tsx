@@ -359,6 +359,7 @@ export default function AppointmentsV2Page() {
           slotsHook.fetchSlots();
         }}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
+        onUpdatePatientLink={bookingsHook.updatePatientLink}
         onDeleteBooking={async (id, name) => {
           await bookingsHook.deleteBooking(id, name);
           slotsHook.fetchSlots();

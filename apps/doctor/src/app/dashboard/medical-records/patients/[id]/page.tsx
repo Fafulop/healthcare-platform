@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { usePatientProfile } from '../_components/usePatientProfile';
@@ -10,6 +10,38 @@ interface RecentNote {
   id: string;
   content: string;
   updatedAt: string;
+}
+
+interface PatientBooking {
+  id: string;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  serviceName: string | null;
+  status: string;
+  appointmentMode: string | null;
+}
+
+function BookingStatusPill({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    CONFIRMED:  'bg-blue-100 text-blue-700',
+    PENDING:    'bg-yellow-100 text-yellow-700',
+    COMPLETED:  'bg-green-100 text-green-700',
+    CANCELLED:  'bg-red-100 text-red-700',
+    NO_SHOW:    'bg-orange-100 text-orange-700',
+  };
+  const label: Record<string, string> = {
+    CONFIRMED: 'Agendada',
+    PENDING:   'Pendiente',
+    COMPLETED: 'Completada',
+    CANCELLED: 'Cancelada',
+    NO_SHOW:   'No asistió',
+  };
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
+      {label[status] ?? status}
+    </span>
+  );
 }
 
 function parseNoteTitle(content: string): string {
@@ -31,6 +63,7 @@ export default function PatientProfilePage() {
   } = usePatientProfile();
 
   const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
+  const [patientBookings, setPatientBookings] = useState<PatientBooking[]>([]);
 
   useEffect(() => {
     if (!patientId) return;
@@ -38,6 +71,12 @@ export default function PatientProfilePage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setRecentNotes(d.data.slice(0, 3));
+      })
+      .catch(() => {});
+    fetch(`/api/medical-records/patients/${patientId}/bookings`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setPatientBookings(d.data);
       })
       .catch(() => {});
   }, [patientId]);
@@ -305,6 +344,39 @@ export default function PatientProfilePage() {
                 >
                   Crear primera consulta
                 </Link>
+              </div>
+            )}
+          </div>
+          {/* Citas (linked bookings) */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <CalendarDays className="w-5 h-5" />
+              Citas
+            </h2>
+            {patientBookings.length > 0 ? (
+              <div className="space-y-2">
+                {patientBookings.map((b) => (
+                  <div key={b.id} className="flex items-center justify-between px-3 py-2.5 rounded-md border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors">
+                    <div>
+                      <p className="text-sm text-gray-800">
+                        {b.date
+                          ? new Date(b.date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : '—'}
+                        {b.startTime && ` · ${b.startTime}`}
+                        {b.endTime && `–${b.endTime}`}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {b.serviceName || '—'}
+                      </p>
+                    </div>
+                    <BookingStatusPill status={b.status} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-gray-500">
+                <CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm">No hay citas vinculadas a este paciente.</p>
               </div>
             )}
           </div>

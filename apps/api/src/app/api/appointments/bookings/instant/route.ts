@@ -32,6 +32,7 @@ export async function POST(request: Request) {
       appointmentMode,
       locationId,     // optional — links to ClinicLocation
       isRescheduled,
+      patientId,
     } = body;
 
     if (!doctorId || !date || !startTime || !duration || !patientName) {
@@ -180,6 +181,7 @@ export async function POST(request: Request) {
             reviewToken,
             status: 'CONFIRMED',
             isRescheduled: isRescheduled === true,
+            patientId: patientId || null,
             confirmedAt: new Date(),
           },
         });

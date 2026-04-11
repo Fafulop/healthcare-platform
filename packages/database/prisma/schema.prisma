@@ -497,10 +497,15 @@ model Booking {
   // Telemedicine (Google Meet link, created when appointmentMode = TELEMEDICINA)
   meetLink           String?       @map("meet_link")
 
+  // Link to Patient record in medical_records (set by doctor after booking arrives)
+  // null = not yet linked. Always optional — existing bookings are unaffected.
+  patientId          String?       @map("patient_id")
+
   // Relations
   slot               AppointmentSlot? @relation(fields: [slotId], references: [id], onDelete: Cascade)
   doctor             Doctor           @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   service            Service?         @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  patient            Patient?         @relation(fields: [patientId], references: [id], onDelete: SetNull)
   review             Review?
   formLink           AppointmentFormLink?
 
@@ -513,6 +518,7 @@ model Booking {
   @@index([doctorId, date])
   @@index([patientEmail])
   @@index([reviewToken])
+  @@index([patientId])
   @@schema("public")
 }
 
@@ -1405,6 +1411,7 @@ model Patient {
   auditLogs            PatientAuditLog[]
   tasks                Task[]
   patientNotes         PatientNote[]
+  bookings             Booking[]
 
   @@unique([doctorId, internalId])
   @@index([doctorId, status])

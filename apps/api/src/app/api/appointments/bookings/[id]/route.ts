@@ -93,7 +93,7 @@ export async function GET(
   }
 }
 
-// PATCH - Update booking status OR extendedBlockMinutes
+// PATCH - Update booking status OR extendedBlockMinutes OR patientId
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -101,7 +101,40 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status: newStatus, extendedBlockMinutes, confirmationCode: bodyConfirmationCode } = body;
+    const { status: newStatus, extendedBlockMinutes, patientId, confirmationCode: bodyConfirmationCode } = body;
+
+    // ── Patient link update (no status change, no block change) ───────────────
+    if (patientId !== undefined && newStatus === undefined && extendedBlockMinutes === undefined) {
+      const auth = await validateAuthToken(request);
+      const { role: callerRole, doctorId: callerDoctorId } = auth;
+
+      const booking = await prisma.booking.findUnique({ where: { id } });
+      if (!booking) {
+        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+      }
+      if (callerRole === 'DOCTOR' && booking.doctorId !== callerDoctorId) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      }
+
+      // If linking (not unlinking), verify patient belongs to this doctor
+      if (patientId !== null) {
+        const patient = await prisma.patient.findUnique({ where: { id: patientId }, select: { doctorId: true } });
+        if (!patient) {
+          return NextResponse.json({ success: false, error: 'Patient not found' }, { status: 404 });
+        }
+        if (patient.doctorId !== booking.doctorId) {
+          return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+        }
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id },
+        data: { patientId: patientId ?? null },
+        select: { id: true, patientId: true },
+      });
+      return NextResponse.json({ success: true, data: updated });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // ── Extended block update (no status change) ──────────────────────────────
     if (extendedBlockMinutes !== undefined && newStatus === undefined) {

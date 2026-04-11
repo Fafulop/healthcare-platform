@@ -1,6 +1,8 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { InlinePatientSearch } from "./InlinePatientSearch";
+import { CreatePatientFromBookingModal } from "./CreatePatientFromBookingModal";
 import { formatLocalDate, getLocalDateString } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
 import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
@@ -19,6 +21,7 @@ interface Props {
   shiftBookingFilterDate: (days: number) => void;
   onUpdateStatus: (id: string, status: string) => void;
   onUpdateExtendedBlock: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
+  onUpdatePatientLink: (bookingId: string, patientId: string | null, patient: { id: string; firstName: string; lastName: string } | null) => void;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
   onSendEmail: (id: string) => Promise<void>;
@@ -50,6 +53,7 @@ export function BookingsSection({
   shiftBookingFilterDate,
   onUpdateStatus,
   onUpdateExtendedBlock,
+  onUpdatePatientLink,
   onDeleteBooking,
   onOpenFormLinkModal,
   onSendEmail,
@@ -249,6 +253,7 @@ export function BookingsSection({
                         </button>
                       </th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">SERVICIO</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">EXPEDIENTE</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">CONTACTO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">PRECIO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">
@@ -279,15 +284,18 @@ export function BookingsSection({
                               <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">Recurrente</span>
                             )}
                           </td>
+                          <td className="py-3 px-3 text-gray-600">
+                            <p>{formatLocalDate(bookingDate, { month: "short", day: "numeric", year: "numeric" })}</p>
+                            <p className="text-xs">{booking.slot?.startTime ?? booking.startTime ?? ""}</p>
+                          </td>
                           <td className="py-3 px-3">
                             {booking.serviceName
                               ? <span className="text-sm text-gray-800">{booking.serviceName}</span>
                               : <span className="text-xs text-gray-400">—</span>
                             }
                           </td>
-                          <td className="py-3 px-3 text-gray-600">
-                            <p>{formatLocalDate(bookingDate, { month: "short", day: "numeric", year: "numeric" })}</p>
-                            <p className="text-xs">{booking.slot?.startTime ?? booking.startTime ?? ""}</p>
+                          <td className="py-3 px-3">
+                            <ExpedienteCell booking={booking} onUpdatePatientLink={onUpdatePatientLink} />
                           </td>
                           <td className="py-3 px-3">
                             <p className="flex items-center gap-1 text-xs text-gray-600">
@@ -420,6 +428,61 @@ function ExtendedBlockControl({
       )}
     </div>
   );
+}
+
+function ExpedienteCell({
+  booking,
+  onUpdatePatientLink,
+}: {
+  booking: Booking;
+  onUpdatePatientLink: (bookingId: string, patientId: string | null, patient: { id: string; firstName: string; lastName: string } | null) => void;
+}) {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  if (booking.patientId && booking.patient) {
+    return (
+      <Link
+        href={`/dashboard/medical-records/patients/${booking.patientId}`}
+        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+      >
+        <UserSquare2 className="w-3 h-3 shrink-0" />
+        {booking.patient.firstName} {booking.patient.lastName}
+      </Link>
+    );
+  }
+
+  if (booking.isFirstTime === true) {
+    return (
+      <>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 whitespace-nowrap"
+        >
+          + Crear expediente
+        </button>
+        {showCreateModal && (
+          <CreatePatientFromBookingModal
+            booking={booking}
+            onClose={() => setShowCreateModal(false)}
+            onLinked={(patient) => {
+              onUpdatePatientLink(booking.id, patient.id, patient);
+              setShowCreateModal(false);
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  if (booking.isFirstTime === false) {
+    return (
+      <InlinePatientSearch
+        onSelect={(patient) => onUpdatePatientLink(booking.id, patient.id, patient)}
+      />
+    );
+  }
+
+  return <span className="text-xs text-gray-400">—</span>;
 }
 
 function StatusActions({

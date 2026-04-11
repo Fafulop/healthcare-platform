@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       isFirstTime,
       appointmentMode,
       isRescheduled,
+      patientId,
     } = body;
 
     // Validation
@@ -185,6 +186,7 @@ export async function POST(request: Request) {
             reviewToken,
             status: bookingStatus,
             isRescheduled: isRescheduled === true,
+            patientId: patientId || null,
             ...(autoConfirm && { confirmedAt: new Date() }),
           },
         });
@@ -430,6 +432,13 @@ export async function GET(request: Request) {
             id: true,
             token: true,
             status: true,
+          },
+        },
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
           },
         },
       },

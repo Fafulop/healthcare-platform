@@ -50,6 +50,8 @@ export interface Booking {
   meetLink?: string | null;
   isRescheduled?: boolean;
   extendedBlockMinutes?: number | null;
+  patientId?: string | null;
+  patient?: { id: string; firstName: string; lastName: string } | null;
   formLink?: {
     id: string;
     token: string;
@@ -115,6 +117,29 @@ export function useBookings(doctorId: string | undefined) {
       }
     } catch {
       toast.error("Error al actualizar estado");
+    }
+  };
+
+  const updatePatientLink = async (
+    bookingId: string,
+    patientId: string | null,
+    patient: { id: string; firstName: string; lastName: string } | null,
+  ) => {
+    try {
+      const response = await authFetch(
+        `${API_URL}/api/appointments/bookings/${bookingId}`,
+        { method: "PATCH", body: JSON.stringify({ patientId }) }
+      );
+      const data = await response.json();
+      if (data.success) {
+        setBookings((prev) =>
+          prev.map((b) => b.id === bookingId ? { ...b, patientId, patient } : b)
+        );
+      } else {
+        toast.error(data.error || "Error al vincular paciente");
+      }
+    } catch {
+      toast.error("Error al vincular paciente");
     }
   };
 
@@ -278,6 +303,7 @@ export function useBookings(doctorId: string | undefined) {
     setBookingFilterStatus,
     fetchBookings,
     updateBookingStatus,
+    updatePatientLink,
     updateExtendedBlock,
     deleteBooking,
     sendConfirmationEmail,
