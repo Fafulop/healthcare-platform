@@ -54,6 +54,7 @@ export default function AppointmentsV2Page() {
   const [formLinkBooking, setFormLinkBooking] = useState<Booking | null>(null);
   const [statusFilter, setStatusFilter] = useState<SlotStatusFilter>("all");
   const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderOffset, setReminderOffset] = useState(120);
   const [togglingReminder, setTogglingReminder] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -66,7 +67,12 @@ export default function AppointmentsV2Page() {
     if (!doctorId) return;
     authFetch("/api/doctor/reminders")
       .then((r) => r.json())
-      .then((d) => { if (d.success) setReminderEnabled(d.reminderEmailEnabled); })
+      .then((d) => {
+        if (d.success) {
+          setReminderEnabled(d.reminderEmailEnabled);
+          if (d.reminderEmailOffsetMinutes) setReminderOffset(d.reminderEmailOffsetMinutes);
+        }
+      })
       .catch(() => {});
   }, [doctorId]);
 
@@ -83,6 +89,16 @@ export default function AppointmentsV2Page() {
     } catch { /* keep current state */ }
     setTogglingReminder(false);
   }, [reminderEnabled]);
+
+  const handleOffsetChange = useCallback(async (minutes: number) => {
+    setReminderOffset(minutes);
+    try {
+      await authFetch("/api/doctor/reminders", {
+        method: "PATCH",
+        body: JSON.stringify({ reminderEmailOffsetMinutes: minutes }),
+      });
+    } catch { /* keep current state */ }
+  }, []);
 
   const openBookModal = () => {
     rescheduleBookingRef.current = null;
@@ -216,27 +232,47 @@ export default function AppointmentsV2Page() {
 
       {/* Reminder email toggle */}
       <div className="bg-white rounded-lg shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           {reminderEnabled
             ? <Bell className="w-4 h-4 text-blue-600 shrink-0" />
             : <BellOff className="w-4 h-4 text-gray-400 shrink-0" />
           }
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-medium text-gray-900">Recordatorio automático por correo</p>
-            <p className="text-xs text-gray-500">Envía un correo al paciente 2 horas antes de su cita agendada</p>
+            <p className="text-xs text-gray-500">
+              {reminderEnabled
+                ? "Envía un correo al paciente antes de su cita agendada"
+                : "Envía un correo al paciente antes de su cita agendada"}
+            </p>
           </div>
         </div>
-        <button
-          onClick={handleToggleReminder}
-          disabled={togglingReminder}
-          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-60 ${
-            reminderEnabled ? "bg-blue-600" : "bg-gray-200"
-          }`}
-        >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-            reminderEnabled ? "translate-x-6" : "translate-x-1"
-          }`} />
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          {reminderEnabled && (
+            <select
+              value={reminderOffset}
+              onChange={(e) => handleOffsetChange(Number(e.target.value))}
+              className="text-xs border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            >
+              <option value={15}>15 min antes</option>
+              <option value={30}>30 min antes</option>
+              <option value={60}>1 hora antes</option>
+              <option value={120}>2 horas antes</option>
+              <option value={240}>4 horas antes</option>
+              <option value={1440}>1 día antes</option>
+            </select>
+          )}
+          <button
+            onClick={handleToggleReminder}
+            disabled={togglingReminder}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-60 ${
+              reminderEnabled ? "bg-blue-600" : "bg-gray-200"
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+              reminderEnabled ? "translate-x-6" : "translate-x-1"
+            }`} />
+          </button>
+        </div>
       </div>
 
       {/* Booking stats */}

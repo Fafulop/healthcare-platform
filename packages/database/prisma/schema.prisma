@@ -176,8 +176,9 @@ model Doctor {
   telegramDailySummaryTime          String    @default("08:00") @map("telegram_daily_summary_time") @db.VarChar(5)
   telegramDailySummarySentAt        DateTime? @map("telegram_daily_summary_sent_at")
 
-  // Appointment reminder emails (sent automatically 2h before)
-  reminderEmailEnabled      Boolean   @default(false) @map("reminder_email_enabled")
+  // Appointment reminder emails
+  reminderEmailEnabled           Boolean   @default(false) @map("reminder_email_enabled")
+  reminderEmailOffsetMinutes     Int       @default(120)   @map("reminder_email_offset_minutes")
 
   // Booking field requirements per flow (true = required, false = optional)
   bookingPublicEmailRequired      Boolean @default(true) @map("booking_public_email_required")

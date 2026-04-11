@@ -1,5 +1,6 @@
 // POST /api/cron/appointment-reminders
-// Sends reminder emails to patients with CONFIRMED appointments in ~2 hours.
+// Sends reminder emails to patients with CONFIRMED appointments.
+// Lead time is configurable per doctor (reminderEmailOffsetMinutes, default 120 = 2h).
 // Called by a Railway cron job every 15 minutes.
 // Protected by CRON_SECRET env var.
 
@@ -16,27 +17,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Current UTC timestamp — all arithmetic done in UTC to avoid timezone parsing bugs
   const now = new Date();
 
-  // Mexico City local date strings (for rough date filter and window comparison)
-  // toLocaleString with sv-SE gives "YYYY-MM-DD HH:MM:SS" in the target timezone
-  const nowMxStr = now.toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
-  // nowMxStr is like "2026-04-15 09:30:00"
+  // Express "now" as Mexico City local time string "YYYY-MM-DDTHH:MM"
+  // Used as "fake UTC" for consistent arithmetic with appt local times (see below)
+  const nowMxStr = now
+    .toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' })
+    .slice(0, 16)
+    .replace(' ', 'T');
 
-  // Window: send reminders for appointments starting between now+1h45m and now+2h15m
-  // Compute window bounds in UTC, then express as Mexico City local time strings for
-  // comparison against apptDateTimeStr (which is also in Mexico City local time)
-  const windowStartMxStr = new Date(now.getTime() + (105 * 60 * 1000))
-    .toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' }).slice(0, 16).replace(' ', 'T');
-  const windowEndMxStr   = new Date(now.getTime() + (135 * 60 * 1000))
-    .toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' }).slice(0, 16).replace(' ', 'T');
+  // nowFakeMs: treat MX local "now" as UTC-0 for offset arithmetic
+  const nowFakeMs = Date.parse(nowMxStr + ':00Z');
+  const windowEndFakeMs = nowFakeMs + 15 * 60 * 1000; // 15-min window matching cron frequency
 
-  // Fetch all CONFIRMED bookings with no reminder sent yet
-  // Rough date filter: today and tomorrow (avoids full table scan)
-  const todayMx = nowMxStr.slice(0, 10); // "YYYY-MM-DD"
+  // Rough date filter: today and tomorrow in Mexico City (avoids full table scan)
+  const todayMx = nowMxStr.slice(0, 10);
   const tomorrowMx = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-    .toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' }).slice(0, 10);
+    .toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' })
+    .slice(0, 10);
 
   const bookings = await prisma.booking.findMany({
     where: {
@@ -65,6 +63,7 @@ export async function POST(request: Request) {
           clinicAddress: true,
           clinicPhone: true,
           reminderEmailEnabled: true,
+          reminderEmailOffsetMinutes: true,
           user: {
             select: {
               id: true,
@@ -98,7 +97,7 @@ export async function POST(request: Request) {
       }
 
       // Resolve appointment date and time
-      const apptDate = (booking.slot?.date ?? booking.date)?.toISOString().split('T')[0];
+      const apptDate  = (booking.slot?.date ?? booking.date)?.toISOString().split('T')[0];
       const apptStart = booking.slot?.startTime ?? booking.startTime;
       const apptEnd   = booking.slot?.endTime   ?? booking.endTime;
 
@@ -107,10 +106,14 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // Build appointment datetime string in Mexico City local time for window comparison
-      // apptDate is the local date (YYYY-MM-DD), apptStart is local time (HH:MM)
-      const apptDateTimeStr = `${apptDate}T${apptStart.slice(0, 5)}`; // "YYYY-MM-DDTHH:MM"
-      if (apptDateTimeStr < windowStartMxStr || apptDateTimeStr > windowEndMxStr) {
+      // apptDate (YYYY-MM-DD) and apptStart (HH:MM) are both in Mexico City local time.
+      // To compute triggerTime = apptTime - offset, use "fake UTC" arithmetic:
+      // treat both MX-local times as UTC-0. DST offsets cancel out because both sides
+      // use the same convention — no timezone conversion needed.
+      const apptFakeMs = Date.parse(`${apptDate}T${apptStart.slice(0, 5)}:00Z`);
+      const triggerFakeMs = apptFakeMs - booking.doctor.reminderEmailOffsetMinutes * 60 * 1000;
+
+      if (triggerFakeMs < nowFakeMs || triggerFakeMs > windowEndFakeMs) {
         skipped++;
         continue;
       }
@@ -148,23 +151,22 @@ export async function POST(request: Request) {
       const clinicAddress = booking.slot?.location?.address ?? booking.doctor.clinicAddress ?? undefined;
       const clinicPhone   = booking.slot?.location?.phone ?? booking.doctor.clinicPhone ?? undefined;
 
-      // Send reminder email
       await sendAppointmentReminderEmail(
         {
-          patientName:     booking.patientName,
-          patientEmail:    booking.patientEmail,
-          doctorName:      booking.doctor.doctorFullName,
-          specialty:       booking.doctor.primarySpecialty ?? null,
-          date:            apptDate,
-          startTime:       apptStart,
-          endTime:         apptEnd ?? '',
-          serviceName:     booking.serviceName,
-          appointmentMode: booking.appointmentMode,
+          patientName:      booking.patientName,
+          patientEmail:     booking.patientEmail,
+          doctorName:       booking.doctor.doctorFullName,
+          specialty:        booking.doctor.primarySpecialty ?? null,
+          date:             apptDate,
+          startTime:        apptStart,
+          endTime:          apptEnd ?? '',
+          serviceName:      booking.serviceName,
+          appointmentMode:  booking.appointmentMode,
           confirmationCode: booking.confirmationCode ?? '',
           clinicName,
           clinicAddress,
           clinicPhone,
-          meetLink:        booking.meetLink ?? null,
+          meetLink:         booking.meetLink ?? null,
         },
         accessToken,
         refreshToken,
@@ -172,7 +174,6 @@ export async function POST(request: Request) {
         doctorUser.email!
       );
 
-      // Mark reminder as sent
       await prisma.booking.update({
         where: { id: booking.id },
         data: { reminderEmailSentAt: new Date() },
