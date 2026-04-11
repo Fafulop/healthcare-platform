@@ -3,7 +3,7 @@
 **Date:** 2026-04-11
 **Scope:** `apps/doctor`, `apps/api`, `packages/database`
 **Related:** `APPOINTMENTS-FULL-UI-MAP.md`, `database-architecture.md`, `EXTENDED-BLOCK-APPOINTMENTS.md`
-**Status:** Planned — not yet implemented
+**Status:** Implemented — deployed 2026-04-11
 
 ---
 
