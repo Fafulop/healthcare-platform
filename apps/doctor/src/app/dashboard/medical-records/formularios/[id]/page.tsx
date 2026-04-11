@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { Loader2, Search, CheckCircle, User, ArrowLeft } from 'lucide-react';
+import { Loader2, Search, CheckCircle, User, ArrowLeft, UserSquare2 } from 'lucide-react';
 import Link from 'next/link';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
@@ -31,12 +31,14 @@ interface FormLinkDetail {
   patientName: string;
   patientEmail: string;
   appointment: {
+    bookingId: string;
     date: string | null;
     time: string | null;
     isFirstTime: boolean | null;
     patientName: string;
     patientEmail: string;
     patientPhone: string;
+    linkedPatient: { id: string; firstName: string; lastName: string } | null;
   };
   template: {
     name: string;
@@ -166,6 +168,13 @@ export default function FormularioDetailPage() {
       );
       const data = await res.json();
       if (data.data?.id) {
+        // Auto-link booking → patient if not linked or linked to a different patient
+        if ((formLink.appointment.linkedPatient?.id ?? null) !== patientId) {
+          authFetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/appointments/bookings/${formLink.appointment.bookingId}`,
+            { method: 'PATCH', body: JSON.stringify({ patientId }) }
+          ).catch(() => {});
+        }
         toast.success('Formulario adjuntado al expediente correctamente');
         setAttached(true);
       } else {
@@ -331,78 +340,159 @@ export default function FormularioDetailPage() {
                 Adjuntar al expediente
               </h2>
 
-              {/* New patient option */}
-              {formLink.appointment.isFirstTime !== false && (
-                <div className="border border-dashed border-gray-300 rounded-lg p-3">
-                  <p className="text-sm text-gray-600 mb-2">
-                    Crear nuevo expediente para <span className="font-medium">{formLink.appointment.patientName}</span>
-                  </p>
+              {/* Pre-filled: booking already linked to a patient */}
+              {formLink.appointment.linkedPatient ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-blue-200 bg-blue-50">
+                    <UserSquare2 className="w-4 h-4 text-blue-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-blue-900">
+                        {formLink.appointment.linkedPatient.firstName} {formLink.appointment.linkedPatient.lastName}
+                      </p>
+                      <Link
+                        href={`/dashboard/medical-records/patients/${formLink.appointment.linkedPatient.id}`}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Ver expediente →
+                      </Link>
+                    </div>
+                  </div>
                   <button
-                    onClick={createPatientAndAttach}
+                    type="button"
+                    onClick={() => attachToPatient(formLink.appointment.linkedPatient!.id)}
                     disabled={attaching}
                     className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {attaching ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    {attaching ? 'Creando...' : 'Crear expediente y adjuntar'}
+                    {attaching ? 'Adjuntando...' : `Adjuntar al expediente de ${formLink.appointment.linkedPatient.firstName}`}
                   </button>
-                </div>
-              )}
-
-              {/* Search existing patients */}
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">
-                  {formLink.appointment.isFirstTime === false
-                    ? 'Buscar expediente del paciente'
-                    : 'O buscar expediente existente'}
-                </p>
-                <div className="relative mb-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={patientSearch}
-                    onChange={(e) => { setPatientSearch(e.target.value); setSelectedPatient(null); }}
-                    placeholder="Nombre del paciente..."
-                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {searchingPatients && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                  <p className="text-xs text-gray-400 text-center">O busca otro expediente abajo</p>
+                  {/* Search as fallback */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={patientSearch}
+                      onChange={(e) => { setPatientSearch(e.target.value); setSelectedPatient(null); }}
+                      placeholder="Buscar otro expediente..."
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {searchingPatients && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                    )}
+                  </div>
+                  {patientResults.length > 0 && !selectedPatient && (
+                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                      {patientResults.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => { setSelectedPatient(p); setPatientSearch(`${p.firstName} ${p.lastName}`); setPatientResults([]); }}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
+                        >
+                          <p className="text-sm font-medium text-gray-900">{p.firstName} {p.lastName}</p>
+                          <p className="text-xs text-gray-500">#{p.internalId}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {selectedPatient && (
+                    <div className="space-y-2">
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                        <p className="text-sm font-medium text-purple-900">{selectedPatient.firstName} {selectedPatient.lastName}</p>
+                        <p className="text-xs text-purple-600">#{selectedPatient.internalId}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => attachToPatient(selectedPatient.id)}
+                        disabled={attaching}
+                        className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {attaching ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        {attaching ? 'Adjuntando...' : `Adjuntar al expediente de ${selectedPatient.firstName}`}
+                      </button>
+                    </div>
                   )}
                 </div>
-
-                {patientResults.length > 0 && !selectedPatient && (
-                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto">
-                    {patientResults.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => { setSelectedPatient(p); setPatientSearch(`${p.firstName} ${p.lastName}`); setPatientResults([]); }}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
-                      >
-                        <p className="text-sm font-medium text-gray-900">{p.firstName} {p.lastName}</p>
-                        <p className="text-xs text-gray-500">#{p.internalId}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {selectedPatient && (
-                  <div className="mt-2 space-y-2">
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                      <p className="text-sm font-medium text-purple-900">
-                        {selectedPatient.firstName} {selectedPatient.lastName}
+              ) : (
+                <>
+                  {/* New patient option */}
+                  {formLink.appointment.isFirstTime !== false && (
+                    <div className="border border-dashed border-gray-300 rounded-lg p-3">
+                      <p className="text-sm text-gray-600 mb-2">
+                        Crear nuevo expediente para <span className="font-medium">{formLink.appointment.patientName}</span>
                       </p>
-                      <p className="text-xs text-purple-600">#{selectedPatient.internalId}</p>
+                      <button
+                        type="button"
+                        onClick={createPatientAndAttach}
+                        disabled={attaching}
+                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {attaching ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        {attaching ? 'Creando...' : 'Crear expediente y adjuntar'}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => attachToPatient(selectedPatient.id)}
-                      disabled={attaching}
-                      className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {attaching ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      {attaching ? 'Adjuntando...' : `Adjuntar al expediente de ${selectedPatient.firstName}`}
-                    </button>
+                  )}
+
+                  {/* Search existing patients */}
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">
+                      {formLink.appointment.isFirstTime === false
+                        ? 'Buscar expediente del paciente'
+                        : 'O buscar expediente existente'}
+                    </p>
+                    <div className="relative mb-2">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={patientSearch}
+                        onChange={(e) => { setPatientSearch(e.target.value); setSelectedPatient(null); }}
+                        placeholder="Nombre del paciente..."
+                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      {searchingPatients && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                      )}
+                    </div>
+
+                    {patientResults.length > 0 && !selectedPatient && (
+                      <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                        {patientResults.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => { setSelectedPatient(p); setPatientSearch(`${p.firstName} ${p.lastName}`); setPatientResults([]); }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
+                          >
+                            <p className="text-sm font-medium text-gray-900">{p.firstName} {p.lastName}</p>
+                            <p className="text-xs text-gray-500">#{p.internalId}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedPatient && (
+                      <div className="mt-2 space-y-2">
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                          <p className="text-sm font-medium text-purple-900">
+                            {selectedPatient.firstName} {selectedPatient.lastName}
+                          </p>
+                          <p className="text-xs text-purple-600">#{selectedPatient.internalId}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => attachToPatient(selectedPatient.id)}
+                          disabled={attaching}
+                          className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {attaching ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                          {attaching ? 'Adjuntando...' : `Adjuntar al expediente de ${selectedPatient.firstName}`}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           )}
         </div>

@@ -25,6 +25,10 @@ export async function GET(request: Request) {
           select: {
             date: true,
             startTime: true,
+            patientId: true,
+            patient: {
+              select: { id: true, firstName: true, lastName: true },
+            },
             slot: {
               select: {
                 date: true,
@@ -58,6 +62,7 @@ export async function GET(request: Request) {
         appointmentTime,
         templateName: templateMap[fl.templateId] ?? null,
         submittedAt: fl.submittedAt,
+        linkedPatient: fl.booking.patient ?? null,
       };
     });
 

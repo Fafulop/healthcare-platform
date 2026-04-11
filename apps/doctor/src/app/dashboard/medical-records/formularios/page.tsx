@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { ClipboardList, Loader2, ArrowRight } from 'lucide-react';
+import { ClipboardList, Loader2, ArrowRight, UserSquare2 } from 'lucide-react';
 import Link from 'next/link';
 import { authFetch } from '@/lib/auth-fetch';
 
@@ -15,6 +15,7 @@ interface FormLinkRow {
   appointmentTime: string | null;
   templateName: string | null;
   submittedAt: string | null;
+  linkedPatient?: { id: string; firstName: string; lastName: string } | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -123,6 +124,7 @@ export default function FormulariosPage() {
                   <th className="text-left py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Paciente</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Fecha Cita</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Plantilla</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Expediente</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Recibido</th>
                   <th className="py-3 px-4" />
                 </tr>
@@ -148,6 +150,19 @@ export default function FormulariosPage() {
                     </td>
                     <td className="py-3 px-4 text-gray-600">
                       {fl.templateName ?? <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="py-3 px-4">
+                      {fl.linkedPatient ? (
+                        <Link
+                          href={`/dashboard/medical-records/patients/${fl.linkedPatient.id}`}
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          <UserSquare2 className="w-3 h-3 shrink-0" />
+                          {fl.linkedPatient.firstName} {fl.linkedPatient.lastName}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-gray-500 text-xs">
                       {fl.submittedAt ? formatDateTime(fl.submittedAt) : '—'}
@@ -181,6 +196,15 @@ export default function FormulariosPage() {
                     )}
                     {fl.templateName && (
                       <p className="text-xs text-blue-600 mt-0.5">{fl.templateName}</p>
+                    )}
+                    {fl.linkedPatient && (
+                      <Link
+                        href={`/dashboard/medical-records/patients/${fl.linkedPatient.id}`}
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline mt-0.5"
+                      >
+                        <UserSquare2 className="w-3 h-3 shrink-0" />
+                        {fl.linkedPatient.firstName} {fl.linkedPatient.lastName}
+                      </Link>
                     )}
                   </div>
                   <Link

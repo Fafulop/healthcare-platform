@@ -20,6 +20,7 @@ interface PatientBooking {
   serviceName: string | null;
   status: string;
   appointmentMode: string | null;
+  formLinkId?: string | null;
 }
 
 function BookingStatusPill({ status }: { status: string }) {
@@ -369,7 +370,17 @@ export default function PatientProfilePage() {
                         {b.serviceName || '—'}
                       </p>
                     </div>
-                    <BookingStatusPill status={b.status} />
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      {b.formLinkId && (
+                        <Link
+                          href={`/dashboard/medical-records/formularios/${b.formLinkId}`}
+                          className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+                        >
+                          Formulario
+                        </Link>
+                      )}
+                      <BookingStatusPill status={b.status} />
+                    </div>
                   </div>
                 ))}
               </div>

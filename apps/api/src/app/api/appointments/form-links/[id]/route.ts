@@ -27,9 +27,14 @@ export async function GET(
         doctorId: true,
         booking: {
           select: {
+            id: true,
             patientName: true,
             patientEmail: true,
             patientPhone: true,
+            patientId: true,
+            patient: {
+              select: { id: true, firstName: true, lastName: true },
+            },
             isFirstTime: true,
             date: true,
             startTime: true,
@@ -82,12 +87,14 @@ export async function GET(
         patientName: formLink.patientName,
         patientEmail: formLink.patientEmail,
         appointment: {
+          bookingId: formLink.booking.id,
           date: appointmentDate ? appointmentDate.toISOString().split('T')[0] : null,
           time: appointmentTime,
           isFirstTime: formLink.booking.isFirstTime,
           patientName: formLink.booking.patientName,
           patientEmail: formLink.booking.patientEmail,
           patientPhone: formLink.booking.patientPhone,
+          linkedPatient: formLink.booking.patient ?? null,
         },
         template: template
           ? {

@@ -42,6 +42,9 @@ export async function GET(
         date: true,
         startTime: true,
         endTime: true,
+        formLink: {
+          select: { id: true, status: true },
+        },
       },
       orderBy: [
         { slot: { date: 'desc' } },
@@ -58,6 +61,7 @@ export async function GET(
       serviceName: b.serviceName ?? null,
       status: b.status,
       appointmentMode: b.appointmentMode ?? null,
+      formLinkId: b.formLink?.status === 'SUBMITTED' ? (b.formLink.id ?? null) : null,
     }));
 
     return NextResponse.json({ success: true, data });
