@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Activity, Image as ImageIcon, Video, Mic, Pill, ChevronDown, ChevronUp, ExternalLink, Loader2, NotebookPen } from 'lucide-react';
+import { FileText, Activity, Image as ImageIcon, Video, Mic, Pill, ChevronDown, ChevronUp, ExternalLink, Loader2, NotebookPen, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 
 interface TimelineEncounter {
@@ -87,10 +87,18 @@ interface TimelineNote {
   updatedAt: string;
 }
 
+interface TimelineFormulario {
+  id: string;
+  templateName: string | null;
+  submittedAt: string;
+  appointmentDate: string | null;
+  appointmentTime: string | null;
+}
+
 interface TimelineItem {
-  type: 'encounter' | 'media' | 'prescription' | 'note';
+  type: 'encounter' | 'media' | 'prescription' | 'note' | 'formulario';
   date: string;
-  data: TimelineEncounter | TimelineMedia | TimelinePrescription | TimelineNote;
+  data: TimelineEncounter | TimelineMedia | TimelinePrescription | TimelineNote | TimelineFormulario;
 }
 
 interface TimelineViewProps {
@@ -754,6 +762,55 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                     </div>
                     <div className="px-4 py-3 bg-amber-50 border-t border-amber-100 rounded-b-lg">
                       <span className="text-xs text-amber-600 font-medium">Ver notas del paciente →</span>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          );
+        }
+
+        // ── FORMULARIO ───────────────────────────────────────────────────
+        if (item.type === 'formulario') {
+          const form = item.data as TimelineFormulario;
+          return (
+            <div key={form.id} className="relative">
+              {!isLast && <div className="absolute left-6 top-16 bottom-0 w-0.5 bg-gray-200 -mb-8" />}
+              <div className="absolute left-4 top-4 w-4 h-4 rounded-full bg-violet-500 border-4 border-white shadow" />
+              <div className="ml-14">
+                <Link href={`/dashboard/medical-records/formularios/${form.id}`}>
+                  <div className="bg-white rounded-lg shadow border border-gray-200 hover:border-violet-200 hover:shadow-md transition-all cursor-pointer">
+                    <div className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <ClipboardList className="w-5 h-5 text-violet-600 flex-shrink-0" />
+                            <h3 className="text-base font-semibold text-gray-900 truncate">
+                              {form.templateName ?? 'Formulario pre-cita'}
+                            </h3>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {new Date(form.submittedAt).toLocaleDateString('es-MX', {
+                              day: 'numeric', month: 'long', year: 'numeric',
+                            })}
+                            {form.appointmentDate && (
+                              <span className="text-gray-400">
+                                {' · Cita: '}
+                                {new Date(form.appointmentDate + 'T00:00:00').toLocaleDateString('es-MX', {
+                                  day: 'numeric', month: 'short',
+                                })}
+                                {form.appointmentTime && ` ${form.appointmentTime}`}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <span className="ml-3 px-2.5 py-0.5 text-xs font-medium rounded-full border bg-violet-50 text-violet-700 border-violet-200 flex-shrink-0">
+                          Recibido
+                        </span>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 bg-violet-50 border-t border-violet-100 rounded-b-lg">
+                      <span className="text-xs text-violet-600 font-medium">Ver formulario →</span>
                     </div>
                   </div>
                 </Link>

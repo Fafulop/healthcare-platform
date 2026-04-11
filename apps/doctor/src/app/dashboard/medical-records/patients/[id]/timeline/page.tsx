@@ -154,7 +154,7 @@ export default function PatientTimelinePage() {
       {/* Stats summary */}
       {timeline.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <div className="text-center">
               <div className="text-3xl font-bold text-blue-600">
                 {timeline.filter((item: any) => item.type === 'encounter').length}
@@ -178,6 +178,12 @@ export default function PatientTimelinePage() {
                 {timeline.filter((item: any) => item.type === 'note').length}
               </div>
               <div className="text-sm text-gray-600 mt-1">Notas</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-violet-600">
+                {timeline.filter((item: any) => item.type === 'formulario').length}
+              </div>
+              <div className="text-sm text-gray-600 mt-1">Formularios</div>
             </div>
           </div>
         </div>

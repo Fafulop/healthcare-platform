@@ -146,42 +146,29 @@ export default function FormularioDetailPage() {
     return () => clearTimeout(timer);
   }, [patientSearch, searchPatients]);
 
-  // ── Attach to existing patient ──────────────────────────────────────────────
+  // ── Link formulario to patient (sets booking.patientId) ────────────────────
 
   const attachToPatient = async (patientId: string) => {
     if (!formLink || attaching) return;
     setAttaching(true);
     try {
-      const res = await authFetch(
-        `/api/medical-records/patients/${patientId}/encounters`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            encounterDate: formLink.appointment.date ?? new Date().toISOString().split('T')[0],
-            encounterType: 'pre-cita',
-            chiefComplaint: 'Formulario pre-cita completado por el paciente',
-            templateId: formLink.templateId,
-            customData: formLink.submissionData ?? {},
-            status: 'completed',
-          }),
+      // Link the booking to the patient (or update if changing link)
+      if ((formLink.appointment.linkedPatient?.id ?? null) !== patientId) {
+        const res = await authFetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/appointments/bookings/${formLink.appointment.bookingId}`,
+          { method: 'PATCH', body: JSON.stringify({ patientId }) }
+        );
+        const data = await res.json();
+        if (!data.success) {
+          toast.error(data.error || 'Error al vincular el expediente');
+          setAttaching(false);
+          return;
         }
-      );
-      const data = await res.json();
-      if (data.data?.id) {
-        // Auto-link booking → patient if not linked or linked to a different patient
-        if ((formLink.appointment.linkedPatient?.id ?? null) !== patientId) {
-          authFetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/appointments/bookings/${formLink.appointment.bookingId}`,
-            { method: 'PATCH', body: JSON.stringify({ patientId }) }
-          ).catch(() => {});
-        }
-        toast.success('Formulario adjuntado al expediente correctamente');
-        setAttached(true);
-      } else {
-        toast.error(data.error || 'Error al adjuntar el formulario');
       }
+      toast.success('Formulario vinculado al expediente correctamente');
+      setAttached(true);
     } catch {
-      toast.error('Error al adjuntar el formulario');
+      toast.error('Error al vincular el expediente');
     } finally {
       setAttaching(false);
     }
@@ -325,7 +312,7 @@ export default function FormularioDetailPage() {
           {attached ? (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
               <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <p className="font-semibold text-green-800">Formulario adjuntado al expediente</p>
+              <p className="font-semibold text-green-800">Formulario vinculado al expediente</p>
               <Link
                 href="/dashboard/medical-records"
                 className="text-sm text-green-700 underline mt-1 inline-block"

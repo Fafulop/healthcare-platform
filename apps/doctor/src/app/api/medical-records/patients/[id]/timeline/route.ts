@@ -24,8 +24,8 @@ export async function GET(
       );
     }
 
-    // Get complete timeline - encounters, media, prescriptions, and notes
-    const [encounters, media, prescriptions, patientNotes] = await Promise.all([
+    // Get complete timeline - encounters, media, prescriptions, notes, and formularios
+    const [encounters, media, prescriptions, patientNotes, formLinks] = await Promise.all([
       prisma.clinicalEncounter.findMany({
         where: { patientId, doctorId },
         orderBy: { encounterDate: 'desc' },
@@ -96,7 +96,33 @@ export async function GET(
         orderBy: { createdAt: 'desc' },
         select: { id: true, content: true, createdAt: true, updatedAt: true },
       }),
+      prisma.appointmentFormLink.findMany({
+        where: { status: 'SUBMITTED', doctorId, booking: { patientId } },
+        orderBy: { submittedAt: 'desc' },
+        select: {
+          id: true,
+          templateId: true,
+          submittedAt: true,
+          booking: {
+            select: {
+              date: true,
+              startTime: true,
+              slot: { select: { date: true, startTime: true } },
+            },
+          },
+        },
+      }),
     ]);
+
+    // Resolve template names for formularios
+    const templateIds = [...new Set(formLinks.map((fl) => fl.templateId))];
+    const templates = templateIds.length > 0
+      ? await prisma.encounterTemplate.findMany({
+          where: { id: { in: templateIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const templateMap = Object.fromEntries(templates.map((t) => [t.id, t.name]));
 
     // Build unified timeline
     const timeline = [
@@ -120,6 +146,23 @@ export async function GET(
         date: n.createdAt,
         data: n
       })),
+      ...formLinks
+        .filter((fl) => fl.submittedAt !== null)
+        .map(fl => {
+          const appointmentDate = fl.booking.slot?.date ?? fl.booking.date ?? null;
+          const appointmentTime = fl.booking.slot?.startTime ?? fl.booking.startTime ?? null;
+          return {
+            type: 'formulario',
+            date: fl.submittedAt!,
+            data: {
+              id: fl.id,
+              templateName: templateMap[fl.templateId] ?? null,
+              submittedAt: fl.submittedAt!,
+              appointmentDate: appointmentDate ? appointmentDate.toISOString().split('T')[0] : null,
+              appointmentTime,
+            },
+          };
+        }),
     ];
 
     // Sort by date (most recent first)

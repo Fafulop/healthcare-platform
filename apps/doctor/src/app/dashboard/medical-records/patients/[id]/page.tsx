@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { usePatientProfile } from '../_components/usePatientProfile';
@@ -10,6 +10,14 @@ interface RecentNote {
   id: string;
   content: string;
   updatedAt: string;
+}
+
+interface PatientFormulario {
+  id: string;
+  templateName: string | null;
+  submittedAt: string;
+  appointmentDate: string | null;
+  appointmentTime: string | null;
 }
 
 interface PatientBooking {
@@ -65,6 +73,7 @@ export default function PatientProfilePage() {
 
   const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
   const [patientBookings, setPatientBookings] = useState<PatientBooking[]>([]);
+  const [patientFormularios, setPatientFormularios] = useState<PatientFormulario[]>([]);
 
   useEffect(() => {
     if (!patientId) return;
@@ -78,6 +87,12 @@ export default function PatientProfilePage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setPatientBookings(d.data);
+      })
+      .catch(() => {});
+    fetch(`/api/medical-records/patients/${patientId}/formularios`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setPatientFormularios(d.data);
       })
       .catch(() => {});
   }, [patientId]);
@@ -348,6 +363,54 @@ export default function PatientProfilePage() {
               </div>
             )}
           </div>
+          {/* Formularios */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <ClipboardList className="w-5 h-5" />
+                Formularios Pre-Cita
+              </h2>
+              {patientFormularios.length > 0 && (
+                <Link
+                  href="/dashboard/medical-records/formularios"
+                  className="text-sm text-violet-600 hover:text-violet-800 transition-colors"
+                >
+                  Ver todos
+                </Link>
+              )}
+            </div>
+            {patientFormularios.length > 0 ? (
+              <div className="space-y-2">
+                {patientFormularios.map((f) => (
+                  <Link
+                    key={f.id}
+                    href={`/dashboard/medical-records/formularios/${f.id}`}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-md border border-gray-100 hover:border-violet-200 hover:bg-violet-50 transition-colors"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {f.templateName ?? 'Formulario pre-cita'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {f.appointmentDate
+                          ? `Cita: ${new Date(f.appointmentDate + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}${f.appointmentTime ? ` · ${f.appointmentTime}` : ''}`
+                          : new Date(f.submittedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <span className="text-xs px-2 py-0.5 rounded bg-violet-100 text-violet-700 shrink-0 ml-2">
+                      Recibido
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-gray-500">
+                <ClipboardList className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm">No hay formularios recibidos.</p>
+              </div>
+            )}
+          </div>
+
           {/* Citas (linked bookings) */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
