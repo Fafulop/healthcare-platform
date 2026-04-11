@@ -21,11 +21,13 @@ export async function GET(request: Request) {
         submittedAt: true,
         patientName: true,
         patientEmail: true,
+        patient: {
+          select: { id: true, firstName: true, lastName: true },
+        },
         booking: {
           select: {
             date: true,
             startTime: true,
-            patientId: true,
             patient: {
               select: { id: true, firstName: true, lastName: true },
             },
@@ -52,8 +54,8 @@ export async function GET(request: Request) {
     const templateMap = Object.fromEntries(templates.map((t) => [t.id, t.name]));
 
     const data = formLinks.map((fl) => {
-      const appointmentDate = fl.booking.slot?.date ?? fl.booking.date ?? null;
-      const appointmentTime = fl.booking.slot?.startTime ?? fl.booking.startTime ?? null;
+      const appointmentDate = fl.booking?.slot?.date ?? fl.booking?.date ?? null;
+      const appointmentTime = fl.booking?.slot?.startTime ?? fl.booking?.startTime ?? null;
       return {
         id: fl.id,
         patientName: fl.patientName,
@@ -62,7 +64,7 @@ export async function GET(request: Request) {
         appointmentTime,
         templateName: templateMap[fl.templateId] ?? null,
         submittedAt: fl.submittedAt,
-        linkedPatient: fl.booking.patient ?? null,
+        linkedPatient: fl.patient ?? fl.booking?.patient ?? null,
       };
     });
 

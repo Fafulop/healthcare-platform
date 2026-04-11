@@ -132,6 +132,13 @@ export async function PATCH(
         data: { patientId: patientId ?? null },
         select: { id: true, patientId: true },
       });
+
+      // Propagate patientId to any existing formLink for this booking (fire-and-forget)
+      prisma.appointmentFormLink.updateMany({
+        where: { bookingId: id },
+        data: { patientId: patientId ?? null },
+      }).catch((err) => console.error('[formLink] patientId propagation failed:', err));
+
       return NextResponse.json({ success: true, data: updated });
     }
     // ─────────────────────────────────────────────────────────────────────────

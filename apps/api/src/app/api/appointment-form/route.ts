@@ -81,7 +81,7 @@ export async function GET(request: Request) {
     }
 
     // Check expiry: if the appointment date is strictly before today, the link has expired
-    const appointmentDate = resolveAppointmentDate(formLink.booking.slot, formLink.booking.date);
+    const appointmentDate = resolveAppointmentDate(formLink.booking?.slot ?? null, formLink.booking?.date ?? null);
     if (appointmentDate && appointmentDate < todayMexicoCity()) {
       return NextResponse.json(
         { success: false, error: 'Este enlace ha expirado', expired: true },
@@ -118,7 +118,7 @@ export async function GET(request: Request) {
         doctorName: formLink.doctor.doctorFullName,
         doctorSpecialty: formLink.doctor.primarySpecialty,
         appointmentDate,
-        appointmentTime: resolveAppointmentTime(formLink.booking.slot, formLink.booking.startTime),
+        appointmentTime: resolveAppointmentTime(formLink.booking?.slot ?? null, formLink.booking?.startTime ?? null),
         template: {
           name: template.name,
           description: template.description,
@@ -164,6 +164,7 @@ export async function POST(request: Request) {
           select: {
             date: true,
             startTime: true,
+            patientId: true,
             slot: { select: { date: true, startTime: true } },
           },
         },
@@ -184,7 +185,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const appointmentDate = resolveAppointmentDate(formLink.booking.slot, formLink.booking.date);
+    const appointmentDate = resolveAppointmentDate(formLink.booking?.slot ?? null, formLink.booking?.date ?? null);
     if (appointmentDate && appointmentDate < todayMexicoCity()) {
       return NextResponse.json(
         { success: false, error: 'Este enlace ha expirado', expired: true },
@@ -192,13 +193,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Mark as submitted
+    // Mark as submitted; if booking is already linked to a patient, stamp patientId directly
     await prisma.appointmentFormLink.update({
       where: { id: formLink.id },
       data: {
         status: 'SUBMITTED',
         submissionData: data,
         submittedAt: new Date(),
+        ...(formLink.booking?.patientId ? { patientId: formLink.booking.patientId } : {}),
       },
     });
 
@@ -207,7 +209,7 @@ export async function POST(request: Request) {
       sendFormSubmittedTelegram(formLink.doctor.telegramChatId, {
         patientName: formLink.patientName,
         date: appointmentDate,
-        startTime: resolveAppointmentTime(formLink.booking.slot, formLink.booking.startTime),
+        startTime: resolveAppointmentTime(formLink.booking?.slot ?? null, formLink.booking?.startTime ?? null),
       }).catch((err) => console.error('Telegram form-submitted notification failed:', err));
     }
 

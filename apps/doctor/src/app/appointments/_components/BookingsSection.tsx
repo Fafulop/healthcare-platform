@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { InlinePatientSearch } from "./InlinePatientSearch";
 import { CreatePatientFromBookingModal } from "./CreatePatientFromBookingModal";
+import { FormularioStatusButton } from "./FormularioStatusButton";
 import { formatLocalDate, getLocalDateString } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
 import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
@@ -24,6 +25,7 @@ interface Props {
   onUpdatePatientLink: (bookingId: string, patientId: string | null, patient: { id: string; firstName: string; lastName: string } | null) => void;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
+  onDeleteFormLink: (bookingId: string) => void;
   onSendEmail: (id: string) => Promise<void>;
   onReschedule: (booking: Booking) => void;
   getStatusColor: (status: string, endTime?: string, date?: string) => string;
@@ -56,6 +58,7 @@ export function BookingsSection({
   onUpdatePatientLink,
   onDeleteBooking,
   onOpenFormLinkModal,
+  onDeleteFormLink,
   onSendEmail,
   onReschedule,
   getStatusColor,
@@ -246,6 +249,7 @@ export function BookingsSection({
                         onUpdateExtendedBlock={onUpdateExtendedBlock}
                         onDeleteBooking={onDeleteBooking}
                         onOpenFormLinkModal={onOpenFormLinkModal}
+                        onDeleteFormLink={onDeleteFormLink}
                         onSendEmail={onSendEmail}
                         onReschedule={onReschedule}
                       />
@@ -346,6 +350,7 @@ export function BookingsSection({
                               onUpdateExtendedBlock={onUpdateExtendedBlock}
                               onDeleteBooking={onDeleteBooking}
                               onOpenFormLinkModal={onOpenFormLinkModal}
+                              onDeleteFormLink={onDeleteFormLink}
                               onSendEmail={onSendEmail}
                               onReschedule={onReschedule}
                             />
@@ -463,6 +468,7 @@ function ExpedienteCell({
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   if (booking.patientId && booking.patient) {
+    const hasSubmittedForm = booking.formLink?.status === 'SUBMITTED';
     return (
       <div className="flex items-center gap-1">
         <Link
@@ -473,9 +479,10 @@ function ExpedienteCell({
           {booking.patient.firstName} {booking.patient.lastName}
         </Link>
         <button
-          title="Desvincular expediente"
-          onClick={() => onUpdatePatientLink(booking.id, null, null)}
-          className="p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"
+          title={hasSubmittedForm ? "Desvincular el formulario recibido primero" : "Desvincular expediente"}
+          onClick={() => !hasSubmittedForm && onUpdatePatientLink(booking.id, null, null)}
+          disabled={hasSubmittedForm}
+          className={`p-0.5 rounded ${hasSubmittedForm ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}
         >
           <X className="w-3 h-3" />
         </button>
@@ -523,6 +530,7 @@ function StatusActions({
   onUpdateExtendedBlock,
   onDeleteBooking,
   onOpenFormLinkModal,
+  onDeleteFormLink,
   onSendEmail,
   onReschedule,
 }: {
@@ -531,6 +539,7 @@ function StatusActions({
   onUpdateExtendedBlock: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
+  onDeleteFormLink: (bookingId: string) => void;
   onSendEmail: (id: string) => Promise<void>;
   onReschedule: (booking: Booking) => void;
 }) {
@@ -595,12 +604,11 @@ function StatusActions({
       )}
       {booking.status === "CONFIRMED" && (
         <>
-          <button
-            onClick={() => onOpenFormLinkModal(booking)}
-            className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
-          >
-            Formulario
-          </button>
+          <FormularioStatusButton
+            booking={booking}
+            onCreateForm={() => onOpenFormLinkModal(booking)}
+            onDeleteForm={() => onDeleteFormLink(booking.id)}
+          />
           {booking.appointmentMode === "TELEMEDICINA" ? (
             <button
               onClick={handleSendEmail}
@@ -643,14 +651,6 @@ function StatusActions({
             </button>
           )}
         </>
-      )}
-      {booking.formLink?.status === "SUBMITTED" && (
-        <Link
-          href={`/dashboard/medical-records/formularios/${booking.formLink.id}`}
-          className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 border border-green-200 flex items-center gap-1 hover:bg-green-200"
-        >
-          <CheckCircle className="w-3 h-3" /> Recibido
-        </Link>
       )}
       {isTerminal && (
         <button

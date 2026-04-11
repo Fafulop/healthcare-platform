@@ -35,6 +35,7 @@ export async function POST(
         status: true,
         patientName: true,
         patientEmail: true,
+        patientId: true,
         formLink: {
           select: { id: true, status: true },
         },
@@ -102,6 +103,7 @@ export async function POST(
           templateId,
           patientName: booking.patientName,
           patientEmail: booking.patientEmail,
+          patientId: booking.patientId ?? null,
         },
       });
 
@@ -124,6 +126,7 @@ export async function POST(
         templateId,
         patientName: booking.patientName,
         patientEmail: booking.patientEmail,
+        patientId: booking.patientId ?? null,
       },
     });
 
@@ -139,6 +142,59 @@ export async function POST(
     console.error('Error generating appointment form link:', error);
     return NextResponse.json(
       { success: false, error: 'Error al generar el enlace del formulario' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/appointments/bookings/[id]/form-link
+// PENDING → hard delete (no patient data to preserve)
+// SUBMITTED → detach only (bookingId = null), keeps record in patient expediente via patientId
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const { id: bookingId } = await params;
+
+    // Verify booking exists and belongs to this doctor
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        doctorId: true,
+        formLink: { select: { id: true, status: true } },
+      },
+    });
+
+    if (!booking) {
+      return NextResponse.json({ success: false, error: 'Cita no encontrada' }, { status: 404 });
+    }
+
+    if (booking.doctorId !== doctor.id) {
+      return NextResponse.json({ success: false, error: 'No tienes permiso para esta cita' }, { status: 403 });
+    }
+
+    if (!booking.formLink) {
+      return NextResponse.json({ success: false, error: 'Esta cita no tiene formulario' }, { status: 404 });
+    }
+
+    if (booking.formLink.status === 'SUBMITTED') {
+      // Detach only — preserve in patient expediente via formLink.patientId
+      await prisma.appointmentFormLink.update({
+        where: { id: booking.formLink.id },
+        data: { bookingId: null },
+      });
+    } else {
+      // PENDING — hard delete, no patient data was captured
+      await prisma.appointmentFormLink.delete({ where: { id: booking.formLink.id } });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting appointment form link:', error);
+    return NextResponse.json(
+      { success: false, error: 'Error al eliminar el formulario' },
       { status: 500 }
     );
   }

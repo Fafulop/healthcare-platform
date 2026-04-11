@@ -372,6 +372,7 @@ export default function AppointmentsV2Page() {
           setFormLinkBooking(booking);
           setFormLinkModalOpen(true);
         }}
+        onDeleteFormLink={bookingsHook.deleteFormLink}
         onSendEmail={bookingsHook.sendConfirmationEmail}
         onReschedule={handleReschedule}
       />

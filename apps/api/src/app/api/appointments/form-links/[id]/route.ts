@@ -25,6 +25,9 @@ export async function GET(
         patientName: true,
         patientEmail: true,
         doctorId: true,
+        patient: {
+          select: { id: true, firstName: true, lastName: true },
+        },
         booking: {
           select: {
             id: true,
@@ -73,8 +76,8 @@ export async function GET(
       },
     });
 
-    const appointmentDate = formLink.booking.slot?.date ?? formLink.booking.date ?? null;
-    const appointmentTime = formLink.booking.slot?.startTime ?? formLink.booking.startTime ?? null;
+    const appointmentDate = formLink.booking?.slot?.date ?? formLink.booking?.date ?? null;
+    const appointmentTime = formLink.booking?.slot?.startTime ?? formLink.booking?.startTime ?? null;
 
     return NextResponse.json({
       success: true,
@@ -86,7 +89,7 @@ export async function GET(
         submittedAt: formLink.submittedAt,
         patientName: formLink.patientName,
         patientEmail: formLink.patientEmail,
-        appointment: {
+        appointment: formLink.booking ? {
           bookingId: formLink.booking.id,
           date: appointmentDate ? appointmentDate.toISOString().split('T')[0] : null,
           time: appointmentTime,
@@ -94,7 +97,16 @@ export async function GET(
           patientName: formLink.booking.patientName,
           patientEmail: formLink.booking.patientEmail,
           patientPhone: formLink.booking.patientPhone,
-          linkedPatient: formLink.booking.patient ?? null,
+          linkedPatient: formLink.patient ?? formLink.booking.patient ?? null,
+        } : {
+          bookingId: null,
+          date: null,
+          time: null,
+          isFirstTime: null,
+          patientName: formLink.patientName,
+          patientEmail: formLink.patientEmail,
+          patientPhone: null,
+          linkedPatient: formLink.patient ?? null,
         },
         template: template
           ? {

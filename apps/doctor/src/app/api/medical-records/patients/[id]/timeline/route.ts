@@ -97,7 +97,7 @@ export async function GET(
         select: { id: true, content: true, createdAt: true, updatedAt: true },
       }),
       prisma.appointmentFormLink.findMany({
-        where: { status: 'SUBMITTED', doctorId, booking: { patientId } },
+        where: { status: 'SUBMITTED', doctorId, patientId },
         orderBy: { submittedAt: 'desc' },
         select: {
           id: true,
@@ -149,8 +149,8 @@ export async function GET(
       ...formLinks
         .filter((fl) => fl.submittedAt !== null)
         .map(fl => {
-          const appointmentDate = fl.booking.slot?.date ?? fl.booking.date ?? null;
-          const appointmentTime = fl.booking.slot?.startTime ?? fl.booking.startTime ?? null;
+          const appointmentDate = fl.booking?.slot?.date ?? fl.booking?.date ?? null;
+          const appointmentTime = fl.booking?.slot?.startTime ?? fl.booking?.startTime ?? null;
           return {
             type: 'formulario',
             date: fl.submittedAt!,

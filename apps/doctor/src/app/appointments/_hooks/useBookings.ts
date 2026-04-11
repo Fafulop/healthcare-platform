@@ -56,6 +56,7 @@ export interface Booking {
     id: string;
     token: string;
     status: 'PENDING' | 'SUBMITTED';
+    createdAt: string;
   } | null;
 }
 
@@ -189,6 +190,25 @@ export function useBookings(doctorId: string | undefined) {
     }
   };
 
+  const deleteFormLink = async (bookingId: string) => {
+    try {
+      const response = await authFetch(
+        `${API_URL}/api/appointments/bookings/${bookingId}/form-link`,
+        { method: "DELETE" }
+      );
+      const data = await response.json();
+      if (data.success) {
+        setBookings((prev) =>
+          prev.map((b) => b.id === bookingId ? { ...b, formLink: null } : b)
+        );
+      } else {
+        toast.error(data.error || "Error al eliminar el formulario");
+      }
+    } catch {
+      toast.error("Error al eliminar el formulario");
+    }
+  };
+
   const sendConfirmationEmail = async (bookingId: string): Promise<void> => {
     try {
       const response = await authFetch(
@@ -306,6 +326,7 @@ export function useBookings(doctorId: string | undefined) {
     updatePatientLink,
     updateExtendedBlock,
     deleteBooking,
+    deleteFormLink,
     sendConfirmationEmail,
     shiftBookingFilterDate,
     getStatusColor,

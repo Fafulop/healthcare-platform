@@ -432,6 +432,7 @@ export async function GET(request: Request) {
             id: true,
             token: true,
             status: true,
+            createdAt: true,
           },
         },
         patient: {

@@ -131,15 +131,18 @@ CREATE INDEX IF NOT EXISTS appointment_form_links_patient_id_idx
   ON public.appointment_form_links(patient_id);
 ```
 
-### ⚠️ PENDING: Run migration + regenerate client
+### ⚠️ PENDING: Run migration + backfill + regenerate client
 
 ```powershell
 # Local
 cd packages/database
 npx prisma db execute --file prisma/migrations/add-form-link-patient-id.sql --schema prisma/schema.prisma
+# Backfill existing SUBMITTED formLinks that were linked via booking.patientId
+npx prisma db execute --file prisma/migrations/backfill-form-link-patient-id.sql --schema prisma/schema.prisma
 
 # Railway (run BEFORE deploying)
 npx prisma db execute --file packages/database/prisma/migrations/add-form-link-patient-id.sql --url "postgresql://postgres:PASSWORD@yamanote.proxy.rlwy.net:51502/railway"
+npx prisma db execute --file packages/database/prisma/migrations/backfill-form-link-patient-id.sql --url "postgresql://postgres:PASSWORD@yamanote.proxy.rlwy.net:51502/railway"
 
 # Regenerate client
 cd .. && pnpm db:generate

@@ -1,6 +1,6 @@
 // GET /api/medical-records/patients/[id]/formularios
 // Returns all SUBMITTED AppointmentFormLink records linked to a patient
-// via booking.patientId, scoped to the authenticated doctor.
+// via formLink.patientId (direct), scoped to the authenticated doctor.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
@@ -28,7 +28,7 @@ export async function GET(
       where: {
         status: 'SUBMITTED',
         doctorId,
-        booking: { patientId },
+        patientId,
       },
       select: {
         id: true,
@@ -58,8 +58,8 @@ export async function GET(
     const templateMap = Object.fromEntries(templates.map((t) => [t.id, t.name]));
 
     const data = formLinks.map((fl) => {
-      const appointmentDate = fl.booking.slot?.date ?? fl.booking.date ?? null;
-      const appointmentTime = fl.booking.slot?.startTime ?? fl.booking.startTime ?? null;
+      const appointmentDate = fl.booking?.slot?.date ?? fl.booking?.date ?? null;
+      const appointmentTime = fl.booking?.slot?.startTime ?? fl.booking?.startTime ?? null;
       return {
         id: fl.id,
         templateName: templateMap[fl.templateId] ?? null,
