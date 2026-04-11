@@ -1,4 +1,4 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2 } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { InlinePatientSearch } from "./InlinePatientSearch";
@@ -464,13 +464,22 @@ function ExpedienteCell({
 
   if (booking.patientId && booking.patient) {
     return (
-      <Link
-        href={`/dashboard/medical-records/patients/${booking.patientId}`}
-        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-      >
-        <UserSquare2 className="w-3 h-3 shrink-0" />
-        {booking.patient.firstName} {booking.patient.lastName}
-      </Link>
+      <div className="flex items-center gap-1">
+        <Link
+          href={`/dashboard/medical-records/patients/${booking.patientId}`}
+          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          <UserSquare2 className="w-3 h-3 shrink-0" />
+          {booking.patient.firstName} {booking.patient.lastName}
+        </Link>
+        <button
+          title="Desvincular expediente"
+          onClick={() => onUpdatePatientLink(booking.id, null, null)}
+          className="p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
     );
   }
 
