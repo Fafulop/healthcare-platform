@@ -87,6 +87,10 @@ export function BookPatientModal({
     notes: "",
   });
 
+  // Patient link (for Recurrente bookings)
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [selectedPatientName, setSelectedPatientName] = useState<string>("");
+
   // Tracks whether this booking was a reschedule (captured at submit, stable for SuccessStep)
   const [wasRescheduled, setWasRescheduled] = useState(false);
 
@@ -144,6 +148,8 @@ export function BookPatientModal({
       notes: "",
     } : { patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
     setWasRescheduled(false);
+    setSelectedPatientId(null);
+    setSelectedPatientName("");
     setSlotMode("existing");
     setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, locationId: clinicLocations[0]?.id ?? "" });
   }, [preSelectedSlot, clinicLocations, rescheduleBooking]);
@@ -275,6 +281,7 @@ export function BookPatientModal({
             isFirstTime,
             appointmentMode: appointmentMode || undefined,
             isRescheduled: !!rescheduleBooking,
+            patientId: selectedPatientId || undefined,
             ...(newSlotForm.locationId ? { locationId: newSlotForm.locationId } : {}),
           }),
         });
@@ -316,6 +323,7 @@ export function BookPatientModal({
           isFirstTime,
           appointmentMode: appointmentMode || undefined,
           isRescheduled: !!rescheduleBooking,
+          patientId: selectedPatientId || undefined,
         }),
       });
       const bookingData = await bookingRes.json();
@@ -428,13 +436,23 @@ export function BookPatientModal({
                 selectedServiceId={selectedServiceId}
                 onSelectService={(id) => setSelectedServiceId(selectedServiceId === id ? null : id)}
                 isFirstTime={isFirstTime}
-                setIsFirstTime={setIsFirstTime}
+                setIsFirstTime={(v) => {
+                  setIsFirstTime(v);
+                  // Clear patient link when switching away from Recurrente
+                  if (v !== false) { setSelectedPatientId(null); setSelectedPatientName(""); }
+                }}
                 appointmentMode={appointmentMode}
                 setAppointmentMode={setAppointmentMode}
                 formData={formData}
                 setFormData={setFormData}
                 error={error}
                 fieldSettings={slotMode === "new" ? instantSettings : horariosSettings}
+                selectedPatientId={selectedPatientId}
+                selectedPatientName={selectedPatientName}
+                onSelectPatient={(p) => {
+                  setSelectedPatientId(p?.id ?? null);
+                  setSelectedPatientName(p ? `${p.firstName} ${p.lastName}` : "");
+                }}
               />
             </form>
           )}

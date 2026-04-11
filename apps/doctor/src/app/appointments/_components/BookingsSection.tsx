@@ -179,27 +179,13 @@ export function BookingsSection({
                   const endTime = booking.slot?.endTime ?? booking.endTime ?? undefined;
                   const colorClass = getStatusColor(booking.status, endTime, bookingDate);
 
+                  const startTime = booking.slot?.startTime ?? booking.startTime ?? "";
+
                   return (
                     <div key={booking.id} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-gray-900 text-sm">{booking.patientName}</p>
-                          <p className="text-xs text-gray-600">
-                            {formatLocalDate(bookingDate, { month: "short", day: "numeric" })} ·{" "}
-                            {booking.slot?.startTime ?? booking.startTime ?? ""}
-                          </p>
-                          {booking.serviceName && (
-                            <p className="text-xs text-blue-600 font-medium mt-0.5">
-                              {booking.serviceName}
-                            </p>
-                          )}
-                          {booking.isFirstTime === true && (
-                            <span className="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">Primera vez</span>
-                          )}
-                          {booking.isFirstTime === false && (
-                            <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">Recurrente</span>
-                          )}
-                        </div>
+                      {/* Row 1: name + status */}
+                      <div className="flex items-start justify-between mb-1.5">
+                        <p className="font-medium text-gray-900 text-sm">{booking.patientName}</p>
                         <BookingStatusBadge
                           status={booking.status}
                           colorClass={colorClass}
@@ -207,16 +193,53 @@ export function BookingsSection({
                           slotDate={bookingDate}
                         />
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+
+                      {/* Row 2: date + time range */}
+                      <p className="text-xs text-gray-600 mb-1">
+                        {formatLocalDate(bookingDate, { month: "short", day: "numeric", year: "numeric" })}
+                        {startTime && ` · ${startTime}`}
+                        {endTime && `–${endTime}`}
+                      </p>
+
+                      {/* Row 3: service + badges */}
+                      <div className="flex flex-wrap items-center gap-1 mb-2">
+                        {booking.serviceName && (
+                          <span className="text-xs text-blue-600 font-medium">{booking.serviceName}</span>
+                        )}
+                        {booking.appointmentMode === "TELEMEDICINA" && (
+                          <span className="text-xs text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">Telemedicina</span>
+                        )}
+                        {booking.isFirstTime === true && (
+                          <span className="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">Primera vez</span>
+                        )}
+                        {booking.isFirstTime === false && (
+                          <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Recurrente</span>
+                        )}
+                      </div>
+
+                      {/* Row 4: contact */}
+                      <div className="flex flex-col gap-0.5 text-xs text-gray-500 mb-2">
                         <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3" />
+                          <Phone className="w-3 h-3 shrink-0" />
                           {booking.patientPhone}
                         </span>
+                        {booking.patientEmail && (
+                          <span className="flex items-center gap-1">
+                            <Mail className="w-3 h-3 shrink-0" />
+                            {booking.patientEmail}
+                          </span>
+                        )}
                         <span className="flex items-center gap-1">
-                          <DollarSign className="w-3 h-3" />
+                          <DollarSign className="w-3 h-3 shrink-0" />
                           ${Number(booking.finalPrice).toLocaleString()}
                         </span>
                       </div>
+
+                      {/* Row 5: expediente */}
+                      <div className="mb-2">
+                        <ExpedienteCell booking={booking} onUpdatePatientLink={onUpdatePatientLink} />
+                      </div>
+
                       <StatusActions
                         booking={booking}
                         onUpdateStatus={onUpdateStatus}

@@ -1,6 +1,7 @@
 "use client";
 
-import { User, Mail, Phone, MessageSquare, Stethoscope } from "lucide-react";
+import { User, Mail, Phone, MessageSquare, Stethoscope, UserSquare2, X } from "lucide-react";
+import { InlinePatientSearch } from "../InlinePatientSearch";
 
 interface DoctorService {
   id: string;
@@ -35,6 +36,9 @@ interface Props {
   setFormData: (f: PatientFormData) => void;
   error: string;
   fieldSettings?: PatientFieldSettings;
+  selectedPatientId: string | null;
+  selectedPatientName: string;
+  onSelectPatient: (patient: { id: string; firstName: string; lastName: string } | null) => void;
 }
 
 export function PatientFormStep({
@@ -49,6 +53,9 @@ export function PatientFormStep({
   setFormData,
   error,
   fieldSettings = { emailRequired: true, phoneRequired: true, whatsappRequired: true },
+  selectedPatientId,
+  selectedPatientName,
+  onSelectPatient,
 }: Props) {
   return (
     <div className="space-y-4">
@@ -117,6 +124,32 @@ export function PatientFormStep({
           )}
         </div>
       </div>
+
+      {/* Vincular expediente (only for Recurrente) */}
+      {isFirstTime === false && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Vincular expediente <span className="text-gray-400 font-normal">(opcional)</span>
+          </label>
+          {selectedPatientId ? (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50">
+              <UserSquare2 className="w-4 h-4 text-blue-600 shrink-0" />
+              <span className="text-sm text-blue-800 flex-1">{selectedPatientName}</span>
+              <button
+                type="button"
+                onClick={() => onSelectPatient(null)}
+                className="p-0.5 rounded hover:bg-blue-100"
+              >
+                <X className="w-3.5 h-3.5 text-blue-500" />
+              </button>
+            </div>
+          ) : (
+            <InlinePatientSearch
+              onSelect={(p) => onSelectPatient(p)}
+            />
+          )}
+        </div>
+      )}
 
       {/* Modalidad */}
       <div>
