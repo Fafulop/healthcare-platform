@@ -507,7 +507,7 @@ model Booking {
   service            Service?         @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   patient            Patient?         @relation(fields: [patientId], references: [id], onDelete: SetNull)
   review             Review?
-  formLink           AppointmentFormLink?
+  formLink           AppointmentFormLink?  @relation("BookingFormLink")
 
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
@@ -587,7 +587,13 @@ model AppointmentFormLink {
   id             String                @id @default(cuid())
   token          String                @unique
   doctorId       String                @map("doctor_id")
-  bookingId      String                @unique @map("booking_id")
+
+  // Nullable — detaching from a booking keeps the record alive in patient expediente
+  bookingId      String?               @unique @map("booking_id")
+
+  // Direct patient link — independent of booking, populated at submission or when booking is linked
+  patientId      String?               @map("patient_id")
+
   templateId     String                @map("template_id")  // plain ref — EncounterTemplate.id (cross-schema, no FK)
   status         AppointmentFormStatus @default(PENDING)
   submissionData Json?                 @map("submission_data")
@@ -596,13 +602,15 @@ model AppointmentFormLink {
   patientEmail   String                @map("patient_email")
 
   doctor         Doctor               @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  booking        Booking              @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking        Booking?             @relation("BookingFormLink", fields: [bookingId], references: [id], onDelete: SetNull)
+  patient        Patient?             @relation(fields: [patientId], references: [id], onDelete: SetNull)
 
   createdAt      DateTime             @default(now()) @map("created_at")
   updatedAt      DateTime             @updatedAt @map("updated_at")
 
   @@index([doctorId])
   @@index([doctorId, status])
+  @@index([patientId])
   @@map("appointment_form_links")
   @@schema("public")
 }
@@ -1412,6 +1420,7 @@ model Patient {
   tasks                Task[]
   patientNotes         PatientNote[]
   bookings             Booking[]
+  formLinks            AppointmentFormLink[]
 
   @@unique([doctorId, internalId])
   @@index([doctorId, status])
