@@ -17,7 +17,10 @@
 7. [Blocking Logic — Deep Dive](#7-blocking-logic--deep-dive)
 8. [Affected Surfaces](#8-affected-surfaces)
 9. [Edge Cases & Design Decisions](#9-edge-cases--design-decisions)
-10. [File Reference](#10-file-reference)
+10. [Extended Block Over an Existing Appointment](#10-extended-block-over-an-existing-appointment)
+11. [Nuevo Horario (Instant Bookings) & Extended Block](#11-nuevo-horario-instant-bookings--extended-block)
+12. [Confirming a Blocked Pending Appointment](#12-confirming-a-blocked-pending-appointment)
+13. [File Reference](#13-file-reference)
 
 ---
 
@@ -334,7 +337,121 @@ Freeform bookings created without an explicit `startTime` (edge case) do not sho
 
 ---
 
-## 10. File Reference
+---
+
+## 10. Extended Block Over an Existing Appointment
+
+**Scenario:** Doctor has a CONFIRMED booking at 10:00 AM with `extendedBlockMinutes = 300` (blocks until 3:00 PM). There is already another booking at 1:00 PM in any status (CONFIRMED, PENDING, etc.).
+
+### What the code does
+
+The block system operates entirely at the **slot availability** level for new bookings. Existing bookings are never touched, cancelled, or modified by a block window.
+
+### Case 1: `maxBookings = 1` (standard, most common)
+
+The 1:00 PM slot already has an active booking (PENDING and CONFIRMED both count — the availability filter excludes only `CANCELLED/COMPLETED/NO_SHOW`). So `_count.bookings >= maxBookings` removes the slot from availability **before** the extended block logic even runs. The block window hitting an already-eliminated slot is redundant but harmless.
+
+**Result: no issue.**
+
+### Case 2: `maxBookings > 1` (multi-patient slots)
+
+The 1:00 PM slot has 1 booking but remaining capacity. The extended block window covers it (`slotMin >= startMin && slotMin < endMin`) and prevents additional patients from booking.
+
+This is the correct behavior — the doctor is occupied until 3:00 PM and cannot take extra patients at 1:00 PM regardless of slot capacity.
+
+**Result: intentional. The block takes precedence over remaining slot capacity.**
+
+### Confirming or changing the status of the 1:00 PM booking
+
+Not affected at all. The PATCH endpoint (`/api/appointments/bookings/[id]`) uses only the state machine (`PENDING → CONFIRMED → COMPLETED` etc.) and never consults block windows. A booking whose slot falls inside another booking's extended block can be freely confirmed, completed, or cancelled.
+
+### Only CONFIRMED bookings generate block windows
+
+The block window query filters `status: 'CONFIRMED'`. A PENDING booking at 10:00 AM will never generate a block window — only confirmed procedures trigger extended blocks.
+
+---
+
+## 11. Nuevo Horario (Instant Bookings) & Extended Block
+
+"Nuevo horario" uses `POST /api/appointments/bookings/instant`, which is fundamentally different from the public slot booking flow.
+
+### What it creates
+
+Two records are created atomically:
+1. An `AppointmentSlot` with `isPublic: false`, `isOpen: false` — private, never visible to patients
+2. A `Booking` with `status: 'CONFIRMED'` immediately — no PENDING phase
+
+### ExtendedBlockControl already works for these bookings
+
+`ExtendedBlockControl` renders for any `booking.status === "CONFIRMED"` with a valid `startTime` — instant bookings always satisfy both conditions. No code change is needed.
+
+### Block window computation already covers instant bookings
+
+Both APIs fetch CONFIRMED bookings via:
+```javascript
+{ status: 'CONFIRMED', OR: [{ slot: { date: dateFilter } }, ...] }
+```
+Instant bookings have a real `slotId`, so they match via `slot.date`, and `slot.startTime`/`slot.duration` are included in the select. The `extendedBlockMinutes` logic is identical to public slot bookings.
+
+### Default block behavior is different in practice
+
+For public slot bookings, the default block (`extendedBlockMinutes = null` → slot duration) matters because adjacent slots could be booked by patients. For instant bookings, the default block is **redundant** — the private slot is already `isOpen: false` and `isPublic: false`, so no slot around it is affected. A custom `extendedBlockMinutes` only becomes meaningful when the doctor sets a value that extends **beyond** the slot's own duration to cover adjacent public slots.
+
+### Cancellation auto-lifts the block
+
+When a Nuevo horario booking is cancelled (or COMPLETED/NO_SHOW), the PATCH handler detects `isPublic === false` and runs:
+```javascript
+await prisma.$transaction([
+  prisma.booking.update({ data: { status: 'CANCELLED', slotId: null } }),
+  prisma.appointmentSlot.delete({ where: { id: slot.id } }),
+]);
+```
+
+The private slot is **deleted** and `slotId` is nulled. The extended block is automatically lifted because:
+1. The booking status becomes `CANCELLED` → excluded from block window computation (only `CONFIRMED` bookings are fetched)
+2. Even without that filter: `b.slot = null` and `b.date = null` (instant bookings store date only on the slot, not directly on the booking) → the `if (!rawDate || !rawStart || !rawDur) continue` guard skips it
+
+**Cancelling a Nuevo horario appointment always cleans up its block. No manual action required.**
+
+### Comparison table
+
+| Aspect | Public slot booking | Nuevo horario booking |
+|---|---|---|
+| `ExtendedBlockControl` shown | Yes (CONFIRMED) | Yes (CONFIRMED) — already works |
+| Block computation covers it | Yes | Yes — already works |
+| Default block effect | Blocks its own slot + adjacent | Redundant (slot already private/closed) |
+| Extended block effect | Blocks adjacent public slots | Same — blocks adjacent public slots |
+| On cancellation | Slot stays open for new patients | Slot deleted, block auto-lifted |
+| `extendedBlockMinutes` after cancel | Orphaned on booking record (harmless) | Same — booking is CANCELLED, never queried |
+
+---
+
+## 12. Confirming a Blocked Pending Appointment
+
+**Question:** If a PENDING appointment at 1:00 PM has its slot blocked by a CONFIRMED appointment at 10:00 AM (with `extendedBlockMinutes` covering 1:00 PM), can the 1:00 PM booking still be confirmed?
+
+**Yes, without restriction.**
+
+The PATCH endpoint for status changes (`PENDING → CONFIRMED`) does a direct `prisma.booking.update` after validating only the state machine transition. Block windows are never consulted during status changes. The system prevents new bookings from being created in blocked slots — it does not prevent existing bookings from moving through their lifecycle.
+
+```
+PENDING booking at 1:00 PM (slot blocked by 10:00 AM extended block)
+  ↓
+Doctor clicks "Confirmar"
+  ↓
+PATCH /api/appointments/bookings/[id]  { status: "CONFIRMED" }
+  ↓
+State machine: PENDING → CONFIRMED ✓
+  ↓
+booking.update({ status: "CONFIRMED", confirmedAt: now })
+SMS sent · GCal synced · confirmation email sent
+```
+
+No block window is consulted at any point. This is intentional — the doctor is actively deciding to confirm that patient, so the system allows it.
+
+---
+
+## 13. File Reference
 
 | File | Change |
 |---|---|

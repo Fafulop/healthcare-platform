@@ -248,6 +248,7 @@ export function BookingsSection({
                           FECHA Y HORA <SortIcon column="date" sortColumn={sortColumn} sortDirection={sortDirection} />
                         </button>
                       </th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">SERVICIO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">CONTACTO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">PRECIO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">
@@ -271,15 +272,18 @@ export function BookingsSection({
                         <tr key={booking.id} className="hover:bg-gray-50">
                           <td className="py-3 px-3">
                             <p className="font-medium text-gray-900">{booking.patientName}</p>
-                            {booking.serviceName && (
-                              <p className="text-xs text-blue-600">{booking.serviceName}</p>
-                            )}
                             {booking.isFirstTime === true && (
                               <span className="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">Primera vez</span>
                             )}
                             {booking.isFirstTime === false && (
                               <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">Recurrente</span>
                             )}
+                          </td>
+                          <td className="py-3 px-3">
+                            {booking.serviceName
+                              ? <span className="text-sm text-gray-800">{booking.serviceName}</span>
+                              : <span className="text-xs text-gray-400">—</span>
+                            }
                           </td>
                           <td className="py-3 px-3 text-gray-600">
                             <p>{formatLocalDate(bookingDate, { month: "short", day: "numeric", year: "numeric" })}</p>
