@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
@@ -19,6 +19,7 @@ import { BookPatientModal } from "./_components/BookPatientModal";
 import { AppointmentChatPanel } from "./_components/AppointmentChatPanel";
 import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
 import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
+import { StandaloneFormularioModal } from "./_components/StandaloneFormularioModal";
 import { BlockRangeModal } from "./_components/BlockRangeModal";
 import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsModal";
 import { SlotFiltersBar, type SlotStatusFilter } from "./_components/SlotFiltersBar";
@@ -52,6 +53,7 @@ export default function AppointmentsV2Page() {
   const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
   const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
   const [formLinkBooking, setFormLinkBooking] = useState<Booking | null>(null);
+  const [standaloneFormModalOpen, setStandaloneFormModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<SlotStatusFilter>("all");
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderOffset, setReminderOffset] = useState(120);
@@ -187,6 +189,14 @@ export default function AppointmentsV2Page() {
           >
             <Sparkles className="w-4 h-4 flex-shrink-0" />
             <span>Chat IA</span>
+          </button>
+          <button
+            onClick={() => setStandaloneFormModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <ClipboardList className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Formulario libre</span>
+            <span className="sm:hidden">Formulario</span>
           </button>
           <button
             onClick={openBookModal}
@@ -513,6 +523,11 @@ export default function AppointmentsV2Page() {
         isOpen={formLinkModalOpen}
         onClose={() => { setFormLinkModalOpen(false); setFormLinkBooking(null); }}
         onSuccess={bookingsHook.fetchBookings}
+      />
+
+      <StandaloneFormularioModal
+        isOpen={standaloneFormModalOpen}
+        onClose={() => setStandaloneFormModalOpen(false)}
       />
 
       <BookingFieldSettingsModal
