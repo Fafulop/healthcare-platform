@@ -368,6 +368,11 @@ export default function AppointmentsV2Page() {
           await bookingsHook.updateBookingStatus(id, status);
           slotsHook.fetchSlots();
         }}
+        onCompleteBooking={async (id, price, formaDePago) => {
+          await bookingsHook.completeBooking(id, price, formaDePago);
+          slotsHook.fetchSlots();
+        }}
+        onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
         onUpdatePatientLink={bookingsHook.updatePatientLink}
         onDeleteBooking={async (id, name) => {

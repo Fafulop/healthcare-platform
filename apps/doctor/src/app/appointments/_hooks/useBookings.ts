@@ -190,6 +190,76 @@ export function useBookings(doctorId: string | undefined) {
     }
   };
 
+  const completeBooking = async (bookingId: string, price: number, formaDePago: string) => {
+    try {
+      // 1. Mark booking as COMPLETED
+      const statusRes = await authFetch(
+        `${API_URL}/api/appointments/bookings/${bookingId}`,
+        { method: "PATCH", body: JSON.stringify({ status: "COMPLETED" }) }
+      );
+      const statusData = await statusRes.json();
+      if (!statusData.success) {
+        toast.error(statusData.error || "Error al completar la cita");
+        return;
+      }
+
+      // 2. Build concept from local booking state
+      const booking = bookings.find((b) => b.id === bookingId);
+      const patientName = booking?.patientName ?? "";
+      const serviceName = booking?.serviceName;
+      const concept = serviceName
+        ? `${serviceName} - ${patientName}`
+        : `Consulta - ${patientName}`;
+
+      // 3. Create ledger entry (fire the call, but surface errors as a soft warning)
+      const today = new Date().toISOString().split("T")[0];
+      const ledgerRes = await authFetch(
+        `${API_URL}/api/practice-management/ledger`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            entryType: "ingreso",
+            amount: price,
+            concept,
+            formaDePago,
+            transactionDate: today,
+            paymentStatus: "PAID",
+            amountPaid: price,
+          }),
+        }
+      );
+      const ledgerData = await ledgerRes.json();
+      if (!ledgerData.data) {
+        toast.error("Cita completada, pero hubo un error al crear el movimiento en Flujo de Dinero");
+      } else {
+        toast.success("Cita completada · ingreso registrado en Flujo de Dinero");
+      }
+
+      fetchBookings();
+    } catch {
+      toast.error("Error al completar la cita");
+    }
+  };
+
+  const updateBookingPrice = async (bookingId: string, price: number) => {
+    try {
+      const res = await authFetch(
+        `${API_URL}/api/appointments/bookings/${bookingId}`,
+        { method: "PATCH", body: JSON.stringify({ finalPrice: price }) }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setBookings((prev) =>
+          prev.map((b) => b.id === bookingId ? { ...b, finalPrice: price } : b)
+        );
+      } else {
+        toast.error(data.error || "Error al actualizar el precio");
+      }
+    } catch {
+      toast.error("Error al actualizar el precio");
+    }
+  };
+
   const deleteFormLink = async (bookingId: string) => {
     try {
       const response = await authFetch(
@@ -325,6 +395,8 @@ export function useBookings(doctorId: string | undefined) {
     updateBookingStatus,
     updatePatientLink,
     updateExtendedBlock,
+    completeBooking,
+    updateBookingPrice,
     deleteBooking,
     deleteFormLink,
     sendConfirmationEmail,

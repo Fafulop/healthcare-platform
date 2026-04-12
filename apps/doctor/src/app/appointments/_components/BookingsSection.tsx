@@ -1,9 +1,10 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2, X } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2, X, Pencil } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { InlinePatientSearch } from "./InlinePatientSearch";
 import { CreatePatientFromBookingModal } from "./CreatePatientFromBookingModal";
 import { FormularioStatusButton } from "./FormularioStatusButton";
+import { CompleteBookingModal } from "./CompleteBookingModal";
 import { formatLocalDate, getLocalDateString } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
 import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
@@ -28,6 +29,8 @@ interface Props {
   onDeleteFormLink: (bookingId: string) => void;
   onSendEmail: (id: string) => Promise<void>;
   onReschedule: (booking: Booking) => void;
+  onCompleteBooking: (id: string, price: number, formaDePago: string) => void;
+  onUpdatePrice: (id: string, price: number) => Promise<void>;
   getStatusColor: (status: string, endTime?: string, date?: string) => string;
   sortColumn: SortColumn;
   sortDirection: SortDirection;
@@ -61,6 +64,8 @@ export function BookingsSection({
   onDeleteFormLink,
   onSendEmail,
   onReschedule,
+  onCompleteBooking,
+  onUpdatePrice,
   getStatusColor,
   sortColumn,
   sortDirection,
@@ -234,7 +239,7 @@ export function BookingsSection({
                         )}
                         <span className="flex items-center gap-1">
                           <DollarSign className="w-3 h-3 shrink-0" />
-                          ${Number(booking.finalPrice).toLocaleString()}
+                          <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
                         </span>
                       </div>
 
@@ -252,6 +257,7 @@ export function BookingsSection({
                         onDeleteFormLink={onDeleteFormLink}
                         onSendEmail={onSendEmail}
                         onReschedule={onReschedule}
+                        onCompleteBooking={onCompleteBooking}
                       />
                     </div>
                   );
@@ -332,8 +338,8 @@ export function BookingsSection({
                               <Mail className="w-3 h-3" /> {booking.patientEmail}
                             </p>
                           </td>
-                          <td className="py-3 px-3 text-gray-700">
-                            ${Number(booking.finalPrice).toLocaleString()}
+                          <td className="py-3 px-3">
+                            <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
                           </td>
                           <td className="py-3 px-3">
                             <BookingStatusBadge
@@ -353,6 +359,7 @@ export function BookingsSection({
                               onDeleteFormLink={onDeleteFormLink}
                               onSendEmail={onSendEmail}
                               onReschedule={onReschedule}
+                              onCompleteBooking={onCompleteBooking}
                             />
                           </td>
                         </tr>
@@ -366,6 +373,67 @@ export function BookingsSection({
         </>
       )}
     </div>
+  );
+}
+
+function PriceCell({
+  booking,
+  onUpdatePrice,
+}: {
+  booking: Booking;
+  onUpdatePrice: (id: string, price: number) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(Number(booking.finalPrice)));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setValue(String(Number(booking.finalPrice)));
+  }, [booking.finalPrice, editing]);
+
+  const handleSave = async () => {
+    const price = parseFloat(value);
+    if (isNaN(price) || price < 0) { setEditing(false); return; }
+    setSaving(true);
+    await onUpdatePrice(booking.id, price);
+    setSaving(false);
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSave();
+    if (e.key === "Escape") { setEditing(false); setValue(String(Number(booking.finalPrice))); }
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-gray-500 text-xs">$</span>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={handleSave}
+          autoFocus
+          step="0.01"
+          min="0"
+          className="w-20 px-1.5 py-0.5 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+        />
+        {saving && <Loader2 className="w-3 h-3 animate-spin text-gray-400" />}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      title="Click para editar precio"
+      className="group flex items-center gap-1 text-sm text-gray-700 hover:text-blue-600 transition-colors"
+    >
+      ${Number(booking.finalPrice).toLocaleString()}
+      <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+    </button>
   );
 }
 
@@ -533,6 +601,7 @@ function StatusActions({
   onDeleteFormLink,
   onSendEmail,
   onReschedule,
+  onCompleteBooking,
 }: {
   booking: Booking;
   onUpdateStatus: (id: string, status: string) => void;
@@ -542,8 +611,10 @@ function StatusActions({
   onDeleteFormLink: (bookingId: string) => void;
   onSendEmail: (id: string) => Promise<void>;
   onReschedule: (booking: Booking) => void;
+  onCompleteBooking: (id: string, price: number, formaDePago: string) => void;
 }) {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const isTerminal = ["CANCELLED", "COMPLETED", "NO_SHOW"].includes(booking.status);
 
   const bookingDate = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
@@ -562,6 +633,17 @@ function StatusActions({
   };
 
   return (
+    <>
+      {completeModalOpen && (
+        <CompleteBookingModal
+          booking={booking}
+          onClose={() => setCompleteModalOpen(false)}
+          onConfirm={async (price, formaDePago) => {
+            onCompleteBooking(booking.id, price, formaDePago);
+            setCompleteModalOpen(false);
+          }}
+        />
+      )}
     <div className="flex gap-1 flex-wrap">
       {booking.status === "PENDING" && (
         <button
@@ -574,7 +656,7 @@ function StatusActions({
       {(booking.status === "PENDING" || booking.status === "CONFIRMED") && (
         <>
           <button
-            onClick={() => onUpdateStatus(booking.id, "COMPLETED")}
+            onClick={() => setCompleteModalOpen(true)}
             className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
           >
             Completar
@@ -664,5 +746,6 @@ function StatusActions({
         <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
       )}
     </div>
+    </>
   );
 }

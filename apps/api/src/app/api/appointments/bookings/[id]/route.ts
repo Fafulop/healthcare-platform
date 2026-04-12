@@ -101,7 +101,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status: newStatus, extendedBlockMinutes, patientId, confirmationCode: bodyConfirmationCode } = body;
+    const { status: newStatus, extendedBlockMinutes, patientId, confirmationCode: bodyConfirmationCode, finalPrice } = body;
 
     // ── Patient link update (no status change, no block change) ───────────────
     if (patientId !== undefined && newStatus === undefined && extendedBlockMinutes === undefined) {
@@ -171,6 +171,34 @@ export async function PATCH(
         where: { id },
         data: { extendedBlockMinutes: value },
       });
+      return NextResponse.json({ success: true, data: updated });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── Price update ──────────────────────────────────────────────────────────
+    if (finalPrice !== undefined && newStatus === undefined && extendedBlockMinutes === undefined && patientId === undefined) {
+      const auth = await validateAuthToken(request);
+      const { role: callerRole, doctorId: callerDoctorId } = auth;
+
+      const booking = await prisma.booking.findUnique({ where: { id } });
+      if (!booking) {
+        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+      }
+      if (callerRole === 'DOCTOR' && booking.doctorId !== callerDoctorId) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      }
+
+      const newPrice = parseFloat(String(finalPrice));
+      if (isNaN(newPrice) || newPrice < 0) {
+        return NextResponse.json({ success: false, error: 'Precio inválido' }, { status: 400 });
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id },
+        data: { finalPrice: newPrice },
+        select: { id: true, finalPrice: true },
+      });
+
       return NextResponse.json({ success: true, data: updated });
     }
     // ─────────────────────────────────────────────────────────────────────────
