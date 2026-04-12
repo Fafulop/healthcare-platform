@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Users, Loader2, FileText, ClipboardList } from 'lucide-react';
+import { Plus, Users, Loader2, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
@@ -72,14 +72,7 @@ export default function PatientsPage() {
             <p className="text-gray-600 mt-1 text-sm">Gestiona los expedientes de tus pacientes</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Link
-              href="/dashboard/medical-records/formularios"
-              className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
-            >
-              <ClipboardList className="w-4 h-4" />
-              <span className="hidden sm:inline">Formularios</span>
-            </Link>
-            <Link
+<Link
               href="/dashboard/medical-records/custom-templates"
               className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
             >

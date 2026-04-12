@@ -370,14 +370,7 @@ export default function PatientProfilePage() {
                 <ClipboardList className="w-5 h-5" />
                 Formularios Pre-Cita
               </h2>
-              {patientFormularios.length > 0 && (
-                <Link
-                  href="/dashboard/medical-records/formularios"
-                  className="text-sm text-violet-600 hover:text-violet-800 transition-colors"
-                >
-                  Ver todos
-                </Link>
-              )}
+
             </div>
             {patientFormularios.length > 0 ? (
               <div className="space-y-2">
