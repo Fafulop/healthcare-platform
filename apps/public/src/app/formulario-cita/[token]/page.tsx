@@ -380,7 +380,7 @@ export default function FormularioCitaPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">¡Formulario enviado!</h1>
-          <p className="text-gray-600">Tu médico lo revisará antes de tu cita. ¡Gracias!</p>
+          <p className="text-gray-600">Tu médico revisará tus respuestas. ¡Gracias!</p>
         </div>
       </div>
     );
