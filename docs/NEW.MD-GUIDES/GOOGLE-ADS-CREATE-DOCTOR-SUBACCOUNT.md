@@ -1,383 +1,431 @@
-# Google Ads — Create a Doctor Sub-Account Step by Step
+# Google Ads — Onboard a Doctor Step by Step
 
-**Last Updated:** 2026-03-19
+**Last Updated:** 2026-04-12
 
 ---
 
-## Billing — The Doctor Always Pays, Not You
+## Part 1 — Understanding the Building Blocks
 
-This is the most important thing to understand before starting.
-
-**You never need to add a payment method.** The doctor adds his own card directly to his sub-account. Google charges him. You are never involved in billing.
-
-### Why this matters during setup
-
-Google's account creation flow forces you through a campaign wizard that ends with a payment step. If your card fails or you skip it, the account gets created but stays in an **incomplete state** — and Google then blocks you from doing anything else in the account (adding users, managing campaigns) until billing is resolved.
-
-The way to avoid this entirely is to **add the doctor's Gmail during the setup flow itself** (Step 3 below). Google sends him an invitation email at that point, before billing is even required. He then logs in independently and adds his own card — which unblocks the account from his end.
-
-### What happens if payment fails during setup
-
-- The sub-account is still created and visible in your MCC ✓
-- The draft campaign is stuck in incomplete state
-- You cannot add users or do anything in the account
-- **Solution:** contact the doctor, confirm he received the Google Ads invite email, ask him to log in at ads.google.com and go to Billing → Billing settings to add his card
-
-### The correct billing flow
+Google Ads is made up of 4 separate layers. Most confusion about billing comes from assuming these are the same thing — they are not.
 
 ```
-You create the sub-account
-    │
-    ▼
-You enter doctor's Gmail during setup → Google sends him an invite
-    │
-    ▼
-Doctor accepts invite → logs into ads.google.com
-    │
-    ▼
-Doctor goes to Billing → Billing settings → adds his own card
-    │
-    ▼
-Google charges the doctor directly — forever
-You are never involved in billing again
+Google Account (Gmail)
+    └── Google Ads Account        ← where campaigns live
+            └── Billing Setup     ← links the Ads account to a payer
+                    └── Payments Profile   ← the actual payer: name, address, card
 ```
 
----
+### Layer 1 — Google Account (Gmail)
 
-## Overview
+This is just a Gmail. It is an identity. It does not have campaigns, budgets, or billing on its own. A person can have a Gmail without having any Google Ads account at all.
 
-This guide walks through creating a new Google Ads sub-account for a doctor inside your Manager Account (MCC). Google forces you through a campaign creation flow to create the account — you cannot skip it. The strategy is to get through the flow with minimal real settings, create the account, and then **immediately pause the campaign** so nothing spends.
+### Layer 2 — Google Ads Account
 
----
+This is where campaigns, ad groups, keywords, and ads live. It has a **Customer ID** (format: `123-456-7890`). Every doctor needs one of these. Having an Ads account does not mean it has billing set up — a new account can exist with zero billing configured.
 
-## Before You Start — What You Need
+### Layer 3 — Billing Setup
 
-- The doctor's full name
-- The doctor's public profile slug (e.g. `dr-jose-cruz-ruiz`)
-- The doctor's Gmail address (to give him access to his account)
-- A credit card to get through account creation (the doctor will replace it with his own later)
-- A rough idea of which city/area the doctor works in
+This is the active connection between an Ads account and a Payments Profile. It defines:
+- Which Payments Profile is responsible for this account's spend
+- Which manager account (if any) administers the billing
 
----
+There can only be **one active Billing Setup per Ads account at any time**. This is the layer most people skip thinking about, and it is the source of almost all billing problems.
 
-## Step 1 — Log Into Your Manager Account
+### Layer 4 — Payments Profile
 
-1. Go to [ads.google.com](https://ads.google.com)
-2. Sign in with the Google account that owns your Manager Account (MCC)
-3. You should land on the MCC home screen showing a list of your sub-accounts
+This is the actual payer. It contains:
+- The legal name of the person or business being charged
+- Their billing address
+- Their payment instrument (credit card, debit card, bank account)
+- Tax and contact information
 
----
+A Payments Profile is created automatically the first time someone enters their card details in any Google product (Google Ads, Google Workspace, Google Cloud). One person can have one Payments Profile linked to many Ads accounts.
 
-## Step 2 — Create a New Account
+**One Payments Profile, multiple Ads accounts:** A doctor who already has an Ads account (and therefore already has a Payments Profile) does not need to enter their card again when creating a second account. During billing setup for the new account, Google offers the option to reuse the existing Payments Profile. Both Ads accounts are charged to the same card.
 
-1. On the MCC home screen, click the **blue "+" button** (top left area near the account list)
-2. A menu appears with three options:
-   - Create new manager account
-   - **Create new account** ← click this
-   - Link existing account
-3. Click **"Create new account"**
+```
+Doctor's Gmail
+    ├── Ads Account A  (old account, unrelated to tusalud.pro)
+    │       └── Billing Setup → Payments Profile (Dr. Ríos, Visa ending 4242)
+    │
+    └── Ads Account B  (new account for tusalud.pro)
+            └── Billing Setup → same Payments Profile (Dr. Ríos, Visa ending 4242)
+```
 
----
+### How They Connect
 
-## Step 3 — Add Business Information
+```
+Dr. García's Gmail
+    └── Dr. García's Google Ads Account  (Customer ID: 456-789-0123)
+            └── Billing Setup  (created when Dr. García entered his card)
+                    └── Dr. García's Payments Profile  (his name, address, card)
 
-Google shows a form: *"Hi [Name] — Add your information to get started"*
+Your MCC (Manager Account)
+    └── Linked to Dr. García's Ads Account as manager
+            └── You can create/edit/pause all campaigns
+            └── You are NOT connected to his Billing Setup at all
+```
 
-Fill in:
-- **Business name:** `Dr. [Full Name] - tusalud.pro`
-  Example: `Dr. José Cruz Ruiz - tusalud.pro`
-- **Website URL:** the doctor's public profile
-  Format: `https://tusalud.pro/doctores/[slug]`
-  Example: `https://tusalud.pro/doctores/dr-jose`
-- **Phone number:** leave blank
-- **Invite users:** enter the doctor's Gmail address, set role to **Admin**
-
-Click **Next**.
-
----
-
-## Step 4 — Describe the Business
-
-Google shows: *"Describe your business to get better campaign suggestions"*
-
-Google will have already pre-filled a description by scraping the doctor's profile page. It also auto-suggests product/service categories based on the profile content.
-
-- **Leave everything as-is** — the pre-filled content is fine
-- Scroll to the bottom and click **Next**
+**The Paying Manager** is the account responsible for the billing setup. In this model, Dr. García's own account is the paying entity — not your MCC. Your MCC only has management access.
 
 ---
 
-## Step 5 — Connect Accounts (Skip)
+## Part 2 — The Three Possible Structures
 
-Google shows: *"Connect Dr. [Name] accounts — Bring in data like audiences and product listings"*
-
-Options shown:
-- YouTube channel
-- Mobile app
-- Google Business Profile
-- Phone number
-
-**Click "Skip"** — don't link anything here. These can be connected later if needed.
+There are three ways an agency can manage Google Ads campaigns for a client. Here is what each one means and why we chose the one we did.
 
 ---
 
-## Step 6 — Link Google Analytics (Important — Do Not Skip)
+### Structure A — Client creates account, invites agency as manager ✅ Chosen
 
-Google shows: *"We've found Google Analytics tags on your website!"*
+```
+Doctor creates their own Google Ads account
+    └── Doctor's card is added → Payments Profile created → Doctor is the payer
+    └── Doctor invites your MCC as manager
+            └── You accept the invite
+            └── You manage all campaigns from your MCC
+            └── Doctor receives all Google invoices directly
+            └── You never appear in their billing at all
+```
 
-It detects the GA4 property already installed on tusalud.pro and shows:
-- `524946974 - Google Analytics (GA4)` (or your GA4 property ID)
-- Toggle: **Import app and web metrics** → leave **On**
-- Toggle: **Import Google Analytics audiences** → leave **On**
+**How billing works:** Google charges the doctor's card directly. You have zero involvement in their billing. If the doctor's card fails, their campaigns pause — it does not affect your MCC or any other doctor's account.
 
-**Do not skip this.** Linking GA4 here means:
-- Google Ads can see which ad clicks lead to profile visits
-- Remarketing audiences from GA4 are available in this account
-- Full traffic attribution works (which campaign → which profile view)
+**Pros:**
+- Doctor owns and pays for their account from day one — no transfers, no workarounds
+- You manage campaigns without ever being the payer
+- Clean legal separation: doctor's financial relationship with Google is direct
+- If a doctor leaves, you simply remove manager access — nothing else changes
+- One doctor's billing problem cannot cascade to others
 
-Click **Next** or **Save**.
+**Cons:**
+- Doctor must do a one-time 15-minute setup (create account, add card, send invite)
+- Requires coordination — you cannot do it entirely yourself
 
 ---
 
-## Step 7 — Choose a Campaign Goal
+### Structure B — Agency creates sub-account in MCC, billing transferred later ❌ Not recommended
 
-Google shows: *"Choose a goal for this campaign"*
+```
+Your MCC creates a new sub-account
+    └── Your MCC becomes the "Paying Manager" automatically ← the problem
+    └── Your card gets charged
+    └── You initiate a Billing Transfer
+            └── Google emails the doctor
+            └── Doctor must accept the email AND create a Payments Profile
+            └── Only after acceptance: doctor's card replaces yours
+```
 
-Options:
-- Purchases
-- Submit lead form
-- Phone call leads
-- Page views
-- Brand awareness
+**Why this causes problems:** When you create an account inside your MCC, Google automatically assigns your MCC as the Paying Manager. The doctor's billing panel inside the sub-account is **greyed out** — they literally cannot change it without a formal transfer that you initiate and they accept. This is the root cause of charges landing on your card in the old setup.
 
-**Choose based on the doctor's main conversion:**
+**Additional problem:** The billing transfer requires the doctor to already have a Payments Profile. If they have never used Google Ads before, they do not have one. They need to create one first — which requires the same effort as just creating their own account (Structure A). So this structure has all the work of Structure A plus extra steps.
 
-| Doctor's main action | Choose |
+**Pros:**
+- You control the account from the start, before the doctor does anything
+- Account lives inside your MCC hierarchy
+
+**Cons:**
+- Your card gets charged immediately, even before the transfer
+- Doctor must accept a transfer email — if they ignore it, your card stays charged
+- More steps than Structure A for the same end result
+- If transfer fails or stalls, you are liable for spend
+
+---
+
+### Structure C — Agency creates sub-account using client's pre-linked Payments Profile ❌ Too complex
+
+```
+Doctor already has a Payments Profile (from an existing Ads account or Google Workspace)
+    └── Doctor grants your MCC "link-management permission" on their profile
+            └── You create a sub-account in your MCC
+                    └── During billing setup, you select the doctor's Payments Profile
+                            └── Doctor pays from day one
+                            └── Account lives inside your MCC
+```
+
+**Why this is not practical for most doctors:** Doctors who have never used Google Ads do not have a Payments Profile. The only way to get one is to either create a Google Ads account (same effort as Structure A) or pay for another Google service (Workspace, Cloud). Additionally, "link-management permission" is an advanced billing setting most doctors will not know how to configure. This structure is designed for sophisticated clients or agencies with existing relationships.
+
+**Pros:**
+- Account lives in your MCC hierarchy from the start
+- Doctor pays from day one without a transfer
+
+**Cons:**
+- Requires the doctor to already have a Payments Profile
+- Requires the doctor to grant "link-management permission" — a non-trivial step for a non-technical person
+- No real advantage over Structure A for this use case
+
+---
+
+### Why We Chose Structure A
+
+| Criteria | Structure A | Structure B | Structure C |
+|---|---|---|---|
+| Doctor pays from day one | ✅ | ❌ (transfer needed) | ✅ |
+| Your card is never at risk | ✅ | ❌ | ✅ |
+| Works for doctors with no prior Google Ads | ✅ | ✅ (with extra steps) | ❌ |
+| Doctor setup effort | 15 min once | 15 min + accept email | 15 min + permissions step |
+| You can manage all campaigns from MCC | ✅ | ✅ | ✅ |
+| Complexity | Low | Medium | High |
+
+Structure A requires the least coordination, puts billing risk on zero parties other than the doctor, and works for any doctor regardless of whether they have ever used Google Ads before.
+
+---
+
+## Part 3 — Step-by-Step: Onboarding a New Doctor
+
+---
+
+### DOCTOR SIDE — Steps the doctor completes (15 minutes)
+
+Send the doctor these steps or walk them through it on a call.
+
+---
+
+#### If the doctor already has a Google Ads account
+
+Some doctors may have run ads before and already have an Ads account linked to their Gmail. They do not use that account — they create a fresh one for tusalud.pro. Here is how:
+
+1. Go to [ads.google.com](https://ads.google.com) — Google lands them inside their existing account
+2. Click the **account name / switcher** at the very top of the page
+3. A dropdown appears showing all their current accounts
+4. At the bottom of the dropdown: click **"+ Create new account"**
+5. Google runs the same campaign wizard as a brand new user
+
+When they reach the billing step, Google will offer:
+- **"Use existing payments profile"** — their card is already on file, select this
+- **"Create new payments profile"** — only if they want a different card for tusalud.pro
+
+In most cases they select **"Use existing payments profile"** — no need to re-enter their card.
+
+---
+
+#### Step 1 — Create a Google Ads account
+
+1. Open [ads.google.com](https://ads.google.com) while signed in with their Gmail
+2. Google starts an account creation wizard — go through it
+
+**Getting through the campaign wizard:**
+
+Google forces every new account through a campaign creation flow. Fill in the minimum to get through it — this campaign gets deleted right after.
+
+- **Campaign goal:** choose anything ("Get more website traffic" is fine)
+- **Website:** their tusalud.pro profile URL: `https://tusalud.pro/doctores/[slug]`
+- **Ad content:** fill in minimum fields with placeholder text (name + specialty as headline, any sentence as description)
+- **Budget:** set MX$50 — does not matter, campaign gets paused immediately
+
+#### Step 2 — Add their payment method
+
+When Google asks for a payment method, the doctor enters their own credit or debit card. This step:
+- Creates their **Payments Profile** (their name, address, and card on file with Google)
+- Makes them the permanent payer for this account
+
+This is the binding step. From this moment, Google charges them — not you, not ever.
+
+#### Step 3 — Pause the placeholder campaign immediately
+
+As soon as the account is created and they land on the campaigns screen:
+
+1. Click the **status dot** next to the placeholder campaign
+2. Select **"Pause"**
+3. Confirm
+
+Nothing will spend. The account is ready.
+
+#### Step 4 — Invite your MCC as a manager
+
+> **Important:** This is NOT the same as inviting an individual Gmail user. The doctor is linking to your **Manager Account (MCC)** — an organization-level entity identified by a Customer ID, not an email address. See the full explanation below.
+
+##### How to send the invite (exact steps)
+
+1. In their Google Ads account, click the **Admin icon** (gear/wrench) in the left-side navigation
+2. Select **"Access and security"**
+3. Click the **"Managers" tab** — this is a separate tab from "Users". Do not use the Users tab.
+4. Click the **"+" button**
+5. Enter your MCC **Customer ID** — format: `XXX-XXX-XXXX` (10 digits)
+6. Click **"Send request"**
+
+Google sends a notification to your MCC. The doctor's part is now completely finished.
+
+##### What the doctor will see after sending
+
+Under the Managers tab, your MCC appears with status **"Pending"** until you accept from your side. The doctor does not need to do anything else.
+
+---
+
+#### Understanding: Manager Account invite vs. individual user invite
+
+These are two different mechanisms. It is important to know the difference:
+
+| | Inviting an individual user | Linking a Manager Account (MCC) |
+|---|---|---|
+| **Found under** | Access and security → **Users tab** | Access and security → **Managers tab** |
+| **Identified by** | Email address (Gmail) | Customer ID (XXX-XXX-XXXX) |
+| **Who gets access** | That one person only | Your entire MCC — any of your team members you assign to that account |
+| **Used for** | Colleagues, contractors, individual people | Agencies managing campaigns professionally |
+| **Billing implications** | Depends on access level given | Linking an MCC does not give billing access by default |
+
+The doctor uses the **Managers tab** and enters your **Customer ID** — not an email address.
+
+---
+
+#### Understanding: Access levels
+
+When an individual user is invited (Users tab), the account owner chooses an access level. For MCC links, the access level is managed internally by the MCC — but it is still important to understand what each level means so the doctor knows what they are granting.
+
+| Access Level | Can manage campaigns | Can view reports | Can view billing | Can edit billing | Can manage users | Can link/unlink MCCs |
+|---|---|---|---|---|---|---|
+| **Admin** | Yes | Yes | Yes | Yes | Yes | Yes |
+| **Standard** | Yes | Yes | Yes (view only) | No | No | No |
+| **Read Only** | No | Yes | No | No | No | No |
+| **Billing** | No | No | Yes | Yes | No | No |
+| **Email Only** | No | No | No | No | No | No |
+
+**The correct access level for your MCC is Standard.** This gives full campaign management (create, edit, pause, delete campaigns, ad groups, ads, keywords, adjust bids and budgets) without any ability to touch billing or add/remove other users.
+
+When the MCC link is established, you — as the MCC admin — assign **Standard** access to your team members for that doctor's account from inside your MCC. The doctor does not control your internal team structure.
+
+The doctor retains **Admin** access to their own account at all times. They can:
+- See everything you do in their account via **Tools → Change history**
+- Remove your MCC access at any time from the Managers tab
+- Change their own billing, payment method, and account settings
+
+They cannot accidentally lose access to their own account because you are only a manager, not the owner.
+
+---
+
+Done — the doctor's part is finished.
+
+---
+
+### YOUR SIDE — Steps you complete after receiving the invite
+
+#### Step 5 — Accept the manager invite
+
+1. Log into your MCC at [ads.google.com](https://ads.google.com)
+2. Check the notification bell or go to **Accounts → Manager account settings**
+3. Find the pending invitation from the doctor's account
+4. Accept it
+
+The doctor's account now appears in your MCC account list. You have full campaign management access.
+
+#### Step 6 — Link GA4 to the doctor's account
+
+This enables traffic attribution (which ad → which profile visit → which booking) and makes GA4 audiences available for remarketing. Do not skip this.
+
+1. Inside the doctor's account in your MCC, go to **Tools → Linked accounts → Google Analytics**
+2. Find the tusalud.pro GA4 property (`G-PM03GGVRZS`)
+3. Click **Link**
+4. Select the web data stream for tusalud.pro
+5. Confirm
+
+#### Step 7 — Create the two conversion actions
+
+tusalud.pro fires conversion events automatically when patients click WhatsApp or complete a booking. These conversion actions must exist in the Ads account for Google to record them.
+
+**Conversion action 1 — Contact click:**
+
+1. Go to **Goals → Conversions → New conversion action → Website**
+2. Name: `contact_click`
+3. Category: **Lead**
+4. Count: **One**
+5. Value: leave blank or set a fixed estimate
+6. Click-through window: 30 days
+7. **Do not install the tag** — tusalud.pro already handles this
+
+**Conversion action 2 — Booking complete:**
+
+1. Go to **Goals → Conversions → New conversion action → Website**
+2. Name: `booking_complete`
+3. Category: **Purchase**
+4. Count: **One**
+5. Value: **Use different values for each conversion** (the site sends the appointment price dynamically)
+6. Currency: **MXN**
+7. **Do not install the tag** — tusalud.pro already handles this
+
+> The names must be exactly `contact_click` and `booking_complete` — they are hardcoded in tusalud.pro's analytics library. Any variation causes events to fire silently but Google discards them with no error.
+
+#### Step 8 — Copy the account ID and add it to admin
+
+1. In the doctor's account, look at the top-right corner or go to **Settings → Account settings**
+2. Copy the **Customer ID** — format: `123-456-7890`
+3. Convert to Ads format: remove dashes, add `AW-` prefix → `AW-1234567890`
+4. Log into the tusalud.pro admin panel
+5. Go to **Doctors** → find the doctor → click the **Ads** button
+6. Paste the `AW-XXXXXXXXXX` ID → Save
+
+The site now loads the doctor's Ads tag on every profile visit and fires conversion events to their account automatically. No redeploy needed.
+
+#### Step 9 — Delete the placeholder campaign and build the real one
+
+1. Delete the placeholder campaign created during account setup (Step 1)
+2. Create a new Search campaign from scratch:
+
+| Setting | Value |
 |---|---|
-| Patients contact via WhatsApp / phone | **Page views** |
-| Patients book online via tusalud.pro | **Purchases** |
-| Not sure yet | **Page views** (safest default) |
+| Campaign goal | Conversions |
+| Conversion action | `contact_click` or `booking_complete` |
+| Network | Search only (uncheck Display) |
+| Location | Doctor's city + surrounding municipalities |
+| Language | Spanish (remove English) |
+| Bid strategy | Conversions — leave target CPA blank for first 2–4 weeks |
+| Daily budget | As agreed with the doctor |
+| Final URL | `https://tusalud.pro/doctores/[slug]` |
 
-After selecting, Google asks how to measure that goal:
-- Select **"Use events from a linked Google Analytics 4 (GA4) property"**
-- Choose **`profile_view`** from the dropdown
-
-This tells Google Ads to optimize for people who actually land on the doctor's profile page using the GA4 event tusalud.pro fires automatically on every profile visit.
-
-Click **Next**.
-
----
-
-## Step 8 — Audience, Locations and Languages
-
-Google shows: *"Describe who and where your ads should reach"*
-
-**Search themes** — add relevant terms (examples for an ophthalmologist in Guadalajara):
+**Example keywords for an ophthalmologist in Guadalajara:**
 - `oftalmólogo Guadalajara`
 - `doctor ojos Guadalajara`
 - `cirugía cataratas Guadalajara`
 - `corrección visión Guadalajara`
 - `oftalmólogo cerca de mí`
 
-Adapt the terms to the doctor's specialty and city.
-
-**Locations** — Google may auto-suggest locations based on the profile. Verify they match the doctor's actual coverage area (city + nearby municipalities).
-
-**Languages** — Google defaults to English. Change it:
-1. Click on Languages
-2. Remove **English**
-3. Add **Spanish**
-
-Click **Next**.
-
----
-
-## Step 9 — Generate Assets with AI (Skip)
-
-Google shows: *"Let Google AI help you generate assets"* with a **Skip** option.
-
-**Click "Skip"** — we don't need AI-generated assets right now. Ads will be set up properly later once the campaign strategy is defined.
-
----
-
-## Step 10 — Create an Ad
-
-Google shows a form to create the actual ad. There is no skip option — you must fill in the minimum required fields.
-
-**Business name** (max 25 characters):
-- Shorten to fit: `Dr. José Cruz Ruiz` ✓
-
-**Headlines** — need minimum 3, max 30 characters each. Examples:
-- `Oftalmólogo Guadalajara`
-- `Dr. José Cruz Ruiz`
-- `Agenda tu Cita Hoy`
-
-Adapt to the doctor's specialty and city.
-
-**Long headline** — max 90 characters. Example:
-- `Especialista en cataratas, visión y cirugía ocular en Guadalajara`
-
-**Descriptions** — need minimum 2, max 90 characters each. Examples:
-- `Atención oftalmológica integral. Cirugía de cataratas y corrección de visión.`
-- `Consultas y cirugías con el Dr. Cruz Ruiz. Agenda tu cita en línea.`
-
-**Everything else — leave empty:**
-- Images → skip
-- Videos → skip
-- Sitelinks → skip
-- All other optional fields → skip
-
-> These will be filled in properly when setting up the real campaign. For now the goal is just to get through account creation.
-
-Click **Next**.
-
----
-
-## Step 11 — Set Bid Strategy
-
-Google shows: *"Set a bid strategy"*
-
-- Select **"Conversions"**
-- Leave the target cost per action **blank** — let Google optimize automatically at first
-- After a few weeks of real data you can set a specific target CPA
-
-Click **Next**.
-
----
-
-## Step 12 — Set Daily Budget
-
-Google shows: *"How much do you want to spend per day?"* with a recommended budget.
-
-Since we are going to **immediately pause this campaign**, the budget doesn't matter. Set a minimal amount:
-
-1. Click **"Set custom budget"**
-2. Enter **MX$50**
-
-Click **Next**.
-
----
-
-## Step 13 — Add Payment Information and Launch
-
-Google shows: *"Add payment information and launch your campaign"*
-
-Fill in the non-payment fields first:
-- **"Want personalized guidance by phone?"** → **No**
-- **"Get tips by email?"** → **No**
-- **"EU political ads?"** → **No**
-
-**For the payment method:**
-
-**If the doctor is present or on a call:**
-Hand him the screen. He enters his own card directly. Google charges him, you never see the card details.
-
-**If the doctor is not available:**
-Enter your own card to complete account creation. The doctor will replace it with his own card later (see Step 15). Since we pause the campaign immediately in the next step, nothing gets charged.
-
-Click **Submit** / **Launch**.
-
----
-
-## Step 14 — Immediately Pause the Campaign
-
-As soon as the account is created and you land on the campaign overview screen:
-
-1. Find the campaign that was just created
-2. Click the **green dot / status toggle** next to the campaign name
-3. Select **"Pause"**
-4. Confirm
-
-The campaign is now paused. Nothing will spend. You have the account created and ready.
-
----
-
-## Step 15 — Have the Doctor Add His Own Card
-
-If you used your card in Step 13, the doctor needs to replace it:
-
-1. Add the doctor as a user if not already done (he was invited in Step 3)
-2. Ask him to log into [ads.google.com](https://ads.google.com) with his Gmail
-3. He goes to **Billing → Billing settings**
-4. He removes your card and adds his own
-5. From this point Google charges him directly — you have no involvement in billing
-
----
-
-## Step 16 — Copy the Account ID and Add It to Admin
-
-1. In the sub-account, go to **Settings → Account settings** (or look at the top right corner)
-2. Copy the **Customer ID** — format: `123-456-7890`
-3. Convert it to Ads format: remove dashes, add `AW-` prefix → `AW-1234567890`
-4. Log into the tusalud.pro admin panel
-5. Go to **Doctors** → find the doctor → click the **Ads** button
-6. Paste the `AW-XXXXXXXXXX` ID → Save
-
-The site now automatically loads the doctor's Google Ads tag on every profile visit and fires conversion events to his account.
-
----
-
-## Step 17 — Create the Conversion Actions
-
-Inside the doctor's sub-account, create the two conversion actions that tusalud.pro fires:
-
-**Conversion action 1 — Contact click:**
-1. Go to **Goals → Conversions → New conversion action → Website**
-2. Name: `contact_click`
-3. Category: **Lead**
-4. Count: **One** (one conversion per click)
-5. Value: leave blank or set a fixed estimate
-6. Click-through conversion window: 30 days
-7. **Do not install the tag** — tusalud.pro already handles this
-
-**Conversion action 2 — Booking complete:**
-1. Go to **Goals → Conversions → New conversion action → Website**
-2. Name: `booking_complete`
-3. Category: **Purchase**
-4. Count: **One**
-5. Value: **Use different values for each conversion** (the site sends the appointment price)
-6. Currency: **MXN**
-7. **Do not install the tag** — tusalud.pro already handles this
-
-Once these exist, every WhatsApp click and completed booking on the doctor's profile will register as a conversion in his Google Ads account.
-
----
-
-## Step 18 — Set Up the Real Campaign
-
-Now the account is ready. When you're ready to actually run ads:
-
-1. Delete or repurpose the placeholder campaign created in the setup flow
-2. Create a proper Search campaign from scratch with:
-   - Correct keywords for the doctor's specialty and city
-   - Proper ad copy reviewed with the doctor
-   - Realistic budget agreed with the doctor
-   - Correct location targeting
-   - Conversion goal set to `contact_click` or `booking_complete`
+Adapt specialty and city to each doctor.
 
 ---
 
 ## Summary Checklist
 
-| Step | Done? |
-|---|---|
-| Sub-account created in MCC | ☐ |
-| GA4 linked to sub-account | ☐ |
-| Campaign paused immediately | ☐ |
-| Doctor's card added (replaced yours if needed) | ☐ |
-| `AW-XXXXXXXXXX` copied from sub-account | ☐ |
-| ID pasted into doctor's profile in admin | ☐ |
-| `contact_click` conversion action created | ☐ |
-| `booking_complete` conversion action created | ☐ |
-| Real campaign set up when ready | ☐ |
+| Step | Who | Done? |
+|---|---|---|
+| Google Ads account created at ads.google.com | Doctor | ☐ |
+| Doctor's own card added as payment method | Doctor | ☐ |
+| Placeholder campaign paused | Doctor | ☐ |
+| MCC manager invite sent | Doctor | ☐ |
+| Manager invite accepted from MCC | You | ☐ |
+| GA4 (`G-PM03GGVRZS`) linked to doctor's account | You | ☐ |
+| `contact_click` conversion action created | You | ☐ |
+| `booking_complete` conversion action created | You | ☐ |
+| `AW-XXXXXXXXXX` ID pasted into tusalud.pro admin | You | ☐ |
+| Placeholder campaign deleted | You | ☐ |
+| Real Search campaign created and live | You | ☐ |
 
 ---
 
 ## Important Notes
 
-- **The placeholder campaign created during setup does nothing useful** — pause it immediately and build a real one from scratch when ready
-- **Never skip the GA4 linking step** — it enables traffic attribution and remarketing audiences
-- **The doctor never needs to touch the campaign settings** — he only needs to add his payment method
-- **Conversion actions must be named exactly** `contact_click` and `booking_complete` — these are hardcoded in tusalud.pro's analytics library
-- **The `AW-XXXXXXXXXX` ID is account-level**, not campaign-level — it works across all campaigns in that sub-account
-- **Changing the doctor's ID in admin takes effect immediately** — no redeploy needed
+- **The doctor owns the account** — you manage it but they own it. This is correct and intentional.
+- **You never touch their billing** — Google charges the doctor's card directly. You have no role in their payments.
+- **The `AW-XXXXXXXXXX` ID is account-level** — one ID covers all campaigns inside that account.
+- **GA4 must be linked per account** — you must repeat Step 6 for each new doctor.
+- **New account = zero history** — Google's algorithm takes 2–4 weeks to optimize. Expect higher costs and lower performance initially.
+- **Conversion actions must exist before campaigns go live** — if you launch campaigns before creating the conversion actions, Google cannot optimize toward conversions and Smart Bidding will not work.
+
+---
+
+## Fixing Existing Accounts (Where Your Card Is Being Charged)
+
+If you already created accounts from inside your MCC and your card is being charged, the fix is a **Billing Transfer**. This is a formal process where you reassign the billing responsibility from your account to the doctor's.
+
+1. In your MCC, navigate into the affected doctor's account
+2. Go to **Billing → Billing transfers**
+3. Click **"Change who pays"** (pencil icon)
+4. Choose **"Create new billing setup"**
+5. Set the transfer date to **"As soon as possible"**
+6. Save
+
+Google sends the doctor an email invitation. **The transfer is not final until the doctor accepts it.** Until accepted, your card continues to be charged.
+
+After the doctor accepts:
+- They are prompted to enter their own card
+- From that point, Google charges them directly
+- Your card is removed from their billing
+
+Do not run active campaigns on affected accounts until the transfer is accepted and the doctor has added their own card.
