@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
+  ResponsiveContainer,
 } from "recharts";
 import { Loader2, CalendarDays } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
@@ -105,7 +105,7 @@ export default function BookingsByMonthChart() {
             <span
               key={label}
               className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border"
-              style={{ borderColor: color, color, backgroundColor: `${color}15` }}
+              style={{ borderColor: color, color, backgroundColor: `${color}18` }}
             >
               <span
                 className="w-2 h-2 rounded-full inline-block shrink-0"
@@ -119,36 +119,33 @@ export default function BookingsByMonthChart() {
 
       {/* Chart body */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-52 sm:h-72">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
         </div>
       ) : error ? (
-        <div className="flex items-center justify-center h-64 text-red-500 text-sm">
+        <div className="flex items-center justify-center h-52 sm:h-72 text-red-500 text-sm">
           {error}
           <button onClick={() => fetchStats(year)} className="ml-2 underline">
             Reintentar
           </button>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={formatted} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-            <Tooltip
-              contentStyle={{ fontSize: 12, borderRadius: 8 }}
-              cursor={{ fill: "#f3f4f6" }}
-            />
-            <Legend
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-            />
-            {STATUS_CONFIG.map(({ key, label, color }) => (
-              <Bar key={key} dataKey={key} name={label} stackId="a" fill={color} radius={key === "CANCELLED" ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="h-52 sm:h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={formatted} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="month" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} width={28} />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                cursor={{ fill: "#f3f4f6" }}
+              />
+              {STATUS_CONFIG.map(({ key, label, color }) => (
+                <Bar key={key} dataKey={key} name={label} stackId="a" fill={color} radius={key === "CANCELLED" ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       )}
     </div>
   );

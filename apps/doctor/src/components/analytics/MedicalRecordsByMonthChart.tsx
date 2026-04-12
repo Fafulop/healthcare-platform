@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
+  ResponsiveContainer,
 } from "recharts";
 import { Loader2 } from "lucide-react";
 
@@ -106,27 +106,28 @@ export default function MedicalRecordsByMonthChart() {
 
       {/* Chart */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-52 sm:h-72">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
         </div>
       ) : error ? (
-        <div className="flex items-center justify-center h-64 text-red-500 text-sm">
+        <div className="flex items-center justify-center h-52 sm:h-72 text-red-500 text-sm">
           {error}
           <button onClick={() => fetchStats(year)} className="ml-2 underline">Reintentar</button>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={formatted} margin={{ top: 4, right: 4, left: -10, bottom: 0 }} barCategoryGap="20%" barGap={2}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} cursor={{ fill: "#f3f4f6" }} />
-            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-            {SERIES.map(({ key, label, color }) => (
-              <Bar key={key} dataKey={key} name={label} fill={color} radius={[4, 4, 0, 0]} />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="h-52 sm:h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={formatted} margin={{ top: 4, right: 4, left: -10, bottom: 0 }} barCategoryGap="20%" barGap={2}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="month" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} width={28} />
+              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} cursor={{ fill: "#f3f4f6" }} />
+              {SERIES.map(({ key, label, color }) => (
+                <Bar key={key} dataKey={key} name={label} fill={color} radius={[4, 4, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       )}
     </div>
   );
