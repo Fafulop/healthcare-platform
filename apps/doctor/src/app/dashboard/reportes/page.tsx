@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Eye, Phone, CalendarCheck, BookOpen, Loader2, BarChart3, Bot, Zap, MessageSquare } from "lucide-react";
+import { Eye, Phone, CalendarCheck, BookOpen, Loader2, BarChart3, Bot, Zap, MessageSquare, CalendarDays, FolderOpen } from "lucide-react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { authFetch } from "@/lib/auth-fetch";
 import type { DateRange, DoctorAnalytics } from "@healthcare/types";
@@ -12,6 +12,8 @@ import KpiCard from "@/components/analytics/KpiCard";
 import DailyChart from "@/components/analytics/DailyChart";
 import TrafficSourcesChart from "@/components/analytics/TrafficSourcesChart";
 import SearchQueriesTable from "@/components/analytics/SearchQueriesTable";
+import BookingsByMonthChart from "@/components/analytics/BookingsByMonthChart";
+import MedicalRecordsByMonthChart from "@/components/analytics/MedicalRecordsByMonthChart";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -178,6 +180,28 @@ export default function ReportesPage() {
           </div>
         </>
       ) : null}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Citas por estado y mes                                               */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="pt-4 border-t">
+        <div className="flex items-center gap-2 mb-4">
+          <CalendarDays className="w-5 h-5 text-blue-600" />
+          <h2 className="text-xl font-bold text-gray-900">Citas</h2>
+        </div>
+        <BookingsByMonthChart />
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Expedientes                                                          */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="pt-4 border-t">
+        <div className="flex items-center gap-2 mb-4">
+          <FolderOpen className="w-5 h-5 text-teal-600" />
+          <h2 className="text-xl font-bold text-gray-900">Expedientes</h2>
+        </div>
+        <MedicalRecordsByMonthChart />
+      </div>
 
       {/* ------------------------------------------------------------------ */}
       {/* Uso de Inteligencia Artificial                                       */}
