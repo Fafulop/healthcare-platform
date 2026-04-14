@@ -91,6 +91,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
             <BiographySection
               id="biography"
               doctorLastName={doctor.last_name}
+              doctorFullName={doctor.doctor_full_name}
               longBio={doctor.long_bio}
               yearsExperience={doctor.years_experience}
             />

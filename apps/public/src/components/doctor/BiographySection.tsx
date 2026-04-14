@@ -7,12 +7,13 @@ const PREVIEW_LENGTH = 300;
 
 interface BiographySectionProps {
   doctorLastName: string;
+  doctorFullName?: string;
   longBio?: string;
   yearsExperience: number;
   id?: string;
 }
 
-export default function BiographySection({ doctorLastName, longBio, yearsExperience, id }: BiographySectionProps) {
+export default function BiographySection({ doctorLastName, doctorFullName, longBio, yearsExperience, id }: BiographySectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const needsTruncation = longBio && longBio.length > PREVIEW_LENGTH;
@@ -25,7 +26,9 @@ export default function BiographySection({ doctorLastName, longBio, yearsExperie
       <div className="max-w-4xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-6 text-center">
-          Acerca de la Dra. {doctorLastName}
+          {doctorFullName?.startsWith('Dr. ')
+            ? `Acerca del Dr. ${doctorLastName}`
+            : `Acerca de la Dra. ${doctorLastName}`}
         </h2>
 
         {/* Years of Experience Badge */}
@@ -41,9 +44,11 @@ export default function BiographySection({ doctorLastName, longBio, yearsExperie
         {/* Biography Content */}
         {displayText && (
           <div className="prose prose-lg max-w-none">
-            <p className="text-[var(--color-neutral-dark)] leading-relaxed mb-4">
-              {displayText}
-            </p>
+            {displayText.split('\n').filter(p => p.trim()).map((paragraph, i) => (
+              <p key={i} className="text-[var(--color-neutral-dark)] leading-relaxed mb-4">
+                {paragraph}
+              </p>
+            ))}
             {needsTruncation && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}

@@ -21,7 +21,11 @@ export default function ConditionsSection({ conditions, procedures, id }: Condit
           Condiciones y Procedimientos
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+        <div className={`grid grid-cols-1 gap-8 md:gap-12 ${
+          (conditions?.length > 0) !== (procedures?.length > 0)
+            ? 'md:grid-cols-1 md:w-1/2 md:mx-auto'
+            : 'md:grid-cols-2'
+        }`}>
           {/* Conditions */}
           {conditions && conditions.length > 0 && (
             <div>
