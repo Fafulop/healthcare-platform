@@ -315,6 +315,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
   };
 
   const removeSecondLocation = () => {
+    if (!window.confirm('¿Eliminar el segundo consultorio?\n\nSi tiene horarios asignados en la sección de Citas, el sistema no permitirá guardar. Primero deberás eliminar esos horarios.')) return;
     setFormData((prev) => ({
       ...prev,
       clinic_locations: prev.clinic_locations.slice(0, 1),

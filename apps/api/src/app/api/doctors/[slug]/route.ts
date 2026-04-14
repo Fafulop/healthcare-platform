@@ -194,6 +194,34 @@ export async function PUT(
       );
     }
 
+    // Guard: pre-check clinic location deletion before starting the transaction
+    // so we can return a clean 400 instead of a cryptic 500.
+    if (locationsToSave && locationsToSave.length > 0) {
+      const existingLocs = await prisma.clinicLocation.findMany({
+        where: { doctorId: existingDoctor.id },
+        select: { id: true },
+      });
+      const existingIdSet = new Set(existingLocs.map((l) => l.id));
+      const incomingIdSet = new Set(
+        locationsToSave.filter((l: any) => l.id).map((l: any) => l.id as string)
+      );
+      const toDelete = [...existingIdSet].filter((id) => !incomingIdSet.has(id));
+      if (toDelete.length > 0) {
+        const slotsCount = await prisma.appointmentSlot.count({
+          where: { locationId: { in: toDelete } },
+        });
+        if (slotsCount > 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `No se puede eliminar un consultorio que tiene ${slotsCount} horario${slotsCount === 1 ? '' : 's'} asignado${slotsCount === 1 ? '' : 's'}. Primero elimina o reasigna los horarios desde la sección de Citas.`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Update doctor with transaction to ensure data consistency
     const doctor = await prisma.$transaction(async (tx) => {
       // Delete existing related records
@@ -214,7 +242,7 @@ export async function PUT(
           locationsToSave.filter((l: any) => l.id).map((l: any) => l.id as string)
         );
 
-        // Delete removed locations
+        // Delete removed locations (pre-check above already confirmed no slots exist)
         const toDelete = [...existingIdSet].filter((id) => !incomingIdSet.has(id));
         if (toDelete.length > 0) {
           await tx.clinicLocation.deleteMany({ where: { id: { in: toDelete } } });
