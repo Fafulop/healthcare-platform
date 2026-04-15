@@ -230,6 +230,9 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
         social_links: {
           linkedin: doctor.socialLinkedin,
           twitter: doctor.socialTwitter,
+          instagram: doctor.socialInstagram,
+          facebook: doctor.socialFacebook,
+          tiktok: doctor.socialTiktok,
         },
         color_palette: doctor.colorPalette || "professional",
       });
