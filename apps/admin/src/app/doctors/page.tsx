@@ -98,6 +98,7 @@ export default function DoctorsListPage() {
           short_description: s.shortDescription,
           duration_minutes: s.durationMinutes,
           price: s.price,
+          is_booking_active: s.isBookingActive ?? true,
         })),
         conditions: doctor.conditions || [],
         procedures: doctor.procedures || [],
@@ -116,16 +117,17 @@ export default function DoctorsListPage() {
           issued_by: c.issuedBy,
           year: c.year,
         })),
-        clinic_info: {
-          address: doctor.clinicAddress,
-          phone: doctor.clinicPhone,
-          whatsapp: doctor.clinicWhatsapp || "",
-          hours: doctor.clinicHours || {},
-          geo: {
-            lat: doctor.clinicGeoLat || 0,
-            lng: doctor.clinicGeoLng || 0,
-          },
-        },
+        clinic_locations: (doctor.clinicLocations || []).map((loc: any) => ({
+          id: loc.id,
+          name: loc.name,
+          address: loc.address,
+          phone: loc.phone || "",
+          whatsapp: loc.whatsapp || "",
+          hours: loc.hours || {},
+          geoLat: loc.geoLat ?? 0,
+          geoLng: loc.geoLng ?? 0,
+          isDefault: loc.isDefault ?? true,
+        })),
         faqs: (doctor.faqs || []).map((f: any) => ({
           question: f.question,
           answer: f.answer,
@@ -143,6 +145,9 @@ export default function DoctorsListPage() {
         social_links: {
           linkedin: doctor.socialLinkedin,
           twitter: doctor.socialTwitter,
+          instagram: doctor.socialInstagram,
+          facebook: doctor.socialFacebook,
+          tiktok: doctor.socialTiktok,
         },
         color_palette: paletteId, // NEW PALETTE
       };
@@ -225,6 +230,7 @@ export default function DoctorsListPage() {
           short_description: s.shortDescription,
           duration_minutes: s.durationMinutes,
           price: s.price,
+          is_booking_active: s.isBookingActive ?? true,
         })),
         conditions: doctor.conditions || [],
         procedures: doctor.procedures || [],
@@ -243,16 +249,17 @@ export default function DoctorsListPage() {
           issued_by: c.issuedBy,
           year: c.year,
         })),
-        clinic_info: {
-          address: doctor.clinicAddress,
-          phone: doctor.clinicPhone,
-          whatsapp: doctor.clinicWhatsapp || "",
-          hours: doctor.clinicHours || {},
-          geo: {
-            lat: doctor.clinicGeoLat || 0,
-            lng: doctor.clinicGeoLng || 0,
-          },
-        },
+        clinic_locations: (doctor.clinicLocations || []).map((loc: any) => ({
+          id: loc.id,
+          name: loc.name,
+          address: loc.address,
+          phone: loc.phone || "",
+          whatsapp: loc.whatsapp || "",
+          hours: loc.hours || {},
+          geoLat: loc.geoLat ?? 0,
+          geoLng: loc.geoLng ?? 0,
+          isDefault: loc.isDefault ?? true,
+        })),
         faqs: (doctor.faqs || []).map((f: any) => ({
           question: f.question,
           answer: f.answer,
@@ -270,6 +277,9 @@ export default function DoctorsListPage() {
         social_links: {
           linkedin: doctor.socialLinkedin,
           twitter: doctor.socialTwitter,
+          instagram: doctor.socialInstagram,
+          facebook: doctor.socialFacebook,
+          tiktok: doctor.socialTiktok,
         },
         color_palette: doctor.colorPalette || "professional",
         google_ads_id: trimmed || null,
