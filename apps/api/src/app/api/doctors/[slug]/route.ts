@@ -206,6 +206,20 @@ export async function PUT(
         locationsToSave.filter((l: any) => l.id).map((l: any) => l.id as string)
       );
       const toDelete = [...existingIdSet].filter((id) => !incomingIdSet.has(id));
+
+      // Guard: if every incoming clinic has no ID but existing clinics exist in DB,
+      // the frontend likely sent stale/empty state (race condition or fetch failure).
+      // Proceeding would silently delete all existing clinics — block it.
+      if (existingLocs.length > 0 && incomingIdSet.size === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'No se puede guardar: los consultorios recibidos no tienen IDs válidos pero ya existen consultorios registrados. Recarga la página e intenta de nuevo.',
+          },
+          { status: 400 }
+        );
+      }
+
       if (toDelete.length > 0) {
         const slotsCount = await prisma.appointmentSlot.count({
           where: { locationId: { in: toDelete } },

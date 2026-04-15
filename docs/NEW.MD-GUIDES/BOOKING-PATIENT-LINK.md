@@ -398,7 +398,7 @@ Neither the create-patient button nor the search dropdown is shown. The cell sho
 - Name with many parts (e.g. `"María de la Cruz Rodríguez"`) → `firstName = "María"`, `lastName = "de la Cruz Rodríguez"` — reasonable split
 
 ### Patient already linked, doctor wants to change
-The linked patient name in the cell would need an "Editar" / unlink button to clear `patientId` (PATCH with `{ patientId: null }`) and then re-link. Keep this action non-destructive (just sets patientId to null, no patient data is deleted).
+The EXPEDIENTE cell shows the linked patient name as a link plus a small X button. Clicking X sends `PATCH { patientId: null }` to unlink (non-destructive — no patient data deleted). The cell reverts to the unlinked state and the doctor can then link a different patient.
 
 ### Freeform bookings (Nuevo horario) with `slotId = null`
 When a Nuevo horario booking is cancelled, the slot is deleted and `slotId` is set to null. The `patientId` survives this — it lives on the booking record itself, not on the slot. So the Citas card on the patient page will still show the cancelled booking correctly.
@@ -428,7 +428,7 @@ The public portal never sets `patientId` — it doesn't have access to the docto
 | `apps/api/src/app/api/appointments/bookings/route.ts` | POST: accept optional `patientId` |
 | `apps/api/src/app/api/appointments/bookings/instant/route.ts` | POST: accept optional `patientId` |
 | `apps/doctor/src/app/appointments/_hooks/useBookings.ts` | Add `patientId`, `patient` (name + id) to Booking type |
-| `apps/doctor/src/app/appointments/_components/BookingsSection.tsx` | Add EXPEDIENTE column with conditional cell logic |
+| `apps/doctor/src/app/appointments/_components/BookingsSection.tsx` | Add EXPEDIENTE column with conditional cell logic; unlink X button on linked state; mobile card: end time, email, appointment mode badge, EXPEDIENTE cell |
 | `apps/doctor/src/app/appointments/_components/BookPatientModal/PatientFormStep.tsx` | Add patient search field when `isFirstTime === false` |
 | `apps/doctor/src/app/appointments/_components/BookPatientModal/index.tsx` | Add `selectedPatientId` state, pass to submit |
 | `apps/doctor/src/app/dashboard/medical-records/patients/[id]/page.tsx` | Add Citas card section |

@@ -1,14 +1,6 @@
 "use client";
 
-const DEFAULT_HOURS: Record<string, string> = {
-  monday: "9:00 AM - 6:00 PM",
-  tuesday: "9:00 AM - 6:00 PM",
-  wednesday: "9:00 AM - 6:00 PM",
-  thursday: "9:00 AM - 6:00 PM",
-  friday: "9:00 AM - 5:00 PM",
-  saturday: "Cerrado",
-  sunday: "Cerrado",
-};
+const DEFAULT_HOURS: Record<string, string> = {};
 
 const DAYS = [
   { key: "monday", label: "Lunes" },

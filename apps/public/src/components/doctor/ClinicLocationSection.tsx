@@ -41,7 +41,8 @@ export default function ClinicLocationSection({ doctorSlug, clinicInfo, clinicLo
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}`;
 
   const renderHours = (hours: ClinicLocationItem['hours']) => {
-    if (!hours) return <p className="text-[var(--color-neutral-medium)]">Por favor llame para conocer el horario</p>;
+    const hasAnyHours = hours && Object.values(hours as Record<string, string>).some(v => v && v.trim() !== '');
+    if (!hasAnyHours) return <p className="text-[var(--color-neutral-medium)]">Por favor llame para conocer el horario</p>;
     return (
       <div className="space-y-3">
         {DAYS.map((day) => {

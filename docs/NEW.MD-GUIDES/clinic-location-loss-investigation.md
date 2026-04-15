@@ -203,6 +203,44 @@ WHERE doctor_id = '<doctor_id>'
 
 ---
 
+## Edge Case: Slots Created Before Clinic Was Configured
+
+**Scenario:** A new doctor (or admin) creates appointment slots before filling in the clinic
+profile. At slot-creation time, no `ClinicLocation` record exists yet for that doctor. The
+slots API tries to default to `clinicLocations[0]` but finds nothing, so
+`resolvedLocationId = null`. The slots are saved with `location_id = NULL`.
+
+Later the doctor fills in their clinic info. The clinic record is created. But the old slots
+still have `location_id = NULL` — they are not retroactively linked. In the booking modal,
+those slots show no `📍` clinic name even though a valid `ClinicLocation` now exists.
+
+**This also applies when adding a second clinic to an existing doctor:**
+- Existing slots correctly point to clinic A's ID (unchanged, since the upsert preserves IDs)
+- Those slots will show clinic A's name in the booking modal ✓
+- New slots created after adding clinic B will default to clinic A unless the doctor
+  explicitly selects clinic B in the `CreateSlotsModal` picker
+- Clinic B will be invisible to patients until the doctor creates slots for it
+
+**Fix for slots with `location_id = NULL`:**
+```sql
+-- Links all null-location slots to the doctor's first clinic (by display_order)
+UPDATE public.appointment_slots
+SET location_id = (
+  SELECT id FROM public.clinic_locations
+  WHERE doctor_id = appointment_slots.doctor_id
+  ORDER BY display_order ASC
+  LIMIT 1
+)
+WHERE doctor_id = '<doctor_id>'
+  AND location_id IS NULL;
+```
+
+**Prevention:** Clinic info should be filled in before creating slots. When onboarding a new
+doctor, always complete the profile (including clinic address) before generating their
+appointment schedule.
+
+---
+
 ## Known Remaining Risk
 
 The guard blocks accidental deletion but **not intentional deletion via direct DB access or
