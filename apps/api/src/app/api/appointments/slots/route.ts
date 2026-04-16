@@ -438,9 +438,16 @@ export async function POST(request: Request) {
             { status: 409 }
           );
         }
-        await prisma.appointmentSlot.deleteMany({
-          where: { id: { in: existingSlots.map((s) => s.id) } },
-        });
+        const slotIdsToReplace = existingSlots.map((s) => s.id);
+        await prisma.$transaction([
+          prisma.booking.updateMany({
+            where: { slotId: { in: slotIdsToReplace }, status: { in: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+            data: { slotId: null },
+          }),
+          prisma.appointmentSlot.deleteMany({
+            where: { id: { in: slotIdsToReplace } },
+          }),
+        ]);
       }
 
       // Create new slots
@@ -637,9 +644,16 @@ export async function POST(request: Request) {
             { status: 409 }
           );
         }
-        await prisma.appointmentSlot.deleteMany({
-          where: { id: { in: existingSlots.map((s) => s.id) } },
-        });
+        const slotIdsToReplace = existingSlots.map((s) => s.id);
+        await prisma.$transaction([
+          prisma.booking.updateMany({
+            where: { slotId: { in: slotIdsToReplace }, status: { in: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+            data: { slotId: null },
+          }),
+          prisma.appointmentSlot.deleteMany({
+            where: { id: { in: slotIdsToReplace } },
+          }),
+        ]);
       }
 
       // Create new slots

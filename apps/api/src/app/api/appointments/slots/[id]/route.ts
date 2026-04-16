@@ -176,9 +176,13 @@ export async function DELETE(
       );
     }
 
-    await prisma.appointmentSlot.delete({
-      where: { id },
-    });
+    await prisma.$transaction([
+      prisma.booking.updateMany({
+        where: { slotId: id, status: { in: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+        data: { slotId: null },
+      }),
+      prisma.appointmentSlot.delete({ where: { id } }),
+    ]);
 
     // Log activity
     logSlotDeleted({

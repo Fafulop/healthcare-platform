@@ -58,9 +58,15 @@ export async function POST(request: Request) {
         );
       }
 
-      const deleted = await prisma.appointmentSlot.deleteMany({
-        where: { ...ownershipWhere },
-      });
+      const [, deleted] = await prisma.$transaction([
+        prisma.booking.updateMany({
+          where: { slotId: { in: slotIds }, status: { in: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+          data: { slotId: null },
+        }),
+        prisma.appointmentSlot.deleteMany({
+          where: { ...ownershipWhere },
+        }),
+      ]);
 
       const doctorIdForDelete = slotsWithBookings[0]?.doctorId;
       if (doctorIdForDelete) {

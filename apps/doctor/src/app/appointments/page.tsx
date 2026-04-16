@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
@@ -22,6 +22,7 @@ import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
 import { StandaloneFormularioModal } from "./_components/StandaloneFormularioModal";
 import { BlockRangeModal } from "./_components/BlockRangeModal";
 import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsModal";
+import { PurgeSlotsModal } from "./_components/PurgeSlotsModal";
 import { SlotFiltersBar, type SlotStatusFilter } from "./_components/SlotFiltersBar";
 import type { AppointmentSlot } from "./_hooks/useSlots";
 import type { Booking } from "./_hooks/useBookings";
@@ -54,6 +55,7 @@ export default function AppointmentsV2Page() {
   const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
   const [formLinkBooking, setFormLinkBooking] = useState<Booking | null>(null);
   const [standaloneFormModalOpen, setStandaloneFormModalOpen] = useState(false);
+  const [purgeModalOpen, setPurgeModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<SlotStatusFilter>("all");
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderOffset, setReminderOffset] = useState(120);
@@ -220,6 +222,14 @@ export default function AppointmentsV2Page() {
           >
             <Plus className="w-4 h-4 flex-shrink-0" />
             Crear Horarios
+          </button>
+          <button
+            onClick={() => setPurgeModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <Trash2 className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Limpiar Horarios</span>
+            <span className="sm:hidden">Limpiar</span>
           </button>
           <button
             onClick={() => setBookingFieldSettingsOpen(true)}
@@ -538,6 +548,13 @@ export default function AppointmentsV2Page() {
       <BookingFieldSettingsModal
         isOpen={bookingFieldSettingsOpen}
         onClose={() => setBookingFieldSettingsOpen(false)}
+      />
+
+      <PurgeSlotsModal
+        isOpen={purgeModalOpen}
+        onClose={() => setPurgeModalOpen(false)}
+        doctorId={doctorId}
+        onSuccess={slotsHook.fetchSlots}
       />
 
       <AppointmentChatPanel
