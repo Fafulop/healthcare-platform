@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Calendar, Clock, Info, Loader2, MapPin } from "lucide-react";
+import { X, Calendar, Clock, Info, Loader2, MapPin, AlertTriangle } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { getLocalDateString } from "@/lib/dates";
@@ -50,6 +50,52 @@ function generatePreviewCount(
   return slotsPerDay * daysCount;
 }
 
+function generatePreviewSlots(
+  startTime: string,
+  endTime: string,
+  duration: number,
+  hasBreak: boolean,
+  breakStart: string,
+  breakEnd: string
+): Array<{ start: string; end: string }> {
+  if (!startTime || !endTime || !duration) return [];
+
+  const [startH, startM] = startTime.split(":").map(Number);
+  const [endH, endM] = endTime.split(":").map(Number);
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+
+  let breakStartMin: number | null = null;
+  let breakEndMin: number | null = null;
+  if (hasBreak) {
+    const [bsH, bsM] = breakStart.split(":").map(Number);
+    const [beH, beM] = breakEnd.split(":").map(Number);
+    breakStartMin = bsH * 60 + bsM;
+    breakEndMin = beH * 60 + beM;
+  }
+
+  const slots: Array<{ start: string; end: string }> = [];
+  let current = startMinutes;
+
+  while (current + duration <= endMinutes) {
+    const slotEnd = current + duration;
+    if (breakStartMin !== null && breakEndMin !== null && !(slotEnd <= breakStartMin || current >= breakEndMin)) {
+      if (current < breakEndMin) current = breakEndMin;
+      continue;
+    }
+    const sh = Math.floor(current / 60);
+    const sm = current % 60;
+    const eh = Math.floor(slotEnd / 60);
+    const em = slotEnd % 60;
+    slots.push({
+      start: `${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`,
+      end: `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`,
+    });
+    current += duration;
+  }
+  return slots;
+}
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -89,6 +135,12 @@ export function CreateSlotsModal({
     mode, singleDate, startDate, endDate, daysOfWeek,
     startTime, endTime, duration, hasBreak, breakStart, breakEnd
   );
+
+  const previewTimeSlots = generatePreviewSlots(
+    startTime, endTime, duration, hasBreak, breakStart, breakEnd
+  );
+
+  const hasUnusualHours = startTime < "07:00" || endTime > "22:00";
 
   useEffect(() => {
     if (initialData) {
@@ -503,19 +555,49 @@ export function CreateSlotsModal({
             </div>
           </div>
 
+          {/* Unusual hours warning */}
+          {hasUnusualHours && (
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 sm:p-4">
+              <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="text-xs sm:text-sm text-amber-700">
+                <p className="font-medium">Horario inusual detectado</p>
+                <p className="mt-0.5">
+                  {startTime < "07:00" && `La hora de inicio (${startTime}) es antes de las 07:00. `}
+                  {endTime > "22:00" && `La hora de fin (${endTime}) es después de las 22:00. `}
+                  Verifica que sea correcto antes de crear los horarios.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Preview */}
           {previewSlots > 0 && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
               <div className="flex items-start gap-2 sm:gap-3">
                 <Info className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-medium text-gray-900 text-sm">Vista previa</p>
                   <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
                     Esto creará <strong className="text-gray-900">{previewSlots} horarios</strong>
                     {mode === "recurring" && (
                       <span className="hidden sm:inline"> en el rango de fechas seleccionado</span>
                     )}
+                    {mode === "recurring" && previewTimeSlots.length > 0 && (
+                      <span> ({previewTimeSlots.length} por día)</span>
+                    )}
                   </p>
+                  {previewTimeSlots.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {previewTimeSlots.map((slot) => (
+                        <span
+                          key={slot.start}
+                          className="inline-block text-xs px-2 py-0.5 rounded-md bg-white border border-gray-200 text-gray-700"
+                        >
+                          {slot.start}–{slot.end}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
