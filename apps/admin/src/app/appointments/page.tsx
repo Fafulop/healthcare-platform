@@ -4,9 +4,10 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Calendar, Filter, User, Clock, DollarSign, Search, Download, Loader2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { authFetch } from "@/lib/auth-fetch";
 
 // API URL from environment variable
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_URL}';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 // Helper function to get local date string (fixes timezone issues)
 function getLocalDateString(date: Date): string {
@@ -41,12 +42,15 @@ interface Booking {
   notes: string | null;
   confirmationCode: string;
   createdAt: string;
+  date?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
   slot: {
     date: string;
     startTime: string;
     endTime: string;
     duration: number;
-  };
+  } | null;
   doctor: {
     doctorFullName: string;
     primarySpecialty: string;
@@ -83,7 +87,7 @@ export default function AdminAppointmentsPage() {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/appointments/bookings`);
+      const response = await authFetch(`${API_URL}/api/appointments/bookings`);
       const data = await response.json();
 
       if (data.success) {
@@ -118,10 +122,16 @@ export default function AdminAppointmentsPage() {
 
     // Date range filter
     if (startDate) {
-      filtered = filtered.filter((b) => new Date(b.slot.date) >= new Date(startDate));
+      filtered = filtered.filter((b) => {
+        const d = (b.slot?.date ?? b.date ?? "").split("T")[0];
+        return d >= startDate;
+      });
     }
     if (endDate) {
-      filtered = filtered.filter((b) => new Date(b.slot.date) <= new Date(endDate));
+      filtered = filtered.filter((b) => {
+        const d = (b.slot?.date ?? b.date ?? "").split("T")[0];
+        return d <= endDate;
+      });
     }
 
     setFilteredBookings(filtered);
@@ -131,11 +141,10 @@ export default function AdminAppointmentsPage() {
     if (!confirm(`Are you sure you want to change the status to ${newStatus}?`)) return;
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/appointments/bookings/${bookingId}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: newStatus }),
         }
       );
@@ -170,20 +179,25 @@ export default function AdminAppointmentsPage() {
       "Booked On",
     ];
 
-    const rows = filteredBookings.map((b) => [
-      b.confirmationCode,
-      formatDateString(b.slot.date),
-      `${b.slot.startTime} - ${b.slot.endTime}`,
-      b.patientName,
-      b.patientEmail,
-      b.patientPhone,
-      b.patientWhatsapp || "",
-      b.doctor.doctorFullName,
-      b.doctor.primarySpecialty,
-      b.status,
-      `$${b.finalPrice}`,
-      new Date(b.createdAt).toLocaleString(),
-    ]);
+    const rows = filteredBookings.map((b) => {
+      const date = (b.slot?.date ?? b.date ?? "").split("T")[0];
+      const startTime = b.slot?.startTime ?? b.startTime ?? "";
+      const endTime = b.slot?.endTime ?? b.endTime ?? "";
+      return [
+        b.confirmationCode,
+        formatDateString(date),
+        `${startTime} - ${endTime}`,
+        b.patientName,
+        b.patientEmail,
+        b.patientPhone,
+        b.patientWhatsapp || "",
+        b.doctor.doctorFullName,
+        b.doctor.primarySpecialty,
+        b.status,
+        `$${b.finalPrice}`,
+        new Date(b.createdAt).toLocaleString(),
+      ];
+    });
 
     const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -380,21 +394,25 @@ export default function AdminAppointmentsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredBookings.map((booking) => (
+                  {filteredBookings.map((booking) => {
+                    const bookingDate = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
+                    const startTime = booking.slot?.startTime ?? booking.startTime ?? "";
+                    const endTime = booking.slot?.endTime ?? booking.endTime ?? "";
+                    return (
                     <tr key={booking.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <div className="flex items-start gap-2">
                           <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                           <div>
                             <p className="font-medium text-gray-900">
-                              {formatDateString(booking.slot.date, "en-US", {
+                              {formatDateString(bookingDate, "en-US", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
                               })}
                             </p>
                             <p className="text-sm text-gray-600">
-                              {booking.slot.startTime} - {booking.slot.endTime}
+                              {startTime} - {endTime}
                             </p>
                           </div>
                         </div>
@@ -450,7 +468,8 @@ export default function AdminAppointmentsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>
