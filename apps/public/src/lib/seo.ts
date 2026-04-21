@@ -31,7 +31,7 @@ export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 
     keywords: [
       doctor.primary_specialty,
       doctor.city,
-      ...doctor.subspecialties || [],
+      ...(doctor.subspecialties || []),
       'médico',
       'consulta médica',
       'citas médicas',
@@ -78,18 +78,3 @@ export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 
   };
 }
 
-/**
- * Generate preload link tags for critical resources (hero image)
- */
-export function generatePreloadLinks(doctor: DoctorProfile): string {
-  const heroImageUrl = doctor.hero_image;
-  return `<link rel="preload" as="image" href="${heroImageUrl}" />`;
-}
-
-/**
- * Extract short bio snippet for meta description
- */
-export function getShortBioSnippet(bio: string, maxLength: number = 100): string {
-  if (bio.length <= maxLength) return bio;
-  return bio.substring(0, maxLength).trim() + '...';
-}

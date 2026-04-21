@@ -19,8 +19,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   if (!doctor) {
     return {
-      title: 'Blog Not Found',
-      description: 'The requested blog could not be found.',
+      title: 'Blog no encontrado',
+      description: 'El blog solicitado no fue encontrado.',
     };
   }
 

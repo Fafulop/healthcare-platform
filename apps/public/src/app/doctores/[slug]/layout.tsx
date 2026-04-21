@@ -2,7 +2,7 @@
 import { Metadata } from 'next';
 import { getDoctorBySlug } from '@/lib/data';
 import { generateDoctorMetadata } from '@/lib/seo';
-import { generateAllSchemas } from '@/lib/structured-data';
+import { generateAllSchemas, generateReviewSchemas } from '@/lib/structured-data';
 import { notFound } from 'next/navigation';
 
 interface DoctorLayoutProps {
@@ -17,8 +17,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   if (!doctor) {
     return {
-      title: 'Doctor Not Found',
-      description: 'The requested doctor profile could not be found.',
+      title: 'Doctor no encontrado',
+      description: 'El perfil del doctor solicitado no fue encontrado.',
     };
   }
 
@@ -41,9 +41,8 @@ export default async function DoctorLayout({ children, params }: DoctorLayoutPro
   const schemas = generateAllSchemas(doctor, baseUrl, doctor.reviewStats);
 
   // Add individual review schemas
-  const { generateReviewSchemas } = await import('@/lib/structured-data');
   const reviewSchemas = doctor.reviews && doctor.reviews.length > 0
-    ? generateReviewSchemas(doctor.reviews, doctor.doctor_full_name)
+    ? generateReviewSchemas(doctor.reviews, doctor.doctor_full_name, doctor.slug, baseUrl)
     : [];
 
   const allSchemas = [...schemas, ...reviewSchemas];

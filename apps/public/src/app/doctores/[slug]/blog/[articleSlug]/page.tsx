@@ -21,8 +21,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   if (!article) {
     return {
-      title: 'Article Not Found',
-      description: 'The requested article could not be found.',
+      title: 'Artículo no encontrado',
+      description: 'El artículo solicitado no fue encontrado.',
     };
   }
 

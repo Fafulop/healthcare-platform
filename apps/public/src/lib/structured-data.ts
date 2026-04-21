@@ -84,9 +84,12 @@ export function generatePhysicianSchema(
     ? Object.values(doctor.social_links).filter(Boolean)
     : [];
 
+  const physicianId = `${baseUrl}/doctores/${doctor.slug}#physician`;
+
   const schema: any = {
     '@context': 'https://schema.org',
     '@type': 'Physician',
+    '@id': physicianId,
     name: doctor.doctor_full_name,
     description: doctor.long_bio,
     medicalSpecialty: doctor.primary_specialty,
@@ -94,6 +97,7 @@ export function generatePhysicianSchema(
     image: doctor.hero_image.startsWith('http') ? doctor.hero_image : `${baseUrl}${doctor.hero_image}`,
     address: buildPostalAddress(doctor),
     telephone: doctor.clinic_info.phone,
+    priceRange: '$$',
     ...(socialLinks.length > 0 && { sameAs: socialLinks }),
   };
 
@@ -149,6 +153,7 @@ export function generateMedicalBusinessSchema(doctor: DoctorProfile, baseUrl: st
     },
     telephone: doctor.clinic_info.phone,
     url: `${baseUrl}/doctores/${doctor.slug}`,
+    priceRange: '$$',
     ...(openingHoursSpec && { openingHoursSpecification: openingHoursSpec }),
   };
 }
@@ -158,21 +163,12 @@ export function generateMedicalBusinessSchema(doctor: DoctorProfile, baseUrl: st
  * https://developers.google.com/search/docs/appearance/structured-data/profile-page
  */
 export function generateProfilePageSchema(doctor: DoctorProfile, baseUrl: string = DEFAULT_BASE_URL) {
-  const socialLinks = doctor.social_links
-    ? Object.values(doctor.social_links).filter(Boolean)
-    : [];
-
   return {
     '@context': 'https://schema.org',
     '@type': 'ProfilePage',
     dateModified: new Date().toISOString().split('T')[0],
     mainEntity: {
-      '@type': 'Person',
-      name: doctor.doctor_full_name,
-      description: doctor.long_bio,
-      image: doctor.hero_image.startsWith('http') ? doctor.hero_image : `${baseUrl}${doctor.hero_image}`,
-      jobTitle: doctor.primary_specialty,
-      ...(socialLinks.length > 0 && { sameAs: socialLinks }),
+      '@id': `${baseUrl}/doctores/${doctor.slug}#physician`,
     },
   };
 }
@@ -238,8 +234,15 @@ export function generateReviewSchemas(
     comment: string;
     createdAt: Date;
   }>,
-  doctorName: string
+  doctorName: string,
+  doctorSlug?: string,
+  baseUrl: string = DEFAULT_BASE_URL
 ) {
+  // Use @id reference to link to the main Physician schema (avoids duplicate with missing fields)
+  const itemReviewed = doctorSlug
+    ? { '@type': 'Physician', '@id': `${baseUrl}/doctores/${doctorSlug}#physician` }
+    : { '@type': 'Physician', name: doctorName };
+
   return reviews.map((review) => ({
     '@context': 'https://schema.org',
     '@type': 'Review',
@@ -255,10 +258,7 @@ export function generateReviewSchemas(
       bestRating: '5',
       worstRating: '1',
     },
-    itemReviewed: {
-      '@type': 'Physician',
-      name: doctorName,
-    },
+    itemReviewed,
   }));
 }
 
@@ -346,20 +346,3 @@ export function generateBlogPostingSchema(article: Article, baseUrl: string = DE
   };
 }
 
-/**
- * Generate script tags for JSON-LD schemas
- */
-export function generateSchemaScriptTags(
-  doctor: DoctorProfile,
-  baseUrl: string = DEFAULT_BASE_URL,
-  reviewStats?: { averageRating: number; reviewCount: number }
-): string {
-  const schemas = generateAllSchemas(doctor, baseUrl, reviewStats);
-
-  return schemas
-    .map(
-      (schema) =>
-        `<script type="application/ld+json">${JSON.stringify(schema, null, 2)}</script>`
-    )
-    .join('\n');
-}
