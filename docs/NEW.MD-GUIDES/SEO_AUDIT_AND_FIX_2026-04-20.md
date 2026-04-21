@@ -1,6 +1,6 @@
 # SEO Audit & Fix — tusalud.pro Doctor Profiles
 
-**Date:** 2026-04-20
+**Date:** 2026-04-20 (follow-up fixes 2026-04-21)
 **Scope:** Full SEO audit of the public-facing doctor profile app at `tusalud.pro`
 **Method:** Codebase analysis + live page crawl + Google official documentation cross-reference
 
@@ -319,7 +319,7 @@ A systematic code review was run after all changes were applied, checking 30+ it
 
 - `normalizeTime()` handles all edge cases (AM/PM, 24h, "hrs" suffix, "CERRADO", null)
 - `buildPostalAddress()` correctly uses optional chaining for new fields
-- `sameAs` only included when array is non-empty (both Physician and ProfilePage schemas)
+- `sameAs` only included when array is non-empty (Physician schema)
 - `generateAllSchemas()` includes all new schemas (ProfilePage, BreadcrumbList)
 - All baseUrl defaults are `https://tusalud.pro` — verified across every single file
 - No remaining `example.com`, `localhost`, or `HealthCare Platform` references
@@ -330,6 +330,68 @@ A systematic code review was run after all changes were applied, checking 30+ it
 - No dead/unused imports
 - Meta description lengths are under 155 chars
 - Title template works correctly with child page overrides
+
+---
+
+## 4b. Follow-Up Fixes After Rich Results Test (2026-04-21)
+
+After running the Google Rich Results Test on the live site (`https://tusalud.pro/doctores/dra-patricia-roldan-mora`), additional issues were discovered and fixed.
+
+### Rich Results Test Initial Result (before follow-up)
+
+The test detected 3 valid items but with warnings:
+- **Physician** (from Review `itemReviewed`) — 4 missing optional fields (telephone, priceRange, address, image)
+- **Physician** (main schema) — 1 missing optional field (priceRange)
+- **MedicalBusiness** — 1 missing optional field (priceRange)
+
+The duplicate Physician was caused by Review schemas creating a standalone `itemReviewed: { '@type': 'Physician', name: '...' }` with only the doctor's name.
+
+### Issues Found & Fixed
+
+| # | Severity | Issue | Resolution |
+|---|----------|-------|------------|
+| 1 | **Bug** | Review `itemReviewed` created a duplicate Physician entity with 4 missing fields | Added `@id` to main Physician schema (`{url}#physician`). Review's `itemReviewed` now references via `@id` instead of standalone `name` — Google resolves them as one entity |
+| 2 | **Warning** | `priceRange` missing on both Physician and MedicalBusiness | Added `priceRange: '$$'` to both schemas |
+| 3 | **Bug** | `generateReviewSchemas` was dynamically imported (`await import()`) despite `generateAllSchemas` from the same module already being statically imported | Changed to static import |
+| 4 | **Inconsistency** | Not-found metadata in English on a Spanish site: `"Doctor Not Found"`, `"Article Not Found"`, `"Blog Not Found"` | Translated to Spanish across all 3 pages: doctor layout, blog listing, blog article |
+| 5 | **Bug** | ProfilePage `mainEntity` duplicated Physician data as a separate `Person` entity with redundant fields | Simplified to `@id` reference pointing to the main Physician schema |
+| 6 | **Dead code** | `generateSchemaScriptTags()` was never called anywhere. Also didn't include review schemas, so would produce incomplete output if used | Removed |
+| 7 | **Dead code** | `generatePreloadLinks()` and `getShortBioSnippet()` in `seo.ts` were never called | Removed |
+| 8 | **Minor** | `...doctor.subspecialties || []` — operator precedence unclear (works by accident) | Added parentheses: `...(doctor.subspecialties || [])` |
+| 9 | **Critical** | VideoObject schemas were invalid — missing required `thumbnailUrl` field (was `undefined` when no video thumbnail) | Falls back to doctor's hero image when no video thumbnail exists |
+| 10 | **Warning** | `uploadDate` on VideoObject and `dateModified` on ProfilePage used date-only format (`2026-04-21`) — Google requires full ISO datetime with timezone | Changed to `new Date().toISOString()` which outputs `2026-04-21T00:00:00.000Z` |
+| 11 | **Minor** | Video description grammar: `"Video de presentación del CIRUJANA..."` — `del` doesn't agree with feminine specialty | Changed to `"Video de presentación de {name}, {specialty}"` |
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `structured-data.ts` | `@id` on Physician, `priceRange` on Physician + MedicalBusiness, ProfilePage `mainEntity` via `@id`, Review `itemReviewed` via `@id`, VideoObject `thumbnailUrl` fallback to hero image, ISO datetime for `uploadDate` + `dateModified`, video description grammar fix, removed dead `generateSchemaScriptTags()` |
+| `seo.ts` | Removed dead `generatePreloadLinks()` + `getShortBioSnippet()`, fixed subspecialties spread precedence |
+| `doctores/[slug]/layout.tsx` | Static import for `generateReviewSchemas`, passes `doctorSlug` + `baseUrl` for `@id` linking, Spanish not-found metadata |
+| `doctores/[slug]/blog/page.tsx` | Spanish not-found metadata |
+| `doctores/[slug]/blog/[articleSlug]/page.tsx` | Spanish not-found metadata |
+
+### Rich Results Test Final Result (after all fixes)
+
+Expected result after deploy:
+
+| Category | Items | Status |
+|----------|-------|--------|
+| **Breadcrumbs** | 1 | Valid |
+| **Local businesses** | 2 (Physician + MedicalBusiness) | Valid, no priceRange warning |
+| **Organization** | 2 | Valid, only optional `postalCode` warning (data-dependent) |
+| **Profile page** | 1 | Valid, no datetime warning |
+| **Review snippets** | 2 | Valid, no duplicate Physician |
+| **Videos** | N | Valid, thumbnailUrl present, datetime correct |
+
+### Key Technical Decisions
+
+1. **`@id` references only work within the same page.** The BlogPosting `author` field was initially changed to an `@id` reference to the Physician, but this was reverted because blog article pages don't include the Physician schema — the `@id` would have nothing to resolve to. Blog author remains inline `Person` with full data.
+
+2. **`priceRange: '$$'` is a reasonable default** for medical consultations in Mexico. Google doesn't validate the exact value — it just wants the field present to suppress the warning.
+
+3. **Hero image as video thumbnail fallback** is acceptable because Google requires `thumbnailUrl` for VideoObject rich results. A doctor's profile photo is a reasonable representation when no specific video thumbnail exists.
 
 ---
 
@@ -353,8 +415,10 @@ These items were identified in the audit but **not yet implemented**:
 After deploying these changes:
 
 1. **Rich Results Test** — Paste each doctor URL into https://search.google.com/test/rich-results
-   - Should show: Physician, MedicalBusiness, ProfilePage, BreadcrumbList, Review, FAQ, VideoObject
-   - No errors on time formats or empty fields
+   - Should show categories: Breadcrumbs, Local businesses, Organization, Profile page, Review snippets, Videos
+   - All items should be valid (green checkmarks)
+   - Only acceptable non-critical issues: `postalCode` (optional, data-dependent)
+   - No critical issues on Videos (thumbnailUrl, uploadDate) or ProfilePage (dateModified)
 
 2. **Schema.org Validator** — Validate JSON-LD at https://validator.schema.org/
 
@@ -366,9 +430,11 @@ After deploying these changes:
 
 4. **Manual checks**:
    - Verify meta descriptions are fully Spanish, no broken names
-   - Verify breadcrumbs appear visually on doctor profiles
+   - Verify no visible breadcrumb nav on doctor profiles (JSON-LD only, invisible to users)
    - Verify sitemap no longer contains test profiles
    - Verify `view-source:` shows correct canonical URLs (tusalud.pro, not example.com)
+   - Verify Physician schema has `@id`, `priceRange`, and no duplicate from Reviews
+   - Verify VideoObject has `thumbnailUrl` (hero image fallback) and full ISO `uploadDate`
 
 ---
 

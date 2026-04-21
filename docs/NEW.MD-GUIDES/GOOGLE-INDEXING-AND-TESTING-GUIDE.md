@@ -1,6 +1,6 @@
 # Google Indexing & Testing Guide — tusalud.pro
 
-**Date:** 2026-04-20
+**Date:** 2026-04-20 (updated 2026-04-21)
 **Purpose:** Step-by-step guide for indexing new doctor profiles and monitoring their SEO performance in Google.
 
 ---
@@ -56,27 +56,33 @@ This is the most important test — it shows exactly what Google sees on the pag
 4. Wait for results (takes ~30 seconds)
 
 ### What to check:
-The test should detect these rich result types for a doctor profile:
+The test groups results into categories. Here's what to expect for a doctor profile:
 
-| Type | What it means | When it appears |
-|------|--------------|-----------------|
-| **ProfilePage** | Google knows this is a profile page about a person | Always |
-| **BreadcrumbList** | Google can show navigation trail in search results | Always |
-| **Physician** | Google knows this is a medical professional | Always |
-| **MedicalBusiness / LocalBusiness** | Google can show hours, phone, location | Always |
-| **AggregateRating** | Star ratings in search results | When doctor has reviews |
-| **Review** | Individual patient reviews | When doctor has reviews |
-| **FAQPage** | FAQ content recognized | When doctor has FAQs |
-| **VideoObject** | Video thumbnails in search | When doctor has videos |
+| Category | Expected Items | What it means |
+|----------|---------------|---------------|
+| **Breadcrumbs** | 1 valid item | Google can show navigation trail: `Inicio > Doctores > {Name}` |
+| **Local businesses** | 2 valid items (Physician + MedicalBusiness) | Google can show hours, phone, location, star ratings |
+| **Organization** | 2 valid items (same Physician + MedicalBusiness) | Google recognizes these as organizations/entities |
+| **Profile page** | 1 valid item | Google knows this is a profile about a specific person |
+| **Review snippets** | 2 valid items | Star ratings and individual reviews in search results (when doctor has reviews) |
+| **Videos** | N valid items | Video thumbnails in search (when doctor has videos) |
+
+Additional types that appear conditionally:
+- **FAQPage** — when doctor has FAQs configured
 
 ### What "good" looks like:
-- All detected types show a green checkmark
-- No errors (red) — warnings (yellow) are usually OK
-- If you see errors, click on them to see which field is invalid
+- All detected items show a green checkmark
+- No **critical issues** (red errors) — these make items invalid and ineligible for rich results
+- **Non-critical issues** (yellow warnings) are OK — they're optional fields like `postalCode`
+- If you see errors, click on the category to see which specific field is invalid
 
-### Common issues:
+### Common non-critical issues (OK to ignore):
+- `Missing field "postalCode" (optional)` — only shows when the doctor doesn't have a postal code in the database
+- `Missing field "priceRange" (optional)` — should not appear (we set `priceRange: '$$'`), but if it does, it's non-critical
+
+### Common critical issues (must fix):
+- If **Videos** show as invalid, check that the doctor's videos have a thumbnail image. Videos without thumbnails fall back to the doctor's hero image — if the hero image is also missing, the VideoObject will be invalid
 - If MedicalBusiness shows an error on `openingHoursSpecification`, check that the doctor's hours in the admin don't have unusual formats
-- If Physician shows a warning about `sameAs`, the doctor has no social links — this is fine, it's just a suggestion
 
 ---
 
@@ -190,8 +196,10 @@ Page speed is a Google ranking factor. Test it after each major change.
 - Normal for new pages. Click "Request Indexing" and wait 1-3 days.
 
 ### Rich Results Test shows errors
-- Check which field has the error. Most common: invalid time formats in hours, missing required fields.
-- Fix in the admin, the page regenerates within 1 hour.
+- Click on the category (e.g., "Videos") to see which specific field is invalid
+- **Videos invalid — missing thumbnailUrl:** The doctor's videos don't have thumbnails and the hero image fallback failed. Ensure the doctor has a hero image uploaded
+- **Invalid datetime:** All datetime fields (`dateModified`, `uploadDate`) must be full ISO format with timezone (e.g., `2026-04-21T00:00:00.000Z`). This is handled automatically in code — if you see this error, it may be a caching issue; wait for revalidation
+- Fix data issues in the admin, the page regenerates within 1 hour
 
 ### Doctor profile doesn't appear in Google after 2+ weeks
 1. Check URL Inspection — is the page indexed?

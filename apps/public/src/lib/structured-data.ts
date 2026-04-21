@@ -166,7 +166,7 @@ export function generateProfilePageSchema(doctor: DoctorProfile, baseUrl: string
   return {
     '@context': 'https://schema.org',
     '@type': 'ProfilePage',
-    dateModified: new Date().toISOString().split('T')[0],
+    dateModified: new Date().toISOString(),
     mainEntity: {
       '@id': `${baseUrl}/doctores/${doctor.slug}#physician`,
     },
@@ -270,14 +270,19 @@ export function generateVideoSchemas(doctor: DoctorProfile, baseUrl: string = DE
 
   const videoItems = doctor.carousel_items.filter(item => item.type === 'video');
 
+  // Resolve hero image URL for thumbnail fallback
+  const heroImageUrl = doctor.hero_image.startsWith('http') ? doctor.hero_image : `${baseUrl}${doctor.hero_image}`;
+
   return videoItems.map((video, index) => ({
     '@context': 'https://schema.org',
     '@type': 'VideoObject',
     name: video.name || `${doctor.doctor_full_name} - Video ${index + 1}`,
-    description: video.description || video.caption || `Video de presentación del ${doctor.primary_specialty} ${doctor.doctor_full_name}`,
-    thumbnailUrl: video.thumbnail ? (video.thumbnail.startsWith('http') ? video.thumbnail : `${baseUrl}${video.thumbnail}`) : undefined,
+    description: video.description || video.caption || `Video de presentación de ${doctor.doctor_full_name}, ${doctor.primary_specialty}`,
+    thumbnailUrl: video.thumbnail
+      ? (video.thumbnail.startsWith('http') ? video.thumbnail : `${baseUrl}${video.thumbnail}`)
+      : heroImageUrl,
     contentUrl: video.src.startsWith('http') ? video.src : `${baseUrl}${video.src}`,
-    uploadDate: video.uploadDate || new Date().toISOString().split('T')[0],
+    uploadDate: video.uploadDate || new Date().toISOString(),
     ...(video.duration && { duration: video.duration }),
   }));
 }
