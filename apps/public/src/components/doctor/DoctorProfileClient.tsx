@@ -111,7 +111,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
 
           {/* RIGHT COLUMN - Sticky Booking Sidebar (Desktop Only) */}
           <aside className="profile-right-column">
-            <div className="flex flex-col h-screen bg-white">
+            <div className="flex flex-col max-h-screen bg-white">
               {/* Appointment Booking Widget */}
               <div className="flex-shrink-0">
                 <DynamicBookingWidget doctorSlug={doctor.slug} onDayClick={openBookingModal} googleAdsId={doctor.google_ads_id} />
