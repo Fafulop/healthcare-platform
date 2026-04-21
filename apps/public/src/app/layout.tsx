@@ -25,16 +25,10 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
-        {/* Preconnect to critical origins - reduces LCP by establishing connections early */}
-        <link rel="preconnect" href="https://healthcareapi-production-fb70.up.railway.app" />
+        {/* Preconnect to critical origins (max 4 — more than that hurts performance) */}
         <link rel="preconnect" href="https://utfs.io" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-
-        {/* Preconnect to Google Analytics */}
-        {GA_MEASUREMENT_ID && (
-          <link rel="preconnect" href="https://www.googletagmanager.com" />
-        )}
 
         {/* Preload critical fonts - improves FCP */}
         <link

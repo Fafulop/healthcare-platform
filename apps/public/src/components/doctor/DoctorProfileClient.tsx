@@ -1,27 +1,30 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import type { DoctorProfile } from "@/types/doctor";
 import { trackProfileView } from "@/lib/analytics";
 
-// Import server-rendered components
+// Above-fold components — imported statically (must render immediately)
 import HeroSection from "./HeroSection";
-import ServicesSection from "./ServicesSection";
-import ConditionsSection from "./ConditionsSection";
-import BiographySection from "./BiographySection";
-import EducationSection from "./EducationSection";
-import CredentialsSection from "./CredentialsSection";
-import ClinicLocationSection from "./ClinicLocationSection";
-import ReviewsSection from "./ReviewsSection";
-import FAQSection from "./FAQSection";
 import QuickNav from "./QuickNav";
+import ReviewsSection from "./ReviewsSection";
 import StickyMobileCTA from "./StickyMobileCTA";
 import SidebarContactInfo from "./SidebarContactInfo";
 import SidebarCTA from "./SidebarCTA";
 import BookingModal from "./BookingModal";
 
-// Import client-side components via wrapper
+// Client-side components via dynamic wrapper (no SSR)
 import { DynamicMediaCarousel, DynamicBookingWidget } from "./DynamicSections";
+
+// Below-fold sections — lazy-loaded to reduce initial JS bundle (~90KB savings)
+const ServicesSection = dynamic(() => import("./ServicesSection"));
+const ConditionsSection = dynamic(() => import("./ConditionsSection"));
+const BiographySection = dynamic(() => import("./BiographySection"));
+const EducationSection = dynamic(() => import("./EducationSection"));
+const CredentialsSection = dynamic(() => import("./CredentialsSection"));
+const ClinicLocationSection = dynamic(() => import("./ClinicLocationSection"));
+const FAQSection = dynamic(() => import("./FAQSection"));
 
 interface DoctorProfileClientProps {
   doctor: DoctorProfile;
