@@ -1,6 +1,5 @@
 // Doctor Profile Layout with Dynamic Metadata and Structured Data
 import { Metadata } from 'next';
-import Script from 'next/script';
 import { getDoctorBySlug } from '@/lib/data';
 import { generateDoctorMetadata } from '@/lib/seo';
 import { generateAllSchemas } from '@/lib/structured-data';
@@ -51,14 +50,12 @@ export default async function DoctorLayout({ children, params }: DoctorLayoutPro
 
   return (
     <>
-      {/* Inject JSON-LD structured data */}
+      {/* Inject JSON-LD structured data as plain script tags for SSR (next/script doesn't render in raw HTML) */}
       {allSchemas.map((schema, index) => (
-        <Script
+        <script
           key={index}
-          id={`schema-${index}`}
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-          strategy="beforeInteractive"
         />
       ))}
 

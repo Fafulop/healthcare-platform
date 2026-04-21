@@ -1,6 +1,5 @@
 // Individual Article Page
 import { Metadata } from 'next';
-import Script from 'next/script';
 import { notFound } from 'next/navigation';
 import { getDoctorBySlug, getArticle } from '@/lib/data';
 import { generateBlogPostingSchema } from '@/lib/structured-data';
@@ -89,12 +88,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
   return (
     <ColorPaletteProvider paletteId={doctor.color_palette}>
-      {/* Inject BlogPosting structured data */}
-      <Script
-        id="blog-posting-schema"
+      {/* Inject BlogPosting structured data as plain script tag for SSR */}
+      <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingSchema) }}
-        strategy="beforeInteractive"
       />
 
       <BlogViewTracker doctorSlug={slug} articleSlug={articleSlug} articleTitle={article.title} />
