@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import type { DoctorProfile } from "@/types/doctor";
 import { trackProfileView } from "@/lib/analytics";
-import Link from "next/link";
 
 // Import server-rendered components
 import HeroSection from "./HeroSection";
@@ -57,15 +56,6 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
   return (
     <>
       <main className="min-h-screen pb-16 md:pb-0">
-        {/* Breadcrumbs - SEO navigation trail */}
-        <nav aria-label="Breadcrumb" className="px-4 py-2 text-sm text-gray-500 max-w-7xl mx-auto">
-          <ol className="flex items-center gap-1 flex-wrap">
-            <li><Link href="/" className="hover:text-gray-700">Inicio</Link></li>
-            <li className="before:content-['/'] before:mx-1"><Link href="/doctores" className="hover:text-gray-700">Doctores</Link></li>
-            <li className="before:content-['/'] before:mx-1 text-gray-700 font-medium">{doctor.doctor_full_name}</li>
-          </ol>
-        </nav>
-
         {/* Two-Column Layout Container - Starts from top (Desktop) */}
         <div className="profile-layout-container">
           {/* LEFT COLUMN - Main Content (Optimized SEO + UX Order) */}
