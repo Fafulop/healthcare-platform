@@ -9,8 +9,12 @@ const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || '';
 const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || '';
 
 export const metadata: Metadata = {
-  title: "Doctor Profile | Medical Services",
-  description: "Find and book appointments with qualified medical professionals",
+  metadataBase: new URL('https://tusalud.pro'),
+  title: {
+    default: 'TuSalud.pro | Encuentra tu Doctor en México',
+    template: '%s | TuSalud.pro',
+  },
+  description: 'Encuentra y agenda citas con médicos especialistas en México. Consulta perfiles, servicios, opiniones de pacientes y ubicación de consultorio.',
 };
 
 export default function RootLayout({

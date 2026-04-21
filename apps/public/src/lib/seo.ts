@@ -8,13 +8,14 @@ import type { DoctorProfile } from '@/types/doctor';
  * Generate metadata for doctor profile page
  * Following template: "{doctor_full_name} | {primary_specialty} | {city}"
  */
-export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 'https://example.com'): Metadata {
-  // Title template from SEO_GUIDE
+export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 'https://tusalud.pro'): Metadata {
+  // Title template: "{full_name} | {specialty} | {city}"
   const title = `${doctor.doctor_full_name} | ${doctor.primary_specialty} | ${doctor.city}`;
 
-  // Meta description template from SEO_GUIDE
-  const bioSnippet = doctor.long_bio ? `${doctor.long_bio.substring(0, 100)}... ` : '';
-  const description = `Dr. ${doctor.last_name}, ${doctor.primary_specialty} in ${doctor.city}. ${bioSnippet}| Book appointments, view services, credentials, and clinic location.`;
+  // Meta description in Spanish, capped at ~155 chars
+  const doctorName = doctor.doctor_full_name;
+  const bioSnippet = doctor.long_bio ? ` ${doctor.long_bio.substring(0, 80).trim()}...` : '';
+  const description = `${doctorName}, ${doctor.primary_specialty} en ${doctor.city}.${bioSnippet} Agenda citas, consulta servicios, opiniones y ubicación.`;
 
   // Canonical URL
   const canonicalUrl = `${baseUrl}/doctores/${doctor.slug}`;
@@ -31,16 +32,17 @@ export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 
       doctor.primary_specialty,
       doctor.city,
       ...doctor.subspecialties || [],
-      'doctor',
-      'medical',
-      'healthcare',
+      'médico',
+      'consulta médica',
+      'citas médicas',
+      'salud',
     ].join(', '),
     authors: [{ name: doctor.doctor_full_name }],
     openGraph: {
       title,
       description,
       url: canonicalUrl,
-      siteName: 'TuSalud.pro - Encuentra tu Doctor',
+      siteName: 'TuSalud.pro',
       images: [
         {
           url: ogImage,
@@ -54,6 +56,7 @@ export function generateDoctorMetadata(doctor: DoctorProfile, baseUrl: string = 
     },
     twitter: {
       card: 'summary_large_image',
+      site: '@tusaludpro',
       title,
       description,
       images: [ogImage],

@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://example.com';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://tusalud.pro';
   const title = `${article.title} - ${article.doctor.doctorFullName}`;
   const description = article.metaDescription || article.excerpt;
 
@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       title,
       description,
       url: `${baseUrl}/doctores/${slug}/blog/${articleSlug}`,
-      siteName: 'HealthCare Platform',
+      siteName: 'TuSalud.pro',
       images: article.thumbnail ? [
         {
           url: article.thumbnail,
@@ -84,7 +84,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   }
 
   // Generate structured data for SEO
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://example.com';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://tusalud.pro';
   const blogPostingSchema = generateBlogPostingSchema(article, baseUrl);
 
   return (

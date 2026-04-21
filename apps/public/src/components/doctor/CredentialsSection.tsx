@@ -44,7 +44,7 @@ export default function CredentialsSection({ certificates, id }: CredentialsSect
           <div className="relative h-[300px] md:h-[400px] bg-[var(--color-neutral-light)]">
             <Image
               src={currentCertificate.src}
-              alt={currentCertificate.alt}
+              alt={currentCertificate.alt || `Certificado: ${currentCertificate.issued_by} (${currentCertificate.year})`}
               fill
               className="object-contain p-4"
               loading={currentIndex === 0 ? 'eager' : 'lazy'}
@@ -109,7 +109,7 @@ export default function CredentialsSection({ certificates, id }: CredentialsSect
               {/* Thumbnail Image - All in DOM for SEO */}
               <Image
                 src={certificate.src}
-                alt={certificate.alt}
+                alt={certificate.alt || `Certificado: ${certificate.issued_by} (${certificate.year})`}
                 fill
                 className={`object-cover transition-transform duration-300 ${
                   index === currentIndex ? 'scale-105' : 'group-hover:scale-105'
@@ -154,7 +154,7 @@ export default function CredentialsSection({ certificates, id }: CredentialsSect
             <div className="relative max-w-6xl max-h-[90vh] w-full h-full">
               <Image
                 src={currentCertificate.src}
-                alt={currentCertificate.alt}
+                alt={currentCertificate.alt || `Certificado: ${currentCertificate.issued_by} (${currentCertificate.year})`}
                 fill
                 className="object-contain"
                 sizes="90vw"

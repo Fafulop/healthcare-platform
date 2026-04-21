@@ -26,9 +26,7 @@ export default function BiographySection({ doctorLastName, doctorFullName, longB
       <div className="max-w-4xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-6 text-center">
-          {doctorFullName?.startsWith('Dr. ')
-            ? `Acerca del Dr. ${doctorLastName}`
-            : `Acerca de la Dra. ${doctorLastName}`}
+          Acerca de {doctorFullName || `Dr. ${doctorLastName}`}
         </h2>
 
         {/* Years of Experience Badge */}

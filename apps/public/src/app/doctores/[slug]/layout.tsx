@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   // Use the base URL from environment variable or default
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://example.com';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://tusalud.pro';
 
   return generateDoctorMetadata(doctor, baseUrl);
 }
@@ -38,7 +38,7 @@ export default async function DoctorLayout({ children, params }: DoctorLayoutPro
   }
 
   // Generate structured data schemas
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://example.com';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://tusalud.pro';
   const schemas = generateAllSchemas(doctor, baseUrl, doctor.reviewStats);
 
   // Add individual review schemas

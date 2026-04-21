@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://example.com';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://tusalud.pro';
   const title = `Blog de ${doctor.doctor_full_name} - ${doctor.primary_specialty}`;
   const description = `Artículos y consejos de salud por ${doctor.doctor_full_name}, ${doctor.primary_specialty} en ${doctor.city}. Información médica confiable y actualizada.`;
 
@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       title,
       description,
       url: `${baseUrl}/doctores/${slug}/blog`,
-      siteName: 'HealthCare Platform',
+      siteName: 'TuSalud.pro',
       images: [
         {
           url: doctor.hero_image,

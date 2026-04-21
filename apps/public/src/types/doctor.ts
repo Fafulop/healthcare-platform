@@ -57,6 +57,8 @@ export interface ClinicInfo {
   whatsapp?: string;
   hours?: OfficeHours;
   geo: GeoCoordinates;
+  state?: string; // addressRegion for Schema.org (e.g., "Jalisco")
+  postal_code?: string; // postalCode for Schema.org
 }
 
 export interface ClinicLocationItem {
