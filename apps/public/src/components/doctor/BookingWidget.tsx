@@ -93,21 +93,29 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
   });
 
   // Defer API calls until the widget is visible in the viewport.
-  // On desktop the sidebar is visible immediately so calls fire right away.
-  // On mobile the widget is below the fold so this avoids blocking the main thread.
+  // On desktop (>=1024px) the sidebar is always visible, so skip the observer
+  // and call APIs directly to avoid unnecessary overhead.
+  // On mobile the widget is below the fold so we use IntersectionObserver
+  // to avoid blocking the main thread during initial load.
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    // Desktop or modal: sidebar is always in viewport, call APIs immediately
+    if (isModal || window.innerWidth >= 1024) {
+      setIsVisible(true);
+      return;
+    }
+    // Mobile: defer until widget scrolls into view
     const el = containerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
-      { rootMargin: '200px' } // Start loading slightly before visible
+      { rootMargin: '200px' }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [isModal]);
 
   useEffect(() => {
     if (!isVisible) return;
