@@ -165,6 +165,18 @@ html {
   }
 }
 
+/* Performance: Skip painting off-screen sections until user scrolls near them.
+   Content stays in the DOM (SEO-safe), browser just skips layout/paint work.
+   Supported by Chromium (Chrome, Edge, Googlebot). Firefox degrades gracefully. */
+#biography,
+#location,
+#education,
+#credentials,
+#faq {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}
+
 /* Hide scrollbar for quick nav */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;

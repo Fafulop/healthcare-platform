@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCircle, Loader2, ChevronLeft, ChevronRight, Stethoscope } from "lucide-react";
 import { trackSlotSelected, trackBookingComplete } from "@/lib/analytics";
 import type { Service } from "@/types/doctor";
@@ -92,11 +92,30 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     whatsappRequired: true,
   });
 
-  useEffect(() => {
-    fetchAvailability();
-  }, [currentMonth, doctorSlug]);
+  // Defer API calls until the widget is visible in the viewport.
+  // On desktop the sidebar is visible immediately so calls fire right away.
+  // On mobile the widget is below the fold so this avoids blocking the main thread.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
+      { rootMargin: '200px' } // Start loading slightly before visible
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    fetchAvailability();
+  }, [isVisible, currentMonth, doctorSlug]);
+
+  useEffect(() => {
+    if (!isVisible) return;
     fetch(`${API_URL}/api/doctors/${doctorSlug}/booking-field-settings`)
       .then((r) => r.json())
       .then((d) => {
@@ -109,7 +128,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
         }
       })
       .catch(() => {});
-  }, [doctorSlug]);
+  }, [isVisible, doctorSlug]);
 
   // Set selected date and navigate to its month when initialDate changes
   useEffect(() => {
@@ -358,6 +377,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
   return (
     <div
+      ref={containerRef}
       className={isModal ? "" : "bg-white"}
       style={containerStyle}
     >

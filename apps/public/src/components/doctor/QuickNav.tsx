@@ -20,54 +20,26 @@ export default function QuickNav() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState<string>('inicio');
 
-  // Scroll spy - Track which section is visible
+  // Scroll spy via IntersectionObserver — no per-scroll layout recalculations.
+  // rootMargin '-50% 0px -50% 0px' fires when a section crosses the viewport center.
   useEffect(() => {
-    let ticking = false;
-
-    const updateActiveSection = () => {
-      const scrollPosition = window.scrollY + 100; // Offset for sticky nav
-
-      // Find all section positions
-      const sectionPositions = sections
-        .map((section) => {
-          const element = document.getElementById(section.id);
-          if (element) {
-            const rect = element.getBoundingClientRect();
-            const top = rect.top + window.scrollY;
-            return { id: section.id, top };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
           }
-          return null;
-        })
-        .filter((item): item is { id: string; top: number } => item !== null);
-
-      // Find the section that's currently at the scroll position
-      // We want the last section whose top is before or at the scroll position
-      let currentSection = sectionPositions[0]?.id || 'inicio';
-
-      for (const section of sectionPositions) {
-        if (section.top <= scrollPosition) {
-          currentSection = section.id;
-        } else {
-          break;
         }
-      }
+      },
+      { rootMargin: '-50% 0px -50% 0px' }
+    );
 
-      setActiveSection(currentSection);
-      ticking = false;
-    };
+    sections.forEach((section) => {
+      const el = document.getElementById(section.id);
+      if (el) observer.observe(el);
+    });
 
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(updateActiveSection);
-        ticking = true;
-      }
-    };
-
-    // Initial check
-    updateActiveSection();
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => observer.disconnect();
   }, []);
 
   const scroll = (direction: 'left' | 'right') => {
