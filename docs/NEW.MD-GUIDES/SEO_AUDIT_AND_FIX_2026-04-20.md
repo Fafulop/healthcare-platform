@@ -141,14 +141,15 @@ These were missing features that Google explicitly supports and recommends:
 
 ---
 
-#### Gap 8: No `BreadcrumbList` Structured Data or Visual Breadcrumbs
+#### Gap 8: No `BreadcrumbList` Structured Data
 
 **What was missing:**
 - No `BreadcrumbList` JSON-LD schema on any page
-- No visual breadcrumb navigation on doctor profile pages (only on blog articles)
 - Breadcrumbs enable Google to show a **navigation trail in search results** instead of the raw URL
 - Example: `tusalud.pro > Doctores > Dra. Patricia Roldan Mora` instead of `tusalud.pro/doctores/dra-patricia-roldan-mora`
-- Note: A city-level breadcrumb was initially considered (`Inicio > Doctores > {City} > {Name}`) but removed during code review because no city landing page exists yet — the city breadcrumb would have pointed to `/doctores` which is semantically incorrect. The city position will be added when specialty/city landing pages are built (P2-13)
+
+**Important — JSON-LD only, no visible breadcrumbs:**
+Each doctor profile on tusalud.pro is a standalone page (like a Shopify store per doctor), not part of a browsable directory. A visible breadcrumb navigation ("Inicio / Doctores / Dra. Name") doesn't fit this product model and was intentionally **not** added to the UI. However, the `BreadcrumbList` JSON-LD schema lives inside a `<script type="application/ld+json">` tag which is **invisible to users** — only Google crawlers parse it. This gives Google the structural context it needs to display breadcrumb trails in search results without affecting the user experience.
 
 **Google reference:** https://developers.google.com/search/docs/appearance/structured-data/breadcrumb
 
@@ -245,7 +246,7 @@ publisher: {
 | sameAs: only included when array is non-empty | Empty `sameAs: []` is invalid Schema.org |
 | Opening hours: filters out days with invalid/null times | Prevents invalid `opens: null` in structured data |
 | **NEW** `generateProfilePageSchema()` | Google's ProfilePage markup — tells Google this is a profile page about a specific person |
-| **NEW** `generateBreadcrumbSchema()` | Enables breadcrumb display in Google SERPs: `Inicio > Doctores > {Name}` (city position omitted until city landing pages exist) |
+| **NEW** `generateBreadcrumbSchema()` | JSON-LD only (invisible to users). Enables breadcrumb display in Google SERPs: `Inicio > Doctores > {Name}`. No visible breadcrumb was added to the UI — doctor profiles are standalone pages, not part of a browsable directory |
 | Both new schemas added to `generateAllSchemas()` | Automatically injected on all doctor profiles |
 | `siteName` standardized to `'TuSalud.pro'` | Was inconsistent (`'TuSalud.pro - Encuentra tu Doctor'` in seo.ts vs `'TuSalud.pro'` in blog pages). Caught in post-implementation review |
 | Publisher name → `"TuSalud.pro"` | Real brand name instead of generic placeholder |
@@ -273,8 +274,7 @@ publisher: {
 
 | Change | Why |
 |--------|-----|
-| Added visual `<nav>` breadcrumb at top of profile | Matches the BreadcrumbList JSON-LD. Google recommends visual breadcrumbs match structured data |
-| Uses semantic `<nav aria-label="Breadcrumb">` + `<ol>` | Accessible breadcrumb pattern per Google guidelines |
+| No visible changes | A visual breadcrumb nav was initially added but then **removed** — doctor profiles are standalone pages (like individual Shopify stores for each doctor), not part of a directory hierarchy. The `BreadcrumbList` JSON-LD schema in `structured-data.ts` handles this for Google crawlers invisibly via `<script type="application/ld+json">` |
 
 ### 3.6 `apps/public/src/components/doctor/BiographySection.tsx`
 
@@ -311,8 +311,9 @@ A systematic code review was run after all changes were applied, checking 30+ it
 
 | # | Severity | Issue | Resolution |
 |---|----------|-------|------------|
-| 1 | **Bug** | `BreadcrumbList` position 3 had a city name linking to `/doctores` — semantically incorrect since no city filter page exists. Google expects breadcrumb URLs to match real pages | Removed city position. Breadcrumb is now `Inicio > Doctores > {Doctor Name}` (3 items). City will be re-added when specialty/city landing pages are built |
+| 1 | **Bug** | `BreadcrumbList` position 3 had a city name linking to `/doctores` — semantically incorrect since no city filter page exists. Google expects breadcrumb URLs to match real pages | Removed city position. Breadcrumb JSON-LD is now `Inicio > Doctores > {Doctor Name}` (3 items) |
 | 2 | **Inconsistency** | OpenGraph `siteName` was `'TuSalud.pro - Encuentra tu Doctor'` in `seo.ts` but `'TuSalud.pro'` in blog pages | Standardized to `'TuSalud.pro'` across all files |
+| 3 | **UX** | Visual breadcrumb nav (`<nav>` with "Inicio / Doctores / Dra. Name") was showing on doctor profile pages. Doctor profiles are standalone pages (like individual Shopify stores), not part of a directory — the visible breadcrumb didn't match the product model | Removed visible breadcrumb HTML. Kept `BreadcrumbList` JSON-LD schema which is invisible to users (lives in `<script type="application/ld+json">`, only parsed by Google crawlers) |
 
 ### All Checks Passed
 
