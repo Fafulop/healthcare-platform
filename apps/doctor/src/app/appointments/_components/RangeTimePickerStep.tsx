@@ -64,7 +64,7 @@ export function RangeTimePickerStep({
     const fetchServices = async () => {
       setLoadingServices(true);
       try {
-        const res = await authFetch(`${API_URL}/api/doctor/services`);
+        const res = await authFetch("/api/doctor/services");
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           setServices(data.data);
