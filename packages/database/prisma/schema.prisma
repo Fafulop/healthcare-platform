@@ -191,6 +191,12 @@ model Doctor {
   bookingInstantPhoneRequired     Boolean @default(true) @map("booking_instant_phone_required")
   bookingInstantWhatsappRequired  Boolean @default(true) @map("booking_instant_whatsapp_required")
 
+  // Range-based scheduling settings
+  // Buffer time AFTER appointments (minutes). Next available = booking.endTime + buffer.
+  appointmentBufferMinutes     Int @default(0) @map("appointment_buffer_minutes")
+  // Default interval for new availability ranges (15, 30, 45, or 60 min). Overridable per range.
+  defaultIntervalMinutes       Int @default(30) @map("default_interval_minutes")
+
   // Relations
   user               User?     // 1:1 relation - optional (can have doctors without user accounts)
   clinicLocations    ClinicLocation[]
@@ -200,6 +206,7 @@ model Doctor {
   carouselItems      CarouselItem[]
   faqs               FAQ[]
   appointmentSlots   AppointmentSlot[]
+  availabilityRanges AvailabilityRange[]
   bookings           Booking[]
   articles           Article[]
   reviews            Review[]
@@ -426,11 +433,48 @@ model ClinicLocation {
   displayOrder Int      @default(0) @map("display_order")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  doctor  Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  slots   AppointmentSlot[]
+  doctor             Doctor              @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  slots              AppointmentSlot[]
+  availabilityRanges AvailabilityRange[]
 
   @@map("clinic_locations")
   @@index([doctorId])
+  @@schema("public")
+}
+
+// Availability Range — Doctor's time window of availability (range-based scheduling).
+// Instead of pre-generated slots, the doctor defines broad time windows per day.
+// Bookings are created within these windows based on service duration.
+model AvailabilityRange {
+  id              String   @id @default(cuid())
+  doctorId        String   @map("doctor_id")
+
+  // Date and time window
+  date            DateTime                     // Normalized to midnight UTC
+  startTime       String   @map("start_time")  // "09:00"
+  endTime         String   @map("end_time")    // "14:00"
+
+  // Interval: how often start times are shown to patients (15, 30, 45, or 60 min).
+  // Defaults to doctor's defaultIntervalMinutes but can be overridden per range.
+  intervalMinutes Int      @map("interval_minutes") // 15 | 30 | 45 | 60
+
+  // Location: which clinic this range is at (null = doctor's default location)
+  locationId      String?  @map("location_id")
+
+  // Google Calendar sync
+  googleEventId   String?  @map("google_event_id")
+
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  doctor          Doctor          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  location        ClinicLocation? @relation(fields: [locationId], references: [id])
+
+  @@map("availability_ranges")
+  @@index([doctorId, date])
+  @@unique([doctorId, date, startTime]) // Prevent duplicate ranges at same start time
   @@schema("public")
 }
 
