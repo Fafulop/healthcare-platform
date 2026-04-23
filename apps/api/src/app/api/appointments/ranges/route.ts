@@ -341,6 +341,7 @@ export async function POST(request: Request) {
 
     logActivity({
       doctorId,
+      userId,
       actionType: 'RANGES_CREATED',
       entityType: 'APPOINTMENT',
       displayMessage: `Creados ${created.count} rango(s) de disponibilidad: ${startTime}–${endTime} (${dateInfo})`,

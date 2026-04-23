@@ -8,6 +8,7 @@ import type { AppointmentSlot, ClinicLocation } from "../../_hooks/useSlots";
 import type { Booking } from "../../_hooks/useBookings";
 import { SlotPickerStep } from "./SlotPickerStep";
 import type { NewSlotForm } from "./SlotPickerStep";
+import { RangeTimePickerStep } from "../RangeTimePickerStep";
 import { PatientFormStep } from "./PatientFormStep";
 import type { PatientFormData, PatientFieldSettings } from "./PatientFormStep";
 import { SuccessStep } from "./SuccessStep";
@@ -43,6 +44,10 @@ interface Props {
   onSuccess: (newBookingId: string) => void;
   preSelectedSlot?: AppointmentSlot | null;
   rescheduleBooking?: Booking | null;
+  /** When true, uses RangeTimePickerStep instead of SlotPickerStep */
+  rangeMode?: boolean;
+  /** Required when rangeMode is true — doctor's URL slug for range-availability API */
+  doctorSlug?: string;
 }
 
 export function BookPatientModal({
@@ -53,6 +58,8 @@ export function BookPatientModal({
   onSuccess,
   preSelectedSlot = null,
   rescheduleBooking = null,
+  rangeMode = false,
+  doctorSlug,
 }: Props) {
   const initialStep: Step = preSelectedSlot ? "form" : "slot";
 
@@ -97,6 +104,13 @@ export function BookPatientModal({
   // Booking field settings per flow
   const [horariosSettings, setHorariosSettings] = useState<PatientFieldSettings>(DEFAULT_FIELD_SETTINGS);
   const [instantSettings, setInstantSettings] = useState<PatientFieldSettings>(DEFAULT_FIELD_SETTINGS);
+
+  // Range mode selection (when rangeMode=true)
+  const [rangeSelection, setRangeSelection] = useState<{
+    date: string; startTime: string; endTime: string;
+    serviceId: string; serviceName: string; duration: number; price: number;
+    locationName?: string | null;
+  } | null>(null);
 
   // "Nuevo horario" mode
   const [slotMode, setSlotMode] = useState<"existing" | "new">("existing");
@@ -150,6 +164,7 @@ export function BookPatientModal({
     setWasRescheduled(false);
     setSelectedPatientId(null);
     setSelectedPatientName("");
+    setRangeSelection(null);
     setSlotMode("existing");
     setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, locationId: clinicLocations[0]?.id ?? "" });
   }, [preSelectedSlot, clinicLocations, rescheduleBooking]);
@@ -157,7 +172,7 @@ export function BookPatientModal({
   useEffect(() => {
     if (isOpen) {
       reset();
-      if (!preSelectedSlot) fetchAvailableSlots();
+      if (!preSelectedSlot && !rangeMode) fetchAvailableSlots();
       authFetch("/api/doctor/services")
         .then((r) => r.json())
         .then((d) => {
@@ -223,7 +238,9 @@ export function BookPatientModal({
   const availableDateSet = useMemo(() => new Set(Object.keys(slotsByDate)), [slotsByDate]);
 
   // Slot info for header and success screen
-  const displaySlot = selectedSlot
+  const displaySlot = rangeSelection
+    ? { date: rangeSelection.date, startTime: rangeSelection.startTime, endTime: rangeSelection.endTime }
+    : selectedSlot
     ? { date: selectedSlot.date, startTime: selectedSlot.startTime, endTime: selectedSlot.endTime }
     : slotMode === "new" && newSlotForm.date && newSlotForm.startTime
     ? {
@@ -263,6 +280,38 @@ export function BookPatientModal({
     }
 
     try {
+      // Range-mode booking: use range-bookings/instant endpoint
+      if (rangeMode && rangeSelection) {
+        const res = await authFetch(`${API_URL}/api/appointments/range-bookings/instant`, {
+          method: "POST",
+          body: JSON.stringify({
+            doctorId,
+            date: rangeSelection.date,
+            startTime: rangeSelection.startTime,
+            serviceId: rangeSelection.serviceId,
+            patientName: formData.patientName,
+            patientEmail: formData.patientEmail,
+            patientPhone: formData.patientPhone,
+            patientWhatsapp: formData.patientWhatsapp || undefined,
+            notes: formData.notes || undefined,
+            isFirstTime,
+            appointmentMode: appointmentMode || undefined,
+            patientId: selectedPatientId || undefined,
+          }),
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+          setError(data.error || "Error al crear la cita");
+          return;
+        }
+
+        setWasRescheduled(false);
+        setStep("success");
+        onSuccess(data.data.id);
+        return;
+      }
+
       if (slotMode === "new") {
         const res = await authFetch(`${API_URL}/api/appointments/bookings/instant`, {
           method: "POST",
@@ -398,7 +447,26 @@ export function BookPatientModal({
         {/* Scrollable content */}
         <div className="overflow-y-auto flex-1 p-5">
 
-          {step === "slot" && (
+          {step === "slot" && rangeMode && (
+            doctorSlug ? (
+              <RangeTimePickerStep
+                doctorId={doctorId}
+                doctorSlug={doctorSlug}
+                selectedServiceId={null}
+                onSelectTime={(sel) => {
+                  setRangeSelection(sel);
+                  setSelectedServiceId(sel.serviceId);
+                  setStep("form");
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+              </div>
+            )
+          )}
+
+          {step === "slot" && !rangeMode && (
             <SlotPickerStep
               slotMode={slotMode}
               setSlotMode={(m) => { setSlotMode(m); setError(""); setConflictError(null); }}
@@ -446,7 +514,7 @@ export function BookPatientModal({
                 formData={formData}
                 setFormData={setFormData}
                 error={error}
-                fieldSettings={slotMode === "new" ? instantSettings : horariosSettings}
+                fieldSettings={rangeMode || slotMode === "new" ? instantSettings : horariosSettings}
                 selectedPatientId={selectedPatientId}
                 selectedPatientName={selectedPatientName}
                 onSelectPatient={(p) => {

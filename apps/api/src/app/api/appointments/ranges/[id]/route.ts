@@ -15,6 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { role, userId, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
     const { id } = await params;
 
     const range = await prisma.availabilityRange.findUnique({
@@ -31,9 +32,22 @@ export async function GET(
       );
     }
 
+    // Doctors can only see their own ranges
+    if (role === 'DOCTOR' && range.doctorId !== authenticatedDoctorId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json({ success: true, data: range });
   } catch (error) {
     console.error('Error fetching availability range:', error);
+
+    if (error instanceof Error && (error.message.includes('authorization') || error.message.includes('token') || error.message.includes('authentication'))) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 401 });
+    }
+
     return NextResponse.json(
       { success: false, error: 'Failed to fetch availability range' },
       { status: 500 }
@@ -53,7 +67,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Authenticate
-    const { role, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
+    const { role, userId, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
 
     // Fetch the range
     const range = await prisma.availabilityRange.findUnique({
@@ -140,6 +154,7 @@ export async function DELETE(
     const dateKey = range.date.toISOString().split('T')[0];
     logActivity({
       doctorId: range.doctorId,
+      userId,
       actionType: 'RANGE_DELETED',
       entityType: 'APPOINTMENT',
       entityId: id,

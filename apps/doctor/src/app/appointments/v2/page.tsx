@@ -249,6 +249,8 @@ export default function AppointmentsV2RangePage() {
         onClose={() => setBookPatientModalOpen(false)}
         doctorId={doctorId}
         clinicLocations={clinicLocations}
+        rangeMode
+        doctorSlug={doctorProfile?.slug}
         onSuccess={async () => {
           await onRefresh();
         }}
