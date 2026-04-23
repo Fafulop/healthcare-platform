@@ -1,6 +1,6 @@
 # Plan: Range-Based Scheduling Migration
 
-## Status: IN PROGRESS — Phase 2 Test
+## Status: IN PROGRESS — Phase 2 Test (Doctor app working, public app pending)
 
 ---
 
@@ -697,10 +697,16 @@ These modifications happen ONLY after the new system is tested and verified:
 ### Phase 2: Test
 ```
 11. ✅ Create test route/page to access new components  (2026-04-22)
-12. Create test ranges for a doctor
-13. Test full flow: create range → book patient → verify notifications
+12. ✅ Create test ranges for a doctor                   (2026-04-22)
+      — Created 3 recurring ranges (Apr 22-24, 09:00-14:00, 30min interval) via /appointments/v2
+      — Verified: API returns ranges correctly, DayTimelinePanel renders them
+13. 🔄 Test full flow: create range → book patient → verify notifications
+      — Doctor app: BookPatientModal wired with rangeMode (service→date→time flow) ✅
+      — Doctor app: Range-based instant booking via /api/appointments/range-bookings/instant ✅
+      — Public app: RangeBookingWidget created but NOT wired into public pages yet ⏳
 14. Test edge cases: overlaps, concurrent bookings, gap calculation
-15. Verify old system still works perfectly
+15. ✅ Verify old system still works perfectly             (2026-04-22)
+      — Classic /appointments page unaffected, slots + bookings work as before
 ```
 
 ### Phase 3: Swap (only after Phase 2 passes)
@@ -732,7 +738,7 @@ These modifications happen ONLY after the new system is tested and verified:
 
 ---
 
-*Document created 2026-04-21. Updated 2026-04-21 with all resolved decisions.*
+*Document created 2026-04-21. Updated 2026-04-22 with Phase 2 progress.*
 *Strategy: Build side-by-side → Test independently → Swap when verified.*
 
 ---
@@ -749,3 +755,6 @@ These modifications happen ONLY after the new system is tested and verified:
 | 2026-04-22 | Step 6 | Range Instant Booking API: `POST /api/appointments/range-bookings/instant`. Auth required (doctor/admin only), always CONFIRMED. No range required (doctor can book outside public ranges). Uses instant field settings. Overlap check against freeform + slot-based bookings. GCal sync (event ID on booking), confirmation email always sent, SMS, activity logging. Type-check passed. |
 | 2026-04-22 | Steps 7-10 | Frontend components: `CreateRangeModal` (single/recurring range creation, 15-min time increments, interval selector 15/30/45/60, location picker, preview), `DayTimelinePanel` (range bars with bookings inside, free gaps clickable for booking, status colors, bookings outside ranges shown separately), `RangeTimePickerStep` (service→date→time picker for doctor booking modal, uses range-availability API), `useRanges` hook (fetch/delete ranges, date grouping), `RangeBookingWidget` (public service-first flow: service→date→time→form→success, deferred loading, field settings, privacy consent, analytics). All type-checks passed (doctor + public apps). |
 | 2026-04-22 | Step 11 | Test route: `apps/doctor/src/app/appointments/v2/page.tsx`. Wires `useRanges` + `useCalendar` + `useBookings` hooks. Renders `CreateRangeModal`, `AppointmentsCalendar` (with range dates highlighted), `DayTimelinePanel` (selected date), `BookPatientModal`, and `BookingsSection`. Fetches clinic locations independently (no useSlots dependency). Link back to classic view. Type-check passed. |
+| 2026-04-22 | Step 12 | DB migration executed on Railway. Created 3 test ranges (Apr 22-24, 09:00-14:00, 30min interval). API verified returning ranges correctly (count: 3, 200 OK). DayTimelinePanel renders range bars with "Sin citas — todo libre" for empty ranges. |
+| 2026-04-22 | Steps 12-13 fixes | **BookPatientModal**: Added `rangeMode` + `doctorSlug` props. When `rangeMode=true`, renders `RangeTimePickerStep` (service→date→time) instead of `SlotPickerStep`, submits to `/api/appointments/range-bookings/instant`. **Code review fixes**: Added auth + ownership check to GET `/api/appointments/ranges/[id]`, added `userId` to all `logActivity()` calls in ranges CRUD, fixed `RangeTimePickerStep` service fetch URL (was using `${API_URL}` prefix for doctor-internal route `/api/doctor/services`, changed to relative URL). |
+| 2026-04-22 | Step 15 | Verified old system unaffected: classic `/appointments` page loads normally, slots and bookings work as before. |
