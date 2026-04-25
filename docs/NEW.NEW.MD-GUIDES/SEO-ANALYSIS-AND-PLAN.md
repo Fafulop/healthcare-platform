@@ -423,7 +423,7 @@ All on-page SEO tasks implemented and deployed.
 | # | Task | Status | What Was Done |
 |---|------|--------|---------------|
 | 1.1 | **Add city to H2 subtitle** | DONE | H2 now renders `{specialty} en {city}` via `toTitleCase()` + conditional city |
-| 1.2 | **Add intro paragraph in hero** | DONE | Auto-extracts first 3 sentences from `long_bio` only (ignores `short_bio`). Uses `extractIntro()` in `HeroSection.tsx` — always ends at sentence boundary, consistent across all doctors |
+| 1.2 | ~~Add intro paragraph in hero~~ | REVERTED | Was implemented but removed — looked cluttered in the hero. SEO value covered by H2 with specialty+city, personalized section headings, and full biography section lower on page. |
 | 1.3 | **Personalize section headings** | DONE | "Servicios de {specialty}", "Condiciones y Procedimientos — {specialty}", "Consultorio en {city}" |
 | 1.4 | **Show service descriptions on mobile** | DONE | `line-clamp-2 md:line-clamp-none` replaces `hidden md:block` |
 | 1.5 | **Add "Consultorio en {city}" heading** | DONE | `ClinicLocationSection.tsx` heading now includes city |
@@ -438,7 +438,7 @@ All on-page SEO tasks implemented and deployed.
 |---|------|--------|---------------|
 | 1B.1 | **Normalize specialty casing** | DONE (render-time) | `toTitleCase()` applied at render time in public page. Raw data preserved in DB. |
 | 1B.2 | **Expose subspecialties in dashboard** | DONE | Textarea added to doctor dashboard (`GeneralInfoSection.tsx`), admin edit (Step 1), and admin create (Step 1). Uses one-per-line pattern matching conditions/procedures. |
-| 1B.3 | **Auto-generate intro from long_bio** | DONE | Decision: NO separate `short_bio` textarea — doctors shouldn't write 2 bios. `HeroSection.tsx` always uses `extractIntro(long_bio)` which takes first 3 sentences, ending at sentence boundary. `short_bio` is ignored in the hero to ensure consistent display across all doctors. `short_bio` field preserved as pass-through in form data (not wiped on save). |
+| 1B.3 | ~~Auto-generate intro from long_bio~~ | REVERTED | Intro paragraph removed from hero — looked cluttered. NO separate `short_bio` textarea needed. `short_bio` field preserved as pass-through in form data (not wiped on save). |
 | ~~1B.4~~ | ~~Auto-generate certificate alt text~~ | REMOVED | Already handled |
 | 1B.5 | **Auto-generate location_summary** | DONE | Fallback in `data.ts`: if API returns empty `locationSummary`, uses `"{city}, México"`. No dashboard change needed. |
 | 1B.6 | **Auto-generate carousel alt text** | DONE | Fallback in `data.ts`: if carousel item `alt` is empty, auto-generates `"Consultorio de {doctor_name} en {city}"`. |
@@ -510,7 +510,6 @@ Each doctor's blog posts are the primary weapon for ranking. Blog posts targetin
 <meta description="Dr. Jose Toro, Oftalmologo en Guadalajara..."        -- GOOD (unchanged)
 <h1>Dr. Jose Toro</h1>                                                  -- OK (name stays clean)
 <h2>Oftalmologia en Guadalajara</h2>                                     -- DONE: toTitleCase + city
-<p>[first 2 sentences of long_bio auto-extracted]</p>                    -- DONE: extractIntro()
 <h2>Servicios de Oftalmologia</h2>                                       -- DONE: toTitleCase(specialty)
   [descriptions visible on mobile via line-clamp-2]                      -- DONE
 <h2>Condiciones y Procedimientos — Oftalmologia</h2>                     -- DONE: toTitleCase(specialty)
