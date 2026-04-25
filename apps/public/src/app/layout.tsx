@@ -25,6 +25,10 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="manifest" href="/site.webmanifest" />
+        <meta name="theme-color" content="#2563eb" />
+
         {/* Preconnect to critical origins (max 4 — more than that hurts performance) */}
         <link rel="preconnect" href="https://utfs.io" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Calendar, Eye } from 'lucide-react';
 
 interface ArticleCardProps {
@@ -32,10 +33,12 @@ export function ArticleCard({
         {/* Thumbnail Image */}
         {thumbnail ? (
           <div className="relative w-full h-48 bg-gray-200 overflow-hidden">
-            <img
+            <Image
               src={thumbnail}
               alt={title}
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              fill
+              className="object-cover hover:scale-105 transition-transform duration-300"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           </div>
         ) : (

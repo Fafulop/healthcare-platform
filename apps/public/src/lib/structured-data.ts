@@ -340,7 +340,7 @@ export function generateBlogPostingSchema(article: Article, baseUrl: string = DE
       name: 'TuSalud.pro',
       logo: {
         '@type': 'ImageObject',
-        url: `${baseUrl}/logo.png`,
+        url: `${baseUrl}/favicon.svg`,
       },
     },
     mainEntityOfPage: {

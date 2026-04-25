@@ -1,0 +1,16 @@
+{
+  "name": "TuSalud.pro",
+  "short_name": "TuSalud",
+  "description": "Encuentra y agenda citas con médicos especialistas en México",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

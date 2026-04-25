@@ -17,7 +17,7 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
     subspecialties: doctor.subspecialties,
     cedula_profesional: doctor.cedulaProfesional || undefined,
     hero_image: doctor.heroImage,
-    location_summary: doctor.locationSummary,
+    location_summary: doctor.locationSummary || (doctor.city ? `${doctor.city}, México` : ''),
     city: doctor.city,
 
     // Services
@@ -41,7 +41,7 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
     carousel_items: doctor.carouselItems.map((item: any) => ({
       type: item.type as 'image' | 'video',
       src: item.src,
-      alt: item.alt,
+      alt: item.alt || `Consultorio de ${doctor.doctorFullName}${doctor.city ? ` en ${doctor.city}` : ''}`,
       caption: item.caption || undefined,
       thumbnail: item.thumbnail || undefined,
       name: item.name || undefined,
@@ -156,6 +156,14 @@ export async function getDoctorBySlug(slug: string): Promise<DoctorProfile | nul
  * Get all doctor slugs for static generation
  */
 export async function getAllDoctorSlugs(): Promise<string[]> {
+  const doctors = await getAllDoctorSlugsWithDates();
+  return doctors.map((d) => d.slug);
+}
+
+/**
+ * Get all doctor slugs with updatedAt dates (for sitemap)
+ */
+export async function getAllDoctorSlugsWithDates(): Promise<{ slug: string; updatedAt: string | null }[]> {
   try {
     const response = await fetch(`${API_URL}/api/doctors`, {
       next: { revalidate: 60 },
@@ -171,7 +179,10 @@ export async function getAllDoctorSlugs(): Promise<string[]> {
       return [];
     }
 
-    return json.data.map((doctor: any) => doctor.slug);
+    return json.data.map((doctor: any) => ({
+      slug: doctor.slug,
+      updatedAt: doctor.updatedAt || null,
+    }));
   } catch (error) {
     console.error('Error reading doctors from API:', error);
     return [];

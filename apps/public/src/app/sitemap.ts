@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next'
-import { getAllDoctorSlugs, getArticlesByDoctorSlug } from '@/lib/data'
+import { getAllDoctorSlugsWithDates, getArticlesByDoctorSlug } from '@/lib/data'
 
 // Known test/junk slugs to exclude from the sitemap
 const EXCLUDED_SLUGS = new Set([
@@ -22,13 +22,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://tusalud.pro'
 
   // Fetch all doctor slugs from API, filtering out test profiles
-  const allSlugs = await getAllDoctorSlugs()
-  const doctorSlugs = allSlugs.filter(isValidDoctorSlug)
+  const allDoctors = await getAllDoctorSlugsWithDates()
+  const validDoctors = allDoctors.filter((d) => isValidDoctorSlug(d.slug))
+  const doctorSlugs = validDoctors.map((d) => d.slug)
 
-  // Create sitemap entries for all doctor pages
-  const doctorPages: MetadataRoute.Sitemap = doctorSlugs.map((slug) => ({
-    url: `${baseUrl}/doctores/${slug}`,
-    lastModified: new Date(),
+  // Create sitemap entries for all doctor pages (use real updatedAt)
+  const doctorPages: MetadataRoute.Sitemap = validDoctors.map((d) => ({
+    url: `${baseUrl}/doctores/${d.slug}`,
+    lastModified: d.updatedAt ? new Date(d.updatedAt) : new Date(),
     changeFrequency: 'weekly',
     priority: 0.8,
   }))
@@ -49,9 +50,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (validArticles.length === 0) continue
 
       // Doctor has articles — include their blog listing page
+      const latestArticleDate = validArticles
+        .filter((a) => a.publishedAt)
+        .map((a) => new Date(a.publishedAt).getTime())
+        .sort((a, b) => b - a)[0]
+
       blogListingPages.push({
         url: `${baseUrl}/doctores/${slug}/blog`,
-        lastModified: new Date(),
+        lastModified: latestArticleDate ? new Date(latestArticleDate) : new Date(),
         changeFrequency: 'weekly',
         priority: 0.7,
       })
