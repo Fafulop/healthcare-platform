@@ -593,8 +593,8 @@ Admin app continues using existing slot-based views. Admin changes only happen d
 - Future bookings use the new duration
 
 ### 9.5 Doctor deletes a range that has bookings in it
-- **Block deletion**: "No se puede eliminar este rango porque tiene X cita(s) activa(s). Cancela las citas primero."
-- Same pattern as current slot deletion
+- **Allowed with warning**: Bookings are independent records (own date/startTime/endTime). Deleting a range only removes future availability — existing bookings are unaffected.
+- Bulk delete shows a preview warning listing active bookings but proceeds with deletion.
 
 ### 9.6 Range time boundary bookings
 - A booking at 13:30 with 45min duration ends at 14:15
@@ -738,7 +738,7 @@ These modifications happen ONLY after the new system is tested and verified:
 
 ---
 
-*Document created 2026-04-21. Updated 2026-04-22 with Phase 2 progress.*
+*Document created 2026-04-21. Updated 2026-04-25 with blocking redesign + bulk operations.*
 *Strategy: Build side-by-side → Test independently → Swap when verified.*
 
 ---
@@ -758,3 +758,5 @@ These modifications happen ONLY after the new system is tested and verified:
 | 2026-04-22 | Step 12 | DB migration executed on Railway. Created 3 test ranges (Apr 22-24, 09:00-14:00, 30min interval). API verified returning ranges correctly (count: 3, 200 OK). DayTimelinePanel renders range bars with "Sin citas — todo libre" for empty ranges. |
 | 2026-04-22 | Steps 12-13 fixes | **BookPatientModal**: Added `rangeMode` + `doctorSlug` props. When `rangeMode=true`, renders `RangeTimePickerStep` (service→date→time) instead of `SlotPickerStep`, submits to `/api/appointments/range-bookings/instant`. **Code review fixes**: Added auth + ownership check to GET `/api/appointments/ranges/[id]`, added `userId` to all `logActivity()` calls in ranges CRUD, fixed `RangeTimePickerStep` service fetch URL (was using `${API_URL}` prefix for doctor-internal route `/api/doctor/services`, changed to relative URL). |
 | 2026-04-22 | Step 15 | Verified old system unaffected: classic `/appointments` page loads normally, slots and bookings work as before. |
+| 2026-04-25 | Blocking redesign | Replaced range-splitting block with reversible `BlockedTime` overlay model. New DB table `blocked_times`, block API rewritten as CRUD (GET/POST/DELETE), availability calculator integrates blocked times, booking creation rejects blocked windows. Separate UI: "Eliminar" (red) and "Bloquear" (orange) buttons. Bulk unblock support. See `PLAN-BULK-RANGE-DELETE-AND-BLOCK.md` for details. |
+| 2026-04-25 | Behavior fix | Both blocking and deletion now warn about active bookings but proceed — bookings are independent records. Blocking skips dates with no ranges. |

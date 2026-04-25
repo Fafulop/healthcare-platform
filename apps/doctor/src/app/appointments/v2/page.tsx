@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Trash2, Ban } from "lucide-react";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { useCalendar } from "../_hooks/useCalendar";
@@ -18,6 +19,7 @@ import { BookPatientModal } from "../_components/BookPatientModal";
 import { BookingsSection } from "../_components/BookingsSection";
 import { DeleteRangesModal } from "../_components/DeleteRangesModal";
 import { BlockTimeModal } from "../_components/BlockTimeModal";
+import { PreAppointmentFormModal } from "../_components/PreAppointmentFormModal";
 import type { Booking } from "../_hooks/useBookings";
 import type { ClinicLocation } from "../_hooks/useSlots";
 
@@ -58,6 +60,10 @@ export default function AppointmentsV2RangePage() {
   const [showDeleteRangesModal, setShowDeleteRangesModal] = useState(false);
   const [showBlockTimeModal, setShowBlockTimeModal] = useState(false);
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
+  const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
+  const rescheduleBookingRef = useRef<Booking | null>(null);
+  const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
+  const [formLinkBooking, setFormLinkBooking] = useState<Booking | null>(null);
 
   const onRefresh = useCallback(async () => {
     await rangesHook.fetchRanges();
@@ -66,8 +72,16 @@ export default function AppointmentsV2RangePage() {
   }, [rangesHook, bookingsHook, blockedTimesHook]);
 
   const openBookModal = () => {
+    rescheduleBookingRef.current = null;
+    setRescheduleBooking(null);
     setBookPatientModalOpen(true);
   };
+
+  const handleReschedule = useCallback((booking: Booking) => {
+    rescheduleBookingRef.current = booking;
+    setRescheduleBooking(booking);
+    setBookPatientModalOpen(true);
+  }, []);
 
   const handleBookInGap = (date: string, startTime: string) => {
     toast.success(`Agendar cita: ${date} a las ${startTime}`);
@@ -210,21 +224,26 @@ export default function AppointmentsV2RangePage() {
         }}
         onCompleteBooking={async (id, price, formaDePago) => {
           await bookingsHook.completeBooking(id, price, formaDePago);
+          rangesHook.fetchRanges();
         }}
         onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
         onUpdatePatientLink={bookingsHook.updatePatientLink}
         onDeleteBooking={async (id, name) => {
           await bookingsHook.deleteBooking(id, name);
+          rangesHook.fetchRanges();
         }}
         getStatusColor={bookingsHook.getStatusColor}
         sortColumn={bookingsHook.sortColumn}
         sortDirection={bookingsHook.sortDirection}
         onSort={bookingsHook.toggleSort}
-        onOpenFormLinkModal={() => {}}
+        onOpenFormLinkModal={(booking) => {
+          setFormLinkBooking(booking);
+          setFormLinkModalOpen(true);
+        }}
         onDeleteFormLink={bookingsHook.deleteFormLink}
         onSendEmail={bookingsHook.sendConfirmationEmail}
-        onReschedule={() => {}}
+        onReschedule={handleReschedule}
       />
 
       {/* Calendar + Timeline */}
@@ -285,14 +304,36 @@ export default function AppointmentsV2RangePage() {
 
       <BookPatientModal
         isOpen={bookPatientModalOpen}
-        onClose={() => setBookPatientModalOpen(false)}
+        onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); }}
         doctorId={doctorId}
         clinicLocations={clinicLocations}
         rangeMode
         doctorSlug={doctorProfile?.slug}
         onSuccess={async () => {
+          const toCancel = rescheduleBookingRef.current;
+          if (toCancel) {
+            rescheduleBookingRef.current = null;
+            setRescheduleBooking(null);
+            try {
+              const res = await authFetch(
+                `${API_URL}/api/appointments/bookings/${toCancel.id}`,
+                { method: "PATCH", body: JSON.stringify({ status: "CANCELLED" }) }
+              );
+              const data = await res.json();
+              if (!data.success) toast.error("No se pudo cancelar la cita anterior automáticamente");
+            } catch {
+              toast.error("No se pudo cancelar la cita anterior automáticamente");
+            }
+          }
           await onRefresh();
         }}
+        rescheduleBooking={rescheduleBooking}
+      />
+      <PreAppointmentFormModal
+        booking={formLinkBooking}
+        isOpen={formLinkModalOpen}
+        onClose={() => { setFormLinkModalOpen(false); setFormLinkBooking(null); }}
+        onSuccess={bookingsHook.fetchBookings}
       />
     </div>
   );
