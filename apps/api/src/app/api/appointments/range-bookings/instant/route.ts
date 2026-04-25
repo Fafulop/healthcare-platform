@@ -125,39 +125,46 @@ export async function POST(request: Request) {
     let booking: any;
     try {
       booking = await prisma.$transaction(async (tx) => {
-        // Overlap check against both freeform and slot-based bookings
-        const overlappingBooking = await tx.booking.findFirst({
+        // Overlap check against both freeform and slot-based bookings.
+        // Must consider extendedBlockMinutes — a booking may block time beyond its endTime.
+
+        const activeBookings = await tx.booking.findMany({
           where: {
             doctorId,
             status: { in: ['PENDING', 'CONFIRMED'] },
             OR: [
-              // Range-based (freeform) bookings
-              {
-                slotId: null,
-                date: bookingDate,
-                startTime: { lt: endTime },
-                endTime: { gt: normalizedStartTime },
-              },
-              // Legacy slot-based bookings
-              {
-                slot: {
-                  date: bookingDate,
-                  startTime: { lt: endTime },
-                  endTime: { gt: normalizedStartTime },
-                },
-              },
+              { slotId: null, date: bookingDate },
+              { slot: { date: bookingDate } },
             ],
           },
-          select: { startTime: true, endTime: true, slot: { select: { startTime: true, endTime: true } } },
+          select: {
+            startTime: true,
+            endTime: true,
+            extendedBlockMinutes: true,
+            slot: { select: { startTime: true, endTime: true } },
+          },
         });
 
-        if (overlappingBooking) {
-          const ovStart = overlappingBooking.startTime ?? overlappingBooking.slot?.startTime;
-          const ovEnd = overlappingBooking.endTime ?? overlappingBooking.slot?.endTime;
-          throw Object.assign(
-            new Error('TIME_OVERLAP'),
-            { bookingError: true, overlapStart: ovStart, overlapEnd: ovEnd }
-          );
+        const newStartMin = timeToMinutes(normalizedStartTime);
+        const newEndMin = timeToMinutes(endTime);
+
+        for (const ab of activeBookings) {
+          const abStart = ab.startTime ?? ab.slot?.startTime;
+          const abEnd = ab.endTime ?? ab.slot?.endTime;
+          if (!abStart || !abEnd) continue;
+
+          const abStartMin = timeToMinutes(abStart);
+          const abEndMin = timeToMinutes(abEnd);
+          const extendedEnd = ab.extendedBlockMinutes != null
+            ? Math.max(abEndMin, abStartMin + ab.extendedBlockMinutes)
+            : abEndMin;
+
+          if (newStartMin < extendedEnd && newEndMin > abStartMin) {
+            throw Object.assign(
+              new Error('TIME_OVERLAP'),
+              { bookingError: true, overlapStart: abStart, overlapEnd: minutesToTime(extendedEnd) }
+            );
+          }
         }
 
         // Create booking (slotId = null → range-based freeform)

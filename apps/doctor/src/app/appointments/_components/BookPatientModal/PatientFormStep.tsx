@@ -28,6 +28,8 @@ interface Props {
   services: DoctorService[];
   selectedServiceId: string | null;
   onSelectService: (id: string) => void;
+  /** When true, show selected service as read-only (e.g., range mode where service drives time calculation) */
+  serviceReadOnly?: boolean;
   isFirstTime: boolean | null;
   setIsFirstTime: (v: boolean | null) => void;
   appointmentMode: "PRESENCIAL" | "TELEMEDICINA" | null;
@@ -45,6 +47,7 @@ export function PatientFormStep({
   services,
   selectedServiceId,
   onSelectService,
+  serviceReadOnly = false,
   isFirstTime,
   setIsFirstTime,
   appointmentMode,
@@ -62,43 +65,66 @@ export function PatientFormStep({
       {services.length > 0 && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Servicio *</label>
-          <div className="grid grid-cols-1 gap-2">
-            {services.map((svc) => (
-              <button
-                key={svc.id}
-                type="button"
-                onClick={() => onSelectService(svc.id)}
-                className={`flex items-center justify-between p-3 rounded-lg border text-left transition-all ${
-                  selectedServiceId === svc.id
-                    ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
-                    : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Stethoscope
-                    className={`w-4 h-4 shrink-0 ${
-                      selectedServiceId === svc.id ? "text-blue-600" : "text-gray-400"
-                    }`}
-                  />
-                  <span
-                    className={`text-sm font-medium ${
-                      selectedServiceId === svc.id ? "text-blue-900" : "text-gray-800"
-                    }`}
-                  >
-                    {svc.serviceName}
-                  </span>
+          {serviceReadOnly ? (
+            // Read-only: show selected service as a static badge
+            (() => {
+              const svc = services.find((s) => s.id === selectedServiceId);
+              return svc ? (
+                <div className="flex items-center justify-between p-3 rounded-lg border border-blue-500 bg-blue-50 ring-1 ring-blue-500">
+                  <div className="flex items-center gap-2.5">
+                    <Stethoscope className="w-4 h-4 shrink-0 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-900">{svc.serviceName}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {svc.durationMinutes && (
+                      <span className="text-xs text-gray-400">{svc.durationMinutes} min</span>
+                    )}
+                    {svc.price != null && (
+                      <span className="text-xs font-semibold text-gray-700">${svc.price}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  {svc.durationMinutes && (
-                    <span className="text-xs text-gray-400">{svc.durationMinutes} min</span>
-                  )}
-                  {svc.price != null && (
-                    <span className="text-xs font-semibold text-gray-700">${svc.price}</span>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
+              ) : null;
+            })()
+          ) : (
+            <div className="grid grid-cols-1 gap-2">
+              {services.map((svc) => (
+                <button
+                  key={svc.id}
+                  type="button"
+                  onClick={() => onSelectService(svc.id)}
+                  className={`flex items-center justify-between p-3 rounded-lg border text-left transition-all ${
+                    selectedServiceId === svc.id
+                      ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                      : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Stethoscope
+                      className={`w-4 h-4 shrink-0 ${
+                        selectedServiceId === svc.id ? "text-blue-600" : "text-gray-400"
+                      }`}
+                    />
+                    <span
+                      className={`text-sm font-medium ${
+                        selectedServiceId === svc.id ? "text-blue-900" : "text-gray-800"
+                      }`}
+                    >
+                      {svc.serviceName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {svc.durationMinutes && (
+                      <span className="text-xs text-gray-400">{svc.durationMinutes} min</span>
+                    )}
+                    {svc.price != null && (
+                      <span className="text-xs font-semibold text-gray-700">${svc.price}</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

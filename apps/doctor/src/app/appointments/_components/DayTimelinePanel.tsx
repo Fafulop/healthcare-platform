@@ -14,6 +14,7 @@ interface Booking {
   startTime?: string | null;
   endTime?: string | null;
   duration?: number | null;
+  extendedBlockMinutes?: number | null;
   slot?: { date: string; startTime: string; endTime: string; duration: number } | null;
 }
 
@@ -116,7 +117,12 @@ export function DayTimelinePanel({
             for (const bk of sortedActive) {
               const bs = timeToMin(bk.startTime);
               if (bs > cursor) gaps.push({ start: cursor, end: bs });
-              cursor = Math.max(cursor, timeToMin(bk.endTime));
+              // Use extended block end if set, otherwise appointment endTime
+              const endMin = timeToMin(bk.endTime);
+              const extEnd = bk.extendedBlockMinutes != null
+                ? Math.max(endMin, bs + bk.extendedBlockMinutes)
+                : endMin;
+              cursor = Math.max(cursor, extEnd);
             }
             if (cursor < rangeEnd) gaps.push({ start: cursor, end: rangeEnd });
 
@@ -159,6 +165,10 @@ export function DayTimelinePanel({
                         .sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime))
                         .map((bk) => {
                           const sc = statusColors[bk.status] ?? statusColors.PENDING;
+                          const bkStartMin = timeToMin(bk.startTime);
+                          const bkEndMin = timeToMin(bk.endTime);
+                          const hasExtBlock = bk.extendedBlockMinutes != null && bk.extendedBlockMinutes > (bkEndMin - bkStartMin);
+                          const extBlockEnd = hasExtBlock ? minToTime(bkStartMin + bk.extendedBlockMinutes!) : null;
                           return (
                             <div
                               key={bk.id}
@@ -169,6 +179,11 @@ export function DayTimelinePanel({
                                 <span className="text-xs font-medium text-gray-900">
                                   {bk.startTime}–{bk.endTime}
                                 </span>
+                                {hasExtBlock && (
+                                  <span className="text-[10px] text-indigo-600 ml-1" title={`Bloqueo extendido hasta ${extBlockEnd}`}>
+                                    (bloq. hasta {extBlockEnd})
+                                  </span>
+                                )}
                                 <span className="text-xs text-gray-600 ml-1.5 truncate">
                                   {bk.patientName}
                                 </span>
@@ -215,6 +230,10 @@ export function DayTimelinePanel({
             .sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime))
             .map((bk) => {
               const sc = statusColors[bk.status] ?? statusColors.PENDING;
+              const bkStartMin = timeToMin(bk.startTime);
+              const bkEndMin = timeToMin(bk.endTime);
+              const hasExtBlock = bk.extendedBlockMinutes != null && bk.extendedBlockMinutes > (bkEndMin - bkStartMin);
+              const extBlockEnd = hasExtBlock ? minToTime(bkStartMin + bk.extendedBlockMinutes!) : null;
               return (
                 <div
                   key={bk.id}
@@ -225,6 +244,11 @@ export function DayTimelinePanel({
                     <span className="text-xs font-medium text-gray-900">
                       {bk.startTime}–{bk.endTime}
                     </span>
+                    {hasExtBlock && (
+                      <span className="text-[10px] text-indigo-600 ml-1" title={`Bloqueo extendido hasta ${extBlockEnd}`}>
+                        (bloq. hasta {extBlockEnd})
+                      </span>
+                    )}
                     <span className="text-xs text-gray-600 ml-1.5 truncate">{bk.patientName}</span>
                     {bk.serviceName && (
                       <span className="text-xs text-gray-400 ml-1">({bk.serviceName})</span>

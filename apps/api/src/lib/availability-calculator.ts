@@ -24,6 +24,7 @@ export interface AvailabilityRangeInput {
 export interface BookingInput {
   startTime: string;  // "HH:MM"
   endTime: string;    // "HH:MM"
+  extendedBlockMinutes?: number | null; // If set, blocks startTime → startTime + extendedBlockMinutes
 }
 
 export interface AvailableSlot {
@@ -143,10 +144,20 @@ export function calculateAvailability(
   if (ranges.length === 0 || serviceDurationMinutes <= 0) return [];
 
   // Step 2: Build blocked windows from bookings (with buffer AFTER only)
-  const blockedWindows: Window[] = bookings.map((b) => ({
-    start: timeToMinutes(b.startTime),
-    end: timeToMinutes(b.endTime) + bufferMinutes,
-  }));
+  // If extendedBlockMinutes is set, the blocked end is startTime + extendedBlockMinutes
+  // (which already includes the appointment duration and any extra block the doctor added).
+  // Buffer is added on top of whichever end is later.
+  const blockedWindows: Window[] = bookings.map((b) => {
+    const startMin = timeToMinutes(b.startTime);
+    const endMin = timeToMinutes(b.endTime);
+    const extendedEnd = b.extendedBlockMinutes != null
+      ? startMin + b.extendedBlockMinutes
+      : endMin;
+    return {
+      start: startMin,
+      end: Math.max(endMin, extendedEnd) + bufferMinutes,
+    };
+  });
 
   // Sort and merge blocked windows so subtraction works correctly
   const mergedBlocked = mergeWindows(blockedWindows);

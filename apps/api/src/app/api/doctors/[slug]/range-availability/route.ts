@@ -144,6 +144,7 @@ export async function GET(
         date: true,
         startTime: true,
         endTime: true,
+        extendedBlockMinutes: true,
         slot: {
           select: {
             date: true,
@@ -186,6 +187,7 @@ export async function GET(
       bookingsByDate.get(dateKey)!.push({
         startTime: rawStart,
         endTime: rawEnd,
+        extendedBlockMinutes: b.extendedBlockMinutes,
       });
     }
 

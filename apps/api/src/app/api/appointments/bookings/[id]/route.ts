@@ -162,8 +162,10 @@ export async function PATCH(
         );
       }
 
-      const value = extendedBlockMinutes === null ? null : Number(extendedBlockMinutes);
-      if (value !== null && (isNaN(value) || value <= 0)) {
+      const raw = extendedBlockMinutes === null ? null : Number(extendedBlockMinutes);
+      // Treat 0 as clearing the block (same as null)
+      const value = raw === 0 ? null : raw;
+      if (value !== null && (isNaN(value) || value < 0)) {
         return NextResponse.json({ success: false, error: 'Valor de bloqueo inválido' }, { status: 400 });
       }
 

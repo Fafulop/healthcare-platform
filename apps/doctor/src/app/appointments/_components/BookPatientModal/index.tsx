@@ -503,6 +503,7 @@ export function BookPatientModal({
                 services={services}
                 selectedServiceId={selectedServiceId}
                 onSelectService={(id) => setSelectedServiceId(selectedServiceId === id ? null : id)}
+                serviceReadOnly={!!rangeSelection}
                 isFirstTime={isFirstTime}
                 setIsFirstTime={(v) => {
                   setIsFirstTime(v);
