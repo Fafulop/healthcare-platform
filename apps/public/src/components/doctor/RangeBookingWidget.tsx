@@ -46,12 +46,7 @@ export default function RangeBookingWidget({
   services = [],
   appointmentModes = ["in_person", "teleconsult"],
 }: RangeBookingWidgetProps) {
-  // Service selection (Step 1 — service-first flow)
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [freshServices, setFreshServices] = useState<Service[] | null>(null);
-  const [loadingServices, setLoadingServices] = useState(false);
-
-  // Calendar (Step 2)
+  // Calendar (Step 1 — calendar-first flow for public)
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (initialDate && typeof initialDate === "string" && initialDate.includes("-")) {
       const [y, m] = initialDate.split("-").map(Number);
@@ -64,11 +59,17 @@ export default function RangeBookingWidget({
   const [timeSlots, setTimeSlots] = useState<Record<string, AvailableTime[]>>({});
   const [loadingAvailability, setLoadingAvailability] = useState(false);
 
+  // Service selection (Step 2)
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [freshServices, setFreshServices] = useState<Service[] | null>(null);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
+
   // Time selection (Step 3)
   const [selectedTime, setSelectedTime] = useState<AvailableTime | null>(null);
 
   // Form (Step 4)
-  const [bookingStep, setBookingStep] = useState<"service" | "calendar" | "form" | "success">("service");
+  const [bookingStep, setBookingStep] = useState<"calendar" | "form" | "success">("calendar");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     patientName: "",
@@ -139,33 +140,55 @@ export default function RangeBookingWidget({
       .catch(() => {});
   }, [isVisible, doctorSlug]);
 
-  // Fetch availability when service + month change
+  // Fetch available dates (no serviceId — dates-only mode for calendar display)
   useEffect(() => {
-    if (!isVisible || !selectedServiceId) return;
+    if (!isVisible) return;
 
-    const fetchAvailability = async () => {
+    const fetchDates = async () => {
       setLoadingAvailability(true);
       try {
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth() + 1;
-        const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+        const y = currentMonth.getFullYear();
+        const m = currentMonth.getMonth() + 1;
+        const monthStr = `${y}-${String(m).padStart(2, "0")}`;
 
         const res = await fetch(
-          `${API_URL}/api/doctors/${doctorSlug}/range-availability?serviceId=${selectedServiceId}&month=${monthStr}`
+          `${API_URL}/api/doctors/${doctorSlug}/range-availability?month=${monthStr}`
         );
         const data = await res.json();
         if (data.success) {
           setAvailableDates(data.availableDates || []);
-          setTimeSlots(data.timeSlots || {});
         }
       } catch (err) {
-        console.error("Error fetching range availability:", err);
+        console.error("Error fetching available dates:", err);
       } finally {
         setLoadingAvailability(false);
       }
     };
-    fetchAvailability();
-  }, [isVisible, selectedServiceId, currentMonth, doctorSlug]);
+    fetchDates();
+  }, [isVisible, currentMonth, doctorSlug]);
+
+  // Fetch time slots when date + service are both selected
+  useEffect(() => {
+    if (!isVisible || !selectedDate || !selectedServiceId) return;
+
+    const fetchTimeSlots = async () => {
+      setLoadingTimeSlots(true);
+      try {
+        const res = await fetch(
+          `${API_URL}/api/doctors/${doctorSlug}/range-availability?serviceId=${selectedServiceId}&startDate=${selectedDate}&endDate=${selectedDate}`
+        );
+        const data = await res.json();
+        if (data.success) {
+          setTimeSlots(data.timeSlots || {});
+        }
+      } catch (err) {
+        console.error("Error fetching time slots:", err);
+      } finally {
+        setLoadingTimeSlots(false);
+      }
+    };
+    fetchTimeSlots();
+  }, [isVisible, selectedDate, selectedServiceId, doctorSlug]);
 
   // Navigate to initial date's month
   useEffect(() => {
@@ -199,9 +222,8 @@ export default function RangeBookingWidget({
 
   const handleServiceSelect = (serviceId: string) => {
     setSelectedServiceId(serviceId);
-    setSelectedDate(null);
     setSelectedTime(null);
-    setBookingStep("calendar");
+    setTimeSlots({});
   };
 
   const handleDateSelect = (dateStr: string) => {
@@ -211,6 +233,7 @@ export default function RangeBookingWidget({
     }
     setSelectedDate(dateStr);
     setSelectedTime(null);
+    setTimeSlots({});
   };
 
   const handleTimeSelect = (time: AvailableTime) => {
@@ -289,7 +312,8 @@ export default function RangeBookingWidget({
     setSelectedServiceId(null);
     setSelectedDate(null);
     setSelectedTime(null);
-    setBookingStep("service");
+    setTimeSlots({});
+    setBookingStep("calendar");
     setConfirmationCode("");
     setIsFirstTime(true);
     setPrivacyConsent(false);
@@ -370,7 +394,7 @@ export default function RangeBookingWidget({
           </div>
           <div>
             <h3 className="text-sm font-bold leading-tight">Reserva tu Cita</h3>
-            <p className="text-[10px] text-white/80 leading-tight">Selecciona servicio, fecha y hora</p>
+            <p className="text-[10px] text-white/80 leading-tight">Selecciona fecha, servicio y hora</p>
           </div>
         </div>
       </div>
@@ -583,139 +607,143 @@ export default function RangeBookingWidget({
             </form>
           </div>
         ) : (
-          /* ── Service + Calendar + Time Steps ── */
+          /* ── Calendar + Service + Time Steps ── */
           <div>
-            {/* Step 1: Service selection */}
-            <div className="mb-3">
+            {/* Step 1: Calendar (always visible) */}
+            <div className="mb-2">
               <p className="text-[10px] text-gray-600 font-medium uppercase tracking-wide mb-1">
-                1. Selecciona servicio
+                1. Selecciona fecha
               </p>
-              {loadingServices ? (
-                <div className="space-y-1.5">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
-                  ))}
+
+              {/* Month nav */}
+              <div className="flex items-center justify-between mb-1 bg-blue-50 px-1.5 py-1 rounded-md">
+                <button
+                  onClick={() => { setCurrentMonth(new Date(year, month - 1)); setSelectedDate(null); setSelectedServiceId(null); setSelectedTime(null); setTimeSlots({}); }}
+                  className="p-1 hover:bg-white rounded-md transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4 text-[var(--color-secondary)]" />
+                </button>
+                <h4 className="font-bold text-xs text-[var(--color-secondary)] capitalize">
+                  {currentMonth.toLocaleDateString("es-MX", { month: "long", year: "numeric" })}
+                </h4>
+                <button
+                  onClick={() => { setCurrentMonth(new Date(year, month + 1)); setSelectedDate(null); setSelectedServiceId(null); setSelectedTime(null); setTimeSlots({}); }}
+                  className="p-1 hover:bg-white rounded-md transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 text-[var(--color-secondary)]" />
+                </button>
+              </div>
+
+              {loadingAvailability ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 </div>
-              ) : activeServices.length === 0 ? (
-                <p className="text-xs text-gray-400">Sin servicios disponibles</p>
               ) : (
-                <div className="space-y-1">
-                  {activeServices.map((svc) => (
-                    <button
-                      key={svc.id}
-                      type="button"
-                      onClick={() => handleServiceSelect(svc.id)}
-                      className={`w-full text-left px-2.5 py-2 rounded-lg border-2 transition-all ${
-                        selectedServiceId === svc.id
-                          ? "border-[var(--color-secondary)] bg-blue-50"
-                          : "border-gray-200 hover:border-blue-300 bg-white"
-                      }`}
-                    >
-                      <p className="text-xs font-semibold text-gray-900">{svc.service_name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {!!svc.duration_minutes && (
-                          <span className="text-[10px] text-gray-500 flex items-center gap-0.5">
-                            <Clock className="w-2.5 h-2.5" />
-                            {svc.duration_minutes} min
-                          </span>
-                        )}
-                        {svc.price !== undefined && (
-                          <span className="text-[10px] font-medium text-[var(--color-secondary)] flex items-center gap-0.5">
-                            <DollarSign className="w-2.5 h-2.5" />
-                            {svc.price}
-                          </span>
-                        )}
+                <>
+                  <div className="grid grid-cols-7 gap-0.5 mb-1.5">
+                    {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
+                      <div key={i} className="text-center text-[10px] font-semibold text-gray-600 py-0.5">
+                        {d}
                       </div>
-                    </button>
-                  ))}
-                </div>
+                    ))}
+                    {calendarDays.map((day, idx) => {
+                      if (day === null) return <div key={`e-${idx}`} />;
+                      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                      const hasAvail = availableDates.includes(dateStr);
+                      const isSelected = dateStr === selectedDate;
+                      const isPast = dateStr < today;
+
+                      return (
+                        <button
+                          key={day}
+                          onClick={() => hasAvail && !isPast && handleDateSelect(dateStr)}
+                          disabled={!hasAvail || isPast}
+                          className={`relative aspect-square rounded-md text-[11px] font-medium transition-all ${
+                            isSelected
+                              ? "bg-[var(--color-primary)] text-[var(--color-neutral-dark)] ring-1 ring-[var(--color-primary)] scale-105 shadow-md"
+                              : hasAvail && !isPast
+                              ? "bg-blue-50 text-blue-700 hover:bg-blue-100 ring-1 ring-[var(--color-primary)]"
+                              : isPast
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-gray-400 cursor-not-allowed"
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {availableDates.length === 0 && (
+                    <div className="text-center py-3">
+                      <Calendar className="w-6 h-6 text-gray-300 mx-auto mb-1" />
+                      <p className="text-xs text-gray-500">No hay citas disponibles este mes</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            {/* Step 2: Calendar (only after service selected) */}
-            {selectedServiceId && (
+            {/* Step 2: Service selection (after date selected) */}
+            {selectedDate && !onDayClick && (
               <div className="border-t pt-2 mb-2">
                 <p className="text-[10px] text-gray-600 font-medium uppercase tracking-wide mb-1">
-                  2. Selecciona fecha
+                  2. Selecciona servicio
                 </p>
-
-                {/* Month nav */}
-                <div className="flex items-center justify-between mb-1 bg-blue-50 px-1.5 py-1 rounded-md">
-                  <button
-                    onClick={() => { setCurrentMonth(new Date(year, month - 1)); setSelectedDate(null); }}
-                    className="p-1 hover:bg-white rounded-md transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4 text-[var(--color-secondary)]" />
-                  </button>
-                  <h4 className="font-bold text-xs text-[var(--color-secondary)] capitalize">
-                    {currentMonth.toLocaleDateString("es-MX", { month: "long", year: "numeric" })}
-                  </h4>
-                  <button
-                    onClick={() => { setCurrentMonth(new Date(year, month + 1)); setSelectedDate(null); }}
-                    className="p-1 hover:bg-white rounded-md transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4 text-[var(--color-secondary)]" />
-                  </button>
-                </div>
-
-                {loadingAvailability ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                {loadingServices ? (
+                  <div className="space-y-1.5">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+                    ))}
                   </div>
+                ) : activeServices.length === 0 ? (
+                  <p className="text-xs text-gray-400">Sin servicios disponibles</p>
                 ) : (
-                  <>
-                    <div className="grid grid-cols-7 gap-0.5 mb-1.5">
-                      {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
-                        <div key={i} className="text-center text-[10px] font-semibold text-gray-600 py-0.5">
-                          {d}
+                  <div className="space-y-1">
+                    {activeServices.map((svc) => (
+                      <button
+                        key={svc.id}
+                        type="button"
+                        onClick={() => handleServiceSelect(svc.id)}
+                        className={`w-full text-left px-2.5 py-2 rounded-lg border-2 transition-all ${
+                          selectedServiceId === svc.id
+                            ? "border-[var(--color-secondary)] bg-blue-50"
+                            : "border-gray-200 hover:border-blue-300 bg-white"
+                        }`}
+                      >
+                        <p className="text-xs font-semibold text-gray-900">{svc.service_name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {!!svc.duration_minutes && (
+                            <span className="text-[10px] text-gray-500 flex items-center gap-0.5">
+                              <Clock className="w-2.5 h-2.5" />
+                              {svc.duration_minutes} min
+                            </span>
+                          )}
+                          {svc.price !== undefined && (
+                            <span className="text-[10px] font-medium text-[var(--color-secondary)] flex items-center gap-0.5">
+                              <DollarSign className="w-2.5 h-2.5" />
+                              {svc.price}
+                            </span>
+                          )}
                         </div>
-                      ))}
-                      {calendarDays.map((day, idx) => {
-                        if (day === null) return <div key={`e-${idx}`} />;
-                        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                        const hasAvail = availableDates.includes(dateStr);
-                        const isSelected = dateStr === selectedDate;
-                        const isPast = dateStr < today;
-
-                        return (
-                          <button
-                            key={day}
-                            onClick={() => hasAvail && !isPast && handleDateSelect(dateStr)}
-                            disabled={!hasAvail || isPast}
-                            className={`relative aspect-square rounded-md text-[11px] font-medium transition-all ${
-                              isSelected
-                                ? "bg-[var(--color-primary)] text-[var(--color-neutral-dark)] ring-1 ring-[var(--color-primary)] scale-105 shadow-md"
-                                : hasAvail && !isPast
-                                ? "bg-blue-50 text-blue-700 hover:bg-blue-100 ring-1 ring-[var(--color-primary)]"
-                                : isPast
-                                ? "text-gray-300 cursor-not-allowed"
-                                : "text-gray-400 cursor-not-allowed"
-                            }`}
-                          >
-                            {day}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {availableDates.length === 0 && (
-                      <div className="text-center py-3">
-                        <Calendar className="w-6 h-6 text-gray-300 mx-auto mb-1" />
-                        <p className="text-xs text-gray-500">No hay citas disponibles</p>
-                      </div>
-                    )}
-                  </>
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Step 3: Time selection (only after date selected) */}
-            {selectedDate && !onDayClick && (
+            {/* Step 3: Time selection (after date + service selected) */}
+            {selectedDate && selectedServiceId && !onDayClick && (
               <div className="border-t pt-1.5 mt-1.5">
                 <p className="text-[10px] text-gray-600 font-medium uppercase tracking-wide mb-0.5">
                   3. Selecciona hora
                 </p>
-                {selectedDateSlots.length === 0 ? (
+                {loadingTimeSlots ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  </div>
+                ) : selectedDateSlots.length === 0 ? (
                   <p className="text-xs text-gray-500 text-center py-2">Sin horarios disponibles</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-1">

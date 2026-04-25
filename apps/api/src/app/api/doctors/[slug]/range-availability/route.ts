@@ -1,6 +1,7 @@
 // GET /api/doctors/[slug]/range-availability
 // Public endpoint — computes available appointment times from availability ranges.
-// Requires serviceId to determine duration for gap calculation.
+// When serviceId is provided: returns availableDates + timeSlots (full computation).
+// When serviceId is omitted: returns only availableDates (dates that have ranges, for calendar display).
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
@@ -25,14 +26,6 @@ export async function GET(
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    // serviceId is required — drives duration for gap calculation
-    if (!serviceId) {
-      return NextResponse.json(
-        { success: false, error: 'serviceId is required' },
-        { status: 400 }
-      );
-    }
-
     // Find doctor by slug
     const doctor = await prisma.doctor.findUnique({
       where: { slug },
@@ -51,26 +44,29 @@ export async function GET(
       );
     }
 
-    // Fetch the selected service (must belong to this doctor and be active)
-    const service = await prisma.service.findFirst({
-      where: {
-        id: serviceId,
-        doctorId: doctor.id,
-        isBookingActive: true,
-      },
-      select: {
-        id: true,
-        serviceName: true,
-        durationMinutes: true,
-        price: true,
-      },
-    });
+    // Fetch the selected service if provided
+    let service: { id: string; serviceName: string; durationMinutes: number; price: any } | null = null;
+    if (serviceId) {
+      service = await prisma.service.findFirst({
+        where: {
+          id: serviceId,
+          doctorId: doctor.id,
+          isBookingActive: true,
+        },
+        select: {
+          id: true,
+          serviceName: true,
+          durationMinutes: true,
+          price: true,
+        },
+      });
 
-    if (!service) {
-      return NextResponse.json(
-        { success: false, error: 'Service not found or not active' },
-        { status: 404 }
-      );
+      if (!service) {
+        return NextResponse.json(
+          { success: false, error: 'Service not found or not active' },
+          { status: 404 }
+        );
+      }
     }
 
     // Build date filter
@@ -216,7 +212,30 @@ export async function GET(
       });
     }
 
-    // Compute availability for each date
+    // --- Dates-only mode (no serviceId) ---
+    // Return dates that have any range — for calendar display before service selection.
+    if (!service) {
+      const availableDates: string[] = [];
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+
+      for (const [dateKey] of rangesByDate) {
+        if (dateKey < todayStr) continue;
+        availableDates.push(dateKey);
+      }
+
+      return NextResponse.json({
+        success: true,
+        doctor: { id: doctor.id, name: doctor.doctorFullName },
+        service: null,
+        bufferMinutes: doctor.appointmentBufferMinutes,
+        availableDates,
+        timeSlots: {},
+      });
+    }
+
+    // --- Full mode (with serviceId) ---
+    // Compute available time slots per date.
     const timeSlots: Record<string, AvailableSlot[]> = {};
     const availableDates: string[] = [];
 
