@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Trash2, Ban } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Trash2, Ban, Star, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
@@ -20,6 +20,9 @@ import { BookingsSection } from "../_components/BookingsSection";
 import { DeleteRangesModal } from "../_components/DeleteRangesModal";
 import { BlockTimeModal } from "../_components/BlockTimeModal";
 import { PreAppointmentFormModal } from "../_components/PreAppointmentFormModal";
+import { GenerateReviewLinkModal } from "../_components/GenerateReviewLinkModal";
+import { StandaloneFormularioModal } from "../_components/StandaloneFormularioModal";
+import { BookingFieldSettingsModal } from "../_components/BookingFieldSettingsModal";
 import type { Booking } from "../_hooks/useBookings";
 import type { ClinicLocation } from "../_hooks/useSlots";
 
@@ -64,6 +67,50 @@ export default function AppointmentsV2RangePage() {
   const rescheduleBookingRef = useRef<Booking | null>(null);
   const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
   const [formLinkBooking, setFormLinkBooking] = useState<Booking | null>(null);
+  const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
+  const [standaloneFormModalOpen, setStandaloneFormModalOpen] = useState(false);
+  const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderOffset, setReminderOffset] = useState(120);
+  const [togglingReminder, setTogglingReminder] = useState(false);
+
+  // Fetch reminder setting on mount
+  useEffect(() => {
+    if (!doctorId) return;
+    authFetch("/api/doctor/reminders")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setReminderEnabled(d.reminderEmailEnabled);
+          if (d.reminderEmailOffsetMinutes) setReminderOffset(d.reminderEmailOffsetMinutes);
+        }
+      })
+      .catch(() => {});
+  }, [doctorId]);
+
+  const handleToggleReminder = useCallback(async () => {
+    setTogglingReminder(true);
+    const next = !reminderEnabled;
+    try {
+      const res = await authFetch("/api/doctor/reminders", {
+        method: "PATCH",
+        body: JSON.stringify({ reminderEmailEnabled: next }),
+      });
+      const data = await res.json();
+      if (data.success) setReminderEnabled(data.reminderEmailEnabled);
+    } catch { /* keep current state */ }
+    setTogglingReminder(false);
+  }, [reminderEnabled]);
+
+  const handleOffsetChange = useCallback(async (minutes: number) => {
+    setReminderOffset(minutes);
+    try {
+      await authFetch("/api/doctor/reminders", {
+        method: "PATCH",
+        body: JSON.stringify({ reminderEmailOffsetMinutes: minutes }),
+      });
+    } catch { /* keep current state */ }
+  }, []);
 
   const onRefresh = useCallback(async () => {
     await rangesHook.fetchRanges();
@@ -108,7 +155,7 @@ export default function AppointmentsV2RangePage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
-          <p className="mt-4 text-gray-600 font-medium">Cargando citas (v2)...</p>
+          <p className="mt-4 text-gray-600 font-medium">Cargando citas...</p>
         </div>
       </div>
     );
@@ -130,18 +177,26 @@ export default function AppointmentsV2RangePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-            Gestión de Citas <span className="text-sm font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-2">v2 Rangos</span>
-          </h1>
-          <p className="text-gray-600 mt-1 text-sm sm:text-base">Disponibilidad basada en rangos de horarios</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestión de Citas</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Crea y gestiona tu disponibilidad</p>
         </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3">
-          <Link
-            href="/appointments"
-            className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+        <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
+          <button
+            onClick={() => setReviewLinkModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
           >
-            ← Vista clásica
-          </Link>
+            <Star className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Enlace Reseña</span>
+            <span className="sm:hidden">Reseña</span>
+          </button>
+          <button
+            onClick={() => setStandaloneFormModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <ClipboardList className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Formulario libre</span>
+            <span className="sm:hidden">Formulario</span>
+          </button>
           <button
             onClick={openBookModal}
             className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
@@ -155,7 +210,8 @@ export default function AppointmentsV2RangePage() {
             className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
           >
             <Trash2 className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Eliminar</span>
+            <span className="hidden sm:inline">Eliminar Rangos</span>
+            <span className="sm:hidden">Eliminar</span>
           </button>
           <button
             onClick={() => setShowBlockTimeModal(true)}
@@ -170,6 +226,63 @@ export default function AppointmentsV2RangePage() {
           >
             <Plus className="w-4 h-4 flex-shrink-0" />
             Crear Rango
+          </button>
+          <button
+            onClick={() => setBookingFieldSettingsOpen(true)}
+            className="flex items-center justify-center gap-2 bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Campos de Cita</span>
+            <span className="sm:hidden">Campos</span>
+          </button>
+          <Link
+            href="/dashboard/ayuda?tab=citas"
+            title="Ver guía de Citas"
+            className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 font-medium py-2 px-3 rounded-md transition-colors text-sm"
+          >
+            <HelpCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Ayuda</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Reminder email toggle */}
+      <div className="bg-white rounded-lg shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {reminderEnabled
+            ? <Bell className="w-4 h-4 text-blue-600 shrink-0" />
+            : <BellOff className="w-4 h-4 text-gray-400 shrink-0" />
+          }
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-900">Recordatorio automático por correo</p>
+            <p className="text-xs text-gray-500">Envía un correo al paciente antes de su cita agendada</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {reminderEnabled && (
+            <select
+              value={reminderOffset}
+              onChange={(e) => handleOffsetChange(Number(e.target.value))}
+              className="text-xs border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            >
+              <option value={15}>15 min antes</option>
+              <option value={30}>30 min antes</option>
+              <option value={60}>1 hora antes</option>
+              <option value={120}>2 horas antes</option>
+              <option value={240}>4 horas antes</option>
+              <option value={1440}>1 día antes</option>
+            </select>
+          )}
+          <button
+            onClick={handleToggleReminder}
+            disabled={togglingReminder}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-60 ${
+              reminderEnabled ? "bg-blue-600" : "bg-gray-200"
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+              reminderEnabled ? "translate-x-6" : "translate-x-1"
+            }`} />
           </button>
         </div>
       </div>
@@ -334,6 +447,21 @@ export default function AppointmentsV2RangePage() {
         isOpen={formLinkModalOpen}
         onClose={() => { setFormLinkModalOpen(false); setFormLinkBooking(null); }}
         onSuccess={bookingsHook.fetchBookings}
+      />
+
+      <GenerateReviewLinkModal
+        isOpen={reviewLinkModalOpen}
+        onClose={() => setReviewLinkModalOpen(false)}
+      />
+
+      <StandaloneFormularioModal
+        isOpen={standaloneFormModalOpen}
+        onClose={() => setStandaloneFormModalOpen(false)}
+      />
+
+      <BookingFieldSettingsModal
+        isOpen={bookingFieldSettingsOpen}
+        onClose={() => setBookingFieldSettingsOpen(false)}
       />
     </div>
   );
