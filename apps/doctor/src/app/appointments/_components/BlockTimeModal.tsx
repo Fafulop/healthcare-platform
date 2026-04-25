@@ -108,6 +108,13 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
     onSuccess();
   };
 
+  const handleUnblockAll = async () => {
+    if (blockedTimes.length === 0) return;
+    if (!await practiceConfirm(`¿Desbloquear los ${blockedTimes.length} horario(s) bloqueados?`)) return;
+    await unblockTimes(blockedTimes.map((bt) => bt.id));
+    onSuccess();
+  };
+
   // Group blocked times by date for display
   const blockedByDate = new Map<string, BlockedTime[]>();
   for (const bt of blockedTimes) {
@@ -297,10 +304,19 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
           {/* Existing blocked times */}
           {sortedDates.length > 0 && (
             <div className="pt-3 border-t">
-              <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                <Ban className="w-3.5 h-3.5 text-orange-500" />
-                Bloqueos existentes ({blockedTimes.length})
-              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Ban className="w-3.5 h-3.5 text-orange-500" />
+                  Bloqueos existentes ({blockedTimes.length})
+                </h3>
+                <button
+                  onClick={handleUnblockAll}
+                  className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors flex items-center gap-1"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Desbloquear todos
+                </button>
+              </div>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {sortedDates.map((dateKey) => (
                   <div key={dateKey} className="text-xs">
