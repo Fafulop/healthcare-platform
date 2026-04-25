@@ -166,6 +166,22 @@ Key takeaways:
 
 ---
 
+## Code Review Corrections (2026-04-24)
+
+> The original plan was based on inspecting the live HTML output. A follow-up code review of the actual components found 3 factual errors and 1 missed issue:
+>
+> **Errors corrected:**
+> 1. **"Junk H2 tags" (task 1.6) — REMOVED.** Experience badge and rating in `HeroSection.tsx` are `<span>` inside `<div>`, not H2 tags. The live-page inspection was wrong.
+> 2. **"Empty certificate alt tags" (tasks 1.8, 1B.4) — REMOVED.** `CredentialsSection.tsx` already has a fallback: `certificate.alt || 'Certificado: {issued_by} ({year})'`. Auto-generates alt text when the doctor leaves it blank.
+> 3. **"Sitemap missing lastModified" (task 2.3) — CORRECTED.** Sitemap already includes `lastModified`, but most entries use `new Date()` (always "now") instead of real database timestamps. Task re-scoped to fix fake timestamps.
+>
+> **Issue added:**
+> - **Empty H2 bug:** `HeroSection.tsx` renders the `<h2>` unconditionally. If `primary_specialty` is null/empty, an empty `<h2></h2>` tag appears in the DOM.
+>
+> **Net result:** 3 tasks removed (1.6, 1.8, 1B.4), 1 task re-scoped (2.3), 1 task corrected (1.9). Core diagnosis unchanged — on-page keyword signals remain the primary gap.
+
+---
+
 ## Gap Analysis — Per-Profile Strategy
 
 ### What's Working Well
@@ -206,7 +222,7 @@ All 3 live profiles were fetched and analyzed to verify the diagnosis:
 - **Meta desc:** Includes specialty + city -- GOOD
 - **H1:** "Dra. Patricia Roldan Mora" -- name only
 - **H2:** "CIRUJANA BARIATRA, GASTROINTESTINAL Y ENDOSCOPIA BARIATRICA" -- ALL CAPS is a problem, and no city
-- **JUNK H2s:** "7+ Anos de Experiencia" and "5.0(7 opiniones)" are rendered as H2 tags -- WRONG, these should be `<span>` or `<p>`, not headings. They waste heading hierarchy on non-keyword content
+- **~~JUNK H2s:~~** *(CORRECTED: Experience badge and rating are rendered as `<span>` inside `<div>`, NOT H2 tags. This was a misdiagnosis from inspecting the live page — the actual component code confirms they are not headings.)*
 - **H2s (sections):** Generic ("Servicios", "Condiciones y Procedimientos", etc.)
 - **Intro paragraph:** No prominent intro above fold
 - **Services on mobile:** Hidden behind "Ver mas"
@@ -219,12 +235,12 @@ All 3 live profiles were fetched and analyzed to verify the diagnosis:
 - **Title:** "Dra. Adriana Michelle | Cirugia General y Laparoscopia Gastrointestinal | Monterrey | TuSalud.pro" -- GOOD
 - **Meta desc:** Includes specialty + city -- GOOD
 - **H1:** "Dra. Adriana Michelle" -- name only
-- **H2 for specialty:** MISSING — "Cirugia General y Laparoscopia Gastrointestinal" appears as text but NOT as an H2. Zero heading-level SEO weight for the specialty
+- **H2 for specialty:** The `<h2>` tag is always rendered unconditionally in `HeroSection.tsx`. If Adriana's specialty didn't show as an H2 on the live page, it may be a data issue (empty `primary_specialty`), not a component issue. **Note:** the H2 renders even when the field is empty/null, which is a minor bug (empty heading tag in DOM)
 - **H2s (sections):** Generic ("Servicios", "Condiciones y Procedimientos", etc.)
 - **Intro paragraph:** None above fold
 - **Services on mobile:** Hidden behind "Ver mas"
 - **Years of experience:** NOT SHOWN — missing E-E-A-T signal
-- **Certificate image alt tags:** EMPTY — missed accessibility and SEO value
+- **Certificate image alt tags:** *(CORRECTED: `CredentialsSection.tsx` already has a fallback: `certificate.alt || 'Certificado: {issued_by} ({year})'`. Empty alt text from the doctor is auto-filled at render time.)*
 - **Structured data:** ProfilePage, BreadcrumbList, Physician (with aggregateRating 5.0/17), MedicalBusiness, Review (17), VideoObject (2) -- GOOD
 
 #### Verified Issues Summary
@@ -235,11 +251,11 @@ All 3 live profiles were fetched and analyzed to verify the diagnosis:
 | H2 missing city | YES | YES | YES | HIGH |
 | Specialty not even an H2 | no | no | YES | HIGH |
 | Specialty in ALL CAPS | no | YES | no | MEDIUM |
-| Junk content in H2 tags | no | YES (experience + rating as H2) | no | MEDIUM |
+| ~~Junk content in H2 tags~~ | ~~no~~ | ~~YES~~ | ~~no~~ | ~~REMOVED — misdiagnosis, they are `<span>` not H2~~ |
 | No intro paragraph above fold | partial | YES | YES | HIGH |
 | Generic section headings | YES | YES | YES | MEDIUM |
 | Service descriptions hidden on mobile | YES | YES | YES | MEDIUM |
-| Empty certificate alt tags | no | not checked | YES | LOW |
+| ~~Empty certificate alt tags~~ | ~~no~~ | ~~not checked~~ | ~~YES~~ | ~~REMOVED — `CredentialsSection.tsx` already has auto-fallback~~ |
 | Missing years of experience | no | no | YES | LOW |
 
 ---
@@ -411,10 +427,10 @@ These changes directly affect how Google understands what each profile page is a
 | 1.3 | **Personalize section headings** | `ServicesSection.tsx`, `ConditionsSection.tsx`, `ClinicLocationSection.tsx`: Include specialty or doctor name in H2s | MEDIUM — Differentiates from generic profile pages |
 | 1.4 | **Show service descriptions on mobile** | `ServicesSection.tsx`: Replace `hidden md:block` with `line-clamp-2` on mobile | MEDIUM — Fixes mobile-first indexing gap |
 | 1.5 | **Add "Consultorio en {city}" heading** | `ClinicLocationSection.tsx`: Include city name in section heading | MEDIUM — Reinforces location signal |
-| 1.6 | **Fix junk H2 tags on Patricia's profile** | `HeroSection.tsx`: Experience badge and rating are rendered as H2 — change to `<span>` or `<p>` | MEDIUM — Wastes heading hierarchy on non-keyword content |
+| ~~1.6~~ | ~~**Fix junk H2 tags on Patricia's profile**~~ | ~~REMOVED — Code review confirmed experience badge and rating are `<span>` inside `<div>`, not H2 tags. This was a misdiagnosis.~~ | ~~N/A~~ |
 | 1.7 | **Fix ALL CAPS specialty** | Backend data or `HeroSection.tsx`: Normalize "CIRUJANA BARIATRA..." to title case "Cirujana Bariatra..." | MEDIUM — ALL CAPS looks like keyword stuffing, unprofessional |
-| 1.8 | **Fix empty certificate alt tags** | `CredentialsSection.tsx`: Ensure all certificate images have descriptive alt text (e.g., "Certificado de {issued_by} - {doctor_name}") | LOW — Accessibility + minor SEO |
-| 1.9 | **Ensure specialty always renders as H2** | `HeroSection.tsx`: Adriana's specialty isn't in an H2 tag — verify the component always renders specialty as H2 regardless of data | HIGH — Specialty has zero heading-level weight |
+| ~~1.8~~ | ~~**Fix empty certificate alt tags**~~ | ~~REMOVED — `CredentialsSection.tsx` already has fallback: `certificate.alt \|\| 'Certificado: {issued_by} ({year})'`. Auto-generates alt text when empty.~~ | ~~N/A~~ |
+| 1.9 | **Guard H2 against empty specialty** | `HeroSection.tsx`: The H2 always renders unconditionally — if `primary_specialty` is empty/null, an empty `<h2></h2>` appears in the DOM. Add a conditional to hide the H2 when no specialty exists | LOW — Minor bug, edge case |
 
 ### Phase 1B: Dashboard Fixes (HIGH PRIORITY — 1-2 days)
 
@@ -425,7 +441,7 @@ These fix the root causes so future profile edits don't reintroduce SEO problems
 | 1B.1 | **Normalize specialty casing** | API `PUT /api/doctors/[slug]`: Apply title case to `primary_specialty` on save. Or: normalize at render time in public page as quick fix | HIGH — Fixes ALL CAPS issue (Patricia) |
 | 1B.2 | **Expose subspecialties in dashboard** | `GeneralInfoSection.tsx`: Add a tag/chip input for subspecialties array | HIGH — Unlocks high-value SEO keywords doctors can't currently set |
 | 1B.3 | **Add short_bio field or auto-generate** | Either add `short_bio` textarea to dashboard, or auto-generate from first 2 sentences of `long_bio` in public page | HIGH — Provides the intro paragraph content for hero section |
-| 1B.4 | **Auto-generate certificate alt text** | `EducationSection.tsx` or API: Default alt to "Certificado de {issued_by} - {doctor_name} ({year})" when empty | LOW — Fixes empty alt tags (Adriana) |
+| ~~1B.4~~ | ~~**Auto-generate certificate alt text**~~ | ~~REMOVED — Public `CredentialsSection.tsx` already auto-generates fallback alt text. Dashboard `EducationSection.tsx` allows manual editing. No fix needed.~~ | ~~N/A~~ |
 | 1B.5 | **Auto-generate location_summary** | API: Set `location_summary` to "{city}, Mexico" on save if empty | LOW — Ensures consistent location display |
 | 1B.6 | **Auto-generate carousel alt text** | `MediaSection.tsx` or API: Default to "Consultorio de {doctor_name} en {city}" instead of filename | LOW — Better image SEO |
 
@@ -435,7 +451,7 @@ These fix the root causes so future profile edits don't reintroduce SEO problems
 |---|------|----------------|--------|
 | 2.1 | **Fix blog images** | `ArticleCard.tsx`: Replace `<img>` with Next.js `<Image>` | MEDIUM — Better CWV scores |
 | 2.2 | **Add favicon + web manifest** | `public/`, `app/layout.tsx` | LOW — Brand presence |
-| 2.3 | **Add `lastModified` to sitemap** | `app/sitemap.ts`: Include real timestamps from API | LOW — Better crawl prioritization |
+| 2.3 | **Fix `lastModified` in sitemap** | `app/sitemap.ts`: Already includes `lastModified` but most entries use `new Date()` (current timestamp) instead of real last-modified dates from the database. Replace with actual `updatedAt` from API data | LOW — Current timestamps are technically a lie to Google |
 | 2.4 | **Validate structured data** | Run all 3 profiles through Google Rich Results Test, fix any warnings | MEDIUM — Ensure rich snippets eligibility |
 
 ### Phase 3: Content Strategy for Rankings (HIGH PRIORITY — Ongoing)

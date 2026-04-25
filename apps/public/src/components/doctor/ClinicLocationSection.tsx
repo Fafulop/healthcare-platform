@@ -17,10 +17,11 @@ interface ClinicLocationSectionProps {
   doctorSlug?: string;
   clinicInfo: ClinicInfo;
   clinicLocations?: ClinicLocationItem[];
+  city?: string;
   id?: string;
 }
 
-export default function ClinicLocationSection({ doctorSlug, clinicInfo, clinicLocations, id }: ClinicLocationSectionProps) {
+export default function ClinicLocationSection({ doctorSlug, clinicInfo, clinicLocations, city, id }: ClinicLocationSectionProps) {
   // Use clinicLocations array if available, otherwise fall back to single clinic_info
   const locations: ClinicLocationItem[] = (clinicLocations && clinicLocations.length > 0)
     ? clinicLocations
@@ -63,7 +64,7 @@ export default function ClinicLocationSection({ doctorSlug, clinicInfo, clinicLo
     <section id={id} className="py-16 bg-[var(--color-bg-green-light)]">
       <div className="max-w-5xl mx-auto px-4">
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
-          Ubicación de la Clínica
+          {city ? `Consultorio en ${city}` : 'Ubicación de la Clínica'}
         </h2>
 
         {locations.length > 1 ? (

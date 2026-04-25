@@ -70,13 +70,14 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
             <DynamicMediaCarousel id="gallery" items={doctor.carousel_items} />
 
             {/* 3. Services - Primary conversion & keyword section */}
-            <ServicesSection id="services" services={doctor.services_list} />
+            <ServicesSection id="services" services={doctor.services_list} specialty={doctor.primary_specialty} />
 
             {/* 4. Conditions Treated - High-value SEO keywords */}
             <ConditionsSection
               id="conditions"
               conditions={doctor.conditions}
               procedures={doctor.procedures}
+              specialty={doctor.primary_specialty}
             />
 
             {/* 5. Reviews - Patient testimonials & ratings (SEO + trust signal) */}
@@ -97,7 +98,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
             />
 
             {/* 7. Clinic Location - Local SEO signal */}
-            <ClinicLocationSection id="location" doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} clinicLocations={doctor.clinic_locations} />
+            <ClinicLocationSection id="location" doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} clinicLocations={doctor.clinic_locations} city={doctor.city} />
 
             {/* 8. Education - E-E-A-T proof */}
             <EducationSection id="education" educationItems={doctor.education_items} />

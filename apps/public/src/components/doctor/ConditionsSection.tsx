@@ -1,14 +1,16 @@
 // Conditions Treated Section - High-value SEO keywords
 import React from 'react';
 import { CheckCircle } from 'lucide-react';
+import { toTitleCase } from '@/lib/text';
 
 interface ConditionsSectionProps {
   conditions: string[];
   procedures: string[];
+  specialty?: string;
   id?: string;
 }
 
-export default function ConditionsSection({ conditions, procedures, id }: ConditionsSectionProps) {
+export default function ConditionsSection({ conditions, procedures, specialty, id }: ConditionsSectionProps) {
   if ((!conditions || conditions.length === 0) && (!procedures || procedures.length === 0)) {
     return null;
   }
@@ -18,7 +20,7 @@ export default function ConditionsSection({ conditions, procedures, id }: Condit
       <div className="max-w-7xl mx-auto px-4">
         {/* H2 - Major section */}
         <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-10 text-center">
-          Condiciones y Procedimientos
+          {specialty ? `Condiciones y Procedimientos — ${toTitleCase(specialty)}` : 'Condiciones y Procedimientos'}
         </h2>
 
         <div className={`grid grid-cols-1 gap-8 md:gap-12 ${

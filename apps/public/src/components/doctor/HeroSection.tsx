@@ -7,6 +7,7 @@ import Badge from '../ui/Badge';
 import BlobDecoration from '../ui/BlobDecoration';
 import HeroButtons from './HeroButtons';
 import type { DoctorProfile } from '@/types/doctor';
+import { toTitleCase } from '@/lib/text';
 
 interface HeroSectionProps {
   doctor: DoctorProfile;
@@ -90,16 +91,25 @@ export default function HeroSection({ doctor, onBookingClick, googleAdsId }: Her
               </div>
             )}
 
-            {/* H2 - Primary specialty and location */}
-            <h2 className="text-[var(--font-size-h2)] text-[var(--color-secondary)] mb-4">
-              {doctor.primary_specialty}
-            </h2>
+            {/* H2 - Primary specialty + city (SEO: strongest on-page signal) */}
+            {doctor.primary_specialty && (
+              <h2 className="text-[var(--font-size-h2)] text-[var(--color-secondary)] mb-4">
+                {toTitleCase(doctor.primary_specialty)}{doctor.city ? ` en ${doctor.city}` : ''}
+              </h2>
+            )}
 
             {/* Location */}
             <div className="flex items-center justify-center md:justify-start gap-2 text-[var(--color-neutral-medium)] mb-4">
               <MapPin className="w-5 h-5" />
               <span className="text-base">{doctor.location_summary}</span>
             </div>
+
+            {/* Intro paragraph - SEO keyword-rich prose above the fold */}
+            {doctor.short_bio && (
+              <p className="text-[var(--color-neutral-medium)] text-base leading-relaxed mb-4 max-w-2xl">
+                {doctor.short_bio}
+              </p>
+            )}
 
             {/* Subspecialties as badges */}
             {doctor.subspecialties && doctor.subspecialties.length > 0 && (

@@ -6,13 +6,15 @@ import { Clock, DollarSign, X } from 'lucide-react';
 import Card from '../ui/Card';
 import BlobDecoration from '../ui/BlobDecoration';
 import type { Service } from '@/types/doctor';
+import { toTitleCase } from '@/lib/text';
 
 interface ServicesSectionProps {
   services: Service[];
+  specialty?: string;
   id?: string;
 }
 
-export default function ServicesSection({ services, id }: ServicesSectionProps) {
+export default function ServicesSection({ services, specialty, id }: ServicesSectionProps) {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
 
   if (!services || services.length === 0) return null;
@@ -37,7 +39,7 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
         <div className="relative max-w-7xl mx-auto px-4">
           {/* H2 - Major section */}
           <h2 className="text-[var(--font-size-h2)] font-bold text-[var(--color-neutral-dark)] mb-8 text-center">
-            Servicios
+            {specialty ? `Servicios de ${toTitleCase(specialty)}` : 'Servicios'}
           </h2>
 
           {/* Services Grid */}
@@ -55,17 +57,17 @@ export default function ServicesSection({ services, id }: ServicesSectionProps) 
                   {service.service_name}
                 </h3>
 
-                {/* Mobile: Condensed view with "Ver más" */}
+                {/* Description: truncated on mobile, full on desktop */}
+                <p className="text-[var(--color-neutral-medium)] mb-3 text-[var(--font-size-body)] whitespace-pre-line line-clamp-2 md:line-clamp-none">
+                  {service.short_description}
+                </p>
+
+                {/* Mobile: "Ver más" opens modal for full details */}
                 <div className="md:hidden">
                   <button className="text-[var(--color-secondary)] font-medium text-sm mb-3 hover:underline">
                     Ver más
                   </button>
                 </div>
-
-                {/* Desktop: Full description */}
-                <p className="hidden md:block text-[var(--color-neutral-medium)] mb-4 text-[var(--font-size-body)] whitespace-pre-line">
-                  {service.short_description}
-                </p>
 
                 {/* Service Details */}
                 <div className="space-y-2">
