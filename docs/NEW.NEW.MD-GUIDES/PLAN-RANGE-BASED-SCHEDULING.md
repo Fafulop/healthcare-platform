@@ -1,6 +1,6 @@
 # Plan: Range-Based Scheduling Migration
 
-## Status: IMPLEMENTED — Deployed 2026-04-25 (extendedBlockMinutes + bulk delete/block added)
+## Status: IMPLEMENTED — Deployed 2026-04-25 (extendedBlockMinutes + bulk delete + reversible blocking via BlockedTime overlay)
 
 ---
 
