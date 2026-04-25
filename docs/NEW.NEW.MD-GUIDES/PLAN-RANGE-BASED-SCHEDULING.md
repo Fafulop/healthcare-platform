@@ -29,7 +29,7 @@ The new range-based system is built as a **completely independent parallel syste
 | Service required for booking | **Always** — at least 1 service must exist per doctor |
 | Interval per range | Default from doctor setting, overridable per range (15/30/45/60 min) |
 | Buffer applies | **After** appointment only (not before) |
-| Patient flow order | **Service → Date → Time** (service-first) |
+| Patient flow order | **Date → Service → Time** (calendar-first for public) |
 | Development approach | **Build side-by-side**, test independently, swap when verified |
 | Modify existing code during dev | **No** — all new code in new files/endpoints |
 
@@ -326,9 +326,13 @@ Same as current: slots/times within 1 hour of current time (Mexico City TZ) are 
 
 **Completely new endpoint** — does NOT modify the existing `/availability` endpoint.
 
+Supports two modes:
+- **Without `serviceId`**: Returns only `availableDates` (dates that have ranges). No time slot computation. Used for calendar-first display.
+- **With `serviceId`**: Returns `availableDates` + `timeSlots` with full gap calculation.
+
 ```typescript
 // Query params:
-//   serviceId (REQUIRED) — determines duration for gap calculation
+//   serviceId (OPTIONAL) — when provided, computes time slots using service duration
 //   month (YYYY-MM) OR startDate/endDate
 
 // Response
@@ -730,7 +734,7 @@ These modifications happen ONLY after the new system is tested and verified:
 
 4. **Buffer time UX?** → Deferred to Phase 3 (swap). Will be decided during doctor app integration. For now, default is 0 and the field exists in DB.
 
-5. **Patient flow order?** → **Service → Date → Time** (service-first). This guarantees every time shown to the patient is bookable for their chosen service. Eliminates the dead-end UX problem where a patient picks a time but no service fits.
+5. **Patient flow order?** → **Date → Service → Time** (calendar-first for public app). Calendar is always visible. After picking a date, patient selects service, then time slots are computed. The `range-availability` API supports a dates-only mode (no `serviceId`) for initial calendar display. Doctor dashboard retains service-first flow internally.
 
 6. **Interval per range?** → **YES.** Doctor has a global `defaultIntervalMinutes` setting (15/30/45/60). Each range inherits this default but can override it. Different ranges can have different intervals (e.g., morning range every 15min, afternoon range every 30min).
 
@@ -738,7 +742,7 @@ These modifications happen ONLY after the new system is tested and verified:
 
 ---
 
-*Document created 2026-04-21. Updated 2026-04-25 with blocking redesign + bulk operations.*
+*Document created 2026-04-21. Updated 2026-04-25 with blocking redesign, public widget wiring, and calendar-first flow.*
 *Strategy: Build side-by-side → Test independently → Swap when verified.*
 
 ---
@@ -760,3 +764,6 @@ These modifications happen ONLY after the new system is tested and verified:
 | 2026-04-22 | Step 15 | Verified old system unaffected: classic `/appointments` page loads normally, slots and bookings work as before. |
 | 2026-04-25 | Blocking redesign | Replaced range-splitting block with reversible `BlockedTime` overlay model. New DB table `blocked_times`, block API rewritten as CRUD (GET/POST/DELETE), availability calculator integrates blocked times, booking creation rejects blocked windows. Separate UI: "Eliminar" (red) and "Bloquear" (orange) buttons. Bulk unblock support. See `PLAN-BULK-RANGE-DELETE-AND-BLOCK.md` for details. |
 | 2026-04-25 | Behavior fix | Both blocking and deletion now warn about active bookings but proceed — bookings are independent records. Blocking skips dates with no ranges. |
+| 2026-04-25 | Public wiring | Wired RangeBookingWidget into public doctor profiles. Count-based detection (`hasRanges`) — no DB migration. Conditional rendering in sidebar (desktop) and BookingModal (mobile). Added `hasRanges` to shared types package. See `PLAN-PUBLIC-RANGE-BOOKING-WIDGET.md`. |
+| 2026-04-25 | Calendar-first | Flipped public flow from Service→Date→Time to Date→Service→Time. Calendar always visible. API `range-availability` now supports dates-only mode (no `serviceId`). |
+| 2026-04-25 | Test data | Created availability ranges for 3 doctors (José: 20, Adriana: 90, Patricia: 63) replicating their existing slot patterns. Adriana has 2 locations with split schedules. |

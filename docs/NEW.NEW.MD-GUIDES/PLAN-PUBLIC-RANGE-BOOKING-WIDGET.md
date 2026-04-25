@@ -11,7 +11,7 @@ The RangeBookingWidget (`apps/public/src/components/doctor/RangeBookingWidget.ts
 ### Goal
 
 Patients visiting a doctor's public profile should see the correct booking widget based on the doctor's scheduling system:
-- **Ranges exist** → RangeBookingWidget (service-first flow)
+- **Ranges exist** → RangeBookingWidget (calendar-first flow)
 - **No ranges** → BookingWidget (legacy slot-based flow)
 
 ---
@@ -26,7 +26,7 @@ else → BookingWidget (legacy)
 ```
 
 This means:
-- The 3 test doctors who already have ranges automatically get the new flow
+- Doctors with ranges automatically get the new flow
 - All other doctors stay on slots with zero risk
 - No migration, no manual flag-setting
 - When a doctor creates their first range, they automatically switch to the new flow
@@ -37,121 +37,69 @@ This means:
 
 | Aspect | BookingWidget (slots) | RangeBookingWidget (ranges) |
 |--------|----------------------|----------------------------|
-| Flow order | Date → Time → Service → Form | **Service → Date → Time → Form** |
-| Availability API | `GET /api/doctors/[slug]/availability?month=` | `GET /api/doctors/[slug]/range-availability?serviceId=&month=` |
+| Flow order | Date → Time → Service → Form | **Date → Service → Time → Form** (calendar-first) |
+| Availability API | `GET /api/doctors/[slug]/availability?month=` | `GET /api/doctors/[slug]/range-availability?month=` (dates-only) then `?serviceId=&startDate=&endDate=` (time slots) |
 | Booking API | `POST /api/appointments/bookings` (requires `slotId`) | `POST /api/appointments/range-bookings` (requires `doctorId`, `date`, `startTime`) |
-| Service selection | Optional, after time | **Required, step 1** (duration needed for gap calculation) |
+| Service selection | Optional, after time | **Required, step 2** (duration needed for time slot calculation) |
+| Calendar | Visible after implicit load | **Always visible immediately** |
 
 ---
 
-## 4. Files to Modify
+## 4. Calendar-First Flow (Public App)
 
-### 4.1 `apps/api/src/app/api/doctors/[slug]/route.ts`
+The public-facing widget uses a **calendar-first** flow, different from the doctor dashboard's service-first flow:
 
-Add a `hasRanges` boolean to the doctor response:
+1. **Calendar** — Always visible on load. Fetches available dates (dates with any range) without needing a service selection. Uses `range-availability` API without `serviceId` (dates-only mode).
+2. **Service** — Appears after patient picks a date. Shows active services with duration and price.
+3. **Time** — Appears after both date AND service are selected. Fetches time slots for that specific date+service combo (needs duration for gap calculation).
+4. **Form** — Patient info, visit type, modality, privacy consent, submit.
 
-```typescript
-// After fetching doctor, count ranges
-const rangeCount = await prisma.availabilityRange.count({
-  where: { doctorId: doctor.id },
-});
+### API: Dual-Mode `range-availability`
 
-// Include in response
-return { ...doctor, hasRanges: rangeCount > 0 };
-```
+The `GET /api/doctors/[slug]/range-availability` endpoint supports two modes:
 
-### 4.2 `apps/public/src/types/doctor.ts`
-
-Add to the DoctorProfile type:
-
-```typescript
-hasRanges?: boolean;
-```
-
-### 4.3 `apps/public/src/components/doctor/DynamicSections.tsx`
-
-Currently:
-```typescript
-export const DynamicBookingWidget = dynamic(
-  () => import('./BookingWidget'),
-  { ssr: false, loading: <Skeleton /> }
-);
-```
-
-Change to conditionally load based on a prop or create two exports:
-```typescript
-export const DynamicBookingWidget = dynamic(
-  () => import('./BookingWidget'),
-  { ssr: false, loading: <Skeleton /> }
-);
-
-export const DynamicRangeBookingWidget = dynamic(
-  () => import('./RangeBookingWidget'),
-  { ssr: false, loading: <Skeleton /> }
-);
-```
-
-### 4.4 `apps/public/src/components/doctor/DoctorProfileClient.tsx`
-
-Pass `hasRanges` from doctor data. Render `DynamicRangeBookingWidget` or `DynamicBookingWidget` based on the flag.
-
-Sidebar (desktop):
-```typescript
-{doctor.hasRanges
-  ? <DynamicRangeBookingWidget doctorSlug={doctor.slug} ... />
-  : <DynamicBookingWidget doctorSlug={doctor.slug} ... />
-}
-```
-
-### 4.5 `apps/public/src/components/doctor/BookingModal.tsx`
-
-Same conditional logic for the mobile modal:
-```typescript
-{hasRanges
-  ? <RangeBookingWidget doctorSlug={doctorSlug} ... />
-  : <BookingWidget doctorSlug={doctorSlug} ... />
-}
-```
+- **Without `serviceId`**: Returns only `availableDates` (dates that have ranges). No time slot computation. Used for initial calendar display.
+- **With `serviceId`**: Returns `availableDates` + `timeSlots` with full gap calculation. Used after service selection.
 
 ---
 
-## 5. Implementation Order
+## 5. Files Modified
 
-```
-1. Add hasRanges to doctor API response          [API modify]
-2. Add hasRanges to DoctorProfile type           [Type modify]
-3. Add DynamicRangeBookingWidget export           [DynamicSections modify]
-4. Wire conditional rendering in DoctorProfileClient  [Page modify]
-5. Wire conditional rendering in BookingModal     [Component modify]
-6. Test: doctor WITH ranges → sees RangeBookingWidget
-7. Test: doctor WITHOUT ranges → sees BookingWidget (unchanged)
-8. Test: full booking flow through RangeBookingWidget
-```
+| File | Action |
+|------|--------|
+| `apps/api/src/app/api/doctors/[slug]/route.ts` | Added `hasRanges` (count-based) to response |
+| `apps/api/src/app/api/doctors/[slug]/range-availability/route.ts` | Made `serviceId` optional — dates-only mode |
+| `packages/types/src/doctor.ts` | Added `hasRanges?: boolean` to shared DoctorProfile |
+| `apps/public/src/types/doctor.ts` | Added `hasRanges?: boolean` to local DoctorProfile |
+| `apps/public/src/lib/data.ts` | Added `hasRanges` to `transformDoctorToProfile` |
+| `apps/public/src/components/doctor/DynamicSections.tsx` | Added `DynamicRangeBookingWidget` dynamic export |
+| `apps/public/src/components/doctor/DoctorProfileClient.tsx` | Conditional widget rendering (sidebar) + `hasRanges` prop to BookingModal |
+| `apps/public/src/components/doctor/BookingModal.tsx` | `hasRanges` prop, conditional widget rendering (modal) |
+| `apps/public/src/components/doctor/RangeBookingWidget.tsx` | Reordered flow: calendar-first instead of service-first |
 
 ---
 
 ## 6. Verification
 
-1. Visit a doctor profile that HAS ranges → should see service-first booking flow
+1. Visit a doctor profile that HAS ranges → should see calendar-first booking flow
 2. Visit a doctor profile that has NO ranges → should see classic slot-based flow
-3. Book through RangeBookingWidget → booking appears in doctor dashboard
-4. Verify confirmation email, SMS, notifications all fire correctly
-5. Verify mobile modal also uses the correct widget
-6. Verify no regressions on slot-based doctors
+3. Calendar shows available dates immediately (no service selection needed)
+4. After picking date → service selector appears
+5. After picking service → time slots load
+6. Book through RangeBookingWidget → booking appears in doctor dashboard
+7. Mobile modal also uses the correct widget
+8. No regressions on slot-based doctors
 
 ---
 
-## 7. Key Files
+## 7. Test Doctors with Ranges (created 2026-04-25)
 
-| File | Action |
-|------|--------|
-| `apps/api/src/app/api/doctors/[slug]/route.ts` | Add `hasRanges` to response |
-| `apps/public/src/types/doctor.ts` | Add `hasRanges` field |
-| `apps/public/src/components/doctor/DynamicSections.tsx` | Add RangeBookingWidget dynamic export |
-| `apps/public/src/components/doctor/DoctorProfileClient.tsx` | Conditional widget rendering |
-| `apps/public/src/components/doctor/BookingModal.tsx` | Conditional widget in modal |
-| `apps/public/src/components/doctor/RangeBookingWidget.tsx` | Already built — no changes needed |
+| Doctor | Slug | Schedule | Location(s) |
+|--------|------|----------|-------------|
+| Dr. Jose | `dr-jose` | Apr 6-30, afternoon slots (30min) | Consultorio Principal |
+| Dra. Adriana | `dra-adriana-michelle` | Apr 1 - Jun 29, weekly pattern (60min) | Hospital Angeles Valle Oriente + CHRISTUS MUGUERZA Cumbres |
+| Dra. Patricia | `dra-patricia-roldan-mora` | Apr 10 - Jun 30, irregular per-date (30min) | Consultorio Principal |
 
 ---
 
-*Document created 2026-04-25.*
+*Document created 2026-04-25. Updated with calendar-first flow redesign.*

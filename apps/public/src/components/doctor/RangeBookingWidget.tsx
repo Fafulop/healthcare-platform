@@ -54,7 +54,9 @@ export default function RangeBookingWidget({
     }
     return new Date();
   });
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    initialDate && typeof initialDate === "string" && initialDate.includes("-") ? initialDate.split("T")[0] : null
+  );
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [timeSlots, setTimeSlots] = useState<Record<string, AvailableTime[]>>({});
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -190,11 +192,13 @@ export default function RangeBookingWidget({
     fetchTimeSlots();
   }, [isVisible, selectedDate, selectedServiceId, doctorSlug]);
 
-  // Navigate to initial date's month
+  // Navigate to initial date's month and pre-select it
   useEffect(() => {
     if (initialDate && typeof initialDate === "string" && initialDate.includes("-")) {
-      const [y, m] = initialDate.split("-").map(Number);
+      const dateOnly = initialDate.split("T")[0];
+      const [y, m] = dateOnly.split("-").map(Number);
       if (y && m) setCurrentMonth(new Date(y, m - 1, 1));
+      setSelectedDate(dateOnly);
     }
   }, [initialDate]);
 
