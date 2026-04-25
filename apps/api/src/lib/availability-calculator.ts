@@ -35,9 +35,15 @@ export interface AvailableSlot {
   locationName?: string | null;
 }
 
+export interface BlockedTimeInput {
+  startTime: string;  // "HH:MM"
+  endTime: string;    // "HH:MM"
+}
+
 export interface CalculateAvailabilityInput {
   ranges: AvailabilityRangeInput[];
   bookings: BookingInput[];
+  blockedTimes?: BlockedTimeInput[];
   serviceDurationMinutes: number;
   bufferMinutes: number;
 }
@@ -139,7 +145,7 @@ function mergeWindows(windows: Window[]): Window[] {
 export function calculateAvailability(
   input: CalculateAvailabilityInput
 ): AvailableSlot[] {
-  const { ranges, bookings, serviceDurationMinutes, bufferMinutes } = input;
+  const { ranges, bookings, blockedTimes, serviceDurationMinutes, bufferMinutes } = input;
 
   if (ranges.length === 0 || serviceDurationMinutes <= 0) return [];
 
@@ -158,6 +164,16 @@ export function calculateAvailability(
       end: Math.max(endMin, extendedEnd) + bufferMinutes,
     };
   });
+
+  // Add blocked times as blocked windows (no buffer — exact blocking)
+  if (blockedTimes && blockedTimes.length > 0) {
+    for (const bt of blockedTimes) {
+      blockedWindows.push({
+        start: timeToMinutes(bt.startTime),
+        end: timeToMinutes(bt.endTime),
+      });
+    }
+  }
 
   // Sort and merge blocked windows so subtraction works correctly
   const mergedBlocked = mergeWindows(blockedWindows);

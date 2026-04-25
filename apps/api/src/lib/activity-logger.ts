@@ -33,7 +33,8 @@ export type ActivityActionType =
   | "RANGES_CREATED"
   | "RANGE_DELETED"
   | "RANGES_BULK_DELETED"
-  | "RANGES_BLOCKED";
+  | "RANGES_BLOCKED"
+  | "RANGES_UNBLOCKED";
 
 export type ActivityEntityType = "TASK" | "APPOINTMENT" | "BOOKING" | "PRESCRIPTION" | "PATIENT" | "ENCOUNTER";
 

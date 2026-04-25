@@ -1,6 +1,6 @@
 # Plan: Range-Based Scheduling Migration
 
-## Status: IN PROGRESS — Phase 2 Test (Doctor app working, public app pending)
+## Status: IMPLEMENTED — Deployed 2026-04-25 (extendedBlockMinutes + bulk delete/block added)
 
 ---
 

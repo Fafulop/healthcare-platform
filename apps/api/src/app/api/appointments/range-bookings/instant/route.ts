@@ -167,6 +167,24 @@ export async function POST(request: Request) {
           }
         }
 
+        // Check blocked times
+        const blockedTimes = await tx.blockedTime.findMany({
+          where: {
+            doctorId,
+            date: bookingDate,
+            startTime: { lt: endTime },
+            endTime: { gt: normalizedStartTime },
+          },
+          select: { startTime: true, endTime: true },
+        });
+
+        if (blockedTimes.length > 0) {
+          throw Object.assign(
+            new Error('TIME_BLOCKED'),
+            { bookingError: true, blockedStart: blockedTimes[0].startTime, blockedEnd: blockedTimes[0].endTime }
+          );
+        }
+
         // Create booking (slotId = null → range-based freeform)
         const b = await tx.booking.create({
           data: {
@@ -199,11 +217,11 @@ export async function POST(request: Request) {
       });
     } catch (txErr: any) {
       if (txErr?.bookingError) {
+        const msg = txErr.message === 'TIME_BLOCKED'
+          ? `Este horario se encuentra bloqueado (${txErr.blockedStart}–${txErr.blockedEnd}). Elige otro momento.`
+          : `Este horario se traslapa con una cita existente (${txErr.overlapStart}–${txErr.overlapEnd}). Elige otro momento.`;
         return NextResponse.json(
-          {
-            success: false,
-            error: `Este horario se traslapa con una cita existente (${txErr.overlapStart}–${txErr.overlapEnd}). Elige otro momento.`,
-          },
+          { success: false, error: msg },
           { status: 409 }
         );
       }

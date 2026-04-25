@@ -1,6 +1,7 @@
 // DELETE /api/appointments/ranges/bulk
-// Bulk-delete availability ranges across a date range, protecting ranges with active bookings.
-// Supports dryRun for preview before execution.
+// Bulk-delete availability ranges across a date range (whole days only).
+// Ranges with active bookings are protected (skipped).
+// Also cleans up BlockedTime records in the deleted date range.
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
@@ -12,7 +13,7 @@ export async function DELETE(request: Request) {
     const { role, userId, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
 
     const body = await request.json();
-    const { doctorId, startDate, endDate, startTime, endTime, dryRun = true } = body;
+    const { doctorId, startDate, endDate, dryRun = true } = body;
 
     if (!doctorId || !startDate || !endDate) {
       return NextResponse.json(
@@ -39,9 +40,6 @@ export async function DELETE(request: Request) {
       where: {
         doctorId,
         date: { gte: dateStart, lte: dateEnd },
-        // Optional time filters
-        ...(startTime ? { startTime: { gte: startTime } } : {}),
-        ...(endTime ? { endTime: { lte: endTime } } : {}),
       },
       select: {
         id: true,
@@ -78,14 +76,12 @@ export async function DELETE(request: Request) {
           doctorId,
           status: { in: ['PENDING', 'CONFIRMED'] },
           OR: [
-            // Range-based bookings (freeform)
             {
               slotId: null,
               date: range.date,
               startTime: { lt: range.endTime },
               endTime: { gt: range.startTime },
             },
-            // Legacy slot-based bookings
             {
               slot: {
                 date: range.date,
@@ -127,11 +123,25 @@ export async function DELETE(request: Request) {
       });
     }
 
-    // Execute deletion
+    // Execute deletion (ranges + cleanup blocked times for deleted dates)
     if (deletable.length > 0) {
+      const deletedDates = [...new Set(deletable.map((r) => r.date.toISOString().split('T')[0]))];
+
       await prisma.availabilityRange.deleteMany({
         where: { id: { in: deletable.map((r) => r.id) } },
       });
+
+      // Clean up blocked times for dates where ALL ranges were deleted
+      for (const dateStr of deletedDates) {
+        const remainingRanges = await prisma.availabilityRange.count({
+          where: { doctorId, date: new Date(dateStr + 'T00:00:00Z') },
+        });
+        if (remainingRanges === 0) {
+          await prisma.blockedTime.deleteMany({
+            where: { doctorId, date: new Date(dateStr + 'T00:00:00Z') },
+          });
+        }
+      }
     }
 
     // Log activity

@@ -227,6 +227,24 @@ export async function POST(request: Request) {
           }
         }
 
+        // 3c. Check blocked times — the requested slot must not overlap any BlockedTime
+        const blockedTimes = await tx.blockedTime.findMany({
+          where: {
+            doctorId,
+            date: bookingDate,
+            startTime: { lt: endTime },
+            endTime: { gt: normalizedStartTime },
+          },
+          select: { startTime: true, endTime: true },
+        });
+
+        if (blockedTimes.length > 0) {
+          throw Object.assign(
+            new Error('TIME_BLOCKED'),
+            { bookingError: true, blockedStart: blockedTimes[0].startTime, blockedEnd: blockedTimes[0].endTime }
+          );
+        }
+
         // 4. Create the booking (slotId = null → range-based freeform booking)
         const b = await tx.booking.create({
           data: {
@@ -268,8 +286,10 @@ export async function POST(request: Request) {
             ? 'Este horario ya no está disponible (menos de 1 hora de anticipación requerida)'
             : txErr.message === 'TIME_OVERLAP'
             ? `Este horario se traslapa con una cita existente (${txErr.overlapStart}–${txErr.overlapEnd}). Elige otro momento.`
+            : txErr.message === 'TIME_BLOCKED'
+            ? `Este horario se encuentra bloqueado (${txErr.blockedStart}–${txErr.blockedEnd}). Elige otro momento.`
             : 'Este horario no está disponible';
-        const statusCode = txErr.message === 'NO_RANGE' ? 400 : txErr.message === 'TIME_OVERLAP' ? 409 : 400;
+        const statusCode = txErr.message === 'NO_RANGE' ? 400 : txErr.message === 'TIME_OVERLAP' || txErr.message === 'TIME_BLOCKED' ? 409 : 400;
         return NextResponse.json({ success: false, error: msg }, { status: statusCode });
       }
       throw txErr;

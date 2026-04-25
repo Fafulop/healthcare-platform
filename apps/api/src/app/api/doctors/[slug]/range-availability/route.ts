@@ -9,6 +9,7 @@ import {
   applyCutoff,
   type AvailabilityRangeInput,
   type BookingInput,
+  type BlockedTimeInput,
   type AvailableSlot,
 } from '@/lib/availability-calculator';
 
@@ -191,6 +192,30 @@ export async function GET(
       });
     }
 
+    // Fetch blocked times for this doctor + date range
+    const blockedTimes = await prisma.blockedTime.findMany({
+      where: {
+        doctorId: doctor.id,
+        date: dateFilter,
+      },
+      select: {
+        date: true,
+        startTime: true,
+        endTime: true,
+      },
+    });
+
+    // Group blocked times by date key
+    const blockedByDate = new Map<string, BlockedTimeInput[]>();
+    for (const bt of blockedTimes) {
+      const dateKey = bt.date.toISOString().split('T')[0];
+      if (!blockedByDate.has(dateKey)) blockedByDate.set(dateKey, []);
+      blockedByDate.get(dateKey)!.push({
+        startTime: bt.startTime,
+        endTime: bt.endTime,
+      });
+    }
+
     // Compute availability for each date
     const timeSlots: Record<string, AvailableSlot[]> = {};
     const availableDates: string[] = [];
@@ -201,6 +226,7 @@ export async function GET(
       let slots = calculateAvailability({
         ranges: dateRanges,
         bookings: dateBookings,
+        blockedTimes: blockedByDate.get(dateKey) ?? [],
         serviceDurationMinutes: service.durationMinutes,
         bufferMinutes: doctor.appointmentBufferMinutes,
       });

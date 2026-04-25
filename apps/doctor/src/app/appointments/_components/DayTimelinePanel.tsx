@@ -1,8 +1,9 @@
 "use client";
 
-import { Calendar, Clock, Trash2, MapPin, User } from "lucide-react";
+import { Calendar, Clock, Trash2, MapPin, User, Ban } from "lucide-react";
 import { formatLocalDate } from "@/lib/dates";
 import type { AvailabilityRange } from "../_hooks/useRanges";
+import type { BlockedTime } from "../_hooks/useBlockedTimes";
 
 interface Booking {
   id: string;
@@ -22,6 +23,7 @@ interface Props {
   selectedDate: Date;
   ranges: AvailabilityRange[];
   bookings: Booking[];
+  blockedTimes?: BlockedTime[];
   onDeleteRange: (rangeId: string) => void;
   onBookInGap: (date: string, startTime: string) => void;
 }
@@ -58,6 +60,7 @@ export function DayTimelinePanel({
   selectedDate,
   ranges,
   bookings,
+  blockedTimes = [],
   onDeleteRange,
   onBookInGap,
 }: Props) {
@@ -103,26 +106,52 @@ export function DayTimelinePanel({
               return bs >= rangeStart && be <= rangeEnd;
             });
 
-            // Compute free gaps between active bookings
-            const sortedActive = activeBookings
-              .filter((b) => {
-                const bs = timeToMin(b.startTime);
-                const be = timeToMin(b.endTime);
-                return bs >= rangeStart && be <= rangeEnd;
-              })
-              .sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime));
+            // Blocked times overlapping this range
+            const rangeBlockedTimes = blockedTimes.filter((bt) => {
+              const btStart = timeToMin(bt.startTime);
+              const btEnd = timeToMin(bt.endTime);
+              return btStart < rangeEnd && btEnd > rangeStart;
+            });
+
+            // Compute free gaps: combine active bookings + blocked times as occupied windows
+            const occupiedWindows: Array<{ start: number; end: number }> = [];
+
+            // Active bookings
+            for (const bk of activeBookings) {
+              const bs = timeToMin(bk.startTime);
+              const be = timeToMin(bk.endTime);
+              if (bs >= rangeStart && be <= rangeEnd) {
+                const extEnd = bk.extendedBlockMinutes != null
+                  ? Math.max(be, bs + bk.extendedBlockMinutes)
+                  : be;
+                occupiedWindows.push({ start: bs, end: extEnd });
+              }
+            }
+
+            // Blocked times
+            for (const bt of rangeBlockedTimes) {
+              occupiedWindows.push({
+                start: Math.max(timeToMin(bt.startTime), rangeStart),
+                end: Math.min(timeToMin(bt.endTime), rangeEnd),
+              });
+            }
+
+            // Sort and merge occupied windows
+            occupiedWindows.sort((a, b) => a.start - b.start);
+            const merged: Array<{ start: number; end: number }> = [];
+            for (const w of occupiedWindows) {
+              if (merged.length > 0 && w.start <= merged[merged.length - 1].end) {
+                merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, w.end);
+              } else {
+                merged.push({ ...w });
+              }
+            }
 
             const gaps: Array<{ start: number; end: number }> = [];
             let cursor = rangeStart;
-            for (const bk of sortedActive) {
-              const bs = timeToMin(bk.startTime);
-              if (bs > cursor) gaps.push({ start: cursor, end: bs });
-              // Use extended block end if set, otherwise appointment endTime
-              const endMin = timeToMin(bk.endTime);
-              const extEnd = bk.extendedBlockMinutes != null
-                ? Math.max(endMin, bs + bk.extendedBlockMinutes)
-                : endMin;
-              cursor = Math.max(cursor, extEnd);
+            for (const m of merged) {
+              if (m.start > cursor) gaps.push({ start: cursor, end: m.start });
+              cursor = Math.max(cursor, m.end);
             }
             if (cursor < rangeEnd) gaps.push({ start: cursor, end: rangeEnd });
 
@@ -197,6 +226,21 @@ export function DayTimelinePanel({
                             </div>
                           );
                         })}
+
+                      {/* Blocked times */}
+                      {rangeBlockedTimes.map((bt) => (
+                        <div
+                          key={bt.id}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-orange-300 bg-orange-50"
+                        >
+                          <Ban className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                          <span className="text-xs font-medium text-orange-700">
+                            {bt.startTime}–{bt.endTime}
+                          </span>
+                          <span className="text-xs text-orange-500">Bloqueado</span>
+                          {bt.reason && <span className="text-xs text-orange-400">({bt.reason})</span>}
+                        </div>
+                      ))}
 
                       {/* Free gaps */}
                       {gaps

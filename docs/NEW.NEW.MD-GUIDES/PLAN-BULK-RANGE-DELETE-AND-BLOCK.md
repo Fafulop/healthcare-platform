@@ -4,7 +4,7 @@
 
 # Plan: Bulk Range Delete & Block Time for Appointments v2
 
-## Status: PLANNED — Not yet implemented
+## Status: IMPLEMENTED — Deployed 2026-04-25
 
 ---
 

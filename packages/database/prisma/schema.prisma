@@ -207,6 +207,7 @@ model Doctor {
   faqs               FAQ[]
   appointmentSlots   AppointmentSlot[]
   availabilityRanges AvailabilityRange[]
+  blockedTimes       BlockedTime[]
   bookings           Booking[]
   articles           Article[]
   reviews            Review[]
@@ -475,6 +476,30 @@ model AvailabilityRange {
   @@map("availability_ranges")
   @@index([doctorId, date])
   @@unique([doctorId, date, startTime]) // Prevent duplicate ranges at same start time
+  @@schema("public")
+}
+
+// BlockedTime — Doctor's explicitly blocked time windows.
+// These are OVERLAY records: they don't modify AvailabilityRange rows.
+// The availability calculator subtracts blocked times from range windows,
+// making slots unavailable. To unblock, simply delete the record.
+model BlockedTime {
+  id        String   @id @default(cuid())
+  doctorId  String   @map("doctor_id")
+
+  date      DateTime                     // Normalized to midnight UTC
+  startTime String   @map("start_time")  // "HH:MM" — 30-min boundary
+  endTime   String   @map("end_time")    // "HH:MM" — 30-min boundary
+
+  reason    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("blocked_times")
+  @@index([doctorId, date])
+  @@unique([doctorId, date, startTime, endTime])
   @@schema("public")
 }
 

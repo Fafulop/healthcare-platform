@@ -82,28 +82,10 @@ export function useRanges(doctorId: string | undefined, selectedDate: Date) {
     startDate: string,
     endDate: string,
     dryRun: boolean,
-    startTime?: string,
-    endTime?: string,
   ) => {
     const response = await authFetch(`${API_URL}/api/appointments/ranges/bulk`, {
       method: "DELETE",
-      body: JSON.stringify({ doctorId, startDate, endDate, startTime, endTime, dryRun }),
-    });
-    const data = await response.json();
-    if (!dryRun && data.success) fetchRanges();
-    return data;
-  };
-
-  const blockTimeInRanges = async (
-    startDate: string,
-    endDate: string,
-    blockStartTime: string,
-    blockEndTime: string,
-    dryRun: boolean,
-  ) => {
-    const response = await authFetch(`${API_URL}/api/appointments/ranges/block`, {
-      method: "POST",
-      body: JSON.stringify({ doctorId, startDate, endDate, blockStartTime, blockEndTime, dryRun }),
+      body: JSON.stringify({ doctorId, startDate, endDate, dryRun }),
     });
     const data = await response.json();
     if (!dryRun && data.success) fetchRanges();
@@ -116,7 +98,6 @@ export function useRanges(doctorId: string | undefined, selectedDate: Date) {
     fetchRanges,
     deleteRange,
     bulkDeleteRanges,
-    blockTimeInRanges,
     rangesForSelectedDate,
     datesWithRanges,
   };

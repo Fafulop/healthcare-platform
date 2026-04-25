@@ -3,20 +3,21 @@
 import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Settings2 } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Trash2, Ban } from "lucide-react";
 import Link from "next/link";
-import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { useCalendar } from "../_hooks/useCalendar";
 import { useRanges } from "../_hooks/useRanges";
 import { useBookings } from "../_hooks/useBookings";
+import { useBlockedTimes } from "../_hooks/useBlockedTimes";
 import { AppointmentsCalendar } from "../_components/AppointmentsCalendar";
 import { DayTimelinePanel } from "../_components/DayTimelinePanel";
 import { CreateRangeModal } from "../_components/CreateRangeModal";
 import { BookPatientModal } from "../_components/BookPatientModal";
 import { BookingsSection } from "../_components/BookingsSection";
-import { ManageRangesModal } from "../_components/ManageRangesModal";
+import { DeleteRangesModal } from "../_components/DeleteRangesModal";
+import { BlockTimeModal } from "../_components/BlockTimeModal";
 import type { Booking } from "../_hooks/useBookings";
 import type { ClinicLocation } from "../_hooks/useSlots";
 
@@ -37,6 +38,7 @@ export default function AppointmentsV2RangePage() {
   const calendar = useCalendar();
   const rangesHook = useRanges(doctorId, calendar.selectedDate);
   const bookingsHook = useBookings(doctorId);
+  const blockedTimesHook = useBlockedTimes(doctorId, calendar.selectedDate);
 
   // Clinic locations (fetched independently since we don't use useSlots)
   const [clinicLocations, setClinicLocations] = useState<ClinicLocation[]>([]);
@@ -53,20 +55,21 @@ export default function AppointmentsV2RangePage() {
 
   // Modal state
   const [showCreateRangeModal, setShowCreateRangeModal] = useState(false);
-  const [showManageRangesModal, setShowManageRangesModal] = useState(false);
+  const [showDeleteRangesModal, setShowDeleteRangesModal] = useState(false);
+  const [showBlockTimeModal, setShowBlockTimeModal] = useState(false);
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
 
   const onRefresh = useCallback(async () => {
     await rangesHook.fetchRanges();
     await bookingsHook.fetchBookings();
-  }, [rangesHook, bookingsHook]);
+    await blockedTimesHook.fetchBlockedTimes();
+  }, [rangesHook, bookingsHook, blockedTimesHook]);
 
   const openBookModal = () => {
     setBookPatientModalOpen(true);
   };
 
   const handleBookInGap = (date: string, startTime: string) => {
-    // Open the book patient modal — the doctor can fill details from there
     toast.success(`Agendar cita: ${date} a las ${startTime}`);
     setBookPatientModalOpen(true);
   };
@@ -118,7 +121,7 @@ export default function AppointmentsV2RangePage() {
           </h1>
           <p className="text-gray-600 mt-1 text-sm sm:text-base">Disponibilidad basada en rangos de horarios</p>
         </div>
-        <div className="flex gap-2 sm:gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <Link
             href="/appointments"
             className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
@@ -134,11 +137,18 @@ export default function AppointmentsV2RangePage() {
             <span className="sm:hidden">Agendar</span>
           </button>
           <button
-            onClick={() => setShowManageRangesModal(true)}
-            className="flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+            onClick={() => setShowDeleteRangesModal(true)}
+            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
           >
-            <Settings2 className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Gestionar</span>
+            <Trash2 className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Eliminar</span>
+          </button>
+          <button
+            onClick={() => setShowBlockTimeModal(true)}
+            className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <Ban className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Bloquear</span>
           </button>
           <button
             onClick={() => setShowCreateRangeModal(true)}
@@ -237,6 +247,7 @@ export default function AppointmentsV2RangePage() {
             selectedDate={calendar.selectedDate}
             ranges={rangesHook.rangesForSelectedDate}
             bookings={bookingsHook.bookings as any}
+            blockedTimes={blockedTimesHook.blockedTimesForSelectedDate}
             onDeleteRange={rangesHook.deleteRange}
             onBookInGap={handleBookInGap}
           />
@@ -253,12 +264,23 @@ export default function AppointmentsV2RangePage() {
         onSuccess={rangesHook.fetchRanges}
       />
 
-      <ManageRangesModal
-        isOpen={showManageRangesModal}
-        onClose={() => setShowManageRangesModal(false)}
+      <DeleteRangesModal
+        isOpen={showDeleteRangesModal}
+        onClose={() => setShowDeleteRangesModal(false)}
         bulkDeleteRanges={rangesHook.bulkDeleteRanges}
-        blockTimeInRanges={rangesHook.blockTimeInRanges}
-        onSuccess={rangesHook.fetchRanges}
+        onSuccess={async () => {
+          await rangesHook.fetchRanges();
+          await blockedTimesHook.fetchBlockedTimes();
+        }}
+      />
+
+      <BlockTimeModal
+        isOpen={showBlockTimeModal}
+        onClose={() => setShowBlockTimeModal(false)}
+        blockTime={blockedTimesHook.blockTime}
+        unblockTimes={blockedTimesHook.unblockTimes}
+        blockedTimes={blockedTimesHook.blockedTimes}
+        onSuccess={blockedTimesHook.fetchBlockedTimes}
       />
 
       <BookPatientModal
