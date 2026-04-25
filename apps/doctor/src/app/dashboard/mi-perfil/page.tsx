@@ -50,6 +50,7 @@ const DEFAULT_FORM_DATA = {
   }>,
   conditions: [] as string[],
   procedures: [] as string[],
+  short_bio: "",
   long_bio: "",
   years_experience: 0,
   education_items: [] as Array<{
@@ -461,6 +462,7 @@ export default function MiPerfilPage() {
         })),
         conditions: d.conditions || [],
         procedures: d.procedures || [],
+        short_bio: d.shortBio || "",
         long_bio: d.longBio || "",
         years_experience: d.yearsExperience ?? 0,
         education_items: (d.educationItems || []).map((e: any) => ({

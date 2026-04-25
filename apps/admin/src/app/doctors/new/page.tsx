@@ -58,6 +58,7 @@ export default function NewDoctorWizard() {
     procedures: [] as string[],
 
     // Step 4: Biography
+    short_bio: "",
     long_bio: "",
     years_experience: 0,
 
@@ -514,6 +515,22 @@ export default function NewDoctorWizard() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subespecialidades
+                </label>
+                <textarea
+                  value={(formData.subspecialties || []).join("\n")}
+                  onChange={(e) => updateField("subspecialties", e.target.value.split("\n").filter(Boolean))}
+                  placeholder={"Una subespecialidad por linea:\nCirugia de Cataratas\nGlaucoma\nRetina"}
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Aparecen como badges en el perfil publico. {(formData.subspecialties || []).length} subespecialidades
+                </p>
               </div>
 
               <div>
