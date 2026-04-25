@@ -31,7 +31,9 @@ export type ActivityActionType =
   | "PRESCRIPTION_ISSUED"
   | "PRESCRIPTION_CANCELLED"
   | "RANGES_CREATED"
-  | "RANGE_DELETED";
+  | "RANGE_DELETED"
+  | "RANGES_BULK_DELETED"
+  | "RANGES_BLOCKED";
 
 export type ActivityEntityType = "TASK" | "APPOINTMENT" | "BOOKING" | "PRESCRIPTION" | "PATIENT" | "ENCOUNTER";
 
