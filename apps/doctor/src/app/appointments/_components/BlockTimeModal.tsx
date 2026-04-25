@@ -15,6 +15,7 @@ const TIME_OPTIONS_30 = Array.from({ length: 48 }, (_, i) => {
 interface PreviewResult {
   datesToBlock: number;
   skippedDuplicates: number;
+  skippedNoRanges: number;
   conflicts: number;
   conflictDetails: Array<{
     date: string;
@@ -88,6 +89,7 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
         const parts = [];
         if (data.datesBlocked > 0) parts.push(`${data.datesBlocked} día(s) bloqueado(s)`);
         if (data.skippedDuplicates > 0) parts.push(`${data.skippedDuplicates} ya existente(s)`);
+        if (data.skippedNoRanges > 0) parts.push(`${data.skippedNoRanges} sin rangos`);
         if (data.conflicts > 0) parts.push(`${data.conflicts} con conflictos`);
         toast.success(parts.join(". "));
         onSuccess();
@@ -244,6 +246,9 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
                 }
                 {preview.skippedDuplicates > 0 && (
                   <span className="text-gray-500"> ({preview.skippedDuplicates} ya bloqueado(s))</span>
+                )}
+                {preview.skippedNoRanges > 0 && (
+                  <span className="text-gray-500"> ({preview.skippedNoRanges} sin rangos)</span>
                 )}
               </div>
 

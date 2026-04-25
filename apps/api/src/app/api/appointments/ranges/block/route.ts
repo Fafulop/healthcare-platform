@@ -151,6 +151,7 @@ export async function POST(request: Request) {
     // Check each date for booking conflicts and existing blocks
     const datesToBlock: Date[] = [];
     const skippedDuplicates: string[] = [];
+    let skippedNoRanges = 0;
     const conflicts: Array<{
       date: string;
       activeBookings: Array<{ patientName: string; startTime: string; endTime: string }>;
@@ -158,6 +159,12 @@ export async function POST(request: Request) {
 
     for (const dateObj of dates) {
       const dateKey = dateObj.toISOString().split('T')[0];
+
+      // Check if any ranges exist for this date
+      const rangeCount = await prisma.availabilityRange.count({
+        where: { doctorId, date: dateObj },
+      });
+      if (rangeCount === 0) { skippedNoRanges++; continue; }
 
       // Check for existing identical blocked time
       const existing = await prisma.blockedTime.findFirst({
@@ -221,6 +228,7 @@ export async function POST(request: Request) {
         dryRun: true,
         datesToBlock: datesToBlock.length,
         skippedDuplicates: skippedDuplicates.length,
+        skippedNoRanges,
         conflicts: conflicts.length,
         conflictDetails: conflicts,
       });
@@ -266,6 +274,7 @@ export async function POST(request: Request) {
       success: true,
       datesBlocked: datesToBlock.length,
       skippedDuplicates: skippedDuplicates.length,
+      skippedNoRanges,
       conflicts: conflicts.length,
       conflictDetails: conflicts,
     });
