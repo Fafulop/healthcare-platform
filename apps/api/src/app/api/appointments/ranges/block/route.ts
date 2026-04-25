@@ -207,7 +207,8 @@ export async function POST(request: Request) {
             endTime: b.endTime ?? '',
           })),
         });
-        continue;
+        // Still block the day — active bookings are protected at booking-creation level
+        // and the availability calculator handles both overlays correctly.
       }
 
       datesToBlock.push(dateObj);

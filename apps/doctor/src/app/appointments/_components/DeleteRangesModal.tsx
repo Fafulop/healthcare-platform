@@ -65,7 +65,7 @@ export function DeleteRangesModal({ isOpen, onClose, bulkDeleteRanges, onSuccess
       const data = await bulkDeleteRanges(dateFrom, dateTo, false);
       if (data.success) {
         toast.success(
-          `${data.deleted} rango(s) eliminado(s)${data.protected > 0 ? `. ${data.protected} protegido(s).` : ""}`
+          `${data.deleted} rango(s) eliminado(s)${data.protected > 0 ? `. ${data.protected} con citas activas.` : ""}`
         );
         onSuccess();
         handleClose();
@@ -100,7 +100,7 @@ export function DeleteRangesModal({ isOpen, onClose, bulkDeleteRanges, onSuccess
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
             <ShieldCheck className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
             <p className="text-xs sm:text-sm text-amber-700">
-              Los rangos con <strong>citas activas</strong> (pendientes o confirmadas) no se eliminan. Se muestran como protegidos.
+              Las <strong>citas activas</strong> (pendientes o confirmadas) no se afectan al eliminar rangos. Solo se elimina la disponibilidad para nuevas reservas.
             </p>
           </div>
 
@@ -150,7 +150,7 @@ export function DeleteRangesModal({ isOpen, onClose, bulkDeleteRanges, onSuccess
                 <div className="rounded-lg p-3 border border-blue-200 bg-blue-50 text-sm">
                   <p className="font-medium text-blue-800 flex items-center gap-1.5 mb-2">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    {preview.protected} rango(s) protegido(s) por citas activas:
+                    {preview.protected} rango(s) con citas activas (se eliminarán, citas no se afectan):
                   </p>
                   <ul className="space-y-1.5">
                     {preview.protectedRanges.map((pr, i) => (

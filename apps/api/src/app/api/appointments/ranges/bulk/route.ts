@@ -107,9 +107,10 @@ export async function DELETE(request: Request) {
             endTime: b.endTime ?? '',
           })),
         });
-      } else {
-        deletable.push(range);
+        // Still delete — bookings are independent records and won't be affected.
+        // The availability calculator uses bookings as blocked windows regardless.
       }
+      deletable.push(range);
     }
 
     // Dry run — return preview only

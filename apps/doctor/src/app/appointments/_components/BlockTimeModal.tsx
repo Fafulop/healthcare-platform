@@ -139,7 +139,7 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
             <ShieldCheck className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
             <p className="text-xs sm:text-sm text-amber-700">
               Los bloqueos son <strong>reversibles</strong>. Los rangos de disponibilidad no se modifican.
-              Si hay <strong>citas activas</strong> en la zona de bloqueo, el bloqueo no se aplica para ese día.
+              Las <strong>citas activas</strong> existentes no se afectan — solo se bloquean nuevas reservas.
             </p>
           </div>
 
@@ -244,7 +244,7 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
                 <div className="rounded-lg p-3 border border-blue-200 bg-blue-50 text-sm">
                   <p className="font-medium text-blue-800 flex items-center gap-1.5 mb-2">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    {preview.conflicts} día(s) con citas activas (no se bloquearán):
+                    {preview.conflicts} día(s) con citas activas (se bloquearán, citas existentes no se afectan):
                   </p>
                   <ul className="space-y-1.5">
                     {preview.conflictDetails.map((c, i) => (
