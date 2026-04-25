@@ -103,7 +103,7 @@ All injected as `<script type="application/ld+json">` in SSR layout:
 | Directory cards | Next.js Image, fill layout, responsive sizes |
 | Media carousel | Lazy loading (except first), video with poster |
 | Credentials | All thumbnails in DOM for SEO, first 4 eager |
-| Blog articles | **Native `<img>` (NOT optimized)** |
+| Blog articles | Next.js Image, fill layout, responsive sizes (fixed 2026-04-24) |
 
 ### Font & Performance
 
@@ -423,7 +423,7 @@ All on-page SEO tasks implemented and deployed.
 | # | Task | Status | What Was Done |
 |---|------|--------|---------------|
 | 1.1 | **Add city to H2 subtitle** | DONE | H2 now renders `{specialty} en {city}` via `toTitleCase()` + conditional city |
-| 1.2 | **Add intro paragraph in hero** | DONE | Auto-extracts first 2 sentences from `long_bio` (falls back from `short_bio` if set). Uses `extractIntro()` in `HeroSection.tsx` — no separate field needed |
+| 1.2 | **Add intro paragraph in hero** | DONE | Auto-extracts first 3 sentences from `long_bio` only (ignores `short_bio`). Uses `extractIntro()` in `HeroSection.tsx` — always ends at sentence boundary, consistent across all doctors |
 | 1.3 | **Personalize section headings** | DONE | "Servicios de {specialty}", "Condiciones y Procedimientos — {specialty}", "Consultorio en {city}" |
 | 1.4 | **Show service descriptions on mobile** | DONE | `line-clamp-2 md:line-clamp-none` replaces `hidden md:block` |
 | 1.5 | **Add "Consultorio en {city}" heading** | DONE | `ClinicLocationSection.tsx` heading now includes city |
@@ -432,25 +432,25 @@ All on-page SEO tasks implemented and deployed.
 | ~~1.8~~ | ~~Fix empty certificate alt tags~~ | REMOVED | Already had auto-fallback in `CredentialsSection.tsx` |
 | 1.9 | **Guard H2 against empty specialty** | DONE | `{doctor.primary_specialty && (...)}` conditional added |
 
-### Phase 1B: Dashboard Fixes — PARTIALLY DONE (2026-04-24)
+### Phase 1B: Dashboard Fixes — DONE (2026-04-24)
 
 | # | Task | Status | What Was Done |
 |---|------|--------|---------------|
 | 1B.1 | **Normalize specialty casing** | DONE (render-time) | `toTitleCase()` applied at render time in public page. Raw data preserved in DB. |
 | 1B.2 | **Expose subspecialties in dashboard** | DONE | Textarea added to doctor dashboard (`GeneralInfoSection.tsx`), admin edit (Step 1), and admin create (Step 1). Uses one-per-line pattern matching conditions/procedures. |
-| 1B.3 | **Auto-generate intro from long_bio** | DONE | Decision: NO separate `short_bio` textarea — doctors shouldn't write 2 bios. Instead, `HeroSection.tsx` auto-extracts first 2 sentences from `long_bio` via `extractIntro()`. If `short_bio` exists in DB, it takes priority. `short_bio` field preserved as pass-through in form data (not wiped on save). |
+| 1B.3 | **Auto-generate intro from long_bio** | DONE | Decision: NO separate `short_bio` textarea — doctors shouldn't write 2 bios. `HeroSection.tsx` always uses `extractIntro(long_bio)` which takes first 3 sentences, ending at sentence boundary. `short_bio` is ignored in the hero to ensure consistent display across all doctors. `short_bio` field preserved as pass-through in form data (not wiped on save). |
 | ~~1B.4~~ | ~~Auto-generate certificate alt text~~ | REMOVED | Already handled |
-| 1B.5 | **Auto-generate location_summary** | PENDING | |
-| 1B.6 | **Auto-generate carousel alt text** | PENDING | |
+| 1B.5 | **Auto-generate location_summary** | DONE | Fallback in `data.ts`: if API returns empty `locationSummary`, uses `"{city}, México"`. No dashboard change needed. |
+| 1B.6 | **Auto-generate carousel alt text** | DONE | Fallback in `data.ts`: if carousel item `alt` is empty, auto-generates `"Consultorio de {doctor_name} en {city}"`. |
 
-### Phase 2: Technical SEO Fixes (MEDIUM PRIORITY — 1-2 days)
+### Phase 2: Technical SEO Fixes — DONE (2026-04-24)
 
-| # | Task | What to Change | Impact |
-|---|------|----------------|--------|
-| 2.1 | **Fix blog images** | `ArticleCard.tsx`: Replace `<img>` with Next.js `<Image>` | MEDIUM — Better CWV scores |
-| 2.2 | **Add favicon + web manifest** | `public/`, `app/layout.tsx` | LOW — Brand presence |
-| 2.3 | **Fix `lastModified` in sitemap** | `app/sitemap.ts`: Already includes `lastModified` but most entries use `new Date()` (current timestamp) instead of real last-modified dates from the database. Replace with actual `updatedAt` from API data | LOW — Current timestamps are technically a lie to Google |
-| 2.4 | **Validate structured data** | Run all 3 profiles through Google Rich Results Test, fix any warnings | MEDIUM — Ensure rich snippets eligibility |
+| # | Task | Status | What Was Done |
+|---|------|--------|---------------|
+| 2.1 | **Fix blog images** | DONE | `ArticleCard.tsx`: Replaced native `<img>` with Next.js `<Image>` (fill mode, responsive sizes). Better CWV scores via automatic WebP/AVIF, lazy loading. |
+| 2.2 | **Add favicon + web manifest** | DONE | Added `favicon.svg` (blue "TS" logo), `site.webmanifest`, and `<link>`/`<meta>` tags in `layout.tsx`. |
+| 2.3 | **Fix `lastModified` in sitemap** | DONE | `sitemap.ts` now uses real `updatedAt` from API via new `getAllDoctorSlugsWithDates()` function. Blog listing pages use latest article `publishedAt`. Fallback to `new Date()` only when no date exists. |
+| 2.4 | **Validate structured data** | DONE | Fixed `structured-data.ts` publisher logo reference from missing `/logo.png` to existing `/favicon.svg`. All schema generators verified correct. Manual validation via Google Rich Results Test recommended as ongoing Phase 4 task. |
 
 ### Phase 3: Content Strategy for Rankings (HIGH PRIORITY — Ongoing)
 

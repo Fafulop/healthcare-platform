@@ -9,12 +9,13 @@ import HeroButtons from './HeroButtons';
 import type { DoctorProfile } from '@/types/doctor';
 import { toTitleCase } from '@/lib/text';
 
-/** Extract first 2 sentences from long bio for the hero intro paragraph */
+/** Extract first 2-3 sentences from long bio for the hero intro paragraph.
+ *  Always ends at a sentence boundary so it never looks cutoff. */
 function extractIntro(text: string): string {
   if (!text) return '';
   const sentences = text.match(/[^.!?]+[.!?]+/g);
-  if (!sentences) return text.slice(0, 200);
-  return sentences.slice(0, 2).join('').trim();
+  if (!sentences) return '';
+  return sentences.slice(0, 3).join('').trim();
 }
 
 interface HeroSectionProps {
@@ -113,11 +114,14 @@ export default function HeroSection({ doctor, onBookingClick, googleAdsId }: Her
             </div>
 
             {/* Intro paragraph - SEO keyword-rich prose above the fold */}
-            {(doctor.short_bio || doctor.long_bio) && (
-              <p className="text-[var(--color-neutral-medium)] text-base leading-relaxed mb-4 max-w-2xl">
-                {doctor.short_bio || extractIntro(doctor.long_bio || '')}
-              </p>
-            )}
+            {(() => {
+              const intro = doctor.long_bio ? extractIntro(doctor.long_bio) : '';
+              return intro ? (
+                <p className="text-[var(--color-neutral-medium)] text-base leading-relaxed mb-4 max-w-2xl">
+                  {intro}
+                </p>
+              ) : null;
+            })()}
 
             {/* Subspecialties as badges */}
             {doctor.subspecialties && doctor.subspecialties.length > 0 && (
