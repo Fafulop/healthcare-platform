@@ -212,7 +212,8 @@ export function useBookings(doctorId: string | undefined) {
         : `Consulta - ${patientName}`;
 
       // 3. Create ledger entry (fire the call, but surface errors as a soft warning)
-      const today = new Date().toISOString().split("T")[0];
+      const appointmentDate = (booking?.slot?.date ?? booking?.date ?? "").split("T")[0];
+      const transactionDate = appointmentDate || new Date().toISOString().split("T")[0];
       const ledgerRes = await authFetch(
         `${API_URL}/api/practice-management/ledger`,
         {
@@ -222,7 +223,7 @@ export function useBookings(doctorId: string | undefined) {
             amount: price,
             concept,
             formaDePago,
-            transactionDate: today,
+            transactionDate,
             paymentStatus: "PAID",
             amountPaid: price,
           }),
