@@ -1,34 +1,33 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Trash2, Ban, Star, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
-import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { useCalendar } from "./_hooks/useCalendar";
-import { useRanges } from "./_hooks/useRanges";
+import { useSlots } from "./_hooks/useSlots";
 import { useBookings } from "./_hooks/useBookings";
-import { useBlockedTimes } from "./_hooks/useBlockedTimes";
 import { AppointmentsCalendar } from "./_components/AppointmentsCalendar";
-import { DayTimelinePanel } from "./_components/DayTimelinePanel";
-import { CreateRangeModal } from "./_components/CreateRangeModal";
-import { BookPatientModal } from "./_components/BookPatientModal";
+import { DaySlotPanel } from "./_components/DaySlotPanel";
+import { SlotListView } from "./_components/SlotListView";
 import { BookingsSection } from "./_components/BookingsSection";
-import { DeleteRangesModal } from "./_components/DeleteRangesModal";
-import { BlockTimeModal } from "./_components/BlockTimeModal";
-import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
+import { CreateSlotsModal } from "./_components/CreateSlotsModal";
+import { BookPatientModal } from "./_components/BookPatientModal";
+import { AppointmentChatPanel } from "./_components/AppointmentChatPanel";
 import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
+import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
 import { StandaloneFormularioModal } from "./_components/StandaloneFormularioModal";
+import { BlockRangeModal } from "./_components/BlockRangeModal";
 import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsModal";
+import { PurgeSlotsModal } from "./_components/PurgeSlotsModal";
+import { SlotFiltersBar, type SlotStatusFilter } from "./_components/SlotFiltersBar";
+import type { AppointmentSlot } from "./_hooks/useSlots";
 import type { Booking } from "./_hooks/useBookings";
-import type { ClinicLocation } from "./_hooks/useSlots";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
-
-export default function AppointmentsPage() {
+export default function AppointmentsV2Page() {
   const { data: session, status: authStatus } = useSession({
     required: true,
     onUnauthenticated() {
@@ -37,42 +36,35 @@ export default function AppointmentsPage() {
   });
 
   const doctorId = session?.user?.doctorId as string | undefined;
-  const { doctorProfile } = useDoctorProfile();
 
   // Hooks
   const calendar = useCalendar();
-  const rangesHook = useRanges(doctorId, calendar.selectedDate);
+  const slotsHook = useSlots(doctorId, calendar.selectedDate);
   const bookingsHook = useBookings(doctorId);
-  const blockedTimesHook = useBlockedTimes(doctorId, calendar.selectedDate);
-
-  // Clinic locations (fetched independently since we don't use useSlots)
-  const [clinicLocations, setClinicLocations] = useState<ClinicLocation[]>([]);
-  useEffect(() => {
-    const slug = doctorProfile?.slug;
-    if (!slug) return;
-    fetch(`${API_URL}/api/doctors/${slug}/locations`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && Array.isArray(d.data)) setClinicLocations(d.data);
-      })
-      .catch(() => {});
-  }, [doctorProfile?.slug]);
 
   // Modal state
-  const [showCreateRangeModal, setShowCreateRangeModal] = useState(false);
-  const [showDeleteRangesModal, setShowDeleteRangesModal] = useState(false);
-  const [showBlockTimeModal, setShowBlockTimeModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
+  const [bookPatientPreSlot, setBookPatientPreSlot] = useState<AppointmentSlot | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
   const rescheduleBookingRef = useRef<Booking | null>(null);
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
+  const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
+  const [blockRangeModalOpen, setBlockRangeModalOpen] = useState(false);
+  const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
   const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
   const [formLinkBooking, setFormLinkBooking] = useState<Booking | null>(null);
-  const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
   const [standaloneFormModalOpen, setStandaloneFormModalOpen] = useState(false);
-  const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
+  const [purgeModalOpen, setPurgeModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<SlotStatusFilter>("all");
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderOffset, setReminderOffset] = useState(120);
   const [togglingReminder, setTogglingReminder] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    await slotsHook.fetchSlots();
+    await bookingsHook.fetchBookings();
+  }, [slotsHook, bookingsHook]);
 
   // Fetch reminder setting on mount
   useEffect(() => {
@@ -112,30 +104,33 @@ export default function AppointmentsPage() {
     } catch { /* keep current state */ }
   }, []);
 
-  const onRefresh = useCallback(async () => {
-    await rangesHook.fetchRanges();
-    await bookingsHook.fetchBookings();
-    await blockedTimesHook.fetchBlockedTimes();
-  }, [rangesHook, bookingsHook, blockedTimesHook]);
-
   const openBookModal = () => {
     rescheduleBookingRef.current = null;
     setRescheduleBooking(null);
+    setBookPatientPreSlot(null);
     setBookPatientModalOpen(true);
   };
 
   const handleReschedule = useCallback((booking: Booking) => {
     rescheduleBookingRef.current = booking;
     setRescheduleBooking(booking);
+    setBookPatientPreSlot(null);
     setBookPatientModalOpen(true);
   }, []);
 
-  const handleBookInGap = (date: string, startTime: string) => {
-    toast.success(`Agendar cita: ${date} a las ${startTime}`);
+  const openBookModalWithSlot = (slot: AppointmentSlot) => {
+    rescheduleBookingRef.current = null;
+    setRescheduleBooking(null);
+    setBookPatientPreSlot(slot);
     setBookPatientModalOpen(true);
   };
 
-  // Booking stats
+  // deleteSlot needs bookings for active booking check
+  const handleDeleteSlot = (slotId: string) => {
+    slotsHook.deleteSlot(slotId, bookingsHook.bookings as any);
+  };
+
+  // Booking stats — computed from all bookings (not filtered by date)
   const nowMx = new Date().toLocaleString("sv-SE", { timeZone: "America/Mexico_City" });
   const isExpiredBooking = (b: Booking) => {
     if (b.status !== "PENDING" && b.status !== "CONFIRMED") return false;
@@ -150,7 +145,7 @@ export default function AppointmentsPage() {
     expired: bookingsHook.bookings.filter(b => isExpiredBooking(b)).length,
   };
 
-  if (authStatus === "loading" || (authStatus === "authenticated" && rangesHook.loading)) {
+  if (authStatus === "loading" || (authStatus === "authenticated" && slotsHook.loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -190,6 +185,14 @@ export default function AppointmentsPage() {
             <span className="sm:hidden">Reseña</span>
           </button>
           <button
+            disabled
+            title="Próximamente"
+            className="flex items-center justify-center gap-2 bg-indigo-300 text-white font-semibold py-2 px-3 sm:px-4 rounded-md text-sm cursor-not-allowed opacity-60"
+          >
+            <Sparkles className="w-4 h-4 flex-shrink-0" />
+            <span>Chat IA</span>
+          </button>
+          <button
             onClick={() => setStandaloneFormModalOpen(true)}
             className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
           >
@@ -206,26 +209,27 @@ export default function AppointmentsPage() {
             <span className="sm:hidden">Agendar</span>
           </button>
           <button
-            onClick={() => setShowDeleteRangesModal(true)}
-            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
-          >
-            <Trash2 className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Eliminar Rangos</span>
-            <span className="sm:hidden">Eliminar</span>
-          </button>
-          <button
-            onClick={() => setShowBlockTimeModal(true)}
-            className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+            onClick={() => setBlockRangeModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
           >
             <Ban className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Bloquear</span>
+            <span className="hidden sm:inline">Bloquear Periodo</span>
+            <span className="sm:hidden">Bloquear</span>
           </button>
           <button
-            onClick={() => setShowCreateRangeModal(true)}
+            onClick={() => setShowCreateModal(true)}
             className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
           >
             <Plus className="w-4 h-4 flex-shrink-0" />
-            Crear Rango
+            Crear Horarios
+          </button>
+          <button
+            onClick={() => setPurgeModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <Trash2 className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Limpiar Horarios</span>
+            <span className="sm:hidden">Limpiar</span>
           </button>
           <button
             onClick={() => setBookingFieldSettingsOpen(true)}
@@ -255,7 +259,11 @@ export default function AppointmentsPage() {
           }
           <div className="min-w-0">
             <p className="text-sm font-medium text-gray-900">Recordatorio automático por correo</p>
-            <p className="text-xs text-gray-500">Envía un correo al paciente antes de su cita agendada</p>
+            <p className="text-xs text-gray-500">
+              {reminderEnabled
+                ? "Envía un correo al paciente antes de su cita agendada"
+                : "Envía un correo al paciente antes de su cita agendada"}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -318,7 +326,42 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      {/* Bookings section */}
+      {/* Bulk actions bar (shown when slots selected) */}
+      {slotsHook.selectedSlots.size > 0 && (
+        <div className="mb-4 flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex-wrap">
+          <span className="text-sm font-medium text-blue-800">
+            {slotsHook.selectedSlots.size} horario(s) seleccionado(s)
+          </span>
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={() => slotsHook.bulkAction("open")}
+              className="text-xs px-3 py-1.5 rounded bg-green-100 text-green-700 hover:bg-green-200 font-medium"
+            >
+              Abrir
+            </button>
+            <button
+              onClick={() => slotsHook.bulkAction("close")}
+              className="text-xs px-3 py-1.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium"
+            >
+              Cerrar
+            </button>
+            <button
+              onClick={() => slotsHook.bulkAction("delete")}
+              className="text-xs px-3 py-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200 font-medium"
+            >
+              Eliminar
+            </button>
+            <button
+              onClick={() => slotsHook.setSelectedSlots(new Set())}
+              className="text-xs px-3 py-1.5 rounded bg-white text-gray-500 hover:bg-gray-100 border border-gray-200"
+            >
+              Deseleccionar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bookings section (always visible) */}
       <BookingsSection
         bookings={bookingsHook.bookings as Booking[]}
         filteredBookings={bookingsHook.filteredBookings as Booking[]}
@@ -333,18 +376,18 @@ export default function AppointmentsPage() {
         shiftBookingFilterDate={bookingsHook.shiftBookingFilterDate}
         onUpdateStatus={async (id, status) => {
           await bookingsHook.updateBookingStatus(id, status);
-          rangesHook.fetchRanges();
+          slotsHook.fetchSlots();
         }}
         onCompleteBooking={async (id, price, formaDePago) => {
           await bookingsHook.completeBooking(id, price, formaDePago);
-          rangesHook.fetchRanges();
+          slotsHook.fetchSlots();
         }}
         onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
         onUpdatePatientLink={bookingsHook.updatePatientLink}
         onDeleteBooking={async (id, name) => {
           await bookingsHook.deleteBooking(id, name);
-          rangesHook.fetchRanges();
+          slotsHook.fetchSlots();
         }}
         getStatusColor={bookingsHook.getStatusColor}
         sortColumn={bookingsHook.sortColumn}
@@ -359,77 +402,110 @@ export default function AppointmentsPage() {
         onReschedule={handleReschedule}
       />
 
-      {/* Calendar + Timeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {/* Calendar */}
-        <div className="lg:order-2">
-          <AppointmentsCalendar
-            selectedDate={calendar.selectedDate}
-            onSelectDate={calendar.setSelectedDate}
-            calendarDays={calendar.calendarDays}
-            year={calendar.year}
-            month={calendar.month}
-            datesWithSlots={rangesHook.datesWithRanges}
-          />
+      {/* Controls card: view toggle + slot filters */}
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4 mt-6 mb-4">
+        {/* View toggle */}
+        <div className="flex gap-1 mb-3">
+          <button
+            onClick={() => calendar.setViewMode("calendar")}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              calendar.viewMode === "calendar"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Calendario
+          </button>
+          <button
+            onClick={() => calendar.setViewMode("list")}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              calendar.viewMode === "list"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Lista
+          </button>
         </div>
-
-        {/* Day timeline panel */}
-        <div className="lg:order-1">
-          <DayTimelinePanel
-            selectedDate={calendar.selectedDate}
-            ranges={rangesHook.rangesForSelectedDate}
-            bookings={bookingsHook.bookings as any}
-            blockedTimes={blockedTimesHook.blockedTimesForSelectedDate}
-            onDeleteRange={rangesHook.deleteRange}
-            onBookInGap={handleBookInGap}
-          />
+        {/* Slot status filter — always shown for both views */}
+        <div className="pt-3 border-t border-gray-100">
+          <SlotFiltersBar value={statusFilter} onChange={setStatusFilter} />
         </div>
       </div>
 
+      {/* Calendar or list view */}
+      <div>
+        {calendar.viewMode === "calendar" ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Calendar — top on mobile, right on desktop */}
+            <div className="lg:order-2">
+              <AppointmentsCalendar
+                selectedDate={calendar.selectedDate}
+                onSelectDate={calendar.setSelectedDate}
+                calendarDays={calendar.calendarDays}
+                year={calendar.year}
+                month={calendar.month}
+                datesWithSlots={slotsHook.datesWithSlots}
+              />
+            </div>
+            {/* Day panel — bottom on mobile, left on desktop */}
+            <div className="lg:order-1">
+              <DaySlotPanel
+                selectedDate={calendar.selectedDate}
+                slots={slotsHook.slotsForSelectedDate}
+                statusFilter={statusFilter}
+                selectedSlots={slotsHook.selectedSlots}
+                onToggleSelection={slotsHook.toggleSlotSelection}
+                onToggleAllSlots={slotsHook.toggleAllSlots}
+                onToggleOpen={slotsHook.toggleOpenSlot}
+                onDelete={handleDeleteSlot}
+                onBookWithSlot={openBookModalWithSlot}
+                getSlotStatus={slotsHook.getSlotStatus}
+              />
+            </div>
+          </div>
+        ) : (
+          <SlotListView
+            slots={slotsHook.slots}
+            listDate={calendar.listDate}
+            setListDate={calendar.setListDate}
+            showAllSlots={calendar.showAllSlots}
+            setShowAllSlots={calendar.setShowAllSlots}
+            statusFilter={statusFilter}
+            selectedSlots={slotsHook.selectedSlots}
+            onToggleSelection={slotsHook.toggleSlotSelection}
+            onToggleAllSlots={slotsHook.toggleAllSlots}
+            onToggleOpen={slotsHook.toggleOpenSlot}
+            onDelete={handleDeleteSlot}
+            onBookWithSlot={openBookModalWithSlot}
+            onBulkAction={slotsHook.bulkAction}
+            getSlotStatus={slotsHook.getSlotStatus}
+          />
+        )}
+      </div>
+
       {/* Modals */}
-      <CreateRangeModal
-        isOpen={showCreateRangeModal}
-        onClose={() => setShowCreateRangeModal(false)}
+      <CreateSlotsModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
         doctorId={doctorId}
-        clinicLocations={clinicLocations}
-        defaultIntervalMinutes={30}
-        onSuccess={rangesHook.fetchRanges}
-      />
-
-      <DeleteRangesModal
-        isOpen={showDeleteRangesModal}
-        onClose={() => setShowDeleteRangesModal(false)}
-        bulkDeleteRanges={rangesHook.bulkDeleteRanges}
-        onSuccess={async () => {
-          await rangesHook.fetchRanges();
-          await blockedTimesHook.fetchBlockedTimes();
-        }}
-      />
-
-      <BlockTimeModal
-        isOpen={showBlockTimeModal}
-        onClose={() => setShowBlockTimeModal(false)}
-        blockTime={blockedTimesHook.blockTime}
-        unblockTimes={blockedTimesHook.unblockTimes}
-        blockedTimes={blockedTimesHook.blockedTimes}
-        onSuccess={blockedTimesHook.fetchBlockedTimes}
+        clinicLocations={slotsHook.clinicLocations}
+        onSuccess={slotsHook.fetchSlots}
       />
 
       <BookPatientModal
         isOpen={bookPatientModalOpen}
         onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); }}
         doctorId={doctorId}
-        clinicLocations={clinicLocations}
-        rangeMode
-        doctorSlug={doctorProfile?.slug}
-        onSuccess={async () => {
+        clinicLocations={slotsHook.clinicLocations}
+        onSuccess={async (newBookingId: string) => {
           const toCancel = rescheduleBookingRef.current;
           if (toCancel) {
             rescheduleBookingRef.current = null;
             setRescheduleBooking(null);
             try {
               const res = await authFetch(
-                `${API_URL}/api/appointments/bookings/${toCancel.id}`,
+                `${process.env.NEXT_PUBLIC_API_URL || ""}/api/appointments/bookings/${toCancel.id}`,
                 { method: "PATCH", body: JSON.stringify({ status: "CANCELLED" }) }
               );
               const data = await res.json();
@@ -437,21 +513,31 @@ export default function AppointmentsPage() {
             } catch {
               toast.error("No se pudo cancelar la cita anterior automáticamente");
             }
+            // Confirmation email is sent automatically by the API (sendBookingConfirmationEmail in .finally())
           }
           await onRefresh();
         }}
+        preSelectedSlot={bookPatientPreSlot}
         rescheduleBooking={rescheduleBooking}
-      />
-      <PreAppointmentFormModal
-        booking={formLinkBooking}
-        isOpen={formLinkModalOpen}
-        onClose={() => { setFormLinkModalOpen(false); setFormLinkBooking(null); }}
-        onSuccess={bookingsHook.fetchBookings}
       />
 
       <GenerateReviewLinkModal
         isOpen={reviewLinkModalOpen}
         onClose={() => setReviewLinkModalOpen(false)}
+      />
+
+      <BlockRangeModal
+        isOpen={blockRangeModalOpen}
+        onClose={() => setBlockRangeModalOpen(false)}
+        doctorId={doctorId}
+        onSuccess={slotsHook.fetchSlots}
+      />
+
+      <PreAppointmentFormModal
+        booking={formLinkBooking}
+        isOpen={formLinkModalOpen}
+        onClose={() => { setFormLinkModalOpen(false); setFormLinkBooking(null); }}
+        onSuccess={bookingsHook.fetchBookings}
       />
 
       <StandaloneFormularioModal
@@ -462,6 +548,21 @@ export default function AppointmentsPage() {
       <BookingFieldSettingsModal
         isOpen={bookingFieldSettingsOpen}
         onClose={() => setBookingFieldSettingsOpen(false)}
+      />
+
+      <PurgeSlotsModal
+        isOpen={purgeModalOpen}
+        onClose={() => setPurgeModalOpen(false)}
+        doctorId={doctorId}
+        onSuccess={slotsHook.fetchSlots}
+      />
+
+      <AppointmentChatPanel
+        isOpen={chatPanelOpen}
+        onClose={() => setChatPanelOpen(false)}
+        onRefresh={onRefresh}
+        slots={slotsHook.slots as any}
+        bookings={bookingsHook.bookings as any}
       />
     </div>
   );
