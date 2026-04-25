@@ -149,4 +149,7 @@ export interface DoctorProfile {
   // Reviews
   reviews?: Review[];
   reviewStats?: ReviewStats;
+
+  // Scheduling mode detection
+  hasRanges?: boolean;
 }

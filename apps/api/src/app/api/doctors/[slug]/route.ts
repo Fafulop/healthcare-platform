@@ -54,10 +54,16 @@ export async function GET(
       ? doctor.reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount
       : 0;
 
+    // Check if doctor uses range-based scheduling
+    const rangeCount = await prisma.availabilityRange.count({
+      where: { doctorId: doctor.id },
+    });
+
     return NextResponse.json({
       success: true,
       data: {
         ...doctor,
+        hasRanges: rangeCount > 0,
         reviewStats: {
           averageRating: Number(averageRating.toFixed(1)),
           reviewCount,

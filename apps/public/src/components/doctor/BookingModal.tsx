@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import BookingWidget from "./BookingWidget";
+import RangeBookingWidget from "./RangeBookingWidget";
 import type { Service } from "@/types/doctor";
 
 interface BookingModalProps {
@@ -13,9 +14,10 @@ interface BookingModalProps {
   googleAdsId?: string;
   services?: Service[];
   appointmentModes?: ('in_person' | 'teleconsult')[];
+  hasRanges?: boolean;
 }
 
-export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null, googleAdsId, services = [], appointmentModes = ['in_person', 'teleconsult'] }: BookingModalProps) {
+export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null, googleAdsId, services = [], appointmentModes = ['in_person', 'teleconsult'], hasRanges = false }: BookingModalProps) {
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -99,7 +101,11 @@ export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate 
 
         {/* Content */}
         <div style={{ padding: '24px' }}>
-          <BookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} services={services} appointmentModes={appointmentModes} />
+          {hasRanges ? (
+            <RangeBookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} services={services} appointmentModes={appointmentModes} />
+          ) : (
+            <BookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} services={services} appointmentModes={appointmentModes} />
+          )}
         </div>
       </div>
     </div>

@@ -119,6 +119,9 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
 
     // Google Ads - Per-doctor Ads account ID
     google_ads_id: doctor.googleAdsId || undefined,
+
+    // Scheduling mode detection
+    hasRanges: doctor.hasRanges ?? false,
   };
 }
 

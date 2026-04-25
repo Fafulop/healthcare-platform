@@ -21,7 +21,7 @@ import SidebarCTA from "./SidebarCTA";
 import BookingModal from "./BookingModal";
 
 // Client-side components via dynamic wrapper (no SSR)
-import { DynamicMediaCarousel, DynamicBookingWidget } from "./DynamicSections";
+import { DynamicMediaCarousel, DynamicBookingWidget, DynamicRangeBookingWidget } from "./DynamicSections";
 
 interface DoctorProfileClientProps {
   doctor: DoctorProfile;
@@ -115,7 +115,11 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
             <div className="flex flex-col max-h-screen bg-white">
               {/* Appointment Booking Widget */}
               <div className="flex-shrink-0">
-                <DynamicBookingWidget doctorSlug={doctor.slug} onDayClick={openBookingModal} googleAdsId={doctor.google_ads_id} />
+                {doctor.hasRanges ? (
+                  <DynamicRangeBookingWidget doctorSlug={doctor.slug} onDayClick={openBookingModal} googleAdsId={doctor.google_ads_id} services={doctor.services_list} appointmentModes={doctor.appointment_modes} />
+                ) : (
+                  <DynamicBookingWidget doctorSlug={doctor.slug} onDayClick={openBookingModal} googleAdsId={doctor.google_ads_id} services={doctor.services_list} appointmentModes={doctor.appointment_modes} />
+                )}
               </div>
 
               {/* CTA Buttons */}
@@ -154,6 +158,7 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
         googleAdsId={doctor.google_ads_id}
         services={doctor.services_list}
         appointmentModes={doctor.appointment_modes}
+        hasRanges={doctor.hasRanges}
       />
     </>
   );

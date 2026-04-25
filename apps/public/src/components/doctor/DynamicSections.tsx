@@ -4,28 +4,34 @@
 import dynamic from 'next/dynamic';
 import type { CarouselItem } from '@/types/doctor';
 
-// Booking Widget - Real appointment booking system
+// Booking Widget skeleton (shared between both widgets)
+const bookingWidgetSkeleton = () => (
+  <div className="bg-white" style={{ minHeight: '380px' }}>
+    <div className="bg-gray-200 px-2 py-3 rounded-t">
+      <div className="h-5 bg-gray-300 rounded w-2/3"></div>
+    </div>
+    <div className="px-2 py-2 animate-pulse space-y-3">
+      <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+      <div className="h-40 bg-gray-200 rounded"></div>
+      <div className="space-y-2">
+        <div className="h-10 bg-gray-200 rounded"></div>
+        <div className="h-10 bg-gray-200 rounded"></div>
+        <div className="h-10 bg-gray-200 rounded"></div>
+      </div>
+    </div>
+  </div>
+);
+
+// Booking Widget - Legacy slot-based booking system
 export const DynamicBookingWidget = dynamic(
   () => import('./BookingWidget'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="bg-white" style={{ minHeight: '380px' }}>
-        <div className="bg-gray-200 px-2 py-3 rounded-t">
-          <div className="h-5 bg-gray-300 rounded w-2/3"></div>
-        </div>
-        <div className="px-2 py-2 animate-pulse space-y-3">
-          <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-          <div className="h-40 bg-gray-200 rounded"></div>
-          <div className="space-y-2">
-            <div className="h-10 bg-gray-200 rounded"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-      </div>
-    ),
-  }
+  { ssr: false, loading: bookingWidgetSkeleton }
+);
+
+// Range Booking Widget - New range-based booking system (service-first flow)
+export const DynamicRangeBookingWidget = dynamic(
+  () => import('./RangeBookingWidget'),
+  { ssr: false, loading: bookingWidgetSkeleton }
 );
 
 // Create a wrapper component for MediaCarousel that accepts id prop
