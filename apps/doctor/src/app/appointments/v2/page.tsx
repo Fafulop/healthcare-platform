@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
@@ -16,6 +16,7 @@ import { DayTimelinePanel } from "../_components/DayTimelinePanel";
 import { CreateRangeModal } from "../_components/CreateRangeModal";
 import { BookPatientModal } from "../_components/BookPatientModal";
 import { BookingsSection } from "../_components/BookingsSection";
+import { ManageRangesModal } from "../_components/ManageRangesModal";
 import type { Booking } from "../_hooks/useBookings";
 import type { ClinicLocation } from "../_hooks/useSlots";
 
@@ -52,6 +53,7 @@ export default function AppointmentsV2RangePage() {
 
   // Modal state
   const [showCreateRangeModal, setShowCreateRangeModal] = useState(false);
+  const [showManageRangesModal, setShowManageRangesModal] = useState(false);
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -130,6 +132,13 @@ export default function AppointmentsV2RangePage() {
             <CalendarPlus className="w-4 h-4 flex-shrink-0" />
             <span className="hidden sm:inline">Agendar Cita</span>
             <span className="sm:hidden">Agendar</span>
+          </button>
+          <button
+            onClick={() => setShowManageRangesModal(true)}
+            className="flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <Settings2 className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Gestionar</span>
           </button>
           <button
             onClick={() => setShowCreateRangeModal(true)}
@@ -241,6 +250,14 @@ export default function AppointmentsV2RangePage() {
         doctorId={doctorId}
         clinicLocations={clinicLocations}
         defaultIntervalMinutes={30}
+        onSuccess={rangesHook.fetchRanges}
+      />
+
+      <ManageRangesModal
+        isOpen={showManageRangesModal}
+        onClose={() => setShowManageRangesModal(false)}
+        bulkDeleteRanges={rangesHook.bulkDeleteRanges}
+        blockTimeInRanges={rangesHook.blockTimeInRanges}
         onSuccess={rangesHook.fetchRanges}
       />
 
