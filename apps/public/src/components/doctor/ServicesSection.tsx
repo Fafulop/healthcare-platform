@@ -12,6 +12,39 @@ function formatPrice(value: number): string {
   return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function FormattedDescription({ text, className }: { text: string; className?: string }) {
+  const lines = text.split('\n');
+  const blocks: React.ReactNode[] = [];
+  let listItems: string[] = [];
+  let key = 0;
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      blocks.push(
+        <ul key={key++} className="list-disc pl-5 space-y-1">
+          {listItems.map((item, i) => <li key={i}>{item}</li>)}
+        </ul>
+      );
+      listItems = [];
+    }
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+      listItems.push(trimmed.slice(2));
+    } else {
+      flushList();
+      if (line.trim()) {
+        blocks.push(<p key={key++}>{line}</p>);
+      }
+    }
+  }
+  flushList();
+
+  return <div className={className}>{blocks}</div>;
+}
+
 interface ServicesSectionProps {
   services: Service[];
   specialty?: string;
@@ -62,9 +95,14 @@ export default function ServicesSection({ services, specialty, id }: ServicesSec
                 </h3>
 
                 {/* Description: truncated on mobile, full on desktop */}
-                <p className="text-[var(--color-neutral-medium)] mb-3 text-[var(--font-size-body)] whitespace-pre-line line-clamp-2 md:line-clamp-none flex-1">
+                {/* On mobile: show truncated plain text; on desktop: show formatted */}
+                <p className="text-[var(--color-neutral-medium)] mb-3 text-[var(--font-size-body)] whitespace-pre-line line-clamp-2 md:hidden">
                   {service.short_description}
                 </p>
+                <FormattedDescription
+                  text={service.short_description}
+                  className="text-[var(--color-neutral-medium)] mb-3 text-[var(--font-size-body)] hidden md:block flex-1 space-y-1"
+                />
 
                 {/* Mobile: "Ver más" opens modal for full details */}
                 <div className="md:hidden">
@@ -87,7 +125,7 @@ export default function ServicesSection({ services, specialty, id }: ServicesSec
                   {service.price !== undefined && (
                     <div className="flex items-center gap-2 text-lg font-bold text-[var(--color-secondary)]">
                       <DollarSign className="w-5 h-5" />
-                      <span>${formatPrice(service.price)}</span>
+                      <span>{formatPrice(service.price)}</span>
                     </div>
                   )}
                 </div>
@@ -126,9 +164,10 @@ export default function ServicesSection({ services, specialty, id }: ServicesSec
               {/* Description */}
               <div>
                 <h4 className="font-semibold text-gray-700 mb-2">Descripción</h4>
-                <p className="text-gray-600 whitespace-pre-line leading-relaxed">
-                  {selectedService.short_description}
-                </p>
+                <FormattedDescription
+                  text={selectedService.short_description}
+                  className="text-gray-600 leading-relaxed space-y-1"
+                />
               </div>
 
               {/* Details */}
@@ -152,7 +191,7 @@ export default function ServicesSection({ services, specialty, id }: ServicesSec
                     <DollarSign className="w-5 h-5 text-[var(--color-secondary)]" />
                     <div>
                       <p className="text-sm text-gray-500">Precio</p>
-                      <p className="text-2xl font-bold text-[var(--color-secondary)]">${formatPrice(selectedService.price)}</p>
+                      <p className="text-2xl font-bold text-[var(--color-secondary)]">{formatPrice(selectedService.price)}</p>
                     </div>
                   </div>
                 )}
