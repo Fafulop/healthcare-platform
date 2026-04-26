@@ -7,6 +7,10 @@ import type { Service } from "@/types/doctor";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
+function formatPrice(value: number): string {
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function formatDateString(dateStr: string, locale: string, options?: Intl.DateTimeFormatOptions): string {
   try {
     const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
@@ -379,7 +383,7 @@ export default function RangeBookingWidget({
                     </p>
                     {selectedService.price != null && (
                       <p className="text-gray-900">
-                        <strong>Precio:</strong> ${selectedService.price}
+                        <strong>Precio:</strong> ${formatPrice(selectedService.price!)}
                       </p>
                     )}
                   </>
@@ -454,7 +458,7 @@ export default function RangeBookingWidget({
               )}
               {selectedService?.price != null && (
                 <p className="text-xl font-bold text-[var(--color-secondary)] mt-2">
-                  ${selectedService.price}
+                  ${formatPrice(selectedService.price!)}
                 </p>
               )}
             </div>
@@ -746,7 +750,7 @@ export default function RangeBookingWidget({
                           {svc.price !== undefined && (
                             <span className="text-[10px] font-medium text-[var(--color-secondary)] flex items-center gap-0.5">
                               <DollarSign className="w-2.5 h-2.5" />
-                              {svc.price}
+                              {formatPrice(svc.price!)}
                             </span>
                           )}
                         </div>

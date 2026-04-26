@@ -87,7 +87,7 @@ export default function RootLayout({
 
         {/* <CookieBanner /> — disabled, re-enable by importing CookieBanner from "@/components/CookieBanner" */}
 
-        <footer style={{ borderTop: '1px solid #e5e7eb', padding: '1rem 1.5rem', textAlign: 'center' }}>
+        <footer style={{ borderTop: '1px solid #e5e7eb', padding: '0.5rem 1.5rem', textAlign: 'center' }}>
           <p style={{ fontSize: '0.75rem', color: '#9ca3af', margin: 0 }}>
             © {new Date().getFullYear()} tusalud.pro &nbsp;·&nbsp;{" "}
             <Link href="/privacidad" style={{ color: '#6b7280', textDecoration: 'underline' }}>Aviso de Privacidad</Link>

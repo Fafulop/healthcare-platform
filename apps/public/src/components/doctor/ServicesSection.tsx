@@ -8,6 +8,10 @@ import BlobDecoration from '../ui/BlobDecoration';
 import type { Service } from '@/types/doctor';
 import { toTitleCase } from '@/lib/text';
 
+function formatPrice(value: number): string {
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 interface ServicesSectionProps {
   services: Service[];
   specialty?: string;
@@ -49,7 +53,7 @@ export default function ServicesSection({ services, specialty, id }: ServicesSec
                 key={index}
                 shadow="light"
                 padding="lg"
-                className="border-t-4 border-t-[var(--color-accent)] border border-black hover:shadow-[var(--shadow-medium)] transition-shadow md:cursor-default cursor-pointer"
+                className="border-t-4 border-t-[var(--color-accent)] border border-black hover:shadow-[var(--shadow-medium)] transition-shadow md:cursor-default cursor-pointer flex flex-col"
                 onClick={() => openModal(service)}
               >
                 {/* H3 - Service name */}
@@ -58,7 +62,7 @@ export default function ServicesSection({ services, specialty, id }: ServicesSec
                 </h3>
 
                 {/* Description: truncated on mobile, full on desktop */}
-                <p className="text-[var(--color-neutral-medium)] mb-3 text-[var(--font-size-body)] whitespace-pre-line line-clamp-2 md:line-clamp-none">
+                <p className="text-[var(--color-neutral-medium)] mb-3 text-[var(--font-size-body)] whitespace-pre-line line-clamp-2 md:line-clamp-none flex-1">
                   {service.short_description}
                 </p>
 
@@ -70,7 +74,7 @@ export default function ServicesSection({ services, specialty, id }: ServicesSec
                 </div>
 
                 {/* Service Details */}
-                <div className="space-y-2">
+                <div className="space-y-2 mt-auto">
                   {/* Duration - Desktop only */}
                   {!!service.duration_minutes && (
                   <div className="hidden md:flex items-center gap-2 text-sm text-[var(--color-neutral-medium)]">
@@ -83,7 +87,7 @@ export default function ServicesSection({ services, specialty, id }: ServicesSec
                   {service.price !== undefined && (
                     <div className="flex items-center gap-2 text-lg font-bold text-[var(--color-secondary)]">
                       <DollarSign className="w-5 h-5" />
-                      <span>{service.price}</span>
+                      <span>${formatPrice(service.price)}</span>
                     </div>
                   )}
                 </div>
@@ -148,7 +152,7 @@ export default function ServicesSection({ services, specialty, id }: ServicesSec
                     <DollarSign className="w-5 h-5 text-[var(--color-secondary)]" />
                     <div>
                       <p className="text-sm text-gray-500">Precio</p>
-                      <p className="text-2xl font-bold text-[var(--color-secondary)]">{selectedService.price}</p>
+                      <p className="text-2xl font-bold text-[var(--color-secondary)]">${formatPrice(selectedService.price)}</p>
                     </div>
                   </div>
                 )}

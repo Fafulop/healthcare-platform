@@ -1,5 +1,17 @@
 "use client";
 
+import { useState } from "react";
+
+function formatMoney(value: number): string {
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseMoney(raw: string): number {
+  const cleaned = raw.replace(/[^0-9.]/g, "");
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : Math.max(0, num);
+}
+
 interface ServicesSectionProps {
   formData: any;
   setFormData: React.Dispatch<React.SetStateAction<any>>;
@@ -33,6 +45,23 @@ export default function ServicesSection({ formData, setFormData }: ServicesSecti
   };
 
   const activeCount = formData.services_list.filter((s: any) => s.is_booking_active).length;
+
+  const PriceInput = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
+    const [editing, setEditing] = useState(false);
+    const [raw, setRaw] = useState("");
+
+    return (
+      <input
+        type="text"
+        inputMode="decimal"
+        value={editing ? raw : formatMoney(value)}
+        onFocus={() => { setEditing(true); setRaw(value ? String(value) : ""); }}
+        onChange={(e) => setRaw(e.target.value)}
+        onBlur={() => { setEditing(false); onChange(parseMoney(raw)); }}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+      />
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -112,13 +141,9 @@ export default function ServicesSection({ formData, setFormData }: ServicesSecti
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Precio (MXN)
                   </label>
-                  <input
-                    type="number"
+                  <PriceInput
                     value={service.price}
-                    onChange={(e) => updateService(index, "price", parseFloat(e.target.value) || 0)}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    onChange={(v) => updateService(index, "price", v)}
                   />
                 </div>
               </div>

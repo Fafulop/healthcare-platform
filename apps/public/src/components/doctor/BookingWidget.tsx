@@ -8,6 +8,10 @@ import type { Service } from "@/types/doctor";
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
+function formatPrice(value: number): string {
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 // Helper to format a date string without timezone shift
 function formatDateString(dateStr: string, locale: string, options?: Intl.DateTimeFormatOptions): string {
   try {
@@ -360,7 +364,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                     </p>
                     {activeServices.find(s => s.id === selectedServiceId)!.price != null && (
                       <p className="text-gray-900">
-                        <strong>Precio:</strong> ${activeServices.find(s => s.id === selectedServiceId)!.price}
+                        <strong>Precio:</strong> ${formatPrice(activeServices.find(s => s.id === selectedServiceId)!.price!)}
                       </p>
                     )}
                   </>
@@ -436,7 +440,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
             )}
             {selectedServiceId && activeServices.find(s => s.id === selectedServiceId)?.price != null && (
               <p className="text-xl font-bold text-[var(--color-secondary)] mt-2">
-                ${activeServices.find(s => s.id === selectedServiceId)!.price}
+                ${formatPrice(activeServices.find(s => s.id === selectedServiceId)!.price!)}
               </p>
             )}
           </div>
@@ -483,7 +487,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
                       {service.price !== undefined && (
                         <span className="text-xs font-medium text-[var(--color-secondary)] flex items-center gap-1">
                           <DollarSign className="w-3 h-3" />
-                          {service.price}
+                          {formatPrice(service.price!)}
                         </span>
                       )}
                     </div>
