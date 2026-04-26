@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCircle, Loader2, ChevronLeft, ChevronRight, Stethoscope, MapPin } from "lucide-react";
+import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCircle, Loader2, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { trackSlotSelected, trackBookingComplete } from "@/lib/analytics";
 import type { Service } from "@/types/doctor";
 
@@ -86,7 +86,11 @@ export default function RangeBookingWidget({
 
   // Visit context
   const [isFirstTime, setIsFirstTime] = useState<boolean | null>(true);
-  const [appointmentMode, setAppointmentMode] = useState<"PRESENCIAL" | "TELEMEDICINA" | null>("PRESENCIAL");
+  const [appointmentMode, setAppointmentMode] = useState<"PRESENCIAL" | "TELEMEDICINA" | null>(() => {
+    if (appointmentModes.includes("in_person")) return "PRESENCIAL";
+    if (appointmentModes.includes("teleconsult")) return "TELEMEDICINA";
+    return null;
+  });
 
   // Field settings
   const [fieldSettings, setFieldSettings] = useState({
@@ -238,6 +242,7 @@ export default function RangeBookingWidget({
   const selectedDateSlots = selectedDate ? timeSlots[selectedDate] || [] : [];
 
   const handleServiceSelect = (serviceId: string) => {
+    if (serviceId === selectedServiceId) return;
     setSelectedServiceId(serviceId);
     setSelectedTime(null);
     setTimeSlots({});
@@ -248,6 +253,7 @@ export default function RangeBookingWidget({
       onDayClick(dateStr);
       return;
     }
+    if (dateStr === selectedDate) return;
     setSelectedDate(dateStr);
     setSelectedTime(null);
     setTimeSlots({});
@@ -259,6 +265,7 @@ export default function RangeBookingWidget({
     }
     setSelectedTime(time);
     setBookingStep("form");
+    setBookingError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -334,7 +341,7 @@ export default function RangeBookingWidget({
     setConfirmationCode("");
     setIsFirstTime(true);
     setPrivacyConsent(false);
-    setAppointmentMode("PRESENCIAL");
+    setAppointmentMode(appointmentModes.includes("in_person") ? "PRESENCIAL" : appointmentModes.includes("teleconsult") ? "TELEMEDICINA" : null);
     setBookingError(null);
   };
 

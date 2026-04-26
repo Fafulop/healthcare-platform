@@ -70,7 +70,11 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
   // Visit context
   const [isFirstTime, setIsFirstTime] = useState<boolean | null>(true);
-  const [appointmentMode, setAppointmentMode] = useState<'PRESENCIAL' | 'TELEMEDICINA' | null>('PRESENCIAL');
+  const [appointmentMode, setAppointmentMode] = useState<'PRESENCIAL' | 'TELEMEDICINA' | null>(() => {
+    if (appointmentModes.includes('in_person')) return 'PRESENCIAL';
+    if (appointmentModes.includes('teleconsult')) return 'TELEMEDICINA';
+    return null;
+  });
 
   // Form data
   const [formData, setFormData] = useState({
@@ -192,6 +196,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     setFreshServices(null);
     setLoadingServices(true);
     setBookingStep("form");
+    setBookingError(null);
     // Re-fetch services to avoid stale data from ISR page cache
     fetch(`${API_URL}/api/doctors/${doctorSlug}/services`)
       .then((r) => r.json())
@@ -237,7 +242,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
 
       if (data.success) {
         trackBookingComplete(doctorSlug, selectedSlot.date, selectedSlot.finalPrice, googleAdsId);
-        setConfirmationCode(data.data.confirmationCode);
+        setConfirmationCode(data.data?.confirmationCode || "");
         setBookingStep("success");
         // Reset form
         setFormData({
@@ -266,7 +271,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
     setSelectedServiceId(null);
     setIsFirstTime(true);
     setPrivacyConsent(false);
-    setAppointmentMode('PRESENCIAL');
+    setAppointmentMode(appointmentModes.includes('in_person') ? 'PRESENCIAL' : appointmentModes.includes('teleconsult') ? 'TELEMEDICINA' : null);
     fetchAvailability(); // Refresh availability
   };
 
