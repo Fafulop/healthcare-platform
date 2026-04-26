@@ -98,7 +98,7 @@ export async function POST(
       include: {
         bookings: {
           where: { status: { in: ["PENDING", "CONFIRMED"] } },
-          select: { patientName: true, status: true },
+          select: { patientName: true, patientPhone: true, patientEmail: true, notes: true, status: true },
           take: 1,
         },
       },
@@ -122,6 +122,9 @@ export async function POST(
             isOpen: slot.isOpen,
             patientName: booking.patientName,
             bookingStatus: booking.status as "PENDING" | "CONFIRMED",
+            patientPhone: booking.patientPhone,
+            patientEmail: booking.patientEmail,
+            patientNotes: booking.notes ?? undefined,
             finalPrice: Number(slot.finalPrice),
           }
         );

@@ -285,6 +285,7 @@ export async function POST(request: Request) {
           patientName,
           bookingStatus: 'CONFIRMED',
           patientPhone,
+          patientEmail,
           patientNotes: notes ?? undefined,
           finalPrice,
         }

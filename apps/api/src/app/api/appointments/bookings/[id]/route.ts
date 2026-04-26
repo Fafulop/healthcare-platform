@@ -148,7 +148,10 @@ export async function PATCH(
       const auth = await validateAuthToken(request);
       const { role: callerRole, doctorId: callerDoctorId } = auth;
 
-      const booking = await prisma.booking.findUnique({ where: { id } });
+      const booking = await prisma.booking.findUnique({
+        where: { id },
+        include: { slot: true },
+      });
       if (!booking) {
         return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
       }
@@ -173,6 +176,42 @@ export async function PATCH(
         where: { id },
         data: { extendedBlockMinutes: value },
       });
+
+      // GCal sync — update event end time to reflect the new block duration
+      const gcalEventId = booking.slot?.googleEventId ?? booking.googleEventId;
+      if (gcalEventId) {
+        const startTime = booking.slot?.startTime ?? booking.startTime ?? '';
+        const slotEndTime = booking.slot?.endTime ?? booking.endTime ?? '';
+        const dateStr = booking.slot
+          ? booking.slot.date.toISOString().split('T')[0]
+          : booking.date?.toISOString().split('T')[0] ?? '';
+
+        // Compute effective end time: startTime + extendedBlockMinutes, or revert to slot endTime
+        let effectiveEndTime = slotEndTime;
+        if (value !== null && startTime) {
+          const [h, m] = startTime.split(':').map(Number);
+          const totalMins = h * 60 + m + value;
+          effectiveEndTime = `${String(Math.floor(totalMins / 60)).padStart(2, '0')}:${String(totalMins % 60).padStart(2, '0')}`;
+        }
+
+        getCalendarTokens(booking.doctorId).then(tokens => {
+          if (!tokens) return;
+          updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, gcalEventId, {
+            id: booking.slot?.id ?? booking.id,
+            date: dateStr,
+            startTime,
+            endTime: effectiveEndTime,
+            isOpen: booking.slot?.isOpen ?? false,
+            patientName: booking.patientName,
+            bookingStatus: booking.status as 'PENDING' | 'CONFIRMED',
+            patientPhone: booking.patientPhone,
+            patientEmail: booking.patientEmail,
+            patientNotes: booking.notes ?? undefined,
+            finalPrice: booking.slot ? booking.slot.finalPrice.toNumber() : Number(booking.finalPrice),
+          }).catch((err) => console.error('[GCal sync] updateSlotEvent (extendedBlock):', err));
+        }).catch((err) => console.error('[GCal sync] getCalendarTokens (extendedBlock):', err));
+      }
+
       return NextResponse.json({ success: true, data: updated });
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -396,6 +435,13 @@ export async function PATCH(
       const gcalEventId = currentBooking.slot?.googleEventId ?? currentBooking.googleEventId;
 
       if (newStatus === 'CANCELLED' && gcalEventId) {
+        // Clear stale googleEventId from the public slot so a future booking creates a fresh event
+        if (currentBooking.slotId && currentBooking.slot?.isPublic !== false) {
+          prisma.appointmentSlot.update({
+            where: { id: currentBooking.slotId },
+            data: { googleEventId: null },
+          }).catch((err) => console.error('[GCal sync] clear stale googleEventId (booking CANCELLED):', err));
+        }
         getCalendarTokens(currentBooking.doctorId).then(tokens => {
           if (!tokens) return;
           deleteEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, gcalEventId)
@@ -416,6 +462,7 @@ export async function PATCH(
             patientName: currentBooking.patientName,
             bookingStatus: newStatus as 'COMPLETED' | 'NO_SHOW',
             patientPhone: currentBooking.patientPhone,
+            patientEmail: currentBooking.patientEmail,
             patientNotes: currentBooking.notes ?? undefined,
             finalPrice: slot ? slot.finalPrice.toNumber() : Number(currentBooking.finalPrice),
           }).catch((err) => console.error('[GCal sync] updateSlotEvent (booking COMPLETED/NO_SHOW):', err));
@@ -539,6 +586,7 @@ export async function PATCH(
         patientName: newStatus === 'CONFIRMED' ? updatedBooking.patientName : undefined,
         bookingStatus: newStatus as 'CONFIRMED' | 'PENDING',
         patientPhone: newStatus === 'CONFIRMED' ? updatedBooking.patientPhone : undefined,
+        patientEmail: newStatus === 'CONFIRMED' ? updatedBooking.patientEmail : undefined,
         patientNotes: newStatus === 'CONFIRMED' ? (updatedBooking.notes ?? undefined) : undefined,
         conflictNote,
         finalPrice: slot.finalPrice.toNumber(),
