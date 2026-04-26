@@ -504,10 +504,70 @@ export async function PATCH(
       },
     });
 
-    // Freeform bookings (slotId=null) are always created as CONFIRMED — they can never be PENDING.
-    // If somehow slot is null here, skip the slot-dependent SMS/GCal work and return early.
+    // Freeform bookings (slotId=null): skip slot-dependent work but still send email, SMS, log, GCal.
+    // Range-based public bookings are created as PENDING and confirmed here by the doctor.
     const slot = updatedBooking.slot;
     if (!slot) {
+      const freeformDateStr = currentBooking.date?.toISOString().split('T')[0] ?? '';
+      const freeformStartTime = currentBooking.startTime ?? '';
+
+      if (newStatus === 'CONFIRMED') {
+        // Activity log
+        logBookingConfirmed({
+          doctorId: currentBooking.doctorId,
+          bookingId: currentBooking.id,
+          patientName: currentBooking.patientName,
+          date: freeformDateStr,
+          time: freeformStartTime,
+          confirmationCode: updatedBooking.confirmationCode ?? undefined,
+        });
+
+        // SMS notification
+        isSMSEnabled().then(smsEnabled => {
+          if (!smsEnabled) return;
+          sendPatientSMS({
+            patientName: updatedBooking.patientName,
+            patientPhone: updatedBooking.patientPhone,
+            doctorName: updatedBooking.doctor.doctorFullName,
+            doctorPhone: updatedBooking.doctor.clinicPhone || undefined,
+            date: currentBooking.date?.toISOString() ?? '',
+            startTime: freeformStartTime,
+            endTime: currentBooking.endTime ?? '',
+            duration: currentBooking.duration ?? 60,
+            finalPrice: Number(updatedBooking.finalPrice),
+            confirmationCode: updatedBooking.confirmationCode ?? '',
+            clinicAddress: updatedBooking.doctor.clinicAddress || undefined,
+            specialty: updatedBooking.doctor.primarySpecialty || undefined,
+            reviewToken: updatedBooking.reviewToken || undefined,
+          }, 'CONFIRMED').catch(err => console.error('SMS confirmation (freeform CONFIRMED):', err));
+        }).catch(() => {});
+
+        // GCal sync (googleEventId lives on the booking itself)
+        if (currentBooking.googleEventId) {
+          getCalendarTokens(currentBooking.doctorId).then(tokens => {
+            if (!tokens) return;
+            updateSlotEvent(tokens.accessToken, tokens.refreshToken, tokens.calendarId, currentBooking.googleEventId!, {
+              id: currentBooking.id,
+              date: freeformDateStr,
+              startTime: freeformStartTime,
+              endTime: currentBooking.endTime ?? '',
+              isOpen: false,
+              patientName: updatedBooking.patientName,
+              bookingStatus: 'CONFIRMED',
+              patientPhone: updatedBooking.patientPhone,
+              patientEmail: updatedBooking.patientEmail,
+              patientNotes: updatedBooking.notes ?? undefined,
+              finalPrice: Number(updatedBooking.finalPrice),
+            }).catch(err => console.error('[GCal sync] updateSlotEvent (freeform CONFIRMED):', err));
+          }).catch(err => console.error('[GCal sync] getCalendarTokens (freeform CONFIRMED):', err));
+        }
+
+        // Confirmation email
+        sendBookingConfirmationEmail(updatedBooking.id).catch(err =>
+          console.error('[Email] auto-send confirmation (freeform CONFIRMED):', err)
+        );
+      }
+
       return NextResponse.json({ success: true, data: updatedBooking, message: 'Booking status updated' });
     }
 
