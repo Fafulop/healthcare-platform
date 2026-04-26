@@ -97,6 +97,7 @@ export default function RangeBookingWidget({
 
   // Deferred loading (IntersectionObserver on mobile)
   const containerRef = useRef<HTMLDivElement>(null);
+  const timeSlotsRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -191,6 +192,18 @@ export default function RangeBookingWidget({
     };
     fetchTimeSlots();
   }, [isVisible, selectedDate, selectedServiceId, doctorSlug]);
+
+  // Auto-scroll to time slots when they finish loading (so patient sees them without scrolling)
+  const prevLoadingTimeSlots = useRef(false);
+  useEffect(() => {
+    // Only scroll when loading transitions from true → false (slots just appeared)
+    if (prevLoadingTimeSlots.current && !loadingTimeSlots) {
+      setTimeout(() => {
+        timeSlotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    }
+    prevLoadingTimeSlots.current = loadingTimeSlots;
+  }, [loadingTimeSlots]);
 
   // Navigate to initial date's month and pre-select it
   useEffect(() => {
@@ -739,7 +752,7 @@ export default function RangeBookingWidget({
 
             {/* Step 3: Time selection (after date + service selected) */}
             {selectedDate && selectedServiceId && !onDayClick && (
-              <div className="border-t pt-1.5 mt-1.5">
+              <div ref={timeSlotsRef} className="border-t pt-1.5 mt-1.5">
                 <p className="text-[10px] text-gray-600 font-medium uppercase tracking-wide mb-0.5">
                   3. Selecciona hora
                 </p>
