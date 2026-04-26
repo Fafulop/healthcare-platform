@@ -7,27 +7,27 @@ import { Loader2, Plus, CalendarPlus, Sparkles, Star, Ban, Clock, CalendarCheck,
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
-import { useCalendar } from "./_hooks/useCalendar";
-import { useSlots } from "./_hooks/useSlots";
-import { useBookings } from "./_hooks/useBookings";
-import { AppointmentsCalendar } from "./_components/AppointmentsCalendar";
-import { DaySlotPanel } from "./_components/DaySlotPanel";
-import { SlotListView } from "./_components/SlotListView";
-import { BookingsSection } from "./_components/BookingsSection";
-import { CreateSlotsModal } from "./_components/CreateSlotsModal";
-import { BookPatientModal } from "./_components/BookPatientModal";
-import { AppointmentChatPanel } from "./_components/AppointmentChatPanel";
-import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
-import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
-import { StandaloneFormularioModal } from "./_components/StandaloneFormularioModal";
-import { BlockRangeModal } from "./_components/BlockRangeModal";
-import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsModal";
-import { PurgeSlotsModal } from "./_components/PurgeSlotsModal";
-import { SlotFiltersBar, type SlotStatusFilter } from "./_components/SlotFiltersBar";
-import type { AppointmentSlot } from "./_hooks/useSlots";
-import type { Booking } from "./_hooks/useBookings";
+import { useCalendar } from "../_hooks/useCalendar";
+import { useSlots } from "../_hooks/useSlots";
+import { useBookings } from "../_hooks/useBookings";
+import { AppointmentsCalendar } from "../_components/AppointmentsCalendar";
+import { DaySlotPanel } from "../_components/DaySlotPanel";
+import { SlotListView } from "../_components/SlotListView";
+import { BookingsSection } from "../_components/BookingsSection";
+import { CreateSlotsModal } from "../_components/CreateSlotsModal";
+import { BookPatientModal } from "../_components/BookPatientModal";
+import { AppointmentChatPanel } from "../_components/AppointmentChatPanel";
+import { GenerateReviewLinkModal } from "../_components/GenerateReviewLinkModal";
+import { PreAppointmentFormModal } from "../_components/PreAppointmentFormModal";
+import { StandaloneFormularioModal } from "../_components/StandaloneFormularioModal";
+import { BlockRangeModal } from "../_components/BlockRangeModal";
+import { BookingFieldSettingsModal } from "../_components/BookingFieldSettingsModal";
+import { PurgeSlotsModal } from "../_components/PurgeSlotsModal";
+import { SlotFiltersBar, type SlotStatusFilter } from "../_components/SlotFiltersBar";
+import type { AppointmentSlot } from "../_hooks/useSlots";
+import type { Booking } from "../_hooks/useBookings";
 
-export default function AppointmentsV2Page() {
+export default function AppointmentsV1Page() {
   const { data: session, status: authStatus } = useSession({
     required: true,
     onUnauthenticated() {
