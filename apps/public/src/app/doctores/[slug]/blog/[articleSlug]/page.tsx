@@ -96,7 +96,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
       <BlogViewTracker doctorSlug={slug} articleSlug={articleSlug} articleTitle={article.title} />
 
-      <BlogLayoutClient doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} clinicLocations={doctor.clinic_locations}>
+      <BlogLayoutClient doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} clinicLocations={doctor.clinic_locations} hasRanges={doctor.hasRanges} services={doctor.services_list} appointmentModes={doctor.appointment_modes} googleAdsId={doctor.google_ads_id}>
       <div className="max-w-3xl mx-auto px-4 py-6">
             {/* Breadcrumbs */}
             <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">

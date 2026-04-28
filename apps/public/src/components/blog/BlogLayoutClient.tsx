@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { DynamicBookingWidget } from "@/components/doctor/DynamicSections";
+import { DynamicBookingWidget, DynamicRangeBookingWidget } from "@/components/doctor/DynamicSections";
 import SidebarContactInfo from "@/components/doctor/SidebarContactInfo";
 import SidebarCTA from "@/components/doctor/SidebarCTA";
 import StickyMobileCTA from "@/components/doctor/StickyMobileCTA";
 import BookingModal from "@/components/doctor/BookingModal";
 import BlobDecoration from "@/components/ui/BlobDecoration";
-import type { ClinicLocationItem } from "@/types/doctor";
+import type { ClinicLocationItem, Service } from "@/types/doctor";
 
 interface BlogLayoutClientProps {
   doctorSlug: string;
@@ -22,10 +22,14 @@ interface BlogLayoutClientProps {
     };
   };
   clinicLocations?: ClinicLocationItem[];
+  hasRanges?: boolean;
+  services?: Service[];
+  appointmentModes?: ('in_person' | 'teleconsult')[];
+  googleAdsId?: string;
   children: React.ReactNode;
 }
 
-export default function BlogLayoutClient({ doctorSlug, clinicInfo, clinicLocations, children }: BlogLayoutClientProps) {
+export default function BlogLayoutClient({ doctorSlug, clinicInfo, clinicLocations, hasRanges = false, services = [], appointmentModes = ['in_person', 'teleconsult'], googleAdsId, children }: BlogLayoutClientProps) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -62,7 +66,11 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, clinicLocatio
             <div className="flex flex-col h-screen bg-white">
               {/* Appointment Booking Widget */}
               <div className="flex-shrink-0">
-                <DynamicBookingWidget doctorSlug={doctorSlug} onDayClick={openBookingModal} />
+                {hasRanges ? (
+                  <DynamicRangeBookingWidget doctorSlug={doctorSlug} onDayClick={openBookingModal} googleAdsId={googleAdsId} services={services} appointmentModes={appointmentModes} />
+                ) : (
+                  <DynamicBookingWidget doctorSlug={doctorSlug} onDayClick={openBookingModal} googleAdsId={googleAdsId} services={services} appointmentModes={appointmentModes} />
+                )}
               </div>
 
               {/* CTA Buttons */}
@@ -71,6 +79,7 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, clinicLocatio
                   doctorSlug={doctorSlug}
                   onBookingClick={openBookingModal}
                   whatsappNumber={clinicInfo.whatsapp}
+                  googleAdsId={googleAdsId}
                 />
               </div>
 
@@ -88,6 +97,7 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, clinicLocatio
         doctorSlug={doctorSlug}
         whatsappNumber={clinicInfo.whatsapp}
         onBookingClick={openBookingModal}
+        googleAdsId={googleAdsId}
       />
 
       {/* Booking Modal */}
@@ -96,6 +106,10 @@ export default function BlogLayoutClient({ doctorSlug, clinicInfo, clinicLocatio
         onClose={closeBookingModal}
         doctorSlug={doctorSlug}
         initialDate={selectedDate}
+        googleAdsId={googleAdsId}
+        services={services}
+        appointmentModes={appointmentModes}
+        hasRanges={hasRanges}
       />
     </>
   );

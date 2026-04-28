@@ -71,7 +71,7 @@ export default async function BlogListingPage({ params }: BlogListingPageProps) 
 
   return (
     <ColorPaletteProvider paletteId={doctor.color_palette}>
-      <BlogLayoutClient doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} clinicLocations={doctor.clinic_locations}>
+      <BlogLayoutClient doctorSlug={doctor.slug} clinicInfo={doctor.clinic_info} clinicLocations={doctor.clinic_locations} hasRanges={doctor.hasRanges} services={doctor.services_list} appointmentModes={doctor.appointment_modes} googleAdsId={doctor.google_ads_id}>
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Back to Profile */}
         <Link
