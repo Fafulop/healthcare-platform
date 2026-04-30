@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Activity, Image as ImageIcon, Video, Mic, Pill, ChevronDown, ChevronUp, ExternalLink, Loader2, NotebookPen, ClipboardList } from 'lucide-react';
+import { FileText, Activity, Image as ImageIcon, Video, Mic, Pill, ChevronDown, ChevronUp, ExternalLink, Loader2, NotebookPen, ClipboardList, Paperclip, FileAudio, File } from 'lucide-react';
 import Link from 'next/link';
 
 interface TimelineEncounter {
@@ -27,6 +27,18 @@ interface TimelineEncounter {
   followUpNotes?: string;
   templateId?: string | null;
   customData?: Record<string, any> | null;
+  media?: EncounterLinkedMedia[];
+}
+
+interface EncounterLinkedMedia {
+  id: string;
+  mediaType: 'image' | 'video' | 'audio' | 'document';
+  fileName: string;
+  fileUrl: string;
+  thumbnailUrl?: string | null;
+  category?: string | null;
+  captureDate: string;
+  description?: string | null;
 }
 
 interface CustomTemplateField {
@@ -107,6 +119,21 @@ interface TimelineViewProps {
 }
 
 export function TimelineView({ timeline, patientId }: TimelineViewProps) {
+  // Collect IDs of media linked to encounters so they don't appear as standalone entries
+  const linkedMediaIds = new Set<string>();
+  timeline.forEach(item => {
+    if (item.type === 'encounter') {
+      const enc = item.data as TimelineEncounter;
+      enc.media?.forEach(m => linkedMediaIds.add(m.id));
+    }
+  });
+  const filteredTimeline = timeline.filter(item => {
+    if (item.type === 'media') {
+      return !linkedMediaIds.has((item.data as TimelineMedia).id);
+    }
+    return true;
+  });
+
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [fullPrescriptions, setFullPrescriptions] = useState<Record<string, FullPrescriptionData>>({});
   const [loadingPrescriptions, setLoadingPrescriptions] = useState<Set<string>>(new Set());
@@ -193,7 +220,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
   const rxStatusLabel = (s: string) =>
     ({ draft: 'Borrador', issued: 'Emitida', cancelled: 'Cancelada', expired: 'Expirada' }[s] ?? s);
 
-  if (timeline.length === 0) {
+  if (filteredTimeline.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-lg shadow">
         <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -205,8 +232,8 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
 
   return (
     <div className="space-y-8">
-      {timeline.map((item, index) => {
-        const isLast = index === timeline.length - 1;
+      {filteredTimeline.map((item, index) => {
+        const isLast = index === filteredTimeline.length - 1;
 
         // ── ENCOUNTER ────────────────────────────────────────────────────
         if (item.type === 'encounter') {
@@ -237,6 +264,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
           if (hasVitals) chips.push('Signos Vitales');
           if (hasCustomData) chips.push('Plantilla personalizada');
           if (enc.followUpDate || enc.followUpNotes) chips.push('Seguimiento');
+          if (enc.media && enc.media.length > 0) chips.push(`${enc.media.length} archivo${enc.media.length !== 1 ? 's' : ''}`);
 
           return (
             <div key={enc.id} className="relative">
@@ -431,6 +459,55 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                           {enc.followUpNotes && (
                             <p className="text-sm text-gray-700 whitespace-pre-wrap">{enc.followUpNotes}</p>
                           )}
+                        </div>
+                      )}
+
+                      {/* Linked media/attachments */}
+                      {enc.media && enc.media.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Paperclip className="w-4 h-4 text-purple-600" />
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                              Archivos Adjuntos ({enc.media.length})
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {enc.media.map(file => {
+                              const isImage = file.mediaType === 'image';
+                              const MediaFileIcon = isImage ? ImageIcon : file.mediaType === 'video' ? Video : file.mediaType === 'audio' ? FileAudio : File;
+                              return (
+                                <a
+                                  key={file.id}
+                                  href={file.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  className="group flex items-center gap-2.5 p-2 rounded-md border border-gray-200 hover:border-purple-300 hover:bg-purple-50/50 transition-colors"
+                                >
+                                  {isImage ? (
+                                    <img
+                                      src={file.thumbnailUrl || file.fileUrl}
+                                      alt={file.fileName}
+                                      className="w-9 h-9 rounded object-cover flex-shrink-0 bg-gray-100"
+                                    />
+                                  ) : (
+                                    <div className="w-9 h-9 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                      <MediaFileIcon className="w-4 h-4 text-gray-500" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-medium text-gray-900 truncate group-hover:text-purple-700">
+                                      {file.description || file.fileName}
+                                    </p>
+                                    <p className="text-[11px] text-gray-400">
+                                      {{ image: 'Imagen', video: 'Video', audio: 'Audio', document: 'Documento' }[file.mediaType]}
+                                      {file.category && ` · ${file.category}`}
+                                    </p>
+                                  </div>
+                                </a>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
 

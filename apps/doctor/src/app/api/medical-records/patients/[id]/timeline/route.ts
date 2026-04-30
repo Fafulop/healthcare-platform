@@ -56,6 +56,19 @@ export async function GET(
           updatedAt: true,
           completedAt: true,
           amendedAt: true,
+          media: {
+            select: {
+              id: true,
+              mediaType: true,
+              fileName: true,
+              fileUrl: true,
+              thumbnailUrl: true,
+              category: true,
+              captureDate: true,
+              description: true,
+            },
+            orderBy: { captureDate: 'desc' },
+          },
         }
       }),
       prisma.patientMedia.findMany({
