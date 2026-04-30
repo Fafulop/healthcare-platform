@@ -12,7 +12,7 @@ import { toast } from '@/lib/practice-toast';
 
 interface Media {
   id: string;
-  mediaType: 'image' | 'video' | 'audio';
+  mediaType: 'image' | 'video' | 'audio' | 'document';
   fileName: string;
   fileUrl: string;
   thumbnailUrl?: string | null;

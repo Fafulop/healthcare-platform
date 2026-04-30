@@ -6,7 +6,7 @@ import { MediaCard } from './MediaCard';
 
 interface MediaItem {
   id: string;
-  mediaType: 'image' | 'video' | 'audio';
+  mediaType: 'image' | 'video' | 'audio' | 'document';
   fileName: string;
   fileUrl: string;
   thumbnailUrl?: string | null;
@@ -25,7 +25,7 @@ interface MediaGalleryProps {
 }
 
 export function MediaGallery({ media, patientId, onMediaClick, showFilters = true }: MediaGalleryProps) {
-  const [filterType, setFilterType] = useState<'all' | 'image' | 'video' | 'audio'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'image' | 'video' | 'audio' | 'document'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'type'>('date-desc');
 
@@ -79,6 +79,7 @@ export function MediaGallery({ media, patientId, onMediaClick, showFilters = tru
                 <option value="image">Images</option>
                 <option value="video">Videos</option>
                 <option value="audio">Audio</option>
+                <option value="document">Documentos</option>
               </select>
             </div>
 

@@ -26,7 +26,7 @@ export async function GET(
 
     // Parse query params for filtering
     const { searchParams } = new URL(request.url);
-    const mediaType = searchParams.get('mediaType'); // image, video, audio
+    const mediaType = searchParams.get('mediaType'); // image, video, audio, document
     const category = searchParams.get('category'); // wound, x-ray, etc.
     const encounterId = searchParams.get('encounterId');
     const startDate = searchParams.get('startDate');
@@ -124,9 +124,9 @@ export async function POST(
     }
 
     // Validate mediaType
-    if (!['image', 'video', 'audio'].includes(body.mediaType)) {
+    if (!['image', 'video', 'audio', 'document'].includes(body.mediaType)) {
       return NextResponse.json(
-        { error: 'Invalid mediaType. Must be: image, video, or audio' },
+        { error: 'Invalid mediaType. Must be: image, video, audio, or document' },
         { status: 400 }
       );
     }

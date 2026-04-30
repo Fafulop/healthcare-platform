@@ -6,7 +6,7 @@ import Link from 'next/link';
 interface MediaCardProps {
   media: {
     id: string;
-    mediaType: 'image' | 'video' | 'audio';
+    mediaType: 'image' | 'video' | 'audio' | 'document';
     fileName: string;
     fileUrl: string;
     thumbnailUrl?: string | null;
@@ -29,6 +29,7 @@ export function MediaCard({ media, patientId, onClick }: MediaCardProps) {
 
   const MediaIcon = media.mediaType === 'image' ? Image :
                     media.mediaType === 'video' ? Video :
+                    media.mediaType === 'document' ? FileText :
                     Mic;
 
   const handleClick = () => {
@@ -77,6 +78,13 @@ export function MediaCard({ media, patientId, onClick }: MediaCardProps) {
           <div className="flex flex-col items-center">
             <Mic className="w-16 h-16 text-blue-500 mb-2" />
             <p className="text-sm text-gray-600">Audio Recording</p>
+          </div>
+        )}
+
+        {media.mediaType === 'document' && (
+          <div className="flex flex-col items-center">
+            <FileText className="w-16 h-16 text-red-500 mb-2" />
+            <p className="text-sm text-gray-600 truncate max-w-[180px]">{media.fileName}</p>
           </div>
         )}
 

@@ -37,7 +37,7 @@ interface CustomTemplateField {
 
 interface TimelineMedia {
   id: string;
-  mediaType: 'image' | 'video' | 'audio';
+  mediaType: 'image' | 'video' | 'audio' | 'document';
   fileName: string;
   fileUrl: string;
   thumbnailUrl?: string | null;
@@ -649,7 +649,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
         // ── MEDIA ────────────────────────────────────────────────────────
         if (item.type === 'media') {
           const media = item.data as TimelineMedia;
-          const MediaIcon = media.mediaType === 'image' ? ImageIcon : media.mediaType === 'video' ? Video : Mic;
+          const MediaIcon = media.mediaType === 'image' ? ImageIcon : media.mediaType === 'video' ? Video : media.mediaType === 'audio' ? Mic : FileText;
 
           return (
             <div key={media.id} className="relative">
@@ -671,7 +671,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                             <span>{formatDate(media.captureDate)}</span>
                             <span>•</span>
-                            <span>{{ image: 'Imagen', video: 'Video', audio: 'Audio' }[media.mediaType] ?? media.mediaType}</span>
+                            <span>{{ image: 'Imagen', video: 'Video', audio: 'Audio', document: 'Documento' }[media.mediaType] ?? media.mediaType}</span>
                             {media.category && <><span>•</span><span className="capitalize">{media.category}</span></>}
                           </div>
                         </div>
@@ -704,6 +704,11 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                         {media.mediaType === 'audio' && (
                           <div className="w-20 h-20 sm:w-32 sm:h-32 bg-purple-50 rounded-md flex items-center justify-center">
                             <Mic className="w-10 h-10 sm:w-12 sm:h-12 text-purple-500" />
+                          </div>
+                        )}
+                        {media.mediaType === 'document' && (
+                          <div className="w-20 h-20 sm:w-32 sm:h-32 bg-red-50 rounded-md flex items-center justify-center">
+                            <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-red-500" />
                           </div>
                         )}
                       </div>

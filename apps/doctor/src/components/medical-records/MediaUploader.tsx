@@ -202,6 +202,36 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
     <div className="bg-white rounded-lg shadow-lg p-6">
       <h2 className="text-xl font-semibold mb-4">Subir Medios</h2>
 
+      {/* Media Type Selector */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Tipo de Archivo
+        </label>
+        <div className="flex gap-2">
+          {([
+            { type: 'image' as MediaType, label: 'Imagen', Icon: ImageIcon },
+            { type: 'video' as MediaType, label: 'Video', Icon: Video },
+            { type: 'audio' as MediaType, label: 'Audio', Icon: Mic },
+            { type: 'document' as MediaType, label: 'PDF', Icon: FileText },
+          ]).map(({ type, label, Icon }) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => { setMediaType(type); setSelectedFiles([]); }}
+              disabled={isUploading}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium transition-colors ${
+                mediaType === type
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              } disabled:opacity-50`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* File Selection */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">

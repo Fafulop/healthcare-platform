@@ -6,7 +6,7 @@ import { X, Edit2, Save, Trash2, Download } from 'lucide-react';
 interface MediaViewerProps {
   media: {
     id: string;
-    mediaType: 'image' | 'video' | 'audio';
+    mediaType: 'image' | 'video' | 'audio' | 'document';
     fileName: string;
     fileUrl: string;
     thumbnailUrl?: string | null;
@@ -182,6 +182,14 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
                       Your browser does not support the audio tag.
                     </audio>
                   </div>
+                )}
+
+                {media.mediaType === 'document' && (
+                  <iframe
+                    src={media.fileUrl}
+                    title={media.fileName}
+                    className="w-full h-[600px] rounded-lg"
+                  />
                 )}
               </div>
             </div>
