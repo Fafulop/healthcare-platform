@@ -29,6 +29,21 @@ export async function GET(
             dateOfBirth: true,
             sex: true,
           }
+        },
+        media: {
+          select: {
+            id: true,
+            mediaType: true,
+            fileName: true,
+            fileUrl: true,
+            fileSize: true,
+            mimeType: true,
+            thumbnailUrl: true,
+            category: true,
+            description: true,
+            captureDate: true,
+          },
+          orderBy: { captureDate: 'desc' }
         }
       }
     });

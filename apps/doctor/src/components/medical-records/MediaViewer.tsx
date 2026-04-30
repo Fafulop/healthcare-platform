@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Edit2, Save, Trash2, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Edit2, Save, Trash2, Download, Link2 } from 'lucide-react';
 
 interface MediaViewerProps {
   media: {
@@ -15,6 +15,13 @@ interface MediaViewerProps {
     captureDate: Date | string;
     description?: string | null;
     doctorNotes?: string | null;
+    encounterId?: string | null;
+    encounter?: {
+      id: string;
+      encounterDate: string;
+      encounterType: string;
+      chiefComplaint: string;
+    } | null;
   };
   patientId: string;
   onClose: () => void;
@@ -28,6 +35,9 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
   const [editedDoctorNotes, setEditedDoctorNotes] = useState(media.doctorNotes || '');
   const [editedCategory, setEditedCategory] = useState(media.category || '');
   const [editedBodyArea, setEditedBodyArea] = useState(media.bodyArea || '');
+  const [editedEncounterId, setEditedEncounterId] = useState(media.encounterId || '');
+  const [encounters, setEncounters] = useState<{ id: string; encounterDate: string; chiefComplaint: string }[]>([]);
+  const [loadingEncounters, setLoadingEncounters] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const captureDate = new Date(media.captureDate);
@@ -38,6 +48,21 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
     hour: '2-digit',
     minute: '2-digit'
   });
+
+  // Fetch encounters when entering edit mode
+  useEffect(() => {
+    if (!isEditing) return;
+    setLoadingEncounters(true);
+    fetch(`/api/medical-records/patients/${patientId}/encounters`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.data) {
+          setEncounters(data.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEncounters(false));
+  }, [isEditing, patientId]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -52,6 +77,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
           doctorNotes: editedDoctorNotes,
           category: editedCategory,
           bodyArea: editedBodyArea,
+          encounterId: editedEncounterId || null,
         }),
       });
 
@@ -242,6 +268,38 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
                   />
                 ) : (
                   <p className="text-sm text-gray-900">{media.bodyArea || 'Not specified'}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <span className="flex items-center gap-1">
+                    <Link2 className="w-3.5 h-3.5" />
+                    Consulta Vinculada
+                  </span>
+                </label>
+                {isEditing ? (
+                  <select
+                    value={editedEncounterId}
+                    onChange={(e) => setEditedEncounterId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    disabled={loadingEncounters}
+                  >
+                    <option value="">Sin vincular</option>
+                    {encounters.map(enc => (
+                      <option key={enc.id} value={enc.id}>
+                        {new Date(enc.encounterDate).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })} – {enc.chiefComplaint || 'Sin motivo'}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-sm text-gray-900">
+                    {media.encounter
+                      ? `${new Date(media.encounter.encounterDate).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })} – ${media.encounter.chiefComplaint || 'Sin motivo'}`
+                      : media.encounterId
+                        ? 'Vinculado a consulta'
+                        : 'Sin vincular'}
+                  </p>
                 )}
               </div>
 

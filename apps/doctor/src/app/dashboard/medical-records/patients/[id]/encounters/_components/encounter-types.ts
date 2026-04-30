@@ -1,3 +1,16 @@
+export interface EncounterMedia {
+  id: string;
+  mediaType: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  thumbnailUrl?: string;
+  category?: string;
+  description?: string;
+  captureDate: string;
+}
+
 export interface Encounter {
   id: string;
   encounterDate: string;
@@ -25,6 +38,8 @@ export interface Encounter {
   // Custom template
   templateId?: string;
   customData?: Record<string, any>;
+  // Linked media
+  media?: EncounterMedia[];
   createdAt: string;
   updatedAt: string;
   patient: {

@@ -70,10 +70,10 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
   useEffect(() => {
     const fetchEncounters = async () => {
       try {
-        const response = await fetch(`/api/medical-records/patients/${patientId}`);
+        const response = await fetch(`/api/medical-records/patients/${patientId}/encounters`);
         if (response.ok) {
           const data = await response.json();
-          setEncounters(data.data.encounters || []);
+          setEncounters(data.data || []);
         }
       } catch (error) {
         console.error('Failed to fetch encounters:', error);

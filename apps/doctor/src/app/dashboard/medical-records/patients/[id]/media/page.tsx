@@ -22,6 +22,12 @@ interface Media {
   description?: string | null;
   doctorNotes?: string | null;
   encounterId?: string | null;
+  encounter?: {
+    id: string;
+    encounterDate: string;
+    encounterType: string;
+    chiefComplaint: string;
+  } | null;
 }
 
 interface Patient {
