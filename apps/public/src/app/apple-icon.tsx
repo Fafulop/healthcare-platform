@@ -16,16 +16,27 @@ export default async function AppleIcon() {
         style={{
           width: 180,
           height: 180,
-          borderRadius: "50%",
-          overflow: "hidden",
           display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "transparent",
         }}
       >
-        <img
-          src={src}
-          width={180}
-          height={180}
-        />
+        <div
+          style={{
+            width: 158,
+            height: 158,
+            borderRadius: "50%",
+            overflow: "hidden",
+            display: "flex",
+          }}
+        >
+          <img
+            src={src}
+            width={158}
+            height={158}
+          />
+        </div>
       </div>
     ),
     { ...size }

@@ -51,7 +51,7 @@ export default function HeroSection({ doctor, onBookingClick, googleAdsId }: Her
           {/* Doctor Information */}
           <div className="flex-1 text-center md:text-left">
             {/* H1 - Only H1 on entire page */}
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[var(--color-neutral-dark)] mb-3 leading-tight">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[var(--color-neutral-dark)] mb-3 leading-tight break-words text-balance">
               {doctor.doctor_full_name}
             </h1>
 

@@ -16,16 +16,27 @@ export default async function Icon() {
         style={{
           width: 64,
           height: 64,
-          borderRadius: "50%",
-          overflow: "hidden",
           display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "transparent",
         }}
       >
-        <img
-          src={src}
-          width={64}
-          height={64}
-        />
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            overflow: "hidden",
+            display: "flex",
+          }}
+        >
+          <img
+            src={src}
+            width={56}
+            height={56}
+          />
+        </div>
       </div>
     ),
     { ...size }
