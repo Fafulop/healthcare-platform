@@ -10,6 +10,7 @@ const COLOR_SCHEMES = [
   { id: 'purple', label: 'Morado profesional',  hex: '#7c3aed' },
   { id: 'red',    label: 'Rojo clásico',        hex: '#b91c1c' },
   { id: 'gray',   label: 'Gris neutro',         hex: '#374151' },
+  { id: 'none',   label: 'Sin color',           hex: null },
 ];
 
 export default function PrescriptionTemplateSection() {
@@ -85,7 +86,10 @@ export default function PrescriptionTemplateSection() {
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <div className="w-10 h-10 rounded-md" style={{ backgroundColor: scheme.hex }} />
+              <div
+                className={`w-10 h-10 rounded-md ${!scheme.hex ? 'border-2 border-dashed border-gray-300 bg-white' : ''}`}
+                style={scheme.hex ? { backgroundColor: scheme.hex } : undefined}
+              />
               <span className="text-xs text-gray-600 whitespace-nowrap">{scheme.label}</span>
               {colorScheme === scheme.id && <Check className="w-3.5 h-3.5 text-blue-600 -mt-0.5" />}
             </button>
@@ -156,24 +160,29 @@ export default function PrescriptionTemplateSection() {
       </div>
 
       {/* Layout preview note */}
-      <div
-        className="rounded-lg p-4 text-sm"
-        style={{
-          backgroundColor: `${COLOR_SCHEMES.find((s) => s.id === colorScheme)?.hex}15`,
-          borderColor: `${COLOR_SCHEMES.find((s) => s.id === colorScheme)?.hex}40`,
-          borderWidth: 1,
-          borderStyle: 'solid',
-        }}
-      >
-        <p className="font-medium mb-1" style={{ color: COLOR_SCHEMES.find((s) => s.id === colorScheme)?.hex }}>
-          Vista previa del diseño
-        </p>
-        <p className="text-gray-600 text-xs leading-relaxed">
-          El PDF tendrá una banda de color en el encabezado con el logo (si está configurado), el texto
-          "RECETA MÉDICA", el nombre del doctor y la cédula. En el pie de página se mostrará la firma y
-          los datos del médico sobre otra banda del mismo color.
-        </p>
-      </div>
+      {(() => {
+        const activeHex = COLOR_SCHEMES.find((s) => s.id === colorScheme)?.hex;
+        return (
+          <div
+            className="rounded-lg p-4 text-sm"
+            style={{
+              backgroundColor: activeHex ? `${activeHex}15` : '#f9fafb',
+              borderColor: activeHex ? `${activeHex}40` : '#d1d5db',
+              borderWidth: 1,
+              borderStyle: 'solid',
+            }}
+          >
+            <p className="font-medium mb-1" style={{ color: activeHex || '#374151' }}>
+              Vista previa del diseño
+            </p>
+            <p className="text-gray-600 text-xs leading-relaxed">
+              {colorScheme === 'none'
+                ? 'El PDF usará un diseño sin color: encabezado y pie con bordes, texto en negro. Ideal para papel membretado o impresión en blanco y negro.'
+                : 'El PDF tendrá una banda de color en el encabezado con el logo (si está configurado), el texto "RECETA MÉDICA", el nombre del doctor y la cédula. En el pie de página se mostrará la firma y los datos del médico sobre otra banda del mismo color.'}
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Save */}
       {saveMessage && (

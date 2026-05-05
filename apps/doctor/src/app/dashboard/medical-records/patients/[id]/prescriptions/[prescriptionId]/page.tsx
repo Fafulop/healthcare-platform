@@ -1,9 +1,10 @@
 'use client';
 
-import { ArrowLeft, Edit, Send, Ban, Trash2, Download, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Send, Ban, Trash2, Download, Loader2, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList } from '@/components/medical-records/MedicationList';
 import { ImagingStudyList, LabStudyList } from '@/components/medical-records/StudyList';
+import { PrescriptionPdfSettingsDialog } from '@/components/medical-records/PrescriptionPdfSettingsDialog';
 import { formatDateLong } from '@/lib/practice-utils';
 import { getStatusLabel, getStatusColor } from '../_components/prescription-types';
 import { usePrescriptionDetail } from '../_components/usePrescriptionDetail';
@@ -19,6 +20,8 @@ export default function ViewPrescriptionPage() {
     error,
     showCancelModal, setShowCancelModal,
     cancellationReason, setCancellationReason,
+    setPdfSettings,
+    showPdfSettings, setShowPdfSettings,
     handleIssue,
     handleCancel,
     handleDelete,
@@ -113,6 +116,14 @@ export default function ViewPrescriptionPage() {
               >
                 <Download className="w-4 h-4" />
                 {actionLoading ? 'Generando...' : 'Descargar PDF'}
+              </button>
+
+              <button
+                onClick={() => setShowPdfSettings(true)}
+                className="px-2 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                title="Configuracion de impresion PDF"
+              >
+                <Settings className="w-4 h-4" />
               </button>
 
               <button
@@ -251,6 +262,12 @@ export default function ViewPrescriptionPage() {
           />
         </div>
       )}
+
+      <PrescriptionPdfSettingsDialog
+        open={showPdfSettings}
+        onClose={() => setShowPdfSettings(false)}
+        onSettingsLoaded={(s) => setPdfSettings(s)}
+      />
 
       {/* Cancel Modal */}
       {showCancelModal && (

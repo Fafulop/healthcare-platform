@@ -34,8 +34,12 @@ export async function PATCH(request: NextRequest) {
     const BOOLEAN_KEYS: (keyof PdfSettings)[] = [
       'showHeader', 'showFooter', 'showPageNumbers',
       'showPatientBox', 'showEncounterMeta', 'showVitals', 'showFollowUp',
+      'rxShowHeader', 'rxShowFooter', 'rxShowPatientBox', 'rxShowDiagnosis', 'rxShowClinicalNotes',
     ];
-    const NUMBER_KEYS: (keyof PdfSettings)[] = ['topMarginMm', 'bottomMarginMm'];
+    const NUMBER_KEYS: (keyof PdfSettings)[] = [
+      'topMarginMm', 'bottomMarginMm',
+      'rxTopMarginMm', 'rxBottomMarginMm',
+    ];
 
     const updateData: Partial<PdfSettings> = {};
 

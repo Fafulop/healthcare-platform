@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { practiceConfirm } from '@/lib/practice-confirm';
+import { DEFAULT_PDF_SETTINGS, type PdfSettings } from '@/types/pdf-settings';
 import type { PrescriptionDetails } from './prescription-types';
 
 export function usePrescriptionDetail() {
@@ -26,6 +27,8 @@ export function usePrescriptionDetail() {
   const [error, setError] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
+  const [pdfSettings, setPdfSettings] = useState<PdfSettings | null>(null);
+  const [showPdfSettings, setShowPdfSettings] = useState(false);
 
   useEffect(() => {
     fetchPrescription();
@@ -143,16 +146,45 @@ export function usePrescriptionDetail() {
     }
   };
 
+  const fetchPdfSettings = async (): Promise<PdfSettings> => {
+    if (pdfSettings) return pdfSettings;
+    try {
+      const res = await fetch('/api/doctor/pdf-settings');
+      const data = await res.json();
+      if (data.success) {
+        setPdfSettings(data.data);
+        return data.data;
+      }
+    } catch {
+      console.error('Error fetching PDF settings');
+    }
+    return DEFAULT_PDF_SETTINGS;
+  };
+
   const handleDownloadPDF = async () => {
     if (!prescription) return;
     setActionLoading(true);
     try {
-      // 1. Fetch template settings
-      const templateRes = await fetch('/api/prescription-template');
+      // 1. Fetch template settings + PDF settings in parallel
+      const [templateRes, settings] = await Promise.all([
+        fetch('/api/prescription-template'),
+        fetchPdfSettings(),
+      ]);
       const templateData = templateRes.ok ? await templateRes.json() : {};
       const logoUrl: string | null = templateData.data?.prescriptionLogoUrl || null;
       const signatureUrl: string | null = templateData.data?.prescriptionSignatureUrl || null;
       const colorScheme: string = templateData.data?.prescriptionColorScheme || 'blue';
+
+      // Merge and clamp rx margins
+      const rx = {
+        showHeader: settings.rxShowHeader ?? true,
+        showFooter: settings.rxShowFooter ?? true,
+        showPatientBox: settings.rxShowPatientBox ?? true,
+        showDiagnosis: settings.rxShowDiagnosis ?? true,
+        showClinicalNotes: settings.rxShowClinicalNotes ?? true,
+        topMarginMm: Math.max(0, Math.min(80, settings.rxTopMarginMm ?? 0)),
+        bottomMarginMm: Math.max(0, Math.min(80, settings.rxBottomMarginMm ?? 0)),
+      };
 
       // 2. Color map
       const COLOR_MAP: Record<string, [number, number, number]> = {
@@ -162,7 +194,8 @@ export function usePrescriptionDetail() {
         red:    [185, 28, 28],
         gray:   [55, 65, 81],
       };
-      const [cr, cg, cb] = COLOR_MAP[colorScheme] ?? COLOR_MAP.blue;
+      const noColor = colorScheme === 'none';
+      const [cr, cg, cb] = noColor ? [0, 0, 0] : (COLOR_MAP[colorScheme] ?? COLOR_MAP.blue);
 
       // 3. Load images as base64
       const toBase64 = async (url: string): Promise<string | null> => {
@@ -190,94 +223,117 @@ export function usePrescriptionDetail() {
       const pageH = doc.internal.pageSize.getHeight();
       const margin = 14;
       const colW = pageW - margin * 2;
-      const footerH = 22;
-      const footerY = pageH - footerH;
+      const footerH = rx.showFooter ? 22 : 0;
+      const footerY = pageH - footerH - rx.bottomMarginMm;
       const maxContentY = footerY - 6;
+      const topReset = rx.topMarginMm + 14;
       let y = 0;
 
       const checkPage = (needed: number) => {
         if (y + needed > maxContentY) {
           doc.addPage();
-          y = 14;
+          y = topReset;
         }
       };
 
       const drawSectionTitle = (title: string) => {
         checkPage(12);
-        doc.setFillColor(cr, cg, cb);
-        doc.rect(margin, y, colW, 8, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.setTextColor(255, 255, 255);
+        if (noColor) {
+          doc.setFillColor(245, 245, 245);
+          doc.rect(margin, y, colW, 8, 'F');
+          doc.setDrawColor(200, 200, 200);
+          doc.rect(margin, y, colW, 8, 'S');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(30, 30, 30);
+        } else {
+          doc.setFillColor(cr, cg, cb);
+          doc.rect(margin, y, colW, 8, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(255, 255, 255);
+        }
         doc.text(title, margin + 4, y + 5.5);
         y += 12;
       };
 
       // ── HEADER ────────────────────────────────────────────────────────────
-      doc.setFillColor(cr, cg, cb);
-      doc.rect(0, 0, pageW, 35, 'F');
+      if (rx.showHeader) {
+        if (noColor) {
+          doc.setDrawColor(180, 180, 180);
+          doc.line(0, 35, pageW, 35);
+        } else {
+          doc.setFillColor(cr, cg, cb);
+          doc.rect(0, 0, pageW, 35, 'F');
+        }
 
-      if (logoB64) {
-        try {
-          const fmt = logoB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(logoB64, fmt, margin, 5, 25, 25);
-        } catch {}
+        if (logoB64) {
+          try {
+            const fmt = logoB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+            doc.addImage(logoB64, fmt, margin, 5, 25, 25);
+          } catch {}
+        }
+
+        doc.setTextColor(noColor ? 30 : 255, noColor ? 30 : 255, noColor ? 30 : 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.text('RECETA MÉDICA', pageW / 2, 15, { align: 'center' });
+
+        doc.setFontSize(9);
+        doc.text(prescription.doctorFullName, pageW - margin, 23, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(`Cédula Profesional: ${prescription.doctorLicense}`, pageW - margin, 30, { align: 'right' });
+        y = 40 + rx.topMarginMm;
+      } else {
+        y = rx.topMarginMm + 14;
       }
 
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text('RECETA MÉDICA', pageW / 2, 15, { align: 'center' });
-
-      doc.setFontSize(9);
-      doc.text(prescription.doctorFullName, pageW - margin, 23, { align: 'right' });
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(`Cédula Profesional: ${prescription.doctorLicense}`, pageW - margin, 30, { align: 'right' });
-
       // ── PATIENT BOX ────────────────────────────────────────────────────────
-      y = 40;
-      doc.setTextColor(0, 0, 0);
-      doc.setFillColor(245, 247, 250);
-      doc.roundedRect(margin, y, colW, 24, 2, 2, 'F');
-
-      const midX = margin + colW / 2 + 4;
       const formatDate = (iso: string) =>
         new Date(iso.includes('T') ? iso : `${iso}T12:00:00`)
           .toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-      // Left column
-      doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 100, 100);
-      doc.text('Paciente', margin + 4, y + 7);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(20, 20, 20);
-      doc.setFontSize(10);
-      const patientName = `${prescription.patient.firstName} ${prescription.patient.lastName}`;
-      doc.text(patientName, margin + 4, y + 14);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`ID: ${prescription.patient.internalId}  •  Sexo: ${prescription.patient.sex}`, margin + 4, y + 20.5);
+      if (rx.showPatientBox) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFillColor(245, 247, 250);
+        doc.roundedRect(margin, y, colW, 24, 2, 2, 'F');
 
-      // Right column
-      doc.text('Fecha de prescripción', midX, y + 7);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(20, 20, 20);
-      doc.setFontSize(10);
-      doc.text(formatDate(prescription.prescriptionDate), midX, y + 14);
-      if (prescription.expiresAt) {
+        const midX = margin + colW / 2 + 4;
+
+        // Left column
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text('Paciente', margin + 4, y + 7);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(20, 20, 20);
+        doc.setFontSize(10);
+        const patientName = `${prescription.patient.firstName} ${prescription.patient.lastName}`;
+        doc.text(patientName, margin + 4, y + 14);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(100, 100, 100);
-        doc.text(`Vigencia: ${formatDate(prescription.expiresAt)}`, midX, y + 20.5);
+        doc.text(`ID: ${prescription.patient.internalId}  •  Sexo: ${prescription.patient.sex}`, margin + 4, y + 20.5);
+
+        // Right column
+        doc.text('Fecha de prescripción', midX, y + 7);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(20, 20, 20);
+        doc.setFontSize(10);
+        doc.text(formatDate(prescription.prescriptionDate), midX, y + 14);
+        if (prescription.expiresAt) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Vigencia: ${formatDate(prescription.expiresAt)}`, midX, y + 20.5);
+        }
+
+        y += 30;
       }
 
-      y += 30;
-
       // ── DIAGNOSIS / NOTES ──────────────────────────────────────────────────
-      if (prescription.diagnosis) {
+      if (rx.showDiagnosis && prescription.diagnosis) {
         checkPage(12);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
@@ -291,7 +347,7 @@ export function usePrescriptionDetail() {
         y += Math.max(7, diagLines.length * 5);
       }
 
-      if (prescription.clinicalNotes) {
+      if (rx.showClinicalNotes && prescription.clinicalNotes) {
         checkPage(14);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
@@ -446,31 +502,38 @@ export function usePrescriptionDetail() {
       }
 
       // ── FOOTER (all pages) ──────────────────────────────────────────────────
-      const totalPages = (doc as any).getNumberOfPages();
-      for (let p = 1; p <= totalPages; p++) {
-        doc.setPage(p);
-        doc.setFillColor(cr, cg, cb);
-        doc.rect(0, footerY, pageW, footerH, 'F');
+      if (rx.showFooter) {
+        const totalPages = (doc as any).getNumberOfPages();
+        for (let p = 1; p <= totalPages; p++) {
+          doc.setPage(p);
+          if (noColor) {
+            doc.setDrawColor(180, 180, 180);
+            doc.line(0, footerY, pageW, footerY);
+          } else {
+            doc.setFillColor(cr, cg, cb);
+            doc.rect(0, footerY, pageW, footerH, 'F');
+          }
 
-        if (sigB64) {
-          try {
-            const fmt = sigB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-            doc.addImage(sigB64, fmt, pageW - margin - 42, footerY + 2, 40, 18);
-          } catch {}
-        }
+          if (sigB64) {
+            try {
+              const fmt = sigB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+              doc.addImage(sigB64, fmt, pageW - margin - 42, footerY + 2, 40, 18);
+            } catch {}
+          }
 
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text(prescription.doctorFullName, margin, footerY + 10);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text(`Cédula Profesional: ${prescription.doctorLicense}`, margin, footerY + 17);
+          doc.setTextColor(noColor ? 30 : 255, noColor ? 30 : 255, noColor ? 30 : 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.text(prescription.doctorFullName, margin, footerY + 10);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.text(`Cédula Profesional: ${prescription.doctorLicense}`, margin, footerY + 17);
 
-        if (sigB64) {
-          doc.setFontSize(7);
-          doc.setFont('helvetica', 'italic');
-          doc.text('Firma del médico', pageW - margin, footerY + 20.5, { align: 'right' });
+          if (sigB64) {
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Firma del médico', pageW - margin, footerY + 20.5, { align: 'right' });
+          }
         }
       }
 
@@ -500,6 +563,11 @@ export function usePrescriptionDetail() {
     // Cancel modal
     showCancelModal, setShowCancelModal,
     cancellationReason, setCancellationReason,
+    // PDF settings
+    pdfSettings,
+    setPdfSettings,
+    showPdfSettings,
+    setShowPdfSettings,
     // Actions
     handleIssue,
     handleCancel,

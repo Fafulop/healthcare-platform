@@ -1,4 +1,5 @@
 export interface PdfSettings {
+  // ── Encounter PDF ──
   // Header & Footer
   showHeader: boolean;
   showFooter: boolean;
@@ -14,9 +15,19 @@ export interface PdfSettings {
   showEncounterMeta: boolean;
   showVitals: boolean;
   showFollowUp: boolean;
+
+  // ── Prescription PDF ──
+  rxShowHeader: boolean;
+  rxShowFooter: boolean;
+  rxShowPatientBox: boolean;
+  rxShowDiagnosis: boolean;
+  rxShowClinicalNotes: boolean;
+  rxTopMarginMm: number;
+  rxBottomMarginMm: number;
 }
 
 export const DEFAULT_PDF_SETTINGS: PdfSettings = {
+  // Encounter
   showHeader: true,
   showFooter: true,
   showPageNumbers: true,
@@ -26,4 +37,12 @@ export const DEFAULT_PDF_SETTINGS: PdfSettings = {
   showEncounterMeta: true,
   showVitals: true,
   showFollowUp: true,
+  // Prescription
+  rxShowHeader: true,
+  rxShowFooter: true,
+  rxShowPatientBox: true,
+  rxShowDiagnosis: true,
+  rxShowClinicalNotes: true,
+  rxTopMarginMm: 0,
+  rxBottomMarginMm: 0,
 };

@@ -324,7 +324,15 @@ Gear icon opens `<PdfSettingsDialog>`.
 
 ---
 
-## Scope: Single Encounter PDF Only
+## Scope
+
+### Phase 1: Encounter PDF
+Single encounter PDF (`generateEncounterPDF`) + FormBuilder `showInPdf` toggle.
+
+### Phase 2: Prescription PDF
+Prescription PDF (`handleDownloadPDF` in `usePrescriptionDetail`) with `rx*` settings. See [Phase 2 section](#phase-2-prescription-pdf-settings-2026-05-04) below.
+
+## Encounter PDF Scope
 
 `generateTimelinePDF` is a summary view with a different structure (inline vitals per encounter, patient summary box instead of patient detail box). Applying PDF settings to it would require significant rework for limited benefit -- doctors rarely print timelines on letterhead.
 
@@ -438,7 +446,53 @@ Dr. Ramirez uses pre-printed paper AND a custom "Seguimiento Diabetes" template 
 
 ---
 
-## Future Enhancements (Not in V1)
+## Phase 2: Prescription PDF Settings (2026-05-04)
+
+Extended the same `pdfSettings` JSONB column with `rx*`-prefixed fields for prescription PDFs. No new migration needed — the fields are stored in the same JSON object.
+
+### New rx* fields added to PdfSettings
+
+```typescript
+// Added to PdfSettings interface in types/pdf-settings.ts
+rxShowHeader: boolean;      // RECETA MÉDICA header bar
+rxShowFooter: boolean;      // Doctor name + signature footer
+rxShowPatientBox: boolean;  // Patient info box
+rxShowDiagnosis: boolean;   // Diagnosis line
+rxShowClinicalNotes: boolean; // Clinical notes section
+rxTopMarginMm: number;      // 0-80mm top margin
+rxBottomMarginMm: number;   // 0-80mm bottom margin
+```
+
+### Files Created/Modified (Phase 2)
+
+| File | Action | Description |
+|------|--------|-------------|
+| `apps/doctor/src/types/pdf-settings.ts` | Modified | Added `rx*` fields to interface + defaults |
+| `apps/doctor/src/app/api/doctor/pdf-settings/route.ts` | Modified | Added `rx*` keys to BOOLEAN_KEYS and NUMBER_KEYS validation arrays |
+| `apps/doctor/src/components/medical-records/PrescriptionPdfSettingsDialog.tsx` | Created | Settings dialog for prescription PDF (sends only `rx*` fields in PATCH) |
+| `apps/doctor/src/app/dashboard/.../usePrescriptionDetail.ts` | Modified | Added `pdfSettings` state, `fetchPdfSettings()` with caching, conditional PDF sections using `rx` settings, parallel fetch with `Promise.all` |
+| `apps/doctor/src/app/dashboard/.../.../[prescriptionId]/page.tsx` | Modified | Added Settings gear icon next to "Descargar PDF" (only when `status === 'issued'`), wired PrescriptionPdfSettingsDialog |
+
+### Design Notes
+
+- **Separation of concerns:** `PrescriptionPdfSettingsDialog` only sends `rx*` fields in its PATCH body, so it never overwrites encounter settings in the same JSONB column
+- **Parallel fetching:** `handleDownloadPDF` fetches template settings (`/api/prescription-template`) and PDF settings (`/api/doctor/pdf-settings`) in parallel via `Promise.all`
+- **Conditional sections:** Header, patient box, diagnosis, clinical notes, and footer all wrapped in `if (rx.show*)` conditionals with dynamic Y positioning
+- **Dynamic layout:** `footerY = pageH - footerH - rx.bottomMarginMm`, `maxContentY = footerY - 6`, `topReset = rx.topMarginMm + 14`
+
+### Code Review (Phase 2)
+
+All sections passed (2026-05-04):
+- DB/Schema: No new columns — reuses existing `pdf_settings` JSONB
+- API: `rx*` keys added to existing validation arrays, auth unchanged
+- Hook: lazy-load with cache, `Promise.all` parallel fetch, rx settings extracted with fallback defaults
+- Dialog: all 3 props used, only sends rx* fields in PATCH
+- Page: Settings icon conditionally shown for `issued` prescriptions
+- Cross-cutting: `rx` prefix convention cleanly separates prescription from encounter settings
+
+---
+
+## Future Enhancements
 
 - Per-template PDF overrides on `EncounterTemplate.pdfSettings` (e.g., one template always hides vitals in PDF)
 - Custom header text (replace "CONSULTA MEDICA" with doctor's clinic name)
