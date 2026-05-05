@@ -27,6 +27,7 @@ const TABS = [
   { id: "reviews", label: "Opiniones" },
   { id: "integraciones", label: "Integraciones" },
   { id: "receta", label: "Receta PDF" },
+  { id: "guia", label: "Guía SEO" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -686,6 +687,14 @@ export default function MiPerfilPage() {
           <ReviewsSection reviews={reviews} reviewStats={reviewStats} onDelete={handleDeleteReview} />
         )}
         {activeTab === "receta" && <PrescriptionTemplateSection />}
+        {activeTab === "guia" && (
+          <iframe
+            src="/guia-para-doctores.html"
+            className="w-full border-0 rounded-lg"
+            style={{ minHeight: "80vh" }}
+            title="Guía para Doctores"
+          />
+        )}
         {activeTab === "integraciones" && (
           <div className="space-y-6">
             <div>
@@ -1081,7 +1090,7 @@ export default function MiPerfilPage() {
       </div>
 
       {/* Save Bar - hidden on Integraciones and Receta PDF tabs (they have their own save) */}
-      <div className={`fixed bottom-16 lg:bottom-0 left-0 right-0 lg:sticky bg-white border-t border-gray-200 p-3 sm:p-4 flex items-center justify-between gap-3 z-40 ${(activeTab === "integraciones" || activeTab === "receta") ? "hidden" : ""}`}>
+      <div className={`fixed bottom-16 lg:bottom-0 left-0 right-0 lg:sticky bg-white border-t border-gray-200 p-3 sm:p-4 flex items-center justify-between gap-3 z-40 ${(activeTab === "integraciones" || activeTab === "receta" || activeTab === "guia") ? "hidden" : ""}`}>
         {saveMessage && (
           <p
             className={`text-xs sm:text-sm font-medium truncate ${

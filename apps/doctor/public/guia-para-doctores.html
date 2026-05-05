@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guia para Doctores — Como Aparecer en Google</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Vollkorn:wght@400;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      color: #1a1a2e;
+      background: #f8f9fc;
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* Cover */
+    .cover {
+      background: linear-gradient(135deg, #0f4c75 0%, #1b262c 100%);
+      color: white;
+      padding: 80px 40px;
+      border-radius: 16px;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    .cover h1 {
+      font-family: 'Vollkorn', serif;
+      font-size: 2.4em;
+      font-weight: 700;
+      margin-bottom: 16px;
+      line-height: 1.2;
+    }
+    .cover .subtitle {
+      font-size: 1.15em;
+      opacity: 0.85;
+      max-width: 500px;
+      margin: 0 auto 24px;
+    }
+    .cover .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 8px 20px;
+      border-radius: 100px;
+      font-size: 0.85em;
+      letter-spacing: 0.5px;
+    }
+
+    /* Section */
+    .section {
+      background: white;
+      border-radius: 12px;
+      padding: 36px 40px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border: 1px solid #e8eaf0;
+    }
+
+    .section-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: #0f4c75;
+      color: white;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.95em;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-family: 'Vollkorn', serif;
+      font-size: 1.6em;
+      color: #0f4c75;
+      margin-bottom: 16px;
+      line-height: 1.3;
+    }
+
+    h3 {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin: 24px 0 10px;
+    }
+
+    p { margin-bottom: 14px; }
+
+    /* Alert boxes */
+    .alert {
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 16px 0;
+      font-size: 0.95em;
+    }
+    .alert-important {
+      background: #fff3e0;
+      border-left: 4px solid #f57c00;
+      color: #4e2a00;
+    }
+    .alert-success {
+      background: #e8f5e9;
+      border-left: 4px solid #43a047;
+      color: #1b5e20;
+    }
+    .alert-danger {
+      background: #fce4ec;
+      border-left: 4px solid #e53935;
+      color: #621b16;
+    }
+    .alert-info {
+      background: #e3f2fd;
+      border-left: 4px solid #1976d2;
+      color: #0d2137;
+    }
+    .alert strong { display: block; margin-bottom: 4px; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 0.92em;
+    }
+    thead th {
+      background: #f0f2f7;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: #0f4c75;
+      border-bottom: 2px solid #d0d5e0;
+    }
+    tbody td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #ebedf2;
+      vertical-align: top;
+    }
+    tbody tr:hover { background: #fafbfd; }
+
+    /* Checklist */
+    .checklist {
+      list-style: none;
+      padding: 0;
+      margin: 16px 0;
+    }
+    .checklist li {
+      padding: 10px 0 10px 36px;
+      position: relative;
+      border-bottom: 1px solid #f0f1f5;
+    }
+    .checklist li:last-child { border-bottom: none; }
+    .checklist li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 12px;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #c5cad6;
+      border-radius: 4px;
+      background: white;
+    }
+
+    /* Steps */
+    .step {
+      display: flex;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid #f0f1f5;
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      background: #e3f2fd;
+      color: #0f4c75;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85em;
+      margin-top: 2px;
+    }
+    .step-content { flex: 1; }
+    .step-content strong { color: #0f4c75; }
+
+    /* Comparison */
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 16px 0;
+    }
+    .compare-card {
+      padding: 20px;
+      border-radius: 10px;
+      font-size: 0.93em;
+    }
+    .compare-good {
+      background: #e8f5e9;
+      border: 1px solid #a5d6a7;
+    }
+    .compare-bad {
+      background: #fce4ec;
+      border: 1px solid #ef9a9a;
+    }
+    .compare-card h4 {
+      margin-bottom: 8px;
+      font-size: 0.95em;
+    }
+
+    /* Code/example blocks */
+    .example {
+      background: #f5f6fa;
+      border: 1px solid #e0e3eb;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 14px 0;
+      font-size: 0.93em;
+      color: #3a3f58;
+    }
+
+    /* VS table */
+    .vs-table {
+      margin: 16px 0;
+    }
+    .vs-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      margin-bottom: 1px;
+    }
+    .vs-header {
+      background: #0f4c75;
+      color: white;
+      padding: 10px 14px;
+      font-weight: 600;
+      font-size: 0.9em;
+    }
+    .vs-cell {
+      background: white;
+      padding: 10px 14px;
+      font-size: 0.9em;
+      border: 1px solid #ebedf2;
+    }
+
+    /* FAQ accordion */
+    .faq-item {
+      border-bottom: 1px solid #ebedf2;
+      padding: 16px 0;
+    }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-q {
+      font-weight: 600;
+      color: #0f4c75;
+      margin-bottom: 6px;
+    }
+    .faq-a { color: #4a4f6a; }
+
+    /* Highlight */
+    mark {
+      background: #fff9c4;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    /* Link styling */
+    a {
+      color: #1565c0;
+      text-decoration: none;
+      border-bottom: 1px solid #bbdefb;
+    }
+    a:hover { border-bottom-color: #1565c0; }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: #e8eaf0;
+      margin: 24px 0;
+    }
+
+    /* Print */
+    @media print {
+      body { background: white; font-size: 12px; }
+      .container { padding: 0; max-width: 100%; }
+      .cover {
+        break-after: page;
+        border-radius: 0;
+        padding: 60px 40px;
+      }
+      .section {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        break-inside: avoid;
+      }
+      .no-print { display: none; }
+    }
+
+    @media (max-width: 640px) {
+      .container { padding: 12px; }
+      .section { padding: 24px 20px; }
+      .cover { padding: 48px 24px; }
+      .cover h1 { font-size: 1.8em; }
+      .compare { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- COVER -->
+  <div class="cover">
+    <h1>Como Hacer que Tu Perfil Aparezca en Google</h1>
+    <p class="subtitle">Guia paso a paso para doctores registrados en tusalud.pro</p>
+    <span class="badge">tusalud.pro &mdash; Abril 2026</span>
+  </div>
+
+  <!-- INTRO -->
+  <div class="section">
+    <h2>Antes de empezar: Por que tu perfil aun no sale en Google?</h2>
+    <p>Tu pagina en tusalud.pro ya esta <strong>tecnicamente optimizada</strong> para Google: tiene datos estructurados, sitemap, velocidad de carga rapida, y esta configurada para ser indexada. Eso ya esta hecho.</p>
+    <p>Pero Google necesita <strong>mas que una pagina web</strong> para recomendarte a un paciente. Necesita confirmacion externa de que eres un profesional real, activo y confiable. Especificamente:</p>
+
+    <div class="alert alert-info">
+      <strong>Google evalua 4 cosas antes de mostrarte:</strong>
+      1. Que existas en Google Business Profile (tu tarjeta en Google Maps)<br>
+      2. Que pacientes reales dejen resenas en Google<br>
+      3. Que tu informacion sea IDENTICA en tusalud.pro y en Google<br>
+      4. Que publiques contenido util regularmente
+    </div>
+
+    <p>Esta guia cubre exactamente que hacer para cada punto. Siguiendo estos pasos, tu perfil puede empezar a aparecer en busquedas como <em>"oftalmologo en guadalajara"</em> en 30-120 dias.</p>
+  </div>
+
+  <!-- PASO 1 -->
+  <div class="section">
+    <div class="section-number">1</div>
+    <h2>Completa tu perfil en tusalud.pro al 100%</h2>
+    <p>Google lee tu pagina en tusalud.pro y busca informacion completa. Un perfil incompleto le dice a Google que no eres confiable. Entra a tu dashboard y revisa cada seccion:</p>
+
+    <table>
+      <thead>
+        <tr><th>Seccion</th><th>Que llenar</th><th>Por que importa</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Info General</strong></td>
+          <td>Nombre con titulo, especialidad, subespecialidades, ciudad, anos de experiencia, biografia detallada (minimo 150 palabras), foto profesional</td>
+          <td>Google verifica que eres un profesional real</td>
+        </tr>
+        <tr>
+          <td><strong>Servicios</strong></td>
+          <td>TODOS tus servicios con descripcion, duracion y precio</td>
+          <td>Aparecen como datos estructurados en Google</td>
+        </tr>
+        <tr>
+          <td><strong>Clinica</strong></td>
+          <td>Direccion exacta, telefono, WhatsApp, horario de cada dia, coordenadas GPS</td>
+          <td>Esta informacion DEBE ser identica a Google Business Profile</td>
+        </tr>
+        <tr>
+          <td><strong>Formacion</strong></td>
+          <td>Escuela de medicina, residencia, certificaciones</td>
+          <td>Google exige credenciales verificables en contenido de salud</td>
+        </tr>
+        <tr>
+          <td><strong>Multimedia</strong></td>
+          <td>Minimo 5 fotos reales del consultorio y tuyas</td>
+          <td>Estas mismas fotos van en Google Business Profile</td>
+        </tr>
+        <tr>
+          <td><strong>FAQs</strong></td>
+          <td>Minimo 8 preguntas frecuentes con respuestas detalladas</td>
+          <td>Cada FAQ puede aparecer expandible en resultados de Google</td>
+        </tr>
+        <tr>
+          <td><strong>Opiniones</strong></td>
+          <td>Revisa que las opiniones de pacientes esten visibles</td>
+          <td>Aparecen como estrellas en los resultados de Google</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Sobre las subespecialidades</h3>
+    <p>En "Info General" hay un campo para subespecialidades (una por linea). Son palabras clave de alto valor. Agrega todas:</p>
+    <div class="example">
+      Cirugia de cataratas<br>
+      Tratamiento de glaucoma<br>
+      Examen de la vista<br>
+      Cirugia refractiva LASIK
+    </div>
+
+    <h3>Sobre las FAQs &mdash; muy importante</h3>
+    <p>Las FAQs generan automaticamente resultados expandibles en Google (debajo de tu enlace). Escribe preguntas que los pacientes realmente buscan:</p>
+
+    <div class="compare">
+      <div class="compare-card compare-good">
+        <h4>Buenas FAQs</h4>
+        &bull; "Cuanto cuesta la cirugia de cataratas en Guadalajara?"<br>
+        &bull; "Cuanto dura la recuperacion?"<br>
+        &bull; "Se necesita anestesia general?"<br>
+        &bull; "Que incluye la consulta?"
+      </div>
+      <div class="compare-card compare-bad">
+        <h4>Malas FAQs</h4>
+        &bull; "Por que elegirme?"<br>
+        &bull; "Donde estudie?"<br>
+        &bull; "Acepto seguros?"<br>
+        &bull; "Cual es mi experiencia?"
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 2 -->
+  <div class="section">
+    <div class="section-number">2</div>
+    <h2>Crea tu Google Business Profile</h2>
+    <p>Google Business Profile (GBP) es tu <strong>tarjeta de negocio en Google Maps</strong>. Sin el, eres invisible en busquedas locales como "oftalmologo cerca de mi".</p>
+
+    <div class="alert alert-important">
+      <strong>Es gratis.</strong>
+      Google Business Profile no tiene ningun costo. Lo creas en 15 minutos.
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        Ve a <strong><a href="https://business.google.com" target="_blank">business.google.com</a></strong> e inicia sesion con tu cuenta de Google (Gmail).
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Nombre del negocio:</strong> Escribe tu nombre EXACTAMENTE como aparece en tusalud.pro. Sin agregar especialidad ni ciudad.
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="compare-card compare-good">
+        <h4>Correcto</h4>
+        Dr. Jose Cruz Ruiz<br>
+        Dra. Patricia Roldan Mora
+      </div>
+      <div class="compare-card compare-bad">
+        <h4>Incorrecto (riesgo de suspension)</h4>
+        Dr. Jose Cruz Ruiz - Oftalmologo GDL<br>
+        Dra. Patricia - Cirugia Bariatrica
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Categoria:</strong> El factor #1 de ranking local. Elige la MAS ESPECIFICA:
+        <table>
+          <thead><tr><th>Si eres...</th><th>Categoria principal</th><th>Secundarias</th></tr></thead>
+          <tbody>
+            <tr><td>Oftalmologo</td><td>Ophthalmologist</td><td>Ophthalmology clinic, Eye care center</td></tr>
+            <tr><td>Cirujano bariatrico</td><td>General surgeon</td><td>Medical clinic, Specialized clinic</td></tr>
+            <tr><td>Cirujano general</td><td>General surgeon</td><td>Medical clinic</td></tr>
+            <tr><td>Cardiologo</td><td>Cardiologist</td><td>Medical clinic</td></tr>
+            <tr><td>Dermatologo</td><td>Dermatologist</td><td>Medical clinic</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:0.88em; color:#666; margin-top:4px;">Las categorias aparecen en ingles pero Google las traduce al espanol para los pacientes.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>Direccion:</strong> La direccion EXACTA de tu consultorio, caracter por caracter igual que en tusalud.pro. Si en tusalud dice "Av." no pongas "Avenida".
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <strong>Telefono:</strong> El mismo numero que esta en tusalud.pro, con codigo de pais (+52).
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-content">
+        <strong>Sitio web:</strong> Tu pagina ESPECIFICA en tusalud.pro, NO la pagina principal.
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="compare-card compare-good">
+        <h4>Correcto</h4>
+        https://tusalud.pro/doctores/dr-jose<br>
+        https://tusalud.pro/doctores/dra-patricia-roldan-mora
+      </div>
+      <div class="compare-card compare-bad">
+        <h4>Incorrecto</h4>
+        https://tusalud.pro<br>
+        https://tusalud.pro/doctores
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">7</div>
+      <div class="step-content">
+        <strong>Horario:</strong> El mismo horario exacto que configuraste en tusalud.pro para ese consultorio.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">8</div>
+      <div class="step-content">
+        <strong>Descripcion:</strong> 750 caracteres max. Escribe natural, sin repetir palabras clave.
+      </div>
+    </div>
+
+    <div class="example">
+      <strong>Ejemplo de buena descripcion:</strong><br><br>
+      "Soy el Dr. Jose Cruz Ruiz, oftalmologo en Guadalajara, Jalisco, con mas de 15 anos de experiencia. Ofrezco consultas de oftalmologia general, cirugia de cataratas, tratamiento de glaucoma, y examenes de la vista completos. Agenda tu cita en linea."
+    </div>
+
+    <div class="alert alert-danger">
+      <strong>NUNCA hagas esto:</strong>
+      "Oftalmologo Guadalajara. Mejor oftalmologo en Guadalajara. Oftalmologo precio Guadalajara." &mdash; Esto es "keyword stuffing" y Google te penaliza.
+    </div>
+
+    <div class="step">
+      <div class="step-num">9</div>
+      <div class="step-content">
+        <strong>Servicios:</strong> Agrega cada servicio que ofreces. Los nombres deben coincidir con tusalud.pro.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">10</div>
+      <div class="step-content">
+        <strong>Enlace de citas:</strong> Agrega tu enlace de reservas de tusalud.pro para que los pacientes agenden desde Google.
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 3 -->
+  <div class="section">
+    <div class="section-number">3</div>
+    <h2>Verifica tu perfil</h2>
+    <p><strong>Tu perfil NO aparece en Google hasta que este verificado.</strong> Google necesita confirmar que tu consultorio es real.</p>
+
+    <table>
+      <thead><tr><th>Metodo</th><th>Como funciona</th><th>Tiempo</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Tarjeta postal</strong></td><td>Google envia una tarjeta con un PIN a tu consultorio</td><td>5-14 dias</td></tr>
+        <tr><td><strong>Telefono</strong></td><td>Llamada o SMS automatico al telefono del negocio</td><td>Inmediato</td></tr>
+        <tr><td><strong>Video</strong></td><td>Grabas un video mostrando el consultorio</td><td>3-5 dias</td></tr>
+        <tr><td><strong>Videollamada</strong></td><td>Llamada en vivo con representante de Google</td><td>Programada</td></tr>
+      </tbody>
+    </table>
+
+    <div class="alert alert-info">
+      <strong>En Mexico, Google frecuentemente pide verificacion por video para doctores.</strong>
+      Que filmar (menos de 5 min, con tu celular):
+      <br><br>
+      1. Exterior del consultorio &mdash; que se vea la direccion<br>
+      2. Recepcion &mdash; donde llegan los pacientes<br>
+      3. Consultorio &mdash; la sala donde atiendes<br>
+      4. Tu &mdash; aparece brevemente en el video<br>
+      5. Algun identificador &mdash; placa profesional, credencial
+    </div>
+  </div>
+
+  <!-- PASO 4 -->
+  <div class="section">
+    <div class="section-number">4</div>
+    <h2>Sube fotos (las mismas que en tusalud.pro)</h2>
+    <p>Perfiles con fotos reciben significativamente mas clics. <mark>Usa las MISMAS fotos en ambas plataformas</mark> &mdash; Google cruza imagenes y si ve las mismas fotos reales en ambos sitios, aumenta la confianza.</p>
+
+    <table>
+      <thead><tr><th>Tipo de foto</th><th>Que mostrar</th><th>Cuantas</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Tu retrato</strong></td><td>La MISMA foto que esta en tusalud.pro</td><td>1</td></tr>
+        <tr><td><strong>Exterior</strong></td><td>Fachada del edificio, que se vea la direccion</td><td>2-3</td></tr>
+        <tr><td><strong>Interior</strong></td><td>Recepcion, sala de espera, consultorio</td><td>3-5</td></tr>
+        <tr><td><strong>Equipo medico</strong></td><td>Equipos que uses en consulta</td><td>1-2</td></tr>
+        <tr><td><strong>Tu equipo</strong></td><td>Personal de trabajo (con su consentimiento)</td><td>1-2</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>Total minimo: 10 fotos.</strong> Agrega 2-3 nuevas cada mes.</p>
+
+    <div class="alert alert-danger">
+      <strong>NO uses fotos de stock.</strong> Google las detecta. Usa solo fotos reales de tu consultorio.
+    </div>
+
+    <p><strong>Requisitos tecnicos:</strong> JPG o PNG, entre 10 KB y 5 MB, minimo 250x250 px (recomendado 720x720), sin filtros excesivos.</p>
+  </div>
+
+  <!-- PASO 5 -->
+  <div class="section">
+    <div class="section-number">5</div>
+    <h2>Si tienes 2 consultorios</h2>
+    <p>En tusalud.pro puedes tener hasta 2 ubicaciones. La regla de Google es: <strong>1 perfil de GBP por ubicacion.</strong></p>
+
+    <table>
+      <thead><tr><th></th><th>Consultorio Principal</th><th>Consultorio 2</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Perfil GBP</strong></td><td>Perfil #1</td><td>Perfil #2 (separado)</td></tr>
+        <tr><td><strong>Nombre</strong></td><td>Dr. Jose Cruz Ruiz</td><td>Dr. Jose Cruz Ruiz</td></tr>
+        <tr><td><strong>Direccion</strong></td><td>La de ese consultorio</td><td>La del otro consultorio</td></tr>
+        <tr><td><strong>Horario</strong></td><td>Horario de ese consultorio</td><td>Horario del otro</td></tr>
+        <tr><td><strong>Sitio web</strong></td><td colspan="2" style="text-align:center;">Ambos apuntan a la misma pagina de tusalud.pro</td></tr>
+      </tbody>
+    </table>
+
+    <p>Cada perfil se verifica por separado. La informacion de cada consultorio en tusalud.pro debe coincidir con su perfil GBP correspondiente.</p>
+  </div>
+
+  <!-- PASO 6 -->
+  <div class="section">
+    <div class="section-number">6</div>
+    <h2>Resenas: donde importan y por que necesitas las dos</h2>
+
+    <p>Existen <strong>dos sistemas de resenas completamente independientes</strong>. Ambos son importantes pero para cosas distintas:</p>
+
+    <table>
+      <thead><tr><th></th><th>Resenas en tusalud.pro</th><th>Resenas en Google</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Donde se ven</strong></td><td>En tu pagina de tusalud.pro</td><td>En Google Maps y resultados de busqueda</td></tr>
+        <tr><td><strong>Que afectan</strong></td><td>Estrellas en resultados <em>organicos</em> (el enlace azul)</td><td>Tu posicion en el <em>mapa</em> de Google (los 3 primeros resultados)</td></tr>
+        <tr><td><strong>Necesitas las dos?</strong></td><td style="text-align:center;"><strong>SI</strong></td><td style="text-align:center;"><strong>SI</strong></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Como pedir resenas en Google (sin violar las reglas)</h3>
+
+    <div class="compare">
+      <div class="compare-card compare-good">
+        <h4>Esto SI puedes hacer</h4>
+        &bull; Decir: "Si tuvo buena experiencia, nos ayudaria con una resena en Google"<br>
+        &bull; Dar una tarjeta con codigo QR<br>
+        &bull; Enviar SMS de seguimiento con el enlace<br>
+        &bull; Poner un letrero en la recepcion
+      </div>
+      <div class="compare-card compare-bad">
+        <h4>Esto NO puedes hacer</h4>
+        &bull; Ofrecer descuentos a cambio de resenas<br>
+        &bull; Decirle al paciente que escribir<br>
+        &bull; Solo pedir a pacientes contentos<br>
+        &bull; Pedir a familiares o empleados<br>
+        &bull; Escribir resenas sobre ti mismo
+      </div>
+    </div>
+
+    <h3>Como obtener tu enlace de resenas</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">En tu dashboard de GBP, busca "Pedir resenas" o "Obtener mas resenas"</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">Google genera un enlace corto (ej: <code>g.page/dr-jose/review</code>)</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">Convierte ese enlace en un codigo QR e imprimelo en tarjetas para la recepcion</div>
+    </div>
+
+    <h3>Metas de resenas en Google</h3>
+    <table>
+      <thead><tr><th>Resenas</th><th>Efecto</th></tr></thead>
+      <tbody>
+        <tr><td>0 - 5</td><td>Google probablemente no muestra estrellas</td></tr>
+        <tr><td>10+</td><td>Empiezan a aparecer estrellas</td></tr>
+        <tr><td>25+</td><td>Competitivo para busquedas locales</td></tr>
+        <tr><td>50+</td><td>Autoridad fuerte en tu area</td></tr>
+      </tbody>
+    </table>
+
+    <div class="alert alert-important">
+      <strong>La velocidad importa mas que el total.</strong>
+      5 resenas nuevas por mes es mejor que 50 resenas viejas sin ninguna nueva. Google premia la actividad constante.
+    </div>
+
+    <h3>Responde SIEMPRE</h3>
+    <p><strong>Positivas:</strong> Agradece por nombre, breve. <em>"Gracias, Maria! Me alegra que su consulta haya sido buena."</em></p>
+    <p><strong>Negativas:</strong> NUNCA discutas. <em>"Lamentamos su experiencia. Contactenos al [tel] para resolverlo."</em></p>
+    <p>Responde en menos de 48 horas. <strong>NUNCA reveles informacion de salud del paciente.</strong></p>
+  </div>
+
+  <!-- PASO 7 -->
+  <div class="section">
+    <div class="section-number">7</div>
+    <h2>Blog y Google Posts: son cosas diferentes</h2>
+
+    <p>Muchos doctores se confunden con esto. Son dos herramientas distintas con propositos distintos:</p>
+
+    <table>
+      <thead><tr><th></th><th>Blog en tusalud.pro</th><th>Google Posts (en GBP)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Que es</strong></td><td>Articulos completos en tu pagina</td><td>Publicaciones cortas en tu perfil de Google</td></tr>
+        <tr><td><strong>Duracion</strong></td><td>Permanente</td><td>Expiran en 6 meses</td></tr>
+        <tr><td><strong>Impacto en Google</strong></td><td><strong>ALTO</strong> &mdash; cada articulo puede aparecer como resultado independiente</td><td><strong>BAJO</strong> &mdash; solo muestra que tu perfil esta activo</td></tr>
+        <tr><td><strong>Ejemplo</strong></td><td>Articulo de 800 palabras: "Que es el glaucoma"</td><td>Post corto: "Sabias que el glaucoma es la 2da causa de ceguera?"</td></tr>
+      </tbody>
+    </table>
+
+    <div class="alert alert-success">
+      <strong>La estrategia correcta: AMBOS</strong>
+      1. Escribe el articulo completo en tu blog de tusalud.pro<br>
+      2. Crea un Google Post corto sobre el mismo tema con un enlace al articulo
+    </div>
+
+    <h3>Temas que funcionan para el blog</h3>
+    <table>
+      <thead><tr><th>Patron</th><th>Ejemplo</th></tr></thead>
+      <tbody>
+        <tr><td>"Que es [condicion]"</td><td>"Que es el glaucoma y como se detecta"</td></tr>
+        <tr><td>"[Procedimiento] en [ciudad]"</td><td>"Cirugia de cataratas en Guadalajara: guia completa"</td></tr>
+        <tr><td>"Precio de [especialidad]"</td><td>"Cuanto cuesta una consulta de oftalmologia en Guadalajara"</td></tr>
+        <tr><td>"Sintomas de [condicion]"</td><td>"5 sintomas de cataratas que no debes ignorar"</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Reglas para escribir articulos medicos que Google posicione</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content"><strong>Escribe desde tu experiencia:</strong> "En mi consulta, los pacientes me preguntan frecuentemente..."</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content"><strong>Responde la pregunta en el primer parrafo.</strong> Si el titulo es "Cuanto cuesta la cirugia?", la primera oracion debe dar el precio.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content"><strong>Cita fuentes medicas:</strong> "Segun la Academia Americana de Oftalmologia..."</div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content"><strong>Agrega un disclaimer:</strong> "Esta informacion es educativa y no sustituye una consulta medica."</div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content"><strong>Enlaza a tu perfil al final:</strong> "Si necesitas [servicio], agenda tu cita conmigo."</div>
+    </div>
+  </div>
+
+  <!-- PASO 8 -->
+  <div class="section">
+    <div class="section-number">8</div>
+    <h2>Google Posts &mdash; publicaciones semanales</h2>
+    <p>Publica 1-2 veces por semana directamente en tu Google Business Profile. Son publicaciones cortas con foto y un boton de accion.</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">Ve a <a href="https://business.google.com" target="_blank">business.google.com</a> y selecciona tu perfil</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">Haz clic en "Agregar actualizacion"</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">Escribe un texto corto (150-300 palabras), agrega una foto, y un boton ("Reservar", "Mas info" o "Llamar")</div>
+    </div>
+
+    <h3>Ideas para posts semanales</h3>
+    <table>
+      <thead><tr><th>Semana</th><th>Tipo de post</th></tr></thead>
+      <tbody>
+        <tr><td>Semana 1</td><td>Tip de salud relacionado a tu especialidad</td></tr>
+        <tr><td>Semana 2</td><td>Promocion de un articulo del blog (con enlace)</td></tr>
+        <tr><td>Semana 3</td><td>Novedad del consultorio</td></tr>
+        <tr><td>Semana 4</td><td>Consejo estacional (proteccion solar, alergias, etc.)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- DATA TABLE -->
+  <div class="section">
+    <h2 style="color: #c62828;">Tabla critica: Datos que DEBEN ser identicos</h2>
+    <p>Esta es la tabla mas importante de esta guia. Google cruza esta informacion entre plataformas. Si no coincide, pierde confianza en tu perfil.</p>
+
+    <table>
+      <thead>
+        <tr><th>Dato</th><th>En tusalud.pro</th><th>En Google Business Profile</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Nombre</strong></td>
+          <td>Info General &rarr; Nombre</td>
+          <td>Nombre del negocio</td>
+        </tr>
+        <tr>
+          <td><strong>Direccion</strong></td>
+          <td>Clinica &rarr; Consultorio &rarr; Direccion</td>
+          <td>Direccion</td>
+        </tr>
+        <tr>
+          <td><strong>Telefono</strong></td>
+          <td>Clinica &rarr; Consultorio &rarr; Telefono</td>
+          <td>Telefono</td>
+        </tr>
+        <tr>
+          <td><strong>Horario</strong></td>
+          <td>Clinica &rarr; Consultorio &rarr; Horario</td>
+          <td>Horario</td>
+        </tr>
+        <tr>
+          <td><strong>Servicios</strong></td>
+          <td>Tab Servicios &rarr; Nombre + Descripcion</td>
+          <td>Servicios en GBP</td>
+        </tr>
+        <tr>
+          <td><strong>Foto de perfil</strong></td>
+          <td>Info General &rarr; Foto hero</td>
+          <td>Foto de perfil / Logo</td>
+        </tr>
+        <tr>
+          <td><strong>Fotos del consultorio</strong></td>
+          <td>Multimedia &rarr; Carrusel</td>
+          <td>Fotos en GBP</td>
+        </tr>
+        <tr>
+          <td><strong>Sitio web</strong></td>
+          <td>(automatico)</td>
+          <td>tusalud.pro/doctores/tu-slug</td>
+        </tr>
+        <tr>
+          <td><strong>Coordenadas</strong></td>
+          <td>Clinica &rarr; Latitud / Longitud</td>
+          <td>Pin en Google Maps</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="alert alert-danger">
+      <strong>IDENTICA significa identica.</strong>
+      Si en tusalud.pro dice "Av. Patria 1234", en Google DEBE decir "Av. Patria 1234" &mdash; no "Avenida Patria 1234", no "Av Patria 1234". Caracter por caracter.
+    </div>
+  </div>
+
+  <!-- ACTION PLAN -->
+  <div class="section">
+    <h2>Tu plan de accion</h2>
+
+    <h3>Semana 1</h3>
+    <ul class="checklist">
+      <li>Completa tu perfil al 100% en tusalud.pro (todas las tabs)</li>
+      <li>Sube minimo 5 fotos reales a tu carrusel</li>
+      <li>Escribe minimo 8 FAQs</li>
+      <li>Crea tu Google Business Profile</li>
+      <li>Si tienes 2 consultorios, crea 2 perfiles</li>
+      <li>Inicia la verificacion</li>
+    </ul>
+
+    <h3>Semana 2</h3>
+    <ul class="checklist">
+      <li>Completa la verificacion de GBP</li>
+      <li>Sube las MISMAS fotos a GBP (minimo 10)</li>
+      <li>Agrega todos tus servicios a GBP</li>
+      <li>Genera tu enlace de resenas y crea un QR</li>
+      <li>Coloca el QR en la recepcion</li>
+      <li>Capacita a tu equipo para pedir resenas</li>
+    </ul>
+
+    <h3>Cada semana</h3>
+    <ul class="checklist">
+      <li>Pide a 1-2 pacientes que dejen resena en Google</li>
+      <li>Responde a TODAS las resenas en menos de 48 horas</li>
+      <li>Publica 1 Google Post</li>
+      <li>Escribe 1 articulo de blog cada 1-2 semanas</li>
+    </ul>
+
+    <h3>Cada mes</h3>
+    <ul class="checklist">
+      <li>Sube 2-3 fotos nuevas a GBP</li>
+      <li>Actualiza horarios si hay cambios</li>
+      <li>Verifica que direccion y telefono siguen identicos</li>
+      <li>Meta: 5+ resenas nuevas en Google</li>
+    </ul>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="section">
+    <h2>Cuando empezare a ver resultados?</h2>
+    <table>
+      <thead><tr><th>Tiempo</th><th>Que esperar</th></tr></thead>
+      <tbody>
+        <tr><td><strong>30-60 dias</strong></td><td>Tu perfil aparece en Google Maps. Primeras resenas. Primeras visitas desde GBP.</td></tr>
+        <tr><td><strong>90-120 dias</strong></td><td>Mejoras visibles en ranking organico. Blog posts empiezan a aparecer en Google.</td></tr>
+        <tr><td><strong>4-8 meses</strong></td><td>Competitivo para busquedas como "oftalmologo en guadalajara". Autoridad establecida.</td></tr>
+      </tbody>
+    </table>
+    <p style="color:#666; font-size:0.9em; margin-top:12px;">El SEO medico no es inmediato. Es una inversion que se acumula con el tiempo. La constancia es mas importante que la intensidad.</p>
+  </div>
+
+  <!-- FAQ -->
+  <div class="section">
+    <h2>Preguntas frecuentes</h2>
+
+    <div class="faq-item">
+      <div class="faq-q">"Necesito pagar algo?"</div>
+      <div class="faq-a">No. Google Business Profile es completamente gratis.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">"Puedo pedirle a mis familiares que me dejen resenas?"</div>
+      <div class="faq-a">NO. Google detecta resenas de familiares y empleados, las elimina, y puede suspender tu perfil.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">"Tengo que hacer todo esto yo?"</div>
+      <div class="faq-a">Tu equipo de recepcion puede pedir resenas y responderlas. Los articulos del blog deben ser escritos o aprobados por ti (llevan tu nombre). El GBP lo puede manejar quien tenga acceso a la cuenta de Google.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">"Que hago con una resena falsa o injusta?"</div>
+      <div class="faq-a">Responde profesionalmente y ofrece resolver en privado. Si es claramente falsa, reportala a Google como "inapropiada". Google la revisara.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">"Puedo usar las mismas fotos en ambos lados?"</div>
+      <div class="faq-a">SI. De hecho, DEBES hacerlo. Google cruza imagenes &mdash; fotos identicas en ambas plataformas aumentan la confianza.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">"Y si cambio de consultorio o de horario?"</div>
+      <div class="faq-a">Actualiza INMEDIATAMENTE en ambas plataformas. Informacion desactualizada dana tu ranking.</div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="text-align:center; padding:40px 0 20px; color:#999; font-size:0.85em;">
+    <p>Documento preparado por el equipo de tusalud.pro &mdash; Abril 2026</p>
+    <p>Si tienes dudas, contacta a tu administrador de cuenta.</p>
+  </div>
+
+</div>
+
+</body>
+</html>
