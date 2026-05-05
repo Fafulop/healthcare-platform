@@ -25,7 +25,7 @@ export default function SettingsPage() {
   useEffect(() => {
     async function fetchSettings() {
       try {
-        const res = await fetch(`${API_URL}/api/settings`);
+        const res = await authFetch(`${API_URL}/api/settings`);
         const json = await res.json();
         if (json.success) {
           setSmsEnabled(json.data.sms_enabled === "true");

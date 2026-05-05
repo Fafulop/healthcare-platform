@@ -3,11 +3,13 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { requireAdminAuth } from '@/lib/auth';
+import { requireAdminAuth, AuthError } from '@/lib/auth';
 
-// GET - Get all system settings (public, no auth needed for SMS check)
-export async function GET() {
+// GET - Get all system settings (staff auth required)
+export async function GET(request: Request) {
   try {
+    await requireAdminAuth(request);
+
     const settings = await prisma.systemSetting.findMany();
 
     const settingsMap: Record<string, string> = {};
@@ -17,6 +19,9 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: settingsMap });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
     console.error('Error fetching settings:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch settings' },
@@ -50,15 +55,9 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, data: setting });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-
-    if (message.includes('Admin access required') || message.includes('authorization')) {
-      return NextResponse.json(
-        { success: false, error: message },
-        { status: 401 }
-      );
+    if (error instanceof AuthError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
     }
-
     console.error('Error updating setting:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update setting' },

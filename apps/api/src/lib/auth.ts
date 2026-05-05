@@ -50,11 +50,6 @@ export async function validateAuthToken(
 
   const token = authHeader.substring(7);  // Remove 'Bearer ' prefix
 
-  // Debug logging
-  console.log('[AUTH DEBUG] Token received (first 50 chars):', token.substring(0, 50) + '...');
-  console.log('[AUTH DEBUG] AUTH_SECRET exists:', !!process.env.AUTH_SECRET);
-  console.log('[AUTH DEBUG] NEXTAUTH_SECRET exists:', !!process.env.NEXTAUTH_SECRET);
-
   try {
     // Verify JWT signature using NextAuth secret (try AUTH_SECRET first for NextAuth v5, fallback to NEXTAUTH_SECRET)
     const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
@@ -63,18 +58,9 @@ export async function validateAuthToken(
       throw new Error('AUTH_SECRET or NEXTAUTH_SECRET is not configured');
     }
 
-    console.log('[AUTH DEBUG] Using secret (first 20 chars):', secret.substring(0, 20) + '...');
-
-    // Try to decode without verification first to see the structure
-    const decoded = jwt.decode(token, { complete: true });
-    console.log('[AUTH DEBUG] Token header:', decoded?.header);
-    console.log('[AUTH DEBUG] Token payload email:', (decoded?.payload as any)?.email);
-
     const payload = jwt.verify(token, secret, {
       algorithms: ['HS256'],
     }) as JWTPayload;
-
-    console.log('[AUTH DEBUG] Token verified successfully for:', payload.email);
 
     if (!payload.email) {
       throw new AuthError('Token missing email claim');

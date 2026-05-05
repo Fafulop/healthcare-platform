@@ -1,30 +1,21 @@
 import { prisma } from "@healthcare/database";
 import { NextResponse } from "next/server";
+import { validateAuthToken, AuthError } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { email } = body;
+    const user = await validateAuthToken(request);
 
-    if (!email) {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
-    }
-
-    const user = await prisma.user.update({
-      where: { email },
+    await prisma.user.update({
+      where: { email: user.email },
       data: { privacyConsentAt: new Date() },
-      select: {
-        id: true,
-        email: true,
-        privacyConsentAt: true,
-      },
     });
 
-    return NextResponse.json({ success: true, privacyConsentAt: user.privacyConsentAt });
+    return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error in /api/auth/consent:", error);
     return NextResponse.json(
       { error: "Internal server error" },

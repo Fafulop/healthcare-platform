@@ -1,21 +1,21 @@
+// Legacy endpoint — user creation is now handled by NextAuth PrismaAdapter
+// (see packages/auth/src/nextauth-config.ts customAdapter.createUser).
+// This endpoint returns the authenticated user's own info.
+
 import { prisma } from "@healthcare/database";
+import { auth } from "@healthcare/auth";
 import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    const body = await request.json();
-    const { email, name, image } = body;
+    const session = await auth();
 
-    if (!email) {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user exists
-    let user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
       select: {
         id: true,
         email: true,
@@ -26,35 +26,8 @@ export async function POST(request: Request) {
       },
     });
 
-    // Create user if doesn't exist
     if (!user) {
-      // Define admin emails (can be moved to environment variable later)
-      const adminEmails = [
-        "lopez.fafutis@gmail.com",
-        // Add more admin emails here as needed
-      ];
-
-      // Determine role based on email
-      const role = adminEmails.includes(email) ? "ADMIN" : "DOCTOR";
-
-      user = await prisma.user.create({
-        data: {
-          email,
-          name,
-          image,
-          role,
-        },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          image: true,
-          role: true,
-          doctorId: true,
-        },
-      });
-
-      console.log(`✅ New user created: ${email} (role: ${role})`);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     return NextResponse.json(user);
