@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2, ClipboardList, Stethoscope, Trash2, Download, Paperclip, Image, Video, FileAudio, File, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2, ClipboardList, Stethoscope, Trash2, Download, Paperclip, Image, Video, FileAudio, File, ExternalLink, Settings } from 'lucide-react';
+import { PdfSettingsDialog } from '@/components/medical-records/PdfSettingsDialog';
 import Link from 'next/link';
 import { formatDateLong, formatDateTime } from '@/lib/practice-utils';
 import { getEncounterTypeLabel } from '../_components/encounter-types';
@@ -19,6 +20,10 @@ export default function EncounterDetailPage() {
     error,
     isDeleting,
     exportingPDF,
+    pdfSettings,
+    setPdfSettings,
+    showPdfSettings,
+    setShowPdfSettings,
     handleExportPDF,
     handleDelete,
   } = useEncounterDetail();
@@ -77,6 +82,13 @@ export default function EncounterDetailPage() {
             >
               {exportingPDF ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
               {exportingPDF ? 'Generando...' : 'PDF'}
+            </button>
+            <button
+              onClick={() => setShowPdfSettings(true)}
+              className="px-2 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+              title="Configuracion de impresion PDF"
+            >
+              <Settings className="w-3.5 h-3.5" />
             </button>
             <Link
               href={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}/edit`}
@@ -289,6 +301,12 @@ export default function EncounterDetailPage() {
           <span>Actualizada: {formatDateTime(encounter.updatedAt)}</span>
         </div>
       </div>
+
+      <PdfSettingsDialog
+        open={showPdfSettings}
+        onClose={() => setShowPdfSettings(false)}
+        onSettingsLoaded={(s) => setPdfSettings(s)}
+      />
     </div>
   );
 }

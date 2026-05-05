@@ -1,4 +1,5 @@
 // jsPDF is dynamically imported — safe for client-only use, no SSR issues
+import { DEFAULT_PDF_SETTINGS, type PdfSettings } from '@/types/pdf-settings';
 
 function formatLocalDate(dateString: string): string {
   try {
@@ -48,8 +49,8 @@ function sectionHeader(doc: any, label: string, y: number, pageWidth: number): n
   return y + 8;
 }
 
-function pageBreakIfNeeded(doc: any, y: number, threshold = 255): number {
-  if (y > threshold) { doc.addPage(); return 20; }
+function pageBreakIfNeeded(doc: any, y: number, threshold = 255, topReset = 20): number {
+  if (y > threshold) { doc.addPage(); return topReset; }
   return y;
 }
 
@@ -59,6 +60,7 @@ function pageBreakIfNeeded(doc: any, y: number, threshold = 255): number {
 export async function generateEncounterPDF(
   encounter: any,
   customTemplate?: any | null,
+  pdfSettings?: PdfSettings | null,
 ): Promise<void> {
   const { default: jsPDF } = await import('jspdf');
   const doc = new jsPDF();
@@ -67,55 +69,71 @@ export async function generateEncounterPDF(
   const m = 14;
   const cw = W - m * 2;
 
+  // Merge settings with defaults and clamp margins
+  const settings = { ...DEFAULT_PDF_SETTINGS, ...(pdfSettings || {}) };
+  settings.topMarginMm = Math.max(0, Math.min(80, settings.topMarginMm));
+  settings.bottomMarginMm = Math.max(0, Math.min(80, settings.bottomMarginMm));
+  const breakThreshold = H - 14 - settings.bottomMarginMm;
+  const topReset = settings.topMarginMm + 14;
+
   // Header
-  doc.setFillColor(37, 99, 235);
-  doc.rect(0, 0, W, 32, 'F');
-  doc.setFontSize(15);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('CONSULTA MÉDICA', m, 14);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(formatLocalDate(encounter.encounterDate), m, 23);
-  doc.text(encStatusLabel(encounter.status), W - m, 23, { align: 'right' });
-  doc.setTextColor(0, 0, 0);
-  let y = 40;
+  let y: number;
+  if (settings.showHeader) {
+    doc.setFillColor(37, 99, 235);
+    doc.rect(0, 0, W, 32, 'F');
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('CONSULTA MÉDICA', m, 14);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(formatLocalDate(encounter.encounterDate), m, 23);
+    doc.text(encStatusLabel(encounter.status), W - m, 23, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    y = 40 + settings.topMarginMm;
+  } else {
+    y = settings.topMarginMm + 14;
+  }
 
   // Patient box
   const pat = encounter.patient;
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(m, y, cw, 22, 2, 2, 'F');
-  doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(100, 116, 139);
-  doc.text('PACIENTE', m + 4, y + 6);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text(`${pat.firstName} ${pat.lastName}`, m + 4, y + 13);
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(80, 80, 80);
-  const metaParts = [
-    pat.internalId ? `ID: ${pat.internalId}` : null,
-    pat.sex ? `Sexo: ${pat.sex}` : null,
-    pat.dateOfBirth ? `Edad: ${calcAge(pat.dateOfBirth)} años` : null,
-  ].filter(Boolean).join('   ');
-  doc.text(metaParts, m + 4, y + 19);
-  doc.setTextColor(0, 0, 0);
-  y += 28;
+  if (settings.showPatientBox) {
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(m, y, cw, 22, 2, 2, 'F');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 116, 139);
+    doc.text('PACIENTE', m + 4, y + 6);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(`${pat.firstName} ${pat.lastName}`, m + 4, y + 13);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    const metaParts = [
+      pat.internalId ? `ID: ${pat.internalId}` : null,
+      pat.sex ? `Sexo: ${pat.sex}` : null,
+      pat.dateOfBirth ? `Edad: ${calcAge(pat.dateOfBirth)} años` : null,
+    ].filter(Boolean).join('   ');
+    doc.text(metaParts, m + 4, y + 19);
+    doc.setTextColor(0, 0, 0);
+    y += 28;
+  }
 
   // Encounter meta
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(80, 80, 80);
-  const metaLine = [
-    `Tipo: ${encTypeLabel(encounter.encounterType)}`,
-    encounter.location ? `Lugar: ${encounter.location}` : null,
-  ].filter(Boolean).join('   •   ');
-  doc.text(metaLine, m, y);
-  doc.setTextColor(0, 0, 0);
-  y += 10;
+  if (settings.showEncounterMeta) {
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    const metaLine = [
+      `Tipo: ${encTypeLabel(encounter.encounterType)}`,
+      encounter.location ? `Lugar: ${encounter.location}` : null,
+    ].filter(Boolean).join('   •   ');
+    doc.text(metaLine, m, y);
+    doc.setTextColor(0, 0, 0);
+    y += 10;
+  }
 
   // Chief complaint (skip for pure custom templates where it's irrelevant)
   const isCustom = !!(encounter.templateId || encounter.customData);
@@ -136,8 +154,8 @@ export async function generateEncounterPDF(
     encounter.vitalsOxygenSat ? `SpO₂: ${encounter.vitalsOxygenSat}%` : null,
   ].filter(Boolean) as string[];
 
-  if (vitals.length > 0) {
-    y = pageBreakIfNeeded(doc, y, 260);
+  if (settings.showVitals && vitals.length > 0) {
+    y = pageBreakIfNeeded(doc, y, breakThreshold, topReset);
     y = sectionHeader(doc, 'Signos Vitales', y, W);
     const vitalsLine1 = vitals.slice(0, 3).join('   |   ');
     const vitalsLine2 = vitals.slice(3).join('   |   ');
@@ -168,11 +186,11 @@ export async function generateEncounterPDF(
   const hasSOAP = soapItems.some(s => s.value);
 
   if (hasSOAP) {
-    y = pageBreakIfNeeded(doc, y, 240);
+    y = pageBreakIfNeeded(doc, y, breakThreshold - 15, topReset);
     y = sectionHeader(doc, 'Notas SOAP', y, W);
     for (const item of soapItems) {
       if (!item.value) continue;
-      y = pageBreakIfNeeded(doc, y, 255);
+      y = pageBreakIfNeeded(doc, y, breakThreshold, topReset);
       doc.setFillColor(item.r, item.g, item.b);
       doc.roundedRect(m, y - 1, 6, 6, 1, 1, 'F');
       doc.setFontSize(7);
@@ -191,7 +209,7 @@ export async function generateEncounterPDF(
 
   // Clinical notes (only when no SOAP)
   if (encounter.clinicalNotes && !hasSOAP) {
-    y = pageBreakIfNeeded(doc, y, 250);
+    y = pageBreakIfNeeded(doc, y, breakThreshold - 5, topReset);
     y = sectionHeader(doc, 'Notas Clínicas', y, W);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -200,19 +218,20 @@ export async function generateEncounterPDF(
 
   // Custom template data
   if (isCustom && encounter.customData && Object.keys(encounter.customData).length > 0) {
-    y = pageBreakIfNeeded(doc, y, 240);
+    y = pageBreakIfNeeded(doc, y, breakThreshold - 15, topReset);
     const templateName = customTemplate?.name || 'Datos de la Consulta';
     y = sectionHeader(doc, templateName, y, W);
 
     const fields = customTemplate?.customFields as any[] | undefined;
     const entries: [string, any][] = fields
       ? fields
+          .filter((f: any) => f.showInPdf !== false)
           .map((f: any): [string, any] => [f.labelEs || f.label || f.name, encounter.customData![f.name]])
           .filter(([, v]) => v !== undefined && v !== null && v !== '')
       : Object.entries(encounter.customData).filter(([, v]) => v !== undefined && v !== null && v !== '');
 
     for (const [label, value] of entries) {
-      y = pageBreakIfNeeded(doc, y, 260);
+      y = pageBreakIfNeeded(doc, y, breakThreshold, topReset);
       doc.setFontSize(7.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(100, 116, 139);
@@ -228,8 +247,8 @@ export async function generateEncounterPDF(
   }
 
   // Follow-up
-  if (encounter.followUpDate || encounter.followUpNotes) {
-    y = pageBreakIfNeeded(doc, y, 260);
+  if (settings.showFollowUp && (encounter.followUpDate || encounter.followUpNotes)) {
+    y = pageBreakIfNeeded(doc, y, breakThreshold, topReset);
     y = sectionHeader(doc, 'Seguimiento', y, W);
     doc.setFillColor(239, 246, 255);
     // Compute height dynamically so wrapped notes don't overflow the box
@@ -261,14 +280,21 @@ export async function generateEncounterPDF(
   }
 
   // Footer on every page
-  const totalPages = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(160, 160, 160);
-    doc.text(`tusalud.pro — Generado el ${new Date().toLocaleDateString('es-MX')}`, m, H - 8);
-    doc.text(`Página ${i} de ${totalPages}`, W - m, H - 8, { align: 'right' });
+  if (settings.showFooter || settings.showPageNumbers) {
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    const footerY = H - 8 - settings.bottomMarginMm;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(160, 160, 160);
+      if (settings.showFooter) {
+        doc.text(`tusalud.pro — Generado el ${new Date().toLocaleDateString('es-MX')}`, m, footerY);
+      }
+      if (settings.showPageNumbers) {
+        doc.text(`Página ${i} de ${totalPages}`, W - m, footerY, { align: 'right' });
+      }
+    }
   }
 
   const dateStr = encounter.encounterDate.split('T')[0];

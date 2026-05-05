@@ -55,6 +55,9 @@ export interface FieldDefinition {
   // UI Layout
   section?: string;              // Group related fields in sections
   width?: 'full' | 'half' | 'third';  // Width hint for responsive layout
+
+  // PDF output control
+  showInPdf?: boolean;           // default: true — toggle in FormBuilder ConfigPanel
 }
 
 // =============================================================================

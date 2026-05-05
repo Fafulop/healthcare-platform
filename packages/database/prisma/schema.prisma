@@ -163,6 +163,9 @@ model Doctor {
   prescriptionSignatureUrl  String?   @map("prescription_signature_url") @db.VarChar(500)
   prescriptionColorScheme   String?   @default("blue") @map("prescription_color_scheme") @db.VarChar(50)
 
+  // Encounter PDF print settings (for pre-printed letterhead paper)
+  pdfSettings               Json?     @map("pdf_settings")
+
   // Telegram notifications
   telegramChatId                    String?   @map("telegram_chat_id")
   telegramNotifyBooking             Boolean   @default(true) @map("telegram_notify_booking")

@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { generateEncounterPDF } from '@/lib/pdf/encounter-pdf';
+import type { PdfSettings } from '@/types/pdf-settings';
 import type { Encounter } from './encounter-types';
 
 export function useEncounterDetail() {
@@ -27,6 +28,8 @@ export function useEncounterDetail() {
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [pdfSettings, setPdfSettings] = useState<PdfSettings | null>(null);
+  const [showPdfSettings, setShowPdfSettings] = useState(false);
 
   useEffect(() => {
     fetchEncounter();
@@ -75,11 +78,27 @@ export function useEncounterDetail() {
     }
   };
 
+  const fetchPdfSettings = async (): Promise<PdfSettings | null> => {
+    if (pdfSettings) return pdfSettings;
+    try {
+      const res = await fetch('/api/doctor/pdf-settings');
+      const data = await res.json();
+      if (data.success) {
+        setPdfSettings(data.data);
+        return data.data;
+      }
+    } catch {
+      console.error('Error fetching PDF settings');
+    }
+    return null;
+  };
+
   const handleExportPDF = async () => {
     if (!encounter) return;
     setExportingPDF(true);
     try {
-      await generateEncounterPDF(encounter, customTemplate);
+      const settings = await fetchPdfSettings();
+      await generateEncounterPDF(encounter, customTemplate, settings);
     } catch (err) {
       console.error('Error generating PDF:', err);
     } finally {
@@ -123,6 +142,11 @@ export function useEncounterDetail() {
     error,
     isDeleting,
     exportingPDF,
+    // PDF settings
+    pdfSettings,
+    setPdfSettings,
+    showPdfSettings,
+    setShowPdfSettings,
     // Actions
     handleExportPDF,
     handleDelete,
