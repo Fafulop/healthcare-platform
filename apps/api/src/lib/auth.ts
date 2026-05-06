@@ -156,7 +156,7 @@ export async function getAuthenticatedDoctor(request: Request) {
 
   // Both DOCTOR and ADMIN require a linked doctor profile
   if (!user.doctorId) {
-    throw new Error('No doctor profile linked to this account');
+    throw new AuthError('No doctor profile linked to this account', 403);
   }
 
   const doctor = await prisma.doctor.findUnique({
@@ -170,7 +170,7 @@ export async function getAuthenticatedDoctor(request: Request) {
   });
 
   if (!doctor) {
-    throw new Error('Doctor profile not found');
+    throw new AuthError('Doctor profile not found', 403);
   }
 
   return {
