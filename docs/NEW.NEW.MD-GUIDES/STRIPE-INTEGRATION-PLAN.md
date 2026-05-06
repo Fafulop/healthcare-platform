@@ -581,8 +581,9 @@ STRIPE_CONNECT_CLIENT_ID=ca_...        # Connect platform client ID (if using OA
 2. **Platform type:** Select "Crea una plataforma" (doctors are businesses receiving payments directly from patients)
 3. **Webhook:** Created at Stripe Dashboard → Developers → Webhooks
    - URL: `https://healthcareapi-production-fb70.up.railway.app/api/stripe/webhook`
-   - Events: `account.updated`, `checkout.session.completed`
+   - Events: `account.updated`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`
    - Scope: Both "Tu cuenta" and "Cuentas conectadas y v2"
+   - **IMPORTANT:** Add `checkout.session.async_payment_succeeded` and `checkout.session.async_payment_failed` for OXXO support
 
 ### Railway Environment Variables (API app)
 
@@ -624,8 +625,43 @@ Migration files for this feature:
 - `packages/database/prisma/migrations/add-stripe-connect-fields.sql` (Phase 1)
 - `packages/database/prisma/migrations/add-payment-links.sql` (Phase 2)
 - `packages/database/prisma/migrations/fix-payment-links-updated-at-default.sql` (fix)
+- `packages/database/prisma/migrations/add-payment-links-composite-index.sql` (performance)
 
 All migrations are idempotent (safe to re-run).
+
+### Security Hardening (May 5, 2026)
+
+After a full system-level analysis across all apps, the following issues were identified and resolved:
+
+#### Fixed (HIGH priority)
+
+| Issue | Description | Fix |
+|-------|-------------|-----|
+| Admin privilege escalation | `getAuthenticatedDoctor()` allows ADMIN role, meaning admins could create Stripe accounts or payment links for any doctor | Created `getAuthenticatedDoctorStripe()` that restricts to `role === 'DOCTOR'` only |
+| OXXO payments not tracked | OXXO is async (pay at store within 72h). `checkout.session.completed` fires with `payment_status: 'unpaid'` for OXXO. Actual payment confirmation needs separate event | Added `checkout.session.async_payment_succeeded` and `async_payment_failed` webhook handlers |
+| Duplicate bookingId race condition | `bookingId` has `@unique` constraint. Concurrent requests could create orphaned Stripe objects | Added pre-check for existing active link before creating |
+| Missing composite index | Queries filter by `doctorId + status` but only `doctorId` was indexed | Added `@@index([doctorId, status])` |
+
+#### Evaluated & Accepted (not bugs)
+
+| Finding | Why it's not an issue |
+|---------|----------------------|
+| CORS blocks webhook | FALSE POSITIVE — CORS only affects browser requests. Stripe sends server-to-server with no Origin header. Webhook already works. |
+| Body parser breaks signature | FALSE POSITIVE — Next.js App Router `request.text()` correctly preserves raw body. |
+| JWT expires during onboarding | NextAuth sessions last 30 days. Onboarding takes 5-15 min. |
+| `__pending__` placeholder stuck | Rollback on failure + unique constraint prevents corruption. Extremely unlikely edge case. |
+| Webhook arrives before DB record | Customer takes 30+ seconds to pay. DB record created in <1s. |
+| No charges_enabled re-check | Stripe itself rejects payments if charges disabled. |
+| No webhook idempotency table | `updateMany` with `status: 'PENDING'` is naturally idempotent. |
+
+#### Future improvements (Phase 3)
+
+| Item | Priority |
+|------|----------|
+| Stripe disconnect endpoint | Medium — allows doctor to revoke Stripe |
+| Rate limiting on Stripe endpoints | Medium — prevent spam (Stripe has its own limits) |
+| Webhook event ID deduplication | Low — add `processed_events` table |
+| Zod validation on all inputs | Low — defence-in-depth |
 
 ---
 

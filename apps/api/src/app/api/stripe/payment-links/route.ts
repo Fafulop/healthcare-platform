@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { getAuthenticatedDoctor, AuthError } from '@/lib/auth';
+import { getAuthenticatedDoctorStripe, AuthError } from '@/lib/auth';
 import { stripe } from '@/lib/stripe';
 
 /**
@@ -9,7 +9,7 @@ import { stripe } from '@/lib/stripe';
  */
 export async function POST(request: Request) {
   try {
-    const { doctor } = await getAuthenticatedDoctor(request);
+    const { doctor } = await getAuthenticatedDoctorStripe(request);
 
     // Verify doctor has a fully set up Stripe account
     const fullDoctor = await prisma.doctor.findUnique({
@@ -68,6 +68,17 @@ export async function POST(request: Request) {
       if (!booking) {
         return NextResponse.json(
           { error: 'Cita no encontrada' },
+          { status: 400 }
+        );
+      }
+      // Check no active payment link already exists for this booking
+      const existingLink = await prisma.paymentLink.findUnique({
+        where: { bookingId },
+        select: { id: true, isActive: true },
+      });
+      if (existingLink?.isActive) {
+        return NextResponse.json(
+          { error: 'Ya existe un link de pago activo para esta cita' },
           { status: 400 }
         );
       }
@@ -140,7 +151,7 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
-    const { doctor } = await getAuthenticatedDoctor(request);
+    const { doctor } = await getAuthenticatedDoctorStripe(request);
 
     const paymentLinks = await prisma.paymentLink.findMany({
       where: { doctorId: doctor.id },

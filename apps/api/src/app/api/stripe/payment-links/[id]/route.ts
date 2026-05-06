@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { getAuthenticatedDoctor, AuthError } from '@/lib/auth';
+import { getAuthenticatedDoctorStripe, AuthError } from '@/lib/auth';
 import { stripe } from '@/lib/stripe';
 
 /**
@@ -12,7 +12,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { doctor } = await getAuthenticatedDoctor(request);
+    const { doctor } = await getAuthenticatedDoctorStripe(request);
     const { id } = await params;
 
     // Find the payment link and verify ownership

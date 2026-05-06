@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { getAuthenticatedDoctor, AuthError } from '@/lib/auth';
+import { getAuthenticatedDoctorStripe, AuthError } from '@/lib/auth';
 import { stripe } from '@/lib/stripe';
 
 export async function POST(request: Request) {
   try {
-    const { doctor } = await getAuthenticatedDoctor(request);
+    const { doctor } = await getAuthenticatedDoctorStripe(request);
 
     const fullDoctor = await prisma.doctor.findUnique({
       where: { id: doctor.id },

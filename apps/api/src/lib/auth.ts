@@ -178,3 +178,36 @@ export async function getAuthenticatedDoctor(request: Request) {
     doctor,
   };
 }
+
+/**
+ * Get authenticated doctor for Stripe operations.
+ * Restricts to DOCTOR role only — admins cannot perform financial operations
+ * on behalf of doctors to prevent privilege escalation.
+ */
+export async function getAuthenticatedDoctorStripe(request: Request) {
+  const user = await validateAuthToken(request);
+
+  if (user.role !== 'DOCTOR') {
+    throw new AuthError('Solo doctores pueden realizar operaciones de pago', 403);
+  }
+
+  if (!user.doctorId) {
+    throw new AuthError('No doctor profile linked to this account', 403);
+  }
+
+  const doctor = await prisma.doctor.findUnique({
+    where: { id: user.doctorId },
+    select: {
+      id: true,
+      slug: true,
+      doctorFullName: true,
+      primarySpecialty: true,
+    },
+  });
+
+  if (!doctor) {
+    throw new AuthError('Doctor profile not found', 403);
+  }
+
+  return { user, doctor };
+}

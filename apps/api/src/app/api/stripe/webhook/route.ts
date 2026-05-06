@@ -48,6 +48,31 @@ export async function POST(request: Request) {
         const paymentLinkId = session.payment_link;
 
         if (paymentLinkId && typeof paymentLinkId === 'string') {
+          // For immediate payments (card), mark as PAID
+          if (session.payment_status === 'paid') {
+            await prisma.paymentLink.updateMany({
+              where: {
+                stripePaymentLinkId: paymentLinkId,
+                status: 'PENDING',
+              },
+              data: {
+                status: 'PAID',
+                paidAt: new Date(),
+              },
+            });
+          }
+          // For async methods (OXXO), payment_status will be 'unpaid'
+          // and we wait for checkout.session.async_payment_succeeded
+        }
+        break;
+      }
+
+      case 'checkout.session.async_payment_succeeded': {
+        // Handles OXXO and other async payment methods
+        const session = event.data.object;
+        const paymentLinkId = session.payment_link;
+
+        if (paymentLinkId && typeof paymentLinkId === 'string') {
           await prisma.paymentLink.updateMany({
             where: {
               stripePaymentLinkId: paymentLinkId,
@@ -56,6 +81,25 @@ export async function POST(request: Request) {
             data: {
               status: 'PAID',
               paidAt: new Date(),
+            },
+          });
+        }
+        break;
+      }
+
+      case 'checkout.session.async_payment_failed': {
+        // OXXO payment expired (not paid within 72h)
+        const session = event.data.object;
+        const paymentLinkId = session.payment_link;
+
+        if (paymentLinkId && typeof paymentLinkId === 'string') {
+          await prisma.paymentLink.updateMany({
+            where: {
+              stripePaymentLinkId: paymentLinkId,
+              status: 'PENDING',
+            },
+            data: {
+              status: 'EXPIRED',
             },
           });
         }

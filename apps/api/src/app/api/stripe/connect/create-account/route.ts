@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { getAuthenticatedDoctor, AuthError } from '@/lib/auth';
+import { getAuthenticatedDoctorStripe, AuthError } from '@/lib/auth';
 import { stripe } from '@/lib/stripe';
 
 export async function POST(request: Request) {
   let doctorId: string | null = null;
 
   try {
-    const { user, doctor } = await getAuthenticatedDoctor(request);
+    const { user, doctor } = await getAuthenticatedDoctorStripe(request);
     doctorId = doctor.id;
 
     // Check if doctor already has a Stripe account
@@ -81,9 +81,10 @@ export async function POST(request: Request) {
       }).catch(() => {});
     }
 
-    console.error('Error creating Stripe Connect account:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error creating Stripe Connect account:', errorMessage);
     return NextResponse.json(
-      { error: 'Error al crear la cuenta de Stripe' },
+      { error: `Error al crear la cuenta de Stripe: ${errorMessage}` },
       { status: 500 }
     );
   }

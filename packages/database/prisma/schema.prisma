@@ -653,6 +653,7 @@ model PaymentLink {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@index([doctorId])
+  @@index([doctorId, status])
   @@map("payment_links")
   @@schema("public")
 }
