@@ -15,15 +15,52 @@ import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
+// In-memory rate limiter for booking creation (per IP).
+// Prevents SMS/email bombing via rapid booking requests.
+const BOOKING_RATE_LIMIT = 10;       // max bookings per window
+const BOOKING_RATE_WINDOW_MS = 60_000; // 1 minute
+const bookingRateMap = new Map<string, { count: number; resetAt: number }>();
+
+// Periodically purge expired entries to prevent unbounded memory growth.
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of bookingRateMap) {
+    if (now > entry.resetAt) bookingRateMap.delete(ip);
+  }
+}, BOOKING_RATE_WINDOW_MS);
+
+function checkBookingRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = bookingRateMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    bookingRateMap.set(ip, { count: 1, resetAt: now + BOOKING_RATE_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= BOOKING_RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 // POST - Create a booking
 export async function POST(request: Request) {
   try {
+    // Rate limit unauthenticated booking requests by IP
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+
     // Optional auth — doctors/admins get auto-confirmed bookings, public gets PENDING.
     let callerRole: string | null = null;
     try {
       const auth = await validateAuthToken(request);
       callerRole = auth.role;
     } catch {}
+
+    // Only rate-limit unauthenticated (public) requests
+    if (!callerRole && !checkBookingRateLimit(ip)) {
+      return NextResponse.json(
+        { success: false, error: 'Demasiadas solicitudes. Intente de nuevo en un minuto.' },
+        { status: 429 }
+      );
+    }
 
     const body = await request.json();
     const {
@@ -40,10 +77,34 @@ export async function POST(request: Request) {
       patientId,
     } = body;
 
-    // Validation
-    if (!slotId || !patientName) {
+    // Validation — basic type and format checks on public input
+    if (!slotId || typeof slotId !== 'string') {
       return NextResponse.json(
-        { success: false, error: 'slotId and patientName are required' },
+        { success: false, error: 'slotId is required' },
+        { status: 400 }
+      );
+    }
+    if (!patientName || typeof patientName !== 'string' || patientName.trim().length < 2 || patientName.length > 200) {
+      return NextResponse.json(
+        { success: false, error: 'patientName is required (2-200 characters)' },
+        { status: 400 }
+      );
+    }
+    if (patientEmail && (typeof patientEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientEmail))) {
+      return NextResponse.json(
+        { success: false, error: 'patientEmail must be a valid email address' },
+        { status: 400 }
+      );
+    }
+    if (patientPhone && (typeof patientPhone !== 'string' || patientPhone.length > 20)) {
+      return NextResponse.json(
+        { success: false, error: 'patientPhone must be at most 20 characters' },
+        { status: 400 }
+      );
+    }
+    if (notes && (typeof notes !== 'string' || notes.length > 2000)) {
+      return NextResponse.json(
+        { success: false, error: 'notes must be at most 2000 characters' },
         { status: 400 }
       );
     }

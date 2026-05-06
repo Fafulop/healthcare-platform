@@ -3,9 +3,18 @@
 // Doctors use this to find their chat ID for the Integraciones settings.
 //
 // Register this webhook once with:
-//   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<API_DOMAIN>/api/telegram/webhook"
+//   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<API_DOMAIN>/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+//
+// The secret_token param tells Telegram to include an X-Telegram-Bot-Api-Secret-Token
+// header on every request, which we verify below.
 
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
+
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 export async function POST(request: Request) {
   const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -13,6 +22,16 @@ export async function POST(request: Request) {
   // Always return 200 to Telegram — even on errors — to prevent retries
   if (!TELEGRAM_BOT_TOKEN) {
     return NextResponse.json({ ok: true });
+  }
+
+  // Verify the request is from Telegram using the shared secret token.
+  // If TELEGRAM_WEBHOOK_SECRET is set, reject requests without a matching header.
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const headerSecret = request.headers.get('x-telegram-bot-api-secret-token') ?? '';
+    if (!safeEqual(headerSecret, webhookSecret)) {
+      return NextResponse.json({ ok: true }); // 200 to avoid retries
+    }
   }
 
   try {

@@ -1,17 +1,20 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
+import { auth } from "@healthcare/auth";
 
 const f = createUploadthing({
-  /**
-   * Log out more information about the error, but don't return it to the client
-   * @see https://docs.uploadthing.com/errors#error-formatting
-   */
   errorFormatter: (err) => {
     console.log("UploadThing Error:", err.message);
     console.log("  - Above error caused by:", err.cause);
-
     return { message: err.message };
   },
 });
+
+// Shared auth middleware — rejects uploads from unauthenticated users.
+const authMiddleware = async () => {
+  const session = await auth();
+  if (!session?.user?.email) throw new Error("Unauthorized");
+  return { userId: session.user.id };
+};
 
 // FileRouter for doctor profile uploads
 export const ourFileRouter = {
@@ -22,6 +25,7 @@ export const ourFileRouter = {
       maxFileCount: 1
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Hero image uploaded:", file.ufsUrl);
       return { uploadedBy: "admin" };
@@ -34,6 +38,7 @@ export const ourFileRouter = {
       maxFileCount: 20
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Certificate uploaded:", file.ufsUrl);
       return { uploadedBy: "admin" };
@@ -46,6 +51,7 @@ export const ourFileRouter = {
       maxFileCount: 20
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Clinic photo uploaded:", file.ufsUrl);
       return { uploadedBy: "admin" };
@@ -58,6 +64,7 @@ export const ourFileRouter = {
       maxFileCount: 5
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Video uploaded:", file.ufsUrl);
       return { uploadedBy: "admin" };

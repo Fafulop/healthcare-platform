@@ -22,6 +22,9 @@ export const authConfig: NextAuthConfig = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // SECURITY: acceptable with Google-only auth (Google guarantees email ownership).
+      // MUST be removed if a second OAuth/credentials provider is ever added — it would
+      // allow cross-provider account hijacking via matching email.
       allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {

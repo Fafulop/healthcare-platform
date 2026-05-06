@@ -1,4 +1,5 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
+import { validateAuthToken } from '../../../lib/auth';
 
 const f = createUploadthing({
   errorFormatter: (err) => {
@@ -7,6 +8,14 @@ const f = createUploadthing({
     return { message: err.message };
   },
 });
+
+// Auth middleware — rejects uploads from unauthenticated users.
+// The API app uses JWT tokens (not NextAuth sessions), so we validate the
+// Authorization header via the shared validateAuthToken helper.
+const authMiddleware = async ({ req }: { req: Request }) => {
+  const user = await validateAuthToken(req);
+  return { userId: user.userId };
+};
 
 // FileRouter for practice management ledger uploads
 export const ourFileRouter = {
@@ -21,6 +30,7 @@ export const ourFileRouter = {
       maxFileCount: 10
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Ledger attachment uploaded:", file.url);
       return { uploadedBy: "doctor" };
@@ -33,6 +43,7 @@ export const ourFileRouter = {
       maxFileCount: 5
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("PDF factura uploaded:", file.url);
       return { uploadedBy: "doctor" };
@@ -49,6 +60,7 @@ export const ourFileRouter = {
       maxFileCount: 5
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("XML factura uploaded:", file.url);
       return { uploadedBy: "doctor" };
@@ -65,6 +77,7 @@ export const ourFileRouter = {
       maxFileCount: 10
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Medical image uploaded:", file.url);
       return { uploadedBy: "doctor", mediaType: "image" };
@@ -77,6 +90,7 @@ export const ourFileRouter = {
       maxFileCount: 5
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Medical video uploaded:", file.url);
       return { uploadedBy: "doctor", mediaType: "video" };
@@ -89,6 +103,7 @@ export const ourFileRouter = {
       maxFileCount: 10
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Medical audio uploaded:", file.url);
       return { uploadedBy: "doctor", mediaType: "audio" };
@@ -101,6 +116,7 @@ export const ourFileRouter = {
       maxFileCount: 10
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Medical document uploaded:", file.url);
       return { uploadedBy: "doctor", mediaType: "document" };
@@ -116,6 +132,7 @@ export const ourFileRouter = {
       maxFileCount: 1
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Hero image uploaded:", file.url);
       return { uploadedBy: "doctor" };
@@ -128,6 +145,7 @@ export const ourFileRouter = {
       maxFileCount: 20
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Certificate uploaded:", file.url);
       return { uploadedBy: "doctor" };
@@ -140,6 +158,7 @@ export const ourFileRouter = {
       maxFileCount: 20
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Clinic photo uploaded:", file.url);
       return { uploadedBy: "doctor" };
@@ -152,6 +171,7 @@ export const ourFileRouter = {
       maxFileCount: 5
     }
   })
+    .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
       console.log("Video uploaded:", file.url);
       return { uploadedBy: "doctor" };
