@@ -8,10 +8,12 @@ import {
   User,
   Briefcase,
   BookOpen,
+  CreditCard,
 } from "lucide-react";
 import { TabNav } from "./_components/TabNav";
 import { CitasGuide } from "./_components/CitasGuide";
 import { ExpedientesGuide } from "./_components/ExpedientesGuide";
+import { PagosGuide } from "./_components/PagosGuide";
 
 const TABS = [
   {
@@ -28,6 +30,11 @@ const TABS = [
     id: "expedientes",
     label: "Expedientes",
     icon: <FolderOpen className="w-4 h-4" />,
+  },
+  {
+    id: "pagos",
+    label: "Pagos",
+    icon: <CreditCard className="w-4 h-4" />,
   },
   {
     id: "perfil",
@@ -75,7 +82,8 @@ function AyudaContent() {
         {activeTab === "citas-acciones" && <CitasGuide view="acciones" />}
         {activeTab === "citas-status" && <CitasGuide view="status" />}
         {activeTab === "expedientes" && <ExpedientesGuide />}
-        {activeTab !== "citas-acciones" && activeTab !== "citas-status" && activeTab !== "expedientes" && activeTabData && (
+        {activeTab === "pagos" && <PagosGuide />}
+        {activeTab !== "citas-acciones" && activeTab !== "citas-status" && activeTab !== "expedientes" && activeTab !== "pagos" && activeTabData && (
           <ComingSoonTab label={activeTabData.label} />
         )}
       </div>
