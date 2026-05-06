@@ -183,6 +183,12 @@ model Doctor {
   reminderEmailEnabled           Boolean   @default(false) @map("reminder_email_enabled")
   reminderEmailOffsetMinutes     Int       @default(120)   @map("reminder_email_offset_minutes")
 
+  // Stripe Connect
+  stripeAccountId            String?   @unique @map("stripe_account_id")
+  stripeOnboardingComplete   Boolean   @default(false) @map("stripe_onboarding_complete")
+  stripeChargesEnabled       Boolean   @default(false) @map("stripe_charges_enabled")
+  stripePayoutsEnabled       Boolean   @default(false) @map("stripe_payouts_enabled")
+
   // Booking field requirements per flow (true = required, false = optional)
   bookingPublicEmailRequired      Boolean @default(true) @map("booking_public_email_required")
   bookingPublicPhoneRequired      Boolean @default(true) @map("booking_public_phone_required")
@@ -237,6 +243,9 @@ model Doctor {
   patientNotes       PatientNote[]
   noteTemas          NoteTema[]
   noteSubtemas       NoteSubtema[]
+
+  // Stripe Payment Links
+  paymentLinks       PaymentLink[]
 
   // LLM Usage Tracking
   llmTokenUsages     LlmTokenUsage[]
@@ -305,6 +314,7 @@ model Service {
 
   doctor             Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   bookings           Booking[]
+  paymentLinks       PaymentLink[]
 
   @@map("services")
   @@index([doctorId])
@@ -579,6 +589,7 @@ model Booking {
   service            Service?         @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   patient            Patient?         @relation(fields: [patientId], references: [id], onDelete: SetNull)
   review             Review?
+  paymentLink        PaymentLink?
   formLink           AppointmentFormLink?  @relation("BookingFormLink")
 
   createdAt          DateTime      @default(now()) @map("created_at")
@@ -601,6 +612,48 @@ enum BookingStatus {
   COMPLETED     // Appointment happened
   NO_SHOW       // Patient didn't show up
 
+  @@schema("public")
+}
+
+enum PaymentLinkStatus {
+  PENDING
+  PAID
+  EXPIRED
+  CANCELLED
+
+  @@schema("public")
+}
+
+model PaymentLink {
+  id              String   @id @default(cuid())
+  doctorId        String   @map("doctor_id")
+  doctor          Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  // Stripe data
+  stripePaymentLinkId   String  @unique @map("stripe_payment_link_id")
+  stripePaymentLinkUrl  String  @map("stripe_payment_link_url")
+
+  // Link metadata
+  description     String?
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   @default("MXN") @db.VarChar(3)
+  isActive        Boolean  @default(true) @map("is_active")
+
+  // Optional: link to a specific booking or service
+  bookingId       String?  @unique @map("booking_id")
+  booking         Booking? @relation(fields: [bookingId], references: [id])
+  serviceId       String?  @map("service_id")
+  service         Service? @relation(fields: [serviceId], references: [id])
+
+  // Tracking
+  status          PaymentLinkStatus @default(PENDING)
+  paidAt          DateTime?         @map("paid_at")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([doctorId])
+  @@map("payment_links")
   @@schema("public")
 }
 

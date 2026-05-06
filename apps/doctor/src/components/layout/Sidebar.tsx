@@ -19,6 +19,7 @@ import {
   NotebookPen,
   UserCog,
   BarChart3,
+  CreditCard,
   HelpCircle,
 } from "lucide-react";
 
@@ -151,6 +152,12 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             label="Reportes"
             href="/dashboard/reportes"
             active={pathname?.startsWith("/dashboard/reportes")}
+          />
+          <NavItem
+            icon={CreditCard}
+            label="Pagos"
+            href="/dashboard/pagos"
+            active={pathname?.startsWith("/dashboard/pagos")}
           />
         </div>
 
