@@ -1,4 +1,4 @@
-"use client";
+/"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -37,7 +37,7 @@ interface PaymentLink {
   status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED";
   paidAt: string | null;
   createdAt: string;
-  service: { name: string } | null;
+  service: { serviceName: string } | null;
   booking: { id: string; patientName: string } | null;
 }
 

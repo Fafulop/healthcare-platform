@@ -22,8 +22,8 @@ export async function POST(request: Request) {
     // Generate a new onboarding/re-onboarding link
     const accountLink = await stripe.accountLinks.create({
       account: fullDoctor.stripeAccountId,
-      refresh_url: `${process.env.DOCTOR_APP_URL}/pagos?refresh=true`,
-      return_url: `${process.env.DOCTOR_APP_URL}/pagos?success=true`,
+      refresh_url: `${process.env.DOCTOR_APP_URL}/dashboard/pagos?refresh=true`,
+      return_url: `${process.env.DOCTOR_APP_URL}/dashboard/pagos?success=true`,
       type: 'account_onboarding',
     });
 

@@ -42,7 +42,7 @@ export async function DELETE(
 
     if (!paymentLink.isActive) {
       return NextResponse.json(
-        { error: 'Este link ya esta desactivado' },
+        { error: 'Este link ya está desactivado' },
         { status: 400 }
       );
     }

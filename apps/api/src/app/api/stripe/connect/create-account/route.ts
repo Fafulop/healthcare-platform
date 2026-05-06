@@ -4,8 +4,11 @@ import { getAuthenticatedDoctor, AuthError } from '@/lib/auth';
 import { stripe } from '@/lib/stripe';
 
 export async function POST(request: Request) {
+  let doctorId: string | null = null;
+
   try {
     const { user, doctor } = await getAuthenticatedDoctor(request);
+    doctorId = doctor.id;
 
     // Check if doctor already has a Stripe account
     const fullDoctor = await prisma.doctor.findUnique({
@@ -14,6 +17,20 @@ export async function POST(request: Request) {
     });
 
     if (fullDoctor?.stripeAccountId) {
+      return NextResponse.json(
+        { error: 'Ya tienes una cuenta de Stripe conectada' },
+        { status: 400 }
+      );
+    }
+
+    // Atomically claim the slot to prevent race conditions
+    // Only updates if stripeAccountId is still null
+    const claimed = await prisma.doctor.updateMany({
+      where: { id: doctor.id, stripeAccountId: null },
+      data: { stripeAccountId: '__pending__' },
+    });
+
+    if (claimed.count === 0) {
       return NextResponse.json(
         { error: 'Ya tienes una cuenta de Stripe conectada' },
         { status: 400 }
@@ -45,8 +62,8 @@ export async function POST(request: Request) {
     // Generate onboarding link
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `${process.env.DOCTOR_APP_URL}/pagos?refresh=true`,
-      return_url: `${process.env.DOCTOR_APP_URL}/pagos?success=true`,
+      refresh_url: `${process.env.DOCTOR_APP_URL}/dashboard/pagos?refresh=true`,
+      return_url: `${process.env.DOCTOR_APP_URL}/dashboard/pagos?success=true`,
       type: 'account_onboarding',
     });
 
@@ -55,6 +72,15 @@ export async function POST(request: Request) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
+
+    // Roll back the pending placeholder if Stripe creation failed
+    if (doctorId) {
+      await prisma.doctor.updateMany({
+        where: { id: doctorId, stripeAccountId: '__pending__' },
+        data: { stripeAccountId: null },
+      }).catch(() => {});
+    }
+
     console.error('Error creating Stripe Connect account:', error);
     return NextResponse.json(
       { error: 'Error al crear la cuenta de Stripe' },

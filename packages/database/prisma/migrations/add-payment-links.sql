@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS "public"."payment_links" (
     "status" "public"."PaymentLinkStatus" NOT NULL DEFAULT 'PENDING',
     "paid_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "payment_links_pkey" PRIMARY KEY ("id")
 );

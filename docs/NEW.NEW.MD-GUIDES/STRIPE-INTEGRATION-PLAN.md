@@ -528,29 +528,37 @@ STRIPE_CONNECT_CLIENT_ID=ca_...        # Connect platform client ID (if using OA
 - [x] Add security headers to API middleware (X-Content-Type-Options, X-Frame-Options, HSTS, Referrer-Policy)
 - [x] Fix settings PATCH error handling (replaced brittle string matching with `instanceof AuthError` — found during code review)
 
-### Phase 1: Stripe Connect Onboarding
-**New files: ~4 API routes, ~3 UI components**
+### Phase 1: Stripe Connect Onboarding — COMPLETED May 5, 2026
+**Scope: 7 new files, 3 modified files | Reviewed & verified**
+**Deployed: May 5, 2026 | Migrations applied to Railway DB**
 
-- [ ] Install `stripe` package in API app
-- [ ] Add Stripe fields to Doctor model (prisma migration)
-- [ ] Create `/api/stripe/connect/create-account` endpoint
-- [ ] Create `/api/stripe/connect/account-link` endpoint
-- [ ] Create `/api/stripe/connect/status` endpoint
-- [ ] Create `/api/stripe/webhook` endpoint (account.updated)
-- [ ] Build Pagos page in doctor app with onboarding flow
+- [x] Install `stripe` package in API app (v22.1.0)
+- [x] Add Stripe fields to Doctor model (`stripeAccountId`, `stripeOnboardingComplete`, `stripeChargesEnabled`, `stripePayoutsEnabled`) + migration SQL
+- [x] Create `/api/stripe/connect/create-account` endpoint (POST, requireDoctorAuth, creates Express account + onboarding link)
+- [x] Create `/api/stripe/connect/account-link` endpoint (POST, requireDoctorAuth, generates re-onboarding link)
+- [x] Create `/api/stripe/connect/status` endpoint (GET, requireDoctorAuth, syncs status from Stripe API to local DB)
+- [x] Create `/api/stripe/webhook` endpoint (POST, Stripe signature verification, handles `account.updated`)
+- [x] Create Stripe SDK singleton (`apps/api/src/lib/stripe.ts`)
+- [x] Build Pagos page in doctor app (`/dashboard/pagos`) with 3 states: not connected, onboarding incomplete, fully connected
+- [x] Add "Pagos" nav item to sidebar (CreditCard icon, between Reportes and practice management)
+- [x] Configure Stripe webhook in Stripe Dashboard (events: `account.updated`, `checkout.session.completed`)
+- [x] Set Railway env vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `DOCTOR_APP_URL`
 - [ ] Test onboarding with Stripe test mode
 
-### Phase 2: Payment Links
-**New files: ~2 API routes, ~3 UI components**
+### Phase 2: Payment Links — COMPLETED May 5, 2026
+**Scope: 3 new API routes, 1 page rewrite, 1 webhook update | Reviewed & verified**
+**Deployed: May 5, 2026 | Migrations applied to Railway DB**
 
-- [ ] Create PaymentLink model (prisma migration)
-- [ ] Create `/api/stripe/payment-links` POST endpoint
-- [ ] Create `/api/stripe/payment-links` GET endpoint
-- [ ] Create `/api/stripe/payment-links/[id]` DELETE endpoint
-- [ ] Handle `checkout.session.completed` webhook event
-- [ ] Build CreatePaymentLink form in doctor app
-- [ ] Build PaymentLinksList with status tracking
-- [ ] Add share actions (WhatsApp, copy link)
+- [x] Create PaymentLink model + PaymentLinkStatus enum (prisma migration — `add-payment-links.sql`)
+- [x] Create `/api/stripe/payment-links` POST endpoint (creates product + price + payment link on connected account)
+- [x] Create `/api/stripe/payment-links` GET endpoint (lists doctor's links with Decimal→string serialization)
+- [x] Create `/api/stripe/payment-links/[id]` DELETE endpoint (deactivates on Stripe + marks CANCELLED)
+- [x] Handle `checkout.session.completed` webhook event (marks links as PAID)
+- [x] Build CreatePaymentLink form in Pagos page (amount + description, validates 1–100k MXN)
+- [x] Build PaymentLinksList with status tracking (PENDING/PAID/EXPIRED/CANCELLED)
+- [x] Add share actions (WhatsApp, copy link, deactivate)
+- [x] Fix `getAuthenticatedDoctor()` to throw `AuthError` instead of plain `Error`
+- [x] Document `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `DOCTOR_APP_URL` in `.env.example`
 - [ ] Test full payment flow with Stripe test cards
 
 ### Phase 3: Enhanced Features (Optional, future)

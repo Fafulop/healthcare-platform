@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     if (!fullDoctor?.stripeAccountId || !fullDoctor.stripeChargesEnabled) {
       return NextResponse.json(
-        { error: 'Tu cuenta de Stripe no esta completamente configurada' },
+        { error: 'Tu cuenta de Stripe no está completamente configurada' },
         { status: 400 }
       );
     }
@@ -43,6 +43,34 @@ export async function POST(request: Request) {
         { error: 'El monto maximo es $100,000 MXN' },
         { status: 400 }
       );
+    }
+
+    // Validate serviceId belongs to this doctor
+    if (serviceId) {
+      const service = await prisma.service.findFirst({
+        where: { id: serviceId, doctorId: doctor.id },
+        select: { id: true },
+      });
+      if (!service) {
+        return NextResponse.json(
+          { error: 'Servicio no encontrado' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate bookingId belongs to this doctor
+    if (bookingId) {
+      const booking = await prisma.booking.findFirst({
+        where: { id: bookingId, doctorId: doctor.id },
+        select: { id: true },
+      });
+      if (!booking) {
+        return NextResponse.json(
+          { error: 'Cita no encontrada' },
+          { status: 400 }
+        );
+      }
     }
 
     // Create product and price on the connected account
@@ -128,7 +156,7 @@ export async function GET(request: Request) {
         paidAt: true,
         createdAt: true,
         service: {
-          select: { name: true },
+          select: { serviceName: true },
         },
         booking: {
           select: {
