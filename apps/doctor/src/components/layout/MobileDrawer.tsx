@@ -17,6 +17,7 @@ import {
   NotebookPen,
   UserCog,
   BarChart3,
+  CreditCard,
   HelpCircle,
   Calendar,
   Users,
@@ -197,6 +198,13 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               label="Reportes"
               href="/dashboard/reportes"
               active={pathname.startsWith("/dashboard/reportes")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={CreditCard}
+              label="Pagos"
+              href="/dashboard/pagos"
+              active={pathname.startsWith("/dashboard/pagos")}
               onClick={onClose}
             />
           </div>

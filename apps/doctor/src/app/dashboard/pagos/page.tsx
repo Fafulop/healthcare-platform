@@ -15,7 +15,9 @@ import {
   Copy,
   XCircle,
   Link as LinkIcon,
+  HelpCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -217,14 +219,23 @@ export default function PagosPage() {
             Configura tu cuenta de Stripe para recibir pagos de tus pacientes
           </p>
         </div>
-        <button
-          onClick={fetchStatus}
-          disabled={loading}
-          className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
-          title="Actualizar estado"
-        >
-          <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          <Link
+            href="/dashboard/ayuda?tab=pagos"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            <HelpCircle className="w-4 h-4" />
+            Guia
+          </Link>
+          <button
+            onClick={fetchStatus}
+            disabled={loading}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+            title="Actualizar estado"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {error && (
