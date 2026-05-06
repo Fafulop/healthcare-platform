@@ -573,6 +573,62 @@ STRIPE_CONNECT_CLIENT_ID=ca_...        # Connect platform client ID (if using OA
 
 ---
 
+## 5.1 DEPLOYMENT & SETUP NOTES
+
+### Stripe Connect Setup (completed May 5, 2026)
+
+1. **Activate Connect:** Go to https://dashboard.stripe.com/connect → "Empezar"
+2. **Platform type:** Select "Crea una plataforma" (doctors are businesses receiving payments directly from patients)
+3. **Webhook:** Created at Stripe Dashboard → Developers → Webhooks
+   - URL: `https://healthcareapi-production-fb70.up.railway.app/api/stripe/webhook`
+   - Events: `account.updated`, `checkout.session.completed`
+   - Scope: Both "Tu cuenta" and "Cuentas conectadas y v2"
+
+### Railway Environment Variables (API app)
+
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `STRIPE_SECRET_KEY` | `sk_test_...` or `sk_live_...` | From Stripe Dashboard → Developers → API keys |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_...` | From webhook endpoint signing secret |
+| `DOCTOR_APP_URL` | `https://your-doctor-app.up.railway.app` | No trailing slash. Used for Stripe onboarding redirects to `/dashboard/pagos` |
+
+### Account Capabilities Explained
+
+| Capability | Stripe field | Meaning |
+|------------|-------------|---------|
+| **Cargos habilitados** | `charges_enabled` | Account can accept payments (charge customers). Required to create payment links. |
+| **Pagos habilitados** | `payouts_enabled` | Account can receive payouts to bank account. Until Stripe verifies the account (1-2 business days), collected money stays in Stripe balance. |
+
+### Accessing Stripe Balance & Payouts
+
+- **Platform balance:** https://dashboard.stripe.com/balance
+- **Connected accounts:** Dashboard → Connect → Accounts → click doctor's account → see their balance and payout status
+- **Manual payouts:** Available from the balance page once `payouts_enabled` is active
+- Payouts happen automatically on Stripe's schedule (daily by default) once enabled
+
+### Deployment Order (CRITICAL)
+
+Per the [database-architecture.md](../NEW.MD-GUIDES/database-architecture.md) deployment checklist:
+
+```
+CORRECT order:
+1. Run SQL migrations against Railway DB
+2. git push (triggers Railway deploy)
+3. Verify app works
+
+WRONG order:
+1. git push first → 500 errors if new columns don't exist yet
+```
+
+Migration files for this feature:
+- `packages/database/prisma/migrations/add-stripe-connect-fields.sql` (Phase 1)
+- `packages/database/prisma/migrations/add-payment-links.sql` (Phase 2)
+- `packages/database/prisma/migrations/fix-payment-links-updated-at-default.sql` (fix)
+
+All migrations are idempotent (safe to re-run).
+
+---
+
 ## 6. RISK MATRIX
 
 | Risk | Likelihood | Impact | Mitigation |
