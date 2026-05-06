@@ -654,6 +654,14 @@ After a full system-level analysis across all apps, the following issues were id
 | No charges_enabled re-check | Stripe itself rejects payments if charges disabled. |
 | No webhook idempotency table | `updateMany` with `status: 'PENDING'` is naturally idempotent. |
 
+#### Pending actions (do when needed, not now)
+
+| Action | When to do it | Notes |
+|--------|---------------|-------|
+| Add OXXO webhook events in Stripe Dashboard | When OXXO support is needed | Add `checkout.session.async_payment_succeeded` and `checkout.session.async_payment_failed`. Code handlers already exist in `webhook/route.ts` but Stripe won't send events until configured. Card payments work without this. |
+| Run `fix-payment-links-updated-at-default.sql` on Railway | Optional / never | Adds DEFAULT to `updated_at`. Not needed because Prisma always provides the value client-side. Only matters for raw SQL inserts. |
+| Run `add-payment-links-composite-index.sql` on Railway | When payment_links table grows large | Performance index on `[doctorId, status]`. Not needed with a handful of links. |
+
 #### Future improvements (Phase 3)
 
 | Item | Priority |
