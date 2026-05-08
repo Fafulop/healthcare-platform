@@ -733,10 +733,12 @@ After a full system-level analysis across all apps, the following issues were id
 
 | Item | Priority |
 |------|----------|
-| Stripe disconnect endpoint | Medium — allows doctor to revoke Stripe |
+| ~~Stripe disconnect endpoint~~ | ~~Done — handled via `account.application.deauthorized` webhook~~ |
 | Rate limiting on Stripe endpoints | Medium — prevent spam (Stripe has its own limits) |
 | Webhook event ID deduplication | Low — add `processed_events` table |
 | Zod validation on all inputs | Low — defence-in-depth |
+| ~~Express Dashboard access~~ | ~~Done — `/api/stripe/connect/dashboard-link` + "Mi Stripe" button~~ |
+| ~~Doctor guide for payments~~ | ~~Done — PagosGuide.tsx with 13 sections covering all edge cases~~ |
 
 ---
 
@@ -750,7 +752,11 @@ After a full system-level analysis across all apps, the following issues were id
 | Payment link spam | Medium | Medium | Rate limiting |
 | Leaked Stripe keys | Low | Critical | Server-side only, env vars, no NEXT_PUBLIC_ |
 | Doctor creates links with absurd amounts | Low | Low | Validated: min $10 MXN (Stripe minimum), max $100,000 MXN |
-| Patient disputes/chargebacks | Medium | Medium | Stripe handles, doctor dashboard shows status |
+| Patient disputes/chargebacks | Medium | Medium | Stripe handles, doctor dashboard shows status, Telegram notification on dispute |
+| Double payment on same link | N/A | N/A | Eliminated — `completed_sessions.limit: 1` enforced |
+| Payout failure (wrong CLABE) | Medium | Medium | Telegram notification + Express Dashboard for bank update |
+| Account disabled by Stripe | Low | High | Pagos page shows alert with reason + action button, Telegram notification |
+| Doctor disconnects from platform | Low | Low | `account.application.deauthorized` webhook clears Stripe fields |
 
 ---
 
@@ -761,27 +767,26 @@ After a full system-level analysis across all apps, the following issues were id
 apps/api/src/app/api/stripe/connect/create-account/route.ts
 apps/api/src/app/api/stripe/connect/account-link/route.ts
 apps/api/src/app/api/stripe/connect/status/route.ts
+apps/api/src/app/api/stripe/connect/dashboard-link/route.ts  (Phase 2.75 — Express Dashboard login link)
 apps/api/src/app/api/stripe/payment-links/route.ts
 apps/api/src/app/api/stripe/payment-links/[id]/route.ts
 apps/api/src/app/api/stripe/webhook/route.ts
-apps/doctor/src/app/pagos/page.tsx
-apps/doctor/src/components/payments/StripeOnboarding.tsx
-apps/doctor/src/components/payments/CreatePaymentLink.tsx
-apps/doctor/src/components/payments/PaymentLinksList.tsx
-apps/doctor/src/components/payments/PaymentLinkActions.tsx
+apps/api/src/lib/stripe.ts                      (Stripe SDK singleton + isStripeError helper)
+apps/doctor/src/app/dashboard/pagos/page.tsx
 ```
 
 ### Modified Files
 ```
 packages/database/prisma/schema.prisma          (add Stripe fields + PaymentLink model)
 apps/api/src/middleware.ts                       (add security headers)
-apps/api/src/lib/auth.ts                         (remove debug logs)
+apps/api/src/lib/auth.ts                         (remove debug logs, add getAuthenticatedDoctorStripe)
 apps/api/src/app/api/auth/consent/route.ts       (add auth)
 apps/api/src/app/api/auth/user/route.ts          (secure)
 apps/api/src/app/api/auth/google-calendar/tokens/route.ts (add auth)
 apps/api/src/app/api/settings/route.ts           (add auth to GET)
 apps/api/package.json                            (add stripe dependency)
 apps/doctor/src/components/sidebar.tsx           (add Pagos nav item)
+apps/doctor/src/app/dashboard/ayuda/_components/PagosGuide.tsx (comprehensive guide rewrite)
 ```
 
 ### Deleted Files
