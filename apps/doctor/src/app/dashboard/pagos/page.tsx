@@ -16,6 +16,10 @@ import {
   XCircle,
   Link as LinkIcon,
   HelpCircle,
+  Ban,
+  Clock,
+  ArrowRight,
+  Banknote,
 } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
@@ -27,6 +31,21 @@ interface StripeStatus {
   onboardingComplete: boolean;
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
+  // Detailed status
+  disabledReason: string | null;
+  currentlyDue: string[];
+  pastDue: string[];
+  errors: { code: string; reason: string; requirement: string }[];
+  currentDeadline: string | null;
+  // Payout info
+  lastPayout: {
+    amount: number;
+    currency: string;
+    status: string;
+    arrivalDate: string;
+    failureCode: string | null;
+    failureMessage: string | null;
+  } | null;
 }
 
 interface PaymentLink {
@@ -146,6 +165,23 @@ export default function PagosPage() {
     }
   };
 
+  const handleOpenDashboard = async () => {
+    try {
+      setActionLoading(true);
+      setError(null);
+      const res = await authFetch(`${API_URL}/api/stripe/connect/dashboard-link`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al generar enlace");
+      window.open(data.url, "_blank");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleCreatePaymentLink = async (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(newLink.amount);
@@ -179,7 +215,7 @@ export default function PagosPage() {
   };
 
   const handleDeactivate = async (id: string) => {
-    if (!confirm("¿Desactivar este link de pago?")) return;
+    if (!confirm("Desactivar este link de pago?")) return;
     try {
       const res = await authFetch(`${API_URL}/api/stripe/payment-links/${id}`, {
         method: "DELETE",
@@ -326,16 +362,51 @@ export default function PagosPage() {
       {/* Fully connected */}
       {stripeStatus && stripeStatus.connected && stripeStatus.onboardingComplete && (
         <>
+          {/* Account alerts */}
+          {stripeStatus.disabledReason && (
+            <AccountAlert
+              disabledReason={stripeStatus.disabledReason}
+              errors={stripeStatus.errors}
+              currentDeadline={stripeStatus.currentDeadline}
+              onResumeOnboarding={handleResumeOnboarding}
+              onOpenDashboard={handleOpenDashboard}
+              actionLoading={actionLoading}
+            />
+          )}
+
           {/* Status card */}
           <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  stripeStatus.chargesEnabled && stripeStatus.payoutsEnabled
+                    ? "bg-green-100"
+                    : "bg-yellow-100"
+                }`}>
+                  {stripeStatus.chargesEnabled && stripeStatus.payoutsEnabled ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <Clock className="w-5 h-5 text-yellow-600" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Stripe conectado</h2>
+                  <p className="text-sm text-gray-500">
+                    {stripeStatus.chargesEnabled && stripeStatus.payoutsEnabled
+                      ? "Tu cuenta esta lista para recibir pagos"
+                      : "Tu cuenta esta en proceso de verificacion"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Stripe conectado</h2>
-                <p className="text-sm text-gray-500">Tu cuenta esta lista para recibir pagos</p>
-              </div>
+              <button
+                onClick={handleOpenDashboard}
+                disabled={actionLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                title="Abrir panel de Stripe"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Mi Stripe
+              </button>
             </div>
 
             <div className="space-y-3">
@@ -343,11 +414,18 @@ export default function PagosPage() {
               <StatusRow label="Pagos habilitados" enabled={stripeStatus.payoutsEnabled} />
             </div>
 
-            {(!stripeStatus.chargesEnabled || !stripeStatus.payoutsEnabled) && (
+            {(!stripeStatus.chargesEnabled || !stripeStatus.payoutsEnabled) && !stripeStatus.disabledReason && (
               <p className="mt-4 text-xs text-gray-500">
                 Si alguna capacidad no esta habilitada, Stripe puede estar revisando tu cuenta.
                 Esto suele resolverse en 1-2 dias habiles.
               </p>
+            )}
+
+            {/* Last payout info */}
+            {stripeStatus.lastPayout && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <LastPayoutInfo payout={stripeStatus.lastPayout} />
+              </div>
             )}
           </div>
 
@@ -397,6 +475,9 @@ export default function PagosPage() {
                       maxLength={200}
                     />
                   </div>
+                  <p className="text-xs text-gray-400">
+                    Cada link solo puede usarse una vez.
+                  </p>
                   <div className="flex gap-2">
                     <button
                       type="submit"
@@ -446,8 +527,143 @@ export default function PagosPage() {
               )}
             </div>
           )}
+
+          {/* Stripe self-service info */}
+          <div className="mt-6 p-4 bg-gray-50 border border-gray-100 rounded-xl">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Desde tu panel de Stripe puedes:</h3>
+            <ul className="text-xs text-gray-500 space-y-1">
+              <li className="flex items-center gap-2"><ArrowRight className="w-3 h-3 shrink-0" /> Ver tu balance y pagos recibidos</li>
+              <li className="flex items-center gap-2"><ArrowRight className="w-3 h-3 shrink-0" /> Ver el estado de tus depositos bancarios</li>
+              <li className="flex items-center gap-2"><ArrowRight className="w-3 h-3 shrink-0" /> Emitir reembolsos a pacientes</li>
+              <li className="flex items-center gap-2"><ArrowRight className="w-3 h-3 shrink-0" /> Responder disputas con evidencia</li>
+              <li className="flex items-center gap-2"><ArrowRight className="w-3 h-3 shrink-0" /> Actualizar tu cuenta bancaria (CLABE)</li>
+            </ul>
+            <button
+              onClick={handleOpenDashboard}
+              disabled={actionLoading}
+              className="mt-3 flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Abrir mi panel de Stripe
+            </button>
+          </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ── Sub-components ──
+
+function AccountAlert({
+  disabledReason,
+  errors,
+  currentDeadline,
+  onResumeOnboarding,
+  onOpenDashboard,
+  actionLoading,
+}: {
+  disabledReason: string;
+  errors: { code: string; reason: string; requirement: string }[];
+  currentDeadline: string | null;
+  onResumeOnboarding: () => void;
+  onOpenDashboard: () => void;
+  actionLoading: boolean;
+}) {
+  const isRejected = disabledReason.startsWith("rejected.");
+  const isPastDue = disabledReason === "requirements.past_due";
+  const isPendingVerification = disabledReason === "requirements.pending_verification";
+  const isUnderReview = disabledReason === "under_review";
+
+  const config = isRejected
+    ? {
+        bg: "bg-red-50 border-red-200",
+        icon: <Ban className="w-5 h-5 text-red-500" />,
+        title: "Cuenta rechazada",
+        message: "Tu cuenta de Stripe fue rechazada permanentemente. Contacta a soporte si crees que es un error.",
+        action: null,
+      }
+    : isPastDue
+    ? {
+        bg: "bg-red-50 border-red-200",
+        icon: <AlertCircle className="w-5 h-5 text-red-500" />,
+        title: "Informacion requerida vencida",
+        message: "Stripe necesita informacion que no fue proporcionada a tiempo. Tu cuenta esta deshabilitada hasta que actualices tus datos.",
+        action: "update",
+      }
+    : isPendingVerification
+    ? {
+        bg: "bg-yellow-50 border-yellow-200",
+        icon: <Clock className="w-5 h-5 text-yellow-500" />,
+        title: "Verificacion en proceso",
+        message: "Stripe esta revisando tu documentacion. Esto puede tardar 1-2 dias habiles. No se requiere accion de tu parte.",
+        action: null,
+      }
+    : isUnderReview
+    ? {
+        bg: "bg-yellow-50 border-yellow-200",
+        icon: <Clock className="w-5 h-5 text-yellow-500" />,
+        title: "Cuenta en revision",
+        message: "Stripe esta revisando tu cuenta. No se requiere accion de tu parte por el momento.",
+        action: null,
+      }
+    : {
+        bg: "bg-yellow-50 border-yellow-200",
+        icon: <AlertCircle className="w-5 h-5 text-yellow-500" />,
+        title: "Atencion requerida",
+        message: "Tu cuenta de Stripe necesita atencion.",
+        action: "update",
+      };
+
+  return (
+    <div className={`mb-6 p-4 border rounded-xl ${config.bg}`}>
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 shrink-0">{config.icon}</div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-gray-900 text-sm">{config.title}</h3>
+          <p className="text-sm text-gray-700 mt-1">{config.message}</p>
+
+          {currentDeadline && (
+            <p className="text-xs text-gray-500 mt-2">
+              Fecha limite: {new Date(currentDeadline).toLocaleDateString("es-MX", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
+          )}
+
+          {errors.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {errors.map((e, i) => (
+                <p key={i} className="text-xs text-red-600">
+                  {e.reason}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {config.action === "update" && (
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={onResumeOnboarding}
+                disabled={actionLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Actualizar datos en Stripe
+              </button>
+              <button
+                onClick={onOpenDashboard}
+                disabled={actionLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Ver mi panel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -467,6 +683,43 @@ function StatusRow({ label, enabled }: { label: string; enabled: boolean }) {
           Pendiente
         </span>
       )}
+    </div>
+  );
+}
+
+function LastPayoutInfo({ payout }: { payout: NonNullable<StripeStatus["lastPayout"]> }) {
+  const statusConfig: Record<string, { label: string; color: string }> = {
+    paid: { label: "Depositado", color: "text-green-600" },
+    pending: { label: "Pendiente", color: "text-yellow-600" },
+    in_transit: { label: "En camino", color: "text-blue-600" },
+    failed: { label: "Fallido", color: "text-red-600" },
+    canceled: { label: "Cancelado", color: "text-gray-500" },
+  };
+
+  const config = statusConfig[payout.status] || { label: payout.status, color: "text-gray-600" };
+
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Banknote className="w-4 h-4 text-gray-400" />
+        <span className="text-sm text-gray-600">Ultimo deposito:</span>
+        <span className="text-sm font-medium text-gray-900">
+          ${payout.amount.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {payout.currency}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
+        {payout.status === "paid" && (
+          <span className="text-xs text-gray-400">
+            {new Date(payout.arrivalDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
+          </span>
+        )}
+        {payout.status === "failed" && payout.failureMessage && (
+          <span className="text-xs text-red-500" title={payout.failureMessage}>
+            — Actualiza tu cuenta bancaria
+          </span>
+        )}
+      </div>
     </div>
   );
 }

@@ -104,6 +104,9 @@ export async function POST(request: Request) {
     const paymentLink = await stripe.paymentLinks.create(
       {
         line_items: [{ price: price.id, quantity: 1 }],
+        restrictions: {
+          completed_sessions: { limit: 1 },
+        },
         metadata: {
           doctorId: doctor.id,
           serviceId: serviceId || '',

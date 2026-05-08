@@ -49,11 +49,54 @@ export async function GET(request: Request) {
       });
     }
 
+    // Extract account problem details
+    const disabledReason = account.requirements?.disabled_reason || null;
+    const currentlyDue = account.requirements?.currently_due || [];
+    const pastDue = account.requirements?.past_due || [];
+    const errors = (account.requirements?.errors || []).map((e) => ({
+      code: e.code,
+      reason: e.reason,
+      requirement: e.requirement,
+    }));
+    const currentDeadline = account.requirements?.current_deadline
+      ? new Date(account.requirements.current_deadline * 1000).toISOString()
+      : null;
+
+    // Fetch recent payouts for the connected account
+    let lastPayout = null;
+    try {
+      const payouts = await stripe.payouts.list(
+        { limit: 1 },
+        { stripeAccount: fullDoctor.stripeAccountId }
+      );
+      if (payouts.data.length > 0) {
+        const p = payouts.data[0];
+        lastPayout = {
+          amount: p.amount / 100,
+          currency: p.currency.toUpperCase(),
+          status: p.status,
+          arrivalDate: new Date(p.arrival_date * 1000).toISOString(),
+          failureCode: p.failure_code || null,
+          failureMessage: p.failure_message || null,
+        };
+      }
+    } catch {
+      // Payout fetch is best-effort — don't fail the whole request
+    }
+
     return NextResponse.json({
       connected: true,
       onboardingComplete: detailsSubmitted,
       chargesEnabled,
       payoutsEnabled,
+      // Detailed status
+      disabledReason,
+      currentlyDue,
+      pastDue,
+      errors,
+      currentDeadline,
+      // Payout info
+      lastPayout,
     });
   } catch (error) {
     if (error instanceof AuthError) {

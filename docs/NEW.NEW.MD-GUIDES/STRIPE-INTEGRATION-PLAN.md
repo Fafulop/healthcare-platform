@@ -581,6 +581,31 @@ STRIPE_CONNECT_CLIENT_ID=ca_...        # Connect platform client ID (if using OA
 - [x] First live payment link created ($11 MXN test)
 - [ ] First real payment processed
 
+### Phase 2.75: Robustness & Self-Service — COMPLETED May 8, 2026
+**Scope: 4 modified files, 1 new endpoint | Improves doctor self-service, reduces TuSalud support load**
+
+- [x] **Double-payment prevention**: Added `restrictions.completed_sessions.limit: 1` to payment link creation — each link can only be paid once
+- [x] **Express Dashboard access**: New `/api/stripe/connect/dashboard-link` endpoint generates single-use login links for doctors to access their Stripe Express Dashboard (balance, payouts, refunds, disputes, bank account)
+- [x] **Detailed account status**: Enhanced `/api/stripe/connect/status` to return `disabledReason`, `currentlyDue`, `pastDue`, `errors`, `currentDeadline`, and last payout info
+- [x] **New webhook handlers**: Added handlers for `checkout.session.expired`, `charge.dispute.created`, `charge.dispute.closed`, `charge.refunded`, `payout.paid`, `payout.failed`, `account.application.deauthorized`
+- [x] **Telegram notifications**: Doctors get notified via Telegram for: payment received, dispute opened/closed, payout failed, account restricted/disabled
+- [x] **Account deauthorization**: If doctor disconnects from platform, Stripe fields are cleared automatically
+- [x] **Pagos UI overhaul**: Account alerts (restricted/disabled/rejected with actionable messages), "Mi Stripe" dashboard button, last payout info, Stripe self-service info section
+- [ ] **Add new webhook events in Stripe Dashboard** (see below)
+
+#### Stripe Dashboard Webhook Update Required
+
+Add these events to the **live webhook** (Cuentas conectadas scope):
+- `checkout.session.expired`
+- `charge.dispute.created`
+- `charge.dispute.closed`
+- `charge.refunded`
+- `payout.paid`
+- `payout.failed`
+- `account.application.deauthorized`
+
+URL: `https://healthcareapi-production-fb70.up.railway.app/api/stripe/webhook`
+
 ### Phase 3: Enhanced Features (Optional, future)
 - [ ] Link payment links to specific bookings
 - [ ] Auto-generate payment link when booking is created
