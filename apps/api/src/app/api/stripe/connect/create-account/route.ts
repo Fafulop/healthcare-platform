@@ -81,10 +81,9 @@ export async function POST(request: Request) {
       }).catch(() => {});
     }
 
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error creating Stripe Connect account:', errorMessage);
+    console.error('Error creating Stripe Connect account:', error);
     return NextResponse.json(
-      { error: `Error al crear la cuenta de Stripe: ${errorMessage}` },
+      { error: 'Error al crear la cuenta de Stripe' },
       { status: 500 }
     );
   }

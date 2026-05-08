@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctorStripe, AuthError } from '@/lib/auth';
-import { stripe } from '@/lib/stripe';
+import { stripe, isStripeError } from '@/lib/stripe';
 
 /**
  * POST /api/stripe/payment-links
@@ -31,9 +31,9 @@ export async function POST(request: Request) {
     const { amount, description, serviceId, bookingId } = body;
 
     // Validate required fields
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
+    if (!amount || typeof amount !== 'number' || amount < 10) {
       return NextResponse.json(
-        { error: 'El monto debe ser un numero positivo' },
+        { error: 'El monto minimo es $10 MXN' },
         { status: 400 }
       );
     }
@@ -138,6 +138,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error('Error creating payment link:', error);
+    if (isStripeError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
       { error: 'Error al crear el link de pago' },
       { status: 500 }

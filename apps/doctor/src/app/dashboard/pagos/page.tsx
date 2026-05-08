@@ -149,7 +149,10 @@ export default function PagosPage() {
   const handleCreatePaymentLink = async (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(newLink.amount);
-    if (!amount || amount <= 0) return;
+    if (!amount || amount < 10) {
+      setError("El monto minimo es $10 MXN");
+      return;
+    }
 
     try {
       setCreateLoading(true);
@@ -372,7 +375,7 @@ export default function PagosPage() {
                     <input
                       type="number"
                       step="0.01"
-                      min="1"
+                      min="10"
                       max="100000"
                       required
                       value={newLink.amount}

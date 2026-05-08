@@ -7,3 +7,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   typescript: true,
 });
+
+export function isStripeError(error: unknown): error is Stripe.errors.StripeError {
+  return error instanceof Stripe.errors.StripeError;
+}

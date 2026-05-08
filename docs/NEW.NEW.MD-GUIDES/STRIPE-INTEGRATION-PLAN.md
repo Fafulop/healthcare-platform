@@ -543,7 +543,7 @@ STRIPE_CONNECT_CLIENT_ID=ca_...        # Connect platform client ID (if using OA
 - [x] Add "Pagos" nav item to sidebar (CreditCard icon, between Reportes and practice management)
 - [x] Configure Stripe webhook in Stripe Dashboard (events: `account.updated`, `checkout.session.completed`)
 - [x] Set Railway env vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `DOCTOR_APP_URL`
-- [ ] Test onboarding with Stripe test mode
+- [x] Test onboarding with Stripe test mode
 
 ### Phase 2: Payment Links — COMPLETED May 5, 2026
 **Scope: 3 new API routes, 1 page rewrite, 1 webhook update | Reviewed & verified**
@@ -559,7 +559,27 @@ STRIPE_CONNECT_CLIENT_ID=ca_...        # Connect platform client ID (if using OA
 - [x] Add share actions (WhatsApp, copy link, deactivate)
 - [x] Fix `getAuthenticatedDoctor()` to throw `AuthError` instead of plain `Error`
 - [x] Document `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `DOCTOR_APP_URL` in `.env.example`
-- [ ] Test full payment flow with Stripe test cards
+- [x] Test full payment flow with Stripe test cards
+
+### Phase 2.5: Test → Live Migration — COMPLETED May 8, 2026
+**No code changes required — configuration + data cleanup only**
+
+- [x] Create live webhook endpoint in Stripe Dashboard (Cuentas conectadas scope)
+  - URL: `https://healthcareapi-production-fb70.up.railway.app/api/stripe/webhook`
+  - Events: `account.updated`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`
+  - **IMPORTANT:** Scope must be "Cuentas conectadas" (not "Tu cuenta") — all events come from connected doctor accounts
+- [x] Get live API keys from Stripe Dashboard (`sk_live_...`, `pk_live_...`)
+  - Only `sk_live_...` is needed — publishable key is not used (all Stripe calls are server-side)
+- [x] Update Railway env vars: `STRIPE_SECRET_KEY` (sk_live), `STRIPE_WEBHOOK_SECRET` (new whsec from live webhook)
+- [x] Clean test Stripe data from production DB:
+  - Reset 1 doctor's Stripe fields (Dr. Diego Morales Gutiérrez, `acct_1TTtqRPGwIjAFb7e`) → set all to null/false
+  - Deleted 1 test payment link ($500 MXN, status PENDING)
+- [x] Complete Stripe Connect platform profile (required for live mode, not needed in test):
+  - https://dashboard.stripe.com/settings/connect/platform-profile — accept loss responsibility
+  - https://dashboard.stripe.com/connect/accounts/overview — complete platform questionnaire
+- [x] First doctor live onboarding (real Stripe KYC: INE, CLABE, RFC)
+- [x] First live payment link created ($11 MXN test)
+- [ ] First real payment processed
 
 ### Phase 3: Enhanced Features (Optional, future)
 - [ ] Link payment links to specific bookings
@@ -579,19 +599,38 @@ STRIPE_CONNECT_CLIENT_ID=ca_...        # Connect platform client ID (if using OA
 
 1. **Activate Connect:** Go to https://dashboard.stripe.com/connect → "Empezar"
 2. **Platform type:** Select "Crea una plataforma" (doctors are businesses receiving payments directly from patients)
-3. **Webhook:** Created at Stripe Dashboard → Developers → Webhooks
+3. **Test webhook:** Created at Stripe Dashboard → Developers → Webhooks (test mode)
    - URL: `https://healthcareapi-production-fb70.up.railway.app/api/stripe/webhook`
    - Events: `account.updated`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`
-   - Scope: Both "Tu cuenta" and "Cuentas conectadas y v2"
-   - **IMPORTANT:** Add `checkout.session.async_payment_succeeded` and `checkout.session.async_payment_failed` for OXXO support
+
+### Live Mode Setup (completed May 8, 2026)
+
+1. **Platform profile:** Complete questionnaire at https://dashboard.stripe.com/settings/connect/platform-profile (accept loss responsibility, describe platform)
+2. **Platform questionnaire:** Complete at https://dashboard.stripe.com/connect/accounts/overview (required before creating live connected accounts)
+3. **Live webhook:** Created at Stripe Dashboard → Developers → Webhooks (live mode)
+   - URL: `https://healthcareapi-production-fb70.up.railway.app/api/stripe/webhook`
+   - Events: `account.updated`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`
+   - **Scope: "Cuentas conectadas" only** (NOT "Tu cuenta" — all events originate from connected doctor accounts)
+   - **NOTE:** Test mode and live mode have separate webhooks with separate signing secrets
+4. **Test data cleanup:** Reset all test `stripeAccountId` values and deleted test payment links from production DB
 
 ### Railway Environment Variables (API app)
 
 | Variable | Value | Notes |
 |----------|-------|-------|
-| `STRIPE_SECRET_KEY` | `sk_test_...` or `sk_live_...` | From Stripe Dashboard → Developers → API keys |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_...` | From webhook endpoint signing secret |
+| `STRIPE_SECRET_KEY` | `sk_live_...` | From Stripe Dashboard → Developers → API keys (live mode). Was `sk_test_...` before May 8, 2026. |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_...` | From **live** webhook endpoint signing secret. Must match the live webhook, not the test one. |
 | `DOCTOR_APP_URL` | `https://your-doctor-app.up.railway.app` | No trailing slash. Used for Stripe onboarding redirects to `/dashboard/pagos` |
+
+### Live Mode Gotchas (discovered May 8, 2026)
+
+| Issue | Detail |
+|-------|--------|
+| **Platform profile required** | Stripe requires completing the platform profile + questionnaire before any live connected accounts can be created. Test mode skips this. Error: "You must complete your platform profile to use Connect" |
+| **Webhook scope matters** | Must select "Cuentas conectadas" when creating the webhook — "Tu cuenta" won't receive events from connected doctor accounts |
+| **Publishable key not needed** | `pk_live_...` is not used anywhere — all Stripe calls are server-side via `sk_live_...` |
+| **Test accounts invalid in live** | Test Stripe account IDs (`acct_...` from test mode) don't work in live mode — doctors must re-onboard |
+| **Minimum amount $10 MXN** | Stripe Mexico enforces a minimum charge of $10.00 MXN. Amounts below this fail with `amount_too_small`. Validated in both API and doctor app UI. |
 
 ### Account Capabilities Explained
 
@@ -641,6 +680,9 @@ After a full system-level analysis across all apps, the following issues were id
 | OXXO payments not tracked | OXXO is async (pay at store within 72h). `checkout.session.completed` fires with `payment_status: 'unpaid'` for OXXO. Actual payment confirmation needs separate event | Added `checkout.session.async_payment_succeeded` and `async_payment_failed` webhook handlers |
 | Duplicate bookingId race condition | `bookingId` has `@unique` constraint. Concurrent requests could create orphaned Stripe objects | Added pre-check for existing active link before creating |
 | Missing composite index | Queries filter by `doctorId + status` but only `doctorId` was indexed | Added `@@index([doctorId, status])` |
+| Minimum amount not validated | Stripe Mexico requires min $10 MXN. Amounts below caused 500 error (`amount_too_small`) | Added validation in API (min 10) + doctor app UI (min="10" + client check). Discovered May 8, 2026. |
+| Stripe errors returned as 500 | Stripe `StripeInvalidRequestError` (client errors) were caught as generic 500s | Added `isStripeError()` helper in `stripe.ts` — Stripe errors now return 400 with message |
+| Internal error details leaked | `create-account` endpoint included Stripe error message in client response | Changed to generic Spanish error message, details only in server logs |
 
 #### Evaluated & Accepted (not bugs)
 
@@ -682,7 +724,7 @@ After a full system-level analysis across all apps, the following issues were id
 | Webhook spoofing | Low | High | Stripe signature verification |
 | Payment link spam | Medium | Medium | Rate limiting |
 | Leaked Stripe keys | Low | Critical | Server-side only, env vars, no NEXT_PUBLIC_ |
-| Doctor creates links with absurd amounts | Low | Low | Optional max amount validation |
+| Doctor creates links with absurd amounts | Low | Low | Validated: min $10 MXN (Stripe minimum), max $100,000 MXN |
 | Patient disputes/chargebacks | Medium | Medium | Stripe handles, doctor dashboard shows status |
 
 ---
