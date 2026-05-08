@@ -14,6 +14,10 @@ import {
   Banknote,
   Store,
   FileText,
+  ExternalLink,
+  Bell,
+  Settings,
+  XCircle,
 } from "lucide-react";
 import { SectionAccordion } from "./SectionAccordion";
 import { WorkflowStep } from "./WorkflowStep";
@@ -97,8 +101,12 @@ export function PagosGuide() {
               tarjeta o genera un voucher de OXXO.
             </li>
             <li>
+              El link solo puede usarse una vez. Una vez pagado, ya no acepta
+              otro pago.
+            </li>
+            <li>
               Stripe deposita el dinero en tu cuenta bancaria segun el calendario
-              de pagos.
+              de pagos (automatico).
             </li>
           </ol>
         </div>
@@ -129,7 +137,7 @@ export function PagosGuide() {
               <li>Direccion de tu consultorio o domicilio fiscal</li>
               <li>Tu RFC (para verificacion fiscal)</li>
               <li>
-                Los datos de la cuenta bancaria donde quieres recibir depositos
+                Tu CLABE bancaria (18 digitos) de la cuenta donde quieres recibir depositos
               </li>
               <li>
                 Una identificacion oficial (INE, pasaporte) para verificacion de
@@ -169,7 +177,61 @@ export function PagosGuide() {
         </WarningBox>
       </SectionAccordion>
 
-      {/* 3. Crear y compartir links de pago */}
+      {/* 3. Tu panel de Stripe Express */}
+      <SectionAccordion
+        title="Tu panel de Stripe Express"
+        subtitle="Administra tu cuenta, depositos, reembolsos y disputas directamente"
+        icon={ExternalLink}
+        accentColor="purple"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <p>
+            Al activar Stripe, se crea una <strong>cuenta Express a tu nombre</strong>.
+            Esta cuenta tiene su propio panel de administracion donde puedes gestionar
+            todo sin contactar a tusalud.pro.
+          </p>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Como acceder
+            </p>
+            <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-2">
+              <p className="text-xs text-purple-800">
+                <strong>Opcion 1 (recomendada):</strong> En tu pagina de Pagos, haz clic en el
+                boton <strong>&ldquo;Mi Stripe&rdquo;</strong>. Se abrira tu panel en una nueva pestana.
+              </p>
+              <p className="text-xs text-purple-800">
+                <strong>Opcion 2:</strong> Ve a{" "}
+                <strong>connect.stripe.com/express_login</strong> e ingresa el
+                correo que usaste para crear tu cuenta. Stripe te enviara un codigo de
+                verificacion por SMS o correo.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Que puedes hacer desde tu panel
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <PanelFeature icon={Banknote} label="Ver tu saldo y depositos" description="Balance disponible, depositos pendientes, historial completo" />
+              <PanelFeature icon={Settings} label="Cambiar cuenta bancaria" description="Actualiza tu CLABE si cambias de banco" />
+              <PanelFeature icon={Clock} label="Configurar frecuencia de depositos" description="Diario, semanal o mensual" />
+              <PanelFeature icon={DollarSign} label="Ver detalle de cada pago" description="Monto, metodo, fecha, comision de Stripe" />
+              <PanelFeature icon={AlertTriangle} label="Responder disputas" description="Sube evidencia si un paciente reclama un cargo" />
+              <PanelFeature icon={XCircle} label="Emitir reembolsos" description="Devuelve dinero a la tarjeta del paciente" />
+            </div>
+          </div>
+
+          <InfoBox>
+            <strong>No necesitas contactar a tusalud.pro para ninguna de estas acciones.</strong>{" "}
+            Tu panel de Stripe es independiente. Si necesitas cambiar tu cuenta bancaria,
+            emitir un reembolso, o responder una disputa, hazlo directamente desde tu panel.
+          </InfoBox>
+        </div>
+      </SectionAccordion>
+
+      {/* 4. Crear y compartir links de pago */}
       <SectionAccordion
         title="Crear y compartir links de pago"
         subtitle="Como generar un link, copiarlo y enviarlo al paciente"
@@ -183,8 +245,8 @@ export function PagosGuide() {
             icon={DollarSign}
           >
             En la seccion de Pagos, haz clic en <strong>Crear link</strong>.
-            Llena el monto en pesos mexicanos (MXN) y opcionalmente una
-            descripcion (ej: &ldquo;Consulta dermatologica&rdquo;,
+            Llena el monto en pesos mexicanos (minimo $10 MXN, maximo $100,000 MXN)
+            y opcionalmente una descripcion (ej: &ldquo;Consulta dermatologica&rdquo;,
             &ldquo;Seguimiento mensual&rdquo;).
           </WorkflowStep>
 
@@ -219,21 +281,26 @@ export function PagosGuide() {
               <li>
                 <strong>OXXO:</strong> se genera un voucher con codigo de
                 barras. El paciente tiene 72 horas para pagar en cualquier OXXO.
-                El link se actualiza automaticamente cuando Stripe confirma el
-                pago.
+                La confirmacion puede tardar hasta el siguiente dia habil.
               </li>
             </ul>
+          </WorkflowStep>
+
+          <WorkflowStep number={4} title="Recibiras una notificacion" icon={Bell}>
+            Cuando el paciente paga, recibiras una notificacion por Telegram con
+            el monto y concepto. El estado del link cambia automaticamente a
+            &ldquo;Pagado&rdquo;.
           </WorkflowStep>
         </div>
 
         <InfoBox>
-          Cada link de pago es de un solo uso. Si un paciente necesita pagar otra
-          vez, crea un link nuevo. Puedes crear los links que necesites sin
-          limite.
+          Cada link de pago es de un solo uso. Una vez pagado, ya no acepta
+          otro pago. Si un paciente necesita pagar otra vez, crea un link nuevo.
+          Puedes crear los links que necesites sin limite.
         </InfoBox>
       </SectionAccordion>
 
-      {/* 4. Estados de un link de pago */}
+      {/* 5. Estados de un link de pago */}
       <SectionAccordion
         title="Estados de un link de pago"
         subtitle="Que significa cada estado y cuando cambia"
@@ -245,25 +312,29 @@ export function PagosGuide() {
             <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
               <p className="text-sm font-semibold text-yellow-700">Pendiente</p>
               <p className="text-xs text-yellow-600 mt-0.5">
-                El link fue creado pero el paciente aun no ha pagado.
+                El link fue creado pero el paciente aun no ha pagado. Puedes
+                compartirlo o desactivarlo.
               </p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg border border-green-200">
               <p className="text-sm font-semibold text-green-700">Pagado</p>
               <p className="text-xs text-green-600 mt-0.5">
-                El paciente pago exitosamente con tarjeta o en OXXO.
+                El paciente pago exitosamente. Recibiras una notificacion por Telegram.
+                El dinero se depositara segun tu calendario de pagos.
               </p>
             </div>
             <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
               <p className="text-sm font-semibold text-gray-600">Expirado</p>
               <p className="text-xs text-gray-500 mt-0.5">
                 El paciente genero un voucher OXXO pero no pago en 72 horas.
+                Crea un nuevo link si aun necesitas cobrar.
               </p>
             </div>
             <div className="p-3 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm font-semibold text-red-600">Cancelado</p>
               <p className="text-xs text-red-500 mt-0.5">
-                Tu desactivaste el link manualmente.
+                Tu desactivaste el link manualmente. El paciente vera que el
+                link ya no es valido.
               </p>
             </div>
           </div>
@@ -276,7 +347,190 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 5. Comisiones de Stripe */}
+      {/* 6. Depositos y cuenta bancaria */}
+      <SectionAccordion
+        title="Depositos y cuenta bancaria"
+        subtitle="Cuando llega el dinero y que hacer si hay problemas"
+        icon={Banknote}
+        accentColor="green"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <p>
+            Stripe deposita el dinero automaticamente en la cuenta bancaria (CLABE)
+            que registraste durante el onboarding. Los depositos siguen un calendario
+            automatico.
+          </p>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Tiempos de deposito
+            </p>
+            <FeeRow
+              label="Primer deposito"
+              value="~7 dias"
+              note="Stripe retiene los fondos los primeros dias mientras verifica tu cuenta"
+            />
+            <FeeRow
+              label="Depositos siguientes"
+              value="2 dias habiles"
+              note="Despues del periodo inicial, los depositos son automaticos"
+            />
+            <FeeRow
+              label="Depositos instantaneos"
+              value="No disponible"
+              note="Stripe no ofrece depositos instantaneos en Mexico por el momento"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Informacion de tu ultimo deposito
+            </p>
+            <p>
+              En tu pagina de Pagos veras el estado de tu ultimo deposito: <strong>Depositado</strong>,{" "}
+              <strong>En camino</strong>, <strong>Pendiente</strong>, o <strong>Fallido</strong>.
+            </p>
+          </div>
+
+          <WarningBox>
+            Si un deposito falla (por ejemplo, CLABE incorrecta o cuenta cerrada),
+            Stripe deshabilitara tu cuenta bancaria y el dinero quedara en tu saldo de Stripe.
+            Recibiras una notificacion por Telegram.{" "}
+            <strong>
+              Para solucionarlo, entra a tu panel de Stripe (&ldquo;Mi Stripe&rdquo;)
+              y actualiza tus datos bancarios.
+            </strong>{" "}
+            No necesitas contactar a tusalud.pro.
+          </WarningBox>
+        </div>
+      </SectionAccordion>
+
+      {/* 7. Problemas con tu cuenta */}
+      <SectionAccordion
+        title="Problemas con tu cuenta de Stripe"
+        subtitle="Que hacer si tu cuenta esta restringida, deshabilitada o rechazada"
+        icon={AlertTriangle}
+        accentColor="amber"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <p>
+            Stripe puede restringir o deshabilitar tu cuenta si necesita informacion
+            adicional o si detecta algun problema. Tu pagina de Pagos te mostrara
+            una alerta con la razon y lo que necesitas hacer.
+          </p>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Posibles estados de tu cuenta
+            </p>
+
+            <div className="space-y-2">
+              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                <p className="text-sm font-semibold text-yellow-700">Verificacion en proceso</p>
+                <p className="text-xs text-yellow-600 mt-0.5">
+                  Stripe esta revisando tu documentacion. No necesitas hacer nada. Suele resolverse en 1-2 dias habiles.
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <p className="text-sm font-semibold text-amber-700">Informacion requerida</p>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  Stripe necesita datos adicionales (puede ser un documento vencido, datos faltantes, etc.).
+                  Haz clic en <strong>&ldquo;Actualizar datos en Stripe&rdquo;</strong> para completar lo que falta.
+                  Hay una fecha limite — si no la cumples, tu cuenta se deshabilitara.
+                </p>
+              </div>
+
+              <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                <p className="text-sm font-semibold text-red-700">Cuenta deshabilitada</p>
+                <p className="text-xs text-red-600 mt-0.5">
+                  No proporcionaste la informacion requerida antes de la fecha limite.
+                  Haz clic en <strong>&ldquo;Actualizar datos en Stripe&rdquo;</strong> para reactivar tu cuenta.
+                </p>
+              </div>
+
+              <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                <p className="text-sm font-semibold text-red-700">Cuenta rechazada</p>
+                <p className="text-xs text-red-600 mt-0.5">
+                  Stripe rechazo tu cuenta permanentemente (por ejemplo, por documentacion invalida o
+                  incompatibilidad con sus politicas). Esta decision es de Stripe, no de tusalud.pro.
+                  Puedes intentar crear una nueva cuenta, pero deberas resolver el motivo del rechazo primero.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Motivos comunes de problemas
+            </p>
+            <ul className="list-disc list-inside text-xs text-gray-500 space-y-0.5 ml-1">
+              <li>Identificacion oficial (INE/pasaporte) vencida</li>
+              <li>El nombre en la cuenta no coincide con la identificacion</li>
+              <li>Foto del documento borrosa, incompleta o en blanco y negro</li>
+              <li>Comprobante de domicilio con mas de 6 meses de antiguedad</li>
+              <li>CLABE bancaria incorrecta o cuenta cerrada</li>
+            </ul>
+          </div>
+
+          <InfoBox>
+            Si tu cuenta tiene problemas, recibiras una notificacion por Telegram.
+            Tambien veras una alerta en tu pagina de Pagos con instrucciones especificas.
+            En la mayoria de los casos, puedes resolver el problema tu mismo desde Stripe
+            sin contactar a tusalud.pro.
+          </InfoBox>
+        </div>
+      </SectionAccordion>
+
+      {/* 8. Notificaciones por Telegram */}
+      <SectionAccordion
+        title="Notificaciones por Telegram"
+        subtitle="Que alertas recibiras sobre tus pagos"
+        icon={Bell}
+        accentColor="blue"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <p>
+            Si tienes Telegram conectado, recibiras notificaciones automaticas
+            sobre eventos importantes de tus pagos:
+          </p>
+
+          <div className="space-y-2">
+            <NotificationRow
+              emoji="💰"
+              title="Pago recibido"
+              description="Cuando un paciente paga un link de pago (tarjeta o OXXO). Incluye monto y concepto."
+            />
+            <NotificationRow
+              emoji="🚨"
+              title="Disputa de pago"
+              description="Si un paciente reclama un cargo con su banco. Incluye monto y razon. Debes responder desde tu panel de Stripe."
+            />
+            <NotificationRow
+              emoji="✅"
+              title="Disputa resuelta"
+              description="Cuando una disputa se resuelve (a tu favor o en contra). Incluye el resultado."
+            />
+            <NotificationRow
+              emoji="🏦"
+              title="Deposito bancario fallido"
+              description="Si Stripe no puede depositar en tu cuenta. Debes actualizar tus datos bancarios desde tu panel de Stripe."
+            />
+            <NotificationRow
+              emoji="⚠️"
+              title="Alerta de cuenta"
+              description="Si tu cuenta de Stripe es restringida, deshabilitada o necesita informacion adicional."
+            />
+          </div>
+
+          <InfoBox>
+            Para recibir estas notificaciones necesitas tener Telegram conectado.
+            Si no lo tienes, las alertas solo apareceran en tu pagina de Pagos cuando la visites.
+          </InfoBox>
+        </div>
+      </SectionAccordion>
+
+      {/* 9. Comisiones de Stripe */}
       <SectionAccordion
         title="Comisiones y costos"
         subtitle="Cuanto cobra Stripe por cada pago y que cobra tusalud.pro"
@@ -302,6 +556,11 @@ export function PagosGuide() {
               label="OXXO"
               value="$10.00 MXN"
               note="Tarifa fija por transaccion"
+            />
+            <FeeRow
+              label="Contracargo (si pierdes la disputa)"
+              value="$150.00 MXN"
+              note="Tarifa de Stripe por disputa perdida, adicional al monto devuelto"
             />
           </div>
 
@@ -348,65 +607,163 @@ export function PagosGuide() {
               </p>
             </div>
           </div>
+
+          <InfoBox>
+            Al emitir un reembolso, Stripe <strong>no te devuelve la comision</strong> del pago
+            original. Por ejemplo, si cobras $1,000 y luego reembolsas, pierdes los $39 de comision.
+          </InfoBox>
         </div>
       </SectionAccordion>
 
-      {/* 6. Depositos y cuenta bancaria */}
+      {/* 10. Reembolsos y disputas */}
       <SectionAccordion
-        title="Depositos y cuenta bancaria"
-        subtitle="Cuando llega el dinero y como administrar tu cuenta"
-        icon={Banknote}
+        title="Reembolsos y disputas"
+        subtitle="Que pasa si un paciente pide devolucion o reclama un cargo"
+        icon={AlertTriangle}
+        accentColor="amber"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Reembolsos
+            </p>
+            <p>
+              Si necesitas devolver el dinero a un paciente, puedes hacerlo desde
+              tu panel de Stripe (&ldquo;Mi Stripe&rdquo;). El reembolso se procesa a la misma
+              tarjeta o metodo de pago que uso el paciente.
+            </p>
+            <ul className="list-disc list-inside text-xs text-gray-500 space-y-0.5 ml-1">
+              <li>Los reembolsos con tarjeta tardan 5-10 dias habiles en aparecer en el estado de cuenta del paciente</li>
+              <li>Puedes hacer reembolsos parciales (devolver solo una parte del monto)</li>
+              <li>
+                Los pagos por OXXO <strong>no se pueden reembolsar</strong>{" "}
+                por Stripe — tendrias que devolver el dinero por otro medio
+                (transferencia bancaria, efectivo)
+              </li>
+              <li>
+                Stripe no te devuelve la comision original al hacer un reembolso
+              </li>
+              <li>
+                El reembolso sale de tu saldo de Stripe. Si ya se deposito en tu banco, Stripe
+                puede debitar el monto de tu cuenta bancaria
+              </li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Disputas (contracargos)
+            </p>
+            <p>
+              Un contracargo ocurre cuando el paciente reclama el cobro
+              directamente con su banco. Esto puede pasar si:
+            </p>
+            <ul className="list-disc list-inside text-xs text-gray-500 space-y-0.5 ml-1">
+              <li>El paciente no reconoce el cargo en su estado de cuenta</li>
+              <li>Alega que no recibio el servicio</li>
+              <li>
+                Fue un uso no autorizado de la tarjeta
+              </li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Que pasa cuando hay una disputa
+            </p>
+            <div className="space-y-1">
+              <WorkflowStep number={1} title="Recibes notificacion" icon={Bell}>
+                Te llega una alerta por Telegram con el monto y razon de la disputa.
+                Stripe congela el monto disputado.
+              </WorkflowStep>
+              <WorkflowStep number={2} title="Presentas evidencia" icon={FileText}>
+                Entra a tu panel de Stripe y sube evidencia: recibos, notas de consulta,
+                comunicaciones con el paciente, comprobante de que el servicio fue prestado.
+                Tienes entre 7 y 21 dias segun la red de la tarjeta.
+              </WorkflowStep>
+              <WorkflowStep number={3} title="Resolucion" icon={Shield}>
+                El banco del paciente decide. Si <strong>ganas</strong>, el dinero regresa a tu cuenta.
+                Si <strong>pierdes</strong>, el dinero se devuelve al paciente y Stripe cobra una tarifa
+                de $150 MXN.
+              </WorkflowStep>
+            </div>
+          </div>
+
+          <WarningBox>
+            Los contracargos son tu responsabilidad como titular de la cuenta de Stripe,
+            no de tusalud.pro. La mejor prevencion es mantener buena comunicacion con
+            tus pacientes y documentar las consultas realizadas.
+            Los pagos por OXXO no pueden tener contracargos (son pagos en efectivo).
+          </WarningBox>
+        </div>
+      </SectionAccordion>
+
+      {/* 11. Pagos con OXXO */}
+      <SectionAccordion
+        title="Pagos con OXXO"
+        subtitle="Como funcionan, tiempos y limitaciones"
+        icon={Store}
         accentColor="green"
       >
         <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
           <p>
-            Stripe deposita el dinero automaticamente en la cuenta bancaria que
-            registraste durante el onboarding. Los depositos siguen un calendario
-            automatico.
+            OXXO permite a tus pacientes pagar en efectivo en cualquier tienda
+            OXXO de Mexico. Es ideal para pacientes que no tienen tarjeta o
+            prefieren pagar en efectivo.
           </p>
 
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Tiempos de deposito
-            </p>
-            <FeeRow
-              label="Primer deposito"
-              value="7 dias"
-              note="Stripe retiene los fondos los primeros dias mientras verifica tu cuenta"
-            />
-            <FeeRow
-              label="Depositos siguientes"
-              value="2 dias habiles"
-              note="Despues del periodo inicial, los depositos son automaticos"
-            />
+          <div className="space-y-1">
+            <WorkflowStep number={1} title="Paciente elige OXXO" icon={Store}>
+              Al abrir el link de pago, el paciente selecciona OXXO como metodo
+              de pago.
+            </WorkflowStep>
+            <WorkflowStep
+              number={2}
+              title="Se genera un voucher"
+              icon={FileText}
+            >
+              Stripe genera un voucher con un codigo de barras y un numero de
+              referencia. El paciente puede imprimirlo o mostrarlo desde su
+              celular.
+            </WorkflowStep>
+            <WorkflowStep number={3} title="Pago en tienda" icon={Banknote}>
+              El paciente va a cualquier OXXO y paga mostrando el voucher. Tiene{" "}
+              <strong>72 horas</strong> para hacerlo. El monto debe ser exacto (OXXO
+              no acepta pagos parciales).
+            </WorkflowStep>
+            <WorkflowStep
+              number={4}
+              title="Confirmacion"
+              icon={Clock}
+              tip="La confirmacion de OXXO llega al siguiente dia habil (lunes a viernes, excluyendo dias festivos). Si el paciente paga un viernes, la confirmacion puede llegar hasta el lunes."
+            >
+              Una vez que el paciente paga, Stripe confirma el pago y el status
+              del link cambia a &ldquo;Pagado&rdquo;. Si no paga en 72 horas, el
+              link cambia a &ldquo;Expirado&rdquo;.
+            </WorkflowStep>
           </div>
 
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Tu panel de Stripe Express
+              Limitaciones de OXXO
             </p>
-            <p>
-              Ademas de ver tus links de pago aqui en tusalud.pro, puedes
-              acceder a tu <strong>Dashboard de Stripe Express</strong> para:
-            </p>
-            <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-500 ml-1">
-              <li>Ver tu saldo disponible y historial de depositos</li>
-              <li>Cambiar tu cuenta bancaria</li>
-              <li>Configurar la frecuencia de depositos (diario, semanal, mensual)</li>
-              <li>Ver detalle de cada pago recibido</li>
-              <li>Gestionar reembolsos y disputas</li>
+            <ul className="list-disc list-inside text-xs text-gray-500 space-y-0.5 ml-1">
+              <li>Monto maximo por pago: <strong>$10,000 MXN</strong></li>
+              <li>No se pueden hacer reembolsos automaticos (tendrias que devolver por transferencia o efectivo)</li>
+              <li>No hay contracargos (es pago en efectivo, ventaja para ti)</li>
+              <li>El paciente debe pagar el monto exacto</li>
+              <li>La confirmacion no es inmediata (siguiente dia habil)</li>
             </ul>
-            <InfoBox>
-              Para acceder, entra a{" "}
-              <strong>connect.stripe.com/express_login</strong> con el correo
-              que usaste al crear tu cuenta. Stripe te enviara un codigo de
-              verificacion por SMS o correo.
-            </InfoBox>
           </div>
+
+          <WarningBox>
+            Si tienes una cita programada para el dia siguiente, considera pedirle al paciente
+            que pague con tarjeta, ya que la confirmacion de OXXO puede no llegar a tiempo.
+          </WarningBox>
         </div>
       </SectionAccordion>
 
-      {/* 7. Facturas (CFDI) */}
+      {/* 12. Facturas (CFDI) */}
       <SectionAccordion
         title="Facturas (CFDI) y obligaciones fiscales"
         subtitle="Quien emite factura, que es responsabilidad de Stripe, y que es tuya"
@@ -513,7 +870,7 @@ export function PagosGuide() {
               </li>
               <li>
                 Stripe te emitira factura por las comisiones que te cobra.
-                Puedes descargarla desde tu Dashboard de Stripe Express. Esta
+                Puedes descargarla desde tu panel de Stripe Express. Esta
                 comision es deducible.
               </li>
               <li>
@@ -525,116 +882,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 8. Reembolsos y disputas */}
-      <SectionAccordion
-        title="Reembolsos y disputas"
-        subtitle="Que pasa si un paciente pide devolucion o reclama un cargo"
-        icon={AlertTriangle}
-        accentColor="amber"
-      >
-        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Reembolsos
-            </p>
-            <p>
-              Si necesitas devolver el dinero a un paciente, puedes hacerlo desde
-              tu Dashboard de Stripe Express. El reembolso se procesa a la misma
-              tarjeta o metodo de pago que uso el paciente.
-            </p>
-            <ul className="list-disc list-inside text-xs text-gray-500 space-y-0.5 ml-1">
-              <li>Los reembolsos con tarjeta tardan 5-10 dias habiles</li>
-              <li>
-                Los pagos por OXXO <strong>no se pueden reembolsar</strong>{" "}
-                automaticamente — tendrias que devolver el dinero por otro medio
-                (transferencia, efectivo)
-              </li>
-              <li>
-                Stripe no te devuelve la comision original al hacer un reembolso
-              </li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Disputas (contracargos)
-            </p>
-            <p>
-              Un contracargo ocurre cuando el paciente reclama el cobro
-              directamente con su banco. Esto puede pasar si:
-            </p>
-            <ul className="list-disc list-inside text-xs text-gray-500 space-y-0.5 ml-1">
-              <li>El paciente no reconoce el cargo</li>
-              <li>Alega que no recibio el servicio</li>
-              <li>
-                Fue un uso no autorizado de la tarjeta
-              </li>
-            </ul>
-            <WarningBox>
-              En caso de contracargo, Stripe congela el monto disputado y tu
-              tienes la oportunidad de presentar evidencia (recibos, notas de
-              consulta, comunicaciones). Si pierdes la disputa, el dinero se
-              devuelve al paciente mas una tarifa de $150 MXN que cobra Stripe.
-              Como tu eres el titular de la cuenta, los contracargos son tu
-              responsabilidad, no de tusalud.pro.
-            </WarningBox>
-          </div>
-        </div>
-      </SectionAccordion>
-
-      {/* 9. Pagos con OXXO */}
-      <SectionAccordion
-        title="Pagos con OXXO"
-        subtitle="Como funcionan, tiempos y limitaciones"
-        icon={Store}
-        accentColor="green"
-      >
-        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
-          <p>
-            OXXO permite a tus pacientes pagar en efectivo en cualquier tienda
-            OXXO de Mexico. Es ideal para pacientes que no tienen tarjeta o
-            prefieren pagar en efectivo.
-          </p>
-
-          <div className="space-y-1">
-            <WorkflowStep number={1} title="Paciente elige OXXO" icon={Store}>
-              Al abrir el link de pago, el paciente selecciona OXXO como metodo
-              de pago.
-            </WorkflowStep>
-            <WorkflowStep
-              number={2}
-              title="Se genera un voucher"
-              icon={FileText}
-            >
-              Stripe genera un voucher con un codigo de barras y un numero de
-              referencia. El paciente puede imprimirlo o mostrarlo desde su
-              celular.
-            </WorkflowStep>
-            <WorkflowStep number={3} title="Pago en tienda" icon={Banknote}>
-              El paciente va a cualquier OXXO y paga mostrando el voucher. Tiene{" "}
-              <strong>72 horas</strong> para hacerlo.
-            </WorkflowStep>
-            <WorkflowStep
-              number={4}
-              title="Confirmacion"
-              icon={Clock}
-              tip="La confirmacion de OXXO puede tardar varias horas despues de que el paciente paga en tienda. Es normal."
-            >
-              Una vez que el paciente paga, Stripe confirma el pago y el status
-              del link cambia a &ldquo;Pagado&rdquo;. Si no paga en 72 horas, el
-              link cambia a &ldquo;Expirado&rdquo;.
-            </WorkflowStep>
-          </div>
-
-          <WarningBox>
-            Los pagos por OXXO no se pueden reembolsar automaticamente por
-            Stripe. Si necesitas devolver dinero de un pago OXXO, tendras que
-            hacer una transferencia bancaria o devolver el efectivo directamente.
-          </WarningBox>
-        </div>
-      </SectionAccordion>
-
-      {/* 10. Preguntas frecuentes */}
+      {/* 13. Preguntas frecuentes */}
       <SectionAccordion
         title="Preguntas frecuentes"
         subtitle="Dudas comunes sobre el sistema de pagos"
@@ -648,15 +896,15 @@ export function PagosGuide() {
           />
           <FAQ
             q="Hay un monto minimo o maximo?"
-            a="El monto minimo es $1 MXN y el maximo es $100,000 MXN por link de pago."
+            a="El monto minimo es $10 MXN (requerido por Stripe Mexico) y el maximo es $100,000 MXN por link de pago. Para pagos por OXXO, el maximo es $10,000 MXN."
           />
           <FAQ
             q="Puedo crear varios links para el mismo paciente?"
-            a="Si. Cada link es independiente. Puedes crear uno por consulta, por tratamiento, o como prefieras."
+            a="Si. Cada link es independiente. Puedes crear uno por consulta, por tratamiento, o como prefieras. No hay limite de links."
           />
           <FAQ
             q="Que pasa si mi paciente paga dos veces el mismo link?"
-            a="Los links de pago de Stripe son de un solo uso. Una vez pagado, el link ya no acepta otro pago."
+            a="No es posible. Cada link de pago solo acepta un pago. Una vez completado, el link se desactiva automaticamente."
           />
           <FAQ
             q="Puedo desactivar un link despues de enviarlo?"
@@ -664,11 +912,11 @@ export function PagosGuide() {
           />
           <FAQ
             q="Que pasa si cierro mi cuenta de Stripe?"
-            a="Puedes cerrar tu cuenta desde tu Dashboard de Stripe Express. Los pagos pendientes se depositaran antes del cierre. Los links de pago activos dejaran de funcionar."
+            a="Puedes cerrar tu cuenta desde tu panel de Stripe Express. Los pagos pendientes se depositaran antes del cierre. Los links de pago activos dejaran de funcionar. Si quieres volver a cobrar, tendras que crear una nueva cuenta."
           />
           <FAQ
             q="tusalud.pro puede ver mis datos bancarios o mis pagos?"
-            a="No. tusalud.pro solo sabe si tu cuenta de Stripe esta activa y el estado de los links de pago (pendiente/pagado). No tenemos acceso a tu cuenta bancaria, tu saldo, ni tus datos fiscales."
+            a="No. tusalud.pro solo sabe si tu cuenta de Stripe esta activa y el estado de los links de pago (pendiente/pagado). No tenemos acceso a tu cuenta bancaria, tu saldo, tus depositos, ni tus datos fiscales."
           />
           <FAQ
             q="Necesito hacer algo para los impuestos?"
@@ -682,8 +930,48 @@ export function PagosGuide() {
             q="Mis pacientes pueden pagar con meses sin intereses?"
             a="Actualmente no. Esta funcionalidad podria estar disponible en el futuro."
           />
+          <FAQ
+            q="Que hago si mi cuenta de Stripe se deshabilita?"
+            a="En tu pagina de Pagos veras una alerta con el motivo. Generalmente debes actualizar algun documento o dato. Haz clic en 'Actualizar datos en Stripe' para resolverlo. Si es un rechazo permanente, puedes intentar crear una nueva cuenta."
+          />
+          <FAQ
+            q="Como cambio mi cuenta bancaria?"
+            a="Entra a tu panel de Stripe haciendo clic en 'Mi Stripe' en la pagina de Pagos. Desde ahi puedes actualizar tu CLABE bancaria en cualquier momento."
+          />
+          <FAQ
+            q="Que pasa si un deposito a mi banco falla?"
+            a="Recibiras una notificacion por Telegram. El dinero queda en tu saldo de Stripe. Entra a tu panel de Stripe, actualiza tu cuenta bancaria, y Stripe reintentara el deposito."
+          />
+          <FAQ
+            q="Cuanto tarda en llegar el dinero a mi banco?"
+            a="El primer deposito puede tardar ~7 dias. Despues, los depositos son automaticos cada 2 dias habiles. Puedes cambiar la frecuencia desde tu panel de Stripe (diario, semanal o mensual)."
+          />
         </div>
       </SectionAccordion>
+    </div>
+  );
+}
+
+function PanelFeature({ icon: Icon, label, description }: { icon: typeof Banknote; label: string; description: string }) {
+  return (
+    <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+      <div className="flex items-center gap-2 mb-0.5">
+        <Icon className="w-3.5 h-3.5 text-gray-500" />
+        <p className="text-xs font-semibold text-gray-700">{label}</p>
+      </div>
+      <p className="text-xs text-gray-500">{description}</p>
+    </div>
+  );
+}
+
+function NotificationRow({ emoji, title, description }: { emoji: string; title: string; description: string }) {
+  return (
+    <div className="flex items-start gap-3 py-2 px-3 bg-gray-50 rounded-lg">
+      <span className="text-base mt-0.5">{emoji}</span>
+      <div>
+        <p className="text-sm font-medium text-gray-900">{title}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+      </div>
     </div>
   );
 }
