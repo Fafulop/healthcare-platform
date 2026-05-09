@@ -14,9 +14,6 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Doctor Portal",
   },
-  icons: {
-    apple: "/pwa-icon-512.png",
-  },
   themeColor: "#2563eb",
 };
 
