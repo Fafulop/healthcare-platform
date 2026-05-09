@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     title: "Doctor Portal",
   },
   icons: {
-    apple: "/api/pwa-icon?size=180",
+    apple: "/pwa-icon-512.png",
   },
   themeColor: "#2563eb",
 };
