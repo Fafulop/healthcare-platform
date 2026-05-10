@@ -17,6 +17,9 @@ import {
   AlertCircle,
   Shield,
   RefreshCw,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -84,7 +87,7 @@ export default function FacturacionPage() {
     },
   });
 
-  const [activeTab, setActiveTab] = useState<"facturas" | "config" | "nueva">("config");
+  const [activeTab, setActiveTab] = useState<"facturas" | "config" | "nueva" | "guia">("config");
   const [profile, setProfile] = useState<FiscalProfile | null>(null);
   const [csdStatus, setCsdStatus] = useState<CSDStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,6 +177,12 @@ export default function FacturacionPage() {
               />
             </>
           )}
+          <TabButton
+            active={activeTab === "guia"}
+            onClick={() => setActiveTab("guia")}
+            icon={BookOpen}
+            label="Guía"
+          />
         </div>
       </div>
 
@@ -190,6 +199,7 @@ export default function FacturacionPage() {
       {activeTab === "nueva" && profile && (
         <NuevaFacturaTab profile={profile} onCreated={() => setActiveTab("facturas")} />
       )}
+      {activeTab === "guia" && <GuiaTab />}
     </div>
   );
 }
@@ -1171,5 +1181,277 @@ function NuevaFacturaTab({
         Al emitir, se timbra el CFDI ante el SAT. Esta acción no se puede deshacer (solo cancelar).
       </p>
     </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GUIA TAB
+// ---------------------------------------------------------------------------
+
+function GuiaSection({
+  title, children, defaultOpen = false
+}: {
+  title: string; children: React.ReactNode; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-5 py-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+      >
+        <span className="font-semibold text-gray-900">{title}</span>
+        {open ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}
+      </button>
+      {open && <div className="px-5 py-4 space-y-3 text-sm text-gray-700">{children}</div>}
+    </div>
+  );
+}
+
+function GuiaTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border border-gray-200 rounded-md overflow-hidden">
+        <thead className="bg-gray-50">
+          <tr>
+            {headers.map((h, i) => (
+              <th key={i} className="text-left px-3 py-2 font-medium text-gray-600 border-b">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {rows.map((row, i) => (
+            <tr key={i} className="hover:bg-gray-50">
+              {row.map((cell, j) => (
+                <td key={j} className="px-3 py-2 text-gray-700">{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function GuiaTab() {
+  return (
+    <div className="space-y-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-2">
+        <p className="text-sm text-blue-800">
+          <strong>Referencia rápida</strong> para emitir facturas electrónicas (CFDI 4.0) desde TuSalud.
+          Consulta con tu contador para casos específicos.
+        </p>
+      </div>
+
+      <GuiaSection title="1. CFDI 4.0 — Datos obligatorios del receptor" defaultOpen>
+        <p>Para emitir un CFDI válido necesitas estos datos de tu paciente:</p>
+        <GuiaTable
+          headers={["Dato", "Ejemplo", "Dónde obtenerlo"]}
+          rows={[
+            ["Nombre completo", "Juan Pérez López", "Constancia de Situación Fiscal"],
+            ["RFC", "PELJ850101ABC", "13 caracteres (persona física)"],
+            ["Régimen fiscal", "612", "Constancia de Situación Fiscal"],
+            ["Código postal fiscal", "06600", "Domicilio fiscal (NO el de consulta)"],
+          ]}
+        />
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-800">
+          <strong>Importante:</strong> Los datos deben coincidir exactamente con los registrados ante el SAT.
+          Si el nombre o RFC no coinciden, el timbrado será rechazado.
+        </div>
+      </GuiaSection>
+
+      <GuiaSection title="2. Claves SAT para servicios médicos">
+        <GuiaTable
+          headers={["Servicio", "Clave SAT", "Unidad"]}
+          rows={[
+            ["Consulta médica general", "85121502", "E48 — Unidad de servicio"],
+            ["Servicios médicos especializados", "85121800", "E48 — Unidad de servicio"],
+            ["Servicios de psicología", "85121608", "E48 — Unidad de servicio"],
+            ["Servicios de nutrición", "85121609", "E48 — Unidad de servicio"],
+            ["Análisis clínicos y laboratorio", "85141600", "E48 — Unidad de servicio"],
+            ["Medicamentos", "51101500 a 51251002", "Según presentación"],
+            ["Material quirúrgico", "42311500", "Según presentación"],
+          ]}
+        />
+        <p className="text-xs text-gray-500">
+          En TuSalud, la clave por defecto es <strong>85121800</strong> y la unidad <strong>E48</strong>. Puedes cambiarlas al crear cada factura.
+        </p>
+      </GuiaSection>
+
+      <GuiaSection title="3. Uso del CFDI — Códigos comunes">
+        <GuiaTable
+          headers={["Clave", "Descripción", "Cuándo usarla"]}
+          rows={[
+            ["D01", "Honorarios médicos, dentales y gastos hospitalarios", "Pacientes que deducen gastos médicos (el más común)"],
+            ["D02", "Gastos médicos por incapacidad o discapacidad", "Pacientes con condición de discapacidad"],
+            ["G03", "Gastos en general", "Empresas que pagan servicios médicos"],
+            ["S01", "Sin efectos fiscales", "Cuando el receptor no deducirá la factura"],
+            ["CP01", "Pagos", "Para Recibos Electrónicos de Pago (REP)"],
+          ]}
+        />
+      </GuiaSection>
+
+      <GuiaSection title="4. Requisitos para facturas deducibles (D01)">
+        <p>Para que tu paciente pueda deducir la factura en su declaración anual:</p>
+        <ul className="list-disc list-inside space-y-1 ml-1">
+          <li>Uso de CFDI debe ser <strong>D01</strong> o <strong>D02</strong></li>
+          <li>RFC del paciente escrito correctamente (13 caracteres, sin espacios)</li>
+          <li>Clave de producto/servicio debe ser una clave médica válida</li>
+          <li>Forma de pago registrada correctamente</li>
+          <li><strong>Pagos en efectivo mayores a $2,000 MXN no son deducibles</strong> — el paciente debe pagar con tarjeta o transferencia</li>
+        </ul>
+        <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-xs">
+          <strong>Límite de deducción para el paciente:</strong> El menor entre 5 veces la UMA anual o 15% de sus ingresos anuales.
+        </div>
+      </GuiaSection>
+
+      <GuiaSection title="5. Regímenes fiscales comunes para doctores">
+        <GuiaTable
+          headers={["Clave", "Régimen", "Notas"]}
+          rows={[
+            ["612", "Personas Físicas con Actividades Empresariales y Profesionales", "El más común para doctores"],
+            ["626", "Régimen Simplificado de Confianza (RESICO)", "Para ingresos anuales hasta $3.5M MXN"],
+            ["601", "General de Ley Personas Morales", "Si operas como persona moral (clínica/SC)"],
+            ["603", "Personas Morales con Fines no Lucrativos", "Asociaciones civiles médicas"],
+          ]}
+        />
+      </GuiaSection>
+
+      <GuiaSection title="6. Formas y métodos de pago">
+        <h4 className="font-medium text-gray-900 mb-2">Forma de pago (cómo pagó el paciente)</h4>
+        <GuiaTable
+          headers={["Clave", "Descripción"]}
+          rows={[
+            ["01", "Efectivo"],
+            ["02", "Cheque nominativo"],
+            ["03", "Transferencia electrónica de fondos"],
+            ["04", "Tarjeta de crédito"],
+            ["28", "Tarjeta de débito"],
+            ["99", "Por definir (usar con método PPD)"],
+          ]}
+        />
+        <h4 className="font-medium text-gray-900 mt-4 mb-2">Método de pago</h4>
+        <GuiaTable
+          headers={["Clave", "Descripción", "Cuándo usarlo"]}
+          rows={[
+            ["PUE", "Pago en una sola exhibición", "El paciente paga en el momento de la consulta"],
+            ["PPD", "Pago en parcialidades o diferido", "El paciente pagará después o en partes"],
+          ]}
+        />
+      </GuiaSection>
+
+      <GuiaSection title="7. Facturación a aseguradoras">
+        <p>Cuando un paciente usa seguro médico, se requieren <strong>dos facturas separadas</strong>:</p>
+        <ol className="list-decimal list-inside space-y-1 ml-1">
+          <li><strong>Factura a la aseguradora</strong> — por el monto cubierto por el seguro</li>
+          <li><strong>Factura al paciente</strong> — por el copago o deducible que paga directamente</li>
+        </ol>
+        <p className="text-xs text-gray-500 mt-2">
+          Cada aseguradora tiene requisitos y tiempos de pago específicos. No se puede emitir una sola factura por el total a ambas partes.
+        </p>
+      </GuiaSection>
+
+      <GuiaSection title="8. Recibo Electrónico de Pago (REP)">
+        <p>Cuando emites una factura con método <strong>PPD</strong> (pago diferido o parcialidades), debes emitir un REP cada vez que recibas un pago:</p>
+        <ul className="list-disc list-inside space-y-1 ml-1">
+          <li>El REP vincula cada pago con la factura original</li>
+          <li>Es obligatorio para liquidar correctamente la factura ante el SAT</li>
+          <li>Usa el uso de CFDI <strong>CP01</strong> (Pagos)</li>
+        </ul>
+        <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-xs mt-2">
+          <strong>Ejemplo:</strong> Emites factura por $10,000 con método PPD. El paciente paga $5,000 hoy y $5,000 en 30 días. Debes emitir un REP por cada pago de $5,000.
+        </div>
+      </GuiaSection>
+
+      <GuiaSection title="9. Cancelación de CFDIs">
+        <p>Si necesitas cancelar una factura, debes indicar un motivo al SAT:</p>
+        <GuiaTable
+          headers={["Clave", "Motivo", "Cuándo usarlo"]}
+          rows={[
+            ["01", "Comprobante emitido con errores con relación", "Vas a emitir una factura corregida que sustituye esta"],
+            ["02", "Comprobante emitido con errores sin relación", "Error en la factura, no habrá sustitución"],
+            ["03", "No se llevó a cabo la operación", "La consulta o servicio no se realizó"],
+            ["04", "Operación nominativa relacionada en factura global", "Casos de factura global"],
+          ]}
+        />
+        <p className="text-xs text-gray-500 mt-2">
+          El motivo <strong>01</strong> requiere el UUID de la factura que sustituye a la cancelada.
+        </p>
+      </GuiaSection>
+
+      <GuiaSection title="10. Retención de ISR e IVA">
+        <h4 className="font-medium text-gray-900 mb-2">Retención de ISR</h4>
+        <p>
+          Si tu paciente es <strong>persona moral</strong> (empresa), está obligada a retenerte el <strong>10% de ISR</strong> sobre el monto del servicio.
+          La factura debe reflejar la retención y el paciente te pagará el monto menos la retención.
+        </p>
+        <h4 className="font-medium text-gray-900 mt-4 mb-2">IVA en servicios médicos</h4>
+        <ul className="list-disc list-inside space-y-1 ml-1">
+          <li><strong>Consultas médicas</strong> — generalmente exentas</li>
+          <li><strong>Procedimientos estéticos</strong> — pueden causar IVA al 16%</li>
+          <li><strong>Venta de medicamentos</strong> — puede causar IVA según el tipo</li>
+        </ul>
+        <p className="text-xs text-gray-500 mt-2">Consulta con tu contador el tratamiento de IVA específico para tus servicios.</p>
+      </GuiaSection>
+
+      <GuiaSection title="11. Configuración de sellos digitales (CSD)">
+        <p>Para emitir facturas necesitas subir tus archivos CSD del SAT:</p>
+        <GuiaTable
+          headers={["Archivo", "Dónde obtenerlo"]}
+          rows={[
+            ["RFC", "Constancia de Situación Fiscal (SAT)"],
+            ["Razón social", "Constancia de Situación Fiscal (SAT)"],
+            ["Régimen fiscal", "Constancia de Situación Fiscal (SAT)"],
+            ["Código postal fiscal", "Constancia de Situación Fiscal (SAT)"],
+            ["Archivos CSD (.cer y .key)", "Portal del SAT > Certifix > Certificados de Sello Digital"],
+            ["Contraseña del .key", "La que creaste al generar el CSD"],
+          ]}
+        />
+        <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-xs mt-2">
+          <strong>Pasos para obtener tus CSD:</strong>
+          <ol className="list-decimal list-inside mt-1 space-y-0.5">
+            <li>Ingresa al portal del SAT con tu e.firma (FIEL)</li>
+            <li>Ve a Certifix {">"} Certificados de Sello Digital</li>
+            <li>Genera un nuevo certificado (si no tienes uno vigente)</li>
+            <li>Descarga los archivos .cer y .key</li>
+            <li>Guarda la contraseña que usaste al generar el .key</li>
+            <li>Sube estos archivos en la pestaña "Configuración" de esta página</li>
+          </ol>
+        </div>
+        <div className="bg-green-50 border border-green-200 rounded-md p-3 text-xs mt-2 text-green-800">
+          <strong>Seguridad:</strong> Tus archivos CSD se envían directamente al proveedor de timbrado (Facturama, PAC autorizado por el SAT)
+          a través de conexión cifrada. No almacenamos tus llaves privadas en nuestros servidores.
+        </div>
+      </GuiaSection>
+
+      <GuiaSection title="Preguntas frecuentes">
+        <div className="space-y-4">
+          <div>
+            <p className="font-medium text-gray-900">¿Qué datos necesito de mi paciente para facturar?</p>
+            <p className="mt-1">Nombre completo, RFC, régimen fiscal y código postal del domicilio fiscal. Estos datos los obtiene el paciente de su Constancia de Situación Fiscal en el portal del SAT.</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">¿Qué uso de CFDI debo seleccionar para que sea deducible?</p>
+            <p className="mt-1">D01 — Honorarios médicos, dentales y gastos hospitalarios. Con la clave de servicio médica correcta.</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">¿Puedo facturar a la aseguradora y al paciente en una sola factura?</p>
+            <p className="mt-1">No. Cada parte requiere su propia factura con su monto correspondiente.</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">¿Qué hago si el paciente paga después de la consulta?</p>
+            <p className="mt-1">Emite la factura con método de pago PPD y forma de pago 99 (por definir). Cuando recibas el pago, emite un Recibo Electrónico de Pago (REP).</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">¿Qué pasa si me equivoco en una factura?</p>
+            <p className="mt-1">Puedes cancelarla desde la pestaña "Mis Facturas" indicando el motivo. Si vas a emitir una factura corregida, usa el motivo 01 e indica el UUID de la nueva factura.</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">¿Cada cuándo debo emitir mis facturas?</p>
+            <p className="mt-1">No hay plazo obligatorio, pero se recomienda emitirlas el mismo día de la consulta o dentro de las 24 horas siguientes para mantener un control fiscal ordenado.</p>
+          </div>
+        </div>
+      </GuiaSection>
+    </div>
   );
 }

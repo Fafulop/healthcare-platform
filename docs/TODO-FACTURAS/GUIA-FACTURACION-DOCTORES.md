@@ -1,0 +1,213 @@
+# Guia de Facturacion para Doctores
+
+> Esta guia es una referencia rapida para emitir facturas electronicas (CFDI) desde TuSalud. Consulta con tu contador para casos especificos.
+
+---
+
+## 1. CFDI 4.0 — Lo que necesitas saber
+
+El **CFDI 4.0** es el formato obligatorio del SAT para facturas electronicas en Mexico. Como doctor, cada factura que emitas debe cumplir con estos requisitos:
+
+### Datos obligatorios del receptor (paciente)
+
+Para emitir un CFDI valido necesitas estos datos de tu paciente:
+
+| Dato | Ejemplo | Donde obtenerlo |
+|------|---------|-----------------|
+| Nombre completo | Juan Perez Lopez | Tal como aparece en su Constancia de Situacion Fiscal |
+| RFC | PELJ850101ABC | 13 caracteres (persona fisica) |
+| Regimen fiscal | 612 | Constancia de Situacion Fiscal del paciente |
+| Codigo postal fiscal | 06600 | Domicilio fiscal del paciente (NO el de consulta) |
+
+**Importante:** Los datos deben coincidir exactamente con los registrados ante el SAT. Si el nombre o RFC no coinciden, el timbrado sera rechazado.
+
+---
+
+## 2. Claves SAT para Servicios Medicos
+
+Usa la clave de producto/servicio correcta segun el tipo de atencion:
+
+| Servicio | Clave SAT | Unidad de medida |
+|----------|-----------|------------------|
+| Consulta medica general | 85121502 | E48 — Unidad de servicio |
+| Servicios medicos especializados | 85121800 | E48 — Unidad de servicio |
+| Servicios de psicologia | 85121608 | E48 — Unidad de servicio |
+| Servicios de nutricion | 85121609 | E48 — Unidad de servicio |
+| Analisis clinicos y laboratorio | 85141600 | E48 — Unidad de servicio |
+| Medicamentos | 51101500 a 51251002 | Segun presentacion |
+| Material quirurgico | 42311500 | Segun presentacion |
+
+> En TuSalud, la clave por defecto es **85121800** (Servicios medicos especializados) y la unidad **E48**. Puedes cambiarlas al crear cada factura.
+
+---
+
+## 3. Uso del CFDI — Codigos comunes
+
+El "Uso del CFDI" indica al SAT como utilizara el receptor la factura:
+
+| Clave | Descripcion | Cuando usarla |
+|-------|-------------|---------------|
+| **D01** | Honorarios medicos, dentales y gastos hospitalarios | Pacientes que deducen gastos medicos (el mas comun) |
+| D02 | Gastos medicos por incapacidad o discapacidad | Pacientes con condicion de discapacidad |
+| G03 | Gastos en general | Empresas que pagan servicios medicos |
+| S01 | Sin efectos fiscales | Cuando el receptor no deducira la factura |
+| CP01 | Pagos | Para Recibos Electronicos de Pago (REP) |
+
+---
+
+## 4. Requisitos para que una factura sea deducible (D01)
+
+Para que tu paciente pueda deducir la factura en su declaracion anual:
+
+1. **Uso de CFDI** debe ser **D01** o **D02**
+2. **RFC del paciente** escrito correctamente (13 caracteres, sin espacios)
+3. **Clave de producto/servicio** debe ser una clave medica valida (ver tabla arriba)
+4. **Forma de pago** debe estar registrada correctamente
+5. **Pagos en efectivo mayores a $2,000 MXN no son deducibles** — el paciente debe pagar con tarjeta o transferencia
+
+### Limite de deduccion para el paciente
+
+El paciente puede deducir el **menor** de estos dos montos:
+- 5 veces la UMA anual
+- 15% de sus ingresos anuales
+
+---
+
+## 5. Regimenes Fiscales comunes para doctores
+
+| Clave | Regimen | Notas |
+|-------|---------|-------|
+| **612** | Personas Fisicas con Actividades Empresariales y Profesionales | El mas comun para doctores |
+| **626** | Regimen Simplificado de Confianza (RESICO) | Para ingresos anuales hasta $3.5M MXN |
+| 601 | General de Ley Personas Morales | Si operas como persona moral (clinica/SC) |
+| 603 | Personas Morales con Fines no Lucrativos | Asociaciones civiles medicas |
+
+---
+
+## 6. Formas y metodos de pago
+
+### Forma de pago (como pago el paciente)
+
+| Clave | Descripcion |
+|-------|-------------|
+| 01 | Efectivo |
+| 02 | Cheque nominativo |
+| 03 | Transferencia electronica de fondos |
+| 04 | Tarjeta de credito |
+| 28 | Tarjeta de debito |
+| 99 | Por definir (usar con metodo PPD) |
+
+### Metodo de pago
+
+| Clave | Descripcion | Cuando usarlo |
+|-------|-------------|---------------|
+| **PUE** | Pago en una sola exhibicion | El paciente paga en el momento de la consulta |
+| **PPD** | Pago en parcialidades o diferido | El paciente pagara despues o en partes |
+
+---
+
+## 7. Facturacion a aseguradoras
+
+Cuando un paciente usa seguro medico, se requieren **dos facturas separadas**:
+
+1. **Factura a la aseguradora** — por el monto cubierto por el seguro
+2. **Factura al paciente** — por el copago o deducible que paga directamente
+
+Cada aseguradora tiene requisitos y tiempos de pago especificos. No se puede emitir una sola factura por el total a ambas partes.
+
+---
+
+## 8. Recibo Electronico de Pago (REP)
+
+Cuando emites una factura con metodo de pago **PPD** (pago diferido o parcialidades), debes emitir un **REP** cada vez que recibas un pago:
+
+- El REP vincula cada pago con la factura original
+- Es obligatorio para liquidar correctamente la factura ante el SAT
+- Usa el uso de CFDI **CP01** (Pagos)
+
+**Ejemplo:** Emites factura por $10,000 con metodo PPD. El paciente paga $5,000 hoy y $5,000 en 30 dias. Debes emitir un REP por cada pago de $5,000.
+
+---
+
+## 9. Cancelacion de CFDIs
+
+Si necesitas cancelar una factura, debes indicar un motivo al SAT:
+
+| Clave | Motivo | Cuando usarlo |
+|-------|--------|---------------|
+| 01 | Comprobante emitido con errores con relacion | Vas a emitir una factura corregida que sustituye esta |
+| 02 | Comprobante emitido con errores sin relacion | Error en la factura, no habra sustitucion |
+| 03 | No se llevo a cabo la operacion | La consulta o servicio no se realizo |
+| 04 | Operacion nominativa relacionada en factura global | Casos de factura global |
+
+**Nota:** El motivo **01** requiere el UUID de la factura que sustituye a la cancelada.
+
+---
+
+## 10. Retencion de ISR
+
+Si tu paciente es **persona moral** (empresa), esta obligada a retenerte el **10% de ISR** sobre el monto del servicio. En este caso:
+
+- La factura debe reflejar la retencion de ISR
+- El paciente (persona moral) te pagara el monto menos la retencion
+- La empresa entera el ISR retenido al SAT
+
+---
+
+## 11. IVA en servicios medicos
+
+Los servicios medicos generalmente estan **exentos de IVA** o aplican **tasa 0%**, dependiendo del tipo de servicio:
+
+- **Consultas medicas** — generalmente exentas
+- **Procedimientos esteticos** — pueden causar IVA al 16%
+- **Venta de medicamentos** — puede causar IVA segun el tipo
+
+Consulta con tu contador el tratamiento de IVA especifico para tus servicios.
+
+---
+
+## Referencia rapida: Datos para tu perfil fiscal en TuSalud
+
+Para configurar tu perfil de facturacion necesitas:
+
+| Dato | Donde encontrarlo |
+|------|-------------------|
+| RFC | Constancia de Situacion Fiscal (SAT) |
+| Razon social | Constancia de Situacion Fiscal (SAT) |
+| Regimen fiscal | Constancia de Situacion Fiscal (SAT) |
+| Codigo postal fiscal | Constancia de Situacion Fiscal (SAT) |
+| Archivos CSD (.cer y .key) | Portal del SAT > Certifix > Certificados de Sello Digital |
+| Password del .key | El que creaste al generar el CSD en el portal del SAT |
+
+### Como obtener tus archivos CSD
+
+1. Ingresa al portal del SAT con tu e.firma (FIEL)
+2. Ve a **Certifix** > **Certificados de Sello Digital**
+3. Genera un nuevo certificado (si no tienes uno vigente)
+4. Descarga los archivos `.cer` y `.key`
+5. Guarda el password que usaste al generar el `.key`
+6. Sube estos archivos en TuSalud > Facturacion > Configuracion
+
+> **Seguridad:** Tus archivos CSD se envian directamente al proveedor de timbrado (Facturama) y nunca se almacenan en nuestros servidores.
+
+---
+
+## Preguntas frecuentes
+
+**¿Que datos necesito de mi paciente para facturar?**
+Nombre completo, RFC, regimen fiscal y codigo postal del domicilio fiscal. Estos datos los obtiene el paciente de su Constancia de Situacion Fiscal en el portal del SAT.
+
+**¿Que uso de CFDI debo seleccionar para que sea deducible?**
+D01 — Honorarios medicos, dentales y gastos hospitalarios. Con la clave de servicio medica correcta.
+
+**¿Puedo facturar a la aseguradora y al paciente en una sola factura?**
+No. Cada parte requiere su propia factura con su monto correspondiente.
+
+**¿Que hago si el paciente paga despues de la consulta?**
+Emite la factura con metodo de pago PPD y forma de pago 99 (por definir). Cuando recibas el pago, emite un Recibo Electronico de Pago (REP).
+
+**¿Que pasa si me equivoco en una factura?**
+Puedes cancelarla desde TuSalud indicando el motivo. Si vas a emitir una factura corregida, usa el motivo 01 e indica el UUID de la nueva factura.
+
+**¿Cada cuando debo emitir mis facturas?**
+No hay plazo obligatorio, pero se recomienda emitirlas el mismo dia de la consulta o dentro de las 24 horas siguientes para mantener un control fiscal ordenado.
