@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const { rfc, razonSocial, regimenFiscal, regimenFiscalDesc, codigoPostal } = body;
 
-    if (!rfc || !razonSocial || !regimenFiscal || !codigoPostal) {
+    if (!rfc?.trim() || !razonSocial?.trim() || !regimenFiscal?.trim() || !codigoPostal?.trim()) {
       return NextResponse.json(
         { error: 'RFC, razón social, régimen fiscal y código postal son requeridos' },
         { status: 400 }

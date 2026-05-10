@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || undefined;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
+    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '50') || 50));
 
     const where: any = { fiscalProfileId: profile.id };
     if (status) where.status = status;

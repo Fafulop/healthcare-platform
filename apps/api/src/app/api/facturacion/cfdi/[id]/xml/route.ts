@@ -46,6 +46,7 @@ export async function GET(
     }
 
     return new NextResponse(xmlContent, {
+      status: 200,
       headers: {
         'Content-Type': 'application/xml',
         'Content-Disposition': `attachment; filename="CFDI_${cfdi.uuid}.xml"`,

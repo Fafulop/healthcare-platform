@@ -381,21 +381,29 @@ FACTURAMA_API_URL=https://apisandbox.facturama.mx  # cambiar a api.facturama.mx 
 | Ruta: CFDI Email | `apps/api/src/app/api/facturacion/cfdi/[id]/email/route.ts` | Done - POST |
 | Ruta: Catalogos SAT | `apps/api/src/app/api/facturacion/catalogos/[tipo]/route.ts` | Done - GET (con fallback offline) |
 
-### Code Review (2026-05-10)
+### Code Review #1 (2026-05-10)
 
 Review automatizado paso sin issues criticos:
 - **32 checks Pass**
 - **1 Bug corregido** — variable redundante en cancel route (re-await de params)
 - **1 Minor corregido** — validacion de formato email agregada
 
+### Code Review #2 (2026-05-10)
+
+Review sistematico con checklist completo (DB↔Schema↔Migration, API Routes, Input Validation, Response Format, Cross-Cutting):
+- **1 Bug corregido** — `cfdiId` scope: variable declarada dentro de `try` no accesible en `catch` (cancel/route.ts). Movida fuera del try block
+- **1 Bug corregido** — whitespace bypass: `razonSocial: "   "` pasaba validacion falsy, se guardaba como `""`. Ahora usa `.trim()` en todas las validaciones (profile/route.ts)
+- **4 Minor corregidos:**
+  - Whitespace en queries de catalogos — ahora se aplica `.trim()` al parametro `q` (catalogos/[tipo]/route.ts)
+  - Paginacion sin guardrails — `limit=0` causaba `totalPages: Infinity`. Ahora `limit` clamped a 1–100, `page` min 1, NaN defaults (cfdi/route.ts)
+  - Binary responses (PDF/XML) sin `status: 200` explicito — agregado (pdf/route.ts, xml/route.ts)
+- **1 Inconsistency aceptada** — `updated_at DEFAULT CURRENT_TIMESTAMP` en migracion es redundante (Prisma `@updatedAt` lo maneja), pero inofensivo y no se modifica para evitar conflictos con DBs ya desplegadas
+
 ### Pendiente
 
 | Paso | Prioridad | Bloqueado por |
 |------|-----------|---------------|
 | Obtener credenciales sandbox Facturama | Alta | Registro en facturama.mx |
-| Ejecutar migracion SQL contra DB local | Alta | Credenciales no necesarias |
-| Ejecutar migracion SQL contra Railway | Alta | Antes de deploy |
-| Regenerar Prisma Client (`pnpm db:generate`) | Alta | Migracion local |
 | UI: Configuracion Fiscal (settings page) | Media | Nada |
 | UI: Pagina de Facturacion (list + create) | Media | Nada |
 | UI: Integracion con Ledger (boton "Facturar") | Media | UI Facturacion |

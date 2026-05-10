@@ -38,6 +38,7 @@ export async function GET(
     const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
     return new NextResponse(pdfBuffer, {
+      status: 200,
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="CFDI_${cfdi.uuid}.pdf"`,

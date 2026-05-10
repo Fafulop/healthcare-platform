@@ -8,10 +8,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const cfdiId = parseInt(id);
+
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
-    const { id } = await params;
-    const cfdiId = parseInt(id);
 
     if (isNaN(cfdiId)) {
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
