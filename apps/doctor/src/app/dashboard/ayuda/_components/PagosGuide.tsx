@@ -1005,6 +1005,10 @@ export function PagosGuide() {
             a="Si. Apple Pay aparece automaticamente en dispositivos Apple (iPhone, iPad, Mac) y Google Pay en dispositivos Android. El paciente paga con Face ID, Touch ID o huella digital. La comision es la misma que con tarjeta."
           />
           <FAQ
+            q="Mis pacientes pueden pagar con transferencia bancaria (SPEI)?"
+            a="No. Stripe no permite transferencias bancarias (SPEI) en links de pago. Tus pacientes pueden pagar con tarjeta de credito/debito, Apple Pay, Google Pay, o en efectivo en OXXO. Si un paciente necesita pagar por transferencia, tendrias que darle tus datos bancarios directamente fuera de la plataforma."
+          />
+          <FAQ
             q="Mis pacientes pueden pagar con meses sin intereses?"
             a="Actualmente no. Esta funcionalidad podria estar disponible en el futuro."
           />

@@ -858,7 +858,7 @@ Added `collection_options: { fields: 'currently_due' }` to the `account-link` ro
 | Google Pay | Digital wallet | Instant | Per linked card | Android only |
 | Link (Stripe) | Digital wallet | Instant | Per linked card | Stripe's fast checkout |
 
-**SPEI (bank transfers):** Not confirmed to work with Payment Links on connected accounts. Omitted until verified.
+**SPEI (bank transfers):** Verified May 10, 2026 — **NOT available with Payment Links.** Stripe explicitly states "Las transferencias bancarias no admiten Payment Links." SPEI requires: (1) a pre-created Stripe Customer object per patient, (2) `customer_balance` payment method type with `mx_bank_transfer` funding, (3) Checkout Sessions instead of Payment Links. This would require a major architectural change. Not planned.
 
 **Payment method display:** Stripe automatically shows available methods based on the patient's device. Apple Pay only on Apple devices, Google Pay only on Android. Cards and OXXO always shown.
 
