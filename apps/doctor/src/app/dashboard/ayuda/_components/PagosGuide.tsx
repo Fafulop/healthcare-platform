@@ -75,8 +75,8 @@ export function PagosGuide() {
         <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
           <p>
             Stripe es una plataforma de pagos internacional que te permite cobrar
-            a tus pacientes con tarjeta de credito, tarjeta de debito y pagos en
-            OXXO. Al activar Stripe, se crea una{" "}
+            a tus pacientes con tarjeta de credito, tarjeta de debito, pagos en
+            OXXO, y billeteras digitales como Apple Pay y Google Pay. Al activar Stripe, se crea una{" "}
             <strong>cuenta conectada a tu nombre</strong> donde tu recibes el
             dinero directamente.
           </p>
@@ -98,7 +98,7 @@ export function PagosGuide() {
             </li>
             <li>
               El paciente abre el link, ve tu nombre como cobrador, y paga con
-              tarjeta o genera un voucher de OXXO.
+              tarjeta, Apple Pay, Google Pay, o genera un voucher de OXXO.
             </li>
             <li>
               El link solo puede usarse una vez. Una vez pagado, ya no acepta
@@ -112,7 +112,64 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 2. Activar cobros — paso a paso */}
+      {/* 2. Metodos de pago disponibles */}
+      <SectionAccordion
+        title="Metodos de pago disponibles"
+        subtitle="Que opciones tiene tu paciente al abrir un link de pago"
+        icon={Smartphone}
+        accentColor="indigo"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <p>
+            Cuando un paciente abre tu link de pago, Stripe le muestra automaticamente
+            los metodos de pago disponibles. Tu no necesitas configurar nada.
+          </p>
+
+          <div className="space-y-2">
+            <PaymentMethodCard
+              icon={CreditCard}
+              title="Tarjeta de credito o debito"
+              description="Visa, Mastercard, American Express y Carnet (tarjeta mexicana). El pago se confirma al instante."
+              speed="Inmediato"
+              limit="Segun limite de la tarjeta"
+            />
+            <PaymentMethodCard
+              icon={Store}
+              title="OXXO (efectivo)"
+              description="El paciente recibe un voucher con codigo de barras y paga en cualquier OXXO. Ideal para pacientes sin tarjeta."
+              speed="1 dia habil despues del pago"
+              limit="Maximo $10,000 MXN por voucher"
+            />
+            <PaymentMethodCard
+              icon={Smartphone}
+              title="Apple Pay"
+              description="Para pacientes con iPhone, iPad o Mac. Pagan con Face ID o Touch ID sin ingresar datos de tarjeta."
+              speed="Inmediato"
+              limit="Segun limite de la tarjeta vinculada"
+            />
+            <PaymentMethodCard
+              icon={Smartphone}
+              title="Google Pay"
+              description="Para pacientes con Android. Pagan desde su billetera digital sin ingresar datos de tarjeta."
+              speed="Inmediato"
+              limit="Segun limite de la tarjeta vinculada"
+            />
+          </div>
+
+          <InfoBox>
+            Los metodos de pago se muestran automaticamente segun el dispositivo del paciente.
+            Apple Pay solo aparece en dispositivos Apple, y Google Pay solo en Android.
+            Las tarjetas y OXXO aparecen siempre.
+          </InfoBox>
+
+          <WarningBox>
+            Si tu consulta cuesta mas de $10,000 MXN, el paciente no podra pagar con OXXO.
+            Debe usar tarjeta o billetera digital. Para montos grandes, recomienda pago con tarjeta.
+          </WarningBox>
+        </div>
+      </SectionAccordion>
+
+      {/* 3. Activar cobros — paso a paso */}
       <SectionAccordion
         title="Activar cobros: paso a paso"
         subtitle="Como conectar tu cuenta de Stripe por primera vez"
@@ -177,7 +234,7 @@ export function PagosGuide() {
         </WarningBox>
       </SectionAccordion>
 
-      {/* 3. Tu panel de Stripe Express */}
+      {/* 4. Tu panel de Stripe Express */}
       <SectionAccordion
         title="Tu panel de Stripe Express"
         subtitle="Administra tu cuenta, depositos, reembolsos y disputas directamente"
@@ -231,7 +288,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 4. Crear y compartir links de pago */}
+      {/* 5. Crear y compartir links de pago */}
       <SectionAccordion
         title="Crear y compartir links de pago"
         subtitle="Como generar un link, copiarlo y enviarlo al paciente"
@@ -279,6 +336,10 @@ export function PagosGuide() {
                 <strong>Tarjeta:</strong> el pago se confirma al instante
               </li>
               <li>
+                <strong>Apple Pay / Google Pay:</strong> pago instantaneo desde
+                la billetera digital del celular
+              </li>
+              <li>
                 <strong>OXXO:</strong> se genera un voucher con codigo de
                 barras. El paciente tiene 72 horas para pagar en cualquier OXXO.
                 La confirmacion puede tardar hasta el siguiente dia habil.
@@ -300,7 +361,7 @@ export function PagosGuide() {
         </InfoBox>
       </SectionAccordion>
 
-      {/* 5. Estados de un link de pago */}
+      {/* 6. Estados de un link de pago */}
       <SectionAccordion
         title="Estados de un link de pago"
         subtitle="Que significa cada estado y cuando cambia"
@@ -347,7 +408,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 6. Depositos y cuenta bancaria */}
+      {/* 7. Depositos y cuenta bancaria */}
       <SectionAccordion
         title="Depositos y cuenta bancaria"
         subtitle="Cuando llega el dinero y que hacer si hay problemas"
@@ -405,7 +466,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 7. Problemas con tu cuenta */}
+      {/* 8. Problemas con tu cuenta */}
       <SectionAccordion
         title="Problemas con tu cuenta de Stripe"
         subtitle="Que hacer si tu cuenta esta restringida, deshabilitada o rechazada"
@@ -482,7 +543,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 8. Notificaciones por Telegram */}
+      {/* 9. Notificaciones por Telegram */}
       <SectionAccordion
         title="Notificaciones por Telegram"
         subtitle="Que alertas recibiras sobre tus pagos"
@@ -530,7 +591,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 9. Comisiones de Stripe */}
+      {/* 10. Comisiones y costos */}
       <SectionAccordion
         title="Comisiones y costos"
         subtitle="Cuanto cobra Stripe por cada pago y que cobra tusalud.pro"
@@ -551,6 +612,11 @@ export function PagosGuide() {
               label="Tarjeta internacional"
               value="4.5% + $3.00 MXN"
               note="Tarjetas emitidas fuera de Mexico"
+            />
+            <FeeRow
+              label="Apple Pay / Google Pay"
+              value="3.6% + $3.00 MXN"
+              note="Misma tarifa que tarjeta nacional (se cobra a la tarjeta vinculada)"
             />
             <FeeRow
               label="OXXO"
@@ -615,7 +681,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 10. Reembolsos y disputas */}
+      {/* 11. Reembolsos y disputas */}
       <SectionAccordion
         title="Reembolsos y disputas"
         subtitle="Que pasa si un paciente pide devolucion o reclama un cargo"
@@ -698,7 +764,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 11. Pagos con OXXO */}
+      {/* 12. Pagos con OXXO */}
       <SectionAccordion
         title="Pagos con OXXO"
         subtitle="Como funcionan, tiempos y limitaciones"
@@ -763,7 +829,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 12. Facturas (CFDI) */}
+      {/* 13. Facturas (CFDI) */}
       <SectionAccordion
         title="Facturas (CFDI) y obligaciones fiscales"
         subtitle="Quien emite factura, que es responsabilidad de Stripe, y que es tuya"
@@ -882,7 +948,7 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
-      {/* 13. Preguntas frecuentes */}
+      {/* 14. Preguntas frecuentes */}
       <SectionAccordion
         title="Preguntas frecuentes"
         subtitle="Dudas comunes sobre el sistema de pagos"
@@ -925,6 +991,18 @@ export function PagosGuide() {
           <FAQ
             q="Stripe me cobra por tener la cuenta abierta?"
             a="No. No hay costos mensuales ni de apertura. Solo pagas comision cuando recibes un pago."
+          />
+          <FAQ
+            q="Que pasa si la tarjeta de mi paciente es rechazada?"
+            a="El paciente vera un mensaje indicando que su tarjeta fue rechazada. Las razones mas comunes son: fondos insuficientes, tarjeta vencida, CVV incorrecto, o el banco rechazo la transaccion. El paciente puede intentar con otra tarjeta, usar Apple/Google Pay, o pagar en OXXO. El link sigue activo."
+          />
+          <FAQ
+            q="Que pasa si mi paciente necesita autenticacion 3D Secure?"
+            a="Algunos bancos requieren una verificacion adicional (3D Secure) por seguridad. Stripe maneja esto automaticamente: el paciente vera una pantalla de su banco para confirmar el pago con un codigo SMS o su app bancaria. No necesitas hacer nada."
+          />
+          <FAQ
+            q="Mis pacientes pueden pagar con Apple Pay o Google Pay?"
+            a="Si. Apple Pay aparece automaticamente en dispositivos Apple (iPhone, iPad, Mac) y Google Pay en dispositivos Android. El paciente paga con Face ID, Touch ID o huella digital. La comision es la misma que con tarjeta."
           />
           <FAQ
             q="Mis pacientes pueden pagar con meses sin intereses?"
@@ -971,6 +1049,38 @@ function NotificationRow({ emoji, title, description }: { emoji: string; title: 
       <div>
         <p className="text-sm font-medium text-gray-900">{title}</p>
         <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function PaymentMethodCard({
+  icon: Icon,
+  title,
+  description,
+  speed,
+  limit,
+}: {
+  icon: typeof CreditCard;
+  title: string;
+  description: string;
+  speed: string;
+  limit: string;
+}) {
+  return (
+    <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="w-4 h-4 text-indigo-500" />
+        <p className="text-sm font-semibold text-gray-700">{title}</p>
+      </div>
+      <p className="text-xs text-gray-500 mb-2">{description}</p>
+      <div className="flex gap-4">
+        <span className="text-xs text-gray-400">
+          Velocidad: <span className="text-gray-600 font-medium">{speed}</span>
+        </span>
+        <span className="text-xs text-gray-400">
+          Limite: <span className="text-gray-600 font-medium">{limit}</span>
+        </span>
       </div>
     </div>
   );

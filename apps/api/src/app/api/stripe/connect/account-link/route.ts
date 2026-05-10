@@ -20,11 +20,16 @@ export async function POST(request: Request) {
     }
 
     // Generate a new onboarding/re-onboarding link
+    // collection_options.fields: 'currently_due' ensures Stripe only asks for
+    // information that is currently missing, not the full onboarding flow again.
     const accountLink = await stripe.accountLinks.create({
       account: fullDoctor.stripeAccountId,
       refresh_url: `${process.env.DOCTOR_APP_URL}/dashboard/pagos?refresh=true`,
       return_url: `${process.env.DOCTOR_APP_URL}/dashboard/pagos?success=true`,
       type: 'account_onboarding',
+      collection_options: {
+        fields: 'currently_due',
+      },
     });
 
     return NextResponse.json({ url: accountLink.url });

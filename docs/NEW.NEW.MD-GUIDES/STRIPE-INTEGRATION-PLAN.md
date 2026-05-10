@@ -337,6 +337,22 @@ All under `apps/api/src/app/api/stripe/`:
 ### 4.4 API Implementation Details
 
 #### Connect Account Creation
+
+> **Note on `type: 'express'` vs `controller` properties (verified May 2026):**
+> Stripe's API marks the `type` parameter as "deprecated" in favor of `controller` properties.
+> However, the migration guide states migration is **optional** and fully backwards-compatible.
+> Our code uses `type: 'express'` which is correct for our use case.
+>
+> The `controller` equivalent for Express is: `losses.payments: 'application'`, `fees.payer: 'application'`,
+> `requirement_collection: 'stripe'`, `stripe_dashboard.type: 'express'` — but this means the **platform**
+> absorbs losses and pays fees, which is NOT our model.
+>
+> For our model (Stripe handles losses, doctor pays fees), the controller equivalent would be a Standard
+> account (`stripe_dashboard.type: 'full'`), but we intentionally use Express for the simpler doctor experience.
+> With direct charges, the doctor's account pays Stripe fees directly regardless.
+>
+> **Conclusion: Keep `type: 'express'`. Do NOT migrate to controller properties.**
+
 ```typescript
 // POST /api/stripe/connect/create-account
 import Stripe from 'stripe';
@@ -351,6 +367,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Already connected' }, { status: 400 });
   }
 
+  // Using type: 'express' (not controller properties — see note above)
   const account = await stripe.accounts.create({
     type: 'express',
     country: 'MX',
@@ -793,3 +810,149 @@ apps/doctor/src/app/dashboard/ayuda/_components/PagosGuide.tsx (comprehensive gu
 ```
 apps/api/src/app/api/dev/fix-admin-role/route.ts (security risk)
 ```
+
+---
+
+## 8. STRIPE TEAM CONSULTATION FINDINGS (May 10, 2026)
+
+Research conducted with Stripe support team + verified against official Stripe documentation.
+
+### 8.1 `type: 'express'` vs `controller` Properties
+
+**Stripe team recommended** using `controller` properties instead of legacy `type`:
+```javascript
+// Stripe team suggestion (DO NOT USE — invalid combination)
+controller: {
+  losses: { payments: 'stripe' },
+  fees: { payer: 'account' },
+  requirement_collection: 'stripe',
+  stripe_dashboard: { type: 'express' }
+}
+```
+
+**Official docs say this combination is INVALID.** Per the migration guide, `stripe_dashboard.type: 'express'` is incompatible with `fees.payer: 'account'`. Valid combinations:
+
+| Type | losses.payments | fees.payer | requirement_collection | stripe_dashboard.type |
+|------|-----------------|-----------|------------------------|----------------------|
+| Standard | `stripe` | `account` | `stripe` | `full` |
+| Express | `application` | `application` | `stripe` | `express` |
+| Custom | `application` | `application` | `application` | `none` |
+
+**Decision: Keep `type: 'express'`.** Migration is optional per Stripe docs. Our setup works correctly — with direct charges, the doctor's connected account pays Stripe fees directly, and Stripe handles losses on Express accounts.
+
+### 8.2 Re-onboarding with `collection_options`
+
+Added `collection_options: { fields: 'currently_due' }` to the `account-link` route. This ensures that when a doctor needs to provide additional info (e.g., expired INE, missing documents), Stripe only asks for what's missing — not the full onboarding flow.
+
+**File changed:** `apps/api/src/app/api/stripe/connect/account-link/route.ts`
+
+### 8.3 Payment Methods Available in Mexico
+
+| Method | Type | Confirmation | Limit | Notes |
+|--------|------|-------------|-------|-------|
+| Visa / Mastercard | Card | Instant | Per card limit | National & international |
+| American Express | Card | Instant | Per card limit | National & international |
+| Carnet | Card (Mexican) | Instant | Per card limit | Mexican debit card network |
+| OXXO | Cash voucher | Next business day | $10,000 MXN max | 72h to pay, exact amount required |
+| Apple Pay | Digital wallet | Instant | Per linked card | iPhone, iPad, Mac only |
+| Google Pay | Digital wallet | Instant | Per linked card | Android only |
+| Link (Stripe) | Digital wallet | Instant | Per linked card | Stripe's fast checkout |
+
+**SPEI (bank transfers):** Not confirmed to work with Payment Links on connected accounts. Omitted until verified.
+
+**Payment method display:** Stripe automatically shows available methods based on the patient's device. Apple Pay only on Apple devices, Google Pay only on Android. Cards and OXXO always shown.
+
+### 8.4 Fee Structure (Mexico, as of May 2026)
+
+| Method | Fee | Notes |
+|--------|-----|-------|
+| National card (Visa/MC/Amex/Carnet) | 3.6% + $3.00 MXN | Cards issued in Mexico |
+| International card | 4.5% + $3.00 MXN | Cards issued outside Mexico |
+| Apple Pay / Google Pay | 3.6% + $3.00 MXN | Same as national card (billed to linked card) |
+| OXXO | $10.00 MXN flat | Per transaction |
+| Chargeback (lost dispute) | $150.00 MXN | Plus the refunded amount |
+| Refund | Free | But original commission is NOT returned |
+| Account opening | Free | No monthly fees, no setup fees |
+
+**Source:** stripe.com/mx/pricing — rates may change, always verify.
+
+**Example:** $1,000 MXN consultation paid with national card → Stripe fee: $39.00 → Doctor receives: $961.00
+
+### 8.5 Onboarding Requirements for Mexican Doctors
+
+**Basic (always required):**
+- Full legal name and date of birth
+- Address (clinic or fiscal domicile)
+- Phone number and email
+- RFC (Registro Federal de Contribuyentes)
+- CLABE bancaria (18 digits) for receiving deposits
+- Estimated monthly income (AML regulations)
+
+**Identity verification (may be requested):**
+- INE or official ID (front and back)
+- Proof of address (< 6 months old)
+
+**If operating as a company (persona moral):**
+- Razon social, company RFC, fiscal domicile
+- Legal representative info
+- Beneficial owners with 25%+ participation
+- Acta constitutiva or SAT registration proof
+
+Most individual doctors complete onboarding with basic info only. Stripe requests additional documents only when automatic verification fails.
+
+### 8.6 Transaction Statuses & Edge Cases
+
+#### PaymentIntent Statuses (what happens behind the scenes)
+
+| Status | Meaning | Action |
+|--------|---------|--------|
+| `succeeded` | Payment completed | Service confirmed, doctor notified |
+| `processing` | Being processed (OXXO, some banks) | Wait — webhook will confirm |
+| `requires_action` | 3D Secure authentication needed | Patient completes bank verification |
+| `requires_payment_method` | Card declined or failed | Patient must try another method |
+
+#### Common Card Decline Reasons
+
+| Code | Patient Message | Resolution |
+|------|----------------|------------|
+| `card_declined` | Tarjeta rechazada | Try another card |
+| `insufficient_funds` | Fondos insuficientes | Use another card or OXXO |
+| `incorrect_cvc` | CVV incorrecto | Re-enter card details |
+| `expired_card` | Tarjeta vencida | Use a different card |
+| `do_not_honor` | Banco rechazo la transaccion | Contact bank or try another card |
+| `processing_error` | Error temporal | Try again in a few minutes |
+
+**Important:** These errors are handled by Stripe's checkout page automatically. The patient sees a user-friendly message and can retry. The doctor doesn't need to do anything — the link stays active until paid or cancelled.
+
+#### OXXO-specific Edge Cases
+
+| Scenario | What happens |
+|----------|-------------|
+| Patient generates voucher but doesn't pay in 72h | `checkout.session.async_payment_failed` → link status changes to EXPIRED |
+| Patient pays at OXXO on Friday evening | Confirmation arrives Monday (next business day) |
+| Patient tries to pay more/less than voucher amount | OXXO rejects — exact amount required |
+| Patient loses voucher | Can re-open the link and generate a new voucher (if link still active) |
+
+### 8.7 Payout Management (Doctor's Money)
+
+Doctors manage payouts from their Express Dashboard ("Mi Stripe" button). The platform does NOT intervene.
+
+| Feature | Details |
+|---------|---------|
+| Automatic payouts | Default: daily with 2-day delay. Configurable: daily, weekly, monthly |
+| First payout | ~7 days (Stripe holds funds while verifying new accounts) |
+| Manual payouts | Available from Express Dashboard |
+| Instant payouts | Not available in Mexico currently |
+| Change bank account | Doctor updates CLABE from Express Dashboard |
+| Payout failure | Telegram notification sent, doctor must update bank info in Express Dashboard |
+
+### 8.8 What Doctors Can Do From Express Dashboard
+
+- View balance and deposit history
+- Change bank account (CLABE)
+- Configure payout frequency (daily/weekly/monthly)
+- View payment details (amount, method, date, Stripe fee)
+- Issue refunds (partial or full)
+- Respond to disputes with evidence
+- Download Stripe fee invoices (deductible)
+- Update personal/business information

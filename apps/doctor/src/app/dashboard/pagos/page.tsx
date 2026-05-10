@@ -21,8 +21,8 @@ import {
   ArrowRight,
   Banknote,
 } from "lucide-react";
-import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import { PagosGuide } from "@/app/dashboard/ayuda/_components/PagosGuide";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -75,6 +75,9 @@ export default function PagosPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"pagos" | "guia">("pagos");
 
   // Payment links state
   const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
@@ -251,21 +254,14 @@ export default function PagosPage() {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Pagos</h1>
           <p className="text-sm text-gray-500 mt-1">
             Configura tu cuenta de Stripe para recibir pagos de tus pacientes
           </p>
         </div>
-        <div className="flex items-center gap-1">
-          <Link
-            href="/dashboard/ayuda?tab=pagos"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            <HelpCircle className="w-4 h-4" />
-            Guia
-          </Link>
+        {activeTab === "pagos" && (
           <button
             onClick={fetchStatus}
             disabled={loading}
@@ -274,8 +270,40 @@ export default function PagosPage() {
           >
             <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
           </button>
-        </div>
+        )}
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab("pagos")}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "pagos"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+          }`}
+        >
+          <CreditCard className="w-4 h-4" />
+          Mis pagos
+        </button>
+        <button
+          onClick={() => setActiveTab("guia")}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "guia"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+          }`}
+        >
+          <HelpCircle className="w-4 h-4" />
+          Guia
+        </button>
+      </div>
+
+      {/* Guia tab */}
+      {activeTab === "guia" && <PagosGuide />}
+
+      {/* Pagos tab */}
+      {activeTab === "pagos" && (<>
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
@@ -549,6 +577,7 @@ export default function PagosPage() {
           </div>
         </>
       )}
+      </>)}
     </div>
   );
 }
