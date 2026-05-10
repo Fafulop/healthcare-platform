@@ -250,6 +250,9 @@ model Doctor {
   // LLM Usage Tracking
   llmTokenUsages     LlmTokenUsage[]
 
+  // Facturacion (CFDI)
+  fiscalProfile      DoctorFiscalProfile?
+
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -1082,6 +1085,7 @@ model LedgerEntry {
   attachments     LedgerAttachment[]
   facturas        LedgerFactura[]
   facturasXml     LedgerFacturaXml[]
+  cfdisEmitted    CfdiEmitted[]
 
   @@unique([doctorId, internalId])
   @@index([doctorId])
@@ -2198,6 +2202,93 @@ model LlmTokenUsage {
   @@index([createdAt])
   @@map("llm_token_usage")
   @@schema("public")
+}
+
+// ==========================================
+// Facturacion (CFDI via Facturama Multiemisor)
+// ==========================================
+
+// Perfil fiscal del doctor - datos para emitir CFDIs
+model DoctorFiscalProfile {
+  id                  Int       @id @default(autoincrement())
+  doctorId            String    @unique @map("doctor_id")
+  rfc                 String    @db.VarChar(13)
+  razonSocial         String    @map("razon_social") @db.VarChar(300)
+  regimenFiscal       String    @map("regimen_fiscal") @db.VarChar(5)
+  regimenFiscalDesc   String?   @map("regimen_fiscal_desc") @db.VarChar(200)
+  codigoPostal        String    @map("codigo_postal") @db.VarChar(5)
+
+  // CSD Status
+  csdUploaded         Boolean   @default(false) @map("csd_uploaded")
+  csdUploadedAt       DateTime? @map("csd_uploaded_at")
+  csdValidUntil       DateTime? @map("csd_valid_until")
+  facturamaStatus     String    @default("pending") @map("facturama_status") @db.VarChar(20)
+
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  doctor              Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  cfdisEmitted        CfdiEmitted[]
+
+  @@map("doctor_fiscal_profiles")
+  @@schema("practice_management")
+}
+
+// CFDI emitido desde la plataforma via Facturama
+model CfdiEmitted {
+  id                  Int       @id @default(autoincrement())
+  fiscalProfileId     Int       @map("fiscal_profile_id")
+  ledgerEntryId       Int?      @map("ledger_entry_id")
+
+  // Facturama reference
+  facturamaId         String    @unique @map("facturama_id") @db.VarChar(100)
+
+  // CFDI data
+  uuid                String    @unique @db.VarChar(36)
+  folio               String?   @db.VarChar(50)
+  serie               String?   @db.VarChar(10)
+  cfdiType            String    @map("cfdi_type") @db.VarChar(5)
+
+  // Emisor/Receptor
+  rfcEmisor           String    @map("rfc_emisor") @db.VarChar(13)
+  rfcReceptor         String    @map("rfc_receptor") @db.VarChar(13)
+  nombreReceptor      String    @map("nombre_receptor") @db.VarChar(300)
+  usoCfdi             String    @map("uso_cfdi") @db.VarChar(10)
+
+  // Montos
+  subtotal            Decimal   @db.Decimal(12, 2)
+  iva                 Decimal?  @db.Decimal(12, 2)
+  retencionIsr        Decimal?  @map("retencion_isr") @db.Decimal(12, 2)
+  total               Decimal   @db.Decimal(12, 2)
+  moneda              String    @default("MXN") @db.VarChar(5)
+
+  // Pago
+  formaPago           String    @map("forma_pago") @db.VarChar(5)
+  metodoPago          String    @map("metodo_pago") @db.VarChar(5)
+
+  // Status
+  status              String    @default("active") @db.VarChar(20)
+  cancelledAt         DateTime? @map("cancelled_at")
+  cancelMotivo        String?   @map("cancel_motivo") @db.VarChar(5)
+
+  // Archivos generados
+  pdfUrl              String?   @map("pdf_url") @db.Text
+  xmlUrl              String?   @map("xml_url") @db.Text
+  xmlContent          String?   @map("xml_content") @db.Text
+
+  // Fecha de emision
+  issuedAt            DateTime  @map("issued_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  fiscalProfile       DoctorFiscalProfile @relation(fields: [fiscalProfileId], references: [id], onDelete: Cascade)
+  ledgerEntry         LedgerEntry?        @relation(fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  @@index([fiscalProfileId])
+  @@index([ledgerEntryId])
+  @@index([rfcEmisor, status])
+  @@index([issuedAt])
+  @@map("cfdis_emitted")
+  @@schema("practice_management")
 }
 
 // ==========================================

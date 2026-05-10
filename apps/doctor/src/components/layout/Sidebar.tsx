@@ -21,6 +21,7 @@ import {
   BarChart3,
   CreditCard,
   HelpCircle,
+  Receipt,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -158,6 +159,12 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             label="Pagos"
             href="/dashboard/pagos"
             active={pathname?.startsWith("/dashboard/pagos")}
+          />
+          <NavItem
+            icon={Receipt}
+            label="Facturación"
+            href="/dashboard/facturacion"
+            active={pathname?.startsWith("/dashboard/facturacion")}
           />
         </div>
 
