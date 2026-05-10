@@ -104,6 +104,7 @@ export async function POST(request: Request) {
     const paymentLink = await stripe.paymentLinks.create(
       {
         line_items: [{ price: price.id, quantity: 1 }],
+        payment_method_types: amount <= 10000 ? ['card', 'oxxo'] : ['card'],
         restrictions: {
           completed_sessions: { limit: 1 },
         },
