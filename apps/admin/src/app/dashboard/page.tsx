@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Calendar, Settings, BarChart3, BarChart2 } from "lucide-react";
+import { Calendar, Settings, BarChart3, BarChart2, Banknote } from "lucide-react";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession({
@@ -93,6 +93,14 @@ export default function DashboardPage() {
           >
             <BarChart2 className="w-5 h-5" />
             Uso de Funcionalidades
+          </Link>
+
+          <Link
+            href="/loans"
+            className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            <Banknote className="w-5 h-5" />
+            Prestamos — Simulador
           </Link>
 
           <Link

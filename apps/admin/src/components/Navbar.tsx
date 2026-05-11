@@ -28,6 +28,12 @@ export default function Navbar() {
             Uso IA
           </Link>
           <Link
+            href="/loans"
+            className="text-gray-700 hover:text-blue-600 font-medium transition"
+          >
+            Prestamos
+          </Link>
+          <Link
             href="/guides"
             className="text-gray-700 hover:text-blue-600 font-medium transition"
           >
