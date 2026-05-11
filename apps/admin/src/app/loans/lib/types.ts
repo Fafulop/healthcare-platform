@@ -85,18 +85,29 @@ export interface SensitivityCell {
 }
 
 export interface PortfolioParams {
-  numLoans: number;
   avgLoanSize: number;
+  avgTermMonths: number;
+  avgRate: number; // blended annual rate
   tierMix: { a: number; b: number; c: number; d: number }; // percentages summing to 1
-  monthlyOriginationRate: number;
-  fundingSource: "equity" | "angel" | "institutional" | "securitization" | "blended";
+  monthlyOriginationRate: number; // new loans per month
+  cofRate: number;
+  blendedDefaultRate: number;
+  recoveryRate: number;
+  originationFeeRate: number;
+  originationCostPerLoan: number;
+  annualServicingCostPerLoan: number;
   fixedMonthlyCosts: number;
+  projectionMonths: number;
 }
 
 export interface MonthlyProjection {
   month: number;
+  newLoans: number;
   activeLoans: number;
   portfolioOutstanding: number;
+  totalDisbursed: number;
+  monthlyInterestRevenue: number;
+  monthlyOriginationFees: number;
   monthlyRevenue: number;
   monthlyCof: number;
   monthlyProvisions: number;
@@ -104,7 +115,71 @@ export interface MonthlyProjection {
   monthlyFixedCosts: number;
   monthlyNetIncome: number;
   cumulativeProfit: number;
+  cumulativeDisbursed: number;
+  cumulativeDefaults: number;
 }
+
+export interface PortfolioSummary {
+  projections: MonthlyProjection[];
+  breakEvenMonth: number | null;
+  totalDisbursed: number;
+  totalRevenue: number;
+  totalCosts: number;
+  totalProfit: number;
+  peakOutstanding: number;
+  totalDefaults: number;
+  avgROA: number;
+}
+
+export interface StressScenario {
+  id: string;
+  name: string;
+  description: string;
+  modifiers: Partial<PortfolioParams>;
+}
+
+export const DEFAULT_PORTFOLIO_PARAMS: PortfolioParams = {
+  avgLoanSize: 175000,
+  avgTermMonths: 24,
+  avgRate: 0.30,
+  tierMix: { a: 0.20, b: 0.40, c: 0.30, d: 0.10 },
+  monthlyOriginationRate: 10,
+  cofRate: 0.14,
+  blendedDefaultRate: 0.04,
+  recoveryRate: 0.30,
+  originationFeeRate: 0.02,
+  originationCostPerLoan: 1500,
+  annualServicingCostPerLoan: 700,
+  fixedMonthlyCosts: 200000,
+  projectionMonths: 36,
+};
+
+export const STRESS_SCENARIOS: StressScenario[] = [
+  {
+    id: "normal",
+    name: "Normal",
+    description: "Parametros base sin estres",
+    modifiers: {},
+  },
+  {
+    id: "recession",
+    name: "Recesion",
+    description: "Defaults 2x, originacion -30%",
+    modifiers: { blendedDefaultRate: 0.08, monthlyOriginationRate: 7 },
+  },
+  {
+    id: "rate-shock",
+    name: "Shock de Tasas",
+    description: "CoF +4pp (Banxico sube tasas)",
+    modifiers: { cofRate: 0.18 },
+  },
+  {
+    id: "catastrophic",
+    name: "Catastrofico",
+    description: "2x defaults + CoF +4pp + volumen -40%",
+    modifiers: { blendedDefaultRate: 0.08, cofRate: 0.18, monthlyOriginationRate: 6 },
+  },
+];
 
 export interface Scenario {
   id: string;

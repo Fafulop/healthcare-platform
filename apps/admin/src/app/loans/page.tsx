@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import LoansNavTabs from "./components/LoansNavTabs";
 import LoanSimulator from "./components/simulator/LoanSimulator";
+import PortfolioProjection from "./components/portfolio/PortfolioProjection";
 import { Banknote } from "lucide-react";
 
 export default function LoansPage() {
@@ -52,12 +53,7 @@ export default function LoansPage() {
         {/* Tab Content */}
         {activeTab === "simulator" && <LoanSimulator />}
 
-        {activeTab === "portfolio" && (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
-            <p className="text-lg font-medium mb-2">Portfolio Projection</p>
-            <p className="text-sm">Coming in Phase 3 — model 10 to 1,000 loans, break-even analysis, stress testing</p>
-          </div>
-        )}
+        {activeTab === "portfolio" && <PortfolioProjection />}
 
         {activeTab === "theory" && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
