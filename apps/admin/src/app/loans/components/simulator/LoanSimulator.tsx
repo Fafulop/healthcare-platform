@@ -72,7 +72,7 @@ export default function LoanSimulator() {
       {/* Right: Results */}
       <div className="flex-1 min-w-0 space-y-6">
         {/* Cost Waterfall + Summary */}
-        <CostWaterfall result={result} />
+        <CostWaterfall result={result} params={params} />
 
         {/* Scenario Comparison */}
         <ScenarioComparison scenarios={scenarios} onRemove={removeScenario} />
