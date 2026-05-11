@@ -64,6 +64,36 @@ export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
   const monthlyProfit = netProfit / params.termMonths;
   const annualizedROI = (netProfit / params.principal / termYears);
 
+  // Advanced Metrics
+  const avgOutstanding = schedule.reduce((s, r) => s + r.startBalance, 0) / schedule.length;
+
+  // IRR: build cash flow array from lender's perspective
+  // Month 0: -principal (we lend out) + originationFee (we collect)
+  // Month 1..n: +monthlyPayment (doctor pays us)
+  // Costs (CoF, provisions, opex) are subtracted as monthly spread
+  const monthlyCofCost = cofBreakdown.total / params.termMonths;
+  const monthlyProvision = provisionAmount / params.termMonths;
+  const monthlyOpex = opExTotal / params.termMonths;
+  const monthlyNetCashFlow = monthlyPayment - monthlyCofCost - monthlyProvision - monthlyOpex;
+  const cashFlows: number[] = [-params.principal + originationFee];
+  for (let i = 0; i < params.termMonths; i++) {
+    cashFlows.push(monthlyNetCashFlow);
+  }
+  const monthlyIRR = calculateIRR(cashFlows);
+  const irr = Math.pow(1 + monthlyIRR, 12) - 1; // annualize
+
+  // MOIC: total cash received / total cash invested
+  const totalCashIn = monthlyPayment * params.termMonths + originationFee;
+  const totalCashOut = params.principal + cofBreakdown.total + provisionAmount + opExTotal;
+  const moic = totalCashOut > 0 ? totalCashIn / totalCashOut : 0;
+
+  // Spread: simple rate differential
+  const spread = params.annualRate - params.cofRate;
+
+  // NIM: net interest income / avg outstanding (annualized)
+  const netInterestIncome = totalInterest - cofBreakdown.total;
+  const nim = avgOutstanding > 0 ? (netInterestIncome / termYears) / avgOutstanding : 0;
+
   return {
     totalInterest: Math.round(totalInterest * 100) / 100,
     originationFee: Math.round(originationFee * 100) / 100,
@@ -78,6 +108,11 @@ export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
     monthlyProfit: Math.round(monthlyProfit * 100) / 100,
     annualizedROI,
     monthlyPayment: Math.round(monthlyPayment * 100) / 100,
+    irr,
+    moic: Math.round(moic * 100) / 100,
+    spread,
+    nim,
+    avgOutstanding: Math.round(avgOutstanding),
     schedule,
     yearSummaries,
   };
@@ -165,6 +200,29 @@ export function generateDefaultCurve(params: LoanParams): DefaultScenarioResult[
     results.push(calculateDefaultAtMonth(params, m));
   }
   return results;
+}
+
+/**
+ * Calculate IRR using Newton-Raphson method.
+ * Cash flows: negative = money out, positive = money in.
+ * Returns the periodic rate (monthly if cash flows are monthly).
+ */
+function calculateIRR(cashFlows: number[], guess = 0.01, maxIter = 100, tolerance = 1e-7): number {
+  let rate = guess;
+  for (let i = 0; i < maxIter; i++) {
+    let npv = 0;
+    let dnpv = 0;
+    for (let t = 0; t < cashFlows.length; t++) {
+      const factor = Math.pow(1 + rate, t);
+      npv += cashFlows[t] / factor;
+      dnpv -= t * cashFlows[t] / (factor * (1 + rate));
+    }
+    if (Math.abs(dnpv) < 1e-12) break;
+    const newRate = rate - npv / dnpv;
+    if (Math.abs(newRate - rate) < tolerance) return newRate;
+    rate = newRate;
+  }
+  return rate;
 }
 
 /**

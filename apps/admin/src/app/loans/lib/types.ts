@@ -59,6 +59,13 @@ export interface LoanProfitResult {
   annualizedROI: number; // on principal deployed
   monthlyPayment: number;
 
+  // Advanced Metrics
+  irr: number; // internal rate of return (annualized)
+  moic: number; // multiple on invested capital (total cash in / cash out)
+  spread: number; // loan rate - CoF rate
+  nim: number; // net interest margin (net interest / avg outstanding)
+  avgOutstanding: number; // weighted avg outstanding over loan life
+
   // Amortization
   schedule: AmortizationRow[];
   yearSummaries: YearSummary[];

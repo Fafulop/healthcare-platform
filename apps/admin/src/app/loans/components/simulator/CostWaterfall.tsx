@@ -39,8 +39,8 @@ export default function CostWaterfall({ result, params }: Props) {
         <h3 className="text-sm font-semibold text-gray-700">Desglose de Costos e Ingresos</h3>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-4">
+      {/* Summary Cards — Row 1: Core */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-4 pb-2">
         <SummaryCard
           label="Pago Mensual"
           value={formatMXN(result.monthlyPayment)}
@@ -66,10 +66,37 @@ export default function CostWaterfall({ result, params }: Props) {
           color={result.netProfit >= 0 ? "text-green-600" : "text-red-600"}
         />
         <SummaryCard
-          label="ROI Anualizado"
+          label="TIR (IRR)"
+          value={formatPct(result.irr)}
+          sublabel="Retorno real anualizado"
+          color="text-purple-600"
+        />
+      </div>
+      {/* Summary Cards — Row 2: Advanced */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 pb-4">
+        <SummaryCard
+          label="MOIC"
+          value={`${result.moic.toFixed(2)}x`}
+          sublabel="Pesos recibidos / invertidos"
+          color="text-indigo-600"
+        />
+        <SummaryCard
+          label="Spread"
+          value={formatPct(result.spread)}
+          sublabel={`${formatPct(params.annualRate)} tasa - ${formatPct(params.cofRate)} CoF`}
+          color="text-teal-600"
+        />
+        <SummaryCard
+          label="NIM"
+          value={formatPct(result.nim)}
+          sublabel="Margen de interes neto"
+          color="text-amber-600"
+        />
+        <SummaryCard
+          label="ROI Simple"
           value={formatPct(result.annualizedROI)}
           sublabel={`${formatMXN(result.monthlyProfit)}/mes`}
-          color="text-purple-600"
+          color="text-gray-600"
         />
       </div>
 
@@ -176,11 +203,39 @@ export default function CostWaterfall({ result, params }: Props) {
                 formula={`Utilidad Neta / Ingreso Bruto x 100\n= ${formatMXN(result.netProfit)} / ${formatMXN(result.grossRevenue)} = ${formatPct(result.profitMargin)}`}
               />
               <ExplainerRow
-                label="ROI Anualizado"
+                label="TIR (Tasa Interna de Retorno)"
+                value={null}
+                displayValue={formatPct(result.irr)}
+                concept={'LA metrica mas importante para inversionistas. A diferencia del ROI simple, la TIR considera CUANDO recibes el dinero. Si prestas $200K y recibes pagos cada mes, tu dinero se "libera" poco a poco para re-prestarlo. Por eso la TIR es mucho mayor que el ROI simple — refleja que tu capital no esta atrapado los 2 anos completos.'}
+                formula={`Se calcula el rendimiento mensual que hace que:\nInversion inicial = Valor presente de todos los pagos futuros\n\nFlujos: Mes 0: -${formatMXN(params.principal)} + ${formatMXN(result.originationFee)} = ${formatMXN(-params.principal + result.originationFee)}\nMeses 1-${params.termMonths}: +${formatMXN(result.monthlyPayment)} pago - ${formatMXN(Math.round(result.totalCosts / params.termMonths))} costos/mes = +${formatMXN(Math.round(result.monthlyPayment - result.totalCosts / params.termMonths))}/mes neto\n\nTIR mensual anualizada = ${formatPct(result.irr)}\n\nComparacion: CETES ~8.5%, Bolsa ~12%, esta TIR = ${formatPct(result.irr)}`}
+              />
+              <ExplainerRow
+                label="MOIC (Multiplo sobre Capital)"
+                value={null}
+                displayValue={`${result.moic.toFixed(2)}x`}
+                concept={'Responde la pregunta mas basica: "por cada peso que invierto, cuantos pesos me regresan en total?" Un MOIC de 1.08x significa que por cada $1 invertido recuperas $1.08. Debajo de 1.0x estas perdiendo dinero.'}
+                formula={`Total dinero que entra / Total dinero que sale\n\nDinero que entra:\n  Pagos del doctor: ${formatMXN(result.monthlyPayment)} x ${params.termMonths} = ${formatMXN(result.monthlyPayment * params.termMonths)}\n  Comision apertura: ${formatMXN(result.originationFee)}\n  Total: ${formatMXN(result.monthlyPayment * params.termMonths + result.originationFee)}\n\nDinero que sale:\n  Capital prestado: ${formatMXN(params.principal)}\n  CoF + Provisiones + OpEx: ${formatMXN(result.totalCosts)}\n  Total: ${formatMXN(params.principal + result.totalCosts)}\n\nMOIC = ${formatMXN(result.monthlyPayment * params.termMonths + result.originationFee)} / ${formatMXN(params.principal + result.totalCosts)} = ${result.moic.toFixed(2)}x`}
+              />
+              <ExplainerRow
+                label="Spread (Diferencial de Tasas)"
+                value={null}
+                displayValue={formatPct(result.spread)}
+                concept={'La diferencia entre lo que le cobras al doctor y lo que te cuesta el dinero. Es tu "margen bruto" antes de perdidas y gastos. Un spread de 16%+ es saludable para microfinanzas; menos de 10% deja poco espacio para absorber defaults.'}
+                formula={`Tasa del prestamo - Costo de fondeo\n= ${formatPct(params.annualRate)} - ${formatPct(params.cofRate)} = ${formatPct(result.spread)}\n\nEste spread debe cubrir: provisiones, opex y dejar utilidad.\nSi el spread es menor que las perdidas esperadas (${formatPct(params.defaultRate * (1 - params.recoveryRate))}), el negocio no es viable.`}
+              />
+              <ExplainerRow
+                label="NIM (Margen de Interes Neto)"
+                value={null}
+                displayValue={formatPct(result.nim)}
+                concept={'Metrica estandar de la banca: cuanto ganas de intereses netos por cada peso que tienes prestado, al ano. Los bancos grandes tienen NIM de 4-6%. Las fintech de 15-25%. Un NIM alto indica buen pricing del producto.'}
+                formula={`(Intereses cobrados - Costo de fondeo) / Saldo promedio prestado / Plazo en anos\n\nIntereses netos = ${formatMXN(result.totalInterest)} - ${formatMXN(result.cofTotal)} = ${formatMXN(result.totalInterest - result.cofTotal)}\nSaldo promedio durante toda la vida = ${formatMXN(result.avgOutstanding)}\n\nNIM = (${formatMXN(result.totalInterest - result.cofTotal)} / ${(params.termMonths / 12).toFixed(1)} anos) / ${formatMXN(result.avgOutstanding)} = ${formatPct(result.nim)}`}
+              />
+              <ExplainerRow
+                label="ROI Simple"
                 value={null}
                 displayValue={formatPct(result.annualizedROI)}
-                concept={'Rendimiento anual sobre el capital invertido. Responde: "por cada peso que preste, cuanto gano al ano?" Permite comparar con otras inversiones (CETES, bolsa, etc).'}
-                formula={`Utilidad Neta / Capital Prestado / Plazo en anos\n= ${formatMXN(result.netProfit)} / ${formatMXN(params.principal)} / ${(params.termMonths / 12).toFixed(1)} anos = ${formatPct(result.annualizedROI)}`}
+                concept={'Version simplificada: utilidad / capital / anos. Subestima el rendimiento real porque asume que los $200K estan invertidos todo el tiempo, cuando en realidad cada mes recuperas parte. Usa la TIR para la comparacion real con otras inversiones.'}
+                formula={`Utilidad Neta / Capital Prestado / Plazo en anos\n= ${formatMXN(result.netProfit)} / ${formatMXN(params.principal)} / ${(params.termMonths / 12).toFixed(1)} anos = ${formatPct(result.annualizedROI)}\n\nNota: Este numero es MENOR que la TIR (${formatPct(result.irr)}) porque ignora que el capital se recicla.`}
               />
               <ExplainerRow
                 label="Utilidad Mensual"
