@@ -112,6 +112,50 @@ export default function StressTestPanel({ params }: Props) {
                 return (last?.monthlyNetIncome ?? 0) >= 0 ? "text-green-600" : "text-red-600";
               }}
             />
+            {/* Risk & Efficiency Metrics */}
+            <tr className="bg-gray-50">
+              <td colSpan={results.length + 1} className="px-4 py-1.5 text-xs font-bold text-gray-500 uppercase">
+                Riesgo y Eficiencia
+              </td>
+            </tr>
+            <ComparisonRow
+              label="PaR / IMOR"
+              values={results.map(({ summary }) => `${(summary.finalPar30 * 100).toFixed(2)}%`)}
+              colorFn={(_, i) =>
+                results[i].summary.finalPar30 < 0.05 ? "text-green-600" : results[i].summary.finalPar30 < 0.10 ? "text-amber-600" : "text-red-600"
+              }
+            />
+            <ComparisonRow
+              label="Write-Off Ratio"
+              values={results.map(({ summary }) => `${(summary.finalWriteOffRatio * 100).toFixed(2)}%`)}
+              colorFn={() => "text-orange-500"}
+            />
+            <ComparisonRow
+              label="Collection Rate"
+              values={results.map(({ summary }) => `${(summary.avgCollectionRate * 100).toFixed(1)}%`)}
+              colorFn={(_, i) =>
+                results[i].summary.avgCollectionRate > 0.95 ? "text-green-600" : "text-amber-600"
+              }
+            />
+            <ComparisonRow
+              label="OER"
+              values={results.map(({ summary }) => `${(summary.finalOER * 100).toFixed(1)}%`)}
+            />
+            <ComparisonRow
+              label="OSS"
+              values={results.map(({ summary }) => `${(summary.finalOSS * 100).toFixed(0)}%`)}
+              colorFn={(_, i) =>
+                results[i].summary.finalOSS >= 1 ? "text-green-600" : "text-red-600"
+              }
+            />
+            <ComparisonRow
+              label="NIM"
+              values={results.map(({ summary }) => `${(summary.finalNIM * 100).toFixed(1)}%`)}
+            />
+            <ComparisonRow
+              label="Portfolio Yield"
+              values={results.map(({ summary }) => `${(summary.finalPortfolioYield * 100).toFixed(1)}%`)}
+            />
           </tbody>
         </table>
       </div>

@@ -72,8 +72,8 @@ export default function CostWaterfall({ result, params }: Props) {
           color="text-purple-600"
         />
       </div>
-      {/* Summary Cards — Row 2: Advanced */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 pb-4">
+      {/* Summary Cards — Row 2: Returns */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 pb-2">
         <SummaryCard
           label="MOIC"
           value={`${result.moic.toFixed(2)}x`}
@@ -81,22 +81,55 @@ export default function CostWaterfall({ result, params }: Props) {
           color="text-indigo-600"
         />
         <SummaryCard
+          label="ROE"
+          value={formatPct(result.roe)}
+          sublabel="Retorno sobre capital propio"
+          color="text-emerald-600"
+        />
+        <SummaryCard
+          label="ROA"
+          value={formatPct(result.roa)}
+          sublabel="Retorno sobre activos"
+          color="text-cyan-600"
+        />
+        <SummaryCard
           label="Spread"
           value={formatPct(result.spread)}
-          sublabel={`${formatPct(params.annualRate)} tasa - ${formatPct(params.cofRate)} CoF`}
+          sublabel={`${formatPct(params.annualRate)} - ${formatPct(params.cofRate)}`}
           color="text-teal-600"
         />
+      </div>
+      {/* Summary Cards — Row 3: Efficiency & Regulatory */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-4 pb-4">
         <SummaryCard
           label="NIM"
           value={formatPct(result.nim)}
-          sublabel="Margen de interes neto"
+          sublabel="Margen interes neto"
           color="text-amber-600"
         />
         <SummaryCard
-          label="ROI Simple"
-          value={formatPct(result.annualizedROI)}
-          sublabel={`${formatMXN(result.monthlyProfit)}/mes`}
-          color="text-gray-600"
+          label="Portfolio Yield"
+          value={formatPct(result.portfolioYield)}
+          sublabel="Rendimiento de cartera"
+          color="text-orange-600"
+        />
+        <SummaryCard
+          label="OSS"
+          value={`${(result.oss * 100).toFixed(0)}%`}
+          sublabel={result.oss >= 1 ? "Autosuficiente" : "No autosuficiente"}
+          color={result.oss >= 1 ? "text-green-600" : "text-red-600"}
+        />
+        <SummaryCard
+          label="OER"
+          value={formatPct(result.oer)}
+          sublabel="Gasto op. / cartera"
+          color="text-rose-600"
+        />
+        <SummaryCard
+          label="CAT"
+          value={formatPct(result.cat)}
+          sublabel="Costo total al doctor"
+          color="text-red-700"
         />
       </div>
 
@@ -243,6 +276,63 @@ export default function CostWaterfall({ result, params }: Props) {
                 displayValue={`${formatMXN(result.monthlyProfit)} / mes`}
                 concept="Ganancia promedio por mes. Util para pensar en flujo de efectivo mensual del negocio."
                 formula={`Utilidad Neta / Plazo en meses\n= ${formatMXN(result.netProfit)} / ${params.termMonths} meses = ${formatMXN(result.monthlyProfit)}/mes`}
+              />
+            </ExplainerSection>
+
+            {/* ── PROFITABILITY RATIOS ── */}
+            <ExplainerSection title="RATIOS DE RENTABILIDAD" color="blue">
+              <ExplainerRow
+                label="ROE (Retorno sobre Capital)"
+                value={null}
+                displayValue={formatPct(result.roe)}
+                concept={'Cuanto ganas al ano por cada peso de TU dinero invertido. Si usas solo capital propio, ROE = ROA. Pero si usas apalancamiento (deuda de terceros), el ROE sube porque pones menos capital propio. Benchmark: fintechs buscan ROE de 12-30%.'}
+                formula={`Utilidad Neta anualizada / Capital propio invertido\n= (${formatMXN(result.netProfit)} / ${(params.termMonths / 12).toFixed(1)} anos) / ${formatMXN(params.principal)}\n= ${formatMXN(Math.round(result.netProfit / (params.termMonths / 12)))} al ano / ${formatMXN(params.principal)} = ${formatPct(result.roe)}`}
+              />
+              <ExplainerRow
+                label="ROA (Retorno sobre Activos)"
+                value={null}
+                displayValue={formatPct(result.roa)}
+                concept={'Cuanto ganas por cada peso que tienes PRESTADO en promedio. Es mas preciso que el ROE porque usa el saldo promedio real, no el monto original. Benchmark: bancos 1-2%, fintechs 3-8%, microfinanzas 5-15%.'}
+                formula={`Utilidad Neta anualizada / Saldo promedio prestado\n= (${formatMXN(result.netProfit)} / ${(params.termMonths / 12).toFixed(1)} anos) / ${formatMXN(result.avgOutstanding)}\n= ${formatMXN(Math.round(result.netProfit / (params.termMonths / 12)))} / ${formatMXN(result.avgOutstanding)} = ${formatPct(result.roa)}`}
+              />
+              <ExplainerRow
+                label="Portfolio Yield (Rendimiento de Cartera)"
+                value={null}
+                displayValue={formatPct(result.portfolioYield)}
+                concept={'Todo lo que cobras (intereses + comisiones) dividido entre lo que tienes prestado. Muestra la productividad de tu cartera antes de costos. Si tu yield es 35% y tu CoF es 14%, tienes 21 puntos para cubrir perdidas y gastos.'}
+                formula={`Ingreso Bruto anualizado / Saldo promedio prestado\n= (${formatMXN(result.grossRevenue)} / ${(params.termMonths / 12).toFixed(1)} anos) / ${formatMXN(result.avgOutstanding)}\n= ${formatMXN(Math.round(result.grossRevenue / (params.termMonths / 12)))} / ${formatMXN(result.avgOutstanding)} = ${formatPct(result.portfolioYield)}`}
+              />
+              <ExplainerRow
+                label="OSS (Autosuficiencia Operativa)"
+                value={null}
+                displayValue={`${(result.oss * 100).toFixed(0)}%`}
+                concept={'Metrica clave de CGAP (estandar mundial de microfinanzas). Responde: "los ingresos cubren todos los costos?" Arriba de 100% = sostenible. Debajo de 100% = necesitas subsidio o capital externo para sobrevivir. Meta minima: 120%.'}
+                formula={`Ingreso Bruto / Costos Totales\n= ${formatMXN(result.grossRevenue)} / ${formatMXN(result.totalCosts)} = ${(result.oss * 100).toFixed(0)}%\n\n${result.oss >= 1.2 ? "Excelente: muy por encima del 120% minimo." : result.oss >= 1 ? "Sostenible, pero busca llegar a 120%+." : "Alerta: no cubre costos. Revisar pricing o costos."}`}
+              />
+            </ExplainerSection>
+
+            {/* ── EFFICIENCY & REGULATORY ── */}
+            <ExplainerSection title="EFICIENCIA Y REGULATORIO" color="red">
+              <ExplainerRow
+                label="OER (Ratio de Gasto Operativo)"
+                value={null}
+                displayValue={formatPct(result.oer)}
+                concept={'Que tanto de tu cartera se "come" la operacion cada ano. Incluye originacion, servicing, cobranza. Meta para fintech digital: menos de 15%. Microfinanzas tradicional: 20-30%. Si tu OER es mayor que tu spread, los gastos se comen las ganancias.'}
+                formula={`Gastos Operativos anualizados / Saldo promedio\n= (${formatMXN(result.opExTotal)} / ${(params.termMonths / 12).toFixed(1)} anos) / ${formatMXN(result.avgOutstanding)}\n= ${formatMXN(Math.round(result.opExTotal / (params.termMonths / 12)))} / ${formatMXN(result.avgOutstanding)} = ${formatPct(result.oer)}`}
+              />
+              <ExplainerRow
+                label="Costo Total / Principal"
+                value={null}
+                displayValue={formatPct(result.costPerLoanPct)}
+                concept={'Cuanto cuesta operar este prestamo como porcentaje del monto prestado. Incluye CoF + provisiones + opex. Benchmark: prestamos grandes (>$500K) tienen 5-10%. Microcreditos (<$50K) pueden llegar a 20-30% porque los costos fijos pesan mas.'}
+                formula={`Costos Totales / Principal\n= ${formatMXN(result.totalCosts)} / ${formatMXN(params.principal)} = ${formatPct(result.costPerLoanPct)}`}
+              />
+              <ExplainerRow
+                label="CAT (Costo Anual Total)"
+                value={null}
+                displayValue={formatPct(result.cat)}
+                concept={'Metrica regulatoria obligatoria en Mexico (Banxico/CONDUSEF). Es lo que EL DOCTOR realmente paga al ano, incluyendo intereses, comisiones e IVA. Se calcula igual que la TIR pero desde la perspectiva del deudor. Por ley, toda publicidad de credito debe mostrar el CAT.'}
+                formula={`Se calcula como la TIR de los flujos del doctor:\n\nMes 0: Recibe ${formatMXN(params.principal)} - Paga ${formatMXN(result.originationFee)} comision = ${formatMXN(params.principal - result.originationFee)} neto\nMeses 1-${params.termMonths}: Paga ${formatMXN(result.monthlyPayment)}/mes\n\nCAT = ${formatPct(result.cat)} anual\n\nReferencia: CAT promedio tarjetas de credito ~60-80%.\nCAT promedio credito personal bancario ~30-50%.\nCAT de este prestamo: ${formatPct(result.cat)}`}
               />
             </ExplainerSection>
           </div>

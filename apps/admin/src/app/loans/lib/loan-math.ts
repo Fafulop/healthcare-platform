@@ -94,6 +94,30 @@ export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
   const netInterestIncome = totalInterest - cofBreakdown.total;
   const nim = avgOutstanding > 0 ? (netInterestIncome / termYears) / avgOutstanding : 0;
 
+  // Profitability Ratios
+  // ROE: for a single loan, equity = principal (we deployed our own capital)
+  const roe = params.principal > 0 ? (netProfit / termYears) / params.principal : 0;
+  // ROA: net profit / avg assets (annualized)
+  const roa = avgOutstanding > 0 ? (netProfit / termYears) / avgOutstanding : 0;
+  // Portfolio Yield: total revenue earned / avg outstanding (annualized)
+  const portfolioYield = avgOutstanding > 0 ? (grossRevenue / termYears) / avgOutstanding : 0;
+  // OSS: revenue / total costs — above 1.0 means self-sustaining
+  const oss = totalCosts > 0 ? grossRevenue / totalCosts : 0;
+
+  // Efficiency & Regulatory
+  // OER: operating expense ratio (opex / avg outstanding, annualized)
+  const oer = avgOutstanding > 0 ? (opExTotal / termYears) / avgOutstanding : 0;
+  // Cost as % of principal
+  const costPerLoanPct = params.principal > 0 ? totalCosts / params.principal : 0;
+  // CAT: Costo Anual Total — IRR of borrower's cash flows (what the doctor actually pays)
+  // Borrower perspective: receives principal, pays monthlyPayment + originationFee upfront
+  const borrowerFlows: number[] = [params.principal - originationFee]; // net received
+  for (let i = 0; i < params.termMonths; i++) {
+    borrowerFlows.push(-monthlyPayment);
+  }
+  const monthlyCAT = calculateIRR(borrowerFlows);
+  const cat = Math.pow(1 + monthlyCAT, 12) - 1;
+
   return {
     totalInterest: Math.round(totalInterest * 100) / 100,
     originationFee: Math.round(originationFee * 100) / 100,
@@ -113,6 +137,13 @@ export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
     spread,
     nim,
     avgOutstanding: Math.round(avgOutstanding),
+    roe,
+    roa,
+    portfolioYield,
+    oss: Math.round(oss * 100) / 100,
+    oer,
+    costPerLoanPct,
+    cat,
     schedule,
     yearSummaries,
   };

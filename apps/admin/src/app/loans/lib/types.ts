@@ -66,6 +66,17 @@ export interface LoanProfitResult {
   nim: number; // net interest margin (net interest / avg outstanding)
   avgOutstanding: number; // weighted avg outstanding over loan life
 
+  // Profitability Ratios
+  roe: number; // return on equity (net profit / equity, annualized)
+  roa: number; // return on assets (net profit / avg outstanding, annualized)
+  portfolioYield: number; // (interest + fees) / avg outstanding, annualized
+  oss: number; // operational self-sufficiency: revenue / total costs (>1 = sustainable)
+
+  // Efficiency & Regulatory
+  oer: number; // operating expense ratio: opex / avg outstanding
+  costPerLoanPct: number; // total costs as % of principal
+  cat: number; // Costo Anual Total (all-in annualized cost to borrower, Mexican standard)
+
   // Amortization
   schedule: AmortizationRow[];
   yearSummaries: YearSummary[];
@@ -124,6 +135,15 @@ export interface MonthlyProjection {
   cumulativeProfit: number;
   cumulativeDisbursed: number;
   cumulativeDefaults: number;
+  // Portfolio-level metrics
+  par30: number; // portfolio at risk (defaulted / outstanding)
+  writeOffRatio: number; // cumulative write-offs / avg portfolio
+  collectionRate: number; // cash collected / cash due
+  oer: number; // opex / outstanding (annualized)
+  imor: number; // indice de morosidad (Mexican standard)
+  oss: number; // operational self-sufficiency
+  nim: number; // net interest margin
+  portfolioYield: number; // revenue / outstanding (annualized)
 }
 
 export interface PortfolioSummary {
@@ -136,6 +156,14 @@ export interface PortfolioSummary {
   peakOutstanding: number;
   totalDefaults: number;
   avgROA: number;
+  // Aggregate metrics
+  finalPar30: number;
+  finalWriteOffRatio: number;
+  avgCollectionRate: number;
+  finalOER: number;
+  finalOSS: number;
+  finalNIM: number;
+  finalPortfolioYield: number;
 }
 
 export interface StressScenario {

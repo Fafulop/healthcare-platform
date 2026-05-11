@@ -26,7 +26,7 @@ export default function PortfolioCharts({ summary }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
+      {/* KPI Cards — Row 1: Core */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard
           label="Break-Even"
@@ -47,6 +47,44 @@ export default function PortfolioCharts({ summary }: Props) {
           label="ROA Promedio"
           value={`${(summary.avgROA * 100).toFixed(1)}%`}
           color="text-purple-600"
+        />
+      </div>
+      {/* KPI Cards — Row 2: Risk & Efficiency */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <KpiCard
+          label="PaR / IMOR"
+          value={`${(summary.finalPar30 * 100).toFixed(2)}%`}
+          color={summary.finalPar30 < 0.05 ? "text-green-600" : summary.finalPar30 < 0.10 ? "text-amber-600" : "text-red-600"}
+        />
+        <KpiCard
+          label="Write-Off"
+          value={`${(summary.finalWriteOffRatio * 100).toFixed(2)}%`}
+          color="text-orange-600"
+        />
+        <KpiCard
+          label="Collection Rate"
+          value={`${(summary.avgCollectionRate * 100).toFixed(1)}%`}
+          color={summary.avgCollectionRate > 0.95 ? "text-green-600" : "text-amber-600"}
+        />
+        <KpiCard
+          label="OER"
+          value={`${(summary.finalOER * 100).toFixed(1)}%`}
+          color="text-rose-600"
+        />
+        <KpiCard
+          label="OSS"
+          value={`${(summary.finalOSS * 100).toFixed(0)}%`}
+          color={summary.finalOSS >= 1 ? "text-green-600" : "text-red-600"}
+        />
+        <KpiCard
+          label="NIM"
+          value={`${(summary.finalNIM * 100).toFixed(1)}%`}
+          color="text-amber-600"
+        />
+        <KpiCard
+          label="Yield"
+          value={`${(summary.finalPortfolioYield * 100).toFixed(1)}%`}
+          color="text-indigo-600"
         />
       </div>
 
@@ -170,6 +208,51 @@ export default function PortfolioCharts({ summary }: Props) {
               />
               <Line yAxisId="left" type="monotone" dataKey="activeLoans" stroke="#2563eb" strokeWidth={2} dot={false} />
               <Line yAxisId="right" type="monotone" dataKey="cumulativeDefaults" stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Risk & Efficiency Metrics Over Time */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+          <h3 className="text-sm font-semibold text-gray-700">Metricas de Riesgo y Eficiencia</h3>
+          <p className="text-xs text-gray-500 mt-0.5">PaR/IMOR, OER, OSS y NIM a lo largo del tiempo</p>
+        </div>
+        <div className="px-4 pt-4 pb-2" style={{ height: 280 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={projections.map((p) => ({
+                month: p.month,
+                par30: p.par30 * 100,
+                oer: p.oer * 100,
+                oss: p.oss * 100,
+                nim: p.nim * 100,
+                portfolioYield: p.portfolioYield * 100,
+              }))}
+              margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v.toFixed(0)}%`} />
+              <Tooltip
+                formatter={(value, name) => {
+                  const labels: Record<string, string> = {
+                    par30: "PaR / IMOR",
+                    oer: "OER",
+                    oss: "OSS",
+                    nim: "NIM",
+                    portfolioYield: "Yield",
+                  };
+                  return [`${Number(value).toFixed(1)}%`, labels[String(name)] ?? String(name)];
+                }}
+                labelFormatter={(v) => `Mes ${v}`}
+              />
+              <ReferenceLine y={100} stroke="#22c55e" strokeDasharray="4 4" label={{ value: "OSS 100%", position: "right", fontSize: 9 }} />
+              <Line type="monotone" dataKey="par30" stroke="#ef4444" strokeWidth={2} dot={false} name="par30" />
+              <Line type="monotone" dataKey="oer" stroke="#f97316" strokeWidth={1.5} dot={false} name="oer" />
+              <Line type="monotone" dataKey="oss" stroke="#22c55e" strokeWidth={2} dot={false} name="oss" />
+              <Line type="monotone" dataKey="nim" stroke="#eab308" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="nim" />
             </LineChart>
           </ResponsiveContainer>
         </div>
