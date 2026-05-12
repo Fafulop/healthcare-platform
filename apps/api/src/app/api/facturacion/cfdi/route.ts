@@ -204,6 +204,15 @@ export async function POST(request: NextRequest) {
       Status: cfdiResponse.Status,
     });
 
+    // Map Facturama's full CfdiType names to short codes for our DB
+    const CFDI_TYPE_MAP: Record<string, string> = {
+      'Ingreso': 'I', 'ingreso': 'I', 'I': 'I',
+      'Egreso': 'E', 'egreso': 'E', 'E': 'E',
+      'Pago': 'P', 'pago': 'P', 'P': 'P',
+      'Traslado': 'T', 'traslado': 'T', 'T': 'T',
+    };
+    const mappedCfdiType = CFDI_TYPE_MAP[cfdiResponse.CfdiType] || cfdiType || 'I';
+
     // Save to our database
     const cfdiRecord = await prisma.cfdiEmitted.create({
       data: {
@@ -213,7 +222,7 @@ export async function POST(request: NextRequest) {
         uuid: cfdiResponse.Complement.TaxStamp.Uuid,
         folio: cfdiResponse.Folio || null,
         serie: cfdiResponse.Serie || null,
-        cfdiType: cfdiResponse.CfdiType || cfdiType || 'I',
+        cfdiType: mappedCfdiType,
         rfcEmisor: profile.rfc,
         rfcReceptor: receiver.rfc.trim().toUpperCase(),
         nombreReceptor: receiver.name.trim(),
