@@ -1,7 +1,7 @@
 # Plan de Implementacion: Facturacion CFDI con Facturama Multiemisor
 
 **Fecha:** 2026-05-12
-**Status:** Backend implementado y auditado contra docs oficiales Facturama — pendiente: UI, credenciales Facturama, testing
+**Status:** Backend + UI implementados y auditados — pendiente: credenciales Facturama y testing E2E
 
 ---
 
@@ -545,6 +545,24 @@ Review de TODAS las paginas del help center de Facturama (elevio). Articulos cub
 11. **Descarga archivos** — Tipo `issuedLite`, formatos pdf/xml/html, response con Content base64. Todo correcto.
 12. **Email** — Query params confirmados: CfdiType, CfdiId, Email, Subject, Comments, IssuerEmail. Todo correcto.
 
+### UI Implementada (2026-05-12)
+
+| Componente | Archivo | Status |
+|-----------|---------|--------|
+| Configuracion Fiscal (perfil + CSD) | `apps/doctor/src/app/dashboard/facturacion/page.tsx` — ConfigTab | Done |
+| Lista de Facturas (filtros, paginacion, acciones) | Mismo archivo — FacturasListTab | Done — status filter, pagination, type column, cancel, acuse, HTML preview, email |
+| Nueva Factura (Ingreso) | Mismo archivo — NuevaFacturaTab | Done — receptor, conceptos, IVA/ISR, forma/metodo pago, totals |
+| REP (Complemento de Pago) | Mismo archivo — REPTab | Done — seleccion de factura PPD, pago, parcialidad, saldo |
+| Nota de Credito (Egreso) | Mismo archivo — EgresoTab | Done — seleccion de factura original, conceptos, IVA |
+| Guia de Facturacion | Mismo archivo — GuiaTab | Done — referencia rapida integrada en la UI |
+| Boton "Facturar" en Ledger | `apps/doctor/src/app/dashboard/practice/flujo-de-dinero/[id]/page.tsx` | Done — pre-fill desde entrada de ingreso |
+
+**Integracion Ledger → Facturacion:**
+- Boton "Facturar" visible solo en entradas de tipo ingreso
+- Navega a `/dashboard/facturacion?from=ledger&...` con query params
+- Pre-llena: concepto, monto, nombre del cliente, forma de pago (mapeada a codigos SAT)
+- Vincula el CFDI emitido con el `ledgerEntryId` en la base de datos
+
 ### Pendiente
 
 | Paso | Prioridad | Bloqueado por |
@@ -552,10 +570,11 @@ Review de TODAS las paginas del help center de Facturama (elevio). Articulos cub
 | Obtener credenciales sandbox Facturama | Alta | Registro en facturama.mx |
 | ~~Agregar soporte REP (Complemento de Pago)~~ | ~~Alta~~ | Done — `cfdi/rep/route.ts` |
 | ~~Agregar soporte Nota de Credito (Egreso)~~ | ~~Media~~ | Done — `cfdi/egreso/route.ts` |
-| UI: Configuracion Fiscal (settings page) | Media | Nada |
-| UI: Pagina de Facturacion (list + create) | Media | Nada |
-| UI: Integracion con Ledger (boton "Facturar") | Media | UI Facturacion |
-| Testing E2E contra sandbox | Media | Credenciales |
+| ~~UI: Configuracion Fiscal (settings page)~~ | ~~Media~~ | Done — ConfigTab |
+| ~~UI: Pagina de Facturacion (list + create)~~ | ~~Media~~ | Done — FacturasListTab + NuevaFacturaTab |
+| ~~UI: REP y Nota de Credito~~ | ~~Media~~ | Done — REPTab + EgresoTab |
+| ~~UI: Integracion con Ledger (boton "Facturar")~~ | ~~Media~~ | Done — flujo-de-dinero/[id] |
+| Testing E2E contra sandbox | Alta | Credenciales |
 | Deploy a produccion | Baja | Todo lo anterior |
 
 ### Comandos para activar

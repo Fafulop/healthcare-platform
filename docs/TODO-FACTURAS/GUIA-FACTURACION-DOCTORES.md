@@ -140,7 +140,7 @@ Cuando emites una factura con metodo de pago **PPD** (pago diferido o parcialida
 
 **Ejemplo:** Emites factura por $10,000 con metodo PPD. El paciente paga $5,000 hoy y $5,000 en 30 dias. Debes emitir un REP por cada pago de $5,000, indicando parcialidad 1 y 2 respectivamente.
 
-> **Proximamente:** La emision de REPs desde TuSalud esta en desarrollo. La funcionalidad de backend esta lista — falta la interfaz de usuario. Por ahora, consulta con tu contador para emitirlos por otra via.
+> Puedes emitir REPs directamente desde TuSalud en la pestaña **REP (Pago)** de la seccion de Facturacion. Selecciona la factura PPD original, ingresa los datos del pago (fecha, forma de pago, monto, parcialidad) y el sistema calcula automaticamente el saldo pendiente.
 
 ---
 
@@ -174,7 +174,7 @@ Si necesitas aplicar un descuento, devolucion o bonificacion sobre una factura y
 - Solo quieres ajustar una parte del monto (no el total)
 - Ya paso el periodo para cancelar ante el SAT
 
-> **Proximamente:** La emision de Notas de Credito desde TuSalud esta en desarrollo. La funcionalidad de backend esta lista — falta la interfaz de usuario. Por ahora, consulta con tu contador para emitirlas por otra via.
+> Puedes emitir Notas de Credito directamente desde TuSalud en la pestaña **Nota de Credito** de la seccion de Facturacion. Selecciona la factura original, ajusta los conceptos y montos a acreditar, y el sistema la vincula automaticamente con la factura de ingreso.
 
 ---
 
