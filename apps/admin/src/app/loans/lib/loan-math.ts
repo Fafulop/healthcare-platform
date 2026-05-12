@@ -1,6 +1,7 @@
 import type {
   LoanParams,
   LoanProfitResult,
+  FundEconomics,
   CofBreakdown,
   DefaultScenarioResult,
   SensitivityCell,
@@ -238,6 +239,86 @@ function calculateLoanProfitSimple(params: LoanParams): number {
 }
 
 /**
+ * Fund-level economics: models the full deploy → collect → idle → redeploy cycle.
+ * This answers the business question: "Am I making money running a lending business?"
+ */
+export function calculateFundEconomics(params: LoanParams, loanResult: LoanProfitResult): FundEconomics {
+  const effectiveTermMonths = loanResult.schedule.length;
+  const cycleLengthMonths = effectiveTermMonths + params.redeploymentMonths;
+  const cycleYears = cycleLengthMonths / 12;
+
+  // Capital utilization: what % of the cycle is money working?
+  const capitalUtilization = cycleLengthMonths > 0 ? effectiveTermMonths / cycleLengthMonths : 1;
+
+  // During idle months, you still pay CoF but earn nothing
+  const idleCapitalCost = params.principal * params.cofRate * (params.redeploymentMonths / 12);
+
+  // Fund P&L per cycle
+  const fundGrossRevenue = loanResult.grossRevenue;
+  const fundTotalCosts = loanResult.totalCosts + idleCapitalCost;
+  const fundNetProfit = fundGrossRevenue - fundTotalCosts;
+
+  // Effective spread: your real spread shrinks because of idle time
+  // If you earn 30% for 10 months but 0% for 2 months, your effective annual rate < 30%
+  const effectiveLendingRate = params.annualRate * capitalUtilization;
+  const effectiveSpread = effectiveLendingRate - params.cofRate; // CoF runs 12/12, lending runs less
+
+  // Effective ROI over the full cycle (not just loan term)
+  const effectiveAnnualROI = params.principal > 0 ? (fundNetProfit / params.principal / cycleYears) : 0;
+
+  // Fund IRR: cash flows over the FULL cycle including idle months
+  const monthlyCofCost = loanResult.cofTotal / effectiveTermMonths;
+  const monthlyProvision = loanResult.provisionAmount / effectiveTermMonths;
+  const monthlyOpex = loanResult.opExTotal / effectiveTermMonths;
+  const fundCashFlows: number[] = [-params.principal + loanResult.originationFee];
+  // Active months: receiving payments
+  for (let i = 0; i < effectiveTermMonths; i++) {
+    const payment = loanResult.schedule[i].payment;
+    fundCashFlows.push(payment - monthlyCofCost - monthlyProvision - monthlyOpex);
+  }
+  // Idle months: paying CoF, earning nothing
+  const monthlyCofIdle = params.principal * params.cofRate / 12;
+  for (let i = 0; i < params.redeploymentMonths; i++) {
+    fundCashFlows.push(-monthlyCofIdle);
+  }
+  const monthlyFundIRR = calculateIRRExported(fundCashFlows);
+  const fundIRR = Math.pow(1 + monthlyFundIRR, 12) - 1;
+
+  // Investor vs You split
+  // Investor earns: cofRate × principal × full cycle duration
+  // (they lent you money for the entire cycle — they don't care if it's idle)
+  const investorEarns = params.principal * params.cofRate * cycleYears;
+  const investorAnnualReturn = params.cofRate; // they get exactly what they asked
+
+  // You keep: everything after paying the investor and other costs
+  const youKeep = fundNetProfit;
+  const yourAnnualReturn = params.principal > 0 ? (youKeep / params.principal / cycleYears) : 0;
+
+  // How many cycles can this capital do per year?
+  const cyclesPerYear = cycleLengthMonths > 0 ? 12 / cycleLengthMonths : 0;
+  const annualProfitPerUnit = fundNetProfit * cyclesPerYear;
+
+  return {
+    cycleLengthMonths,
+    cycleYears: Math.round(cycleYears * 100) / 100,
+    capitalUtilization,
+    idleCapitalCost: Math.round(idleCapitalCost * 100) / 100,
+    fundGrossRevenue: Math.round(fundGrossRevenue * 100) / 100,
+    fundTotalCosts: Math.round(fundTotalCosts * 100) / 100,
+    fundNetProfit: Math.round(fundNetProfit * 100) / 100,
+    effectiveSpread,
+    effectiveAnnualROI,
+    fundIRR,
+    investorEarns: Math.round(investorEarns * 100) / 100,
+    youKeep: Math.round(youKeep * 100) / 100,
+    investorAnnualReturn,
+    yourAnnualReturn,
+    cyclesPerYear: Math.round(cyclesPerYear * 100) / 100,
+    annualProfitPerUnit: Math.round(annualProfitPerUnit * 100) / 100,
+  };
+}
+
+/**
  * What happens if a loan defaults at a specific month?
  */
 export function calculateDefaultAtMonth(
@@ -346,6 +427,11 @@ function calculateIRR(cashFlows: number[], guess = 0.01, maxIter = 100, toleranc
     rate = newRate;
   }
   return rate;
+}
+
+/** Exported wrapper for IRR calculation. */
+function calculateIRRExported(cashFlows: number[]): number {
+  return calculateIRR(cashFlows);
 }
 
 /**

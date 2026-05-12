@@ -24,6 +24,7 @@ export const PARAM_RANGES = {
   doctorMonthlyIncome: { min: 30000, max: 500000, step: 5000, default: 120000 },
   hurdleRate: { min: 0.05, max: 0.40, step: 0.01, default: 0.15 },
   prepaymentMonth: { min: 0, max: 60, step: 1, default: 0 },
+  redeploymentMonths: { min: 0, max: 6, step: 1, default: 2 },
 };
 
 export const DEFAULT_LOAN_PARAMS = {
@@ -41,4 +42,5 @@ export const DEFAULT_LOAN_PARAMS = {
   doctorMonthlyIncome: PARAM_RANGES.doctorMonthlyIncome.default,
   hurdleRate: PARAM_RANGES.hurdleRate.default,
   prepaymentMonth: PARAM_RANGES.prepaymentMonth.default,
+  redeploymentMonths: PARAM_RANGES.redeploymentMonths.default,
 };

@@ -3,10 +3,11 @@
 import { useState } from "react";
 import type { LoanParams, Scenario } from "../../lib/types";
 import { DEFAULT_LOAN_PARAMS } from "../../lib/constants";
-import { calculateLoanProfit } from "../../lib/loan-math";
+import { calculateLoanProfit, calculateFundEconomics } from "../../lib/loan-math";
 import ParameterPanel from "./ParameterPanel";
 import AmortizationTable from "./AmortizationTable";
 import CostWaterfall from "./CostWaterfall";
+import FundEconomicsPanel from "./FundEconomicsPanel";
 import ScenarioComparison from "./ScenarioComparison";
 import SensitivityMatrix from "./SensitivityMatrix";
 import DefaultScenarios from "./DefaultScenarios";
@@ -19,6 +20,7 @@ export default function LoanSimulator() {
   const [showDefaults, setShowDefaults] = useState(false);
 
   const result = calculateLoanProfit(params);
+  const fund = calculateFundEconomics(params, result);
 
   const saveScenario = () => {
     if (scenarios.length >= 4) return;
@@ -73,6 +75,9 @@ export default function LoanSimulator() {
       <div className="flex-1 min-w-0 space-y-6">
         {/* Cost Waterfall + Summary */}
         <CostWaterfall result={result} params={params} />
+
+        {/* Fund / Business Economics */}
+        <FundEconomicsPanel fund={fund} result={result} params={params} />
 
         {/* Scenario Comparison */}
         <ScenarioComparison scenarios={scenarios} onRemove={removeScenario} />

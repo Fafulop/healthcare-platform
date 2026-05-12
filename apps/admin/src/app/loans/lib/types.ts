@@ -15,6 +15,7 @@ export interface LoanParams {
   doctorMonthlyIncome: number; // doctor's gross monthly income in MXN
   hurdleRate: number; // minimum acceptable annualized return, e.g. 0.15
   prepaymentMonth: number; // 0 = no prepayment, else month of full early payoff
+  redeploymentMonths: number; // months capital sits idle between loans (0 = instant redeployment)
 }
 
 export interface AmortizationRow {
@@ -100,6 +101,42 @@ export interface LoanProfitResult {
   // Amortization
   schedule: AmortizationRow[];
   yearSummaries: YearSummary[];
+}
+
+// ─── Fund / Business Economics ───
+// Models the REAL business cycle: deploy → collect → idle → redeploy
+// Answers: "If I raise $X from investors at Y%, is this business profitable?"
+
+export interface FundEconomics {
+  // The full cycle: loan life + idle gap
+  cycleLengthMonths: number; // effectiveTermMonths + redeploymentMonths
+  cycleYears: number;
+
+  // Capital utilization
+  capitalUtilization: number; // % of time money is actually earning (0-1)
+
+  // Idle capital cost: you pay investors during the gap
+  idleCapitalCost: number; // MXN: principal × cofRate × (idleMonths / 12)
+
+  // Fund-level P&L (per loan cycle)
+  fundGrossRevenue: number; // same as loan grossRevenue
+  fundTotalCosts: number; // loan costs + idle capital cost
+  fundNetProfit: number; // fundGrossRevenue - fundTotalCosts
+
+  // Effective metrics (adjusted for idle time)
+  effectiveSpread: number; // real annual spread after utilization drag
+  effectiveAnnualROI: number; // profit / principal / cycleYears (NOT termYears)
+  fundIRR: number; // IRR of the full cycle (including idle months at 0 income)
+
+  // Investor vs. You
+  investorEarns: number; // MXN: what investor collects over full cycle
+  youKeep: number; // MXN: fundNetProfit (after paying investor via CoF)
+  investorAnnualReturn: number; // cofRate (they get what they asked for)
+  yourAnnualReturn: number; // your margin after paying them, annualized
+
+  // Loans per year: how many full cycles fit in 12 months
+  cyclesPerYear: number;
+  annualProfitPerUnit: number; // fundNetProfit × cyclesPerYear (per unit of capital)
 }
 
 export interface DefaultScenarioResult {

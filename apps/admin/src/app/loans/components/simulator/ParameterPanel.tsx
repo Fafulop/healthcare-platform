@@ -228,10 +228,17 @@ export default function ParameterPanel({ params, onChange }: Props) {
         </div>
       </div>
 
-      {/* Investment Threshold */}
+      {/* Business / Fund Economics */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Umbral de Inversion</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Economia del Negocio</h3>
         <div className="space-y-4">
+          <SliderRow
+            label="Meses para Re-colocar"
+            value={params.redeploymentMonths}
+            {...PARAM_RANGES.redeploymentMonths}
+            format={(v) => (v === 0 ? "Inmediato" : `${v} meses`)}
+            onChange={(v) => update({ redeploymentMonths: v })}
+          />
           <SliderRow
             label="Hurdle Rate (TIR minima)"
             value={params.hurdleRate}
