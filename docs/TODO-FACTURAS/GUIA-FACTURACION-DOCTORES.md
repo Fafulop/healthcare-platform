@@ -19,7 +19,9 @@ Para emitir un CFDI valido necesitas estos datos de tu paciente:
 | Regimen fiscal | 612 | Constancia de Situacion Fiscal del paciente |
 | Codigo postal fiscal | 06600 | Domicilio fiscal del paciente (NO el de consulta) |
 
-**Importante:** Los datos deben coincidir exactamente con los registrados ante el SAT. Si el nombre o RFC no coinciden, el timbrado sera rechazado. Los nombres deben estar en **MAYUSCULAS** tal como aparecen en la Cedula de Identificacion Fiscal (TuSalud los convierte automaticamente).
+**Importante:** Los datos deben coincidir **exactamente** con los registrados ante el SAT. Si el nombre, RFC, regimen fiscal o codigo postal no coinciden, el timbrado sera rechazado. Los nombres deben estar en **MAYUSCULAS** tal como aparecen en la Cedula de Identificacion Fiscal (TuSalud los convierte automaticamente).
+
+> **Nota tecnica:** El nombre del emisor en la factura debe coincidir con el nombre registrado en el Certificado de Sello Digital (CSD), no necesariamente con la razon social del SAT. TuSalud obtiene automaticamente el nombre correcto del CSD al emitir.
 
 ---
 

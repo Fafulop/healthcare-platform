@@ -1,7 +1,7 @@
 # Plan de Implementacion: Facturacion CFDI con Facturama Multiemisor
 
 **Fecha:** 2026-05-12
-**Status:** Backend + UI implementados y auditados — pendiente: credenciales Facturama y testing E2E
+**Status:** Backend + UI implementados, sandbox conectado, primera factura emitida en Facturama — ajustes en curso
 
 ---
 
@@ -563,19 +563,60 @@ Review de TODAS las paginas del help center de Facturama (elevio). Articulos cub
 - Pre-llena: concepto, monto, nombre del cliente, forma de pago (mapeada a codigos SAT)
 - Vincula el CFDI emitido con el `ledgerEntryId` en la base de datos
 
+### Testing E2E contra Sandbox (2026-05-12)
+
+**Credenciales sandbox configuradas en Railway:**
+- `FACTURAMA_USER` / `FACTURAMA_PASSWORD` — credenciales de plataforma (Basic Auth)
+- `FACTURAMA_API_URL` = `https://apisandbox.facturama.mx`
+
+**CSD de prueba (sandbox):**
+- RFC: `EKU9003173C9`
+- Razón social: `ESCUELA KEMPER URGATE` (sin "SA DE CV" — el nombre debe coincidir exactamente con el CSD)
+- Régimen fiscal: `601`
+- Código postal: `42501`
+- Password: `12345678a`
+- Archivos: descargar de `https://cdnfacturama.azureedge.net/content/csd-pruebas.zip`
+
+**Bugs encontrados y corregidos durante testing:**
+
+| # | Bug | Root Cause | Fix |
+|---|-----|-----------|-----|
+| 1 | `m.map is not a function` crash en produccion | Facturama API puede retornar non-array. `data \|\| []` no protege contra objetos truthy | `Array.isArray(data) ? data : []` en todos los fetch handlers |
+| 2 | `useSearchParams` crash sin Suspense | Next.js App Router requiere Suspense boundary | Envuelto `FacturacionPageInner` en `<Suspense>` |
+| 3 | Dropdowns vacios (regimen, forma de pago) | API falla silenciosamente, `.catch(() => {})` deja state vacio | Fallback a catalogos offline hardcodeados en frontend |
+| 4 | CSD update usa POST en vez de PUT | Siempre hacia POST, Facturama rechaza duplicados | Usa PUT cuando `isActive` es true |
+| 5 | `TaxObject: "01"` con `Taxes: []` rechazado | Facturama requiere que `Taxes` **no exista** si TaxObject es "01" | Solo incluir `Taxes` cuando `hasTaxes` es true |
+| 6 | Issuer name mismatch | `profile.razonSocial` puede no coincidir con el nombre dentro del CSD | Fetch `TaxName` de Facturama CSD status y usar ese nombre |
+| 7 | `CfdiType` overflow en DB | Facturama retorna `"Ingreso"` (7 chars) pero columna es `VARCHAR(5)` | Mapping: `Ingreso→I`, `Egreso→E`, `Pago→P` |
+| 8 | Error generico sin detalle en UI | Catch blocks no logueaban detalle | `console.error` con `error.details` en todos los catch blocks |
+
+**Resultado del testing:**
+- CSD upload: ✅ (201)
+- Catalogos SAT (regimenes, formas pago, uso CFDI): ✅ (200, datos reales de Facturama)
+- CFDI emision: ✅ factura creada en Facturama (UUID generado) — pendiente fix de DB save
+
+**Lecciones aprendidas — Facturama Multiemisor:**
+1. El nombre del emisor (`Issuer.Name`) debe coincidir **exactamente** con el nombre registrado en el CSD, no con la razón social del SAT
+2. `TaxObject: "01"` (sin impuestos) es incompatible con cualquier nodo `Taxes` — ni siquiera un array vacío
+3. Facturama retorna `CfdiType` como palabra completa (`"Ingreso"`, `"Egreso"`, `"Pago"`) no como letra (`"I"`, `"E"`, `"P"`)
+4. En sandbox, los RFCs de receptor también deben coincidir con datos del SAT de prueba — no se puede usar cualquier dato inventado
+5. Los catalogos de Facturama pueden retornar cualquier shape — siempre guardar con `Array.isArray()` y tener fallback offline
+
 ### Pendiente
 
 | Paso | Prioridad | Bloqueado por |
 |------|-----------|---------------|
-| Obtener credenciales sandbox Facturama | Alta | Registro en facturama.mx |
+| ~~Obtener credenciales sandbox Facturama~~ | ~~Alta~~ | Done — configuradas en Railway |
 | ~~Agregar soporte REP (Complemento de Pago)~~ | ~~Alta~~ | Done — `cfdi/rep/route.ts` |
 | ~~Agregar soporte Nota de Credito (Egreso)~~ | ~~Media~~ | Done — `cfdi/egreso/route.ts` |
 | ~~UI: Configuracion Fiscal (settings page)~~ | ~~Media~~ | Done — ConfigTab |
 | ~~UI: Pagina de Facturacion (list + create)~~ | ~~Media~~ | Done — FacturasListTab + NuevaFacturaTab |
 | ~~UI: REP y Nota de Credito~~ | ~~Media~~ | Done — REPTab + EgresoTab |
 | ~~UI: Integracion con Ledger (boton "Facturar")~~ | ~~Media~~ | Done — flujo-de-dinero/[id] |
-| Testing E2E contra sandbox | Alta | Credenciales |
-| Deploy a produccion | Baja | Todo lo anterior |
+| ~~Testing E2E contra sandbox~~ | ~~Alta~~ | Done — factura emitida exitosamente en Facturama |
+| Verificar DB save post-CfdiType fix | Alta | Redeploy en curso |
+| Remover console.log debug temporales | Baja | Despues de testing completo |
+| Deploy a produccion | Baja | Todo lo anterior + credenciales produccion |
 
 ### Comandos para activar
 
