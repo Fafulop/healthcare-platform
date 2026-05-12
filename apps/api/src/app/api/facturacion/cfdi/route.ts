@@ -192,6 +192,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Log Facturama response for debugging column size issues
+    console.log('CFDI Response debug:', {
+      Id: cfdiResponse.Id,
+      Uuid: cfdiResponse.Complement?.TaxStamp?.Uuid,
+      CfdiType: cfdiResponse.CfdiType,
+      Folio: cfdiResponse.Folio,
+      Serie: cfdiResponse.Serie,
+      PaymentForm: cfdiResponse.PaymentForm,
+      PaymentMethod: cfdiResponse.PaymentMethod,
+      Status: cfdiResponse.Status,
+    });
+
     // Save to our database
     const cfdiRecord = await prisma.cfdiEmitted.create({
       data: {
