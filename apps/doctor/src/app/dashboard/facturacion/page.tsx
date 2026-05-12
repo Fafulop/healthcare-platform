@@ -540,8 +540,9 @@ function CSDUploadSection({
         fileToBase64(keyFile),
       ]);
 
+      const method = isActive ? "PUT" : "POST";
       const res = await authFetch(`${API_URL}/api/facturacion/csd`, {
-        method: "POST",
+        method,
         body: JSON.stringify({ certificate, privateKey, privateKeyPassword: password }),
       });
 
