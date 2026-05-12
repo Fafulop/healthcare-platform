@@ -70,6 +70,7 @@ export function projectPortfolio(params: PortfolioParams): PortfolioSummary {
     let monthlyInterest = 0;
     let monthlyOriginationFees = 0;
     let monthlyDefaults = 0;
+    let monthlyDefaultedOutstanding = 0;
     let monthlyPrincipalRepaid = 0;
 
     for (let i = cohorts.length - 1; i >= 0; i--) {
@@ -82,10 +83,12 @@ export function projectPortfolio(params: PortfolioParams): PortfolioSummary {
         continue;
       }
 
-      // Defaults this month for this cohort
+      // Defaults this month for this cohort — use outstanding balance, not original amount
       const defaultingLoans = c.activeLoans * monthlyDefaultProb;
+      const defaultedOutstanding = defaultingLoans * c.outstandingPerLoan;
       c.activeLoans -= defaultingLoans;
       monthlyDefaults += defaultingLoans;
+      monthlyDefaultedOutstanding += defaultedOutstanding;
 
       if (c.activeLoans < 0.001) {
         cohorts.splice(i, 1);
@@ -116,14 +119,15 @@ export function projectPortfolio(params: PortfolioParams): PortfolioSummary {
 
     // Costs
     const monthlyCof = totalOutstanding * monthlyCofRate;
-    const monthlyProvisions = monthlyDefaults * avgLoanSize * (1 - recoveryRate);
+    // Provisions based on actual outstanding at default, not original loan amount
+    const monthlyProvisions = monthlyDefaultedOutstanding * (1 - recoveryRate);
     const monthlyOpex = totalActiveLoans * monthlyServicingPerLoan + newLoans * originationCostPerLoan;
 
     const totalMonthlyCosts = monthlyCof + monthlyProvisions + monthlyOpex + fixedMonthlyCosts;
     const monthlyNetIncome = monthlyRevenue - totalMonthlyCosts;
     cumulativeProfit += monthlyNetIncome;
     cumulativeDefaults += monthlyDefaults;
-    cumulativeWriteOffs += monthlyDefaults * avgLoanSize * (1 - recoveryRate);
+    cumulativeWriteOffs += monthlyDefaultedOutstanding * (1 - recoveryRate);
 
     // Expected monthly payment from all active loans
     const expectedPayments = totalActiveLoans * monthlyPaymentPerLoan;
@@ -131,7 +135,8 @@ export function projectPortfolio(params: PortfolioParams): PortfolioSummary {
     const actualCollections = monthlyInterest + monthlyPrincipalRepaid;
 
     // Portfolio-level metrics for this month
-    const par30 = totalOutstanding > 0 ? (cumulativeDefaults * avgLoanSize * (1 - recoveryRate)) / totalOutstanding : 0;
+    // PaR/IMOR: monthly defaulted outstanding as % of portfolio (not cumulative)
+    const par30 = totalOutstanding > 0 ? monthlyDefaultedOutstanding / totalOutstanding : 0;
     const writeOffRatio = cumulativeDisbursed > 0 ? cumulativeWriteOffs / cumulativeDisbursed : 0;
     const collectionRate = expectedPayments > 0 ? Math.min(1, actualCollections / expectedPayments) : 1;
     const monthOER = totalOutstanding > 0 ? (monthlyOpex + fixedMonthlyCosts) * 12 / totalOutstanding : 0;
@@ -178,8 +183,10 @@ export function projectPortfolio(params: PortfolioParams): PortfolioSummary {
   const avgOutstanding = projections.reduce((s, p) => s + p.portfolioOutstanding, 0) / projections.length;
   const avgROA = avgOutstanding > 0 ? (cumulativeProfit / projectionMonths * 12) / avgOutstanding : 0;
 
-  // Final month metrics for summary
+  // Use average of last 6 months for PaR (less noisy than single month)
   const lastMonth = projections[projections.length - 1];
+  const last6 = projections.slice(-Math.min(6, projections.length));
+  const avgPar30 = last6.length > 0 ? last6.reduce((s, p) => s + p.par30, 0) / last6.length : 0;
 
   return {
     projections,
@@ -191,7 +198,7 @@ export function projectPortfolio(params: PortfolioParams): PortfolioSummary {
     peakOutstanding,
     totalDefaults: Math.round(cumulativeDefaults * 100) / 100,
     avgROA,
-    finalPar30: lastMonth?.par30 ?? 0,
+    finalPar30: avgPar30,
     finalWriteOffRatio: lastMonth?.writeOffRatio ?? 0,
     avgCollectionRate: projections.length > 0
       ? projections.reduce((s, p) => s + p.collectionRate, 0) / projections.length

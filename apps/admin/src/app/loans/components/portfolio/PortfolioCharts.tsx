@@ -52,9 +52,9 @@ export default function PortfolioCharts({ summary }: Props) {
       {/* KPI Cards — Row 2: Risk & Efficiency */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
         <KpiCard
-          label="PaR / IMOR"
+          label="IMOR (prom.)"
           value={`${(summary.finalPar30 * 100).toFixed(2)}%`}
-          color={summary.finalPar30 < 0.05 ? "text-green-600" : summary.finalPar30 < 0.10 ? "text-amber-600" : "text-red-600"}
+          color={summary.finalPar30 < 0.01 ? "text-green-600" : summary.finalPar30 < 0.03 ? "text-amber-600" : "text-red-600"}
         />
         <KpiCard
           label="Write-Off"

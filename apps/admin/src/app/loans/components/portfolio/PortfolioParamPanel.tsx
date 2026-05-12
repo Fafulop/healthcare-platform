@@ -60,7 +60,7 @@ export default function PortfolioParamPanel({ params, onChange }: Props) {
           Perfil del Prestamo
         </h3>
         <div className="space-y-3">
-          <SliderRow label="Monto Promedio" value={params.avgLoanSize} min={50000} max={500000} step={25000} format={fmtMXN} onChange={(v) => set("avgLoanSize", v)} />
+          <SliderRow label="Monto Promedio" value={params.avgLoanSize} min={25000} max={500000} step={25000} format={fmtMXN} onChange={(v) => set("avgLoanSize", v)} />
           <SliderRow label="Plazo Promedio (meses)" value={params.avgTermMonths} min={6} max={48} step={6} format={fmtNum} onChange={(v) => set("avgTermMonths", v)} />
           <SliderRow label="Tasa Promedio" value={params.avgRate} min={0.18} max={0.48} step={0.01} format={fmtPct} onChange={(v) => set("avgRate", v)} />
         </div>
@@ -97,7 +97,7 @@ export default function PortfolioParamPanel({ params, onChange }: Props) {
         <div className="space-y-3">
           <SliderRow label="Costo por Originacion" value={params.originationCostPerLoan} min={500} max={5000} step={250} format={fmtMXN} onChange={(v) => set("originationCostPerLoan", v)} />
           <SliderRow label="Servicing Anual / Prestamo" value={params.annualServicingCostPerLoan} min={200} max={3000} step={100} format={fmtMXN} onChange={(v) => set("annualServicingCostPerLoan", v)} />
-          <SliderRow label="Costos Fijos Mensuales" value={params.fixedMonthlyCosts} min={50000} max={500000} step={25000} format={fmtMXN} onChange={(v) => set("fixedMonthlyCosts", v)} />
+          <SliderRow label="Costos Fijos Mensuales" value={params.fixedMonthlyCosts} min={0} max={500000} step={10000} format={fmtMXN} onChange={(v) => set("fixedMonthlyCosts", v)} />
         </div>
       </div>
 
