@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { sendCFDIByEmail } from '@/lib/facturama';
+import { getCancellationAcuse } from '@/lib/facturama';
 
-// POST /api/facturacion/cfdi/:id/email - Send CFDI via email
-export async function POST(
+// GET /api/facturacion/cfdi/:id/acuse - Download cancellation acknowledgment (acuse de cancelación)
+export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -33,24 +33,29 @@ export async function POST(
       return NextResponse.json({ error: 'CFDI no encontrado' }, { status: 404 });
     }
 
-    const body = await request.json();
-    const { email, subject, comments, issuerEmail } = body;
-
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (cfdi.status !== 'cancelled' && cfdi.status !== 'cancellation_pending') {
       return NextResponse.json(
-        { error: 'Email del destinatario inválido o no proporcionado' },
+        { error: 'Este CFDI no ha sido cancelado' },
         { status: 400 }
       );
     }
 
-    const result = await sendCFDIByEmail(cfdi.facturamaId, email, {
-      subject,
-      comments,
-      issuerEmail,
-    });
+    const { searchParams } = new URL(request.url);
+    const format = searchParams.get('format') === 'html' ? 'html' : 'pdf';
 
-    return NextResponse.json({
-      data: { sent: result.success, email, message: result.msj }
+    const acuseBase64 = await getCancellationAcuse(cfdi.facturamaId, format);
+    const acuseBuffer = Buffer.from(acuseBase64, 'base64');
+
+    const contentType = format === 'html' ? 'text/html; charset=utf-8' : 'application/pdf';
+    const ext = format === 'html' ? 'html' : 'pdf';
+
+    return new NextResponse(acuseBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="Acuse_${cfdi.uuid}.${ext}"`,
+        'Content-Length': String(acuseBuffer.length),
+      },
     });
   } catch (error: any) {
     if (error.name === 'AuthError') {
@@ -58,11 +63,11 @@ export async function POST(
     }
     if (error.name === 'FacturamaError') {
       return NextResponse.json(
-        { error: `Error al enviar email: ${error.message}` },
+        { error: `Error al obtener acuse de cancelación: ${error.message}` },
         { status: 502 }
       );
     }
-    console.error('Error sending CFDI email:', error);
-    return NextResponse.json({ error: 'Error al enviar factura por email' }, { status: 500 });
+    console.error('Error fetching cancellation acuse:', error);
+    return NextResponse.json({ error: 'Error al obtener acuse de cancelación' }, { status: 500 });
   }
 }

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { sendCFDIByEmail } from '@/lib/facturama';
+import { getCFDIHtml } from '@/lib/facturama';
 
-// POST /api/facturacion/cfdi/:id/email - Send CFDI via email
-export async function POST(
+// GET /api/facturacion/cfdi/:id/html - Download CFDI as HTML (in-browser preview)
+export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -33,24 +33,15 @@ export async function POST(
       return NextResponse.json({ error: 'CFDI no encontrado' }, { status: 404 });
     }
 
-    const body = await request.json();
-    const { email, subject, comments, issuerEmail } = body;
+    const htmlBase64 = await getCFDIHtml(cfdi.facturamaId);
+    const htmlBuffer = Buffer.from(htmlBase64, 'base64');
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json(
-        { error: 'Email del destinatario inválido o no proporcionado' },
-        { status: 400 }
-      );
-    }
-
-    const result = await sendCFDIByEmail(cfdi.facturamaId, email, {
-      subject,
-      comments,
-      issuerEmail,
-    });
-
-    return NextResponse.json({
-      data: { sent: result.success, email, message: result.msj }
+    return new NextResponse(htmlBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Length': String(htmlBuffer.length),
+      },
     });
   } catch (error: any) {
     if (error.name === 'AuthError') {
@@ -58,11 +49,11 @@ export async function POST(
     }
     if (error.name === 'FacturamaError') {
       return NextResponse.json(
-        { error: `Error al enviar email: ${error.message}` },
+        { error: `Error al obtener HTML: ${error.message}` },
         { status: 502 }
       );
     }
-    console.error('Error sending CFDI email:', error);
-    return NextResponse.json({ error: 'Error al enviar factura por email' }, { status: 500 });
+    console.error('Error fetching CFDI HTML:', error);
+    return NextResponse.json({ error: 'Error al obtener HTML' }, { status: 500 });
   }
 }

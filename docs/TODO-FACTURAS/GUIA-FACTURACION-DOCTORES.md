@@ -19,7 +19,7 @@ Para emitir un CFDI valido necesitas estos datos de tu paciente:
 | Regimen fiscal | 612 | Constancia de Situacion Fiscal del paciente |
 | Codigo postal fiscal | 06600 | Domicilio fiscal del paciente (NO el de consulta) |
 
-**Importante:** Los datos deben coincidir exactamente con los registrados ante el SAT. Si el nombre o RFC no coinciden, el timbrado sera rechazado.
+**Importante:** Los datos deben coincidir exactamente con los registrados ante el SAT. Si el nombre o RFC no coinciden, el timbrado sera rechazado. Los nombres deben estar en **MAYUSCULAS** tal como aparecen en la Cedula de Identificacion Fiscal (TuSalud los convierte automaticamente).
 
 ---
 
@@ -142,6 +142,8 @@ Si necesitas cancelar una factura, debes indicar un motivo al SAT:
 
 **Nota:** El motivo **01** requiere el UUID de la factura que sustituye a la cancelada.
 
+**Aceptacion del receptor:** Algunas cancelaciones requieren la aceptacion del receptor (paciente o empresa). En ese caso, el receptor tiene **72 horas** para aceptar o rechazar. Si no responde, la cancelacion se aprueba automaticamente. Puedes descargar el **acuse de cancelacion** (comprobante del SAT) en PDF desde TuSalud una vez procesada.
+
 ---
 
 ## 10. Retencion de ISR
@@ -207,7 +209,7 @@ No. Cada parte requiere su propia factura con su monto correspondiente.
 Emite la factura con metodo de pago PPD y forma de pago 99 (por definir). Cuando recibas el pago, emite un Recibo Electronico de Pago (REP).
 
 **¿Que pasa si me equivoco en una factura?**
-Puedes cancelarla desde TuSalud indicando el motivo. Si vas a emitir una factura corregida, usa el motivo 01 e indica el UUID de la nueva factura.
+Puedes cancelarla desde TuSalud indicando el motivo. Si vas a emitir una factura corregida, usa el motivo 01 e indica el UUID de la nueva factura. Algunas cancelaciones requieren aceptacion del receptor (72 horas). Una vez procesada, puedes descargar el acuse de cancelacion del SAT.
 
 **¿Cada cuando debo emitir mis facturas?**
 No hay plazo obligatorio, pero se recomienda emitirlas el mismo dia de la consulta o dentro de las 24 horas siguientes para mantener un control fiscal ordenado.

@@ -105,16 +105,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Auto-generate folio if not provided (mandatory for Multiemisor per Facturama docs)
+    let cfdifolio = folio;
+    if (!cfdifolio) {
+      const lastCfdi = await prisma.cfdiEmitted.findFirst({
+        where: { fiscalProfileId: profile.id },
+        orderBy: { id: 'desc' },
+        select: { folio: true },
+      });
+      const lastFolioNum = lastCfdi?.folio ? parseInt(lastCfdi.folio) || 0 : 0;
+      cfdifolio = String(lastFolioNum + 1);
+    }
+
     // Build Facturama payload
+    // Names must be UPPERCASE per SAT/Facturama (must match Cédula de Identificación Fiscal)
     const payload: CreateCfdiPayload = {
       Issuer: {
-        Rfc: profile.rfc,
-        Name: profile.razonSocial,
+        Rfc: profile.rfc.toUpperCase(),
+        Name: profile.razonSocial.toUpperCase(),
         FiscalRegime: profile.regimenFiscal,
       },
       Receiver: {
         Rfc: receiver.rfc.trim().toUpperCase(),
-        Name: receiver.name.trim(),
+        Name: receiver.name.trim().toUpperCase(),
         CfdiUse: receiver.cfdiUse,
         FiscalRegime: receiver.fiscalRegime,
         TaxZipCode: receiver.taxZipCode,
@@ -124,6 +137,7 @@ export async function POST(request: NextRequest) {
       PaymentMethod: paymentMethod || 'PUE',
       Exportation: '01', // No export (domestic)
       ExpeditionPlace: profile.codigoPostal,
+      Folio: cfdifolio,
       Items: items.map((item: any) => {
         const hasTaxes = item.taxes && item.taxes.length > 0;
         return {
@@ -140,7 +154,6 @@ export async function POST(request: NextRequest) {
       }),
     };
 
-    if (folio) payload.Folio = folio;
     if (serie) payload.Serie = serie;
 
     // Call Facturama API

@@ -219,25 +219,41 @@ export async function createCFDI(payload: CreateCfdiPayload): Promise<CfdiRespon
 
 /**
  * Get CFDI details by Facturama ID.
+ * Official endpoint: GET /api-lite/cfdis/{id}
  */
 export async function getCFDI(facturamaId: string): Promise<CfdiResponse> {
-  return request<CfdiResponse>('GET', `/api-lite/3/cfdis/${facturamaId}`);
+  return request<CfdiResponse>('GET', `/api-lite/cfdis/${facturamaId}`);
+}
+
+/**
+ * Get CFDI file as base64 string.
+ * Multiemisor uses type "issuedLite" (NOT "issued" which is for API Web).
+ * Supported formats: pdf, xml, html
+ */
+export async function getCFDIFile(facturamaId: string, format: 'pdf' | 'xml' | 'html'): Promise<string> {
+  const result = await request<{ Content: string }>('GET', `/cfdi/${format}/issuedLite/${facturamaId}`);
+  return result.Content;
 }
 
 /**
  * Get CFDI PDF as base64 string.
  */
 export async function getCFDIPdf(facturamaId: string): Promise<string> {
-  const result = await request<{ Content: string }>('GET', `/cfdi/pdf/issued/${facturamaId}`);
-  return result.Content;
+  return getCFDIFile(facturamaId, 'pdf');
 }
 
 /**
  * Get CFDI XML as base64 string.
  */
 export async function getCFDIXml(facturamaId: string): Promise<string> {
-  const result = await request<{ Content: string }>('GET', `/cfdi/xml/issued/${facturamaId}`);
-  return result.Content;
+  return getCFDIFile(facturamaId, 'xml');
+}
+
+/**
+ * Get CFDI HTML as base64 string (useful for in-browser preview).
+ */
+export async function getCFDIHtml(facturamaId: string): Promise<string> {
+  return getCFDIFile(facturamaId, 'html');
 }
 
 /**
@@ -245,43 +261,97 @@ export async function getCFDIXml(facturamaId: string): Promise<string> {
  * @param motive - SAT cancellation motive: "01", "02", "03", "04"
  * @param uuidReplacement - Required when motive is "01" (replacement UUID)
  */
+export interface CancelCfdiResponse {
+  Status: string;           // "canceled" | "active" | "pending"
+  Message: string;
+  IsCancelable?: string;    // "Cancelable sin aceptacion" | "Cancelable con aceptacion" | "No cancelable"
+  Uuid?: string;
+  RequestDate?: string;
+  ExpirationDate?: string;  // Deadline for receiver response (72h)
+  AcuseXmlBase64?: string;
+  CancelationDate?: string;
+  AcuseStatus?: number;     // 201-312 SAT status codes
+  AcuseStatusDetails?: string;
+}
+
 export async function cancelCFDI(
   facturamaId: string,
   rfc: string,
   motive: string,
   uuidReplacement?: string
-): Promise<{ Status: string; Message: string }> {
+): Promise<CancelCfdiResponse> {
   let path = `/api-lite/cfdis/${facturamaId}?rfc=${rfc}&motive=${motive}`;
   if (uuidReplacement) {
     path += `&uuidReplacement=${uuidReplacement}`;
   }
-  return request<{ Status: string; Message: string }>('DELETE', path);
+  return request<CancelCfdiResponse>('DELETE', path);
+}
+
+/**
+ * Download cancellation acknowledgment (acuse de cancelación) as base64.
+ * Official endpoint: GET /acuse/{format}/issuedLite/{id}
+ */
+export async function getCancellationAcuse(
+  facturamaId: string,
+  format: 'pdf' | 'html' = 'pdf'
+): Promise<string> {
+  const result = await request<{ Content: string }>('GET', `/acuse/${format}/issuedLite/${facturamaId}`);
+  return result.Content;
 }
 
 /**
  * Send CFDI by email to the receiver.
+ * Official endpoint: POST /cfdi?CfdiType=issuedLite&CfdiId={id}&Email={email}
+ * All parameters go in query string, NOT request body.
  */
 export async function sendCFDIByEmail(
   facturamaId: string,
-  email: string
-): Promise<void> {
-  await request<void>('POST', `/api-lite/cfdis/${facturamaId}/email`, {
+  email: string,
+  options?: { subject?: string; comments?: string; issuerEmail?: string }
+): Promise<{ success: boolean; msj: string }> {
+  const params = new URLSearchParams({
+    CfdiType: 'issuedLite',
+    CfdiId: facturamaId,
     Email: email,
   });
+  if (options?.subject) params.set('Subject', options.subject);
+  if (options?.comments) params.set('Comments', options.comments);
+  if (options?.issuerEmail) params.set('IssuerEmail', options.issuerEmail);
+
+  return request<{ success: boolean; msj: string }>('POST', `/cfdi?${params.toString()}`);
 }
 
 /**
- * List CFDIs for a specific RFC.
+ * List CFDIs for a specific RFC via the filtered search endpoint.
+ * Official endpoint: GET /cfdi?type=issuedLite with filter params.
+ * NOT /api-lite/3/cfdis (that's the creation endpoint).
+ * Pagination: 10 results per page, page starts at 0.
  */
 export async function listCFDIs(
   rfc: string,
-  options?: { status?: string; year?: number; month?: number }
+  options?: {
+    status?: 'all' | 'active' | 'pending' | 'canceled';
+    page?: number;
+    dateStart?: string;  // yyyy-mm-ddThh:mm:ss
+    dateEnd?: string;
+    folio?: string;
+    rfcReceiver?: string;
+    taxEntityName?: string;
+  }
 ): Promise<CfdiResponse[]> {
-  let path = `/api-lite/3/cfdis?rfc=${rfc}`;
-  if (options?.status) path += `&status=${options.status}`;
-  if (options?.year) path += `&year=${options.year}`;
-  if (options?.month) path += `&month=${options.month}`;
-  return request<CfdiResponse[]>('GET', path);
+  const params = new URLSearchParams({
+    type: 'issuedLite',
+    rfcIssuer: rfc,
+  });
+  if (options?.status) params.set('status', options.status);
+  if (options?.page !== undefined) params.set('page', String(options.page));
+  if (options?.dateStart) params.set('dateStart', options.dateStart);
+  if (options?.dateEnd) params.set('dateEnd', options.dateEnd);
+  if (options?.folio) params.set('folio', options.folio);
+  if (options?.rfcReceiver) params.set('rfc', options.rfcReceiver);
+  if (options?.taxEntityName) params.set('taxEntityName', options.taxEntityName);
+
+  return request<CfdiResponse[]>('GET', `/cfdi?${params.toString()}`);
 }
 
 // =============================================================================

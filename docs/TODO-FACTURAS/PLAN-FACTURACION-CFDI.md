@@ -1,7 +1,7 @@
 # Plan de Implementacion: Facturacion CFDI con Facturama Multiemisor
 
-**Fecha:** 2026-05-10
-**Status:** Backend implementado (schema + API client + routes) — pendiente: UI, credenciales Facturama, testing
+**Fecha:** 2026-05-12
+**Status:** Backend implementado y auditado contra docs oficiales Facturama — pendiente: UI, credenciales Facturama, testing
 
 ---
 
@@ -82,13 +82,13 @@ El doctor sube sus archivos CSD (emitidos por el SAT):
 - Password del `.key`
 
 ```
-POST /api-lite/csd
+POST /api-lite/csds
 {
   "Certificate": "<base64 del .cer>",
   "PrivateKey": "<base64 del .key>",
   "PrivateKeyPassword": "password123",
   "Rfc": "XAXX010101000",
-  "TaxName": "Dr. Juan Perez Lopez",
+  "TaxName": "DR JUAN PEREZ LOPEZ",
   "FiscalRegime": "612"  // Regimen fiscal SAT
 }
 ```
@@ -98,14 +98,15 @@ POST /api-lite/csd
 ```
 POST /api-lite/3/cfdis
 {
+  "Folio": "1",  // OBLIGATORIO en Multiemisor (auto-generado por nuestra app)
   "Issuer": {
     "Rfc": "XAXX010101000",
     "FiscalRegime": "612",
-    "Name": "Dr. Juan Perez Lopez"
+    "Name": "DR JUAN PEREZ LOPEZ"  // UPPERCASE obligatorio (debe coincidir con Cedula Fiscal)
   },
   "Receiver": {
     "Rfc": "XAXX010101001",
-    "Name": "Paciente Ejemplo",
+    "Name": "PACIENTE EJEMPLO",  // UPPERCASE obligatorio
     "CfdiUse": "D01",  // Honorarios medicos
     "FiscalRegime": "616",
     "TaxZipCode": "06600"
@@ -113,6 +114,7 @@ POST /api-lite/3/cfdis
   "CfdiType": "I",  // Ingreso
   "PaymentForm": "01",  // Efectivo
   "PaymentMethod": "PUE",  // Pago en una sola exhibicion
+  "Exportation": "01",  // Sin exportacion (domestico)
   "ExpeditionPlace": "06600",
   "Items": [
     {
@@ -122,6 +124,7 @@ POST /api-lite/3/cfdis
       "UnitCode": "E48",  // Servicio
       "UnitPrice": 1000.00,
       "Subtotal": 1000.00,
+      "TaxObject": "02",  // "01" sin impuestos, "02" con impuestos
       "Taxes": [
         {
           "Total": 160.00,
@@ -137,22 +140,35 @@ POST /api-lite/3/cfdis
 }
 ```
 
-### 3. Descargar PDF/XML del CFDI emitido
+### 3. Consultar, descargar y enviar CFDI emitido
 
 ```
-GET /api-lite/cfdis/{id}       -- Metadata
-GET /cfdi/pdf/issued/{id}       -- PDF
-GET /cfdi/xml/issued/{id}       -- XML
+GET /api-lite/cfdis/{id}                -- Metadata (detalle)
+GET /cfdi/pdf/issuedLite/{id}           -- PDF
+GET /cfdi/xml/issuedLite/{id}           -- XML
+GET /cfdi/html/issuedLite/{id}          -- HTML (preview en navegador)
+GET /cfdi?type=issuedLite&rfcIssuer=... -- Busqueda filtrada (paginada, 10/pagina)
+POST /cfdi?CfdiType=issuedLite&CfdiId={id}&Email={email}  -- Enviar por email
 ```
+
+**Importante:** Multiemisor usa type `issuedLite` (NO `issued` que es para API Web).
 
 ### 4. Cancelar CFDI
 
 ```
-DELETE /api-lite/cfdis/{id}?motive=02&uuidReplacement=...
+DELETE /api-lite/cfdis/{id}?rfc={rfc}&motive=02&uuidReplacement=...
+```
+
+Response incluye: `Status`, `IsCancelable`, `ExpirationDate`, `AcuseStatus` (codigos 201-312).
+Si `IsCancelable` = "Cancelable con aceptacion", el receptor tiene 72 horas para aceptar/rechazar.
+
+```
+GET /acuse/pdf/issuedLite/{id}          -- Acuse de cancelacion (PDF)
+GET /acuse/html/issuedLite/{id}         -- Acuse de cancelacion (HTML)
 ```
 
 Motivos de cancelacion SAT:
-- `01` - Comprobante emitido con errores con relacion
+- `01` - Comprobante emitido con errores con relacion (requiere `uuidReplacement`)
 - `02` - Comprobante emitido con errores sin relacion
 - `03` - No se llevo a cabo la operacion
 - `04` - Operacion nominativa relacionada en la factura global
@@ -255,31 +271,35 @@ model CfdiEmitted {
 #### Facturama API Client (`apps/api/src/lib/facturama.ts`)
 
 ```typescript
-// Facturama API Multiemisor client
 // Auth: Basic Auth (user:password encoded base64)
 // Sandbox: https://apisandbox.facturama.mx
 // Production: https://api.facturama.mx
 
-class FacturamaClient {
-  // CSD Management
-  uploadCSD(rfc, certificate, privateKey, password, taxName, fiscalRegime)
-  getCSDStatus(rfc)
-  deleteCSD(rfc)
+// CSD Management
+uploadCSD(payload)                    // POST /api-lite/csds
+getCSDStatus(rfc)                     // GET  /api-lite/csds/{rfc}
+deleteCSD(rfc)                        // DELETE /api-lite/csds/{rfc}
+listCSDs()                            // GET  /api-lite/csds
 
-  // CFDI Operations
-  createCFDI(cfdiPayload)
-  getCFDI(id)
-  getCFDIPdf(id)
-  getCFDIXml(id)
-  cancelCFDI(id, motive, uuidReplacement?)
-  listCFDIs(rfc, filters?)
+// CFDI Operations
+createCFDI(payload)                   // POST /api-lite/3/cfdis
+getCFDI(facturamaId)                  // GET  /api-lite/cfdis/{id}
+getCFDIFile(id, format)               // GET  /cfdi/{format}/issuedLite/{id}  (pdf|xml|html)
+getCFDIPdf(id)                        // wrapper → getCFDIFile(id, 'pdf')
+getCFDIXml(id)                        // wrapper → getCFDIFile(id, 'xml')
+getCFDIHtml(id)                       // wrapper → getCFDIFile(id, 'html')
+cancelCFDI(id, rfc, motive, uuid?)    // DELETE /api-lite/cfdis/{id}?rfc=&motive=
+getCancellationAcuse(id, format)      // GET  /acuse/{format}/issuedLite/{id}
+sendCFDIByEmail(id, email, opts?)     // POST /cfdi?CfdiType=issuedLite&CfdiId=&Email=
+listCFDIs(rfc, filters?)             // GET  /cfdi?type=issuedLite&rfcIssuer=
 
-  // Catalogs
-  getUsoCfdi()
-  getRegimenesFiscales()
-  getFormasPago()
-  getProductCodes(query)
-}
+// SAT Catalogs
+getCatalogUsoCfdi()                   // GET  /api-lite/catalogs/CfdiUses
+getCatalogRegimenesFiscales()         // GET  /api-lite/catalogs/FiscalRegimes
+getCatalogFormasPago()                // GET  /api-lite/catalogs/PaymentForms
+getCatalogMetodosPago()               // GET  /api-lite/catalogs/PaymentMethods
+searchProductCodes(query)             // GET  /api-lite/catalogs/ProductsOrServices?keyword=
+searchUnitCodes(query)                // GET  /api-lite/catalogs/Units?keyword=
 ```
 
 ### Fase 2: API Routes
@@ -295,8 +315,10 @@ class FacturamaClient {
 | `/api/facturacion/cfdi/[id]` | GET | Detalle de un CFDI |
 | `/api/facturacion/cfdi/[id]/pdf` | GET | Descargar PDF |
 | `/api/facturacion/cfdi/[id]/xml` | GET | Descargar XML |
+| `/api/facturacion/cfdi/[id]/html` | GET | Preview HTML en navegador |
 | `/api/facturacion/cfdi/[id]/cancel` | POST | Cancelar CFDI |
-| `/api/facturacion/cfdi/[id]/email` | POST | Enviar CFDI por email al receptor |
+| `/api/facturacion/cfdi/[id]/acuse` | GET | Descargar acuse de cancelacion (PDF/HTML via ?format=) |
+| `/api/facturacion/cfdi/[id]/email` | POST | Enviar CFDI por email al receptor (con subject, comments, issuerEmail opcionales) |
 | `/api/facturacion/catalogos/[tipo]` | GET | Catalogos SAT (uso_cfdi, regimenes, formas_pago, productos) |
 
 ### Fase 3: UI en Doctor App
@@ -317,7 +339,7 @@ Nueva pagina `/dashboard/facturacion`:
   - Conceptos: codigo producto SAT, descripcion, cantidad, precio unitario
   - Impuestos: IVA trasladado, retencion ISR (configurable)
   - Forma/metodo de pago
-- Acciones por CFDI: ver PDF, descargar XML, enviar por email, cancelar
+- Acciones por CFDI: ver PDF, preview HTML, descargar XML, enviar por email (con asunto/comentarios), cancelar, descargar acuse de cancelacion
 
 #### C. Integracion con Ledger
 
@@ -377,8 +399,10 @@ FACTURAMA_API_URL=https://apisandbox.facturama.mx  # cambiar a api.facturama.mx 
 | Ruta: CFDI Detail | `apps/api/src/app/api/facturacion/cfdi/[id]/route.ts` | Done - GET |
 | Ruta: CFDI PDF | `apps/api/src/app/api/facturacion/cfdi/[id]/pdf/route.ts` | Done - GET (binary download) |
 | Ruta: CFDI XML | `apps/api/src/app/api/facturacion/cfdi/[id]/xml/route.ts` | Done - GET (binary download) |
-| Ruta: CFDI Cancel | `apps/api/src/app/api/facturacion/cfdi/[id]/cancel/route.ts` | Done - POST |
-| Ruta: CFDI Email | `apps/api/src/app/api/facturacion/cfdi/[id]/email/route.ts` | Done - POST |
+| Ruta: CFDI HTML | `apps/api/src/app/api/facturacion/cfdi/[id]/html/route.ts` | Done - GET (preview HTML) |
+| Ruta: CFDI Cancel | `apps/api/src/app/api/facturacion/cfdi/[id]/cancel/route.ts` | Done - POST (con response enriquecida) |
+| Ruta: CFDI Acuse | `apps/api/src/app/api/facturacion/cfdi/[id]/acuse/route.ts` | Done - GET (acuse cancelacion PDF/HTML) |
+| Ruta: CFDI Email | `apps/api/src/app/api/facturacion/cfdi/[id]/email/route.ts` | Done - POST (con subject, comments, issuerEmail) |
 | Ruta: Catalogos SAT | `apps/api/src/app/api/facturacion/catalogos/[tipo]/route.ts` | Done - GET (con fallback offline) |
 
 ### Code Review #1 (2026-05-10)
@@ -398,6 +422,40 @@ Review sistematico con checklist completo (DB↔Schema↔Migration, API Routes, 
   - Paginacion sin guardrails — `limit=0` causaba `totalPages: Infinity`. Ahora `limit` clamped a 1–100, `page` min 1, NaN defaults (cfdi/route.ts)
   - Binary responses (PDF/XML) sin `status: 200` explicito — agregado (pdf/route.ts, xml/route.ts)
 - **1 Inconsistency aceptada** — `updated_at DEFAULT CURRENT_TIMESTAMP` en migracion es redundante (Prisma `@updatedAt` lo maneja), pero inofensivo y no se modifica para evitar conflictos con DBs ya desplegadas
+
+### Code Review #3 — Facturama API Audit (2026-05-12)
+
+Audit contra documentacion oficial de Facturama Multiemisor. Se encontraron **3 bugs criticos**, **3 issues de alta prioridad**, y **6 features faltantes**.
+
+**Bugs criticos corregidos:**
+
+1. **Download type `issued` → `issuedLite`** — PDF/XML usaban `/cfdi/{format}/issued/{id}` pero Multiemisor requiere `issuedLite`. Causaba 404 en toda descarga. (`facturama.ts`)
+2. **Email endpoint completamente incorrecto** — Usaba `POST /api-lite/cfdis/{id}/email` con body, pero el endpoint oficial es `POST /cfdi?CfdiType=issuedLite&CfdiId={id}&Email={email}` con params en query string. (`facturama.ts`)
+3. **Listing endpoint incorrecto** — Usaba `GET /api-lite/3/cfdis?rfc=` (endpoint de creacion) en vez de `GET /cfdi?type=issuedLite&rfcIssuer=`. Ahora soporta todos los filtros oficiales: status, dateStart/End, folio, rfcReceiver, taxEntityName. (`facturama.ts`)
+4. **CFDI detail endpoint** — Corregido de `/api-lite/3/cfdis/{id}` a `/api-lite/cfdis/{id}`. (`facturama.ts`)
+
+**Issues de alta prioridad corregidos:**
+
+5. **Folio obligatorio en Multiemisor** — Docs oficiales dicen que Folio es mandatorio (no se auto-genera). Ahora se auto-genera secuencial por doctor si no se proporciona. (`cfdi/route.ts`)
+6. **Nombres en UPPERCASE** — Tanto `Issuer.Name` como `Receiver.Name` deben ser mayusculas segun SAT/Facturama (deben coincidir con Cedula de Identificacion Fiscal). Ahora aplica `.toUpperCase()` a ambos. (`cfdi/route.ts`)
+
+**Features nuevos agregados:**
+
+7. **Descarga de acuse de cancelacion** — Nuevo endpoint `GET /api/facturacion/cfdi/:id/acuse?format=pdf|html` usando `GET /acuse/{format}/issuedLite/{id}`. (`cfdi/[id]/acuse/route.ts`)
+8. **Descarga HTML de CFDI** — Nuevo endpoint `GET /api/facturacion/cfdi/:id/html` para preview en navegador. (`cfdi/[id]/html/route.ts`)
+9. **Email con params opcionales** — Ahora soporta `subject`, `comments`, e `issuerEmail` ademas del email destino. (`email/route.ts`)
+10. **Cancel response mejorada** — Ahora procesa y retorna `IsCancelable`, `ExpirationDate`, `AcuseStatus`, `AcuseStatusDetails` del response de Facturama. Detecta correctamente status "pending" tanto de respuestas exitosas como de errores. (`cancel/route.ts`, `facturama.ts`)
+11. **Funcion generica `getCFDIFile()`** — Soporta pdf, xml, html con un solo metodo base. (`facturama.ts`)
+12. **Listing con filtros completos** — Ahora soporta `dateStart`, `dateEnd`, `folio`, `rfcReceiver`, `taxEntityName`, paginacion oficial (page 0-based, 10 items/page). (`facturama.ts`)
+
+### Code Review #4 — Post-fix verification (2026-05-12)
+
+Review sistematico de todos los archivos modificados y nuevos post-audit:
+- **22 checks Pass**
+- **1 Bug corregido** — Cancel route aceptaba silenciosamente status "active" + "No cancelable" de Facturama (CFDI con documentos relacionados). Ahora retorna 400 con error claro. (`cancel/route.ts`)
+- **2 Minor aceptados:**
+  - HTML route sin `Content-Disposition` header — intencional, para preview inline en navegador
+  - `rfcReceiver` param name vs Facturama `rfc` — intencional, nuestro naming es mas claro
 
 ### Pendiente
 
@@ -430,8 +488,21 @@ cd packages/database && npx prisma db execute --file prisma/migrations/add-factu
 
 ## Referencias
 
-- Facturama Multiemisor docs: https://facturama.elevio.help/es/articles/141
-- Facturama API Sandbox: https://apisandbox.facturama.mx
-- Catalogo SAT Regimenes Fiscales: http://omawww.sat.gob.mx/tramitesyservicios/Paginas/catalogos_702.htm
-- Catalogo SAT Uso CFDI: incluido en API Facturama `/catalogs/CfdiUses`
+### Facturama API Multiemisor (auditadas 2026-05-12)
+- Proceso general: https://facturama.elevio.help/es/articles/141
+- Carga de CSD: https://facturama.elevio.help/es/articles/100
+- Conversion CSD a base64: https://facturama.elevio.help/es/articles/126
+- Guia creacion CFDI 4.0: https://apisandbox.facturama.mx/guias/api-multi/cfdi/factura
+- Detalle de factura: https://facturama.elevio.help/es/articles/121
+- Descarga PDF/XML/HTML: https://facturama.elevio.help/es/articles/107
+- Busqueda filtrada: https://facturama.elevio.help/es/articles/119
+- Envio por email: https://facturama.elevio.help/es/articles/137
+- Cancelacion: https://facturama.elevio.help/es/articles/108
+- Acuse de cancelacion: https://facturama.elevio.help/es/articles/110
+- Coleccion Postman: https://facturama.elevio.help/es/articles/163
+- Sandbox: https://apisandbox.facturama.mx
+
+### SAT
+- Catalogo Regimenes Fiscales: http://omawww.sat.gob.mx/tramitesyservicios/Paginas/catalogos_702.htm
+- Catalogo Uso CFDI: incluido en API Facturama `/catalogs/CfdiUses`
 - CFDI 4.0 (version vigente): Anexo 20 del SAT

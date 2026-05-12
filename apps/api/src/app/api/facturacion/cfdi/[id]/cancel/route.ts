@@ -64,20 +64,37 @@ export async function POST(
     // Cancel in Facturama
     const result = await cancelCFDI(cfdi.facturamaId, profile.rfc, motive, uuidReplacement);
 
+    // Reject if Facturama says it's not cancelable (e.g., has linked documents)
+    if (result.Status === 'active' && result.IsCancelable?.toLowerCase().includes('no cancelable')) {
+      return NextResponse.json(
+        { error: 'Este CFDI no puede ser cancelado (tiene documentos relacionados activos)', details: result },
+        { status: 400 }
+      );
+    }
+
+    // Determine local status based on Facturama response
+    const isPending = result.Status === 'pending' ||
+      result.IsCancelable?.toLowerCase().includes('con aceptacion');
+    const newStatus = isPending ? 'cancellation_pending' : 'cancelled';
+
     // Update status in our DB
     await prisma.cfdiEmitted.update({
       where: { id: cfdi.id },
       data: {
-        status: 'cancelled',
-        cancelledAt: new Date(),
+        status: newStatus,
+        cancelledAt: isPending ? null : new Date(),
         cancelMotivo: motive,
       },
     });
 
     return NextResponse.json({
       data: {
-        status: 'cancelled',
+        status: newStatus,
         motive,
+        isCancelable: result.IsCancelable,
+        expirationDate: result.ExpirationDate,
+        acuseStatus: result.AcuseStatus,
+        acuseStatusDetails: result.AcuseStatusDetails,
         facturamaResponse: result,
       }
     });
