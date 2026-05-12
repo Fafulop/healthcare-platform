@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Edit2, Trash2, Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, Edit2, Trash2, Loader2, TrendingUp, TrendingDown, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useLedgerDetail } from "../_components/useLedgerDetail";
 import { LedgerAttachmentsSection } from "../_components/LedgerAttachmentsSection";
@@ -68,6 +68,15 @@ export default function FlujoDeDineroDetailPage() {
               </p>
             </div>
             <div className="flex gap-2">
+              {entry.entryType === "ingreso" && (
+                <Link
+                  href={`/dashboard/facturacion?from=ledger&ledgerId=${entry.id}&amount=${entry.amount}&concept=${encodeURIComponent(entry.concept)}&clientName=${encodeURIComponent(entry.client?.businessName || "")}&formaDePago=${encodeURIComponent(entry.formaDePago)}`}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                  <Receipt className="w-4 h-4" />
+                  Facturar
+                </Link>
+              )}
               <Link
                 href={`/dashboard/practice/flujo-de-dinero/${entry.id}/edit`}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"

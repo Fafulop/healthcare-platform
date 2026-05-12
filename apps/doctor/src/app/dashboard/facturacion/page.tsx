@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { redirect, useSearchParams } from "next/navigation";
 import {
   Receipt,
   Settings,
@@ -20,6 +20,11 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
+  Eye,
+  Ban,
+  CreditCard,
+  MinusCircle,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -87,10 +92,21 @@ export default function FacturacionPage() {
     },
   });
 
-  const [activeTab, setActiveTab] = useState<"facturas" | "config" | "nueva" | "guia">("config");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"facturas" | "config" | "nueva" | "rep" | "egreso" | "guia">("config");
   const [profile, setProfile] = useState<FiscalProfile | null>(null);
   const [csdStatus, setCsdStatus] = useState<CSDStatus | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Pre-fill data from ledger integration (query params)
+  const fromLedger = searchParams.get("from") === "ledger";
+  const ledgerData = useMemo(() => fromLedger ? {
+    ledgerEntryId: parseInt(searchParams.get("ledgerId") || "0") || undefined,
+    concept: searchParams.get("concept") || "",
+    amount: parseFloat(searchParams.get("amount") || "0") || 0,
+    clientName: searchParams.get("clientName") || "",
+    formaDePago: searchParams.get("formaDePago") || "",
+  } : null, [fromLedger, searchParams]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -122,12 +138,12 @@ export default function FacturacionPage() {
     }
   }, [sessionStatus, fetchProfile, fetchCSDStatus]);
 
-  // Once profile is set and CSD is active, default to "facturas" tab
+  // Once profile is set and CSD is active, default to appropriate tab
   useEffect(() => {
     if (profile && csdStatus?.csdUploaded && csdStatus.facturamaStatus === "active") {
-      setActiveTab("facturas");
+      setActiveTab(ledgerData ? "nueva" : "facturas");
     }
-  }, [profile, csdStatus]);
+  }, [profile, csdStatus, ledgerData]);
 
   if (loading) {
     return (
@@ -175,6 +191,18 @@ export default function FacturacionPage() {
                 icon={Plus}
                 label="Nueva Factura"
               />
+              <TabButton
+                active={activeTab === "rep"}
+                onClick={() => setActiveTab("rep")}
+                icon={CreditCard}
+                label="REP (Pago)"
+              />
+              <TabButton
+                active={activeTab === "egreso"}
+                onClick={() => setActiveTab("egreso")}
+                icon={MinusCircle}
+                label="Nota de Crédito"
+              />
             </>
           )}
           <TabButton
@@ -197,7 +225,13 @@ export default function FacturacionPage() {
       )}
       {activeTab === "facturas" && <FacturasListTab />}
       {activeTab === "nueva" && profile && (
-        <NuevaFacturaTab profile={profile} onCreated={() => setActiveTab("facturas")} />
+        <NuevaFacturaTab profile={profile} onCreated={() => setActiveTab("facturas")} ledgerData={ledgerData} />
+      )}
+      {activeTab === "rep" && profile && (
+        <REPTab onCreated={() => setActiveTab("facturas")} />
+      )}
+      {activeTab === "egreso" && profile && (
+        <EgresoTab onCreated={() => setActiveTab("facturas")} />
       )}
       {activeTab === "guia" && <GuiaTab />}
     </div>
@@ -608,34 +642,41 @@ function FacturasListTab() {
   const [facturas, setFacturas] = useState<CfdiEmitted[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [statusFilter, setStatusFilter] = useState("");
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const fetchFacturas = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await authFetch(`${API_URL}/api/facturacion/cfdi`);
+      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      if (statusFilter) params.set("status", statusFilter);
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi?${params}`);
       if (!res.ok) throw new Error("Error al obtener facturas");
-      const { data } = await res.json();
-      setFacturas(data || []);
+      const json = await res.json();
+      setFacturas(json.data || []);
+      if (json.pagination) setPagination(json.pagination);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, statusFilter]);
 
   useEffect(() => {
     fetchFacturas();
   }, [fetchFacturas]);
 
-  const handleDownloadPdf = async (id: number) => {
+  const handleDownloadFile = async (id: number, format: "pdf" | "xml") => {
     try {
-      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${id}/pdf`);
-      if (!res.ok) throw new Error("Error al descargar PDF");
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${id}/${format}`);
+      if (!res.ok) throw new Error(`Error al descargar ${format.toUpperCase()}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `factura_${id}.pdf`;
+      a.download = `factura_${id}.${format}`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {
@@ -643,17 +684,13 @@ function FacturasListTab() {
     }
   };
 
-  const handleDownloadXml = async (id: number) => {
+  const handlePreviewHtml = async (id: number) => {
     try {
-      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${id}/xml`);
-      if (!res.ok) throw new Error("Error al descargar XML");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `factura_${id}.xml`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${id}/html`);
+      if (!res.ok) throw new Error("Error al obtener preview");
+      const html = await res.text();
+      const w = window.open("", "_blank");
+      if (w) { w.document.write(html); w.document.close(); }
     } catch (err: any) {
       alert(err.message);
     }
@@ -662,7 +699,6 @@ function FacturasListTab() {
   const handleSendEmail = async (id: number) => {
     const email = prompt("Email del destinatario:");
     if (!email) return;
-
     try {
       const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${id}/email`, {
         method: "POST",
@@ -678,6 +714,60 @@ function FacturasListTab() {
     }
   };
 
+  const handleCancel = async (id: number) => {
+    const motive = prompt(
+      "Motivo de cancelación:\n01 - Errores con relación (sustituir)\n02 - Errores sin relación\n03 - No se llevó a cabo\n04 - Factura global\n\nIngresa el código (01-04):"
+    );
+    if (!motive || !["01", "02", "03", "04"].includes(motive)) return;
+
+    let uuidReplacement: string | undefined;
+    if (motive === "01") {
+      uuidReplacement = prompt("UUID de la factura que sustituye:") || undefined;
+      if (!uuidReplacement) return;
+    }
+
+    if (!confirm("¿Estás seguro de cancelar esta factura? Esta acción se reporta al SAT.")) return;
+
+    try {
+      setCancellingId(id);
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ motive, uuidReplacement }),
+      });
+      if (!res.ok) {
+        const { error: msg } = await res.json();
+        throw new Error(msg || "Error al cancelar");
+      }
+      const { data } = await res.json();
+      alert(data.status === "cancellation_pending"
+        ? "Cancelación enviada. El receptor tiene 72 horas para aceptar."
+        : "Factura cancelada exitosamente.");
+      fetchFacturas();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const handleDownloadAcuse = async (id: number) => {
+    try {
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${id}/acuse?format=pdf`);
+      if (!res.ok) throw new Error("Error al descargar acuse");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `acuse_${id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const cfdiTypeLabels: Record<string, string> = { I: "Ingreso", E: "Egreso", P: "Pago" };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -686,66 +776,139 @@ function FacturasListTab() {
     );
   }
 
-  if (facturas.length === 0) {
-    return (
-      <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-        <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-500">No has emitido facturas aún</p>
-        <p className="text-sm text-gray-400 mt-1">Usa la pestaña "Nueva Factura" para crear tu primera</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Fecha</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Receptor</th>
-              <th className="text-right px-4 py-3 font-medium text-gray-600">Total</th>
-              <th className="text-center px-4 py-3 font-medium text-gray-600">Status</th>
-              <th className="text-center px-4 py-3 font-medium text-gray-600">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {facturas.map(f => (
-              <tr key={f.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-gray-700">
-                  {new Date(f.issuedAt).toLocaleDateString("es-MX")}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="text-gray-900">{f.nombreReceptor}</div>
-                  <div className="text-xs text-gray-400">{f.rfcReceptor}</div>
-                </td>
-                <td className="px-4 py-3 text-right font-medium text-gray-900">
-                  ${parseFloat(f.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <StatusBadge status={f.status} />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-center gap-1">
-                    <button onClick={() => handleDownloadPdf(f.id)} title="Descargar PDF"
-                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded">
-                      <Download className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleDownloadXml(f.id)} title="Descargar XML"
-                      className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded">
-                      <FileText className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleSendEmail(f.id)} title="Enviar por email"
-                      className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded">
-                      <Mail className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex items-center gap-3">
+        <select
+          value={statusFilter}
+          onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Todos los status</option>
+          <option value="active">Vigentes</option>
+          <option value="cancelled">Canceladas</option>
+          <option value="cancellation_pending">Cancelación pendiente</option>
+        </select>
+        <button onClick={fetchFacturas} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded" title="Actualizar">
+          <RefreshCw className="w-4 h-4" />
+        </button>
+        <span className="text-sm text-gray-400 ml-auto">{pagination.total} factura{pagination.total !== 1 ? "s" : ""}</span>
       </div>
+
+      {facturas.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+          <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500">
+            {statusFilter ? "No hay facturas con ese status" : "No has emitido facturas aún"}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Fecha</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Tipo</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Receptor</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-600">Total</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {facturas.map(f => (
+                  <tr key={f.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                      {new Date(f.issuedAt).toLocaleDateString("es-MX")}
+                      {f.folio && <div className="text-xs text-gray-400">Folio: {f.folio}</div>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        f.cfdiType === "I" ? "bg-blue-50 text-blue-700" :
+                        f.cfdiType === "E" ? "bg-orange-50 text-orange-700" :
+                        "bg-purple-50 text-purple-700"
+                      }`}>
+                        {cfdiTypeLabels[f.cfdiType] || f.cfdiType}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-gray-900">{f.nombreReceptor}</div>
+                      <div className="text-xs text-gray-400">{f.rfcReceptor}</div>
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-900 whitespace-nowrap">
+                      ${parseFloat(f.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <StatusBadge status={f.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => handlePreviewHtml(f.id)} title="Vista previa"
+                          className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDownloadFile(f.id, "pdf")} title="Descargar PDF"
+                          className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded">
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDownloadFile(f.id, "xml")} title="Descargar XML"
+                          className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded">
+                          <FileText className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleSendEmail(f.id)} title="Enviar por email"
+                          className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded">
+                          <Mail className="w-4 h-4" />
+                        </button>
+                        {f.status === "active" && (
+                          <button
+                            onClick={() => handleCancel(f.id)}
+                            disabled={cancellingId === f.id}
+                            title="Cancelar factura"
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                          >
+                            {cancellingId === f.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                          </button>
+                        )}
+                        {(f.status === "cancelled" || f.status === "cancellation_pending") && (
+                          <button onClick={() => handleDownloadAcuse(f.id)} title="Descargar acuse de cancelación"
+                            className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded">
+                            <FileText className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm text-gray-600">
+            Página {page} de {pagination.totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+            disabled={page === pagination.totalPages}
+            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -773,29 +936,49 @@ function StatusBadge({ status }: { status: string }) {
 // NUEVA FACTURA TAB
 // ---------------------------------------------------------------------------
 
+interface LedgerPrefill {
+  ledgerEntryId?: number;
+  concept: string;
+  amount: number;
+  clientName: string;
+  formaDePago: string;
+}
+
+// Map ledger formaDePago values to SAT payment form codes
+const LEDGER_TO_SAT_FORMA: Record<string, string> = {
+  efectivo: "01",
+  cheque: "02",
+  transferencia: "03",
+  tarjeta: "04",
+  deposito: "03",
+};
+
 function NuevaFacturaTab({
-  profile, onCreated
+  profile, onCreated, ledgerData
 }: {
   profile: FiscalProfile;
   onCreated: () => void;
+  ledgerData?: LedgerPrefill | null;
 }) {
   const [receiver, setReceiver] = useState({
     rfc: "",
-    name: "",
+    name: ledgerData?.clientName || "",
     cfdiUse: "D01",
     fiscalRegime: "",
     taxZipCode: "",
   });
   const [items, setItems] = useState([{
-    description: "",
+    description: ledgerData?.concept || "",
     quantity: 1,
-    unitPrice: 0,
+    unitPrice: ledgerData?.amount || 0,
     productCode: "85121800",
     unitCode: "E48",
     withIva: false,
     withIsrRetention: false,
   }]);
-  const [paymentForm, setPaymentForm] = useState("03"); // Transferencia
+  const [paymentForm, setPaymentForm] = useState(
+    (ledgerData?.formaDePago && LEDGER_TO_SAT_FORMA[ledgerData.formaDePago]) || "03"
+  ); // Transferencia default
   const [paymentMethod, setPaymentMethod] = useState("PUE");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -900,13 +1083,16 @@ function NuevaFacturaTab({
         };
       });
 
-      const payload = {
+      const payload: any = {
         receiver,
         items: cfdiItems,
         cfdiType: "I",
         paymentForm,
         paymentMethod,
       };
+      if (ledgerData?.ledgerEntryId) {
+        payload.ledgerEntryId = ledgerData.ledgerEntryId;
+      }
 
       const res = await authFetch(`${API_URL}/api/facturacion/cfdi`, {
         method: "POST",
@@ -1180,6 +1366,732 @@ function NuevaFacturaTab({
       <p className="text-xs text-gray-400 text-center">
         Al emitir, se timbra el CFDI ante el SAT. Esta acción no se puede deshacer (solo cancelar).
       </p>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// REP TAB (Recibo Electrónico de Pago)
+// ---------------------------------------------------------------------------
+
+function REPTab({
+  onCreated
+}: {
+  onCreated: () => void;
+}) {
+  const [ppdInvoices, setPpdInvoices] = useState<CfdiEmitted[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(true);
+  const [selectedInvoice, setSelectedInvoice] = useState<CfdiEmitted | null>(null);
+
+  const [receiver, setReceiver] = useState({
+    rfc: "",
+    name: "",
+    fiscalRegime: "",
+    taxZipCode: "",
+  });
+
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [paymentForm, setPaymentForm] = useState("03");
+  const [amount, setAmount] = useState(0);
+  const [partialityNumber, setPartialityNumber] = useState(1);
+  const [previousBalance, setPreviousBalance] = useState(0);
+
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [formasPago, setFormasPago] = useState<CatalogItem[]>([]);
+  const [regimenes, setRegimenes] = useState<CatalogItem[]>([]);
+
+  useEffect(() => {
+    // Fetch PPD invoices and catalogs in parallel
+    Promise.all([
+      authFetch(`${API_URL}/api/facturacion/cfdi?status=active&limit=100`).then(r => r.json()),
+      authFetch(`${API_URL}/api/facturacion/catalogos/formas-pago`).then(r => r.json()),
+      authFetch(`${API_URL}/api/facturacion/catalogos/regimenes-fiscales`).then(r => r.json()),
+    ]).then(([invoices, formas, regs]) => {
+      const ppd = (invoices.data || []).filter((f: CfdiEmitted) => f.cfdiType === "I" && f.metodoPago === "PPD");
+      setPpdInvoices(ppd);
+      setFormasPago(formas.data || []);
+      setRegimenes(regs.data || []);
+    }).catch(() => {}).finally(() => setLoadingInvoices(false));
+  }, []);
+
+  const handleSelectInvoice = (uuid: string) => {
+    const inv = ppdInvoices.find(f => f.uuid === uuid);
+    if (inv) {
+      setSelectedInvoice(inv);
+      setReceiver({
+        rfc: inv.rfcReceptor,
+        name: inv.nombreReceptor,
+        fiscalRegime: "",
+        taxZipCode: "",
+      });
+      const total = parseFloat(inv.total);
+      setPreviousBalance(total);
+      setAmount(total);
+    }
+  };
+
+  const remainingBalance = Math.max(0, previousBalance - amount);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInvoice) return;
+    setCreating(true);
+    setError(null);
+
+    try {
+      const payload = {
+        receiver,
+        payment: {
+          date: paymentDate,
+          paymentForm,
+          amount,
+          currency: "MXN",
+          relatedDocuments: [{
+            uuid: selectedInvoice.uuid,
+            folio: selectedInvoice.folio || undefined,
+            partialityNumber,
+            previousBalanceAmount: previousBalance,
+            amountPaid: amount,
+            impSaldoInsoluto: remainingBalance,
+          }],
+        },
+      };
+
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/rep`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const { error: msg } = await res.json();
+        throw new Error(msg || "Error al emitir REP");
+      }
+
+      const { data } = await res.json();
+      alert(`REP emitido exitosamente!\nUUID: ${data.uuid}`);
+      onCreated();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (loadingInvoices) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (ppdInvoices.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+        <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500">No tienes facturas con método PPD (pago diferido)</p>
+        <p className="text-sm text-gray-400 mt-1">
+          Primero emite una factura con método de pago PPD para poder crear un REP.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Select invoice */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Factura Original (PPD)</h3>
+        <p className="text-sm text-gray-500 mb-3">
+          Selecciona la factura PPD a la que corresponde este pago.
+        </p>
+        <select
+          value={selectedInvoice?.uuid || ""}
+          onChange={e => handleSelectInvoice(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          required
+        >
+          <option value="">Seleccionar factura...</option>
+          {ppdInvoices.map(f => (
+            <option key={f.uuid} value={f.uuid}>
+              {f.folio ? `Folio ${f.folio} — ` : ""}{f.nombreReceptor} ({f.rfcReceptor}) — ${parseFloat(f.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })} — {new Date(f.issuedAt).toLocaleDateString("es-MX")}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selectedInvoice && (
+        <>
+          {/* Receiver */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Datos del Receptor</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">RFC</label>
+                <input
+                  type="text"
+                  value={receiver.rfc}
+                  onChange={e => setReceiver({ ...receiver, rfc: e.target.value.toUpperCase() })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm uppercase focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre / Razón Social</label>
+                <input
+                  type="text"
+                  value={receiver.name}
+                  onChange={e => setReceiver({ ...receiver, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Régimen Fiscal</label>
+                <select
+                  value={receiver.fiscalRegime}
+                  onChange={e => setReceiver({ ...receiver, fiscalRegime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Seleccionar...</option>
+                  {regimenes.map(r => (
+                    <option key={r.Value} value={r.Value}>{r.Value} - {r.Name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Código Postal Fiscal</label>
+                <input
+                  type="text"
+                  value={receiver.taxZipCode}
+                  onChange={e => setReceiver({ ...receiver, taxZipCode: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+                  placeholder="06600"
+                  maxLength={5}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Payment details */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Datos del Pago</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Pago</label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={e => setPaymentDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pago</label>
+                <select
+                  value={paymentForm}
+                  onChange={e => setPaymentForm(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  {formasPago.map(f => (
+                    <option key={f.Value} value={f.Value}>{f.Value} - {f.Name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monto Pagado</label>
+                <input
+                  type="number"
+                  value={amount || ""}
+                  onChange={e => setAmount(parseFloat(e.target.value) || 0)}
+                  min={0.01}
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Número de Parcialidad</label>
+                <input
+                  type="number"
+                  value={partialityNumber}
+                  onChange={e => setPartialityNumber(parseInt(e.target.value) || 1)}
+                  min={1}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Balance summary */}
+            <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-100">
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Saldo Anterior</label>
+                  <input
+                    type="number"
+                    value={previousBalance || ""}
+                    onChange={e => setPreviousBalance(parseFloat(e.target.value) || 0)}
+                    min={0}
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Monto Pagado</label>
+                  <div className="px-3 py-2 bg-white border border-gray-200 rounded-md text-sm font-medium">
+                    ${amount.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Saldo Pendiente</label>
+                  <div className={`px-3 py-2 bg-white border border-gray-200 rounded-md text-sm font-medium ${remainingBalance === 0 ? "text-green-600" : "text-amber-600"}`}>
+                    ${remainingBalance.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-4 rounded-md border border-red-200">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={creating || amount <= 0}
+            className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
+            Emitir REP (Recibo de Pago)
+          </button>
+
+          <p className="text-xs text-gray-400 text-center">
+            Se timbra un CFDI tipo Pago ante el SAT vinculado a la factura original.
+          </p>
+        </>
+      )}
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EGRESO TAB (Nota de Crédito)
+// ---------------------------------------------------------------------------
+
+function EgresoTab({
+  onCreated
+}: {
+  onCreated: () => void;
+}) {
+  const [activeInvoices, setActiveInvoices] = useState<CfdiEmitted[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(true);
+  const [selectedInvoice, setSelectedInvoice] = useState<CfdiEmitted | null>(null);
+
+  const [receiver, setReceiver] = useState({
+    rfc: "",
+    name: "",
+    fiscalRegime: "",
+    taxZipCode: "",
+  });
+
+  const [items, setItems] = useState([{
+    description: "",
+    quantity: 1,
+    unitPrice: 0,
+    productCode: "85121800",
+    unitCode: "E48",
+    withIva: false,
+  }]);
+
+  const [paymentForm, setPaymentForm] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [formasPago, setFormasPago] = useState<CatalogItem[]>([]);
+  const [regimenes, setRegimenes] = useState<CatalogItem[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      authFetch(`${API_URL}/api/facturacion/cfdi?status=active&limit=100`).then(r => r.json()),
+      authFetch(`${API_URL}/api/facturacion/catalogos/formas-pago`).then(r => r.json()),
+      authFetch(`${API_URL}/api/facturacion/catalogos/regimenes-fiscales`).then(r => r.json()),
+    ]).then(([invoices, formas, regs]) => {
+      const ingreso = (invoices.data || []).filter((f: CfdiEmitted) => f.cfdiType === "I");
+      setActiveInvoices(ingreso);
+      setFormasPago(formas.data || []);
+      setRegimenes(regs.data || []);
+    }).catch(() => {}).finally(() => setLoadingInvoices(false));
+  }, []);
+
+  const handleSelectInvoice = (uuid: string) => {
+    const inv = activeInvoices.find(f => f.uuid === uuid);
+    if (inv) {
+      setSelectedInvoice(inv);
+      setReceiver({
+        rfc: inv.rfcReceptor,
+        name: inv.nombreReceptor,
+        fiscalRegime: "",
+        taxZipCode: "",
+      });
+      setPaymentForm(inv.formaPago || "99");
+      // Pre-fill item with original total for full credit note
+      setItems([{
+        description: "Nota de crédito",
+        quantity: 1,
+        unitPrice: parseFloat(inv.total),
+        productCode: "85121800",
+        unitCode: "E48",
+        withIva: false,
+      }]);
+    }
+  };
+
+  const updateItem = (idx: number, field: string, value: any) => {
+    setItems(items.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+  };
+
+  const addItem = () => {
+    setItems([...items, {
+      description: "",
+      quantity: 1,
+      unitPrice: 0,
+      productCode: "85121800",
+      unitCode: "E48",
+      withIva: false,
+    }]);
+  };
+
+  const removeItem = (idx: number) => {
+    if (items.length === 1) return;
+    setItems(items.filter((_, i) => i !== idx));
+  };
+
+  const calculateTotal = () => {
+    let subtotal = 0;
+    let iva = 0;
+    for (const item of items) {
+      const s = item.quantity * item.unitPrice;
+      subtotal += s;
+      if (item.withIva) iva += s * 0.16;
+    }
+    return { subtotal, iva, total: subtotal + iva };
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInvoice) return;
+    setCreating(true);
+    setError(null);
+
+    try {
+      const cfdiItems = items.map(item => {
+        const itemSubtotal = item.quantity * item.unitPrice;
+        const taxes: any[] = [];
+        if (item.withIva) {
+          taxes.push({
+            Total: Math.round(itemSubtotal * 0.16 * 100) / 100,
+            Name: "IVA",
+            Base: itemSubtotal,
+            Rate: 0.16,
+            IsRetention: false,
+          });
+        }
+        const total = itemSubtotal + (item.withIva ? itemSubtotal * 0.16 : 0);
+        return {
+          productCode: item.productCode,
+          description: item.description,
+          quantity: item.quantity,
+          unitCode: item.unitCode,
+          unitPrice: item.unitPrice,
+          subtotal: itemSubtotal,
+          taxes,
+          total: Math.round(total * 100) / 100,
+        };
+      });
+
+      const payload = {
+        receiver,
+        items: cfdiItems,
+        originalUuid: selectedInvoice.uuid,
+        paymentForm: paymentForm || undefined,
+      };
+
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/egreso`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const { error: msg } = await res.json();
+        throw new Error(msg || "Error al emitir nota de crédito");
+      }
+
+      const { data } = await res.json();
+      alert(`Nota de crédito emitida exitosamente!\nUUID: ${data.uuid}`);
+      onCreated();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const totals = calculateTotal();
+
+  if (loadingInvoices) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (activeInvoices.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+        <MinusCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500">No tienes facturas de ingreso activas</p>
+        <p className="text-sm text-gray-400 mt-1">
+          Primero emite una factura de ingreso para poder crear una nota de crédito.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Select original invoice */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Factura Original</h3>
+        <p className="text-sm text-gray-500 mb-3">
+          Selecciona la factura a la que aplicarás la nota de crédito (devolución, descuento o bonificación).
+        </p>
+        <select
+          value={selectedInvoice?.uuid || ""}
+          onChange={e => handleSelectInvoice(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          required
+        >
+          <option value="">Seleccionar factura...</option>
+          {activeInvoices.map(f => (
+            <option key={f.uuid} value={f.uuid}>
+              {f.folio ? `Folio ${f.folio} — ` : ""}{f.nombreReceptor} ({f.rfcReceptor}) — ${parseFloat(f.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })} — {new Date(f.issuedAt).toLocaleDateString("es-MX")}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selectedInvoice && (
+        <>
+          {/* Receiver */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Datos del Receptor</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">RFC</label>
+                <input
+                  type="text"
+                  value={receiver.rfc}
+                  onChange={e => setReceiver({ ...receiver, rfc: e.target.value.toUpperCase() })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm uppercase focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre / Razón Social</label>
+                <input
+                  type="text"
+                  value={receiver.name}
+                  onChange={e => setReceiver({ ...receiver, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Régimen Fiscal</label>
+                <select
+                  value={receiver.fiscalRegime}
+                  onChange={e => setReceiver({ ...receiver, fiscalRegime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Seleccionar...</option>
+                  {regimenes.map(r => (
+                    <option key={r.Value} value={r.Value}>{r.Value} - {r.Name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Código Postal Fiscal</label>
+                <input
+                  type="text"
+                  value={receiver.taxZipCode}
+                  onChange={e => setReceiver({ ...receiver, taxZipCode: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+                  placeholder="06600"
+                  maxLength={5}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-3">
+              Uso del CFDI: G02 (Devoluciones, descuentos o bonificaciones) — se asigna automáticamente.
+            </p>
+          </div>
+
+          {/* Items */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Conceptos a Acreditar</h3>
+              <button
+                type="button"
+                onClick={addItem}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+              >
+                <Plus className="w-4 h-4" /> Agregar concepto
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-3">
+              Total de la factura original: ${parseFloat(selectedInvoice.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </p>
+
+            <div className="space-y-4">
+              {items.map((item, idx) => (
+                <div key={idx} className="p-4 bg-gray-50 rounded-md border border-gray-100">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <div className="md:col-span-5">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+                      <input
+                        type="text"
+                        value={item.description}
+                        onChange={e => updateItem(idx, "description", e.target.value)}
+                        placeholder="Nota de crédito por devolución"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
+                      <input
+                        type="number"
+                        value={item.quantity}
+                        onChange={e => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
+                        min={1}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                    <div className="md:col-span-3">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Precio Unitario</label>
+                      <input
+                        type="number"
+                        value={item.unitPrice || ""}
+                        onChange={e => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
+                        min={0}
+                        step="0.01"
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                    <div className="md:col-span-2 flex items-end">
+                      {items.length > 1 && (
+                        <button type="button" onClick={() => removeItem(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded">
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-4 mt-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={item.withIva}
+                        onChange={e => updateItem(idx, "withIva", e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      IVA 16%
+                    </label>
+                  </div>
+                  <div className="text-right text-sm text-gray-500 mt-2">
+                    Subtotal: ${(item.quantity * item.unitPrice).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Payment form */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Forma de Pago</h3>
+            <select
+              value={paymentForm}
+              onChange={e => setPaymentForm(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {formasPago.map(f => (
+                <option key={f.Value} value={f.Value}>{f.Value} - {f.Name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-2">Se hereda de la factura original. Puedes cambiarla si es necesario.</p>
+          </div>
+
+          {/* Totals */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex flex-col items-end gap-1 text-sm">
+              <div className="flex gap-8">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-medium">${totals.subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+              </div>
+              {totals.iva > 0 && (
+                <div className="flex gap-8">
+                  <span className="text-gray-600">IVA 16%:</span>
+                  <span className="font-medium">${totals.iva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+              <div className="flex gap-8 pt-2 border-t border-gray-200 mt-1">
+                <span className="text-gray-900 font-semibold">Total Nota de Crédito:</span>
+                <span className="text-lg font-bold text-orange-600">${totals.total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-4 rounded-md border border-red-200">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={creating || items.every(i => !i.description || i.unitPrice <= 0)}
+            className="w-full py-3 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <MinusCircle className="w-5 h-5" />}
+            Emitir Nota de Crédito (CFDI Egreso)
+          </button>
+
+          <p className="text-xs text-gray-400 text-center">
+            Se timbra un CFDI tipo Egreso vinculado a la factura original. Esta acción no se puede deshacer.
+          </p>
+        </>
+      )}
     </form>
   );
 }
