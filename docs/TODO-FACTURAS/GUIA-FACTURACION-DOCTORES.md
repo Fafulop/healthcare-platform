@@ -233,6 +233,17 @@ Los certificados CSD tienen vigencia de **4 anos**. Cuando tu CSD este proximo a
 
 ---
 
+## 13. Validaciones automaticas
+
+TuSalud valida automaticamente los datos fiscales de tus pacientes antes de emitir una factura:
+
+- **Validacion de RFC** — Verifica que el RFC, nombre, codigo postal y regimen fiscal del paciente coincidan con los registrados ante el SAT. Si algun dato no coincide, te avisamos antes de emitir para evitar rechazos del timbrado.
+- **Consulta de status de CFDI** — Puedes verificar si una factura emitida sigue vigente o fue cancelada ante el SAT, y si es cancelable (con o sin aceptacion del receptor).
+
+> **Nota:** Cada validacion consume un folio de la cuenta de facturacion. Se usan solo cuando es necesario (al crear una factura o verificar un status).
+
+---
+
 ## Preguntas frecuentes
 
 **¿Que datos necesito de mi paciente para facturar?**

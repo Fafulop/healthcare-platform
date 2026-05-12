@@ -312,6 +312,10 @@ getCatalogFormasPago()                // GET  /api-lite/catalogs/PaymentForms
 getCatalogMetodosPago()               // GET  /api-lite/catalogs/PaymentMethods
 searchProductCodes(query)             // GET  /api-lite/catalogs/ProductsOrServices?keyword=
 searchUnitCodes(query)                // GET  /api-lite/catalogs/Units?keyword=
+
+// Validations (each consumes 1 folio)
+validateRFC(data)                     // POST /customers/validate
+validateCFDIStatus(uuid, issuer, receiver, total)  // GET /cfdi/status
 ```
 
 ### Fase 2: API Routes
@@ -335,6 +339,8 @@ searchUnitCodes(query)                // GET  /api-lite/catalogs/Units?keyword=
 | `/api/facturacion/cfdi/rep` | POST | Emitir REP (Complemento de Pago 2.0) — para facturas PPD |
 | `/api/facturacion/cfdi/egreso` | POST | Emitir Nota de Credito (CFDI Egreso) — devoluciones/descuentos |
 | `/api/facturacion/catalogos/[tipo]` | GET | Catalogos SAT (uso_cfdi, regimenes, formas_pago, productos) |
+| `/api/facturacion/validar/rfc` | POST | Validar RFC contra SAT (consume 1 folio) |
+| `/api/facturacion/validar/cfdi-status` | POST | Consultar status CFDI en SAT (consume 1 folio) |
 
 ### Fase 3: UI en Doctor App
 
@@ -421,6 +427,7 @@ FACTURAMA_API_URL=https://apisandbox.facturama.mx  # cambiar a api.facturama.mx 
 | Ruta: REP | `apps/api/src/app/api/facturacion/cfdi/rep/route.ts` | Done - POST (Complemento de Pago 2.0) |
 | Ruta: Egreso | `apps/api/src/app/api/facturacion/cfdi/egreso/route.ts` | Done - POST (Nota de Credito) |
 | Ruta: Catalogos SAT | `apps/api/src/app/api/facturacion/catalogos/[tipo]/route.ts` | Done - GET (con fallback offline) |
+| Ruta: Validaciones | `apps/api/src/app/api/facturacion/validar/[tipo]/route.ts` | Done - POST (RFC, CFDI status) |
 
 ### Code Review #1 (2026-05-10)
 
@@ -511,7 +518,32 @@ Review de paginas no cubiertas anteriormente: Complemento de Pago, Egreso/Nota d
 
 5. **Recarga de folios** — Proceso administrativo via portal web. No requiere API. Precio: $0.40-$0.50 MXN/folio segun volumen. Requiere suscripcion anual activa.
 
-6. **Validaciones, Retenciones** — Paginas no accesibles (JS-rendered). Pendiente revision manual.
+6. **Retenciones** — Pendiente revision manual.
+
+### Audit #4 — Elevio Help Center completo (2026-05-12)
+
+Review de TODAS las paginas del help center de Facturama (elevio). Articulos cubiertos: autenticacion, CSD, CFDI Multiemisor (creacion, consulta, descarga, cancelacion, acuse, email, listado), JSON examples (Egreso, Complemento de Pago), catalogos, validaciones.
+
+**Corregido:**
+
+1. **Formato fecha en listing** — Docs elevio dicen `aaaa-mm-ddThh:mm:ss` pero ejemplo usa `DD-MM-YYYY`. Corregido comentario de `DD/MM/YYYY` a `DD-MM-YYYY`. (`facturama.ts`)
+2. **Paginacion** — Docs elevio dicen 10 resultados/pagina. Corregido comentario de 100 a 10. (`facturama.ts`)
+3. **Params faltantes en listCFDIs** — Agregados `folioStart`, `folioEnd`, `orderNumber` segun docs oficiales. (`facturama.ts`)
+
+**Nuevos endpoints implementados:**
+
+4. **Validacion de RFC** — `POST /customers/validate` con Rfc, Name, ZipCode, FiscalRegime. Retorna ExistRfc, MatchName, MatchZipCode, MatchFiscalRegime. Consume 1 folio. (`facturama.ts`, `validar/[tipo]/route.ts`)
+5. **Validacion de status CFDI** — `GET /cfdi/status?uuid=&issuerRfc=&receiverRfc=&total=`. Retorna Status (Vigente/Cancelado/No encontrado), IsCancelable. Consume 1 folio. (`facturama.ts`, `validar/[tipo]/route.ts`)
+6. **CIF validation descartada** — Solo funciona en produccion (`POST /api/cif`), no en sandbox. No se implementa por ahora.
+
+**Verificado sin cambios necesarios:**
+
+7. **Cancel endpoint con `rfc` param** — Elevio no lo menciona pero guide pages si. Mantenemos `rfc` en la URL ya que es necesario para identificar emisor en Multiemisor.
+8. **Egreso/Nota de Credito** — JSON example oficial confirma: NameId "2", CfdiType "E", Relations Type "01", CfdiUse "G02". Nuestra implementacion coincide.
+9. **REP/Complemento de Pago** — Docs confirman estructura Complement.Payments con RelatedDocuments. Nuestra implementacion coincide.
+10. **CSD upload** — Endpoint y body confirmados. Password test CSDs: `12345678a`.
+11. **Descarga archivos** — Tipo `issuedLite`, formatos pdf/xml/html, response con Content base64. Todo correcto.
+12. **Email** — Query params confirmados: CfdiType, CfdiId, Email, Subject, Comments, IssuerEmail. Todo correcto.
 
 ### Pendiente
 

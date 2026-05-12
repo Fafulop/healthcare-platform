@@ -382,18 +382,22 @@ export async function sendCFDIByEmail(
  * List CFDIs for a specific RFC via the filtered search endpoint.
  * Official endpoint: GET /cfdi?type=issuedLite with filter params.
  * NOT /api-lite/3/cfdis (that's the creation endpoint).
- * Pagination: max 100 results per page, page starts at 0.
+ * Pagination: 10 results per page, page starts at 0.
+ * Date format: DD-MM-YYYY (e.g. "01-01-2019") per official docs.
  */
 export async function listCFDIs(
   rfc: string,
   options?: {
     status?: 'all' | 'active' | 'pending' | 'canceled';
     page?: number;
-    dateStart?: string;  // DD/MM/YYYY format
-    dateEnd?: string;    // DD/MM/YYYY format
+    dateStart?: string;  // DD-MM-YYYY format (e.g. "01-01-2019")
+    dateEnd?: string;    // DD-MM-YYYY format (e.g. "15-02-2019")
     folio?: string;
+    folioStart?: string;
+    folioEnd?: string;
     rfcReceiver?: string;
     taxEntityName?: string;
+    orderNumber?: string | boolean;  // true/false to filter, or specific value
   }
 ): Promise<CfdiResponse[]> {
   const params = new URLSearchParams({
@@ -405,8 +409,11 @@ export async function listCFDIs(
   if (options?.dateStart) params.set('dateStart', options.dateStart);
   if (options?.dateEnd) params.set('dateEnd', options.dateEnd);
   if (options?.folio) params.set('folio', options.folio);
+  if (options?.folioStart) params.set('folioStart', options.folioStart);
+  if (options?.folioEnd) params.set('folioEnd', options.folioEnd);
   if (options?.rfcReceiver) params.set('rfc', options.rfcReceiver);
   if (options?.taxEntityName) params.set('taxEntityName', options.taxEntityName);
+  if (options?.orderNumber !== undefined) params.set('orderNumber', String(options.orderNumber));
 
   return request<CfdiResponse[]>('GET', `/cfdi?${params.toString()}`);
 }
@@ -465,6 +472,54 @@ export async function searchProductCodes(query: string): Promise<CatalogItem[]> 
  */
 export async function searchUnitCodes(query: string): Promise<CatalogItem[]> {
   return request<CatalogItem[]>('GET', `/api-lite/catalogs/Units?keyword=${encodeURIComponent(query)}`);
+}
+
+// =============================================================================
+// Validations (each request consumes 1 folio)
+// =============================================================================
+
+export interface RfcValidationRequest {
+  Rfc: string;
+  Name: string;
+  ZipCode: string;
+  FiscalRegime: string;
+}
+
+export interface RfcValidationResponse {
+  ExistRfc: boolean;
+  MatchName: boolean;
+  MatchZipCode: boolean;
+  MatchFiscalRegime: boolean;
+}
+
+/**
+ * Validate RFC data against SAT registry.
+ * POST /customers/validate
+ * WARNING: Each call consumes 1 folio. In sandbox, only test RFCs work.
+ */
+export async function validateRFC(data: RfcValidationRequest): Promise<RfcValidationResponse> {
+  return request<RfcValidationResponse>('POST', '/customers/validate', data);
+}
+
+export interface CfdiStatusResponse {
+  Status: string;           // "Vigente" | "Cancelado" | "No encontrado"
+  IsCancelable: string;     // "No cancelable" | "Cancelable con aceptación" | "Cancelable sin aceptación"
+  Uuid: string;
+}
+
+/**
+ * Check CFDI status with SAT.
+ * GET /cfdi/status?uuid=&issuerRfc=&receiverRfc=&total=
+ * WARNING: Each call consumes 1 folio.
+ */
+export async function validateCFDIStatus(
+  uuid: string,
+  issuerRfc: string,
+  receiverRfc: string,
+  total: string
+): Promise<CfdiStatusResponse> {
+  const params = new URLSearchParams({ uuid, issuerRfc, receiverRfc, total });
+  return request<CfdiStatusResponse>('GET', `/cfdi/status?${params.toString()}`);
 }
 
 // =============================================================================
