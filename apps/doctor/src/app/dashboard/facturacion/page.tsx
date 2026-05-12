@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { redirect, useSearchParams } from "next/navigation";
 import {
@@ -85,6 +85,18 @@ interface CatalogItem {
 // ---------------------------------------------------------------------------
 
 export default function FacturacionPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    }>
+      <FacturacionPageInner />
+    </Suspense>
+  );
+}
+
+function FacturacionPageInner() {
   const { status: sessionStatus } = useSession({
     required: true,
     onUnauthenticated() {
