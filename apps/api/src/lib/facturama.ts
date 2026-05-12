@@ -121,6 +121,14 @@ export async function getCSDStatus(rfc: string): Promise<CSDStatus> {
 }
 
 /**
+ * Update CSD for an RFC (e.g., when certificate expires).
+ * PUT /api-lite/csds/{rfc} — same body as upload.
+ */
+export async function updateCSD(rfc: string, payload: CSDUploadPayload): Promise<CSDStatus> {
+  return request<CSDStatus>('PUT', `/api-lite/csds/${rfc}`, payload);
+}
+
+/**
  * Delete CSD for an RFC (remove issuer).
  */
 export async function deleteCSD(rfc: string): Promise<void> {
@@ -172,6 +180,47 @@ export interface CfdiItem {
   Total: number;
 }
 
+// Relations node — used by Egreso (credit notes) and cancel-with-replacement
+export interface CfdiRelation {
+  Type: string;                   // SAT relation type: "01" Nota de credito, "04" Sustitucion
+  Cfdis: { Uuid: string }[];     // UUIDs of related CFDIs
+}
+
+// Complemento de Pago 2.0 — for REP (CfdiType "P")
+export interface PaymentRelatedDocument {
+  Uuid: string;                   // UUID of the original invoice being paid
+  Serie?: string;
+  Folio?: string;
+  Currency: string;               // "MXN"
+  PaymentMethod: string;          // Original invoice's payment method (always "PPD")
+  PartialityNumber: number;       // Parcialidad number (1, 2, 3...)
+  PreviousBalanceAmount: number;  // Saldo anterior
+  AmountPaid: number;             // Monto pagado en esta parcialidad
+  ImpSaldoInsoluto: number;       // Saldo pendiente (previous - paid)
+  TaxObject?: string;             // "01" no taxes or "02" with taxes
+  Taxes?: PaymentDocumentTax[];
+}
+
+export interface PaymentDocumentTax {
+  Total: number;
+  Name: string;                   // "IVA", "ISR"
+  Rate: number;
+  Base: number;
+  IsRetention: boolean;
+}
+
+export interface PaymentComplementItem {
+  Date: string;                   // Payment date ISO 8601 or YYYY-MM-DDTHH:mm:ss
+  PaymentForm: string;            // How the payment was made (e.g. "03" transferencia)
+  Amount: number;                 // Total payment amount
+  Currency: string;               // "MXN"
+  RelatedDocuments: PaymentRelatedDocument[];
+}
+
+export interface PaymentComplement {
+  Payments: PaymentComplementItem[];
+}
+
 export interface CreateCfdiPayload {
   Issuer: CfdiIssuer;
   Receiver: CfdiReceiver;
@@ -180,9 +229,17 @@ export interface CreateCfdiPayload {
   PaymentMethod: string;        // "PUE" or "PPD"
   ExpeditionPlace: string;      // CP del lugar de expedicion
   Exportation?: string;         // "01" no export, "02" definitive, "03" temporary
-  Items: CfdiItem[];
+  Items?: CfdiItem[];           // Required for I/E, omitted for P
   Folio?: string;
   Serie?: string;
+  NameId?: string;              // "2" for Nota de Credito
+  Relations?: CfdiRelation;     // Links to related CFDIs (Egreso, substitution)
+  Complement?: PaymentComplement; // Complemento de Pago 2.0 (REP)
+  // Optional non-fiscal fields (appear in PDF only)
+  Observations?: string;
+  PaymentBankName?: string;
+  PaymentAccountNumber?: string;
+  OrderNumber?: string;
 }
 
 export interface CfdiResponse {
@@ -262,7 +319,7 @@ export async function getCFDIHtml(facturamaId: string): Promise<string> {
  * @param uuidReplacement - Required when motive is "01" (replacement UUID)
  */
 export interface CancelCfdiResponse {
-  Status: string;           // "canceled" | "active" | "pending"
+  Status: string;           // "canceled" | "active" | "pending" | "accepted" | "rejected" | "expired"
   Message: string;
   IsCancelable?: string;    // "Cancelable sin aceptacion" | "Cancelable con aceptacion" | "No cancelable"
   Uuid?: string;
@@ -325,15 +382,15 @@ export async function sendCFDIByEmail(
  * List CFDIs for a specific RFC via the filtered search endpoint.
  * Official endpoint: GET /cfdi?type=issuedLite with filter params.
  * NOT /api-lite/3/cfdis (that's the creation endpoint).
- * Pagination: 10 results per page, page starts at 0.
+ * Pagination: max 100 results per page, page starts at 0.
  */
 export async function listCFDIs(
   rfc: string,
   options?: {
     status?: 'all' | 'active' | 'pending' | 'canceled';
     page?: number;
-    dateStart?: string;  // yyyy-mm-ddThh:mm:ss
-    dateEnd?: string;
+    dateStart?: string;  // DD/MM/YYYY format
+    dateEnd?: string;    // DD/MM/YYYY format
     folio?: string;
     rfcReceiver?: string;
     taxEntityName?: string;
@@ -366,9 +423,13 @@ export interface CatalogItem {
 
 /**
  * Get SAT catalog for "Uso CFDI" (invoice uses).
+ * Accepts optional RFC — results vary by person type (fisica vs moral).
  */
-export async function getCatalogUsoCfdi(): Promise<CatalogItem[]> {
-  return request<CatalogItem[]>('GET', '/api-lite/catalogs/CfdiUses');
+export async function getCatalogUsoCfdi(rfc?: string): Promise<CatalogItem[]> {
+  const path = rfc
+    ? `/api-lite/catalogs/CfdiUses?keyword=${encodeURIComponent(rfc)}`
+    : '/api-lite/catalogs/CfdiUses';
+  return request<CatalogItem[]>('GET', path);
 }
 
 /**

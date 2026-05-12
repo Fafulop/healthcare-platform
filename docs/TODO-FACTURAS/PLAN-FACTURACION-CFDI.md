@@ -82,7 +82,11 @@ El doctor sube sus archivos CSD (emitidos por el SAT):
 - Password del `.key`
 
 ```
-POST /api-lite/csds
+POST /api-lite/csds                    -- Registrar CSD nuevo
+PUT  /api-lite/csds/{rfc}              -- Actualizar CSD existente (renovacion)
+DELETE /api-lite/csds/{rfc}            -- Eliminar CSD
+
+Body (POST y PUT):
 {
   "Certificate": "<base64 del .cer>",
   "PrivateKey": "<base64 del .key>",
@@ -136,7 +140,12 @@ POST /api-lite/3/cfdis
       ],
       "Total": 1160.00
     }
-  ]
+  ],
+  // Campos opcionales no-fiscales (aparecen solo en PDF)
+  "Observations": "Nota adicional para el PDF",
+  "PaymentBankName": "Banamex",
+  "PaymentAccountNumber": "1234",
+  "OrderNumber": "ORD-001"
 }
 ```
 
@@ -147,7 +156,7 @@ GET /api-lite/cfdis/{id}                -- Metadata (detalle)
 GET /cfdi/pdf/issuedLite/{id}           -- PDF
 GET /cfdi/xml/issuedLite/{id}           -- XML
 GET /cfdi/html/issuedLite/{id}          -- HTML (preview en navegador)
-GET /cfdi?type=issuedLite&rfcIssuer=... -- Busqueda filtrada (paginada, 10/pagina)
+GET /cfdi?type=issuedLite&rfcIssuer=... -- Busqueda filtrada (max 100/pagina, formato fecha DD/MM/YYYY)
 POST /cfdi?CfdiType=issuedLite&CfdiId={id}&Email={email}  -- Enviar por email
 ```
 
@@ -160,7 +169,9 @@ DELETE /api-lite/cfdis/{id}?rfc={rfc}&motive=02&uuidReplacement=...
 ```
 
 Response incluye: `Status`, `IsCancelable`, `ExpirationDate`, `AcuseStatus` (codigos 201-312).
+Posibles valores de `Status`: `canceled`, `active`, `pending`, `accepted`, `rejected`, `expired`.
 Si `IsCancelable` = "Cancelable con aceptacion", el receptor tiene 72 horas para aceptar/rechazar.
+Si no responde en 72h, se cancela automaticamente (`expired` → cancelado).
 
 ```
 GET /acuse/pdf/issuedLite/{id}          -- Acuse de cancelacion (PDF)
@@ -277,12 +288,13 @@ model CfdiEmitted {
 
 // CSD Management
 uploadCSD(payload)                    // POST /api-lite/csds
+updateCSD(rfc, payload)               // PUT  /api-lite/csds/{rfc}
 getCSDStatus(rfc)                     // GET  /api-lite/csds/{rfc}
 deleteCSD(rfc)                        // DELETE /api-lite/csds/{rfc}
 listCSDs()                            // GET  /api-lite/csds
 
-// CFDI Operations
-createCFDI(payload)                   // POST /api-lite/3/cfdis
+// CFDI Operations (Ingreso, Egreso, Pago — all use same endpoint)
+createCFDI(payload)                   // POST /api-lite/3/cfdis (payload.CfdiType: I|E|P)
 getCFDI(facturamaId)                  // GET  /api-lite/cfdis/{id}
 getCFDIFile(id, format)               // GET  /cfdi/{format}/issuedLite/{id}  (pdf|xml|html)
 getCFDIPdf(id)                        // wrapper → getCFDIFile(id, 'pdf')
@@ -294,7 +306,7 @@ sendCFDIByEmail(id, email, opts?)     // POST /cfdi?CfdiType=issuedLite&CfdiId=&
 listCFDIs(rfc, filters?)             // GET  /cfdi?type=issuedLite&rfcIssuer=
 
 // SAT Catalogs
-getCatalogUsoCfdi()                   // GET  /api-lite/catalogs/CfdiUses
+getCatalogUsoCfdi(rfc?)                // GET  /api-lite/catalogs/CfdiUses?keyword={rfc}
 getCatalogRegimenesFiscales()         // GET  /api-lite/catalogs/FiscalRegimes
 getCatalogFormasPago()                // GET  /api-lite/catalogs/PaymentForms
 getCatalogMetodosPago()               // GET  /api-lite/catalogs/PaymentMethods
@@ -309,6 +321,7 @@ searchUnitCodes(query)                // GET  /api-lite/catalogs/Units?keyword=
 | `/api/facturacion/profile` | GET | Obtener perfil fiscal del doctor |
 | `/api/facturacion/profile` | POST/PUT | Crear/actualizar perfil fiscal |
 | `/api/facturacion/csd` | POST | Subir CSD (cer + key + password) a Facturama |
+| `/api/facturacion/csd` | PUT | Actualizar CSD existente (renovacion por expiracion) |
 | `/api/facturacion/csd/status` | GET | Verificar status del CSD en Facturama |
 | `/api/facturacion/cfdi` | POST | Emitir nuevo CFDI |
 | `/api/facturacion/cfdi` | GET | Listar CFDIs emitidos |
@@ -319,6 +332,8 @@ searchUnitCodes(query)                // GET  /api-lite/catalogs/Units?keyword=
 | `/api/facturacion/cfdi/[id]/cancel` | POST | Cancelar CFDI |
 | `/api/facturacion/cfdi/[id]/acuse` | GET | Descargar acuse de cancelacion (PDF/HTML via ?format=) |
 | `/api/facturacion/cfdi/[id]/email` | POST | Enviar CFDI por email al receptor (con subject, comments, issuerEmail opcionales) |
+| `/api/facturacion/cfdi/rep` | POST | Emitir REP (Complemento de Pago 2.0) — para facturas PPD |
+| `/api/facturacion/cfdi/egreso` | POST | Emitir Nota de Credito (CFDI Egreso) — devoluciones/descuentos |
 | `/api/facturacion/catalogos/[tipo]` | GET | Catalogos SAT (uso_cfdi, regimenes, formas_pago, productos) |
 
 ### Fase 3: UI en Doctor App
@@ -393,7 +408,7 @@ FACTURAMA_API_URL=https://apisandbox.facturama.mx  # cambiar a api.facturama.mx 
 | Migracion SQL | `packages/database/prisma/migrations/add-facturacion-cfdi-tables.sql` | Done - listo para ejecutar |
 | Facturama API Client | `apps/api/src/lib/facturama.ts` | Done - CSD, CFDI, Catalogos, error handling |
 | Ruta: Profile | `apps/api/src/app/api/facturacion/profile/route.ts` | Done - GET + POST (upsert) |
-| Ruta: CSD Upload | `apps/api/src/app/api/facturacion/csd/route.ts` | Done - POST + DELETE |
+| Ruta: CSD Upload | `apps/api/src/app/api/facturacion/csd/route.ts` | Done - POST + PUT + DELETE |
 | Ruta: CSD Status | `apps/api/src/app/api/facturacion/csd/status/route.ts` | Done - GET (consulta live a Facturama) |
 | Ruta: CFDI CRUD | `apps/api/src/app/api/facturacion/cfdi/route.ts` | Done - GET (list) + POST (emit) |
 | Ruta: CFDI Detail | `apps/api/src/app/api/facturacion/cfdi/[id]/route.ts` | Done - GET |
@@ -403,6 +418,8 @@ FACTURAMA_API_URL=https://apisandbox.facturama.mx  # cambiar a api.facturama.mx 
 | Ruta: CFDI Cancel | `apps/api/src/app/api/facturacion/cfdi/[id]/cancel/route.ts` | Done - POST (con response enriquecida) |
 | Ruta: CFDI Acuse | `apps/api/src/app/api/facturacion/cfdi/[id]/acuse/route.ts` | Done - GET (acuse cancelacion PDF/HTML) |
 | Ruta: CFDI Email | `apps/api/src/app/api/facturacion/cfdi/[id]/email/route.ts` | Done - POST (con subject, comments, issuerEmail) |
+| Ruta: REP | `apps/api/src/app/api/facturacion/cfdi/rep/route.ts` | Done - POST (Complemento de Pago 2.0) |
+| Ruta: Egreso | `apps/api/src/app/api/facturacion/cfdi/egreso/route.ts` | Done - POST (Nota de Credito) |
 | Ruta: Catalogos SAT | `apps/api/src/app/api/facturacion/catalogos/[tipo]/route.ts` | Done - GET (con fallback offline) |
 
 ### Code Review #1 (2026-05-10)
@@ -457,11 +474,52 @@ Review sistematico de todos los archivos modificados y nuevos post-audit:
   - HTML route sin `Content-Disposition` header — intencional, para preview inline en navegador
   - `rfcReceiver` param name vs Facturama `rfc` — intencional, nuestro naming es mas claro
 
+### Audit #2 — Facturama Guide Pages (2026-05-12)
+
+Audit contra paginas guia oficiales de Facturama (`apisandbox.facturama.mx/guias/api-multi/*`):
+
+1. **`updateCSD` (PUT /api-lite/csds/{rfc})** — Faltaba endpoint para actualizar CSD sin borrar y re-crear. Agregado a `facturama.ts` y `csd/route.ts`.
+2. **Formato de fecha en listing: `DD/MM/YYYY`** — Documentacion oficial usa `DD/MM/YYYY`, no ISO. Corregidos comentarios en `facturama.ts`.
+3. **Paginacion 100/pagina** — Guia oficial dice max 100 resultados por pagina, no 10 como decia el articulo elevio. Corregido comentario.
+4. **Cancel statuses adicionales** — Facturama retorna `accepted`, `rejected`, `expired` ademas de `canceled`, `active`, `pending`. Ahora `cancel/route.ts` maneja: rejected → error 400, accepted/expired → cancelled.
+5. **Campos opcionales no-fiscales** — `Observations`, `PaymentBankName`, `PaymentAccountNumber`, `OrderNumber` para PDF. Agregados a `CreateCfdiPayload` y `cfdi/route.ts`.
+6. **CfdiUses catalogo acepta RFC** — Resultados varian segun tipo de persona (fisica/moral). Ahora pasa `?keyword={rfc}` si se proporciona query.
+
+### Audit #3 — Paginas adicionales del menu Facturama (2026-05-12)
+
+Review de paginas no cubiertas anteriormente: Complemento de Pago, Egreso/Nota de Credito, Recarga de Folios.
+
+**Features implementados (2026-05-12):**
+
+1. **Complemento de Pago 2.0 (REP)** — Implementado en `cfdi/rep/route.ts`. Endpoint `POST /api/facturacion/cfdi/rep` con:
+   - `CfdiType: "P"`, sin Items, nodo `Complement.Payments[]` con `Date`, `PaymentForm`, `Amount`, `Currency`
+   - `RelatedDocuments[]` con UUID de factura original, parcialidad, saldo anterior/pagado/pendiente
+   - Receptor `CfdiUse: "CP01"` (Pagos), validacion de que factura original existe y es PPD
+   - Tipos completos: `PaymentComplement`, `PaymentComplementItem`, `PaymentRelatedDocument` en `facturama.ts`
+
+2. **CFDI Egreso / Nota de Credito** — Implementado en `cfdi/egreso/route.ts`. Endpoint `POST /api/facturacion/cfdi/egreso` con:
+   - `CfdiType: "E"`, `NameId: "2"` (Nota de Credito)
+   - Nodo `Relations: { Type: "01", Cfdis: [{ Uuid }] }` vinculando a factura original
+   - Receptor `CfdiUse: "G02"`, validacion de que factura original existe y esta activa
+   - Forma de pago defaults a la de la factura original si no se especifica
+
+3. **Nodo `Relations` y `NameId` en tipos** — Agregados a `CreateCfdiPayload` en `facturama.ts`. Usados por Egreso y disponibles para cancelacion con motivo 01.
+
+4. **Nodo `Complement.Payments` en tipos** — Agregado a `CreateCfdiPayload`. Estructura completa con pagos, documentos relacionados, impuestos por documento.
+
+**Features pendientes (no requieren API):**
+
+5. **Recarga de folios** — Proceso administrativo via portal web. No requiere API. Precio: $0.40-$0.50 MXN/folio segun volumen. Requiere suscripcion anual activa.
+
+6. **Validaciones, Retenciones** — Paginas no accesibles (JS-rendered). Pendiente revision manual.
+
 ### Pendiente
 
 | Paso | Prioridad | Bloqueado por |
 |------|-----------|---------------|
 | Obtener credenciales sandbox Facturama | Alta | Registro en facturama.mx |
+| ~~Agregar soporte REP (Complemento de Pago)~~ | ~~Alta~~ | Done — `cfdi/rep/route.ts` |
+| ~~Agregar soporte Nota de Credito (Egreso)~~ | ~~Media~~ | Done — `cfdi/egreso/route.ts` |
 | UI: Configuracion Fiscal (settings page) | Media | Nada |
 | UI: Pagina de Facturacion (list + create) | Media | Nada |
 | UI: Integracion con Ledger (boton "Facturar") | Media | UI Facturacion |
@@ -499,6 +557,12 @@ cd packages/database && npx prisma db execute --file prisma/migrations/add-factu
 - Envio por email: https://facturama.elevio.help/es/articles/137
 - Cancelacion: https://facturama.elevio.help/es/articles/108
 - Acuse de cancelacion: https://facturama.elevio.help/es/articles/110
+- Campos adicionales CFDI: https://apisandbox.facturama.mx/guias/api-multi/cfdi/campos-adicionales
+- Consultar CFDIs: https://apisandbox.facturama.mx/guias/api-multi/cfdi/consultar
+- CSD management: https://apisandbox.facturama.mx/guias/api-multi/csds
+- Complemento de Pago: https://facturama.elevio.help/es/articles/80
+- Nota de Credito (Egreso): https://facturama.elevio.help/es/articles/94
+- Recarga de folios: https://facturama.elevio.help/es/articles/146
 - Coleccion Postman: https://facturama.elevio.help/es/articles/163
 - Sandbox: https://apisandbox.facturama.mx
 

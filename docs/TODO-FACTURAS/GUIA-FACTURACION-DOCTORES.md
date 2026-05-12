@@ -104,6 +104,17 @@ El paciente puede deducir el **menor** de estos dos montos:
 | **PUE** | Pago en una sola exhibicion | El paciente paga en el momento de la consulta |
 | **PPD** | Pago en parcialidades o diferido | El paciente pagara despues o en partes |
 
+### Campos opcionales adicionales
+
+Al crear una factura puedes agregar datos que aparecen solo en el PDF (no afectan la validez fiscal):
+
+| Campo | Descripcion |
+|-------|-------------|
+| Observaciones | Notas o comentarios adicionales |
+| Banco de pago | Nombre del banco que procesa el pago |
+| Cuenta de pago | Numero de cuenta receptora |
+| Numero de orden | Referencia interna de tu consultorio |
+
 ---
 
 ## 7. Facturacion a aseguradoras
@@ -121,11 +132,15 @@ Cada aseguradora tiene requisitos y tiempos de pago especificos. No se puede emi
 
 Cuando emites una factura con metodo de pago **PPD** (pago diferido o parcialidades), debes emitir un **REP** cada vez que recibas un pago:
 
-- El REP vincula cada pago con la factura original
-- Es obligatorio para liquidar correctamente la factura ante el SAT
+- El REP es un CFDI tipo **"P" (Pago)**, diferente a la factura de ingreso
+- Vincula cada pago con la factura original mediante el UUID
+- Registra: fecha de pago, forma de pago, monto, numero de parcialidad, saldo anterior y pendiente
+- Es **obligatorio por ley** desde septiembre 2018
 - Usa el uso de CFDI **CP01** (Pagos)
 
-**Ejemplo:** Emites factura por $10,000 con metodo PPD. El paciente paga $5,000 hoy y $5,000 en 30 dias. Debes emitir un REP por cada pago de $5,000.
+**Ejemplo:** Emites factura por $10,000 con metodo PPD. El paciente paga $5,000 hoy y $5,000 en 30 dias. Debes emitir un REP por cada pago de $5,000, indicando parcialidad 1 y 2 respectivamente.
+
+> **Proximamente:** La emision de REPs desde TuSalud esta en desarrollo. La funcionalidad de backend esta lista — falta la interfaz de usuario. Por ahora, consulta con tu contador para emitirlos por otra via.
 
 ---
 
@@ -146,7 +161,24 @@ Si necesitas cancelar una factura, debes indicar un motivo al SAT:
 
 ---
 
-## 10. Retencion de ISR
+## 10. Nota de Credito (CFDI de Egreso)
+
+Si necesitas aplicar un descuento, devolucion o bonificacion sobre una factura ya emitida, puedes emitir una **Nota de Credito** en lugar de cancelar la factura original:
+
+- Es un CFDI tipo **"E" (Egreso)**
+- Se vincula a la factura original mediante su UUID
+- Uso de CFDI del receptor: **G02** (Devoluciones, descuentos o bonificaciones)
+
+**Cuando usarla en lugar de cancelar:**
+- El paciente ya dedujo la factura original
+- Solo quieres ajustar una parte del monto (no el total)
+- Ya paso el periodo para cancelar ante el SAT
+
+> **Proximamente:** La emision de Notas de Credito desde TuSalud esta en desarrollo. La funcionalidad de backend esta lista — falta la interfaz de usuario. Por ahora, consulta con tu contador para emitirlas por otra via.
+
+---
+
+## 11. Retencion de ISR
 
 Si tu paciente es **persona moral** (empresa), esta obligada a retenerte el **10% de ISR** sobre el monto del servicio. En este caso:
 
@@ -156,7 +188,7 @@ Si tu paciente es **persona moral** (empresa), esta obligada a retenerte el **10
 
 ---
 
-## 11. IVA en servicios medicos
+## 12. IVA en servicios medicos
 
 Los servicios medicos generalmente estan **exentos de IVA** o aplican **tasa 0%**, dependiendo del tipo de servicio:
 
@@ -189,6 +221,13 @@ Para configurar tu perfil de facturacion necesitas:
 4. Descarga los archivos `.cer` y `.key`
 5. Guarda el password que usaste al generar el `.key`
 6. Sube estos archivos en TuSalud > Facturacion > Configuracion
+
+### Renovacion de CSD
+
+Los certificados CSD tienen vigencia de **4 anos**. Cuando tu CSD este proximo a vencer, TuSalud te notificara. Para renovar:
+1. Genera un nuevo certificado en el portal del SAT
+2. Ve a TuSalud > Facturacion > Configuracion
+3. Actualiza tus archivos CSD (no necesitas borrar los anteriores)
 
 > **Seguridad:** Tus archivos CSD se envian directamente al proveedor de timbrado (Facturama) y nunca se almacenan en nuestros servidores.
 

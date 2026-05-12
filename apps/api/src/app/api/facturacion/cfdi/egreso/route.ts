@@ -7,51 +7,8 @@ import {
   type CfdiResponse,
 } from '@/lib/facturama';
 
-// GET /api/facturacion/cfdi - List all emitted CFDIs for the doctor
-export async function GET(request: NextRequest) {
-  try {
-    const { doctor } = await getAuthenticatedDoctor(request);
-
-    const profile = await prisma.doctorFiscalProfile.findUnique({
-      where: { doctorId: doctor.id },
-    });
-
-    if (!profile) {
-      return NextResponse.json({ data: [] });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || undefined;
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
-    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '50') || 50));
-
-    const where: any = { fiscalProfileId: profile.id };
-    if (status) where.status = status;
-
-    const [cfdis, total] = await Promise.all([
-      prisma.cfdiEmitted.findMany({
-        where,
-        orderBy: { issuedAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.cfdiEmitted.count({ where }),
-    ]);
-
-    return NextResponse.json({
-      data: cfdis,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    });
-  } catch (error: any) {
-    if (error.name === 'AuthError') {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-    console.error('Error listing CFDIs:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
-  }
-}
-
-// POST /api/facturacion/cfdi - Create (emit) a new CFDI
+// POST /api/facturacion/cfdi/egreso - Create a Nota de Crédito (CFDI Egreso)
+// Used for refunds, discounts, or bonifications on an existing invoice.
 export async function POST(request: NextRequest) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
@@ -75,38 +32,50 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { receiver, items, cfdiType, paymentForm, paymentMethod, folio, serie, ledgerEntryId,
-      observations, paymentBankName, paymentAccountNumber, orderNumber } = body;
+    const { receiver, items, originalUuid, paymentForm, folio, serie } = body;
 
-    // Validate required fields
-    if (!receiver || !items || !Array.isArray(items) || items.length === 0) {
+    // Validate receiver
+    if (!receiver?.rfc || !receiver?.name || !receiver?.fiscalRegime || !receiver?.taxZipCode) {
       return NextResponse.json(
-        { error: 'Receptor y al menos un concepto son requeridos' },
+        { error: 'Datos del receptor incompletos (RFC, nombre, régimen fiscal, CP)' },
         { status: 400 }
       );
     }
 
-    if (!receiver.rfc || !receiver.name || !receiver.cfdiUse || !receiver.fiscalRegime || !receiver.taxZipCode) {
+    // Validate items
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { error: 'Datos del receptor incompletos (RFC, nombre, uso CFDI, régimen fiscal, CP)' },
+        { error: 'Al menos un concepto es requerido' },
         { status: 400 }
       );
     }
 
-    // If linking to a ledger entry, verify it belongs to this doctor
-    if (ledgerEntryId) {
-      const entry = await prisma.ledgerEntry.findFirst({
-        where: { id: ledgerEntryId, doctorId: doctor.id },
-      });
-      if (!entry) {
-        return NextResponse.json(
-          { error: 'Entrada de ledger no encontrada' },
-          { status: 404 }
-        );
-      }
+    // Validate original UUID (the invoice being credited)
+    if (!originalUuid || typeof originalUuid !== 'string' || originalUuid.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'UUID de la factura original es requerido' },
+        { status: 400 }
+      );
     }
 
-    // Auto-generate folio if not provided (mandatory for Multiemisor per Facturama docs)
+    // Verify the original CFDI exists and belongs to this doctor
+    const originalCfdi = await prisma.cfdiEmitted.findFirst({
+      where: {
+        uuid: originalUuid.trim(),
+        fiscalProfileId: profile.id,
+        cfdiType: 'I',
+        status: 'active',
+      },
+    });
+
+    if (!originalCfdi) {
+      return NextResponse.json(
+        { error: 'Factura original no encontrada o no está activa' },
+        { status: 404 }
+      );
+    }
+
+    // Auto-generate folio
     let cfdifolio = folio;
     if (!cfdifolio) {
       const lastCfdi = await prisma.cfdiEmitted.findFirst({
@@ -118,8 +87,7 @@ export async function POST(request: NextRequest) {
       cfdifolio = String(lastFolioNum + 1);
     }
 
-    // Build Facturama payload
-    // Names must be UPPERCASE per SAT/Facturama (must match Cédula de Identificación Fiscal)
+    // Build Facturama payload for Egreso (Credit Note)
     const payload: CreateCfdiPayload = {
       Issuer: {
         Rfc: profile.rfc.toUpperCase(),
@@ -129,16 +97,21 @@ export async function POST(request: NextRequest) {
       Receiver: {
         Rfc: receiver.rfc.trim().toUpperCase(),
         Name: receiver.name.trim().toUpperCase(),
-        CfdiUse: receiver.cfdiUse,
+        CfdiUse: 'G02', // Always G02 for credit notes (devoluciones, descuentos o bonificaciones)
         FiscalRegime: receiver.fiscalRegime,
         TaxZipCode: receiver.taxZipCode,
       },
-      CfdiType: cfdiType || 'I',
-      PaymentForm: paymentForm || '01',
-      PaymentMethod: paymentMethod || 'PUE',
-      Exportation: '01', // No export (domestic)
+      CfdiType: 'E',
+      NameId: '2', // "Nota de Crédito" document name
+      PaymentForm: paymentForm || originalCfdi.formaPago || '99', // Default to original's form, fallback to '99' (por definir)
+      PaymentMethod: 'PUE', // Credit notes are always single payment
+      Exportation: '01',
       ExpeditionPlace: profile.codigoPostal,
       Folio: cfdifolio,
+      Relations: {
+        Type: '01', // Nota de crédito de los documentos relacionados
+        Cfdis: [{ Uuid: originalUuid.trim() }],
+      },
       Items: items.map((item: any) => {
         const hasTaxes = item.taxes && item.taxes.length > 0;
         return {
@@ -148,7 +121,7 @@ export async function POST(request: NextRequest) {
           UnitCode: item.unitCode || 'E48',
           UnitPrice: item.unitPrice,
           Subtotal: item.subtotal || item.unitPrice * (item.quantity || 1),
-          TaxObject: hasTaxes ? '02' : '01', // 02 = with taxes, 01 = no taxes
+          TaxObject: hasTaxes ? '02' : '01',
           Taxes: item.taxes || [],
           Total: item.total || item.subtotal || item.unitPrice * (item.quantity || 1),
         };
@@ -156,20 +129,14 @@ export async function POST(request: NextRequest) {
     };
 
     if (serie) payload.Serie = serie;
-    // Optional non-fiscal fields (appear in PDF only)
-    if (observations) payload.Observations = observations;
-    if (paymentBankName) payload.PaymentBankName = paymentBankName;
-    if (paymentAccountNumber) payload.PaymentAccountNumber = paymentAccountNumber;
-    if (orderNumber) payload.OrderNumber = orderNumber;
 
     // Call Facturama API
     const cfdiResponse: CfdiResponse = await createCFDI(payload);
 
-    // Calculate totals from items for our DB record
+    // Calculate totals
     const subtotal = items.reduce((sum: number, item: any) => sum + (item.subtotal || item.unitPrice * (item.quantity || 1)), 0);
     const total = parseFloat(String(cfdiResponse.Total));
 
-    // Compute IVA and ISR retention from taxes
     let iva = 0;
     let retencionIsr = 0;
     for (const item of items) {
@@ -185,23 +152,22 @@ export async function POST(request: NextRequest) {
     const cfdiRecord = await prisma.cfdiEmitted.create({
       data: {
         fiscalProfileId: profile.id,
-        ledgerEntryId: ledgerEntryId || null,
         facturamaId: cfdiResponse.Id,
         uuid: cfdiResponse.Complement.TaxStamp.Uuid,
         folio: cfdiResponse.Folio || null,
         serie: cfdiResponse.Serie || null,
-        cfdiType: cfdiResponse.CfdiType || cfdiType || 'I',
+        cfdiType: 'E',
         rfcEmisor: profile.rfc,
         rfcReceptor: receiver.rfc.trim().toUpperCase(),
         nombreReceptor: receiver.name.trim(),
-        usoCfdi: receiver.cfdiUse,
+        usoCfdi: 'G02',
         subtotal,
         iva: iva || null,
         retencionIsr: retencionIsr || null,
         total,
         moneda: 'MXN',
-        formaPago: paymentForm || '01',
-        metodoPago: paymentMethod || 'PUE',
+        formaPago: paymentForm || originalCfdi.formaPago || '99',
+        metodoPago: 'PUE',
         status: 'active',
         issuedAt: new Date(cfdiResponse.Date || cfdiResponse.Complement.TaxStamp.Date),
       },
@@ -219,13 +185,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     if (error.name === 'FacturamaError') {
-      console.error('Facturama CFDI creation error:', error.details);
+      console.error('Facturama Egreso creation error:', error.details);
       return NextResponse.json(
-        { error: `Error al emitir CFDI: ${error.message}`, details: error.details },
+        { error: `Error al emitir nota de crédito: ${error.message}`, details: error.details },
         { status: error.status >= 400 && error.status < 500 ? error.status : 502 }
       );
     }
-    console.error('Error creating CFDI:', error);
-    return NextResponse.json({ error: 'Error al emitir factura' }, { status: 500 });
+    console.error('Error creating Egreso:', error);
+    return NextResponse.json({ error: 'Error al emitir nota de crédito' }, { status: 500 });
   }
 }

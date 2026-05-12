@@ -32,7 +32,8 @@ export async function GET(
 
     switch (tipo) {
       case 'uso-cfdi':
-        data = await getCatalogUsoCfdi();
+        // CfdiUses accepts optional RFC — results vary by person type (fisica vs moral)
+        data = await getCatalogUsoCfdi(query || undefined);
         break;
       case 'regimenes-fiscales':
         data = await getCatalogRegimenesFiscales();

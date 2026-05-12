@@ -72,7 +72,16 @@ export async function POST(
       );
     }
 
+    // Handle receiver rejection
+    if (result.Status === 'rejected') {
+      return NextResponse.json(
+        { error: 'El receptor rechazó la solicitud de cancelación', details: result },
+        { status: 400 }
+      );
+    }
+
     // Determine local status based on Facturama response
+    // canceled/accepted/expired → cancelled | pending → cancellation_pending
     const isPending = result.Status === 'pending' ||
       result.IsCancelable?.toLowerCase().includes('con aceptacion');
     const newStatus = isPending ? 'cancellation_pending' : 'cancelled';
