@@ -141,17 +141,18 @@ export async function POST(request: NextRequest) {
       Folio: cfdifolio,
       Items: items.map((item: any) => {
         const hasTaxes = item.taxes && item.taxes.length > 0;
-        return {
+        const mapped: any = {
           ProductCode: item.productCode || '85121800',
           Description: item.description,
           Quantity: item.quantity || 1,
           UnitCode: item.unitCode || 'E48',
           UnitPrice: item.unitPrice,
           Subtotal: item.subtotal || item.unitPrice * (item.quantity || 1),
-          TaxObject: hasTaxes ? '02' : '01', // 02 = with taxes, 01 = no taxes
-          Taxes: item.taxes || [],
+          TaxObject: hasTaxes ? '02' : '01',
           Total: item.total || item.subtotal || item.unitPrice * (item.quantity || 1),
         };
+        if (hasTaxes) mapped.Taxes = item.taxes;
+        return mapped;
       }),
     };
 
