@@ -120,10 +120,11 @@ export async function POST(request: NextRequest) {
 
     // Build Facturama payload
     // Names must be UPPERCASE per SAT/Facturama (must match Cédula de Identificación Fiscal)
+    console.log('CFDI Issuer debug:', { rfc: profile.rfc, razonSocial: profile.razonSocial, regimenFiscal: profile.regimenFiscal });
     const payload: CreateCfdiPayload = {
       Issuer: {
-        Rfc: profile.rfc.toUpperCase(),
-        Name: profile.razonSocial.toUpperCase(),
+        Rfc: profile.rfc.trim().toUpperCase(),
+        Name: profile.razonSocial.trim().toUpperCase(),
         FiscalRegime: profile.regimenFiscal,
       },
       Receiver: {
