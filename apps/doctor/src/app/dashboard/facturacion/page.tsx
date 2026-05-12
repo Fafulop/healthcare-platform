@@ -81,6 +81,40 @@ interface CatalogItem {
 }
 
 // ---------------------------------------------------------------------------
+// Offline fallback catalogs (used when API fails or returns non-array)
+// ---------------------------------------------------------------------------
+
+const OFFLINE_REGIMENES: CatalogItem[] = [
+  { Value: '601', Name: 'General de Ley Personas Morales' },
+  { Value: '603', Name: 'Personas Morales con Fines no Lucrativos' },
+  { Value: '605', Name: 'Sueldos y Salarios e Ingresos Asimilados a Salarios' },
+  { Value: '606', Name: 'Arrendamiento' },
+  { Value: '608', Name: 'Demás ingresos' },
+  { Value: '612', Name: 'Personas Físicas con Actividades Empresariales y Profesionales' },
+  { Value: '616', Name: 'Sin obligaciones fiscales' },
+  { Value: '621', Name: 'Incorporación Fiscal' },
+  { Value: '625', Name: 'Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas' },
+  { Value: '626', Name: 'Régimen Simplificado de Confianza' },
+];
+
+const OFFLINE_FORMAS_PAGO: CatalogItem[] = [
+  { Value: '01', Name: 'Efectivo' },
+  { Value: '02', Name: 'Cheque nominativo' },
+  { Value: '03', Name: 'Transferencia electrónica de fondos' },
+  { Value: '04', Name: 'Tarjeta de crédito' },
+  { Value: '28', Name: 'Tarjeta de débito' },
+  { Value: '99', Name: 'Por definir' },
+];
+
+const OFFLINE_USOS_CFDI: CatalogItem[] = [
+  { Value: 'D01', Name: 'Honorarios médicos, dentales y gastos hospitalarios' },
+  { Value: 'D02', Name: 'Gastos médicos por incapacidad o discapacidad' },
+  { Value: 'G03', Name: 'Gastos en general' },
+  { Value: 'S01', Name: 'Sin efectos fiscales' },
+  { Value: 'CP01', Name: 'Pagos' },
+];
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
@@ -324,8 +358,11 @@ function FiscalProfileForm({
   useEffect(() => {
     authFetch(`${API_URL}/api/facturacion/catalogos/regimenes-fiscales`)
       .then(res => res.json())
-      .then(({ data }) => setRegimenes(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .then(({ data }) => {
+        const list = Array.isArray(data) ? data : [];
+        setRegimenes(list.length > 0 ? list : OFFLINE_REGIMENES);
+      })
+      .catch(() => setRegimenes(OFFLINE_REGIMENES));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1006,10 +1043,17 @@ function NuevaFacturaTab({
       authFetch(`${API_URL}/api/facturacion/catalogos/formas-pago`).then(r => r.json()),
       authFetch(`${API_URL}/api/facturacion/catalogos/regimenes-fiscales`).then(r => r.json()),
     ]).then(([usos, formas, regs]) => {
-      setUsosCfdi(Array.isArray(usos.data) ? usos.data : []);
-      setFormasPago(Array.isArray(formas.data) ? formas.data : []);
-      setRegimenes(Array.isArray(regs.data) ? regs.data : []);
-    }).catch(() => {});
+      const u = Array.isArray(usos.data) ? usos.data : [];
+      const f = Array.isArray(formas.data) ? formas.data : [];
+      const r = Array.isArray(regs.data) ? regs.data : [];
+      setUsosCfdi(u.length > 0 ? u : OFFLINE_USOS_CFDI);
+      setFormasPago(f.length > 0 ? f : OFFLINE_FORMAS_PAGO);
+      setRegimenes(r.length > 0 ? r : OFFLINE_REGIMENES);
+    }).catch(() => {
+      setUsosCfdi(OFFLINE_USOS_CFDI);
+      setFormasPago(OFFLINE_FORMAS_PAGO);
+      setRegimenes(OFFLINE_REGIMENES);
+    });
   }, []);
 
   const addItem = () => {
@@ -1424,9 +1468,14 @@ function REPTab({
       const invoiceList = Array.isArray(invoices.data) ? invoices.data : [];
       const ppd = invoiceList.filter((f: CfdiEmitted) => f.cfdiType === "I" && f.metodoPago === "PPD");
       setPpdInvoices(ppd);
-      setFormasPago(Array.isArray(formas.data) ? formas.data : []);
-      setRegimenes(Array.isArray(regs.data) ? regs.data : []);
-    }).catch(() => {}).finally(() => setLoadingInvoices(false));
+      const f = Array.isArray(formas.data) ? formas.data : [];
+      const r = Array.isArray(regs.data) ? regs.data : [];
+      setFormasPago(f.length > 0 ? f : OFFLINE_FORMAS_PAGO);
+      setRegimenes(r.length > 0 ? r : OFFLINE_REGIMENES);
+    }).catch(() => {
+      setFormasPago(OFFLINE_FORMAS_PAGO);
+      setRegimenes(OFFLINE_REGIMENES);
+    }).finally(() => setLoadingInvoices(false));
   }, []);
 
   const handleSelectInvoice = (uuid: string) => {
@@ -1745,9 +1794,14 @@ function EgresoTab({
       const invoiceList = Array.isArray(invoices.data) ? invoices.data : [];
       const ingreso = invoiceList.filter((f: CfdiEmitted) => f.cfdiType === "I");
       setActiveInvoices(ingreso);
-      setFormasPago(Array.isArray(formas.data) ? formas.data : []);
-      setRegimenes(Array.isArray(regs.data) ? regs.data : []);
-    }).catch(() => {}).finally(() => setLoadingInvoices(false));
+      const f = Array.isArray(formas.data) ? formas.data : [];
+      const r = Array.isArray(regs.data) ? regs.data : [];
+      setFormasPago(f.length > 0 ? f : OFFLINE_FORMAS_PAGO);
+      setRegimenes(r.length > 0 ? r : OFFLINE_REGIMENES);
+    }).catch(() => {
+      setFormasPago(OFFLINE_FORMAS_PAGO);
+      setRegimenes(OFFLINE_REGIMENES);
+    }).finally(() => setLoadingInvoices(false));
   }, []);
 
   const handleSelectInvoice = (uuid: string) => {
