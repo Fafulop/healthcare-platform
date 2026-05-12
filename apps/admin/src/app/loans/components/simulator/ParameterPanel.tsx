@@ -101,7 +101,11 @@ export default function ParameterPanel({ params, onChange }: Props) {
             value={params.termMonths}
             {...PARAM_RANGES.termMonths}
             format={(v) => `${v} meses`}
-            onChange={(v) => update({ termMonths: v })}
+            onChange={(v) => update({
+              termMonths: v,
+              ...(params.prepaymentMonth > v ? { prepaymentMonth: v } : {}),
+              ...(params.defaultMonth > v ? { defaultMonth: v } : {}),
+            })}
           />
           <SliderRow
             label="Comision de Apertura"
@@ -173,6 +177,29 @@ export default function ParameterPanel({ params, onChange }: Props) {
         </div>
       </div>
 
+      {/* Borrower Profile */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Perfil del Doctor</h3>
+        <div className="space-y-4">
+          <SliderRow
+            label="Ingreso Mensual"
+            value={params.doctorMonthlyIncome}
+            {...PARAM_RANGES.doctorMonthlyIncome}
+            format={formatMXN}
+            onChange={(v) => update({ doctorMonthlyIncome: v })}
+          />
+          <SliderRow
+            label="Prepago en Mes"
+            value={params.prepaymentMonth}
+            min={PARAM_RANGES.prepaymentMonth.min}
+            max={params.termMonths}
+            step={PARAM_RANGES.prepaymentMonth.step}
+            format={(v) => (v === 0 ? "Sin prepago" : `Mes ${v}`)}
+            onChange={(v) => update({ prepaymentMonth: v })}
+          />
+        </div>
+      </div>
+
       {/* Operating Costs */}
       <div>
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Costos Operativos</h3>
@@ -197,6 +224,20 @@ export default function ParameterPanel({ params, onChange }: Props) {
             {...PARAM_RANGES.collectionCost}
             format={formatMXN}
             onChange={(v) => update({ collectionCost: v })}
+          />
+        </div>
+      </div>
+
+      {/* Investment Threshold */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Umbral de Inversion</h3>
+        <div className="space-y-4">
+          <SliderRow
+            label="Hurdle Rate (TIR minima)"
+            value={params.hurdleRate}
+            {...PARAM_RANGES.hurdleRate}
+            format={formatPct}
+            onChange={(v) => update({ hurdleRate: v })}
           />
         </div>
       </div>

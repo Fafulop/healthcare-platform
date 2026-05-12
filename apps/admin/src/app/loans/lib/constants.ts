@@ -21,6 +21,9 @@ export const PARAM_RANGES = {
   originationCost: { min: 500, max: 5000, step: 250, default: 1500 },
   annualServicingCost: { min: 200, max: 3000, step: 100, default: 700 },
   collectionCost: { min: 1000, max: 10000, step: 500, default: 4000 },
+  doctorMonthlyIncome: { min: 30000, max: 500000, step: 5000, default: 120000 },
+  hurdleRate: { min: 0.05, max: 0.40, step: 0.01, default: 0.15 },
+  prepaymentMonth: { min: 0, max: 60, step: 1, default: 0 },
 };
 
 export const DEFAULT_LOAN_PARAMS = {
@@ -35,4 +38,7 @@ export const DEFAULT_LOAN_PARAMS = {
   originationCost: PARAM_RANGES.originationCost.default,
   annualServicingCost: PARAM_RANGES.annualServicingCost.default,
   collectionCost: PARAM_RANGES.collectionCost.default,
+  doctorMonthlyIncome: PARAM_RANGES.doctorMonthlyIncome.default,
+  hurdleRate: PARAM_RANGES.hurdleRate.default,
+  prepaymentMonth: PARAM_RANGES.prepaymentMonth.default,
 };

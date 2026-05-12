@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import type { LoanParams } from "../../lib/types";
 import { generateSensitivityMatrix, formatMXN, formatPct } from "../../lib/loan-math";
 
@@ -12,7 +13,17 @@ const RATE_RANGE = [0.24, 0.27, 0.30, 0.33, 0.36, 0.39, 0.42];
 const COF_RANGE = [0.085, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20];
 
 export default function SensitivityMatrix({ params, onCellClick }: Props) {
-  const matrix = generateSensitivityMatrix(params, RATE_RANGE, COF_RANGE);
+  const matrix = useMemo(
+    () => generateSensitivityMatrix(params, RATE_RANGE, COF_RANGE),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      params.principal, params.annualRate, params.termMonths,
+      params.originationFeeRate, params.cofRate, params.defaultRate,
+      params.recoveryRate, params.defaultMonth, params.originationCost,
+      params.annualServicingCost, params.collectionCost, params.prepaymentMonth,
+      params.doctorMonthlyIncome, params.hurdleRate,
+    ]
+  );
 
   // Find min/max for color scale
   const allProfits = matrix.flat().map((c) => c.profit);

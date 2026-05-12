@@ -12,6 +12,9 @@ export interface LoanParams {
   originationCost: number; // MXN per loan
   annualServicingCost: number; // MXN per year
   collectionCost: number; // MXN per defaulted loan
+  doctorMonthlyIncome: number; // doctor's gross monthly income in MXN
+  hurdleRate: number; // minimum acceptable annualized return, e.g. 0.15
+  prepaymentMonth: number; // 0 = no prepayment, else month of full early payoff
 }
 
 export interface AmortizationRow {
@@ -76,6 +79,23 @@ export interface LoanProfitResult {
   oer: number; // operating expense ratio: opex / avg outstanding
   costPerLoanPct: number; // total costs as % of principal
   cat: number; // Costo Anual Total (all-in annualized cost to borrower, Mexican standard)
+
+  // Borrower Affordability
+  dti: number; // debt-to-income: monthly payment / doctor monthly income
+  dscr: number; // debt service coverage: doctor free cash flow / monthly payment
+
+  // Risk-Adjusted
+  raroc: number; // risk-adjusted return on capital: (revenue - EL - opex) / capital
+  ead: number; // exposure at default: outstanding balance at expected default month
+
+  // Time-Value & Funding
+  wal: number; // weighted average life in years
+  paybackMonth: number; // month where cumulative net cash flow turns positive
+  duration: number; // modified duration: % change in profit per 100bps rate move
+
+  // Business Planning
+  breakEvenLoans: number; // number of performing loans to cover one full default
+  hurdleCleared: boolean; // IRR >= hurdle rate
 
   // Amortization
   schedule: AmortizationRow[];

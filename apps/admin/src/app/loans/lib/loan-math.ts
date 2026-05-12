@@ -40,7 +40,13 @@ function calculateCofBreakdown(
  * Full loan profit calculation.
  */
 export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
-  const schedule = generateAmortization(params.principal, params.annualRate, params.termMonths);
+  const schedule = generateAmortization(
+    params.principal,
+    params.annualRate,
+    params.termMonths,
+    params.prepaymentMonth
+  );
+  const effectiveTermMonths = schedule.length;
   const yearSummaries = summarizeByYear(schedule);
   const totalInterest = calculateTotalInterest(schedule);
   const monthlyPayment = calculateMonthlyPayment(params.principal, params.annualRate, params.termMonths);
@@ -49,11 +55,15 @@ export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
   const originationFee = params.principal * params.originationFeeRate * (1 + MARKET.ivaRate);
   const grossRevenue = totalInterest + originationFee;
 
+  // EAD: exposure at default — use outstanding balance at expected default month
+  const defaultIdx = Math.min(params.defaultMonth, effectiveTermMonths) - 1;
+  const ead = defaultIdx >= 0 ? schedule[defaultIdx].endBalance : params.principal;
+
   // Costs
-  const cofBreakdown = calculateCofBreakdown(yearSummaries, params.cofRate, params.termMonths);
+  const cofBreakdown = calculateCofBreakdown(yearSummaries, params.cofRate, effectiveTermMonths);
   const lgd = 1 - params.recoveryRate;
-  const provisionAmount = params.principal * params.defaultRate * lgd;
-  const termYears = params.termMonths / 12;
+  const provisionAmount = ead * params.defaultRate * lgd; // EAD-based provision
+  const termYears = effectiveTermMonths / 12;
   const opExTotal = params.originationCost + params.annualServicingCost * termYears;
 
   const totalCosts = cofBreakdown.total + provisionAmount + opExTotal;
@@ -61,29 +71,27 @@ export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
   // Profit
   const netProfit = grossRevenue - totalCosts;
   const profitMargin = grossRevenue > 0 ? netProfit / grossRevenue : 0;
-  const monthlyProfit = netProfit / params.termMonths;
+  const monthlyProfit = netProfit / effectiveTermMonths;
   const annualizedROI = (netProfit / params.principal / termYears);
 
   // Advanced Metrics
   const avgOutstanding = schedule.reduce((s, r) => s + r.startBalance, 0) / schedule.length;
 
   // IRR: build cash flow array from lender's perspective
-  // Month 0: -principal (we lend out) + originationFee (we collect)
-  // Month 1..n: +monthlyPayment (doctor pays us)
-  // Costs (CoF, provisions, opex) are subtracted as monthly spread
-  const monthlyCofCost = cofBreakdown.total / params.termMonths;
-  const monthlyProvision = provisionAmount / params.termMonths;
-  const monthlyOpex = opExTotal / params.termMonths;
-  const monthlyNetCashFlow = monthlyPayment - monthlyCofCost - monthlyProvision - monthlyOpex;
+  const monthlyCofCost = cofBreakdown.total / effectiveTermMonths;
+  const monthlyProvision = provisionAmount / effectiveTermMonths;
+  const monthlyOpex = opExTotal / effectiveTermMonths;
   const cashFlows: number[] = [-params.principal + originationFee];
-  for (let i = 0; i < params.termMonths; i++) {
-    cashFlows.push(monthlyNetCashFlow);
+  for (let i = 0; i < effectiveTermMonths; i++) {
+    const payment = schedule[i].payment;
+    cashFlows.push(payment - monthlyCofCost - monthlyProvision - monthlyOpex);
   }
   const monthlyIRR = calculateIRR(cashFlows);
   const irr = Math.pow(1 + monthlyIRR, 12) - 1; // annualize
 
   // MOIC: total cash received / total cash invested
-  const totalCashIn = monthlyPayment * params.termMonths + originationFee;
+  const totalPaymentsReceived = schedule.reduce((s, r) => s + r.payment, 0);
+  const totalCashIn = totalPaymentsReceived + originationFee;
   const totalCashOut = params.principal + cofBreakdown.total + provisionAmount + opExTotal;
   const moic = totalCashOut > 0 ? totalCashIn / totalCashOut : 0;
 
@@ -95,28 +103,74 @@ export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
   const nim = avgOutstanding > 0 ? (netInterestIncome / termYears) / avgOutstanding : 0;
 
   // Profitability Ratios
-  // ROE: for a single loan, equity = principal (we deployed our own capital)
   const roe = params.principal > 0 ? (netProfit / termYears) / params.principal : 0;
-  // ROA: net profit / avg assets (annualized)
   const roa = avgOutstanding > 0 ? (netProfit / termYears) / avgOutstanding : 0;
-  // Portfolio Yield: total revenue earned / avg outstanding (annualized)
   const portfolioYield = avgOutstanding > 0 ? (grossRevenue / termYears) / avgOutstanding : 0;
-  // OSS: revenue / total costs — above 1.0 means self-sustaining
   const oss = totalCosts > 0 ? grossRevenue / totalCosts : 0;
 
   // Efficiency & Regulatory
-  // OER: operating expense ratio (opex / avg outstanding, annualized)
   const oer = avgOutstanding > 0 ? (opExTotal / termYears) / avgOutstanding : 0;
-  // Cost as % of principal
   const costPerLoanPct = params.principal > 0 ? totalCosts / params.principal : 0;
-  // CAT: Costo Anual Total — IRR of borrower's cash flows (what the doctor actually pays)
-  // Borrower perspective: receives principal, pays monthlyPayment + originationFee upfront
-  const borrowerFlows: number[] = [params.principal - originationFee]; // net received
-  for (let i = 0; i < params.termMonths; i++) {
-    borrowerFlows.push(-monthlyPayment);
+
+  // CAT: Costo Anual Total
+  const borrowerFlows: number[] = [params.principal - originationFee];
+  for (let i = 0; i < effectiveTermMonths; i++) {
+    borrowerFlows.push(-schedule[i].payment);
   }
   const monthlyCAT = calculateIRR(borrowerFlows);
   const cat = Math.pow(1 + monthlyCAT, 12) - 1;
+
+  // ── NEW METRICS ──
+
+  // DTI: debt-to-income ratio
+  const dti = params.doctorMonthlyIncome > 0 ? monthlyPayment / params.doctorMonthlyIncome : 0;
+
+  // DSCR: debt service coverage ratio (assume 70% of income is disposable for debt)
+  const disposableIncome = params.doctorMonthlyIncome * 0.7;
+  const dscr = monthlyPayment > 0 ? disposableIncome / monthlyPayment : 0;
+
+  // RAROC: risk-adjusted return on capital
+  // (Revenue - Expected Loss - OpEx - CoF) / Capital at risk
+  const expectedLoss = ead * params.defaultRate * lgd;
+  const raroc = params.principal > 0
+    ? ((grossRevenue - expectedLoss - opExTotal - cofBreakdown.total) / termYears) / params.principal
+    : 0;
+
+  // WAL: weighted average life (in years)
+  // Sum of (month * principal_repaid) / total_principal_repaid
+  const totalPrincipalRepaid = schedule.reduce((s, r) => s + r.principal, 0);
+  const wal = totalPrincipalRepaid > 0
+    ? schedule.reduce((s, r) => s + (r.month / 12) * r.principal, 0) / totalPrincipalRepaid
+    : 0;
+
+  // Payback Period: first month where cumulative net cash flow >= 0
+  let cumCashFlow = -params.principal + originationFee;
+  let paybackMonth = 0;
+  for (let i = 0; i < effectiveTermMonths; i++) {
+    cumCashFlow += schedule[i].payment - monthlyCofCost - monthlyProvision - monthlyOpex;
+    if (cumCashFlow >= 0 && paybackMonth === 0) {
+      paybackMonth = i + 1;
+    }
+  }
+
+  // Duration: approximate modified duration
+  // How much does profit change per 100bps change in rate?
+  const bumpUp = calculateLoanProfitSimple({ ...params, annualRate: params.annualRate + 0.01 });
+  const bumpDown = calculateLoanProfitSimple({ ...params, annualRate: params.annualRate - 0.01 });
+  const duration = netProfit !== 0
+    ? -((bumpUp - bumpDown) / (2 * 0.01)) / netProfit
+    : 0;
+
+  // Break-even loans: how many performing loans needed to cover 1 full default
+  // A full default means losing: principal - recovery - payments_before_default
+  const fullDefaultLoss = params.principal * lgd; // simplified worst case
+  const profitPerPerformingLoan = netProfit;
+  const breakEvenLoans = profitPerPerformingLoan > 0
+    ? Math.ceil(fullDefaultLoss / profitPerPerformingLoan)
+    : Infinity;
+
+  // Hurdle rate comparison
+  const hurdleCleared = irr >= params.hurdleRate;
 
   return {
     totalInterest: Math.round(totalInterest * 100) / 100,
@@ -144,9 +198,43 @@ export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
     oer,
     costPerLoanPct,
     cat,
+    dti,
+    dscr: Math.round(dscr * 100) / 100,
+    raroc,
+    ead: Math.round(ead * 100) / 100,
+    wal: Math.round(wal * 100) / 100,
+    paybackMonth,
+    duration: Math.round(duration * 100) / 100,
+    breakEvenLoans: breakEvenLoans === Infinity ? 999 : breakEvenLoans,
+    hurdleCleared,
     schedule,
     yearSummaries,
   };
+}
+
+/**
+ * Simplified profit calculation for duration/sensitivity (returns just netProfit).
+ */
+function calculateLoanProfitSimple(params: LoanParams): number {
+  const schedule = generateAmortization(
+    params.principal,
+    params.annualRate,
+    params.termMonths,
+    params.prepaymentMonth
+  );
+  const effectiveTermMonths = schedule.length;
+  const yearSummaries = summarizeByYear(schedule);
+  const totalInterest = calculateTotalInterest(schedule);
+  const originationFee = params.principal * params.originationFeeRate * (1 + MARKET.ivaRate);
+  const grossRevenue = totalInterest + originationFee;
+  const cofBreakdown = calculateCofBreakdown(yearSummaries, params.cofRate, effectiveTermMonths);
+  const defaultIdx = Math.min(params.defaultMonth, effectiveTermMonths) - 1;
+  const ead = defaultIdx >= 0 ? schedule[defaultIdx].endBalance : params.principal;
+  const lgd = 1 - params.recoveryRate;
+  const provisionAmount = ead * params.defaultRate * lgd;
+  const termYears = effectiveTermMonths / 12;
+  const opExTotal = params.originationCost + params.annualServicingCost * termYears;
+  return grossRevenue - cofBreakdown.total - provisionAmount - opExTotal;
 }
 
 /**
@@ -156,7 +244,12 @@ export function calculateDefaultAtMonth(
   params: LoanParams,
   atMonth: number
 ): DefaultScenarioResult {
-  const schedule = generateAmortization(params.principal, params.annualRate, params.termMonths);
+  const schedule = generateAmortization(
+    params.principal,
+    params.annualRate,
+    params.termMonths,
+    params.prepaymentMonth
+  );
 
   // Payments received up to default month
   const rowsBeforeDefault = schedule.slice(0, atMonth);
@@ -169,16 +262,12 @@ export function calculateDefaultAtMonth(
   const recoveryAmount = outstandingAtDefault * params.recoveryRate;
 
   // CoF paid up to default
-  // Approximate: avg outstanding over the months before default × monthly CoF
   const avgOutstandingBeforeDefault =
     rowsBeforeDefault.reduce((s, r) => s + r.startBalance, 0) / Math.max(rowsBeforeDefault.length, 1);
   const cofPaid = avgOutstandingBeforeDefault * params.cofRate * (atMonth / 12);
 
   const originationFee = params.principal * params.originationFeeRate * (1 + MARKET.ivaRate);
 
-  // Net = (total cash received) - (total cash out)
-  // Cash in:  paymentsReceived + recovery + originationFee
-  // Cash out: principal advanced + cofPaid + collectionCost
   const net =
     paymentsReceived +
     recoveryAmount +
@@ -206,8 +295,8 @@ export function calculateDefaultAtMonth(
  */
 export function generateSensitivityMatrix(
   baseParams: LoanParams,
-  rateRange: number[], // e.g. [0.24, 0.27, 0.30, 0.33, 0.36]
-  cofRange: number[] // e.g. [0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20]
+  rateRange: number[],
+  cofRange: number[]
 ): SensitivityCell[][] {
   return cofRange.map((cof) =>
     rateRange.map((rate) => {
@@ -226,8 +315,11 @@ export function generateSensitivityMatrix(
  * Generate default impact curve — net result at each possible default month.
  */
 export function generateDefaultCurve(params: LoanParams): DefaultScenarioResult[] {
+  const effectiveTerm = params.prepaymentMonth > 0
+    ? Math.min(params.prepaymentMonth, params.termMonths)
+    : params.termMonths;
   const results: DefaultScenarioResult[] = [];
-  for (let m = 1; m <= params.termMonths; m++) {
+  for (let m = 1; m <= effectiveTerm; m++) {
     results.push(calculateDefaultAtMonth(params, m));
   }
   return results;

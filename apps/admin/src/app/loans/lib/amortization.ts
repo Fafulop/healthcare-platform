@@ -17,19 +17,38 @@ export function calculateMonthlyPayment(
 
 /**
  * Generate full month-by-month amortization schedule.
+ * If prepaymentMonth > 0, the loan is fully paid off at that month.
  */
 export function generateAmortization(
   principal: number,
   annualRate: number,
-  termMonths: number
+  termMonths: number,
+  prepaymentMonth: number = 0
 ): AmortizationRow[] {
   const monthlyPayment = calculateMonthlyPayment(principal, annualRate, termMonths);
   const r = annualRate / 12;
   const schedule: AmortizationRow[] = [];
   let balance = principal;
+  const effectiveTerm = prepaymentMonth > 0 ? Math.min(prepaymentMonth, termMonths) : termMonths;
 
-  for (let month = 1; month <= termMonths; month++) {
+  for (let month = 1; month <= effectiveTerm; month++) {
     const interest = balance * r;
+    const isPrepayMonth = prepaymentMonth > 0 && month === prepaymentMonth;
+
+    if (isPrepayMonth) {
+      // Full payoff: pay remaining balance + last month's interest
+      const finalPayment = balance + interest;
+      schedule.push({
+        month,
+        startBalance: Math.round(balance * 100) / 100,
+        interest: Math.round(interest * 100) / 100,
+        principal: Math.round(balance * 100) / 100,
+        payment: Math.round(finalPayment * 100) / 100,
+        endBalance: 0,
+      });
+      break;
+    }
+
     const principalPortion = monthlyPayment - interest;
     const endBalance = Math.max(0, balance - principalPortion);
 
