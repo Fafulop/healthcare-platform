@@ -324,7 +324,7 @@ function FiscalProfileForm({
   useEffect(() => {
     authFetch(`${API_URL}/api/facturacion/catalogos/regimenes-fiscales`)
       .then(res => res.json())
-      .then(({ data }) => setRegimenes(data || []))
+      .then(({ data }) => setRegimenes(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, []);
 
@@ -667,7 +667,7 @@ function FacturasListTab() {
       const res = await authFetch(`${API_URL}/api/facturacion/cfdi?${params}`);
       if (!res.ok) throw new Error("Error al obtener facturas");
       const json = await res.json();
-      setFacturas(json.data || []);
+      setFacturas(Array.isArray(json.data) ? json.data : []);
       if (json.pagination) setPagination(json.pagination);
     } catch (err: any) {
       setError(err.message);
@@ -1006,9 +1006,9 @@ function NuevaFacturaTab({
       authFetch(`${API_URL}/api/facturacion/catalogos/formas-pago`).then(r => r.json()),
       authFetch(`${API_URL}/api/facturacion/catalogos/regimenes-fiscales`).then(r => r.json()),
     ]).then(([usos, formas, regs]) => {
-      setUsosCfdi(usos.data || []);
-      setFormasPago(formas.data || []);
-      setRegimenes(regs.data || []);
+      setUsosCfdi(Array.isArray(usos.data) ? usos.data : []);
+      setFormasPago(Array.isArray(formas.data) ? formas.data : []);
+      setRegimenes(Array.isArray(regs.data) ? regs.data : []);
     }).catch(() => {});
   }, []);
 
@@ -1421,10 +1421,11 @@ function REPTab({
       authFetch(`${API_URL}/api/facturacion/catalogos/formas-pago`).then(r => r.json()),
       authFetch(`${API_URL}/api/facturacion/catalogos/regimenes-fiscales`).then(r => r.json()),
     ]).then(([invoices, formas, regs]) => {
-      const ppd = (invoices.data || []).filter((f: CfdiEmitted) => f.cfdiType === "I" && f.metodoPago === "PPD");
+      const invoiceList = Array.isArray(invoices.data) ? invoices.data : [];
+      const ppd = invoiceList.filter((f: CfdiEmitted) => f.cfdiType === "I" && f.metodoPago === "PPD");
       setPpdInvoices(ppd);
-      setFormasPago(formas.data || []);
-      setRegimenes(regs.data || []);
+      setFormasPago(Array.isArray(formas.data) ? formas.data : []);
+      setRegimenes(Array.isArray(regs.data) ? regs.data : []);
     }).catch(() => {}).finally(() => setLoadingInvoices(false));
   }, []);
 
@@ -1741,10 +1742,11 @@ function EgresoTab({
       authFetch(`${API_URL}/api/facturacion/catalogos/formas-pago`).then(r => r.json()),
       authFetch(`${API_URL}/api/facturacion/catalogos/regimenes-fiscales`).then(r => r.json()),
     ]).then(([invoices, formas, regs]) => {
-      const ingreso = (invoices.data || []).filter((f: CfdiEmitted) => f.cfdiType === "I");
+      const invoiceList = Array.isArray(invoices.data) ? invoices.data : [];
+      const ingreso = invoiceList.filter((f: CfdiEmitted) => f.cfdiType === "I");
       setActiveInvoices(ingreso);
-      setFormasPago(formas.data || []);
-      setRegimenes(regs.data || []);
+      setFormasPago(Array.isArray(formas.data) ? formas.data : []);
+      setRegimenes(Array.isArray(regs.data) ? regs.data : []);
     }).catch(() => {}).finally(() => setLoadingInvoices(false));
   }, []);
 
