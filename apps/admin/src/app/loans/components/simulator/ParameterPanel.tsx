@@ -1,7 +1,7 @@
 "use client";
 
-import type { LoanParams } from "../../lib/types";
-import { FUNDING_PRESETS, TIER_PRESETS, type FundingPreset } from "../../lib/types";
+import type { LoanParams, AmortizationType } from "../../lib/types";
+import { FUNDING_PRESETS, TIER_PRESETS, AMORTIZATION_LABELS, type FundingPreset } from "../../lib/types";
 import { PARAM_RANGES } from "../../lib/constants";
 import { formatMXN, formatPct } from "../../lib/loan-math";
 
@@ -76,6 +76,42 @@ export default function ParameterPanel({ params, onChange }: Props) {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Amortization Type */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Tipo de Amortizacion</h3>
+        <div className="grid grid-cols-2 gap-2">
+          {(Object.entries(AMORTIZATION_LABELS) as [AmortizationType, typeof AMORTIZATION_LABELS.french][]).map(
+            ([key, info]) => (
+              <button
+                key={key}
+                onClick={() => update({ amortizationType: key })}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition text-left ${
+                  params.amortizationType === key
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-200 hover:border-blue-400 hover:bg-blue-50"
+                }`}
+              >
+                <div>{info.short}</div>
+                <div className="text-[10px] text-gray-500 mt-0.5 leading-tight">{info.description.slice(0, 50)}</div>
+              </button>
+            )
+          )}
+        </div>
+        {params.amortizationType === "interestOnly" && (
+          <div className="mt-3">
+            <SliderRow
+              label="Meses Solo Intereses"
+              value={params.gracePeriodMonths}
+              min={PARAM_RANGES.gracePeriodMonths.min}
+              max={Math.min(PARAM_RANGES.gracePeriodMonths.max, params.termMonths - 1)}
+              step={PARAM_RANGES.gracePeriodMonths.step}
+              format={(v) => `${v} meses`}
+              onChange={(v) => update({ gracePeriodMonths: v })}
+            />
+          </div>
+        )}
       </div>
 
       {/* Loan Parameters */}

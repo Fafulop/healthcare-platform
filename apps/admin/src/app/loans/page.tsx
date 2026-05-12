@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import LoansNavTabs from "./components/LoansNavTabs";
 import LoanSimulator from "./components/simulator/LoanSimulator";
 import PortfolioProjection from "./components/portfolio/PortfolioProjection";
+import LoanTheory from "./components/theory/LoanTheory";
 import { Banknote } from "lucide-react";
 
 export default function LoansPage() {
@@ -55,12 +56,7 @@ export default function LoansPage() {
 
         {activeTab === "portfolio" && <PortfolioProjection />}
 
-        {activeTab === "theory" && (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
-            <p className="text-lg font-medium mb-2">Teoria de Prestamos</p>
-            <p className="text-sm">Coming in Phase 4 — French amortization, cost of funds, PD/LGD/EL, regulatory paths</p>
-          </div>
-        )}
+        {activeTab === "theory" && <LoanTheory />}
 
         {activeTab === "competitors" && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">

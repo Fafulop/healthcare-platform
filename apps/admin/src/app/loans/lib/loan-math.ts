@@ -45,12 +45,16 @@ export function calculateLoanProfit(params: LoanParams): LoanProfitResult {
     params.principal,
     params.annualRate,
     params.termMonths,
-    params.prepaymentMonth
+    params.prepaymentMonth,
+    params.amortizationType,
+    params.gracePeriodMonths
   );
   const effectiveTermMonths = schedule.length;
   const yearSummaries = summarizeByYear(schedule);
   const totalInterest = calculateTotalInterest(schedule);
-  const monthlyPayment = calculateMonthlyPayment(params.principal, params.annualRate, params.termMonths);
+  // Use max payment from schedule for DTI/affordability (varies by amortization type)
+  // For French: all payments equal. For German: first is highest. For interest-only: post-grace is highest.
+  const monthlyPayment = schedule.length > 0 ? Math.max(...schedule.map(r => r.payment)) : 0;
 
   // Revenue
   const originationFee = params.principal * params.originationFeeRate * (1 + MARKET.ivaRate);
@@ -221,7 +225,9 @@ function calculateLoanProfitSimple(params: LoanParams): number {
     params.principal,
     params.annualRate,
     params.termMonths,
-    params.prepaymentMonth
+    params.prepaymentMonth,
+    params.amortizationType,
+    params.gracePeriodMonths
   );
   const effectiveTermMonths = schedule.length;
   const yearSummaries = summarizeByYear(schedule);
@@ -329,7 +335,9 @@ export function calculateDefaultAtMonth(
     params.principal,
     params.annualRate,
     params.termMonths,
-    params.prepaymentMonth
+    params.prepaymentMonth,
+    params.amortizationType,
+    params.gracePeriodMonths
   );
 
   // Payments received up to default month

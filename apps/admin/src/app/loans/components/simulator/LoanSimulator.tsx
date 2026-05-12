@@ -115,7 +115,7 @@ export default function LoanSimulator() {
         {showDefaults && <DefaultScenarios params={params} />}
 
         {/* Amortization Table */}
-        <AmortizationTable schedule={result.schedule} yearSummaries={result.yearSummaries} />
+        <AmortizationTable schedule={result.schedule} yearSummaries={result.yearSummaries} amortizationType={params.amortizationType} />
       </div>
     </div>
   );

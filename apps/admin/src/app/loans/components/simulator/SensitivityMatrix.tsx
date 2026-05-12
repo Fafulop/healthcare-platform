@@ -22,6 +22,7 @@ export default function SensitivityMatrix({ params, onCellClick }: Props) {
       params.recoveryRate, params.defaultMonth, params.originationCost,
       params.annualServicingCost, params.collectionCost, params.prepaymentMonth,
       params.doctorMonthlyIncome, params.hurdleRate, params.redeploymentMonths,
+      params.amortizationType, params.gracePeriodMonths,
     ]
   );
 

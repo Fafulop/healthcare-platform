@@ -25,6 +25,7 @@ export const PARAM_RANGES = {
   hurdleRate: { min: 0.05, max: 0.40, step: 0.01, default: 0.15 },
   prepaymentMonth: { min: 0, max: 60, step: 1, default: 0 },
   redeploymentMonths: { min: 0, max: 6, step: 1, default: 2 },
+  gracePeriodMonths: { min: 1, max: 12, step: 1, default: 3 },
 };
 
 export const DEFAULT_LOAN_PARAMS = {
@@ -43,4 +44,6 @@ export const DEFAULT_LOAN_PARAMS = {
   hurdleRate: PARAM_RANGES.hurdleRate.default,
   prepaymentMonth: PARAM_RANGES.prepaymentMonth.default,
   redeploymentMonths: PARAM_RANGES.redeploymentMonths.default,
+  amortizationType: "french" as const,
+  gracePeriodMonths: PARAM_RANGES.gracePeriodMonths.default,
 };

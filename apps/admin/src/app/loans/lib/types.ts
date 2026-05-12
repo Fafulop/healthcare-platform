@@ -1,5 +1,30 @@
 // ─── Loan Simulator Types ───
 
+export type AmortizationType = "french" | "equalPrincipal" | "interestOnly" | "flat";
+
+export const AMORTIZATION_LABELS: Record<AmortizationType, { label: string; short: string; description: string }> = {
+  french: {
+    label: "Frances (Cuota Fija)",
+    short: "Frances",
+    description: "Pago mensual fijo. Los intereses bajan y el capital sube cada mes. El mas comun en Mexico.",
+  },
+  equalPrincipal: {
+    label: "Aleman (Capital Fijo)",
+    short: "Aleman",
+    description: "Capital fijo cada mes. Pagos altos al inicio que bajan con el tiempo.",
+  },
+  interestOnly: {
+    label: "Solo Intereses + Amortizacion",
+    short: "Solo Intereses",
+    description: "Periodo de gracia donde solo pagas intereses, despues amortizacion francesa.",
+  },
+  flat: {
+    label: "Tasa Flat (Sobre Saldo Original)",
+    short: "Flat",
+    description: "Intereses calculados sobre el monto original, no sobre saldo. Costo real mas alto.",
+  },
+};
+
 export interface LoanParams {
   principal: number;
   annualRate: number; // e.g. 0.30 for 30%
@@ -16,6 +41,8 @@ export interface LoanParams {
   hurdleRate: number; // minimum acceptable annualized return, e.g. 0.15
   prepaymentMonth: number; // 0 = no prepayment, else month of full early payoff
   redeploymentMonths: number; // months capital sits idle between loans (0 = instant redeployment)
+  amortizationType: AmortizationType; // amortization method
+  gracePeriodMonths: number; // months of interest-only before amortization (only for interestOnly type)
 }
 
 export interface AmortizationRow {

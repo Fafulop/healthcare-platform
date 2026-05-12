@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import type { AmortizationRow, YearSummary } from "../../lib/types";
+import type { AmortizationRow, YearSummary, AmortizationType } from "../../lib/types";
+import { AMORTIZATION_LABELS } from "../../lib/types";
 import { formatMXN } from "../../lib/loan-math";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 interface Props {
   schedule: AmortizationRow[];
   yearSummaries: YearSummary[];
+  amortizationType?: AmortizationType;
 }
 
-export default function AmortizationTable({ schedule, yearSummaries }: Props) {
+export default function AmortizationTable({ schedule, yearSummaries, amortizationType = "french" }: Props) {
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([1]));
 
   const toggleYear = (year: number) => {
@@ -29,7 +31,12 @@ export default function AmortizationTable({ schedule, yearSummaries }: Props) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-        <h3 className="text-sm font-semibold text-gray-700">Tabla de Amortizacion</h3>
+        <h3 className="text-sm font-semibold text-gray-700">
+          Tabla de Amortizacion
+          <span className="ml-2 text-xs font-normal text-gray-500">
+            — {AMORTIZATION_LABELS[amortizationType].label}
+          </span>
+        </h3>
       </div>
 
       <div className="overflow-x-auto">
@@ -85,7 +92,12 @@ export default function AmortizationTable({ schedule, yearSummaries }: Props) {
                       key={row.month}
                       className="border-b border-gray-50 hover:bg-gray-50 transition"
                     >
-                      <td className="px-3 py-1.5 pl-8 text-gray-600">{row.month}</td>
+                      <td className="px-3 py-1.5 pl-8 text-gray-600">
+                        {row.month}
+                        {row.principal === 0 && (
+                          <span className="ml-1 text-[10px] text-amber-600 font-medium">gracia</span>
+                        )}
+                      </td>
                       <td className="px-3 py-1.5 text-right text-gray-700">
                         {formatMXN(row.startBalance)}
                       </td>
