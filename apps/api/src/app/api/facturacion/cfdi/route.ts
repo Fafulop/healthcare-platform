@@ -118,13 +118,22 @@ export async function POST(request: NextRequest) {
       cfdifolio = String(lastFolioNum + 1);
     }
 
-    // Build Facturama payload
-    // Names must be UPPERCASE per SAT/Facturama (must match Cédula de Identificación Fiscal)
-    console.log('CFDI Issuer debug:', { rfc: profile.rfc, razonSocial: profile.razonSocial, regimenFiscal: profile.regimenFiscal });
+    // Fetch the issuer name from Facturama's CSD registry (must match exactly)
+    let issuerName = profile.razonSocial.trim().toUpperCase();
+    try {
+      const { getCSDStatus } = await import('@/lib/facturama');
+      const csdStatus = await getCSDStatus(profile.rfc);
+      if (csdStatus.TaxName) {
+        issuerName = csdStatus.TaxName.trim().toUpperCase();
+      }
+    } catch (e) {
+      // Fall back to profile name if CSD status check fails
+    }
+    console.log('CFDI Issuer debug:', { rfc: profile.rfc, issuerName, regimenFiscal: profile.regimenFiscal });
     const payload: CreateCfdiPayload = {
       Issuer: {
         Rfc: profile.rfc.trim().toUpperCase(),
-        Name: profile.razonSocial.trim().toUpperCase(),
+        Name: issuerName,
         FiscalRegime: profile.regimenFiscal,
       },
       Receiver: {
