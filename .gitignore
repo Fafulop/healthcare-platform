@@ -45,3 +45,6 @@ next-env.d.ts
 
 # Windows null files
 nul
+
+# SAT descarga masiva temp files
+sat-metadata-*
