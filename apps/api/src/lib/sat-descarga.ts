@@ -510,7 +510,7 @@ export async function downloadPackage(
     'Authorization': `WRAP access_token="${token}"`,
   });
 
-  const paqueteMatch = res.body.match(/<Paquete>(.*?)<\/Paquete>/is)
+  const paqueteMatch = res.body.match(/<Paquete>([\s\S]*?)<\/Paquete>/i)
     || res.body.match(/Paquete="([^"]+)"/i);
 
   if (!paqueteMatch) {
