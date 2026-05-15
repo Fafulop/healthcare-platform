@@ -22,6 +22,7 @@ import {
   CreditCard,
   HelpCircle,
   Receipt,
+  Download,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -165,6 +166,12 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             label="Facturación"
             href="/dashboard/facturacion"
             active={pathname?.startsWith("/dashboard/facturacion")}
+          />
+          <NavItem
+            icon={Download}
+            label="Descarga SAT"
+            href="/dashboard/sat-descarga"
+            active={pathname?.startsWith("/dashboard/sat-descarga")}
           />
         </div>
 
