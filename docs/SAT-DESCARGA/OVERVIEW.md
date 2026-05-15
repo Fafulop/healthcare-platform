@@ -1,7 +1,7 @@
 # SAT Descarga Directa — Integracion con el SAT para Descarga de CFDIs
 
-**Fecha:** 2026-05-12
-**Status:** PoC COMPLETO — los 4 pasos funcionan (2026-05-12)
+**Fecha:** 2026-05-12 (PoC) / 2026-05-15 (integracion app)
+**Status:** FASE 1 COMPLETA — PoC + DB + API + Worker + UI integrados (2026-05-15)
 
 ---
 
@@ -160,7 +160,7 @@ Lecciones adicionales:
 8. **Emitidos abril 2026**: 12 CFDIs, todos vigentes, total $199,620.00 MXN
 9. **Recibidos abril 2026**: 19 CFDIs (18 vigentes + 1 cancelado), total vigentes $91,634.71 MXN
 
-### Pendiente
+### Status de Implementacion (2026-05-15)
 
 | Paso | Status | Descripcion |
 |------|--------|-------------|
@@ -169,20 +169,64 @@ Lecciones adicionales:
 | Verificacion | DONE | Paso 3 — polling funciona, SAT responde en ~30s |
 | Descarga de paquetes | DONE | Paso 4 — ZIP descargado correctamente |
 | Parsing de metadata | DONE | ZIP extraction + TXT parser, zero deps (zlib built-in) |
-| Integracion con app | Pendiente | API routes, DB, UI, e.Firma upload |
+| Database | DONE | Migration: `sat_sync_jobs` + `sat_cfdi_metadata` + e.Firma fields en `DoctorFiscalProfile` |
+| e.Firma upload API | DONE | `POST/GET/DELETE /api/sat-descarga/fiel` — valida, cifra (AES-256-GCM), almacena |
+| e.Firma upload UI | DONE | Seccion paso 3 en `/dashboard/facturacion` (config tab) |
+| SAT service library | DONE | `apps/api/src/lib/sat-descarga.ts` — port del PoC a TypeScript, zero deps |
+| API routes sync | DONE | `POST/GET /api/sat-descarga/sync`, `GET /api/sat-descarga/sync/[id]`, `GET /api/sat-descarga/metadata` |
+| Background worker | DONE | `POST /api/cron/sat-sync-worker` — state machine, cron-based polling |
+| Dashboard UI | DONE | `/dashboard/sat-descarga` — sync trigger, CFDI table, jobs list |
+
+### Pendiente (Fase 2+)
+
+| Feature | Status | Descripcion |
+|---------|--------|-------------|
+| Descarga de XMLs | Pendiente | On-demand download de XMLs completos (Phase 2) |
+| Navegacion sidebar | Pendiente | Agregar link a SAT Descarga en el sidebar del dashboard |
+| Deploy Railway | Pendiente | Migration a Railway DB + FIEL_ENCRYPTION_KEY env var |
+| Inteligencia financiera | Pendiente | Proyecciones, cashflow, scoring (Phase 3) |
 
 ---
 
-## Archivos en esta carpeta
+## Archivos del Proyecto
+
+### Documentacion (esta carpeta)
 
 | Archivo | Contenido |
 |---------|-----------|
-| `OVERVIEW.md` | Este archivo — vision general, credenciales, alcance |
+| `OVERVIEW.md` | Este archivo — vision general, credenciales, alcance, status |
 | `ARCHITECTURE.md` | Arquitectura async, modelo de datos SQL, fases de implementacion, stack tecnico |
 | `SAT-API-TECHNICAL-REFERENCE.md` | Endpoints SOAP, SOAPAction headers, firma XML, metadata TXT format, codigos de error, limites |
 | `SOAP-TEMPLATES.md` | XML templates exactos para cada operacion, diferencias de firma entre auth y solicitud/verifica/descarga |
-| `scripts/sat-auth-test.mjs` | PoC de autenticacion — zero deps, Node.js built-in crypto (en raiz del repo) |
-| `scripts/sat-request-metadata.mjs` | PoC completo — 4 pasos + ZIP extraction + metadata parsing, zero deps (en raiz del repo) |
+| `OTHER-SAT-SERVICES.md` | Otros servicios SAT disponibles (retenciones, CSF, 32-D, validacion RFC) |
+
+### PoC Scripts (raiz del repo)
+
+| Archivo | Contenido |
+|---------|-----------|
+| `scripts/sat-auth-test.mjs` | PoC de autenticacion — zero deps, Node.js built-in crypto |
+| `scripts/sat-request-metadata.mjs` | PoC completo — 4 pasos + ZIP extraction + metadata parsing, zero deps |
+
+### Codigo de la App
+
+| Archivo | Contenido |
+|---------|-----------|
+| `packages/database/prisma/migrations/add-sat-descarga-masiva-tables.sql` | Migration: e.Firma fields + sat_sync_jobs + sat_cfdi_metadata |
+| `apps/api/src/lib/encryption.ts` | AES-256-GCM encrypt/decrypt para credenciales e.Firma |
+| `apps/api/src/lib/sat-descarga.ts` | SAT SOAP service library (619 lineas, zero deps) |
+| `apps/api/src/app/api/sat-descarga/fiel/route.ts` | API: upload/status/delete e.Firma |
+| `apps/api/src/app/api/sat-descarga/sync/route.ts` | API: crear/listar sync jobs |
+| `apps/api/src/app/api/sat-descarga/sync/[id]/route.ts` | API: status de un sync job |
+| `apps/api/src/app/api/sat-descarga/metadata/route.ts` | API: listar CFDIs descargados + summary |
+| `apps/api/src/app/api/cron/sat-sync-worker/route.ts` | Background worker (state machine) |
+| `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` | Dashboard UI: sync trigger + CFDI table + jobs list |
+
+### Variables de Entorno Requeridas
+
+| Variable | Donde | Proposito |
+|----------|-------|-----------|
+| `FIEL_ENCRYPTION_KEY` | `apps/api/.env.local` | 32-byte hex key para AES-256-GCM (generar: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
+| `CRON_SECRET` | Ya existente | Protege el worker endpoint |
 
 ---
 

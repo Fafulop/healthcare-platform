@@ -45,6 +45,9 @@ interface FiscalProfile {
   csdUploadedAt: string | null;
   csdValidUntil: string | null;
   facturamaStatus: string;
+  fielUploaded: boolean;
+  fielUploadedAt: string | null;
+  fielValidUntil: string | null;
 }
 
 interface CSDStatus {
@@ -328,6 +331,11 @@ function ConfigTab({
       {/* Step 2: CSD Upload (only if profile exists) */}
       {profile && (
         <CSDUploadSection profile={profile} csdStatus={csdStatus} onUploaded={onCSDUploaded} />
+      )}
+
+      {/* Step 3: e.Firma Upload (for SAT Descarga Masiva) */}
+      {profile && (
+        <EFirmaUploadSection profile={profile} />
       )}
     </div>
   );
@@ -678,6 +686,242 @@ function CSDUploadSection({
         <p className="text-xs text-amber-700">
           <strong>Nota de seguridad:</strong> Tus archivos CSD se envían directamente a Facturama (PAC autorizado por el SAT)
           a través de conexión cifrada. No almacenamos tus llaves privadas en nuestros servidores.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// e.FIRMA (FIEL) UPLOAD SECTION
+// ---------------------------------------------------------------------------
+
+function EFirmaUploadSection({ profile }: { profile: FiscalProfile }) {
+  const [cerFile, setCerFile] = useState<File | null>(null);
+  const [keyFile, setKeyFile] = useState<File | null>(null);
+  const [password, setPassword] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [fielStatus, setFielStatus] = useState<{
+    configured: boolean;
+    uploadedAt: string | null;
+    validUntil: string | null;
+    expired: boolean;
+  }>({
+    configured: profile.fielUploaded,
+    uploadedAt: profile.fielUploadedAt,
+    validUntil: profile.fielValidUntil,
+    expired: profile.fielValidUntil ? new Date() > new Date(profile.fielValidUntil) : false,
+  });
+
+  const isActive = fielStatus.configured && !fielStatus.expired;
+
+  const fetchFielStatus = useCallback(async () => {
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/fiel`);
+      if (res.ok) {
+        const { data } = await res.json();
+        setFielStatus(data);
+      }
+    } catch (err) {
+      console.error("Error fetching e.Firma status:", err);
+    }
+  }, []);
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.includes(",") ? result.split(",")[1] : result;
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cerFile || !keyFile || !password) return;
+
+    setUploading(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      const [certificate, privateKey] = await Promise.all([
+        fileToBase64(cerFile),
+        fileToBase64(keyFile),
+      ]);
+
+      const res = await authFetch(`${API_URL}/api/sat-descarga/fiel`, {
+        method: "POST",
+        body: JSON.stringify({ certificate, privateKey, password }),
+      });
+
+      if (!res.ok) {
+        const { error: msg } = await res.json();
+        throw new Error(msg || "Error al cargar e.Firma");
+      }
+
+      setSuccess(true);
+      setCerFile(null);
+      setKeyFile(null);
+      setPassword("");
+      fetchFielStatus();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("¿Estás seguro de eliminar tu e.Firma? No podrás consultar CFDIs del SAT hasta que cargues una nueva.")) return;
+
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/fiel`, { method: "DELETE" });
+      if (!res.ok) {
+        const { error: msg } = await res.json();
+        throw new Error(msg || "Error al eliminar e.Firma");
+      }
+      setFielStatus({ configured: false, uploadedAt: null, validUntil: null, expired: false });
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+          isActive ? "bg-green-100 text-green-700" : "bg-purple-100 text-purple-700"
+        }`}>
+          {isActive ? <CheckCircle2 className="w-4 h-4" /> : "3"}
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900">e.Firma (FIEL) — Descarga Masiva SAT</h2>
+        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">Opcional</span>
+      </div>
+
+      <p className="text-sm text-gray-600 mb-4">
+        La e.Firma permite consultar y descargar tus CFDIs directamente del SAT (emitidos y recibidos).
+        Es diferente al CSD — la e.Firma la obtuviste presencialmente en oficinas del SAT.
+      </p>
+
+      {/* Current status */}
+      {isActive && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-green-700 font-medium text-sm">
+                <Shield className="w-4 h-4" />
+                e.Firma activa — Lista para descargar CFDIs del SAT
+              </div>
+              {fielStatus.validUntil && (
+                <p className="text-xs text-green-600 mt-1">
+                  Vigencia hasta: {new Date(fielStatus.validUntil).toLocaleDateString("es-MX")}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleDelete}
+              className="text-xs text-red-600 hover:text-red-700 hover:underline"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {fielStatus.expired && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+          <div className="flex items-center gap-2 text-red-700 font-medium text-sm">
+            <AlertCircle className="w-4 h-4" />
+            Tu e.Firma ha expirado. Carga una nueva para seguir consultando el SAT.
+          </div>
+        </div>
+      )}
+
+      {/* Upload form */}
+      {!isActive && (
+        <form onSubmit={handleUpload} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Certificado e.Firma (.cer)
+              </label>
+              <input
+                type="file"
+                accept=".cer"
+                onChange={e => setCerFile(e.target.files?.[0] || null)}
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Llave Privada e.Firma (.key)
+              </label>
+              <input
+                type="file"
+                accept=".key"
+                onChange={e => setKeyFile(e.target.files?.[0] || null)}
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+              />
+            </div>
+          </div>
+
+          <div className="max-w-sm">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Contraseña de la e.Firma
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Contraseña de la llave privada"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-md">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="flex items-center gap-2 text-green-600 text-sm bg-green-50 p-3 rounded-md">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              e.Firma cargada correctamente. Ya puedes consultar tus CFDIs del SAT.
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={uploading || !cerFile || !keyFile || !password}
+            className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            Cargar e.Firma
+          </button>
+        </form>
+      )}
+
+      <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+        <p className="text-xs text-amber-700">
+          <strong>Nota de seguridad:</strong> Tu e.Firma se almacena cifrada (AES-256) en nuestros servidores.
+          Se usa exclusivamente para consultar el SAT en tu nombre. Nunca se comparte con terceros.
+        </p>
+      </div>
+
+      <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
+        <p className="text-xs text-gray-600">
+          <strong>¿Cuál es la diferencia?</strong> El CSD (paso 2) sirve para <em>emitir</em> facturas.
+          La e.Firma sirve para <em>consultar</em> tus CFDIs existentes en el SAT. Son archivos diferentes.
         </p>
       </div>
     </div>

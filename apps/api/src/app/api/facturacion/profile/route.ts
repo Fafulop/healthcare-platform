@@ -9,6 +9,25 @@ export async function GET(request: NextRequest) {
 
     const profile = await prisma.doctorFiscalProfile.findUnique({
       where: { doctorId: doctor.id },
+      select: {
+        id: true,
+        doctorId: true,
+        rfc: true,
+        razonSocial: true,
+        regimenFiscal: true,
+        regimenFiscalDesc: true,
+        codigoPostal: true,
+        csdUploaded: true,
+        csdUploadedAt: true,
+        csdValidUntil: true,
+        facturamaStatus: true,
+        fielUploaded: true,
+        fielUploadedAt: true,
+        fielValidUntil: true,
+        // Encrypted fields intentionally excluded
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return NextResponse.json({ data: profile });

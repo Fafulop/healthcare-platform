@@ -253,6 +253,10 @@ model Doctor {
   // Facturacion (CFDI)
   fiscalProfile      DoctorFiscalProfile?
 
+  // SAT Descarga Masiva
+  satSyncJobs        SatSyncJob[]
+  satCfdiMetadata    SatCfdiMetadata[]
+
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -2224,11 +2228,20 @@ model DoctorFiscalProfile {
   csdValidUntil       DateTime? @map("csd_valid_until")
   facturamaStatus     String    @default("pending") @map("facturama_status") @db.VarChar(20)
 
+  // e.Firma (FIEL) — stored encrypted for SAT Descarga Masiva
+  fielUploaded        Boolean   @default(false) @map("fiel_uploaded")
+  fielUploadedAt      DateTime? @map("fiel_uploaded_at")
+  fielValidUntil      DateTime? @map("fiel_valid_until")
+  fielCerEncrypted    String?   @map("fiel_cer_encrypted") @db.Text
+  fielKeyEncrypted    String?   @map("fiel_key_encrypted") @db.Text
+  fielPasswordEncrypted String? @map("fiel_password_encrypted") @db.Text
+
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
   doctor              Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   cfdisEmitted        CfdiEmitted[]
+  satSyncJobs         SatSyncJob[]
 
   @@map("doctor_fiscal_profiles")
   @@schema("practice_management")
@@ -2288,6 +2301,94 @@ model CfdiEmitted {
   @@index([rfcEmisor, status])
   @@index([issuedAt])
   @@map("cfdis_emitted")
+  @@schema("practice_management")
+}
+
+// ==========================================
+// SAT Descarga Masiva
+// ==========================================
+
+// Cada solicitud de sincronizacion con el SAT
+model SatSyncJob {
+  id              Int       @id @default(autoincrement())
+  doctorId        String    @map("doctor_id")
+  fiscalProfileId Int       @map("fiscal_profile_id")
+
+  status          String    @default("pending") @map("status") @db.VarChar(20)
+    // pending | authenticating | requesting | polling | downloading | completed | failed
+  requestId       String?   @map("request_id") @db.VarChar(100)
+  requestType     String    @map("request_type") @db.VarChar(10) // metadata | xml
+  direction       String    @db.VarChar(10) // emitted | received
+  dateFrom        DateTime  @map("date_from") @db.Date
+  dateTo          DateTime  @map("date_to") @db.Date
+  rfcFilter       String?   @map("rfc_filter") @db.VarChar(13)
+  packageIds      String[]  @map("package_ids")
+  cfdiCount       Int?      @map("cfdi_count")
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(10) @map("max_attempts")
+  lastError       String?   @map("last_error") @db.Text
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  fiscalProfile   DoctorFiscalProfile @relation(fields: [fiscalProfileId], references: [id], onDelete: Cascade)
+  cfdiMetadata    SatCfdiMetadata[]
+
+  @@index([doctorId, status])
+  @@index([status, createdAt])
+  @@map("sat_sync_jobs")
+  @@schema("practice_management")
+}
+
+// Metadata de CFDIs descargados del SAT
+model SatCfdiMetadata {
+  id              Int       @id @default(autoincrement())
+  doctorId        String    @map("doctor_id")
+  syncJobId       Int?      @map("sync_job_id")
+
+  uuid            String    @db.VarChar(36)
+  direction       String    @db.VarChar(10) // emitted | received
+
+  // Emisor
+  issuerRfc       String    @map("issuer_rfc") @db.VarChar(13)
+  issuerName      String?   @map("issuer_name") @db.VarChar(300)
+
+  // Receptor
+  receiverRfc     String    @map("receiver_rfc") @db.VarChar(13)
+  receiverName    String?   @map("receiver_name") @db.VarChar(300)
+
+  // PAC
+  pacRfc          String?   @map("pac_rfc") @db.VarChar(13)
+
+  // Monto
+  monto           Decimal   @default(0) @db.Decimal(14, 2)
+
+  // Tipo (I=Ingreso, E=Egreso, P=Pago, T=Traslado)
+  efecto          String?   @db.VarChar(5)
+
+  // Status (Vigente | Cancelado)
+  satStatus       String    @default("Vigente") @map("sat_status") @db.VarChar(20)
+  cancelationDate DateTime? @map("cancelation_date")
+
+  // Fechas
+  issuedAt        DateTime  @map("issued_at")
+  certifiedAt     DateTime? @map("certified_at")
+
+  syncedAt        DateTime  @default(now()) @map("synced_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  syncJob         SatSyncJob? @relation(fields: [syncJobId], references: [id], onDelete: SetNull)
+
+  @@unique([doctorId, uuid])
+  @@index([doctorId, direction])
+  @@index([issuedAt])
+  @@index([issuerRfc])
+  @@index([receiverRfc])
+  @@map("sat_cfdi_metadata")
   @@schema("practice_management")
 }
 

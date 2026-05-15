@@ -1,7 +1,7 @@
 # SAT Descarga Masiva — Arquitectura
 
-**Fecha:** 2026-05-12
-**Status:** PoC completo — listo para integracion con app
+**Fecha:** 2026-05-12 (PoC) / 2026-05-15 (integracion)
+**Status:** Fase 1 COMPLETA — DB + API + Worker + UI integrados
 
 ---
 
@@ -117,7 +117,7 @@ Los XMLs completos se descargan on-demand (Phase 2).
 
 ---
 
-## Modelo de Datos Propuesto
+## Modelo de Datos (Implementado — 2026-05-15)
 
 ### Tabla: `sat_sync_jobs`
 
@@ -223,15 +223,17 @@ El PoC completo (2026-05-12) demostro que **no se necesitan librerias externas**
 
 No se usan: `xml-crypto`, `xmlbuilder2`, `node-forge`, `adm-zip`, ni ninguna otra libreria.
 
-### Jobs / Queue
+### Jobs / Queue — IMPLEMENTADO: Cron + DB Polling
 
-| Opcion | Pros | Contras |
-|--------|------|---------|
-| **BullMQ** | Simple, Redis-based, buen retry/backoff | Requiere Redis |
-| Cron + DB polling | Sin dependencia extra | Menos robusto |
-| pg-boss | Postgres-native queues | Menos popular |
+Se eligio **Cron + DB polling** (sin Redis). El worker es un endpoint cron (`POST /api/cron/sat-sync-worker`) que:
 
-**Recomendacion inicial:** BullMQ si ya hay Redis, si no, cron + DB polling con la tabla `sat_sync_jobs`.
+1. Lee jobs pendientes de `sat_sync_jobs` (max 3 por ejecucion)
+2. Avanza cada job un paso en la state machine:
+   - `pending` → `authenticating` → `polling` → `downloading` → `completed`
+3. Si SAT no ha terminado (estado 1 o 2), el job queda en `polling` y se re-procesa en la siguiente ejecucion
+4. Railway cron lo llama cada 2 minutos
+
+**Ventajas:** Zero dependencies extra, state machine resiliente (cada paso es idempotente), no bloquea en polling.
 
 ---
 
@@ -249,24 +251,27 @@ No se usan: `xml-crypto`, `xmlbuilder2`, `node-forge`, `adm-zip`, ni ninguna otr
 
 ## Fases de Implementacion
 
-### Fase 1 — Metadata sync (MVP)
+### Fase 1 — Metadata sync (MVP) — COMPLETADA (2026-05-15)
 
-1. Autenticar con SAT usando CSD del doctor
-2. Solicitar metadata (emitidos + recibidos)
-3. Polling de status
-4. Descarga de paquete metadata
-5. Parse de TXT
-6. Almacenamiento en `sat_cfdi_metadata`
+1. ~~Autenticar con SAT usando e.Firma del doctor~~ DONE
+2. ~~Solicitar metadata (emitidos + recibidos)~~ DONE
+3. ~~Polling de status~~ DONE
+4. ~~Descarga de paquete metadata~~ DONE
+5. ~~Parse de TXT~~ DONE
+6. ~~Almacenamiento en `sat_cfdi_metadata`~~ DONE
+7. ~~e.Firma upload (UI + API + cifrado AES-256)~~ DONE
+8. ~~Dashboard UI con tabla de CFDIs + sync trigger~~ DONE
+9. ~~Background worker (cron + state machine)~~ DONE
 
 **Valor:** Dashboard financiero completo sin necesidad de XMLs.
 
-### Fase 2 — XML on-demand
+### Fase 2 — XML on-demand (pendiente)
 
 - Descarga de XMLs individuales o por lote
 - Cache local de XMLs
 - Export para contadores
 
-### Fase 3 — Inteligencia financiera
+### Fase 3 — Inteligencia financiera (pendiente)
 
 - Proyecciones fiscales
 - Analisis de cashflow
@@ -294,4 +299,4 @@ No existe un servicio tipo "Plaid for SAT" que abstraiga completamente la integr
 - Soluciones enterprise con onboarding pesado
 - Integraciones de consultoria
 
-La mejor ruta es **conexion directa al SAT**, lo cual es viable porque ya tenemos las credenciales CSD por doctor.
+La mejor ruta es **conexion directa al SAT**, lo cual es viable porque ya tenemos las credenciales e.Firma por doctor (almacenadas cifradas en nuestra DB).
