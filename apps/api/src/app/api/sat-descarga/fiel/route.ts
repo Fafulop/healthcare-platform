@@ -208,13 +208,13 @@ function validateEfirma(cerBase64: string, keyBase64: string, password: string):
     throw new Error(`El certificado expiró el ${validTo.toLocaleDateString('es-MX')}`);
   }
 
-  // Extract RFC from subject (format: ...serialNumber=/ LOFD9406276F8...)
-  // SAT certificates include RFC in the serialNumber field of the subject
+  // Extract RFC from subject — SAT e.Firma uses x500UniqueIdentifier for RFC
+  // (serialNumber contains the CURP, which looks similar but has different last 3 chars)
   const subject = cert.subject;
   let rfc: string | null = null;
-  const serialMatch = subject.match(/serialNumber\s*=\s*\/?\s*([A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3})/i);
-  if (serialMatch) {
-    rfc = serialMatch[1].toUpperCase();
+  const uidMatch = subject.match(/x500UniqueIdentifier\s*=\s*\/?\s*([A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3})/i);
+  if (uidMatch) {
+    rfc = uidMatch[1].toUpperCase();
   }
 
   return {
