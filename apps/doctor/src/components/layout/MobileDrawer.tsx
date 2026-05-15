@@ -22,6 +22,8 @@ import {
   Calendar,
   Users,
   DollarSign,
+  Receipt,
+  Download,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -218,6 +220,20 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               label="Flujo de Dinero"
               href="/dashboard/practice/flujo-de-dinero"
               active={pathname.startsWith("/dashboard/practice/flujo-de-dinero")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={Receipt}
+              label="Facturación"
+              href="/dashboard/facturacion"
+              active={pathname.startsWith("/dashboard/facturacion")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={Download}
+              label="Descarga SAT"
+              href="/dashboard/sat-descarga"
+              active={pathname.startsWith("/dashboard/sat-descarga")}
               onClick={onClose}
             />
             <NavItem

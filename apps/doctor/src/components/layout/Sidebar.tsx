@@ -161,6 +161,17 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             href="/dashboard/pagos"
             active={pathname?.startsWith("/dashboard/pagos")}
           />
+        </div>
+
+        <hr className="my-3 border-gray-200" />
+
+        <div className="space-y-1">
+          <NavItem
+            icon={DollarSign}
+            label="Flujo de Dinero"
+            href="/dashboard/practice/flujo-de-dinero"
+            active={pathname?.startsWith("/dashboard/practice/flujo-de-dinero")}
+          />
           <NavItem
             icon={Receipt}
             label="Facturación"
@@ -172,17 +183,6 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             label="Descarga SAT"
             href="/dashboard/sat-descarga"
             active={pathname?.startsWith("/dashboard/sat-descarga")}
-          />
-        </div>
-
-        <hr className="my-3 border-gray-200" />
-
-        <div className="space-y-1">
-          <NavItem
-            icon={DollarSign}
-            label="Flujo de Dinero"
-            href="/dashboard/practice/flujo-de-dinero"
-            active={pathname?.startsWith("/dashboard/practice/flujo-de-dinero")}
           />
           <NavItem
             icon={ShoppingCart}
