@@ -1,7 +1,7 @@
 # SAT Descarga — Phase 3+ Roadmap
 
 **Date:** 2026-05-16
-**Status:** IN PROGRESS (3 of 9 features complete)
+**Status:** IN PROGRESS (4 of 9 features complete)
 **Depends on:** Phase 2 (COMPLETE — metadata + XML download working)
 
 ---
@@ -73,83 +73,29 @@ if (dayOfMonth % 3 === 0 && hourUtc === 6) {
 
 ---
 
-## 3. Alerts (Cancellations & New CFDIs)
+## 3. Alerts (Cancellations & New CFDIs) — COMPLETE
 
-**Goal:** Notify doctors when CFDIs get cancelled or new ones appear since last sync.
+**Status:** DONE (deployed 2026-05-16, migration applied)
 
-### Scope
-- After each sync completes, compare with previous sync results
-- Detect: new CFDIs not seen before, status changes (Vigente → Cancelado)
-- Store alerts in a lightweight table
-- Show alert badge on SAT Descarga nav item + alert list in UI
+**What was built:**
+- Table: `practice_management.sat_alerts` with partial index on `(doctor_id, read) WHERE read = FALSE`
+- Worker integration: after metadata upsert, checks if UUID is new or status changed to Cancelado
+  - Creates alert type `new_cfdi` or `cancelled` with message and monto
+  - Skips alert generation if >50 new items (prevents flooding on first-time sync)
+- API: `GET /api/sat-descarga/alerts` — returns alerts list + unread count
+- API: `PATCH /api/sat-descarga/alerts` — mark read by `{ ids: [...] }` or `{ all: true }`
+- UI: AlertsBell component in page header
+  - Bell icon with red unread badge (9+ cap)
+  - Dropdown with color-coded alerts (green=new, red=cancelled)
+  - "Marcar leídas" button to dismiss all
+  - Timestamps in es-MX locale
 
-### Implementation
-
-#### Migration (`packages/database/prisma/migrations/add-sat-alerts.sql`)
-```sql
--- Migration: Add sat_alerts table
--- Date: YYYY-MM-DD
-
-CREATE TABLE IF NOT EXISTS practice_management.sat_alerts (
-  id SERIAL PRIMARY KEY,
-  doctor_id TEXT NOT NULL,
-  type VARCHAR(20) NOT NULL, -- 'new_cfdi' | 'cancelled' | 'new_month_available'
-  uuid VARCHAR(36),
-  direction VARCHAR(10),
-  issuer_name VARCHAR(300),
-  monto DECIMAL(14,2),
-  message TEXT,
-  read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  CONSTRAINT sat_alerts_doctor_id_fkey
-    FOREIGN KEY (doctor_id) REFERENCES public.doctors(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS sat_alerts_doctor_unread_idx
-  ON practice_management.sat_alerts(doctor_id, read) WHERE read = FALSE;
-```
-
-#### Prisma model
-```prisma
-model SatAlert {
-  id          Int       @id @default(autoincrement())
-  doctorId    String    @map("doctor_id")
-  type        String    @db.VarChar(20)
-  uuid        String?   @db.VarChar(36)
-  direction   String?   @db.VarChar(10)
-  issuerName  String?   @map("issuer_name") @db.VarChar(300)
-  monto       Decimal?  @db.Decimal(14, 2)
-  message     String?
-  read        Boolean   @default(false)
-  createdAt   DateTime  @default(now()) @map("created_at")
-
-  doctor      Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-
-  @@index([doctorId, read])
-  @@map("sat_alerts")
-  @@schema("practice_management")
-}
-```
-
-#### Logic
-- In worker, after metadata parsing: compare UUIDs with previous sync
-- New UUIDs → create alert type 'new_cfdi'
-- UUIDs with changed status → create alert type 'cancelled'
-- Worker already knows the old data (it's in the DB), so diff is cheap
-
-#### UI
-- Bell icon with unread count in SAT Descarga header
-- Dropdown or section showing recent alerts
-- "Marcar como leido" action
-
-### Files to modify
-- New: migration SQL
-- New: `apps/api/src/app/api/sat-descarga/alerts/route.ts` (GET list, PATCH mark read)
-- Modify: worker route (add diff logic after metadata parse)
-- Modify: page.tsx (add alerts badge + dropdown)
-
-### Effort: Medium (3-4 hours)
+**Files:**
+- `packages/database/prisma/migrations/add-sat-alerts.sql`
+- `packages/database/prisma/schema.prisma` (SatAlert model + Doctor relation)
+- `apps/api/src/app/api/sat-descarga/alerts/route.ts`
+- `apps/api/src/app/api/cron/sat-sync-worker/route.ts` (alert generation in downloadAndParseMetadata)
+- `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` (AlertsBell component)
 
 ---
 
