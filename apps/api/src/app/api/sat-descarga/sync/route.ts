@@ -106,8 +106,8 @@ export async function POST(request: NextRequest) {
         dateFrom: dateFrom.toISOString(),
         dateTo: dateTo.toISOString(),
         endOfMonth: endOfMonth.toISOString(),
-        todayUTC: todayUTC.toISOString(),
-        capped: endOfMonth > todayUTC,
+        todayMx: todayMx.toISOString(),
+        capped: endOfMonth > todayMx,
       },
     }, { status: 201 });
   } catch (error: any) {
