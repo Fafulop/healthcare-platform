@@ -1,7 +1,7 @@
 # SAT Descarga Masiva — Phase 2: XML Download & Parsing
 
 **Date:** 2026-05-16
-**Status:** COMPLETE (backend + UI deployed)
+**Status:** COMPLETE & TESTED (backend + UI deployed, confirmed working 2026-05-16)
 **Depends on:** Phase 1 (metadata sync — working since 2026-05-15)
 
 ---
@@ -153,11 +153,13 @@ If XML hasn't been downloaded yet, shows "No hay detalles XML descargados para e
 
 ## Important Gotchas
 
-1. **XML for recibidos only returns vigentes** — Cancelados are excluded by SAT from XML downloads (emitidos returns all)
-2. **Must download metadata first** — XML sync requires knowing which CFDIs exist; metadata provides the UUID list
-3. **Raw XMLs are NOT stored** — Only parsed fields are saved (storage optimization)
-4. **Conceptos are replaced on re-sync** — delete + recreate pattern (not diff/merge)
-5. **SAT limits** — Same as metadata: can take hours, max 1M records per request, 5-year history
+1. **XML for recibidos requires `EstadoComprobante="Vigente"`** — SAT rejects XML downloads for recibidos if cancelados exist in the range. The request MUST include `EstadoComprobante="Vigente"` (string, not numeric "1"). Emitidos works without this filter.
+2. **EstadoComprobante uses string values** — SAT expects `"Vigente"`, `"Cancelado"`, or `"Todos"` in SOAP requests. The numeric `"0"`/`"1"` notation is only used in metadata TXT output, NOT in request attributes.
+3. **Must download metadata first** — XML sync requires knowing which CFDIs exist; metadata provides the UUID list
+4. **Raw XMLs are NOT stored** — Only parsed fields are saved (storage optimization)
+5. **Conceptos are replaced on re-sync** — delete + recreate pattern (not diff/merge)
+6. **SAT limits** — Same as metadata: can take hours, max 1M records per request, 5-year history
+7. **Attribute order matters** — All solicitud attributes must be in alphabetical order for the XML signature digest to match
 
 ---
 

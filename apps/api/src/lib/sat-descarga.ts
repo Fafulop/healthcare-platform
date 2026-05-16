@@ -457,7 +457,6 @@ export async function requestXml(
     `RfcSolicitante="${cred.rfc}" ` +
     `TipoSolicitud="CFDI"`;
 
-  console.log('[SAT requestXml]', { direction, estadoFilter: estadoFilter.trim(), solicitudAttrs });
 
   const solicitudForDigest =
     `<des:solicitud xmlns:des="http://DescargaMasivaTerceros.sat.gob.mx" ${solicitudAttrs}>` +

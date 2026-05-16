@@ -160,6 +160,15 @@ Token es JWT. Expira en ~5 minutos. La libreria python-satcfdi lo renueva automa
 - **Emitidos:** usa `RfcReceptores` (plural, filtro de receptores)
 - **Recibidos:** usa `RfcEmisor` (singular, filtro de emisor)
 
+### IMPORTANTE: EstadoComprobante para XML Recibidos
+
+Para descargar XMLs (`TipoSolicitud="CFDI"`) de recibidos, **DEBES** incluir `EstadoComprobante="Vigente"`. Sin este filtro, SAT rechaza la solicitud con error 301 si existen cancelados en el rango.
+
+- Valores validos: `"Vigente"`, `"Cancelado"`, `"Todos"` (strings, NO numeros)
+- Los valores numericos `"0"`/`"1"` son solo para el output del TXT de metadata, NO para requests SOAP
+- Para emitidos XML no es necesario (SAT acepta todos los estados)
+- Los atributos DEBEN ir en orden alfabetico para que el digest de la firma coincida
+
 ### Header de autorizacion (para solicitud, verificacion y descarga)
 
 ```
