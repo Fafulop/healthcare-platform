@@ -157,7 +157,10 @@ export async function POST(request: NextRequest) {
         Name: receiver.name.trim().toUpperCase(),
         CfdiUse: receiver.cfdiUse,
         FiscalRegime: receiver.fiscalRegime,
-        TaxZipCode: receiver.taxZipCode,
+        // SAT: for Publico en General, TaxZipCode must equal ExpeditionPlace
+        TaxZipCode: receiver.rfc.trim().toUpperCase() === 'XAXX010101000'
+          ? profile.codigoPostal
+          : receiver.taxZipCode,
       },
       CfdiType: cfdiType || 'I',
       PaymentForm: paymentForm || '01',
