@@ -29,7 +29,7 @@ import {
   SatError,
   type SyncDirection,
 } from '@/lib/sat-descarga';
-import { parseCfdiXml } from '@/lib/sat-xml-parser';
+import { parseCfdiXml, parsePagoComplement } from '@/lib/sat-xml-parser';
 
 export async function POST(request: Request) {
   // Auth: cron secret
@@ -484,6 +484,43 @@ async function downloadAndParseXml(
             isrRetenido: c.isrRetenido,
           })),
         });
+      }
+
+      // Parse payment complement (tipo P) and store pago records
+      const pago = parsePagoComplement(entry.data);
+      if (pago && pago.documentos.length > 0) {
+        for (const doc of pago.documentos) {
+          await prisma.satPago.upsert({
+            where: {
+              doctorId_pagoUuid_facturaUuid: {
+                doctorId: job.doctorId,
+                pagoUuid: pago.pagoUuid,
+                facturaUuid: doc.facturaUuid,
+              },
+            },
+            create: {
+              doctorId: job.doctorId,
+              pagoUuid: pago.pagoUuid,
+              facturaUuid: doc.facturaUuid,
+              serie: doc.serie,
+              folio: doc.folio,
+              fechaPago: pago.fechaPago ? new Date(pago.fechaPago) : null,
+              formaPago: pago.formaPago,
+              montoPagado: doc.montoPagado,
+              saldoAnterior: doc.saldoAnterior,
+              saldoInsoluto: doc.saldoInsoluto,
+              numParcialidad: doc.numParcialidad,
+            },
+            update: {
+              montoPagado: doc.montoPagado,
+              saldoAnterior: doc.saldoAnterior,
+              saldoInsoluto: doc.saldoInsoluto,
+              numParcialidad: doc.numParcialidad,
+              fechaPago: pago.fechaPago ? new Date(pago.fechaPago) : null,
+              formaPago: pago.formaPago,
+            },
+          });
+        }
       }
 
       totalRecords++;

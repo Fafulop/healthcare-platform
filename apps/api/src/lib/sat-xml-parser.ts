@@ -259,3 +259,85 @@ function decodeXmlEntities(str: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'");
 }
+
+// ---------------------------------------------------------------------------
+// Payment Complement Parser (pago20)
+// ---------------------------------------------------------------------------
+
+export interface PagoDoctoRelacionado {
+  facturaUuid: string;
+  serie: string | null;
+  folio: string | null;
+  montoPagado: number | null;
+  saldoAnterior: number | null;
+  saldoInsoluto: number | null;
+  numParcialidad: number | null;
+}
+
+export interface PagoComplement {
+  pagoUuid: string;
+  fechaPago: string | null;
+  formaPago: string | null;
+  monto: number | null;
+  documentos: PagoDoctoRelacionado[];
+}
+
+/**
+ * Parse payment complement (pago20) from a CFDI tipo P XML.
+ * Returns null if no pago20 section found.
+ */
+export function parsePagoComplement(xml: string): PagoComplement | null {
+  const pagoUuid = extractUuid(xml);
+  if (!pagoUuid) return null;
+
+  // Find <pago20:Pago ...> or <Pago ...> nodes
+  const pagoRegex = /<[^>]*:?Pago\s([^>]+?)(?:\/>|>([\s\S]*?)<\/[^>]*:?Pago>)/gi;
+  const documentos: PagoDoctoRelacionado[] = [];
+  let fechaPago: string | null = null;
+  let formaPago: string | null = null;
+  let monto: number | null = null;
+
+  let pagoMatch;
+  while ((pagoMatch = pagoRegex.exec(xml)) !== null) {
+    const attrs = pagoMatch[1];
+    const body = pagoMatch[2] || '';
+
+    // Skip if this is "Pagos" (plural) container instead of "Pago" (singular)
+    // Check: the tag name should end with just "Pago" not "Pagos"
+    const tagCheck = pagoMatch[0].match(/<([^\s>]+)/);
+    if (tagCheck && tagCheck[1].endsWith('Pagos')) continue;
+
+    fechaPago = fechaPago || getAttr(attrs, 'FechaPago');
+    formaPago = formaPago || getAttr(attrs, 'FormaDePagoP');
+    monto = monto || getAttrNum(attrs, 'Monto');
+
+    // Extract DoctoRelacionado nodes
+    const docRegex = /<[^>]*:?DoctoRelacionado\s([^>]+?)(?:\/>|>[^<]*<\/[^>]*:?DoctoRelacionado>)/gi;
+    let docMatch;
+    while ((docMatch = docRegex.exec(body)) !== null) {
+      const docAttrs = docMatch[1];
+      const idDocumento = getAttr(docAttrs, 'IdDocumento');
+      if (!idDocumento) continue;
+
+      documentos.push({
+        facturaUuid: idDocumento.toLowerCase(),
+        serie: getAttr(docAttrs, 'Serie'),
+        folio: getAttr(docAttrs, 'Folio'),
+        montoPagado: getAttrNum(docAttrs, 'ImpPagado'),
+        saldoAnterior: getAttrNum(docAttrs, 'ImpSaldoAnt'),
+        saldoInsoluto: getAttrNum(docAttrs, 'ImpSaldoInsoluto'),
+        numParcialidad: getAttrNum(docAttrs, 'NumParcialidad'),
+      });
+    }
+  }
+
+  if (documentos.length === 0) return null;
+
+  return {
+    pagoUuid: pagoUuid.toLowerCase(),
+    fechaPago,
+    formaPago,
+    monto,
+    documentos,
+  };
+}

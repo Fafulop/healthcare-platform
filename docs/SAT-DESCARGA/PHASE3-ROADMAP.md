@@ -1,7 +1,7 @@
 # SAT Descarga — Phase 3+ Roadmap
 
 **Date:** 2026-05-16
-**Status:** IN PROGRESS (4 of 9 features complete)
+**Status:** IN PROGRESS (5 of 9 features complete)
 **Depends on:** Phase 2 (COMPLETE — metadata + XML download working)
 
 ---
@@ -99,97 +99,28 @@ if (dayOfMonth % 3 === 0 && hourUtc === 6) {
 
 ---
 
-## 4. Complementos de Pago Tracking
+## 4. Complementos de Pago Tracking — COMPLETE
 
-**Goal:** Link payment complement CFDIs (type P) to their parent invoices, showing which invoices are paid/pending.
+**Status:** DONE (deployed 2026-05-16, migration applied)
 
-### Scope
-- Parse payment complements (pago20: namespace in XML) to extract:
-  - Related document UUID (the invoice being paid)
-  - Amount paid (ImpPagado)
-  - Payment date
-  - Remaining balance (ImpSaldoInsoluto)
-- Show payment status on PPD invoices: Paid / Partially paid / Pending
-- UI: badge on PPD invoices showing payment progress
+**What was built:**
+- Table: `practice_management.sat_pagos` with unique index on (doctor_id, pago_uuid, factura_uuid)
+- Parser: `parsePagoComplement()` in sat-xml-parser.ts — extracts pago20:Pago + DoctoRelacionado
+- Worker integration: after XML parse, detects tipo P CFDIs and upserts payment records
+- API: `GET /api/sat-descarga/pagos?uuid=X` — returns payment history for specific invoice
+- API: `GET /api/sat-descarga/pagos?month=YYYY-MM` — returns payment status for all PPD invoices in month
+- UI: PagoStatusBadge component shown in XmlDetailPanel when metodoPago=PPD
+  - Green "Pagado" badge when saldoInsoluto = 0
+  - Yellow "Pago parcial" badge with amounts when partially paid
+  - Red "Pago pendiente" badge when no complements received
 
-### Implementation
-
-#### Migration (`packages/database/prisma/migrations/add-sat-pagos.sql`)
-```sql
--- Migration: Add sat_pagos table for payment complement tracking
--- Date: YYYY-MM-DD
-
-CREATE TABLE IF NOT EXISTS practice_management.sat_pagos (
-  id SERIAL PRIMARY KEY,
-  doctor_id TEXT NOT NULL,
-  pago_uuid VARCHAR(36) NOT NULL,        -- UUID of the complement CFDI (type P)
-  factura_uuid VARCHAR(36) NOT NULL,     -- UUID of the invoice being paid
-  serie VARCHAR(25),
-  folio VARCHAR(40),
-  fecha_pago TIMESTAMP,
-  forma_pago VARCHAR(10),
-  monto_pagado DECIMAL(14,2),
-  saldo_anterior DECIMAL(14,2),
-  saldo_insoluto DECIMAL(14,2),
-  num_parcialidad INT,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  CONSTRAINT sat_pagos_doctor_id_fkey
-    FOREIGN KEY (doctor_id) REFERENCES public.doctors(id) ON DELETE CASCADE
-);
-
--- Unique: one payment complement can pay one invoice once per parcialidad
-CREATE UNIQUE INDEX IF NOT EXISTS sat_pagos_unique_idx
-  ON practice_management.sat_pagos(doctor_id, pago_uuid, factura_uuid);
-
--- Find all payments for a given invoice
-CREATE INDEX IF NOT EXISTS sat_pagos_factura_idx
-  ON practice_management.sat_pagos(doctor_id, factura_uuid);
-```
-
-#### Prisma model
-```prisma
-model SatPago {
-  id              Int       @id @default(autoincrement())
-  doctorId        String    @map("doctor_id")
-  pagoUuid        String    @map("pago_uuid") @db.VarChar(36)
-  facturaUuid     String    @map("factura_uuid") @db.VarChar(36)
-  serie           String?   @db.VarChar(25)
-  folio           String?   @db.VarChar(40)
-  fechaPago       DateTime? @map("fecha_pago")
-  formaPago       String?   @map("forma_pago") @db.VarChar(10)
-  montoPagado     Decimal?  @map("monto_pagado") @db.Decimal(14, 2)
-  saldoAnterior   Decimal?  @map("saldo_anterior") @db.Decimal(14, 2)
-  saldoInsoluto   Decimal?  @map("saldo_insoluto") @db.Decimal(14, 2)
-  numParcialidad  Int?      @map("num_parcialidad")
-  createdAt       DateTime  @default(now()) @map("created_at")
-
-  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-
-  @@unique([doctorId, pagoUuid, facturaUuid])
-  @@index([doctorId, facturaUuid])
-  @@map("sat_pagos")
-  @@schema("practice_management")
-}
-```
-
-#### Parser changes
-- Extend `sat-xml-parser.ts` to detect `<pago20:Pagos>` section
-- Extract `<pago20:Pago>` → fecha, forma, monto
-- Extract `<pago20:DoctoRelacionado>` → IdDocumento (related UUID), ImpPagado, ImpSaldoInsoluto
-
-#### UI
-- PPD invoices show colored badge: "Pagado" (green), "Parcial $X/$Y" (yellow), "Pendiente" (red)
-- Expandable section shows payment history timeline
-
-### Files to modify
-- New: migration SQL
-- Modify: `apps/api/src/lib/sat-xml-parser.ts` (add pago20 parsing)
-- Modify: worker (store pago records after XML parse)
-- New: `apps/api/src/app/api/sat-descarga/pagos/route.ts` (GET payments for a factura)
-- Modify: page.tsx (payment status badge + detail)
-
-### Effort: Large (4-6 hours)
+**Files:**
+- `packages/database/prisma/migrations/add-sat-pagos.sql`
+- `packages/database/prisma/schema.prisma` (SatPago model + Doctor relation)
+- `apps/api/src/lib/sat-xml-parser.ts` (parsePagoComplement function)
+- `apps/api/src/app/api/cron/sat-sync-worker/route.ts` (pago upsert in downloadAndParseXml)
+- `apps/api/src/app/api/sat-descarga/pagos/route.ts`
+- `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` (PagoStatusBadge component)
 
 ---
 

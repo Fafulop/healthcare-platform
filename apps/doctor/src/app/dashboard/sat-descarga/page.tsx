@@ -898,6 +898,9 @@ function XmlDetailPanel({ detail, formaPagoLabels }: { detail: CfdiDetailData; f
         {detail.lugarExpedicion && <DetailItem label="Lugar Expedición (CP)" value={detail.lugarExpedicion} />}
       </div>
 
+      {/* Payment status for PPD invoices */}
+      {detail.metodoPago === "PPD" && <PagoStatusBadge uuid={detail.uuid} />}
+
       {/* Conceptos table */}
       {detail.conceptos.length > 0 && (
         <div className="mt-2">
@@ -938,6 +941,79 @@ function XmlDetailPanel({ detail, formaPagoLabels }: { detail: CfdiDetailData; f
             </table>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Payment Status Badge (for PPD invoices)
+// ---------------------------------------------------------------------------
+
+function PagoStatusBadge({ uuid }: { uuid: string }) {
+  const [status, setStatus] = useState<{ totalPagado: number; saldoInsoluto: number | null; status: string; pagosCount: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    authFetch(`${API_URL}/api/sat-descarga/pagos?uuid=${uuid}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(json => {
+        if (!cancelled && json?.data) {
+          setStatus({
+            totalPagado: json.data.totalPagado,
+            saldoInsoluto: json.data.saldoInsoluto,
+            status: json.data.status,
+            pagosCount: json.data.pagos?.length ?? 0,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [uuid]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+        <Loader2 className="w-3 h-3 animate-spin" />
+        Verificando pagos...
+      </div>
+    );
+  }
+
+  if (!status) return null;
+
+  const fmt = (n: number) => `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+
+  const badgeStyles: Record<string, string> = {
+    pagado: "bg-green-100 text-green-700 border-green-200",
+    parcial: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    pendiente: "bg-red-100 text-red-700 border-red-200",
+  };
+
+  const badgeLabels: Record<string, string> = {
+    pagado: "Pagado",
+    parcial: "Pago parcial",
+    pendiente: "Pago pendiente",
+  };
+
+  return (
+    <div className="flex items-center gap-3 p-2 rounded-md bg-gray-50 border border-gray-200">
+      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${badgeStyles[status.status] || badgeStyles.pendiente}`}>
+        {status.status === "pagado" && <CheckCircle2 className="w-3 h-3" />}
+        {status.status === "parcial" && <Clock className="w-3 h-3" />}
+        {status.status === "pendiente" && <AlertCircle className="w-3 h-3" />}
+        {badgeLabels[status.status] || "Pendiente"}
+      </span>
+      {status.pagosCount > 0 && (
+        <span className="text-xs text-gray-600">
+          {status.pagosCount} pago{status.pagosCount > 1 ? "s" : ""} — Total: {fmt(status.totalPagado)}
+          {status.saldoInsoluto !== null && status.saldoInsoluto > 0 && ` — Saldo: ${fmt(status.saldoInsoluto)}`}
+        </span>
+      )}
+      {status.pagosCount === 0 && (
+        <span className="text-xs text-gray-500">Sin complementos de pago registrados</span>
       )}
     </div>
   );

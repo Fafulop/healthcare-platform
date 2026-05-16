@@ -257,6 +257,7 @@ model Doctor {
   satSyncJobs        SatSyncJob[]
   satCfdiMetadata    SatCfdiMetadata[]
   satCfdiDetails     SatCfdiDetail[]
+  satPagos           SatPago[]
   satAlerts          SatAlert[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
@@ -2464,6 +2465,30 @@ model SatCfdiConcepto {
 
   @@index([detailId])
   @@map("sat_cfdi_conceptos")
+  @@schema("practice_management")
+}
+
+// Pagos — payment complement tracking (links tipo P to parent invoices)
+model SatPago {
+  id              Int       @id @default(autoincrement())
+  doctorId        String    @map("doctor_id")
+  pagoUuid        String    @map("pago_uuid") @db.VarChar(36)
+  facturaUuid     String    @map("factura_uuid") @db.VarChar(36)
+  serie           String?   @db.VarChar(25)
+  folio           String?   @db.VarChar(40)
+  fechaPago       DateTime? @map("fecha_pago")
+  formaPago       String?   @map("forma_pago") @db.VarChar(10)
+  montoPagado     Decimal?  @map("monto_pagado") @db.Decimal(14, 2)
+  saldoAnterior   Decimal?  @map("saldo_anterior") @db.Decimal(14, 2)
+  saldoInsoluto   Decimal?  @map("saldo_insoluto") @db.Decimal(14, 2)
+  numParcialidad  Int?      @map("num_parcialidad")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, pagoUuid, facturaUuid])
+  @@index([doctorId, facturaUuid])
+  @@map("sat_pagos")
   @@schema("practice_management")
 }
 
