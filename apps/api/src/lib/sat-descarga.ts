@@ -445,8 +445,12 @@ export async function requestXml(
     ? `RfcEmisor="${cred.rfc}"`
     : `RfcReceptor="${cred.rfc}"`;
 
-  // Same as metadata but TipoSolicitud="CFDI"
+  // TipoSolicitud="CFDI" + EstadoComprobante="1" for recibidos
+  // SAT rejects XML downloads that include cancelados for recibidos.
+  // Attributes MUST be in alphabetical order for digest to match.
+  const estadoFilter = direction === 'received' ? `EstadoComprobante="1" ` : '';
   const solicitudAttrs =
+    `${estadoFilter}` +
     `FechaFinal="${fechaFinal}" ` +
     `FechaInicial="${fechaInicial}" ` +
     `${rfcRole} ` +
