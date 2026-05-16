@@ -61,6 +61,39 @@ interface MetadataResponse {
   summary: { totalVigentes: number; totalMonto: number; totalIngresos: number; totalGastos: number };
 }
 
+interface CfdiDetailConcepto {
+  claveProdServ: string | null;
+  descripcion: string | null;
+  cantidad: number | null;
+  claveUnidad: string | null;
+  unidad: string | null;
+  valorUnitario: number | null;
+  importe: number | null;
+  descuento: number | null;
+  ivaTrasladado: number | null;
+  isrRetenido: number | null;
+}
+
+interface CfdiDetailData {
+  uuid: string;
+  subtotal: number | null;
+  descuento: number | null;
+  total: number | null;
+  ivaTrasladado: number | null;
+  isrRetenido: number | null;
+  ivaRetenido: number | null;
+  ieps: number | null;
+  metodoPago: string | null;
+  formaPago: string | null;
+  usoCfdi: string | null;
+  moneda: string | null;
+  tipoCambio: number | null;
+  serie: string | null;
+  folio: string | null;
+  lugarExpedicion: string | null;
+  conceptos: CfdiDetailConcepto[];
+}
+
 // ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
@@ -142,8 +175,9 @@ function TabBtn({ active, onClick, label }: { active: boolean; onClick: () => vo
 // ---------------------------------------------------------------------------
 
 function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
-  const [syncing, setSyncing] = useState<string | null>(null); // 'emitted' | 'received' | null
+  const [syncing, setSyncing] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [syncType, setSyncType] = useState<"metadata" | "xml">("metadata");
 
   const triggerSync = async (direction: "emitted" | "received") => {
     setSyncing(direction);
@@ -151,16 +185,17 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
     try {
       const res = await authFetch(`${API_URL}/api/sat-descarga/sync`, {
         method: "POST",
-        body: JSON.stringify({ direction, month }),
+        body: JSON.stringify({ direction, month, requestType: syncType }),
       });
       const json = await res.json();
       if (!res.ok) {
         setMessage({ type: "error", text: json.error || "Error al crear sincronización" });
         return;
       }
+      const typeLabel = syncType === "xml" ? "XMLs" : "metadata";
       setMessage({
         type: "success",
-        text: `Sincronización de ${direction === "emitted" ? "emitidos" : "recibidos"} creada (Job #${json.data.id}). Se procesará en unos minutos.`,
+        text: `Sincronización de ${typeLabel} ${direction === "emitted" ? "emitidos" : "recibidos"} creada (Job #${json.data.id}). Se procesará en unos minutos.`,
       });
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
@@ -184,6 +219,18 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
           />
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+          <select
+            value={syncType}
+            onChange={e => setSyncType(e.target.value as "metadata" | "xml")}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          >
+            <option value="metadata">Metadata (listado)</option>
+            <option value="xml">XML (desglose fiscal)</option>
+          </select>
+        </div>
+
         <button
           onClick={() => triggerSync("received")}
           disabled={syncing !== null}
@@ -202,6 +249,13 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
           Descargar Emitidos
         </button>
       </div>
+
+      {syncType === "xml" && (
+        <p className="mt-2 text-xs text-gray-500">
+          La descarga XML obtiene el desglose completo: subtotal, IVA, ISR, conceptos, método de pago, uso CFDI.
+          Requiere haber descargado la metadata primero.
+        </p>
+      )}
 
       {message && (
         <div className={`mt-4 p-3 rounded-md text-sm flex items-center gap-2 ${
@@ -507,11 +561,42 @@ function ColumnFilter({
 
 function CfdiRow({ item }: { item: CfdiMetadata }) {
   const [expanded, setExpanded] = useState(false);
+  const [xmlDetail, setXmlDetail] = useState<CfdiDetailData | null>(null);
+  const [xmlLoading, setXmlLoading] = useState(false);
+  const [xmlError, setXmlError] = useState<string | null>(null);
+
   const isReceived = item.direction === "received";
   const counterpart = isReceived ? item.issuerName : item.receiverName;
   const counterpartRfc = isReceived ? item.issuerRfc : item.receiverRfc;
   const impact = getFinancialImpact(item.direction, item.efecto);
   const efectoLabel: Record<string, string> = { I: "Ingreso", E: "Egreso", P: "Pago", T: "Traslado", N: "Nómina" };
+
+  const fetchXmlDetails = async () => {
+    if (xmlDetail || xmlLoading) return;
+    setXmlLoading(true);
+    setXmlError(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/details/${item.uuid}`);
+      if (res.ok) {
+        const { data } = await res.json();
+        setXmlDetail(data);
+      } else if (res.status === 404) {
+        setXmlError("No hay detalles XML descargados para este CFDI.");
+      } else {
+        setXmlError("Error al obtener detalles.");
+      }
+    } catch {
+      setXmlError("Error de conexión.");
+    } finally {
+      setXmlLoading(false);
+    }
+  };
+
+  const formaPagoLabels: Record<string, string> = {
+    "01": "Efectivo", "02": "Cheque nominativo", "03": "Transferencia",
+    "04": "Tarjeta de crédito", "06": "Dinero electrónico",
+    "28": "Tarjeta de débito", "99": "Por definir",
+  };
 
   return (
     <>
@@ -557,6 +642,7 @@ function CfdiRow({ item }: { item: CfdiMetadata }) {
       {expanded && (
         <tr className="border-b border-gray-100 bg-gray-50/50">
           <td colSpan={6} className="px-4 py-3">
+            {/* Metadata section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-2 text-xs">
               <DetailItem label="UUID (Folio Fiscal)" value={item.uuid} mono />
               <DetailItem label="Emisor" value={`${item.issuerName || "—"} (${item.issuerRfc})`} />
@@ -584,10 +670,110 @@ function CfdiRow({ item }: { item: CfdiMetadata }) {
                 />
               )}
             </div>
+
+            {/* XML Details section */}
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              {!xmlDetail && !xmlLoading && !xmlError && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); fetchXmlDetails(); }}
+                  className="text-xs font-medium text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Ver detalles XML (desglose fiscal)
+                </button>
+              )}
+              {xmlLoading && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Cargando detalles...
+                </div>
+              )}
+              {xmlError && (
+                <p className="text-xs text-gray-500">{xmlError}</p>
+              )}
+              {xmlDetail && <XmlDetailPanel detail={xmlDetail} formaPagoLabels={formaPagoLabels} />}
+            </div>
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// XML Detail Panel (shown inside expanded row)
+// ---------------------------------------------------------------------------
+
+function XmlDetailPanel({ detail, formaPagoLabels }: { detail: CfdiDetailData; formaPagoLabels: Record<string, string> }) {
+  const fmt = (n: number | null) => n !== null ? `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2 })}` : "—";
+
+  return (
+    <div className="space-y-3">
+      {/* Financial breakdown */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 text-xs">
+        <DetailItem label="Subtotal" value={fmt(detail.subtotal)} />
+        {detail.descuento !== null && <DetailItem label="Descuento" value={fmt(detail.descuento)} />}
+        <DetailItem label="IVA Trasladado" value={fmt(detail.ivaTrasladado)} />
+        {detail.isrRetenido !== null && <DetailItem label="ISR Retenido" value={fmt(detail.isrRetenido)} />}
+        {detail.ivaRetenido !== null && <DetailItem label="IVA Retenido" value={fmt(detail.ivaRetenido)} />}
+        {detail.ieps !== null && <DetailItem label="IEPS" value={fmt(detail.ieps)} />}
+        <DetailItem label="Total" value={fmt(detail.total)} />
+      </div>
+
+      {/* Payment info */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 text-xs">
+        {detail.metodoPago && <DetailItem label="Método de Pago" value={detail.metodoPago === "PUE" ? "PUE (Pago en una exhibición)" : "PPD (Pago en parcialidades)"} />}
+        {detail.formaPago && <DetailItem label="Forma de Pago" value={`${detail.formaPago} — ${formaPagoLabels[detail.formaPago] || "Otro"}`} />}
+        {detail.usoCfdi && <DetailItem label="Uso CFDI" value={detail.usoCfdi} />}
+        {detail.moneda && <DetailItem label="Moneda" value={detail.moneda} />}
+        {detail.tipoCambio !== null && <DetailItem label="Tipo de Cambio" value={detail.tipoCambio.toString()} />}
+        {detail.serie && <DetailItem label="Serie" value={detail.serie} />}
+        {detail.folio && <DetailItem label="Folio" value={detail.folio} />}
+        {detail.lugarExpedicion && <DetailItem label="Lugar Expedición (CP)" value={detail.lugarExpedicion} />}
+      </div>
+
+      {/* Conceptos table */}
+      {detail.conceptos.length > 0 && (
+        <div className="mt-2">
+          <p className="text-xs font-medium text-gray-600 mb-1">Conceptos ({detail.conceptos.length})</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border border-gray-200 rounded">
+              <thead>
+                <tr className="bg-gray-100 border-b border-gray-200">
+                  <th className="px-2 py-1.5 text-left font-medium text-gray-600">Descripción</th>
+                  <th className="px-2 py-1.5 text-right font-medium text-gray-600">Cant.</th>
+                  <th className="px-2 py-1.5 text-right font-medium text-gray-600">P. Unit.</th>
+                  <th className="px-2 py-1.5 text-right font-medium text-gray-600">Importe</th>
+                  <th className="px-2 py-1.5 text-right font-medium text-gray-600">IVA</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {detail.conceptos.map((c, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-2 py-1.5 max-w-[250px] truncate" title={c.descripcion || ""}>
+                      {c.descripcion || "—"}
+                      {c.claveProdServ && (
+                        <span className="ml-1 text-gray-400">[{c.claveProdServ}]</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono">{c.cantidad ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right font-mono">
+                      {c.valorUnitario !== null ? `$${c.valorUnitario.toLocaleString("es-MX", { minimumFractionDigits: 2 })}` : "—"}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono">
+                      {c.importe !== null ? `$${c.importe.toLocaleString("es-MX", { minimumFractionDigits: 2 })}` : "—"}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono">
+                      {c.ivaTrasladado !== null ? `$${c.ivaTrasladado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -651,7 +837,8 @@ function InfoTab() {
           </ul>
           <p className="text-xs text-gray-500 mt-3">
             La metadata NO incluye desglose de conceptos, subtotal, IVA, método de pago ni uso CFDI.
-            Para eso se necesita descargar el XML completo (próxima fase).
+            Para ver ese desglose, haz clic en "Ver detalles XML" dentro de cada CFDI (requiere haber
+            sincronizado los XMLs del mes).
           </p>
         </div>
       </section>
