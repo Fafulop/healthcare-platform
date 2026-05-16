@@ -167,6 +167,17 @@ export async function POST(request: NextRequest) {
     };
 
     if (serie) payload.Serie = serie;
+
+    // GlobalInformation required for "Publico en General" (RFC XAXX010101000)
+    if (receiver.rfc.trim().toUpperCase() === 'XAXX010101000') {
+      const now = new Date();
+      payload.GlobalInformation = {
+        Periodicity: body.globalPeriodicity || '04', // 04 = por operación individual
+        Months: body.globalMonths || String(now.getMonth() + 1).padStart(2, '0'),
+        Year: body.globalYear || String(now.getFullYear()),
+      };
+    }
+
     // Optional non-fiscal fields (appear in PDF only)
     if (observations) payload.Observations = observations;
     if (paymentBankName) payload.PaymentBankName = paymentBankName;

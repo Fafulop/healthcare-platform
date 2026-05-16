@@ -235,6 +235,12 @@ export interface CreateCfdiPayload {
   NameId?: string;              // "2" for Nota de Credito
   Relations?: CfdiRelation;     // Links to related CFDIs (Egreso, substitution)
   Complement?: PaymentComplement; // Complemento de Pago 2.0 (REP)
+  // GlobalInformation — required for Publico en General (RFC XAXX010101000)
+  GlobalInformation?: {
+    Periodicity: string;  // 01=Diario, 02=Semanal, 03=Quincenal, 04=Mensual, 05=Bimestral
+    Months: string;       // 01-12
+    Year: string;         // YYYY
+  };
   // Optional non-fiscal fields (appear in PDF only)
   Observations?: string;
   PaymentBankName?: string;
