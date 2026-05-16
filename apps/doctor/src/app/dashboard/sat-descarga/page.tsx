@@ -2323,13 +2323,20 @@ function InfoTab() {
 function JobsList() {
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const fetchJobs = useCallback(async () => {
+  const fetchJobs = useCallback(async (p = 1) => {
     try {
-      const res = await authFetch(`${API_URL}/api/sat-descarga/sync`);
+      const res = await authFetch(`${API_URL}/api/sat-descarga/sync?page=${p}&limit=50`);
       if (res.ok) {
-        const { data } = await res.json();
-        setJobs(data);
+        const json = await res.json();
+        setJobs(json.data);
+        if (json.pagination) {
+          setTotalPages(json.pagination.totalPages);
+          setTotal(json.pagination.total);
+        }
       }
     } catch (err) {
       console.error("Error fetching jobs:", err);
@@ -2338,7 +2345,7 @@ function JobsList() {
     }
   }, []);
 
-  useEffect(() => { fetchJobs(); }, [fetchJobs]);
+  useEffect(() => { fetchJobs(page); }, [fetchJobs, page]);
 
   // Auto-refresh if any job is in progress
   useEffect(() => {
@@ -2347,9 +2354,9 @@ function JobsList() {
     );
     if (!hasActive) return;
 
-    const interval = setInterval(fetchJobs, 15000);
+    const interval = setInterval(() => fetchJobs(page), 15000);
     return () => clearInterval(interval);
-  }, [jobs, fetchJobs]);
+  }, [jobs, fetchJobs, page]);
 
   if (loading) {
     return (
@@ -2454,6 +2461,31 @@ function JobsList() {
           ))}
         </tbody>
       </table>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
+          <span className="text-xs text-gray-500">
+            {total} sincronizaciones — Página {page} de {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -141,32 +141,45 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/sat-descarga/sync — List sync jobs for current doctor
+ * Query params: page (default 1), limit (default 50, max 100)
  */
 export async function GET(request: NextRequest) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
+    const url = new URL(request.url);
 
-    const jobs = await prisma.satSyncJob.findMany({
-      where: { doctorId: doctor.id },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      select: {
-        id: true,
-        status: true,
-        requestType: true,
-        direction: true,
-        dateFrom: true,
-        dateTo: true,
-        cfdiCount: true,
-        attempts: true,
-        lastError: true,
-        startedAt: true,
-        completedAt: true,
-        createdAt: true,
-      },
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50')));
+    const skip = (page - 1) * limit;
+
+    const [jobs, total] = await Promise.all([
+      prisma.satSyncJob.findMany({
+        where: { doctorId: doctor.id },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip,
+        select: {
+          id: true,
+          status: true,
+          requestType: true,
+          direction: true,
+          dateFrom: true,
+          dateTo: true,
+          cfdiCount: true,
+          attempts: true,
+          lastError: true,
+          startedAt: true,
+          completedAt: true,
+          createdAt: true,
+        },
+      }),
+      prisma.satSyncJob.count({ where: { doctorId: doctor.id } }),
+    ]);
+
+    return NextResponse.json({
+      data: jobs,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-
-    return NextResponse.json({ data: jobs });
   } catch (error: any) {
     if (error.name === 'AuthError') {
       return NextResponse.json({ error: error.message }, { status: error.status });
