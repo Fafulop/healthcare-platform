@@ -173,17 +173,30 @@ Lecciones adicionales:
 | e.Firma upload API | DONE | `POST/GET/DELETE /api/sat-descarga/fiel` — valida, cifra (AES-256-GCM), almacena |
 | e.Firma upload UI | DONE | Seccion paso 3 en `/dashboard/facturacion` (config tab) |
 | SAT service library | DONE | `apps/api/src/lib/sat-descarga.ts` — port del PoC a TypeScript, zero deps |
-| API routes sync | DONE | `POST/GET /api/sat-descarga/sync`, `GET /api/sat-descarga/sync/[id]`, `GET /api/sat-descarga/metadata` |
+| API routes sync | DONE | `POST/GET /api/sat-descarga/sync`, `GET/DELETE /api/sat-descarga/sync/[id]`, `GET /api/sat-descarga/metadata` |
 | Background worker | DONE | `POST /api/cron/sat-sync-worker` — state machine, cron-based polling |
 | Dashboard UI | DONE | `/dashboard/sat-descarga` — sync trigger, CFDI table, jobs list |
+
+### Deployed to Production (2026-05-15)
+
+- Migration executed on Railway DB
+- `FIEL_ENCRYPTION_KEY` env var added to API service
+- SAT worker added to cron service (runs every 15 minutes)
+- Sidebar nav link added (desktop + mobile drawer)
+- First successful sync: 19 recibidos + 12 emitidos (abril 2026)
+
+### Gotchas Discovered During Deployment
+
+- **SAT rejects future `FechaFinal`** — dateTo capped to today when syncing the current month
+- **RFC is in `x500UniqueIdentifier`** of cert subject, NOT `serialNumber` (which contains CURP)
+- **Prisma DATE columns return midnight UTC** — use `timeZone: "UTC"` in frontend display and `Date.UTC()` in backend
+- **Regex `s` flag requires ES2018+** — use `[\s\S]` instead for Next.js build compatibility
 
 ### Pendiente (Fase 2+)
 
 | Feature | Status | Descripcion |
 |---------|--------|-------------|
 | Descarga de XMLs | Pendiente | On-demand download de XMLs completos (Phase 2) |
-| Navegacion sidebar | Pendiente | Agregar link a SAT Descarga en el sidebar del dashboard |
-| Deploy Railway | Pendiente | Migration a Railway DB + FIEL_ENCRYPTION_KEY env var |
 | Inteligencia financiera | Pendiente | Proyecciones, cashflow, scoring (Phase 3) |
 
 ---
@@ -216,7 +229,7 @@ Lecciones adicionales:
 | `apps/api/src/lib/sat-descarga.ts` | SAT SOAP service library (619 lineas, zero deps) |
 | `apps/api/src/app/api/sat-descarga/fiel/route.ts` | API: upload/status/delete e.Firma |
 | `apps/api/src/app/api/sat-descarga/sync/route.ts` | API: crear/listar sync jobs |
-| `apps/api/src/app/api/sat-descarga/sync/[id]/route.ts` | API: status de un sync job |
+| `apps/api/src/app/api/sat-descarga/sync/[id]/route.ts` | API: status + delete sync job |
 | `apps/api/src/app/api/sat-descarga/metadata/route.ts` | API: listar CFDIs descargados + summary |
 | `apps/api/src/app/api/cron/sat-sync-worker/route.ts` | Background worker (state machine) |
 | `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` | Dashboard UI: sync trigger + CFDI table + jobs list |

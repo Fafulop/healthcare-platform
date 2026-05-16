@@ -231,7 +231,7 @@ Se eligio **Cron + DB polling** (sin Redis). El worker es un endpoint cron (`POS
 2. Avanza cada job un paso en la state machine:
    - `pending` → `authenticating` → `polling` → `downloading` → `completed`
 3. Si SAT no ha terminado (estado 1 o 2), el job queda en `polling` y se re-procesa en la siguiente ejecucion
-4. Railway cron lo llama cada 2 minutos
+4. Railway cron lo llama cada 15 minutos (incluido en el cron general del proyecto)
 
 **Ventajas:** Zero dependencies extra, state machine resiliente (cada paso es idempotente), no bloquea en polling.
 
