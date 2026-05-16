@@ -6,6 +6,29 @@
 
 ---
 
+## Database Context
+
+All SAT tables live in the `practice_management` schema on a single Railway PostgreSQL (pgvector-pg17).
+FKs reference `public.doctors(id)` cross-schema.
+
+**Existing tables (Phase 1+2):**
+- `practice_management.sat_sync_jobs` — job queue
+- `practice_management.sat_cfdi_metadata` — metadata from TXT (UUID uppercase)
+- `practice_management.sat_cfdi_details` — parsed XML fields (UUID lowercase)
+- `practice_management.sat_cfdi_conceptos` — line items per CFDI
+- `practice_management.doctor_fiscal_profiles` — e.Firma storage + config
+
+**Migration workflow (see `docs/NEW.MD-GUIDES/database-architecture.md`):**
+1. Add model to `packages/database/prisma/schema.prisma` with `@@schema("practice_management")`
+2. Create SQL file in `packages/database/prisma/migrations/` with `CREATE TABLE IF NOT EXISTS`
+3. Run against Railway: `npx prisma db execute --file ... --url "RAILWAY_URL"`
+4. Regenerate client: `pnpm db:generate`
+5. Then push code
+
+**Key gotcha:** UUID case mismatch — metadata has UPPERCASE, details has lowercase. Always use `LOWER()` in JOINs.
+
+---
+
 ## 1. Export to CSV/Excel
 
 **Goal:** Let doctors download their CFDI data as files to share with accountants.
@@ -42,17 +65,31 @@
 
 ### Implementation
 - **API:** `POST /api/cron/sat-auto-sync` (protected by CRON_SECRET)
-  - Query all doctors with `fielUploaded = true`
+  - Query all doctors with `fielUploaded = true` AND `autoSyncEnabled = true`
   - For each doctor, check if a completed job exists for current month in last 3 days
   - If not, create pending jobs (received + emitted, metadata + xml)
   - Limit: max 5 doctors per cron run to avoid SAT throttling
 - **Cron schedule:** Every 3 days (or configurable)
 - **Doctor opt-out:** Add `autoSyncEnabled` boolean to DoctorFiscalProfile (default true)
 
+### Migration
+```sql
+-- Migration: Add auto_sync_enabled to doctor_fiscal_profiles
+-- Date: YYYY-MM-DD
+ALTER TABLE practice_management.doctor_fiscal_profiles
+  ADD COLUMN IF NOT EXISTS auto_sync_enabled BOOLEAN DEFAULT TRUE;
+```
+
+### Prisma schema change
+```prisma
+// In DoctorFiscalProfile model:
+autoSyncEnabled Boolean @default(true) @map("auto_sync_enabled")
+```
+
 ### Files to modify
 - New: `apps/api/src/app/api/cron/sat-auto-sync/route.ts`
 - Modify: `packages/database/prisma/schema.prisma` (add autoSyncEnabled field)
-- New migration: add `auto_sync_enabled BOOLEAN DEFAULT TRUE` to doctor_fiscal_profiles
+- New: `packages/database/prisma/migrations/add-auto-sync-enabled.sql`
 
 ### Effort: Medium (2-3 hours)
 
@@ -70,11 +107,14 @@
 
 ### Implementation
 
-#### DB
+#### Migration (`packages/database/prisma/migrations/add-sat-alerts.sql`)
 ```sql
-CREATE TABLE practice_management.sat_alerts (
+-- Migration: Add sat_alerts table
+-- Date: YYYY-MM-DD
+
+CREATE TABLE IF NOT EXISTS practice_management.sat_alerts (
   id SERIAL PRIMARY KEY,
-  doctor_id TEXT NOT NULL REFERENCES public.doctors(id) ON DELETE CASCADE,
+  doctor_id TEXT NOT NULL,
   type VARCHAR(20) NOT NULL, -- 'new_cfdi' | 'cancelled' | 'new_month_available'
   uuid VARCHAR(36),
   direction VARCHAR(10),
@@ -82,8 +122,36 @@ CREATE TABLE practice_management.sat_alerts (
   monto DECIMAL(14,2),
   message TEXT,
   read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT sat_alerts_doctor_id_fkey
+    FOREIGN KEY (doctor_id) REFERENCES public.doctors(id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS sat_alerts_doctor_unread_idx
+  ON practice_management.sat_alerts(doctor_id, read) WHERE read = FALSE;
+```
+
+#### Prisma model
+```prisma
+model SatAlert {
+  id          Int       @id @default(autoincrement())
+  doctorId    String    @map("doctor_id")
+  type        String    @db.VarChar(20)
+  uuid        String?   @db.VarChar(36)
+  direction   String?   @db.VarChar(10)
+  issuerName  String?   @map("issuer_name") @db.VarChar(300)
+  monto       Decimal?  @db.Decimal(14, 2)
+  message     String?
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  doctor      Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, read])
+  @@map("sat_alerts")
+  @@schema("practice_management")
+}
 ```
 
 #### Logic
@@ -122,12 +190,15 @@ CREATE TABLE practice_management.sat_alerts (
 
 ### Implementation
 
-#### DB
+#### Migration (`packages/database/prisma/migrations/add-sat-pagos.sql`)
 ```sql
-CREATE TABLE practice_management.sat_pagos (
+-- Migration: Add sat_pagos table for payment complement tracking
+-- Date: YYYY-MM-DD
+
+CREATE TABLE IF NOT EXISTS practice_management.sat_pagos (
   id SERIAL PRIMARY KEY,
-  doctor_id TEXT NOT NULL REFERENCES public.doctors(id) ON DELETE CASCADE,
-  pago_uuid VARCHAR(36) NOT NULL,        -- UUID of the complement CFDI
+  doctor_id TEXT NOT NULL,
+  pago_uuid VARCHAR(36) NOT NULL,        -- UUID of the complement CFDI (type P)
   factura_uuid VARCHAR(36) NOT NULL,     -- UUID of the invoice being paid
   serie VARCHAR(25),
   folio VARCHAR(40),
@@ -137,9 +208,45 @@ CREATE TABLE practice_management.sat_pagos (
   saldo_anterior DECIMAL(14,2),
   saldo_insoluto DECIMAL(14,2),
   num_parcialidad INT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(doctor_id, pago_uuid, factura_uuid)
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT sat_pagos_doctor_id_fkey
+    FOREIGN KEY (doctor_id) REFERENCES public.doctors(id) ON DELETE CASCADE
 );
+
+-- Unique: one payment complement can pay one invoice once per parcialidad
+CREATE UNIQUE INDEX IF NOT EXISTS sat_pagos_unique_idx
+  ON practice_management.sat_pagos(doctor_id, pago_uuid, factura_uuid);
+
+-- Find all payments for a given invoice
+CREATE INDEX IF NOT EXISTS sat_pagos_factura_idx
+  ON practice_management.sat_pagos(doctor_id, factura_uuid);
+```
+
+#### Prisma model
+```prisma
+model SatPago {
+  id              Int       @id @default(autoincrement())
+  doctorId        String    @map("doctor_id")
+  pagoUuid        String    @map("pago_uuid") @db.VarChar(36)
+  facturaUuid     String    @map("factura_uuid") @db.VarChar(36)
+  serie           String?   @db.VarChar(25)
+  folio           String?   @db.VarChar(40)
+  fechaPago       DateTime? @map("fecha_pago")
+  formaPago       String?   @map("forma_pago") @db.VarChar(10)
+  montoPagado     Decimal?  @map("monto_pagado") @db.Decimal(14, 2)
+  saldoAnterior   Decimal?  @map("saldo_anterior") @db.Decimal(14, 2)
+  saldoInsoluto   Decimal?  @map("saldo_insoluto") @db.Decimal(14, 2)
+  numParcialidad  Int?      @map("num_parcialidad")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, pagoUuid, facturaUuid])
+  @@index([doctorId, facturaUuid])
+  @@map("sat_pagos")
+  @@schema("practice_management")
+}
 ```
 
 #### Parser changes
@@ -168,31 +275,34 @@ CREATE TABLE practice_management.sat_pagos (
 
 ### Scope
 - Button: "Descargar historico (Ene 2025 — hoy)"
-- Creates sync jobs for every month from 2025-01 to current month
+- Creates sync jobs for every month from **2025-01** to current month (May 2026 = 17 months)
 - Both directions (emitted + received), type "full" (metadata + XML)
 - Shows progress: X of Y months completed
 - Worker processes them in order, 3 per cron run as usual
+- **No new DB tables** — reuses existing `sat_sync_jobs` queue
 
 ### Implementation
 - **API:** `POST /api/sat-descarga/backfill`
-  - Body: `{ fromMonth: "2025-01" }` (default: 2025-01)
-  - Calculates all months from start to current
-  - Creates pending jobs for each month/direction/type that doesn't already have a completed job
-  - Returns count of jobs created
-- **UI:** Button in sync trigger section or dedicated section
-  - Shows "Descargando historico: 8/32 meses completados" progress
-  - Queries jobs list to count completed vs total for the backfill range
+  - Body: `{ fromMonth: "2025-01" }` (hardcoded default: "2025-01")
+  - Calculates all months from 2025-01 to current month
+  - For each month: checks if completed job already exists for that month/direction/type
+  - Only creates jobs for months NOT already completed
+  - Returns: `{ created: N, skipped: M, total: X }`
+- **UI:** Button in sync trigger section
+  - Shows "Descargando historico: 8/34 meses completados" progress bar
+  - Queries jobs list to count completed vs total for the backfill range (2025-01 to now)
+  - Disable button if all months already synced
 
 ### Rate limiting considerations
-- SAT allows multiple pending requests, but too many can cause rejections
-- Create jobs in batches: only create next 2 months of pending jobs when previous ones complete
-- Alternative: create all at once, worker naturally throttles at 3/run �� every 15min
-  - 32 months × 4 jobs each = 128 jobs ÷ 3/run = ~43 runs × 15min = ~10 hours total
+- SAT allows multiple pending requests, but too many simultaneous can cause rejections
+- Create all at once — worker naturally throttles at 3 jobs/run every 15min
+  - 17 months × 4 jobs each = 68 jobs ÷ 3/run = ~23 runs × 15min = ~6 hours total
   - Acceptable for a one-time backfill
+- SAT processes each request in ~30-60 seconds, so actual bottleneck is our cron interval
 
 ### Files to modify
 - New: `apps/api/src/app/api/sat-descarga/backfill/route.ts`
-- Modify: page.tsx (add backfill button + progress indicator)
+- Modify: `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` (add backfill button + progress)
 
 ### Effort: Small-Medium (2-3 hours)
 
@@ -213,19 +323,27 @@ CREATE TABLE practice_management.sat_pagos (
 - Uses existing summary endpoint data + adds cumulative calculations
 - May need to store declaration history (what was actually declared) for comparison
 
-#### DB (optional)
+#### Migration (optional — `packages/database/prisma/migrations/add-sat-declarations.sql`)
 ```sql
-CREATE TABLE practice_management.sat_declarations (
+-- Migration: Add sat_declarations table for tracking filed declarations
+-- Date: YYYY-MM-DD
+
+CREATE TABLE IF NOT EXISTS practice_management.sat_declarations (
   id SERIAL PRIMARY KEY,
-  doctor_id TEXT NOT NULL REFERENCES public.doctors(id) ON DELETE CASCADE,
+  doctor_id TEXT NOT NULL,
   period VARCHAR(7) NOT NULL,    -- YYYY-MM
   type VARCHAR(5) NOT NULL,      -- 'ISR' | 'IVA'
   amount DECIMAL(14,2),
   declared_at TIMESTAMP,
   status VARCHAR(20) DEFAULT 'pending', -- pending | declared | late
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(doctor_id, period, type)
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT sat_declarations_doctor_id_fkey
+    FOREIGN KEY (doctor_id) REFERENCES public.doctors(id) ON DELETE CASCADE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS sat_declarations_unique_idx
+  ON practice_management.sat_declarations(doctor_id, period, type);
 ```
 
 #### Calculations
@@ -271,16 +389,35 @@ CREATE TABLE practice_management.sat_declarations (
 6. **Periodo incorrecto** — Paid in a different fiscal year than declared
 
 ### Implementation
-- **Lista 69-B:** SAT publishes CSV quarterly. Store locally and check against it.
+- **Lista 69-B:** SAT publishes CSV quarterly. Store in DB and check against it.
   - Download: http://omawww.sat.gob.mx/cifras_sat/Paginas/datos/vinculoEntworka/69B/Listado_69_B.zip
-  - ~20K records, can store in DB or load in memory
+  - ~20K records, store in `practice_management.sat_lista_69b`
 - **Rules engine:** Simple function that takes a CFDI + detail and returns flags[]
 - **UI:** Warning icon on flagged CFDIs, detail shows reason
+
+### Migration (`packages/database/prisma/migrations/add-sat-lista-69b.sql`)
+```sql
+-- Migration: Add lista 69-B table for deducibility checking
+-- Date: YYYY-MM-DD
+
+CREATE TABLE IF NOT EXISTS practice_management.sat_lista_69b (
+  id SERIAL PRIMARY KEY,
+  rfc VARCHAR(13) NOT NULL,
+  nombre VARCHAR(500),
+  tipo_listado VARCHAR(50),  -- 'definitivo' | 'presunto' | 'desvirtuado' | 'sentencia_favorable'
+  fecha_publicacion DATE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS sat_lista_69b_rfc_idx
+  ON practice_management.sat_lista_69b(rfc);
+```
 
 ### Files to modify
 - New: `apps/api/src/lib/deducibility-checker.ts`
 - New: `apps/api/src/app/api/sat-descarga/check-deducibility/route.ts`
-- New: migration for lista_69b table (or in-memory)
+- New: `packages/database/prisma/migrations/add-sat-lista-69b.sql`
+- Modify: `packages/database/prisma/schema.prisma` (add SatLista69B model)
 - Modify: page.tsx (warning indicators)
 
 ### Effort: Large (6-8 hours)
@@ -372,3 +509,22 @@ Complex (save for later):
 7. **Cash Flow Projection** (uses #6)
 8. **Declaracion Helper** (complex, validate with accountant)
 9. **Deducibility Checker** (complex, validate with accountant)
+
+---
+
+## Deployment Checklist (for features with DB changes)
+
+For features #2, #3, #4, #6, #7 that add new tables/columns:
+
+```
+1. Add Prisma model to schema.prisma (@@schema("practice_management"))
+2. Create SQL migration file in packages/database/prisma/migrations/
+3. Test locally:
+   npx prisma db execute --file prisma/migrations/your-file.sql --schema prisma/schema.prisma
+4. Regenerate client: pnpm db:generate
+5. Run migration on Railway BEFORE pushing code:
+   npx prisma db execute --file prisma/migrations/your-file.sql --url "postgresql://postgres:PASSWORD@yamanote.proxy.rlwy.net:51502/railway"
+6. git push (Railway auto-deploys)
+```
+
+Features #1, #5, #8, #9 need NO DB changes — just new API routes and UI.
