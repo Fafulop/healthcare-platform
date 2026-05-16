@@ -21,12 +21,15 @@ import {
   loadCredentials,
   authenticate,
   requestMetadata,
+  requestXml,
   verifyRequest,
   downloadPackage,
   parseMetadataFromZip,
+  extractZipEntries,
   SatError,
   type SyncDirection,
 } from '@/lib/sat-descarga';
+import { parseCfdiXml } from '@/lib/sat-xml-parser';
 
 export async function POST(request: Request) {
   // Auth: cron secret
@@ -156,8 +159,9 @@ async function stepAuthenticate(job: JobWithProfile, cred: ReturnType<typeof loa
     dateTo: job.dateTo?.toISOString(),
   });
 
-  // Immediately proceed to request
-  const idSolicitud = await requestMetadata(
+  // Immediately proceed to request (metadata or XML depending on job type)
+  const requestFn = job.requestType === 'xml' ? requestXml : requestMetadata;
+  const idSolicitud = await requestFn(
     token,
     cred,
     job.direction as SyncDirection,
@@ -180,7 +184,8 @@ async function stepAuthenticate(job: JobWithProfile, cred: ReturnType<typeof loa
 async function stepRequest(job: JobWithProfile, cred: ReturnType<typeof loadCredentials>): Promise<string> {
   const token = await authenticate(cred);
 
-  const idSolicitud = await requestMetadata(
+  const requestFn = job.requestType === 'xml' ? requestXml : requestMetadata;
+  const idSolicitud = await requestFn(
     token,
     cred,
     job.direction as SyncDirection,
@@ -266,13 +271,29 @@ async function stepDownload(job: JobWithProfile, cred: ReturnType<typeof loadCre
 
   const token = await authenticate(cred);
 
+  if (job.requestType === 'xml') {
+    return await downloadAndParseXml(job, token, cred, packageIds);
+  }
+
+  return await downloadAndParseMetadata(job, token, cred, packageIds);
+}
+
+// ---------------------------------------------------------------------------
+// Download + Parse: Metadata
+// ---------------------------------------------------------------------------
+
+async function downloadAndParseMetadata(
+  job: JobWithProfile,
+  token: string,
+  cred: ReturnType<typeof loadCredentials>,
+  packageIds: string[],
+): Promise<string> {
   let totalRecords = 0;
 
   for (const pkgId of packageIds) {
     const zipBuffer = await downloadPackage(token, cred, pkgId);
     const records = parseMetadataFromZip(zipBuffer);
 
-    // Upsert each record
     for (const record of records) {
       await prisma.satCfdiMetadata.upsert({
         where: {
@@ -318,12 +339,116 @@ async function stepDownload(job: JobWithProfile, cred: ReturnType<typeof loadCre
 
   await prisma.satSyncJob.update({
     where: { id: job.id },
-    data: {
-      status: 'completed',
-      completedAt: new Date(),
-      cfdiCount: totalRecords,
-    },
+    data: { status: 'completed', completedAt: new Date(), cfdiCount: totalRecords },
   });
 
   return `completed: ${totalRecords} CFDIs`;
+}
+
+// ---------------------------------------------------------------------------
+// Download + Parse: XML (Phase 2)
+// ---------------------------------------------------------------------------
+
+async function downloadAndParseXml(
+  job: JobWithProfile,
+  token: string,
+  cred: ReturnType<typeof loadCredentials>,
+  packageIds: string[],
+): Promise<string> {
+  let totalRecords = 0;
+
+  for (const pkgId of packageIds) {
+    const zipBuffer = await downloadPackage(token, cred, pkgId);
+    const entries = extractZipEntries(zipBuffer);
+
+    for (const entry of entries) {
+      if (!entry.name.endsWith('.xml')) continue;
+
+      const detail = parseCfdiXml(entry.data);
+      if (!detail) {
+        console.warn(`[SAT worker] Skipped XML (no UUID found): ${entry.name} in job ${job.id}`);
+        continue;
+      }
+
+      // Upsert the detail record
+      const upserted = await prisma.satCfdiDetail.upsert({
+        where: {
+          doctorId_uuid: {
+            doctorId: job.doctorId,
+            uuid: detail.uuid,
+          },
+        },
+        create: {
+          doctorId: job.doctorId,
+          syncJobId: job.id,
+          uuid: detail.uuid,
+          subtotal: detail.subtotal,
+          descuento: detail.descuento,
+          total: detail.total,
+          ivaTrasladado: detail.ivaTrasladado,
+          isrRetenido: detail.isrRetenido,
+          ivaRetenido: detail.ivaRetenido,
+          ieps: detail.ieps,
+          metodoPago: detail.metodoPago,
+          formaPago: detail.formaPago,
+          usoCfdi: detail.usoCfdi,
+          moneda: detail.moneda,
+          tipoCambio: detail.tipoCambio,
+          serie: detail.serie,
+          folio: detail.folio,
+          lugarExpedicion: detail.lugarExpedicion,
+        },
+        update: {
+          subtotal: detail.subtotal,
+          descuento: detail.descuento,
+          total: detail.total,
+          ivaTrasladado: detail.ivaTrasladado,
+          isrRetenido: detail.isrRetenido,
+          ivaRetenido: detail.ivaRetenido,
+          ieps: detail.ieps,
+          metodoPago: detail.metodoPago,
+          formaPago: detail.formaPago,
+          usoCfdi: detail.usoCfdi,
+          moneda: detail.moneda,
+          tipoCambio: detail.tipoCambio,
+          serie: detail.serie,
+          folio: detail.folio,
+          lugarExpedicion: detail.lugarExpedicion,
+          syncJobId: job.id,
+        },
+      });
+
+      // Delete existing conceptos and re-insert (simpler than diffing)
+      if (detail.conceptos.length > 0) {
+        await prisma.satCfdiConcepto.deleteMany({
+          where: { detailId: upserted.id },
+        });
+
+        await prisma.satCfdiConcepto.createMany({
+          data: detail.conceptos.map(c => ({
+            detailId: upserted.id,
+            claveProdServ: c.claveProdServ,
+            descripcion: c.descripcion,
+            cantidad: c.cantidad,
+            claveUnidad: c.claveUnidad,
+            unidad: c.unidad,
+            valorUnitario: c.valorUnitario,
+            importe: c.importe,
+            descuento: c.descuento,
+            ivaTrasladado: c.ivaTrasladado,
+            isrRetenido: c.isrRetenido,
+          })),
+        });
+      }
+
+      totalRecords++;
+    }
+  }
+
+  await prisma.satSyncJob.update({
+    where: { id: job.id },
+    data: { status: 'completed', completedAt: new Date(), cfdiCount: totalRecords },
+  });
+
+  return `completed: ${totalRecords} XML CFDIs parsed`;
 }

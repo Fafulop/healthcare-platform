@@ -32,7 +32,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { direction, month } = body;
+    const { direction, month, requestType: reqType } = body;
+
+    const requestType = reqType === 'xml' ? 'xml' : 'metadata';
 
     if (!direction || !['emitted', 'received'].includes(direction)) {
       return NextResponse.json(
@@ -75,6 +77,7 @@ export async function POST(request: NextRequest) {
       where: {
         doctorId: doctor.id,
         direction,
+        requestType,
         dateFrom,
         dateTo,
         status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading', 'parsing'] },
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
       data: {
         doctorId: doctor.id,
         fiscalProfileId: profile.id,
-        requestType: 'metadata',
+        requestType,
         direction,
         dateFrom,
         dateTo,

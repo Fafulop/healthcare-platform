@@ -256,6 +256,7 @@ model Doctor {
   // SAT Descarga Masiva
   satSyncJobs        SatSyncJob[]
   satCfdiMetadata    SatCfdiMetadata[]
+  satCfdiDetails     SatCfdiDetail[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -2336,6 +2337,7 @@ model SatSyncJob {
   doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   fiscalProfile   DoctorFiscalProfile @relation(fields: [fiscalProfileId], references: [id], onDelete: Cascade)
   cfdiMetadata    SatCfdiMetadata[]
+  cfdiDetails     SatCfdiDetail[]
 
   @@index([doctorId, status])
   @@index([status, createdAt])
@@ -2389,6 +2391,75 @@ model SatCfdiMetadata {
   @@index([issuerRfc])
   @@index([receiverRfc])
   @@map("sat_cfdi_metadata")
+  @@schema("practice_management")
+}
+
+model SatCfdiDetail {
+  id              Int       @id @default(autoincrement())
+  doctorId        String    @map("doctor_id")
+  uuid            String    @db.VarChar(36)
+
+  // Financial breakdown
+  subtotal        Decimal?  @db.Decimal(14, 2)
+  descuento       Decimal?  @db.Decimal(14, 2)
+  total           Decimal?  @db.Decimal(14, 2)
+
+  // Taxes
+  ivaTrasladado   Decimal?  @map("iva_trasladado") @db.Decimal(14, 2)
+  isrRetenido     Decimal?  @map("isr_retenido") @db.Decimal(14, 2)
+  ivaRetenido     Decimal?  @map("iva_retenido") @db.Decimal(14, 2)
+  ieps            Decimal?  @db.Decimal(14, 2)
+
+  // Payment info
+  metodoPago      String?   @map("metodo_pago") @db.VarChar(10)
+  formaPago       String?   @map("forma_pago") @db.VarChar(10)
+  usoCfdi         String?   @map("uso_cfdi") @db.VarChar(10)
+  moneda          String?   @db.VarChar(5)
+  tipoCambio      Decimal?  @map("tipo_cambio") @db.Decimal(10, 4)
+
+  // Series
+  serie           String?   @db.VarChar(25)
+  folio           String?   @db.VarChar(40)
+  lugarExpedicion String?   @map("lugar_expedicion") @db.VarChar(5)
+
+  // Sync tracking
+  syncJobId       Int?      @map("sync_job_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  syncJob         SatSyncJob? @relation(fields: [syncJobId], references: [id], onDelete: SetNull)
+  conceptos       SatCfdiConcepto[]
+
+  @@unique([doctorId, uuid])
+  @@map("sat_cfdi_details")
+  @@schema("practice_management")
+}
+
+model SatCfdiConcepto {
+  id              Int       @id @default(autoincrement())
+  detailId        Int       @map("detail_id")
+
+  claveProdServ   String?   @map("clave_prod_serv") @db.VarChar(10)
+  descripcion     String?   @db.VarChar(1000)
+  cantidad        Decimal?  @db.Decimal(14, 6)
+  claveUnidad     String?   @map("clave_unidad") @db.VarChar(10)
+  unidad          String?   @db.VarChar(50)
+  valorUnitario   Decimal?  @map("valor_unitario") @db.Decimal(14, 6)
+  importe         Decimal?  @db.Decimal(14, 2)
+  descuento       Decimal?  @db.Decimal(14, 2)
+
+  // Per-concept taxes
+  ivaTrasladado   Decimal?  @map("iva_trasladado") @db.Decimal(14, 2)
+  isrRetenido     Decimal?  @map("isr_retenido") @db.Decimal(14, 2)
+
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  detail          SatCfdiDetail @relation(fields: [detailId], references: [id], onDelete: Cascade)
+
+  @@index([detailId])
+  @@map("sat_cfdi_conceptos")
   @@schema("practice_management")
 }
 

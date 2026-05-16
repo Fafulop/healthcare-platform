@@ -416,6 +416,82 @@ export async function requestMetadata(
 }
 
 // ---------------------------------------------------------------------------
+// STEP 2b: Request XML (CFDI) Download
+// ---------------------------------------------------------------------------
+
+/**
+ * Request XML (CFDI) download from SAT. Returns IdSolicitud.
+ * Same as requestMetadata but with TipoSolicitud="CFDI".
+ */
+export async function requestXml(
+  token: string,
+  cred: SatCredentialInfo,
+  direction: SyncDirection,
+  dateFrom: Date,
+  dateTo: Date,
+): Promise<string> {
+  const fechaInicial = formatSatDate(dateFrom, '00:00:00');
+  const fechaFinal = formatSatDate(dateTo, '23:59:59');
+
+  const operationName = direction === 'emitted'
+    ? 'SolicitaDescargaEmitidos'
+    : 'SolicitaDescargaRecibidos';
+
+  const soapAction = direction === 'emitted'
+    ? 'http://DescargaMasivaTerceros.sat.gob.mx/ISolicitaDescargaService/SolicitaDescargaEmitidos'
+    : 'http://DescargaMasivaTerceros.sat.gob.mx/ISolicitaDescargaService/SolicitaDescargaRecibidos';
+
+  const rfcRole = direction === 'emitted'
+    ? `RfcEmisor="${cred.rfc}"`
+    : `RfcReceptor="${cred.rfc}"`;
+
+  // Same as metadata but TipoSolicitud="CFDI"
+  const solicitudAttrs =
+    `FechaFinal="${fechaFinal}" ` +
+    `FechaInicial="${fechaInicial}" ` +
+    `${rfcRole} ` +
+    `RfcSolicitante="${cred.rfc}" ` +
+    `TipoSolicitud="CFDI"`;
+
+  const solicitudForDigest =
+    `<des:solicitud xmlns:des="http://DescargaMasivaTerceros.sat.gob.mx" ${solicitudAttrs}>` +
+    `</des:solicitud>`;
+
+  const signatureBlock = buildEnvelopedSignature(solicitudForDigest, cred);
+
+  const envelope =
+    '<s:Envelope xmlns:des="http://DescargaMasivaTerceros.sat.gob.mx" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">' +
+    '<s:Header/>' +
+    '<s:Body>' +
+    `<des:${operationName}>` +
+    `<des:solicitud ${solicitudAttrs}>` +
+    signatureBlock +
+    '</des:solicitud>' +
+    `</des:${operationName}>` +
+    '</s:Body>' +
+    '</s:Envelope>';
+
+  const res = await httpsPost(SAT_ENDPOINTS.solicitud, envelope, {
+    'SOAPAction': soapAction,
+    'Authorization': `WRAP access_token="${token}"`,
+  });
+
+  const idSolicitud = res.body.match(/IdSolicitud="([^"]+)"/i);
+  const codEstatus = res.body.match(/CodEstatus="([^"]+)"/i);
+  const mensaje = res.body.match(/Mensaje="([^"]+)"/i);
+
+  if (!idSolicitud) {
+    const fault = res.body.match(/<faultstring[^>]*>(.*?)<\/faultstring>/i);
+    throw new SatError(
+      `Solicitud XML failed: ${mensaje?.[1] || fault?.[1] || `HTTP ${res.status}`} (code: ${codEstatus?.[1] || 'unknown'})`,
+      codEstatus?.[1] || 'REQUEST_FAILED',
+    );
+  }
+
+  return idSolicitud[1];
+}
+
+// ---------------------------------------------------------------------------
 // STEP 3: Verify Request Status
 // ---------------------------------------------------------------------------
 
