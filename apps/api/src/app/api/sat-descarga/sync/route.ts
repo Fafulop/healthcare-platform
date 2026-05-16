@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { direction, month, requestType: reqType } = body;
 
-    const requestType = reqType === 'xml' ? 'xml' : 'metadata';
+    const requestType = reqType === 'xml' || reqType === 'full' ? reqType : 'metadata';
 
     if (!direction || !['emitted', 'received'].includes(direction)) {
       return NextResponse.json(
@@ -72,40 +72,57 @@ export async function POST(request: NextRequest) {
       capped: endOfMonth > todayMx,
     });
 
-    // Check for duplicate active job
-    const existingJob = await prisma.satSyncJob.findFirst({
-      where: {
-        doctorId: doctor.id,
-        direction,
-        requestType,
-        dateFrom,
-        dateTo,
-        status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading', 'parsing'] },
-      },
-    });
+    // For 'full', create both metadata + xml jobs
+    const typesToCreate = requestType === 'full' ? ['metadata', 'xml'] as const : [requestType] as const;
+    const createdJobs = [];
 
-    if (existingJob) {
+    for (const type of typesToCreate) {
+      // Check for duplicate active job
+      const existingJob = await prisma.satSyncJob.findFirst({
+        where: {
+          doctorId: doctor.id,
+          direction,
+          requestType: type,
+          dateFrom,
+          dateTo,
+          status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading', 'parsing'] },
+        },
+      });
+
+      if (existingJob) {
+        if (requestType !== 'full') {
+          return NextResponse.json(
+            { error: 'Ya existe una sincronización activa para este periodo y dirección', data: existingJob },
+            { status: 409 }
+          );
+        }
+        continue; // For 'full', skip duplicates and create the other
+      }
+
+      const job = await prisma.satSyncJob.create({
+        data: {
+          doctorId: doctor.id,
+          fiscalProfileId: profile.id,
+          requestType: type,
+          direction,
+          dateFrom,
+          dateTo,
+        },
+      });
+      createdJobs.push(job);
+    }
+
+    if (createdJobs.length === 0) {
       return NextResponse.json(
-        { error: 'Ya existe una sincronización activa para este periodo y dirección', data: existingJob },
+        { error: 'Ya existen sincronizaciones activas para este periodo y dirección' },
         { status: 409 }
       );
     }
 
-    const job = await prisma.satSyncJob.create({
-      data: {
-        doctorId: doctor.id,
-        fiscalProfileId: profile.id,
-        requestType,
-        direction,
-        dateFrom,
-        dateTo,
-      },
-    });
-
     return NextResponse.json({
-      data: job,
+      data: createdJobs.length === 1 ? createdJobs[0] : createdJobs,
       _debug: {
-        version: '0.1.14',
+        version: '0.1.15',
         dateFrom: dateFrom.toISOString(),
         dateTo: dateTo.toISOString(),
         endOfMonth: endOfMonth.toISOString(),

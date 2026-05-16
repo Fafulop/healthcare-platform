@@ -177,7 +177,7 @@ function TabBtn({ active, onClick, label }: { active: boolean; onClick: () => vo
 function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
   const [syncing, setSyncing] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [syncType, setSyncType] = useState<"metadata" | "xml">("metadata");
+  const [syncType, setSyncType] = useState<"metadata" | "xml" | "full">("full");
 
   const triggerSync = async (direction: "emitted" | "received") => {
     setSyncing(direction);
@@ -192,10 +192,11 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
         setMessage({ type: "error", text: json.error || "Error al crear sincronización" });
         return;
       }
-      const typeLabel = syncType === "xml" ? "XMLs" : "metadata";
+      const typeLabel = syncType === "full" ? "metadata + XML" : syncType === "xml" ? "XMLs" : "metadata";
+      const jobId = Array.isArray(json.data) ? json.data.map((j: any) => `#${j.id}`).join(', ') : `#${json.data.id}`;
       setMessage({
         type: "success",
-        text: `Sincronización de ${typeLabel} ${direction === "emitted" ? "emitidos" : "recibidos"} creada (Job #${json.data.id}). Se procesará en unos minutos.`,
+        text: `Sincronización de ${typeLabel} ${direction === "emitted" ? "emitidos" : "recibidos"} creada (Job ${jobId}). Se procesará en unos minutos.`,
       });
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
@@ -223,11 +224,12 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
           <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
           <select
             value={syncType}
-            onChange={e => setSyncType(e.target.value as "metadata" | "xml")}
+            onChange={e => setSyncType(e.target.value as "metadata" | "xml" | "full")}
             className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           >
-            <option value="metadata">Metadata (listado)</option>
-            <option value="xml">XML (desglose fiscal)</option>
+            <option value="full">Completa (metadata + XML)</option>
+            <option value="metadata">Solo metadata (listado)</option>
+            <option value="xml">Solo XML (desglose fiscal)</option>
           </select>
         </div>
 
@@ -252,8 +254,7 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
 
       {syncType === "xml" && (
         <p className="mt-2 text-xs text-gray-500">
-          La descarga XML obtiene el desglose completo: subtotal, IVA, ISR, conceptos, método de pago, uso CFDI.
-          Requiere haber descargado la metadata primero.
+          Solo descarga XMLs. Requiere haber descargado la metadata primero.
         </p>
       )}
 
