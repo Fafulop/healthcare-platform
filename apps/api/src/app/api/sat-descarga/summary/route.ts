@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         SUM(d.ieps)::float AS sum_ieps
       FROM practice_management.sat_cfdi_details d
       JOIN practice_management.sat_cfdi_metadata m
-        ON m.doctor_id = d.doctor_id AND m.uuid = d.uuid
+        ON m.doctor_id = d.doctor_id AND LOWER(m.uuid) = LOWER(d.uuid)
       WHERE d.doctor_id = ${doctor.id}
         AND m.sat_status = 'Vigente'
         AND m.efecto IN ('I', 'E')
