@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Info,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -105,7 +106,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "jobs" | "info" | "contable">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "jobs" | "info" | "contable">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -140,6 +141,7 @@ export default function SatDescargaPage() {
       <div className="border-b border-gray-200 mb-6 mt-6">
         <div className="flex gap-6">
           <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
+          <TabBtn active={activeTab === "resumen"} onClick={() => setActiveTab("resumen")} label="Resumen Fiscal" />
           <TabBtn active={activeTab === "jobs"} onClick={() => setActiveTab("jobs")} label="Historial de Syncs" />
           <TabBtn active={activeTab === "contable"} onClick={() => setActiveTab("contable")} label="Guía Contable" />
           <TabBtn active={activeTab === "info"} onClick={() => setActiveTab("info")} label="Info" />
@@ -149,6 +151,7 @@ export default function SatDescargaPage() {
       {activeTab === "cfdi" && (
         <CfdiList direction={direction} setDirection={setDirection} month={month} />
       )}
+      {activeTab === "resumen" && <ResumenFiscal />}
       {activeTab === "jobs" && <JobsList />}
       {activeTab === "contable" && <ContableTab />}
       {activeTab === "info" && <InfoTab />}
@@ -823,6 +826,228 @@ function DetailItem({ label, value, mono }: { label: string; value: string; mono
     <div>
       <span className="text-gray-400">{label}:</span>{" "}
       <span className={`text-gray-700 ${mono ? "font-mono" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Resumen Fiscal Tab
+// ---------------------------------------------------------------------------
+
+interface MonthSummary {
+  month: number;
+  ingresos: { count: number; subtotal: number; iva: number; isrRetenido: number; ivaRetenido: number; total: number };
+  gastos: { count: number; subtotal: number; iva: number; isrRetenido: number; ivaRetenido: number; total: number };
+}
+
+interface SummaryResponse {
+  year: number;
+  months: MonthSummary[];
+  annual: {
+    ingresos: { count: number; subtotal: number; iva: number; isrRetenido: number; ivaRetenido: number; total: number };
+    gastos: { count: number; subtotal: number; iva: number; isrRetenido: number; ivaRetenido: number; total: number };
+  };
+}
+
+const MONTH_NAMES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+function ResumenFiscal() {
+  const [data, setData] = useState<SummaryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState(new Date().getFullYear());
+
+  const fetchSummary = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/summary?year=${year}`);
+      if (res.ok) {
+        const json = await res.json();
+        setData(json.data);
+      }
+    } catch (err) {
+      console.error("Error fetching summary:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [year]);
+
+  useEffect(() => { fetchSummary(); }, [fetchSummary]);
+
+  const fmt = (n: number) => `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  if (!data || data.months.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <BarChart3 className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+        <p>No hay datos XML descargados para {year}.</p>
+        <p className="text-xs mt-1">Sincroniza con tipo "Completa" o "Solo XML" para ver el resumen fiscal.</p>
+        <div className="mt-4">
+          <YearSelector year={year} setYear={setYear} />
+        </div>
+      </div>
+    );
+  }
+
+  const { annual, months } = data;
+  const balance = annual.ingresos.total - annual.gastos.total;
+  const ivaAPagar = annual.ingresos.iva - annual.gastos.iva;
+
+  return (
+    <div className="space-y-6">
+      {/* Year selector */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-purple-600" />
+          Resumen Fiscal {year}
+        </h3>
+        <YearSelector year={year} setYear={setYear} />
+      </div>
+
+      {/* Annual summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <SummaryCard label="Ingresos (subtotal)" value={fmt(annual.ingresos.subtotal)} sublabel={`${annual.ingresos.count} facturas`} color="green" />
+        <SummaryCard label="Gastos (subtotal)" value={fmt(annual.gastos.subtotal)} sublabel={`${annual.gastos.count} facturas`} color="red" />
+        <SummaryCard label="Balance neto" value={fmt(balance)} sublabel="Ingresos − Gastos (total)" color={balance >= 0 ? "blue" : "orange"} />
+        <SummaryCard label="IVA a pagar" value={fmt(ivaAPagar)} sublabel="IVA cobrado − IVA pagado" color={ivaAPagar >= 0 ? "amber" : "green"} />
+      </div>
+
+      {/* Tax breakdown cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-xs font-medium text-gray-500 mb-2">IVA Trasladado (cobrado)</p>
+          <p className="text-xl font-bold text-gray-900">{fmt(annual.ingresos.iva)}</p>
+          <p className="text-xs text-gray-400 mt-1">En tus facturas emitidas</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-xs font-medium text-gray-500 mb-2">IVA Acreditable (pagado)</p>
+          <p className="text-xl font-bold text-gray-900">{fmt(annual.gastos.iva)}</p>
+          <p className="text-xs text-gray-400 mt-1">En facturas que recibes</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-xs font-medium text-gray-500 mb-2">ISR Retenido + IVA Retenido</p>
+          <p className="text-xl font-bold text-gray-900">{fmt(annual.ingresos.isrRetenido + annual.ingresos.ivaRetenido)}</p>
+          <p className="text-xs text-gray-400 mt-1">Retenciones en tus emitidas (pago anticipado)</p>
+        </div>
+      </div>
+
+      {/* Monthly breakdown table */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+          <h4 className="text-sm font-semibold text-gray-700">Desglose mensual</h4>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+                <th className="px-3 py-2 text-left font-semibold">Mes</th>
+                <th className="px-3 py-2 text-right font-semibold">Ingresos (subtotal)</th>
+                <th className="px-3 py-2 text-right font-semibold">IVA cobrado</th>
+                <th className="px-3 py-2 text-right font-semibold">ISR ret.</th>
+                <th className="px-3 py-2 text-right font-semibold">Gastos (subtotal)</th>
+                <th className="px-3 py-2 text-right font-semibold">IVA pagado</th>
+                <th className="px-3 py-2 text-right font-semibold">Balance</th>
+                <th className="px-3 py-2 text-right font-semibold">IVA neto</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {months.map(m => {
+                const monthBalance = m.ingresos.total - m.gastos.total;
+                const monthIva = m.ingresos.iva - m.gastos.iva;
+                return (
+                  <tr key={m.month} className="hover:bg-gray-50">
+                    <td className="px-3 py-2.5 font-medium text-gray-900">{MONTH_NAMES[m.month - 1]}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-green-700">{fmt(m.ingresos.subtotal)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-gray-600">{fmt(m.ingresos.iva)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-gray-600">{m.ingresos.isrRetenido > 0 ? fmt(m.ingresos.isrRetenido) : "—"}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-red-700">{fmt(m.gastos.subtotal)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-gray-600">{fmt(m.gastos.iva)}</td>
+                    <td className={`px-3 py-2.5 text-right font-mono font-medium ${monthBalance >= 0 ? "text-blue-700" : "text-orange-700"}`}>
+                      {monthBalance >= 0 ? "+" : ""}{fmt(monthBalance)}
+                    </td>
+                    <td className={`px-3 py-2.5 text-right font-mono ${monthIva >= 0 ? "text-amber-700" : "text-green-700"}`}>
+                      {monthIva >= 0 ? "+" : ""}{fmt(monthIva)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
+                <td className="px-3 py-2.5 text-gray-900">Total {year}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-green-700">{fmt(annual.ingresos.subtotal)}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{fmt(annual.ingresos.iva)}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{annual.ingresos.isrRetenido > 0 ? fmt(annual.ingresos.isrRetenido) : "—"}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-red-700">{fmt(annual.gastos.subtotal)}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{fmt(annual.gastos.iva)}</td>
+                <td className={`px-3 py-2.5 text-right font-mono ${balance >= 0 ? "text-blue-700" : "text-orange-700"}`}>
+                  {balance >= 0 ? "+" : ""}{fmt(balance)}
+                </td>
+                <td className={`px-3 py-2.5 text-right font-mono ${ivaAPagar >= 0 ? "text-amber-700" : "text-green-700"}`}>
+                  {ivaAPagar >= 0 ? "+" : ""}{fmt(ivaAPagar)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-xs text-gray-600 space-y-1">
+        <p><strong>Ingresos:</strong> Facturas emitidas tipo Ingreso (lo que facturaste). Subtotal = antes de impuestos.</p>
+        <p><strong>Gastos:</strong> Facturas recibidas tipo Ingreso (lo que te facturaron). Subtotal = base para deduccion.</p>
+        <p><strong>IVA cobrado:</strong> Lo que cobraste de IVA — debes enterarlo al SAT.</p>
+        <p><strong>IVA pagado:</strong> Lo que pagaste de IVA en gastos — lo restas del IVA que debes (acreditable).</p>
+        <p><strong>IVA neto:</strong> IVA cobrado − IVA pagado. Positivo = debes pagar. Negativo = saldo a favor.</p>
+        <p><strong>ISR ret.:</strong> ISR que te retuvieron (personas morales). Se resta en tu declaracion anual.</p>
+        <p className="text-gray-400 mt-2">Datos extraidos de los XMLs descargados. Solo incluye facturas vigentes tipo I y E.</p>
+      </div>
+    </div>
+  );
+}
+
+function YearSelector({ year, setYear }: { year: number; setYear: (y: number) => void }) {
+  const currentYear = new Date().getFullYear();
+  return (
+    <select
+      value={year}
+      onChange={e => setYear(Number(e.target.value))}
+      className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+    >
+      {Array.from({ length: 5 }, (_, i) => currentYear - i).map(y => (
+        <option key={y} value={y}>{y}</option>
+      ))}
+    </select>
+  );
+}
+
+function SummaryCard({ label, value, sublabel, color }: { label: string; value: string; sublabel: string; color: string }) {
+  const colorClasses: Record<string, string> = {
+    green: "bg-green-50 border-green-200",
+    red: "bg-red-50 border-red-200",
+    blue: "bg-blue-50 border-blue-200",
+    orange: "bg-orange-50 border-orange-200",
+    amber: "bg-amber-50 border-amber-200",
+  };
+  const textClasses: Record<string, string> = {
+    green: "text-green-700",
+    red: "text-red-700",
+    blue: "text-blue-700",
+    orange: "text-orange-700",
+    amber: "text-amber-700",
+  };
+  return (
+    <div className={`rounded-lg border p-4 ${colorClasses[color] || "bg-gray-50 border-gray-200"}`}>
+      <p className="text-xs font-medium text-gray-600">{label}</p>
+      <p className={`text-xl font-bold mt-1 ${textClasses[color] || "text-gray-900"}`}>{value}</p>
+      <p className="text-xs text-gray-400 mt-1">{sublabel}</p>
     </div>
   );
 }
