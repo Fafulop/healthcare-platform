@@ -16,6 +16,7 @@ import {
   Info,
   BookOpen,
   BarChart3,
+  FileSpreadsheet,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -406,6 +407,21 @@ function CfdiList({
               {balance >= 0 ? "+" : "-"}${Math.abs(balance).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Export button */}
+      {items.length > 0 && (
+        <div className="flex gap-2 mb-4">
+          <ExportButton
+            label="Exportar CSV (detalle)"
+            href={`${API_URL}/api/sat-descarga/export?month=${month}&type=details${direction ? `&direction=${direction}` : ""}`}
+          />
+          <ExportButton
+            label="Exportar CSV (metadata)"
+            href={`${API_URL}/api/sat-descarga/export?month=${month}&type=metadata${direction ? `&direction=${direction}` : ""}`}
+            secondary
+          />
         </div>
       )}
 
@@ -902,13 +918,19 @@ function ResumenFiscal() {
 
   return (
     <div className="space-y-6">
-      {/* Year selector */}
+      {/* Year selector + export */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-purple-600" />
           Resumen Fiscal {year}
         </h3>
-        <YearSelector year={year} setYear={setYear} />
+        <div className="flex items-center gap-3">
+          <ExportButton
+            label="Exportar CSV"
+            href={`${API_URL}/api/sat-descarga/export?month=${year}-01&type=resumen`}
+          />
+          <YearSelector year={year} setYear={setYear} />
+        </div>
       </div>
 
       {/* Annual summary cards */}
@@ -1049,6 +1071,52 @@ function SummaryCard({ label, value, sublabel, color }: { label: string; value: 
       <p className={`text-xl font-bold mt-1 ${textClasses[color] || "text-gray-900"}`}>{value}</p>
       <p className="text-xs text-gray-400 mt-1">{sublabel}</p>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Export Button
+// ---------------------------------------------------------------------------
+
+function ExportButton({ label, href, secondary }: { label: string; href: string; secondary?: boolean }) {
+  const handleExport = async () => {
+    try {
+      const res = await authFetch(href);
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        alert(json?.error || "Error al exportar");
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+      const filename = filenameMatch?.[1] || "export.csv";
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Error al exportar CSV");
+    }
+  };
+
+  return (
+    <button
+      onClick={handleExport}
+      className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 ${
+        secondary
+          ? "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
+          : "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200"
+      }`}
+    >
+      <FileSpreadsheet className="w-3.5 h-3.5" />
+      {label}
+    </button>
   );
 }
 
