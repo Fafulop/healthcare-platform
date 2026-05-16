@@ -96,7 +96,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ data: job }, { status: 201 });
+    return NextResponse.json({
+      data: job,
+      _debug: {
+        version: '0.1.14',
+        dateFrom: dateFrom.toISOString(),
+        dateTo: dateTo.toISOString(),
+        endOfMonth: endOfMonth.toISOString(),
+        todayUTC: todayUTC.toISOString(),
+        capped: endOfMonth > todayUTC,
+      },
+    }, { status: 201 });
   } catch (error: any) {
     if (error.name === 'AuthError') {
       return NextResponse.json({ error: error.message }, { status: error.status });
