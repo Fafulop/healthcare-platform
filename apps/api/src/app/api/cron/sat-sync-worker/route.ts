@@ -150,6 +150,12 @@ async function stepAuthenticate(job: JobWithProfile, cred: ReturnType<typeof loa
 
   const token = await authenticate(cred);
 
+  console.log('[SAT worker] stepAuthenticate dates:', {
+    jobId: job.id,
+    dateFrom: job.dateFrom?.toISOString(),
+    dateTo: job.dateTo?.toISOString(),
+  });
+
   // Immediately proceed to request
   const idSolicitud = await requestMetadata(
     token,

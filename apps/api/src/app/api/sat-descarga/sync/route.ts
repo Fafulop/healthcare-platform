@@ -58,6 +58,15 @@ export async function POST(request: NextRequest) {
     const endOfMonth = new Date(Date.UTC(year, monthNum - 1, lastDay));
     const dateTo = endOfMonth > todayUTC ? todayUTC : endOfMonth;
 
+    console.log('[SAT sync] Date calc:', {
+      month,
+      dateFrom: dateFrom.toISOString(),
+      endOfMonth: endOfMonth.toISOString(),
+      todayUTC: todayUTC.toISOString(),
+      dateTo: dateTo.toISOString(),
+      capped: endOfMonth > todayUTC,
+    });
+
     // Check for duplicate active job
     const existingJob = await prisma.satSyncJob.findFirst({
       where: {
