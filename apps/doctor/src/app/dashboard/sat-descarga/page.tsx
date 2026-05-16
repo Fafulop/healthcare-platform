@@ -13,7 +13,7 @@ import {
   FileText,
   ArrowUpRight,
   ArrowDownLeft,
-  Filter,
+  ChevronDown,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -46,11 +46,13 @@ interface CfdiMetadata {
   issuerName: string | null;
   receiverRfc: string;
   receiverName: string | null;
+  pacRfc: string | null;
   monto: string; // Decimal comes as string from Prisma
   efecto: string | null;
   satStatus: string;
   cancelationDate: string | null;
   issuedAt: string;
+  certifiedAt: string | null;
 }
 
 interface MetadataResponse {
@@ -225,6 +227,8 @@ function CfdiList({
   const [data, setData] = useState<MetadataResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [tipoFilter, setTipoFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -232,6 +236,7 @@ function CfdiList({
       const params = new URLSearchParams({ page: String(page), limit: "50" });
       if (direction) params.set("direction", direction);
       if (month) params.set("month", month);
+      if (statusFilter) params.set("status", statusFilter);
 
       const res = await authFetch(`${API_URL}/api/sat-descarga/metadata?${params}`);
       if (res.ok) {
@@ -242,7 +247,7 @@ function CfdiList({
     } finally {
       setLoading(false);
     }
-  }, [direction, month, page]);
+  }, [direction, month, page, statusFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -250,26 +255,18 @@ function CfdiList({
   const pagination = data?.pagination;
   const summary = data?.summary;
 
+  // Client-side filter for tipo (financial impact) since it's derived from direction+efecto
+  const filteredItems = tipoFilter
+    ? items.filter(item => getFinancialImpact(item.direction, item.efecto).key === tipoFilter)
+    : items;
+
   return (
     <div>
-      {/* Filters + Summary */}
+      {/* Summary */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-400" />
-          <select
-            value={direction}
-            onChange={e => { setDirection(e.target.value as any); setPage(1); }}
-            className="text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="">Todos</option>
-            <option value="received">Recibidos</option>
-            <option value="emitted">Emitidos</option>
-          </select>
-
-          <button onClick={fetchData} className="p-1.5 text-gray-400 hover:text-gray-600">
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
+        <button onClick={fetchData} className="p-1.5 text-gray-400 hover:text-gray-600">
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+        </button>
 
         {summary && (
           <div className="text-sm text-gray-600">
@@ -300,15 +297,52 @@ function CfdiList({
               <thead>
                 <tr className="border-b border-gray-200 text-left text-gray-500">
                   <th className="pb-2 pr-4 font-medium">Fecha</th>
-                  <th className="pb-2 pr-4 font-medium">Dir</th>
+                  <th className="pb-2 pr-4 font-medium">
+                    <ColumnFilter
+                      label="Dir"
+                      value={direction}
+                      onChange={v => { setDirection(v as any); setPage(1); }}
+                      options={[
+                        { value: "", label: "Todos" },
+                        { value: "received", label: "Recibidos" },
+                        { value: "emitted", label: "Emitidos" },
+                      ]}
+                    />
+                  </th>
                   <th className="pb-2 pr-4 font-medium">Emisor / Receptor</th>
                   <th className="pb-2 pr-4 font-medium text-right">Monto</th>
-                  <th className="pb-2 pr-4 font-medium">Tipo</th>
-                  <th className="pb-2 font-medium">Status</th>
+                  <th className="pb-2 pr-4 font-medium">
+                    <ColumnFilter
+                      label="Tipo"
+                      value={tipoFilter}
+                      onChange={v => { setTipoFilter(v); setPage(1); }}
+                      options={[
+                        { value: "", label: "Todos" },
+                        { value: "ingreso", label: "Ingreso" },
+                        { value: "gasto", label: "Gasto" },
+                        { value: "nota_credito_emitida", label: "Nota crédito (emi)" },
+                        { value: "nota_credito_recibida", label: "Nota crédito (rec)" },
+                        { value: "pago_recibido", label: "Pago recibido" },
+                        { value: "pago_emitido", label: "Pago emitido" },
+                      ]}
+                    />
+                  </th>
+                  <th className="pb-2 font-medium">
+                    <ColumnFilter
+                      label="Status"
+                      value={statusFilter}
+                      onChange={v => { setStatusFilter(v); setPage(1); }}
+                      options={[
+                        { value: "", label: "Todos" },
+                        { value: "Vigente", label: "Vigente" },
+                        { value: "Cancelado", label: "Cancelado" },
+                      ]}
+                    />
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {items.map(item => (
+                {filteredItems.map(item => (
                   <CfdiRow key={item.id} item={item} />
                 ))}
               </tbody>
@@ -319,24 +353,29 @@ function CfdiList({
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
               <span>
-                Página {pagination.page} de {pagination.totalPages} ({pagination.total} resultados)
+                {tipoFilter
+                  ? `${filteredItems.length} de ${items.length} en esta página`
+                  : `Página ${pagination.page} de ${pagination.totalPages} (${pagination.total} resultados)`
+                }
               </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50"
-                >
-                  Anterior
-                </button>
-                <button
-                  onClick={() => setPage(p => p + 1)}
-                  disabled={page >= pagination.totalPages}
-                  className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50"
-                >
-                  Siguiente
-                </button>
-              </div>
+              {!tipoFilter && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    onClick={() => setPage(p => p + 1)}
+                    disabled={page >= pagination.totalPages}
+                    className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -346,50 +385,163 @@ function CfdiList({
 }
 
 // ---------------------------------------------------------------------------
+// Financial Impact Helper
+// ---------------------------------------------------------------------------
+
+function getFinancialImpact(direction: string, efecto: string | null): { key: string; label: string; color: string } {
+  const isReceived = direction === "received";
+  switch (efecto) {
+    case "I":
+      return isReceived
+        ? { key: "gasto", label: "Gasto", color: "text-red-600" }
+        : { key: "ingreso", label: "Ingreso", color: "text-green-600" };
+    case "E":
+      return isReceived
+        ? { key: "nota_credito_recibida", label: "Nota de crédito", color: "text-blue-600" }
+        : { key: "nota_credito_emitida", label: "Nota de crédito", color: "text-orange-600" };
+    case "P":
+      return isReceived
+        ? { key: "pago_recibido", label: "Pago recibido", color: "text-green-600" }
+        : { key: "pago_emitido", label: "Pago emitido", color: "text-red-600" };
+    case "T":
+      return { key: "traslado", label: "Traslado", color: "text-gray-500" };
+    case "N":
+      return isReceived
+        ? { key: "nomina_recibida", label: "Nómina", color: "text-gray-600" }
+        : { key: "nomina_emitida", label: "Nómina", color: "text-gray-600" };
+    default:
+      return { key: "otro", label: efecto || "—", color: "text-gray-500" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Column Filter
+// ---------------------------------------------------------------------------
+
+function ColumnFilter({
+  label, value, onChange, options
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={`appearance-none bg-transparent border-none text-xs font-medium cursor-pointer pr-4 focus:outline-none focus:ring-0 ${
+          value ? "text-purple-600" : "text-gray-500"
+        }`}
+      >
+        {options.map(opt => (
+          <option key={opt.value} value={opt.value}>
+            {opt.value === "" ? label : opt.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="w-3 h-3 -ml-3 pointer-events-none text-gray-400" />
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // CFDI Row
 // ---------------------------------------------------------------------------
 
 function CfdiRow({ item }: { item: CfdiMetadata }) {
+  const [expanded, setExpanded] = useState(false);
   const isReceived = item.direction === "received";
   const counterpart = isReceived ? item.issuerName : item.receiverName;
   const counterpartRfc = isReceived ? item.issuerRfc : item.receiverRfc;
+  const impact = getFinancialImpact(item.direction, item.efecto);
   const efectoLabel: Record<string, string> = { I: "Ingreso", E: "Egreso", P: "Pago", T: "Traslado", N: "Nómina" };
 
   return (
-    <tr className="border-b border-gray-100 hover:bg-gray-50">
-      <td className="py-2.5 pr-4 whitespace-nowrap">
-        {new Date(item.issuedAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
-      </td>
-      <td className="py-2.5 pr-4">
-        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-          isReceived ? "bg-purple-100 text-purple-700" : "bg-indigo-100 text-indigo-700"
-        }`}>
-          {isReceived ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
-          {isReceived ? "Rec" : "Emi"}
-        </span>
-      </td>
-      <td className="py-2.5 pr-4">
-        <div className="font-medium text-gray-900 truncate max-w-[200px]" title={counterpart || counterpartRfc}>
-          {counterpart || counterpartRfc}
-        </div>
-        {counterpart && (
-          <div className="text-xs text-gray-400">{counterpartRfc}</div>
-        )}
-      </td>
-      <td className="py-2.5 pr-4 text-right font-mono whitespace-nowrap">
-        ${Number(item.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-      </td>
-      <td className="py-2.5 pr-4 text-xs text-gray-500">
-        {efectoLabel[item.efecto || ""] || item.efecto || "—"}
-      </td>
-      <td className="py-2.5">
-        {item.satStatus === "Vigente" ? (
-          <span className="text-xs text-green-600 font-medium">Vigente</span>
-        ) : (
-          <span className="text-xs text-red-500 font-medium">Cancelado</span>
-        )}
-      </td>
-    </tr>
+    <>
+      <tr
+        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <td className="py-2.5 pr-4 whitespace-nowrap">
+          {new Date(item.issuedAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
+        </td>
+        <td className="py-2.5 pr-4">
+          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+            isReceived ? "bg-purple-100 text-purple-700" : "bg-indigo-100 text-indigo-700"
+          }`}>
+            {isReceived ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+            {isReceived ? "Rec" : "Emi"}
+          </span>
+        </td>
+        <td className="py-2.5 pr-4">
+          <div className="font-medium text-gray-900 truncate max-w-[200px]" title={counterpart || counterpartRfc}>
+            {counterpart || counterpartRfc}
+          </div>
+          {counterpart && (
+            <div className="text-xs text-gray-400">{counterpartRfc}</div>
+          )}
+        </td>
+        <td className="py-2.5 pr-4 text-right font-mono whitespace-nowrap">
+          ${Number(item.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+        </td>
+        <td className="py-2.5 pr-4">
+          <span className={`text-xs font-medium ${impact.color}`}>
+            {impact.label}
+          </span>
+        </td>
+        <td className="py-2.5">
+          {item.satStatus === "Vigente" ? (
+            <span className="text-xs text-green-600 font-medium">Vigente</span>
+          ) : (
+            <span className="text-xs text-red-500 font-medium">Cancelado</span>
+          )}
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="border-b border-gray-100 bg-gray-50/50">
+          <td colSpan={6} className="px-4 py-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-2 text-xs">
+              <DetailItem label="UUID (Folio Fiscal)" value={item.uuid} mono />
+              <DetailItem label="Emisor" value={`${item.issuerName || "—"} (${item.issuerRfc})`} />
+              <DetailItem label="Receptor" value={`${item.receiverName || "—"} (${item.receiverRfc})`} />
+              <DetailItem
+                label="Fecha Emisión"
+                value={new Date(item.issuedAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}
+              />
+              <DetailItem
+                label="Fecha Certificación SAT"
+                value={item.certifiedAt
+                  ? new Date(item.certifiedAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })
+                  : "—"}
+              />
+              <DetailItem label="PAC Certificador" value={item.pacRfc || "—"} mono />
+              <DetailItem label="Efecto SAT" value={efectoLabel[item.efecto || ""] || item.efecto || "—"} />
+              <DetailItem label="Impacto Financiero" value={impact.label} />
+              <DetailItem label="Monto Total" value={`$${Number(item.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`} />
+              {item.satStatus === "Cancelado" && (
+                <DetailItem
+                  label="Fecha Cancelación"
+                  value={item.cancelationDate
+                    ? new Date(item.cancelationDate).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })
+                    : "—"}
+                />
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function DetailItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <span className="text-gray-400">{label}:</span>{" "}
+      <span className={`text-gray-700 ${mono ? "font-mono" : ""}`}>{value}</span>
+    </div>
   );
 }
 
