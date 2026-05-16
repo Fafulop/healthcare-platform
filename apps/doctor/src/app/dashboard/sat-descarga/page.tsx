@@ -1037,6 +1037,7 @@ function JobsList() {
             <th className="pb-2 pr-4 font-medium">ID</th>
             <th className="pb-2 pr-4 font-medium">Periodo</th>
             <th className="pb-2 pr-4 font-medium">Dirección</th>
+            <th className="pb-2 pr-4 font-medium">Tipo</th>
             <th className="pb-2 pr-4 font-medium">Status</th>
             <th className="pb-2 pr-4 font-medium">CFDIs</th>
             <th className="pb-2 pr-4 font-medium">Creado</th>
@@ -1055,6 +1056,13 @@ function JobsList() {
                   job.direction === "received" ? "bg-purple-100 text-purple-700" : "bg-indigo-100 text-indigo-700"
                 }`}>
                   {job.direction === "received" ? "Recibidos" : "Emitidos"}
+                </span>
+              </td>
+              <td className="py-2.5 pr-4">
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                  job.requestType === "xml" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-700"
+                }`}>
+                  {job.requestType === "xml" ? "XML" : "Metadata"}
                 </span>
               </td>
               <td className="py-2.5 pr-4">
