@@ -510,7 +510,7 @@ function JobsList() {
                 {new Date(job.createdAt).toLocaleString("es-MX")}
               </td>
               <td className="py-2.5">
-                {job.status !== "downloading" && (
+                {job.status !== "downloading" && job.status !== "completed" && (
                   <button
                     onClick={() => deleteJob(job.id)}
                     className="text-xs text-red-500 hover:text-red-700"
