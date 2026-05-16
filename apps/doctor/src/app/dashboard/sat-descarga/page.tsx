@@ -14,6 +14,7 @@ import {
   ArrowDownLeft,
   ChevronDown,
   Info,
+  BookOpen,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -104,7 +105,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "jobs" | "info">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "jobs" | "info" | "contable">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -140,6 +141,7 @@ export default function SatDescargaPage() {
         <div className="flex gap-6">
           <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
           <TabBtn active={activeTab === "jobs"} onClick={() => setActiveTab("jobs")} label="Historial de Syncs" />
+          <TabBtn active={activeTab === "contable"} onClick={() => setActiveTab("contable")} label="Guía Contable" />
           <TabBtn active={activeTab === "info"} onClick={() => setActiveTab("info")} label="Info" />
         </div>
       </div>
@@ -148,6 +150,7 @@ export default function SatDescargaPage() {
         <CfdiList direction={direction} setDirection={setDirection} month={month} />
       )}
       {activeTab === "jobs" && <JobsList />}
+      {activeTab === "contable" && <ContableTab />}
       {activeTab === "info" && <InfoTab />}
     </div>
   );
@@ -820,6 +823,604 @@ function DetailItem({ label, value, mono }: { label: string; value: string; mono
     <div>
       <span className="text-gray-400">{label}:</span>{" "}
       <span className={`text-gray-700 ${mono ? "font-mono" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Contable Tab — Accounting Guide
+// ---------------------------------------------------------------------------
+
+function ContableTab() {
+  return (
+    <div className="space-y-8 max-w-3xl">
+      {/* Intro */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
+          <BookOpen className="w-5 h-5 text-purple-600" />
+          Guia de Informacion Contable
+        </h3>
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-800">
+          <p>
+            Esta guia explica los conceptos fiscales que aparecen en tus CFDIs descargados del SAT.
+            Util para entender tus obligaciones, retenciones e impuestos como persona fisica con actividad empresarial o profesional.
+          </p>
+        </div>
+      </section>
+
+      {/* IVA Section */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">IVA (Impuesto al Valor Agregado)</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            El IVA es un impuesto <strong>indirecto</strong> que se cobra al consumidor final.
+            Como emisor de facturas, tu lo <strong>trasladas</strong> (cobras) y despues lo enteras al SAT.
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Tasas de IVA en Mexico</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border border-gray-200 rounded">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Tasa</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Aplica a</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Ejemplos</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-3 py-2 font-medium text-green-700">16%</td>
+                    <td className="px-3 py-2">Tasa general — la mayoria de bienes y servicios</td>
+                    <td className="px-3 py-2 text-gray-500">Consultas medicas, software, renta de oficina, equipo medico, servicios profesionales</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium text-blue-700">0%</td>
+                    <td className="px-3 py-2">Alimentos basicos no procesados, medicinas, libros</td>
+                    <td className="px-3 py-2 text-gray-500">Cafe en grano, leche, frutas, verduras, pan, medicamentos de patente, libros fisicos</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium text-orange-700">Exento</td>
+                    <td className="px-3 py-2">Servicios medicos, educacion, venta de casa habitacion</td>
+                    <td className="px-3 py-2 text-gray-500">Honorarios medicos a personas fisicas (consulta, cirugia), colegiaturas, venta de primer inmueble</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3">
+            <p className="font-semibold text-amber-800 text-xs mb-1">Caso especial: Servicios medicos</p>
+            <p className="text-xs text-amber-700">
+              Los honorarios medicos a <strong>personas fisicas</strong> estan <strong>exentos</strong> de IVA
+              (Art. 15 fraccion XIV LIVA). Pero si facturas a una <strong>persona moral</strong> (hospital, aseguradora,
+              empresa), SI debes cobrar IVA al 16%. La diferencia es quien es el receptor de tu factura.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">IVA Trasladado vs IVA Acreditable</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>IVA Trasladado</strong> — El que TU cobras en tus facturas emitidas. Lo debes pagar al SAT.</li>
+              <li><strong>IVA Acreditable</strong> — El que TE cobran en facturas que recibes (gastos). Lo puedes restar del IVA que debes.</li>
+              <li><strong>IVA a pagar</strong> = IVA Trasladado − IVA Acreditable. Si es negativo, tienes saldo a favor.</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">¿Por que algunos CFDIs muestran IVA = $0.00?</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li>Productos alimenticios basicos (cafe, leche, pan) → tasa 0%</li>
+              <li>Servicios medicos a persona fisica → exento</li>
+              <li>Complementos de pago (tipo P) → no llevan IVA, solo referencian el pago</li>
+              <li>Facturas de nomina → exentas</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* ISR Retention Section */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Retenciones de ISR e IVA</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            Las retenciones son impuestos que el <strong>pagador</strong> (persona moral) descuenta del pago
+            y entera directamente al SAT en tu nombre. Es un pago anticipado de tus impuestos.
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">¿Cuando aplican retenciones?</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border border-gray-200 rounded">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Quien emite</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Quien recibe</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Tipo de servicio</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Retenciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-3 py-2">Persona fisica</td>
+                    <td className="px-3 py-2 font-medium">Persona moral</td>
+                    <td className="px-3 py-2">Servicios profesionales (honorarios)</td>
+                    <td className="px-3 py-2 text-red-600 font-medium">ISR 10% + IVA 10.6667%</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2">Persona fisica</td>
+                    <td className="px-3 py-2 font-medium">Persona moral</td>
+                    <td className="px-3 py-2">Venta de bienes (productos)</td>
+                    <td className="px-3 py-2 text-green-600 font-medium">Ninguna</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2">Persona fisica</td>
+                    <td className="px-3 py-2">Persona fisica</td>
+                    <td className="px-3 py-2">Cualquiera</td>
+                    <td className="px-3 py-2 text-green-600 font-medium">Ninguna</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2">Persona moral</td>
+                    <td className="px-3 py-2">Cualquiera</td>
+                    <td className="px-3 py-2">Cualquiera</td>
+                    <td className="px-3 py-2 text-green-600 font-medium">Ninguna</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Regla clave</p>
+            <p className="text-xs text-blue-700">
+              Retenciones SOLO aplican cuando una <strong>persona fisica</strong> le factura <strong>servicios profesionales</strong> a
+              una <strong>persona moral</strong>. Si vendes productos (bienes), no hay retencion aunque el cliente sea empresa.
+              Si facturas a otra persona fisica (pacientes), tampoco hay retencion.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Calculo de retenciones (ejemplo)</p>
+            <div className="bg-gray-50 rounded p-3 font-mono text-xs space-y-1">
+              <p>Subtotal (honorarios medicos):     $10,000.00</p>
+              <p>+ IVA Trasladado (16%):            + $1,600.00</p>
+              <p>− ISR Retenido (10% del subtotal): − $1,000.00</p>
+              <p>− IVA Retenido (2/3 del IVA):      − $1,066.67</p>
+              <p className="border-t border-gray-300 pt-1 font-bold">= Total a cobrar:                    $9,533.33</p>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Recibes menos en el momento, pero las retenciones cuentan como pago anticipado de tus impuestos.
+              Al hacer tu declaracion anual, restas lo retenido de lo que debes.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">¿Donde aparecen las retenciones en el CFDI?</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li>En la seccion <strong>"Ver detalles XML"</strong> de cada factura emitida</li>
+              <li>Campos: "ISR Retenido" e "IVA Retenido"</li>
+              <li>Si aparecen como null/vacio, esa factura no tiene retenciones</li>
+              <li>Las retenciones las declara quien te paga (la persona moral), no tu</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">Casos donde NO hay retencion aunque factures a persona moral:</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Venta de productos</strong> — Cafe, equipos, insumos (enajenacion de bienes)</li>
+              <li><strong>Arrendamiento</strong> — Tiene su propio regimen de retenciones (diferente %)</li>
+              <li><strong>IVA exento</strong> — Si no cobras IVA (servicios medicos a PF), no hay IVA que retener</li>
+              <li><strong>Factura entre personas morales</strong> — Solo aplica PF → PM</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Metodo de Pago Section */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Metodo de Pago: PUE vs PPD</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border border-gray-200 rounded">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Metodo</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Significado</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Cuando usar</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Complemento de pago</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2 font-bold text-green-700">PUE</td>
+                  <td className="px-3 py-2">Pago en Una sola Exhibicion</td>
+                  <td className="px-3 py-2 text-gray-500">El cliente paga al momento o antes de generar la factura (contado)</td>
+                  <td className="px-3 py-2 text-green-600">No necesario</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-bold text-orange-700">PPD</td>
+                  <td className="px-3 py-2">Pago en Parcialidades o Diferido</td>
+                  <td className="px-3 py-2 text-gray-500">El cliente pagara despues (credito, parcialidades, 30/60/90 dias)</td>
+                  <td className="px-3 py-2 text-red-600 font-medium">Obligatorio al recibir cada pago</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3">
+            <p className="font-semibold text-amber-800 text-xs mb-1">Implicacion fiscal importante</p>
+            <p className="text-xs text-amber-700">
+              Con <strong>PUE</strong>, el IVA se causa en el mes de la factura — lo declaras ese mes.<br/>
+              Con <strong>PPD</strong>, el IVA se causa hasta que <strong>efectivamente cobras</strong> — lo declaras el mes que recibes el pago.
+              Por eso los complementos de pago son cruciales: le avisan al SAT cuando realmente cobraste.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">Forma de Pago con PPD</p>
+            <p className="text-xs text-gray-600">
+              Cuando una factura es PPD, la "Forma de Pago" en la factura original dice <strong>"99 — Por definir"</strong>.
+              La forma real de pago (transferencia, efectivo, etc.) se especifica despues en el <strong>complemento de pago</strong> (CFDI tipo P).
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">Complementos de pago (tipo P) en tu listado</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li>Aparecen como <strong>"Pago recibido"</strong> o <strong>"Pago emitido"</strong> en la columna Tipo</li>
+              <li>No tienen subtotal, IVA ni conceptos propios — solo registran que se pago una factura previa</li>
+              <li>Son obligatorios para facturas PPD: sin complemento, el SAT no sabe que ya cobraste</li>
+              <li>Debes emitirlos maximo el dia 5 del mes siguiente al que recibiste el pago</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Uso CFDI Section */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Uso del CFDI (Clave de Uso)</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            El "Uso CFDI" indica para que usara el <strong>receptor</strong> esa factura en su contabilidad.
+            Lo define quien recibe la factura, no quien la emite.
+          </p>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border border-gray-200 rounded">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Clave</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Descripcion</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Uso tipico</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2 font-mono font-medium">G01</td>
+                  <td className="px-3 py-2">Adquisicion de mercancias</td>
+                  <td className="px-3 py-2 text-gray-500">Compra de productos para reventa o insumos</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono font-medium">G03</td>
+                  <td className="px-3 py-2">Gastos en general</td>
+                  <td className="px-3 py-2 text-gray-500">Servicios, renta, software, SaaS, suministros</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono font-medium">I01</td>
+                  <td className="px-3 py-2">Construcciones</td>
+                  <td className="px-3 py-2 text-gray-500">Remodelacion de consultorio, obra</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono font-medium">I02</td>
+                  <td className="px-3 py-2">Mobiliario y equipo de oficina</td>
+                  <td className="px-3 py-2 text-gray-500">Escritorios, sillas, equipo medico</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono font-medium">I04</td>
+                  <td className="px-3 py-2">Equipo de computo</td>
+                  <td className="px-3 py-2 text-gray-500">Computadoras, servidores, tablets</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono font-medium">D01</td>
+                  <td className="px-3 py-2">Honorarios medicos, dentales y hospitalarios</td>
+                  <td className="px-3 py-2 text-gray-500">Cuando un paciente deduce tu consulta en su declaracion anual</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono font-medium">D02</td>
+                  <td className="px-3 py-2">Gastos medicos por incapacidad</td>
+                  <td className="px-3 py-2 text-gray-500">Gastos por discapacidad o enfermedad</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono font-medium">S01</td>
+                  <td className="px-3 py-2">Sin efectos fiscales</td>
+                  <td className="px-3 py-2 text-gray-500">El receptor no la va a deducir (uso informal)</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono font-medium">CP01</td>
+                  <td className="px-3 py-2">Pagos</td>
+                  <td className="px-3 py-2 text-gray-500">Exclusivo para complementos de pago (tipo P)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Para medicos</p>
+            <p className="text-xs text-blue-700">
+              Cuando un paciente (persona fisica) te pide factura con uso <strong>D01</strong>, significa que va a deducir
+              tu consulta en su declaracion anual como gasto medico personal. Esto es perfectamente valido y comun.
+              Si el paciente no piensa deducirla, usara S01.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Regimen Fiscal Section */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Regimenes Fiscales para Medicos</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border border-gray-200 rounded">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Regimen</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Para quien</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Limite ingresos</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">ISR</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2 font-medium">612 — Servicios Profesionales</td>
+                  <td className="px-3 py-2">Medicos en consultorio privado (honorarios)</td>
+                  <td className="px-3 py-2 text-gray-500">Sin limite</td>
+                  <td className="px-3 py-2 text-gray-500">Tabla progresiva (1.92% a 35%)</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">621 — Actividad Empresarial</td>
+                  <td className="px-3 py-2">Medicos que ademas venden productos (farmacia, insumos)</td>
+                  <td className="px-3 py-2 text-gray-500">Sin limite</td>
+                  <td className="px-3 py-2 text-gray-500">Tabla progresiva (1.92% a 35%)</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">626 — RESICO (Simplificado de Confianza)</td>
+                  <td className="px-3 py-2">Medicos con ingresos menores</td>
+                  <td className="px-3 py-2 text-gray-500">$3,500,000/anio</td>
+                  <td className="px-3 py-2 text-gray-500">Tasa fija baja (1% a 2.5%)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3">
+            <p className="font-semibold text-amber-800 text-xs mb-1">RESICO: Restricciones importantes</p>
+            <ul className="list-disc list-inside space-y-1 text-xs text-amber-700">
+              <li>Si un solo cliente representa mas del 50% de tus ingresos, RESICO puede obligarte a retenciones especiales</li>
+              <li>No puedes facturar al publico en general (siempre necesitas RFC del receptor)</li>
+              <li>Si rebasas $3.5M en el anio, sales de RESICO automaticamente</li>
+              <li>No puedes ser socio o accionista de persona moral</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Deducibility Section */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Gastos Deducibles para Medicos</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            Los gastos deducibles son facturas que <strong>recibes</strong> (aparecen como "Gasto" en tu listado)
+            y que puedes restar de tus ingresos para pagar menos ISR. Deben cumplir requisitos:
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Requisitos para que un gasto sea deducible</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Estrictamente indispensable</strong> para tu actividad profesional</li>
+              <li>Tener el <strong>CFDI (factura)</strong> a tu nombre y RFC</li>
+              <li>Pagado con <strong>medio bancarizado</strong> si supera $2,000 MXN (transferencia, tarjeta, cheque nominativo)</li>
+              <li>Registrado en tu <strong>contabilidad</strong></li>
+              <li>El proveedor debe estar <strong>activo</strong> en el RFC (no en lista negra 69-B)</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Gastos tipicos deducibles para un medico</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border border-gray-200 rounded">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Concepto</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Ejemplo</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Nota</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Renta de consultorio</td>
+                    <td className="px-3 py-2 text-gray-500">Renta mensual del espacio donde consultas</td>
+                    <td className="px-3 py-2 text-gray-500">100% deducible</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Insumos medicos</td>
+                    <td className="px-3 py-2 text-gray-500">Guantes, jeringas, material de curacion</td>
+                    <td className="px-3 py-2 text-gray-500">100% deducible</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Equipo medico</td>
+                    <td className="px-3 py-2 text-gray-500">Estetoscopio, baumanometro, ultrasonido</td>
+                    <td className="px-3 py-2 text-gray-500">Depreciacion anual (excepto si &lt;$4,400)</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Software / SaaS</td>
+                    <td className="px-3 py-2 text-gray-500">Sistema de expedientes, contabilidad, facturacion</td>
+                    <td className="px-3 py-2 text-gray-500">100% deducible</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Servicios (luz, internet, tel)</td>
+                    <td className="px-3 py-2 text-gray-500">Servicios del consultorio</td>
+                    <td className="px-3 py-2 text-gray-500">Proporcion uso profesional</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Capacitacion / congresos</td>
+                    <td className="px-3 py-2 text-gray-500">Cursos, diplomados, congresos medicos</td>
+                    <td className="px-3 py-2 text-gray-500">100% si es de tu especialidad</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Vehiculo</td>
+                    <td className="px-3 py-2 text-gray-500">Auto para visitas, gasolina, mantenimiento</td>
+                    <td className="px-3 py-2 text-gray-500">Tope $175,000 en inversion; gasolina proporcional</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Honorarios (contador, abogado)</td>
+                    <td className="px-3 py-2 text-gray-500">Servicios profesionales que contratas</td>
+                    <td className="px-3 py-2 text-gray-500">100% deducible</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-red-50 border border-red-200 rounded p-3">
+            <p className="font-semibold text-red-800 text-xs mb-1">Gastos NO deducibles (errores comunes)</p>
+            <ul className="list-disc list-inside space-y-1 text-xs text-red-700">
+              <li>Gastos personales (supermercado, ropa, entretenimiento)</li>
+              <li>Facturas a nombre de otra persona</li>
+              <li>Pagos en efectivo mayores a $2,000 (aun con factura)</li>
+              <li>Facturas de proveedores en lista negra del SAT (Art. 69-B)</li>
+              <li>Gastos sin relacion con tu actividad profesional</li>
+              <li>Donaciones a entidades no autorizadas</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Declaraciones Section */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Obligaciones Fiscales Periodicas</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border border-gray-200 rounded">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Obligacion</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Frecuencia</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Fecha limite</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Que se declara</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2 font-medium">Declaracion mensual ISR</td>
+                  <td className="px-3 py-2">Mensual</td>
+                  <td className="px-3 py-2 text-gray-500">Dia 17 del mes siguiente</td>
+                  <td className="px-3 py-2 text-gray-500">Ingresos − Deducciones = Base. Aplica tabla ISR.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">Declaracion mensual IVA</td>
+                  <td className="px-3 py-2">Mensual</td>
+                  <td className="px-3 py-2 text-gray-500">Dia 17 del mes siguiente</td>
+                  <td className="px-3 py-2 text-gray-500">IVA cobrado − IVA pagado (acreditable)</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">Declaracion anual</td>
+                  <td className="px-3 py-2">Anual</td>
+                  <td className="px-3 py-2 text-gray-500">Abril (PF)</td>
+                  <td className="px-3 py-2 text-gray-500">Resumen del anio. Aqui restas retenciones que te hicieron.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">DIOT</td>
+                  <td className="px-3 py-2">Mensual</td>
+                  <td className="px-3 py-2 text-gray-500">Dia 17 del mes siguiente</td>
+                  <td className="px-3 py-2 text-gray-500">Informativa: a quienes les pagaste IVA (proveedores)</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">Contabilidad electronica</td>
+                  <td className="px-3 py-2">Mensual</td>
+                  <td className="px-3 py-2 text-gray-500">Varies (3-5 del segundo mes)</td>
+                  <td className="px-3 py-2 text-gray-500">Balanza de comprobacion y catalogo de cuentas</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="bg-green-50 border border-green-200 rounded p-3">
+            <p className="font-semibold text-green-800 text-xs mb-1">Como te ayuda esta herramienta</p>
+            <p className="text-xs text-green-700">
+              Con los CFDIs descargados del SAT puedes:<br/>
+              • Verificar que tienes todas las facturas de ingresos y gastos del mes<br/>
+              • Calcular tu IVA trasladado vs acreditable<br/>
+              • Identificar facturas canceladas que ya no debes considerar<br/>
+              • Preparar la informacion para tu contador antes de la fecha limite
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Edge Cases Section */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Casos Especiales y Edge Cases</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Facturas canceladas</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li>Una factura cancelada <strong>no cuenta</strong> para ingresos ni gastos</li>
+              <li>Si ya la declaraste y luego se cancela, debes hacer declaracion complementaria</li>
+              <li>El SAT tiene proceso de cancelacion con aceptacion del receptor (72h para responder)</li>
+              <li>Facturas menores a $1,000 o al publico en general se cancelan sin aceptacion</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Notas de credito (Egreso)</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li>Son CFDIs tipo "E" que <strong>reducen</strong> el ingreso de una factura previa</li>
+              <li>Si emites una nota de credito, reduces tu ingreso declarado (y el IVA correspondiente)</li>
+              <li>Si recibes una nota de credito, tu gasto deducible se reduce</li>
+              <li>Deben referenciar el UUID de la factura original</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Facturas en moneda extranjera (USD)</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li>El tipo de cambio en la factura es el del dia de emision (DOF)</li>
+              <li>Para declarar, conviertes a MXN usando ese tipo de cambio</li>
+              <li>Si cobras en una fecha distinta, la diferencia cambiaria es ingreso/gasto adicional</li>
+              <li>El campo "TipoCambio" en el XML muestra la tasa usada</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Facturas de periodos anteriores</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li>Un gasto es deducible en el <strong>ejercicio en que se paga</strong>, no cuando se factura</li>
+              <li>Si recibes una factura de diciembre pero la pagas en enero, se deduce en enero</li>
+              <li>Excepcion: facturas PUE se consideran pagadas en el mes de emision</li>
+              <li>Puedes deducir facturas de hasta 10 dias antes del inicio del mes (regla de devengo)</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Sueldos y salarios (si tienes empleados)</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li>Las facturas de nomina (tipo N) que emites a tus empleados son <strong>gasto deducible</strong> para ti</li>
+              <li>Debes retenerles ISR y enterar cuotas IMSS/INFONAVIT</li>
+              <li>La nomina aparece como "emitida" en tu listado (tu eres el emisor)</li>
+              <li>No confundir con nomina "recibida" (eso seria si tu eres empleado de alguien)</li>
+            </ul>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded p-3">
+            <p className="font-semibold text-gray-700 text-xs mb-1">Disclaimer</p>
+            <p className="text-xs text-gray-500">
+              Esta guia es informativa y no sustituye el consejo de un contador publico certificado.
+              Las leyes fiscales cambian frecuentemente. Consulta a tu contador para decisiones
+              especificas sobre tu situacion fiscal.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
