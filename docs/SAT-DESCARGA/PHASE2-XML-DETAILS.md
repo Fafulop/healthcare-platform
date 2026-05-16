@@ -139,15 +139,18 @@ The parser handles:
 
 ## UI Flow
 
-1. **Sync trigger** — Doctor selects month + "XML (desglose fiscal)" from dropdown, clicks Descargar
-2. **Background processing** — Worker handles 4-step SAT flow, parses XMLs on completion
-3. **Viewing details** — Doctor expands any CFDI row, clicks "Ver detalles XML (desglose fiscal)"
-4. **Detail panel** — Shows:
+1. **Sync trigger** — Doctor selects month + type ("Completa" default = metadata+XML), clicks "Descargar Todo" (fires both recibidos + emitidos in one click). Individual "Solo Recibidos"/"Solo Emitidos" buttons also available.
+2. **Background processing** — Worker handles 4-step SAT flow (up to 3 jobs per cron run), parses XMLs on completion
+3. **Jobs history** — "Historial de Syncs" tab shows all jobs with a "Tipo" column (Metadata/XML badge)
+4. **Viewing details** — Doctor expands any CFDI row, clicks "Ver detalles XML (desglose fiscal)"
+5. **Detail panel** — Shows:
    - Financial breakdown (subtotal, taxes, total)
    - Payment info (method, form, uso CFDI, currency)
    - Conceptos table (description, quantity, unit price, importe, IVA)
 
 If XML hasn't been downloaded yet, shows "No hay detalles XML descargados para este CFDI."
+
+**Re-sync behavior:** Completed jobs don't block re-syncing the same period. This allows picking up new CFDIs that appeared since the last download (useful for current month). Only active/in-progress jobs are blocked as duplicates.
 
 ---
 
@@ -155,7 +158,7 @@ If XML hasn't been downloaded yet, shows "No hay detalles XML descargados para e
 
 1. **XML for recibidos requires `EstadoComprobante="Vigente"`** — SAT rejects XML downloads for recibidos if cancelados exist in the range. The request MUST include `EstadoComprobante="Vigente"` (string, not numeric "1"). Emitidos works without this filter.
 2. **EstadoComprobante uses string values** — SAT expects `"Vigente"`, `"Cancelado"`, or `"Todos"` in SOAP requests. The numeric `"0"`/`"1"` notation is only used in metadata TXT output, NOT in request attributes.
-3. **Must download metadata first** — XML sync requires knowing which CFDIs exist; metadata provides the UUID list
+3. **Metadata not strictly required first** — XML download from SAT is independent (SAT returns all XMLs in date range). However, without metadata, the CFDI list table won't show entries to click "Ver detalles" on. The default "Completa" sync type handles both together.
 4. **Raw XMLs are NOT stored** — Only parsed fields are saved (storage optimization)
 5. **Conceptos are replaced on re-sync** — delete + recreate pattern (not diff/merge)
 6. **SAT limits** — Same as metadata: can take hours, max 1M records per request, 5-year history

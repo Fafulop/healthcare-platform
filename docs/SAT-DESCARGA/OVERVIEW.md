@@ -1,7 +1,7 @@
 # SAT Descarga Directa — Integracion con el SAT para Descarga de CFDIs
 
 **Fecha:** 2026-05-12 (PoC) / 2026-05-15 (integracion app)
-**Status:** FASE 1 COMPLETA — PoC + DB + API + Worker + UI integrados (2026-05-15)
+**Status:** FASE 2 COMPLETA — Metadata + XML download + UI completa (2026-05-16)
 
 ---
 
@@ -176,6 +176,10 @@ Lecciones adicionales:
 | API routes sync | DONE | `POST/GET /api/sat-descarga/sync`, `GET/DELETE /api/sat-descarga/sync/[id]`, `GET /api/sat-descarga/metadata` |
 | Background worker | DONE | `POST /api/cron/sat-sync-worker` — state machine, cron-based polling |
 | Dashboard UI | DONE | `/dashboard/sat-descarga` — sync trigger, CFDI table, jobs list |
+| XML details endpoint | DONE | `GET /api/sat-descarga/details/[uuid]` — returns parsed XML fields + conceptos |
+| XML parser (zero dep) | DONE | `apps/api/src/lib/sat-xml-parser.ts` — regex-based CFDI 4.0 parser |
+| "Descargar Todo" button | DONE | Single click syncs both emitidos + recibidos |
+| Jobs list Tipo column | DONE | Shows Metadata/XML badge per sync job |
 | Dashboard filters | DONE | Column filters: Fecha (sort), Dir, Monto (ranges), Tipo (financial impact), Status |
 | Financial impact labels | DONE | Replaced raw SAT EfectoComprobante with doctor-perspective labels (Ingreso/Gasto/Pago/Nota crédito) |
 | Expandable row details | DONE | Click row to see UUID, full emisor/receptor, PAC, certification date |
@@ -197,12 +201,28 @@ Lecciones adicionales:
 - **Prisma DATE columns return midnight UTC** — use `timeZone: "UTC"` in frontend display and `Date.UTC()` in backend
 - **Regex `s` flag requires ES2018+** — use `[\s\S]` instead for Next.js build compatibility
 
-### Pendiente (Fase 2+)
+### Fase 2: XML Download & Parsing (2026-05-16)
+
+| Paso | Status | Descripcion |
+|------|--------|-------------|
+| DB migration | DONE | `sat_cfdi_details` + `sat_cfdi_conceptos` tables |
+| XML parser | DONE | Zero-dep CFDI 4.0 regex parser (`sat-xml-parser.ts`) |
+| Worker XML support | DONE | Downloads ZIP, parses each XML, upserts details + conceptos |
+| API details endpoint | DONE | `GET /api/sat-descarga/details/[uuid]` — returns parsed XML data |
+| Sync type selector | DONE | UI dropdown: "Completa" (metadata+XML), "Solo metadata", "Solo XML" |
+| "Descargar Todo" button | DONE | One click triggers both recibidos + emitidos sync |
+| XML detail panel | DONE | Expandable row shows subtotal, IVA, ISR, conceptos table |
+| Jobs list "Tipo" column | DONE | Shows Metadata/XML badge per job in history |
+| Worker 3-pass optimization | DONE | Processes up to 3 jobs per cron run (pending→polling→downloading) |
+| EstadoComprobante fix | DONE | Uses "Vigente" (string) for recibidos XML — SAT rejects "1" |
+
+See [PHASE2-XML-DETAILS.md](PHASE2-XML-DETAILS.md) for full technical documentation.
+
+### Pendiente (Fase 3+)
 
 | Feature | Status | Descripcion |
 |---------|--------|-------------|
-| Descarga de XMLs | Pendiente | On-demand download de XMLs completos (Phase 2) |
-| Inteligencia financiera | Pendiente | Proyecciones, cashflow, scoring (Phase 3) |
+| Inteligencia financiera | Pendiente | Proyecciones, cashflow, scoring |
 
 ---
 
@@ -230,14 +250,17 @@ Lecciones adicionales:
 | Archivo | Contenido |
 |---------|-----------|
 | `packages/database/prisma/migrations/add-sat-descarga-masiva-tables.sql` | Migration: e.Firma fields + sat_sync_jobs + sat_cfdi_metadata |
+| `packages/database/prisma/migrations/add-sat-cfdi-details-tables.sql` | Migration: sat_cfdi_details + sat_cfdi_conceptos (Phase 2) |
 | `apps/api/src/lib/encryption.ts` | AES-256-GCM encrypt/decrypt para credenciales e.Firma |
-| `apps/api/src/lib/sat-descarga.ts` | SAT SOAP service library (619 lineas, zero deps) |
+| `apps/api/src/lib/sat-descarga.ts` | SAT SOAP service library — `requestMetadata()` + `requestXml()`, zero deps |
+| `apps/api/src/lib/sat-xml-parser.ts` | Zero-dep CFDI 4.0 XML parser (regex-based) |
 | `apps/api/src/app/api/sat-descarga/fiel/route.ts` | API: upload/status/delete e.Firma |
-| `apps/api/src/app/api/sat-descarga/sync/route.ts` | API: crear/listar sync jobs |
+| `apps/api/src/app/api/sat-descarga/sync/route.ts` | API: crear/listar sync jobs (supports requestType: metadata/xml/full) |
 | `apps/api/src/app/api/sat-descarga/sync/[id]/route.ts` | API: status + delete sync job |
 | `apps/api/src/app/api/sat-descarga/metadata/route.ts` | API: listar CFDIs descargados + summary (supports direction, month, status, sort params) |
-| `apps/api/src/app/api/cron/sat-sync-worker/route.ts` | Background worker (state machine) |
-| `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` | Dashboard UI: sync trigger, CFDI table (expandable rows, column filters, financial impact labels), jobs list, info tab |
+| `apps/api/src/app/api/sat-descarga/details/[uuid]/route.ts` | API: get parsed XML details + conceptos for one CFDI |
+| `apps/api/src/app/api/cron/sat-sync-worker/route.ts` | Background worker (state machine, 3 jobs/run, handles metadata + XML) |
+| `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` | Dashboard UI: "Descargar Todo" button, sync type selector, CFDI table (expandable rows + XML detail panel), jobs list with Tipo column, info tab |
 
 ### Variables de Entorno Requeridas
 
