@@ -10,11 +10,11 @@ import { getAuthenticatedDoctor } from '@/lib/auth';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { uuid: string } },
+  { params }: { params: Promise<{ uuid: string }> },
 ) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
-    const { uuid } = params;
+    const { uuid } = await params;
 
     if (!uuid || uuid.length !== 36) {
       return NextResponse.json({ error: 'UUID invalido' }, { status: 400 });
