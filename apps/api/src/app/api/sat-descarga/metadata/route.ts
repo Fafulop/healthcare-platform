@@ -9,6 +9,7 @@ import { getAuthenticatedDoctor } from '@/lib/auth';
  *   direction — 'emitted' | 'received' (optional, defaults to both)
  *   month     — 'YYYY-MM' (optional filter)
  *   status    — 'Vigente' | 'Cancelado' (optional filter)
+ *   sort      — 'asc' | 'desc' (optional, default desc)
  *   page      — page number (default 1)
  *   limit     — items per page (default 50, max 200)
  */
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
     const direction = url.searchParams.get('direction') as string | null;
     const month = url.searchParams.get('month');
     const status = url.searchParams.get('status');
+    const sort = url.searchParams.get('sort') === 'asc' ? 'asc' as const : 'desc' as const;
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
     const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
 
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
     const [items, total] = await Promise.all([
       prisma.satCfdiMetadata.findMany({
         where,
-        orderBy: { issuedAt: 'desc' },
+        orderBy: { issuedAt: sort },
         skip: (page - 1) * limit,
         take: limit,
         select: {

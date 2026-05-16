@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   ChevronDown,
+  Info,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -71,7 +72,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "jobs">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "jobs" | "info">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -107,6 +108,7 @@ export default function SatDescargaPage() {
         <div className="flex gap-6">
           <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
           <TabBtn active={activeTab === "jobs"} onClick={() => setActiveTab("jobs")} label="Historial de Syncs" />
+          <TabBtn active={activeTab === "info"} onClick={() => setActiveTab("info")} label="Info" />
         </div>
       </div>
 
@@ -114,6 +116,7 @@ export default function SatDescargaPage() {
         <CfdiList direction={direction} setDirection={setDirection} month={month} />
       )}
       {activeTab === "jobs" && <JobsList />}
+      {activeTab === "info" && <InfoTab />}
     </div>
   );
 }
@@ -229,6 +232,8 @@ function CfdiList({
   const [page, setPage] = useState(1);
   const [tipoFilter, setTipoFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [montoFilter, setMontoFilter] = useState<string>("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -237,6 +242,7 @@ function CfdiList({
       if (direction) params.set("direction", direction);
       if (month) params.set("month", month);
       if (statusFilter) params.set("status", statusFilter);
+      if (sortOrder) params.set("sort", sortOrder);
 
       const res = await authFetch(`${API_URL}/api/sat-descarga/metadata?${params}`);
       if (res.ok) {
@@ -247,7 +253,7 @@ function CfdiList({
     } finally {
       setLoading(false);
     }
-  }, [direction, month, page, statusFilter]);
+  }, [direction, month, page, statusFilter, sortOrder]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -255,10 +261,25 @@ function CfdiList({
   const pagination = data?.pagination;
   const summary = data?.summary;
 
-  // Client-side filter for tipo (financial impact) since it's derived from direction+efecto
-  const filteredItems = tipoFilter
-    ? items.filter(item => getFinancialImpact(item.direction, item.efecto).key === tipoFilter)
-    : items;
+  // Client-side filters (derived fields not available server-side)
+  let filteredItems = items;
+  if (tipoFilter) {
+    filteredItems = filteredItems.filter(item => getFinancialImpact(item.direction, item.efecto).key === tipoFilter);
+  }
+  if (montoFilter) {
+    filteredItems = filteredItems.filter(item => {
+      const monto = Number(item.monto);
+      switch (montoFilter) {
+        case "0-1000": return monto <= 1000;
+        case "1000-5000": return monto > 1000 && monto <= 5000;
+        case "5000-20000": return monto > 5000 && monto <= 20000;
+        case "20000+": return monto > 20000;
+        default: return true;
+      }
+    });
+  }
+
+  const hasClientFilter = !!(tipoFilter || montoFilter);
 
   return (
     <div>
@@ -296,7 +317,17 @@ function CfdiList({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 text-left text-gray-500">
-                  <th className="pb-2 pr-4 font-medium">Fecha</th>
+                  <th className="pb-2 pr-4 font-medium">
+                    <ColumnFilter
+                      label="Fecha"
+                      value={sortOrder === "asc" ? "asc" : ""}
+                      onChange={v => { setSortOrder(v === "asc" ? "asc" : "desc"); setPage(1); }}
+                      options={[
+                        { value: "", label: "Recientes primero" },
+                        { value: "asc", label: "Antiguos primero" },
+                      ]}
+                    />
+                  </th>
                   <th className="pb-2 pr-4 font-medium">
                     <ColumnFilter
                       label="Dir"
@@ -310,7 +341,20 @@ function CfdiList({
                     />
                   </th>
                   <th className="pb-2 pr-4 font-medium">Emisor / Receptor</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Monto</th>
+                  <th className="pb-2 pr-4 font-medium text-right">
+                    <ColumnFilter
+                      label="Monto"
+                      value={montoFilter}
+                      onChange={v => { setMontoFilter(v); setPage(1); }}
+                      options={[
+                        { value: "", label: "Todos" },
+                        { value: "0-1000", label: "$0 - $1,000" },
+                        { value: "1000-5000", label: "$1,000 - $5,000" },
+                        { value: "5000-20000", label: "$5,000 - $20,000" },
+                        { value: "20000+", label: "$20,000+" },
+                      ]}
+                    />
+                  </th>
                   <th className="pb-2 pr-4 font-medium">
                     <ColumnFilter
                       label="Tipo"
@@ -353,12 +397,12 @@ function CfdiList({
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
               <span>
-                {tipoFilter
+                {hasClientFilter
                   ? `${filteredItems.length} de ${items.length} en esta página`
                   : `Página ${pagination.page} de ${pagination.totalPages} (${pagination.total} resultados)`
                 }
               </span>
-              {!tipoFilter && (
+              {!hasClientFilter && (
                 <div className="flex gap-2">
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -427,12 +471,12 @@ function ColumnFilter({
   options: { value: string; label: string }[];
 }) {
   return (
-    <span className="inline-flex items-center gap-0.5">
+    <span className="inline-flex items-center gap-0">
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className={`appearance-none bg-transparent border-none text-xs font-medium cursor-pointer pr-4 focus:outline-none focus:ring-0 ${
-          value ? "text-purple-600" : "text-gray-500"
+        className={`appearance-none bg-transparent border-none text-xs font-medium cursor-pointer pr-5 py-0.5 focus:outline-none focus:ring-0 ${
+          value ? "text-purple-700 font-semibold" : "text-gray-600"
         }`}
       >
         {options.map(opt => (
@@ -441,7 +485,7 @@ function ColumnFilter({
           </option>
         ))}
       </select>
-      <ChevronDown className="w-3 h-3 -ml-3 pointer-events-none text-gray-400" />
+      <ChevronDown className={`w-3.5 h-3.5 -ml-4 pointer-events-none ${value ? "text-purple-600" : "text-gray-500"}`} />
     </span>
   );
 }
@@ -541,6 +585,138 @@ function DetailItem({ label, value, mono }: { label: string; value: string; mono
     <div>
       <span className="text-gray-400">{label}:</span>{" "}
       <span className={`text-gray-700 ${mono ? "font-mono" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Info Tab
+// ---------------------------------------------------------------------------
+
+function InfoTab() {
+  return (
+    <div className="space-y-8 max-w-3xl">
+      {/* What does sync do */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
+          <Info className="w-5 h-5 text-purple-600" />
+          ¿Qué hace la sincronización?
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
+          <p>
+            La sincronización se conecta <strong>directamente al SAT</strong> usando tu e.Firma (FIEL)
+            para descargar el listado de todos los CFDIs que has emitido o recibido en un mes determinado.
+          </p>
+          <p>El proceso funciona así:</p>
+          <ol className="list-decimal list-inside space-y-1.5 ml-2">
+            <li><strong>Autenticación</strong> — Se firma una solicitud con tu e.Firma para obtener un token del SAT</li>
+            <li><strong>Solicitud</strong> — Se pide al SAT que prepare el paquete de metadata (emitidos o recibidos)</li>
+            <li><strong>Espera</strong> — El SAT procesa la solicitud (normalmente 30 seg a unos minutos, máximo 72 horas)</li>
+            <li><strong>Descarga</strong> — Se descarga el paquete ZIP con la metadata de tus CFDIs</li>
+            <li><strong>Almacenamiento</strong> — Se parsea y guarda cada CFDI en la base de datos</li>
+          </ol>
+          <p className="text-xs text-gray-500 mt-3">
+            Un worker automático revisa el progreso cada 15 minutos. No necesitas mantener la página abierta.
+          </p>
+        </div>
+      </section>
+
+      {/* What data do we get */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">¿Qué datos obtenemos?</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
+          <p>
+            Actualmente descargamos la <strong>metadata</strong> de cada CFDI (no el XML completo).
+            Esto incluye:
+          </p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li>UUID (folio fiscal único)</li>
+            <li>Emisor y receptor (nombre + RFC)</li>
+            <li>Monto total</li>
+            <li>Fecha de emisión y certificación</li>
+            <li>Tipo de comprobante (Ingreso, Egreso, Pago, Traslado)</li>
+            <li>Status (Vigente / Cancelado)</li>
+            <li>PAC que certificó</li>
+          </ul>
+          <p className="text-xs text-gray-500 mt-3">
+            La metadata NO incluye desglose de conceptos, subtotal, IVA, método de pago ni uso CFDI.
+            Para eso se necesita descargar el XML completo (próxima fase).
+          </p>
+        </div>
+      </section>
+
+      {/* Financial impact explanation */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Columna "Tipo" — Impacto financiero</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
+          <p>
+            El SAT clasifica cada CFDI por su <strong>EfectoComprobante</strong> (I=Ingreso, E=Egreso, P=Pago, T=Traslado).
+            Pero este código describe el tipo de documento, <strong>no el impacto en tus finanzas</strong>.
+          </p>
+          <p>
+            Por ejemplo, un CFDI tipo "Ingreso" que tú <em>recibes</em> significa que alguien te cobró — es un <strong>gasto</strong> para ti.
+            Por eso traducimos la combinación Dirección + Efecto a lo que realmente significa:
+          </p>
+
+          <div className="overflow-x-auto mt-3">
+            <table className="w-full text-xs border border-gray-200 rounded">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Dirección + Efecto SAT</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Se muestra como</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Significado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">Emi</span> + Ingreso</td>
+                  <td className="px-3 py-2"><span className="font-medium text-green-600">Ingreso</span></td>
+                  <td className="px-3 py-2 text-gray-500">Facturaste a alguien — dinero a tu favor</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs">Rec</span> + Ingreso</td>
+                  <td className="px-3 py-2"><span className="font-medium text-red-600">Gasto</span></td>
+                  <td className="px-3 py-2 text-gray-500">Alguien te facturó — dinero que pagaste</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">Emi</span> + Egreso</td>
+                  <td className="px-3 py-2"><span className="font-medium text-orange-600">Nota de crédito</span></td>
+                  <td className="px-3 py-2 text-gray-500">Emitiste una devolución/descuento</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs">Rec</span> + Egreso</td>
+                  <td className="px-3 py-2"><span className="font-medium text-blue-600">Nota de crédito</span></td>
+                  <td className="px-3 py-2 text-gray-500">Te emitieron una devolución/descuento a tu favor</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs">Rec</span> + Pago</td>
+                  <td className="px-3 py-2"><span className="font-medium text-green-600">Pago recibido</span></td>
+                  <td className="px-3 py-2 text-gray-500">Complemento de pago — te pagaron una factura</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">Emi</span> + Pago</td>
+                  <td className="px-3 py-2"><span className="font-medium text-red-600">Pago emitido</span></td>
+                  <td className="px-3 py-2 text-gray-500">Complemento de pago — pagaste una factura</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Limitations */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Limitaciones del SAT</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-2 text-sm text-gray-700">
+          <ul className="list-disc list-inside space-y-1.5 ml-2">
+            <li>El SAT puede tardar hasta <strong>72 horas</strong> en procesar una solicitud (normalmente minutos)</li>
+            <li>Máximo <strong>1,000,000</strong> registros por solicitud</li>
+            <li>Histórico disponible: hasta <strong>5 años fiscales</strong> + año actual</li>
+            <li>No puedes descargar el mismo XML más de 2 veces</li>
+            <li>Si ya existe una solicitud activa para el mismo periodo, el SAT la rechaza</li>
+          </ul>
+        </div>
+      </section>
     </div>
   );
 }
