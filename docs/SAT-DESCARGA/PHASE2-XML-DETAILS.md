@@ -163,6 +163,7 @@ If XML hasn't been downloaded yet, shows "No hay detalles XML descargados para e
 5. **Conceptos are replaced on re-sync** — delete + recreate pattern (not diff/merge)
 6. **SAT limits** — Same as metadata: can take hours, max 1M records per request, 5-year history
 7. **Attribute order matters** — All solicitud attributes must be in alphabetical order for the XML signature digest to match
+8. **UUID case mismatch** — Metadata TXT from SAT stores UUIDs in UPPERCASE, but the XML parser extracts them in lowercase. Any JOIN between `sat_cfdi_details` and `sat_cfdi_metadata` must use `LOWER()` on both sides.
 
 ---
 

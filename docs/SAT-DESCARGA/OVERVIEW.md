@@ -180,6 +180,8 @@ Lecciones adicionales:
 | XML parser (zero dep) | DONE | `apps/api/src/lib/sat-xml-parser.ts` — regex-based CFDI 4.0 parser |
 | "Descargar Todo" button | DONE | Single click syncs both emitidos + recibidos |
 | Jobs list Tipo column | DONE | Shows Metadata/XML badge per sync job |
+| Resumen Fiscal tab | DONE | Monthly breakdown of ingresos/gastos/IVA/ISR from XML data |
+| Guia Contable tab | DONE | Accounting guide: IVA, retenciones, PUE/PPD, uso CFDI, deducciones |
 | Dashboard filters | DONE | Column filters: Fecha (sort), Dir, Monto (ranges), Tipo (financial impact), Status |
 | Financial impact labels | DONE | Replaced raw SAT EfectoComprobante with doctor-perspective labels (Ingreso/Gasto/Pago/Nota crédito) |
 | Expandable row details | DONE | Click row to see UUID, full emisor/receptor, PAC, certification date |
@@ -200,6 +202,7 @@ Lecciones adicionales:
 - **RFC is in `x500UniqueIdentifier`** of cert subject, NOT `serialNumber` (which contains CURP)
 - **Prisma DATE columns return midnight UTC** — use `timeZone: "UTC"` in frontend display and `Date.UTC()` in backend
 - **Regex `s` flag requires ES2018+** — use `[\s\S]` instead for Next.js build compatibility
+- **UUID case mismatch between tables** — Metadata TXT has UPPERCASE UUIDs, XML parser stores lowercase. Use `LOWER()` in JOINs.
 
 ### Fase 2: XML Download & Parsing (2026-05-16)
 
@@ -259,6 +262,7 @@ See [PHASE2-XML-DETAILS.md](PHASE2-XML-DETAILS.md) for full technical documentat
 | `apps/api/src/app/api/sat-descarga/sync/[id]/route.ts` | API: status + delete sync job |
 | `apps/api/src/app/api/sat-descarga/metadata/route.ts` | API: listar CFDIs descargados + summary (supports direction, month, status, sort params) |
 | `apps/api/src/app/api/sat-descarga/details/[uuid]/route.ts` | API: get parsed XML details + conceptos for one CFDI |
+| `apps/api/src/app/api/sat-descarga/summary/route.ts` | API: monthly fiscal summary (aggregates XML data by month/direction) |
 | `apps/api/src/app/api/cron/sat-sync-worker/route.ts` | Background worker (state machine, 3 jobs/run, handles metadata + XML) |
 | `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` | Dashboard UI: "Descargar Todo" button, sync type selector, CFDI table (expandable rows + XML detail panel), jobs list with Tipo column, info tab |
 
