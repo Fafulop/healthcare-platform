@@ -70,16 +70,14 @@ export async function GET(request: NextRequest) {
       prisma.satCfdiMetadata.count({ where }),
     ]);
 
-    // Compute summary for current filter (vigentes only)
-    const vigentesWhere = { ...where, satStatus: 'Vigente' };
-
-    // Base where without direction filter (use month + doctor scope)
+    // Compute summary for entire month (vigentes only, ignores direction/status filters)
+    // This ensures the Ingresos/Gastos/Balance cards always reflect the full month
     const baseWhere: any = { doctorId: doctor.id, satStatus: 'Vigente' };
     if (where.issuedAt) baseWhere.issuedAt = where.issuedAt;
 
     const [summary, ingresosAgg, gastosAgg] = await Promise.all([
       prisma.satCfdiMetadata.aggregate({
-        where: vigentesWhere,
+        where: baseWhere,
         _sum: { monto: true },
         _count: true,
       }),
