@@ -58,7 +58,7 @@ interface CfdiMetadata {
 interface MetadataResponse {
   data: CfdiMetadata[];
   pagination: { page: number; limit: number; total: number; totalPages: number };
-  summary: { totalVigentes: number; totalMonto: number };
+  summary: { totalVigentes: number; totalMonto: number; totalIngresos: number; totalGastos: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -280,14 +280,9 @@ function CfdiList({
 
   const hasClientFilter = !!(tipoFilter || montoFilter);
 
-  // Compute ingresos vs gastos from ALL items in current page (vigentes only)
-  const vigentes = items.filter(i => i.satStatus === "Vigente");
-  const totalIngresos = vigentes
-    .filter(i => getFinancialImpact(i.direction, i.efecto).key === "ingreso" || getFinancialImpact(i.direction, i.efecto).key === "pago_recibido")
-    .reduce((sum, i) => sum + Number(i.monto), 0);
-  const totalGastos = vigentes
-    .filter(i => getFinancialImpact(i.direction, i.efecto).key === "gasto" || getFinancialImpact(i.direction, i.efecto).key === "pago_emitido")
-    .reduce((sum, i) => sum + Number(i.monto), 0);
+  // Server-side totals for the entire period (not just current page)
+  const totalIngresos = summary?.totalIngresos ?? 0;
+  const totalGastos = summary?.totalGastos ?? 0;
   const balance = totalIngresos - totalGastos;
 
   return (

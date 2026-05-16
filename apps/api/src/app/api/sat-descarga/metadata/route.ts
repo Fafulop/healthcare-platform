@@ -70,12 +70,42 @@ export async function GET(request: NextRequest) {
       prisma.satCfdiMetadata.count({ where }),
     ]);
 
-    // Compute summary for current filter
-    const summary = await prisma.satCfdiMetadata.aggregate({
-      where: { ...where, satStatus: 'Vigente' },
-      _sum: { monto: true },
-      _count: true,
-    });
+    // Compute summary for current filter (vigentes only)
+    const vigentesWhere = { ...where, satStatus: 'Vigente' };
+
+    // Base where without direction filter (use month + doctor scope)
+    const baseWhere: any = { doctorId: doctor.id, satStatus: 'Vigente' };
+    if (where.issuedAt) baseWhere.issuedAt = where.issuedAt;
+
+    const [summary, ingresosAgg, gastosAgg] = await Promise.all([
+      prisma.satCfdiMetadata.aggregate({
+        where: vigentesWhere,
+        _sum: { monto: true },
+        _count: true,
+      }),
+      // Ingresos: emitted+I or received+P
+      prisma.satCfdiMetadata.aggregate({
+        where: {
+          ...baseWhere,
+          OR: [
+            { direction: 'emitted', efecto: 'I' },
+            { direction: 'received', efecto: 'P' },
+          ],
+        },
+        _sum: { monto: true },
+      }),
+      // Gastos: received+I or emitted+P
+      prisma.satCfdiMetadata.aggregate({
+        where: {
+          ...baseWhere,
+          OR: [
+            { direction: 'received', efecto: 'I' },
+            { direction: 'emitted', efecto: 'P' },
+          ],
+        },
+        _sum: { monto: true },
+      }),
+    ]);
 
     return NextResponse.json({
       data: items,
@@ -88,6 +118,8 @@ export async function GET(request: NextRequest) {
       summary: {
         totalVigentes: summary._count,
         totalMonto: summary._sum.monto?.toNumber() ?? 0,
+        totalIngresos: ingresosAgg._sum.monto?.toNumber() ?? 0,
+        totalGastos: gastosAgg._sum.monto?.toNumber() ?? 0,
       },
     });
   } catch (error: any) {
