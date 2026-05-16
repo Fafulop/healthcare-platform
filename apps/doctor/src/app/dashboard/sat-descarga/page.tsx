@@ -445,6 +445,16 @@ function JobsList() {
     );
   }
 
+  const deleteJob = async (id: number) => {
+    if (!confirm("¿Eliminar esta sincronización?")) return;
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/sync/${id}`, { method: "DELETE" });
+      if (res.ok) fetchJobs();
+    } catch (err) {
+      console.error("Error deleting job:", err);
+    }
+  };
+
   const statusColors: Record<string, string> = {
     pending: "bg-yellow-100 text-yellow-700",
     authenticating: "bg-blue-100 text-blue-700",
@@ -465,7 +475,8 @@ function JobsList() {
             <th className="pb-2 pr-4 font-medium">Dirección</th>
             <th className="pb-2 pr-4 font-medium">Status</th>
             <th className="pb-2 pr-4 font-medium">CFDIs</th>
-            <th className="pb-2 font-medium">Creado</th>
+            <th className="pb-2 pr-4 font-medium">Creado</th>
+            <th className="pb-2 font-medium"></th>
           </tr>
         </thead>
         <tbody>
@@ -495,8 +506,18 @@ function JobsList() {
               <td className="py-2.5 pr-4 font-medium">
                 {job.cfdiCount ?? "—"}
               </td>
-              <td className="py-2.5 text-xs text-gray-400 whitespace-nowrap">
+              <td className="py-2.5 pr-4 text-xs text-gray-400 whitespace-nowrap">
                 {new Date(job.createdAt).toLocaleString("es-MX")}
+              </td>
+              <td className="py-2.5">
+                {job.status !== "downloading" && (
+                  <button
+                    onClick={() => deleteJob(job.id)}
+                    className="text-xs text-red-500 hover:text-red-700"
+                  >
+                    Eliminar
+                  </button>
+                )}
               </td>
             </tr>
           ))}
