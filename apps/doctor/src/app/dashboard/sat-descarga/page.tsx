@@ -2004,6 +2004,51 @@ function ContableTab() {
           </div>
         </div>
       </section>
+
+      {/* Complementos de Pago */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Complementos de Pago (PPD)</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            Cuando emites una factura con metodo de pago <strong>PPD</strong> (Pago en Parcialidades o Diferido),
+            el pago no se recibe al momento de facturar. El SAT requiere que cuando recibas el pago,
+            tu cliente emita un <strong>CFDI tipo P</strong> (Complemento de Pago) que vincula el pago con tu factura original.
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">¿Como funciona?</p>
+            <ol className="list-decimal list-inside space-y-1.5 text-gray-600">
+              <li>Emites una factura PPD (ej: $50,000 por un tratamiento a pagarse en 3 meses)</li>
+              <li>Cuando tu cliente paga (parcial o total), se emite un CFDI tipo P</li>
+              <li>El complemento indica: que factura se paga, cuanto se pago, y cuanto queda pendiente</li>
+              <li>Se repite hasta que el saldo insoluto llegue a $0</li>
+            </ol>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">¿Como lo veo aqui?</p>
+            <ul className="list-disc list-inside space-y-1.5 text-gray-600">
+              <li>En la lista de CFDIs, busca facturas con metodo de pago <strong>PPD</strong></li>
+              <li>Expande la factura y da clic en <em>&quot;Ver detalles XML&quot;</em></li>
+              <li>Veras un indicador de estado de pago con colores:</li>
+            </ul>
+            <div className="mt-2 ml-5 space-y-1">
+              <p><span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-2"></span><strong>Pagado</strong> — el saldo insoluto llego a $0</p>
+              <p><span className="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-2"></span><strong>Pago parcial</strong> — se han recibido pagos pero falta saldo</p>
+              <p><span className="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span><strong>Pendiente</strong> — no se ha recibido ningun complemento de pago</p>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Importante para tu contabilidad</p>
+            <p className="text-xs text-blue-700">
+              Para efectos de IVA, el impuesto de facturas PPD se declara <strong>hasta que se recibe el pago</strong>,
+              no cuando se emite la factura. Por eso es importante dar seguimiento a los complementos de pago.
+              Si una factura PPD no tiene complemento, ese ingreso aun no se considera &quot;cobrado&quot; fiscalmente.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
