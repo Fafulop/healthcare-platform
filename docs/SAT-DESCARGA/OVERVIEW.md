@@ -176,6 +176,11 @@ Lecciones adicionales:
 | API routes sync | DONE | `POST/GET /api/sat-descarga/sync`, `GET/DELETE /api/sat-descarga/sync/[id]`, `GET /api/sat-descarga/metadata` |
 | Background worker | DONE | `POST /api/cron/sat-sync-worker` — state machine, cron-based polling |
 | Dashboard UI | DONE | `/dashboard/sat-descarga` — sync trigger, CFDI table, jobs list |
+| Dashboard filters | DONE | Column filters: Fecha (sort), Dir, Monto (ranges), Tipo (financial impact), Status |
+| Financial impact labels | DONE | Replaced raw SAT EfectoComprobante with doctor-perspective labels (Ingreso/Gasto/Pago/Nota crédito) |
+| Expandable row details | DONE | Click row to see UUID, full emisor/receptor, PAC, certification date |
+| Info tab | DONE | Explains sync process, available data, financial impact logic, SAT limitations |
+| API select clause | DONE | Explicit field selection — no doctorId/syncJobId leaked to frontend |
 
 ### Deployed to Production (2026-05-15)
 
@@ -230,9 +235,9 @@ Lecciones adicionales:
 | `apps/api/src/app/api/sat-descarga/fiel/route.ts` | API: upload/status/delete e.Firma |
 | `apps/api/src/app/api/sat-descarga/sync/route.ts` | API: crear/listar sync jobs |
 | `apps/api/src/app/api/sat-descarga/sync/[id]/route.ts` | API: status + delete sync job |
-| `apps/api/src/app/api/sat-descarga/metadata/route.ts` | API: listar CFDIs descargados + summary |
+| `apps/api/src/app/api/sat-descarga/metadata/route.ts` | API: listar CFDIs descargados + summary (supports direction, month, status, sort params) |
 | `apps/api/src/app/api/cron/sat-sync-worker/route.ts` | Background worker (state machine) |
-| `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` | Dashboard UI: sync trigger + CFDI table + jobs list |
+| `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` | Dashboard UI: sync trigger, CFDI table (expandable rows, column filters, financial impact labels), jobs list, info tab |
 
 ### Variables de Entorno Requeridas
 

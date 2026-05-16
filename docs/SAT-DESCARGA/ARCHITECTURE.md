@@ -115,6 +115,23 @@ Esto es suficiente para:
 
 Los XMLs completos se descargan on-demand (Phase 2).
 
+### Impacto Financiero (derivado de Direction + EfectoComprobante)
+
+El `EfectoComprobante` del SAT describe el tipo de documento, NO el impacto financiero para el doctor. La UI traduce la combinacion Direction + Efecto a un label comprensible:
+
+| Direction | Efecto SAT | Label en UI | Color | Significado |
+|-----------|-----------|-------------|-------|-------------|
+| Emitido | I (Ingreso) | **Ingreso** | Verde | Facturaste a alguien — dinero a tu favor |
+| Recibido | I (Ingreso) | **Gasto** | Rojo | Alguien te facturo — dinero que pagaste |
+| Emitido | E (Egreso) | **Nota de credito** | Naranja | Emitiste devolucion/descuento |
+| Recibido | E (Egreso) | **Nota de credito** | Azul | Te emitieron devolucion a tu favor |
+| Recibido | P (Pago) | **Pago recibido** | Verde | Complemento de pago — te pagaron |
+| Emitido | P (Pago) | **Pago emitido** | Rojo | Complemento de pago — pagaste |
+| Cualquiera | T (Traslado) | **Traslado** | Gris | Movimiento sin impacto fiscal directo |
+| Cualquiera | N (Nomina) | **Nomina** | Gris | Pago de nomina |
+
+Esta logica vive en `getFinancialImpact()` en `page.tsx`.
+
 ---
 
 ## Modelo de Datos (Implementado — 2026-05-15)

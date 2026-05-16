@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import {
   Download,
-  RefreshCw,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -281,24 +280,41 @@ function CfdiList({
 
   const hasClientFilter = !!(tipoFilter || montoFilter);
 
+  // Compute ingresos vs gastos from ALL items in current page (vigentes only)
+  const vigentes = items.filter(i => i.satStatus === "Vigente");
+  const totalIngresos = vigentes
+    .filter(i => getFinancialImpact(i.direction, i.efecto).key === "ingreso" || getFinancialImpact(i.direction, i.efecto).key === "pago_recibido")
+    .reduce((sum, i) => sum + Number(i.monto), 0);
+  const totalGastos = vigentes
+    .filter(i => getFinancialImpact(i.direction, i.efecto).key === "gasto" || getFinancialImpact(i.direction, i.efecto).key === "pago_emitido")
+    .reduce((sum, i) => sum + Number(i.monto), 0);
+  const balance = totalIngresos - totalGastos;
+
   return (
     <div>
-      {/* Summary */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-        <button onClick={fetchData} className="p-1.5 text-gray-400 hover:text-gray-600">
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
-
-        {summary && (
-          <div className="text-sm text-gray-600">
-            <span className="font-medium">{summary.totalVigentes}</span> CFDIs vigentes
-            {" — "}
-            <span className="font-medium text-green-700">
-              ${Number(summary.totalMonto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-            </span>
+      {/* Summary: Ingresos vs Gastos */}
+      {items.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+            <div className="text-xs text-green-600 font-medium">Ingresos</div>
+            <div className="text-lg font-bold text-green-700">
+              ${totalIngresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </div>
           </div>
-        )}
-      </div>
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <div className="text-xs text-red-600 font-medium">Gastos</div>
+            <div className="text-lg font-bold text-red-700">
+              ${totalGastos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+          <div className={`border rounded-lg px-4 py-3 ${balance >= 0 ? "bg-blue-50 border-blue-200" : "bg-orange-50 border-orange-200"}`}>
+            <div className={`text-xs font-medium ${balance >= 0 ? "text-blue-600" : "text-orange-600"}`}>Balance</div>
+            <div className={`text-lg font-bold ${balance >= 0 ? "text-blue-700" : "text-orange-700"}`}>
+              {balance >= 0 ? "+" : "-"}${Math.abs(balance).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       {loading && items.length === 0 ? (
