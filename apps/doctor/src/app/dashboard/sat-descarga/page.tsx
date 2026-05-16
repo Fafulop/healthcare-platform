@@ -860,23 +860,153 @@ function InfoTab() {
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">¿Qué datos obtenemos?</h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
-          <p>
-            Actualmente descargamos la <strong>metadata</strong> de cada CFDI (no el XML completo).
-            Esto incluye:
-          </p>
-          <ul className="list-disc list-inside space-y-1 ml-2">
-            <li>UUID (folio fiscal único)</li>
-            <li>Emisor y receptor (nombre + RFC)</li>
-            <li>Monto total</li>
-            <li>Fecha de emisión y certificación</li>
-            <li>Tipo de comprobante (Ingreso, Egreso, Pago, Traslado)</li>
-            <li>Status (Vigente / Cancelado)</li>
-            <li>PAC que certificó</li>
-          </ul>
+          <p>La descarga tiene <strong>dos capas</strong> de información:</p>
+
+          <div className="mt-2">
+            <p className="font-semibold text-gray-800">1. Metadata (listado básico)</p>
+            <p className="text-xs text-gray-500 mb-1">Se obtiene rápido — es lo que ves en la tabla principal.</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>UUID (folio fiscal único)</li>
+              <li>Emisor y receptor (nombre + RFC)</li>
+              <li>Monto total</li>
+              <li>Fecha de emisión y certificación</li>
+              <li>Tipo de comprobante (Ingreso, Egreso, Pago, Traslado)</li>
+              <li>Status (Vigente / Cancelado)</li>
+              <li>PAC que certificó</li>
+            </ul>
+          </div>
+
+          <div className="mt-3">
+            <p className="font-semibold text-gray-800">2. XML (desglose fiscal completo)</p>
+            <p className="text-xs text-gray-500 mb-1">Se descarga por separado — es lo que ves al hacer clic en "Ver detalles XML".</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>Subtotal (monto antes de impuestos)</li>
+              <li>IVA trasladado (16% cobrado al cliente)</li>
+              <li>ISR retenido (retención de ISR que te hacen)</li>
+              <li>IVA retenido (retención de IVA — personas morales)</li>
+              <li>Descuentos aplicados</li>
+              <li>Método de pago: PUE (una exhibición) o PPD (parcialidades)</li>
+              <li>Forma de pago: efectivo, transferencia, tarjeta, cheque, etc.</li>
+              <li>Uso CFDI: G01 (adquisición), G03 (gastos), D01 (honorarios médicos), etc.</li>
+              <li>Moneda y tipo de cambio (para facturas en USD)</li>
+              <li>Serie y folio (numeración interna del emisor)</li>
+              <li>Conceptos: cada línea de la factura con descripción, cantidad, precio unitario, importe e IVA</li>
+            </ul>
+          </div>
+
           <p className="text-xs text-gray-500 mt-3">
-            La metadata NO incluye desglose de conceptos, subtotal, IVA, método de pago ni uso CFDI.
-            Para ver ese desglose, haz clic en "Ver detalles XML" dentro de cada CFDI (requiere haber
-            sincronizado los XMLs del mes).
+            El tipo "Completa" descarga ambas capas en una sola acción. Si solo quieres el listado
+            sin desglose, usa "Solo metadata".
+          </p>
+        </div>
+      </section>
+
+      {/* XML Details explanation */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Detalles XML — ¿Para qué sirve cada campo?</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
+          <p>
+            Al expandir un CFDI y hacer clic en <strong>"Ver detalles XML"</strong>, se muestra el desglose
+            fiscal completo extraído del XML original. Aquí una explicación de cada sección:
+          </p>
+
+          <div className="mt-3">
+            <p className="font-semibold text-gray-800 mb-1">Desglose financiero</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border border-gray-200 rounded">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Campo</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Qué es</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Ejemplo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Subtotal</td>
+                    <td className="px-3 py-2 text-gray-500">Suma de conceptos antes de impuestos</td>
+                    <td className="px-3 py-2 font-mono">$8,620.69</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">IVA Trasladado</td>
+                    <td className="px-3 py-2 text-gray-500">Impuesto al 16% que se cobra al cliente. Algunos productos tienen tasa 0% (alimentos básicos, medicinas).</td>
+                    <td className="px-3 py-2 font-mono">$1,379.31</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">ISR Retenido</td>
+                    <td className="px-3 py-2 text-gray-500">Retención de Impuesto Sobre la Renta. Aplica cuando una persona moral te paga honorarios (te retienen el 10%).</td>
+                    <td className="px-3 py-2 font-mono">$862.07</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">IVA Retenido</td>
+                    <td className="px-3 py-2 text-gray-500">Retención de IVA (2/3 del IVA). Aplica en servicios profesionales de persona física a moral.</td>
+                    <td className="px-3 py-2 font-mono">$689.66</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Total</td>
+                    <td className="px-3 py-2 text-gray-500">Subtotal + IVA − Retenciones − Descuentos = lo que efectivamente se cobra/paga</td>
+                    <td className="px-3 py-2 font-mono">$10,000.00</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <p className="font-semibold text-gray-800 mb-1">Información de pago</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border border-gray-200 rounded">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Campo</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Qué es</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Valores comunes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Método de Pago</td>
+                    <td className="px-3 py-2 text-gray-500">Cuándo se paga la factura</td>
+                    <td className="px-3 py-2"><strong>PUE</strong> = pago en una sola exhibición (contado) • <strong>PPD</strong> = pago en parcialidades o diferido (crédito)</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Forma de Pago</td>
+                    <td className="px-3 py-2 text-gray-500">Cómo se paga</td>
+                    <td className="px-3 py-2">01=Efectivo • 02=Cheque • 03=Transferencia • 04=Tarjeta crédito • 28=Tarjeta débito • 99=Por definir</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Uso CFDI</td>
+                    <td className="px-3 py-2 text-gray-500">Para qué usará el receptor este CFDI fiscalmente</td>
+                    <td className="px-3 py-2">G01=Adquisición de mercancías • G03=Gastos en general • D01=Honorarios médicos • S01=Sin efectos fiscales</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Moneda</td>
+                    <td className="px-3 py-2 text-gray-500">Moneda de la factura</td>
+                    <td className="px-3 py-2">MXN (pesos) • USD (dólares) — si es USD incluye tipo de cambio</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <p className="font-semibold text-gray-800 mb-1">Conceptos (líneas de la factura)</p>
+            <p className="text-gray-600">
+              Cada factura tiene uno o más conceptos. Cada concepto es un producto o servicio facturado
+              con su descripción, cantidad, precio unitario e importe. Los conceptos son útiles para:
+            </p>
+            <ul className="list-disc list-inside space-y-1 ml-2 mt-2">
+              <li><strong>Deducibilidad</strong> — Verificar que la descripción coincide con un gasto deducible</li>
+              <li><strong>Clasificación</strong> — La clave de producto/servicio SAT indica la categoría fiscal</li>
+              <li><strong>Auditoría</strong> — Revisar que cantidades y precios coinciden con lo acordado</li>
+              <li><strong>IVA por concepto</strong> — Algunos conceptos tienen IVA 0% (alimentos, medicinas) y otros 16%</li>
+            </ul>
+          </div>
+
+          <p className="text-xs text-gray-500 mt-4 border-t border-gray-100 pt-3">
+            <strong>Nota:</strong> No todos los campos están presentes en todas las facturas. Por ejemplo,
+            los complementos de pago (tipo P) no tienen subtotal ni conceptos con importe — solo registran
+            que se realizó un pago asociado a una factura previa.
           </p>
         </div>
       </section>
