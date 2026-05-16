@@ -48,10 +48,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate date range from month
+    // Calculate date range from month (use UTC to avoid timezone shifts)
     const [year, monthNum] = month.split('-').map(Number);
-    const dateFrom = new Date(year, monthNum - 1, 1);
-    const dateTo = new Date(year, monthNum, 0); // last day of month
+    const dateFrom = new Date(Date.UTC(year, monthNum - 1, 1));
+    const lastDay = new Date(Date.UTC(year, monthNum, 0)).getUTCDate();
+    const dateTo = new Date(Date.UTC(year, monthNum - 1, lastDay));
 
     // Check for duplicate active job
     const existingJob = await prisma.satSyncJob.findFirst({
