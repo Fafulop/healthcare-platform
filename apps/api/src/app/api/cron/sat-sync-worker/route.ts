@@ -289,7 +289,7 @@ async function downloadAndParseMetadata(
   packageIds: string[],
 ): Promise<string> {
   let totalRecords = 0;
-  const alerts: Array<{ type: string; uuid: string; direction: string; issuerName: string | null; monto: string; message: string }> = [];
+  const alerts: Array<{ type: string; uuid: string; direction: string; issuerName: string | null; monto: number; message: string }> = [];
 
   for (const pkgId of packageIds) {
     const zipBuffer = await downloadPackage(token, cred, pkgId);
