@@ -53,18 +53,21 @@ export async function POST(request: NextRequest) {
     const dateFrom = new Date(Date.UTC(year, monthNum - 1, 1));
     const lastDay = new Date(Date.UTC(year, monthNum, 0)).getUTCDate();
     // Cap dateTo to today if the month hasn't ended yet (SAT rejects future dates)
-    const now = new Date();
-    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    // IMPORTANT: SAT runs on Mexico City time (UTC-6), NOT UTC.
+    // Railway server is in UTC, so at e.g. 7 PM Mexico = 1 AM UTC next day.
+    // We must use Mexico City's "today", otherwise SAT sees a future date.
+    const nowMx = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+    const todayMx = new Date(Date.UTC(nowMx.getFullYear(), nowMx.getMonth(), nowMx.getDate()));
     const endOfMonth = new Date(Date.UTC(year, monthNum - 1, lastDay));
-    const dateTo = endOfMonth > todayUTC ? todayUTC : endOfMonth;
+    const dateTo = endOfMonth > todayMx ? todayMx : endOfMonth;
 
     console.log('[SAT sync] Date calc:', {
       month,
       dateFrom: dateFrom.toISOString(),
       endOfMonth: endOfMonth.toISOString(),
-      todayUTC: todayUTC.toISOString(),
+      todayMx: todayMx.toISOString(),
       dateTo: dateTo.toISOString(),
-      capped: endOfMonth > todayUTC,
+      capped: endOfMonth > todayMx,
     });
 
     // Check for duplicate active job
