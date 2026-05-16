@@ -52,7 +52,11 @@ export async function POST(request: NextRequest) {
     const [year, monthNum] = month.split('-').map(Number);
     const dateFrom = new Date(Date.UTC(year, monthNum - 1, 1));
     const lastDay = new Date(Date.UTC(year, monthNum, 0)).getUTCDate();
-    const dateTo = new Date(Date.UTC(year, monthNum - 1, lastDay));
+    // Cap dateTo to today if the month hasn't ended yet (SAT rejects future dates)
+    const now = new Date();
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const endOfMonth = new Date(Date.UTC(year, monthNum - 1, lastDay));
+    const dateTo = endOfMonth > todayUTC ? todayUTC : endOfMonth;
 
     // Check for duplicate active job
     const existingJob = await prisma.satSyncJob.findFirst({
