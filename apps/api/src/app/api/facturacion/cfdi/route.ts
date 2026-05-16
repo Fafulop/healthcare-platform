@@ -93,6 +93,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // SAT rules for Publico en General (XAXX010101000)
+    if (receiver.rfc.trim().toUpperCase() === 'XAXX010101000') {
+      if (receiver.cfdiUse !== 'S01') {
+        return NextResponse.json(
+          { error: 'Para Publico en General, uso CFDI debe ser S01 (Sin efectos fiscales)' },
+          { status: 400 }
+        );
+      }
+      if (receiver.fiscalRegime !== '616') {
+        return NextResponse.json(
+          { error: 'Para Publico en General, régimen fiscal debe ser 616 (Sin obligaciones fiscales)' },
+          { status: 400 }
+        );
+      }
+    }
+
     // If linking to a ledger entry, verify it belongs to this doctor
     if (ledgerEntryId) {
       const entry = await prisma.ledgerEntry.findFirst({
@@ -170,11 +186,11 @@ export async function POST(request: NextRequest) {
 
     // GlobalInformation required for "Publico en General" (RFC XAXX010101000)
     if (receiver.rfc.trim().toUpperCase() === 'XAXX010101000') {
-      const now = new Date();
+      const nowMx = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
       payload.GlobalInformation = {
-        Periodicity: body.globalPeriodicity || '04', // 04 = por operación individual
-        Months: body.globalMonths || String(now.getMonth() + 1).padStart(2, '0'),
-        Year: body.globalYear || String(now.getFullYear()),
+        Periodicity: body.globalPeriodicity || '04', // 04 = Mensual
+        Months: body.globalMonths || String(nowMx.getMonth() + 1).padStart(2, '0'),
+        Year: body.globalYear || String(nowMx.getFullYear()),
       };
     }
 

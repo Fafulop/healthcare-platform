@@ -1429,7 +1429,14 @@ function NuevaFacturaTab({
             <input
               type="text"
               value={receiver.rfc}
-              onChange={e => setReceiver({ ...receiver, rfc: e.target.value.toUpperCase() })}
+              onChange={e => {
+                const rfc = e.target.value.toUpperCase();
+                if (rfc === 'XAXX010101000') {
+                  setReceiver({ ...receiver, rfc, name: 'PUBLICO EN GENERAL', cfdiUse: 'S01', fiscalRegime: '616', taxZipCode: receiver.taxZipCode || '' });
+                } else {
+                  setReceiver({ ...receiver, rfc });
+                }
+              }}
               placeholder="XAXX010101000"
               maxLength={13}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm uppercase focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
