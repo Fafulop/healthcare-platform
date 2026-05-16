@@ -138,6 +138,9 @@ export default function SatDescargaPage() {
       {/* Sync trigger */}
       <SyncTrigger month={month} setMonth={setMonth} />
 
+      {/* Backfill */}
+      <BackfillSection />
+
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6 mt-6">
         <div className="flex gap-6">
@@ -307,6 +310,104 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
           message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
         }`}>
           {message.type === "success" ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+          {message.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Backfill Section
+// ---------------------------------------------------------------------------
+
+function BackfillSection() {
+  const [progress, setProgress] = useState<{ totalMonths: number; completedMonths: number; activeJobs: number; fromMonth: string; toMonth: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const fetchProgress = useCallback(async () => {
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/backfill`);
+      if (res.ok) {
+        const json = await res.json();
+        setProgress(json.data);
+      }
+    } catch (err) {
+      // silently fail — not critical
+    }
+  }, []);
+
+  useEffect(() => { fetchProgress(); }, [fetchProgress]);
+
+  const triggerBackfill = async () => {
+    setBackfilling(true);
+    setMessage(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/backfill`, {
+        method: "POST",
+        body: JSON.stringify({ fromMonth: "2025-01" }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMessage({ type: "error", text: json.error || "Error al crear backfill" });
+      } else {
+        setMessage({ type: "success", text: `Backfill creado: ${json.data.created} jobs nuevos (${json.data.skipped} ya existentes). Se procesarán gradualmente.` });
+        fetchProgress();
+      }
+    } catch (err) {
+      setMessage({ type: "error", text: "Error de red al crear backfill" });
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
+  if (!progress) return null;
+
+  const isComplete = progress.completedMonths >= progress.totalMonths;
+  const pct = progress.totalMonths > 0 ? Math.round((progress.completedMonths / progress.totalMonths) * 100) : 0;
+
+  return (
+    <div className="mt-4 bg-white rounded-lg border border-gray-200 p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Historial completo</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {isComplete
+              ? `Todos los meses sincronizados (${progress.fromMonth} a ${progress.toMonth})`
+              : `${progress.completedMonths} de ${progress.totalMonths} meses completados (${progress.fromMonth} a ${progress.toMonth})`
+            }
+            {progress.activeJobs > 0 && ` · ${progress.activeJobs} jobs activos`}
+          </p>
+        </div>
+        {!isComplete && (
+          <button
+            onClick={triggerBackfill}
+            disabled={backfilling}
+            className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-100 border border-purple-200 disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            Descargar historico
+          </button>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      {!isComplete && (
+        <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
+          <div
+            className="bg-purple-600 h-2 rounded-full transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+
+      {message && (
+        <div className={`mt-3 p-2 rounded text-xs flex items-center gap-1.5 ${
+          message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+        }`}>
+          {message.type === "success" ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
           {message.text}
         </div>
       )}

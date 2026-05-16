@@ -2237,6 +2237,9 @@ model DoctorFiscalProfile {
   fielKeyEncrypted    String?   @map("fiel_key_encrypted") @db.Text
   fielPasswordEncrypted String? @map("fiel_password_encrypted") @db.Text
 
+  // Auto-sync config
+  autoSyncEnabled     Boolean   @default(true) @map("auto_sync_enabled")
+
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
