@@ -473,7 +473,7 @@ function JobsList() {
             <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
               <td className="py-2.5 pr-4 text-gray-400">#{job.id}</td>
               <td className="py-2.5 pr-4 whitespace-nowrap">
-                {new Date(job.dateFrom + "T12:00:00").toLocaleDateString("es-MX", { month: "short", year: "numeric" })}
+                {new Date(job.dateFrom).toLocaleDateString("es-MX", { month: "short", year: "numeric", timeZone: "UTC" })}
               </td>
               <td className="py-2.5 pr-4">
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
