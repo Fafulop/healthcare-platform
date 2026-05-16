@@ -17,6 +17,8 @@ import {
   BookOpen,
   BarChart3,
   FileSpreadsheet,
+  Bell,
+  X,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -125,14 +127,17 @@ export default function SatDescargaPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Download className="w-6 h-6 text-purple-600" />
-          Descarga Masiva SAT
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Consulta y descarga tus CFDIs emitidos y recibidos directamente del SAT
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Download className="w-6 h-6 text-purple-600" />
+            Descarga Masiva SAT
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Consulta y descarga tus CFDIs emitidos y recibidos directamente del SAT
+          </p>
+        </div>
+        <AlertsBell />
       </div>
 
       {/* Sync trigger */}
@@ -1171,6 +1176,114 @@ function SummaryCard({ label, value, sublabel, color }: { label: string; value: 
       <p className="text-xs font-medium text-gray-600">{label}</p>
       <p className={`text-xl font-bold mt-1 ${textClasses[color] || "text-gray-900"}`}>{value}</p>
       <p className="text-xs text-gray-400 mt-1">{sublabel}</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Alerts Bell
+// ---------------------------------------------------------------------------
+
+interface SatAlertItem {
+  id: number;
+  type: string;
+  uuid: string | null;
+  direction: string | null;
+  issuerName: string | null;
+  monto: string | null;
+  message: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+function AlertsBell() {
+  const [alerts, setAlerts] = useState<SatAlertItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [open, setOpen] = useState(false);
+
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/alerts?limit=20`);
+      if (res.ok) {
+        const json = await res.json();
+        setAlerts(json.data.alerts);
+        setUnreadCount(json.data.unreadCount);
+      }
+    } catch (err) {
+      // silent
+    }
+  }, []);
+
+  useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
+
+  const markAllRead = async () => {
+    try {
+      await authFetch(`${API_URL}/api/sat-descarga/alerts`, {
+        method: "PATCH",
+        body: JSON.stringify({ all: true }),
+      });
+      setUnreadCount(0);
+      setAlerts(prev => prev.map(a => ({ ...a, read: true })));
+    } catch (err) {
+      // silent
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
+      >
+        <Bell className="w-5 h-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-10 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+            <span className="text-sm font-semibold text-gray-700">Alertas SAT</span>
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <button onClick={markAllRead} className="text-xs text-purple-600 hover:text-purple-800">
+                  Marcar leídas
+                </button>
+              )}
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {alerts.length === 0 ? (
+            <div className="px-3 py-6 text-center text-sm text-gray-400">
+              Sin alertas
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {alerts.map(alert => (
+                <div key={alert.id} className={`px-3 py-2.5 ${!alert.read ? "bg-purple-50/50" : ""}`}>
+                  <div className="flex items-start gap-2">
+                    <span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${
+                      alert.type === "cancelled" ? "bg-red-500" : "bg-green-500"
+                    }`} />
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-700 leading-relaxed">{alert.message}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {new Date(alert.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

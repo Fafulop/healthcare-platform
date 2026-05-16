@@ -289,12 +289,19 @@ async function downloadAndParseMetadata(
   packageIds: string[],
 ): Promise<string> {
   let totalRecords = 0;
+  const alerts: Array<{ type: string; uuid: string; direction: string; issuerName: string | null; monto: string; message: string }> = [];
 
   for (const pkgId of packageIds) {
     const zipBuffer = await downloadPackage(token, cred, pkgId);
     const records = parseMetadataFromZip(zipBuffer);
 
     for (const record of records) {
+      // Check if this UUID already exists (to detect new vs update)
+      const existing = await prisma.satCfdiMetadata.findUnique({
+        where: { doctorId_uuid: { doctorId: job.doctorId, uuid: record.uuid } },
+        select: { satStatus: true },
+      });
+
       await prisma.satCfdiMetadata.upsert({
         where: {
           doctorId_uuid: {
@@ -332,9 +339,47 @@ async function downloadAndParseMetadata(
           syncJobId: job.id,
         },
       });
+
+      // Generate alerts
+      if (!existing) {
+        // New CFDI detected
+        alerts.push({
+          type: 'new_cfdi',
+          uuid: record.uuid,
+          direction: job.direction,
+          issuerName: record.nombreEmisor,
+          monto: record.monto,
+          message: `Nuevo CFDI ${job.direction === 'received' ? 'recibido' : 'emitido'} de ${record.nombreEmisor || record.rfcEmisor} por $${record.monto}`,
+        });
+      } else if (existing.satStatus === 'Vigente' && record.estatus === 'Cancelado') {
+        // Status changed to Cancelado
+        alerts.push({
+          type: 'cancelled',
+          uuid: record.uuid,
+          direction: job.direction,
+          issuerName: record.nombreEmisor,
+          monto: record.monto,
+          message: `CFDI cancelado: ${record.nombreEmisor || record.rfcEmisor} por $${record.monto}`,
+        });
+      }
     }
 
     totalRecords += records.length;
+  }
+
+  // Batch create alerts (skip if too many — likely first-time sync)
+  if (alerts.length > 0 && alerts.length <= 50) {
+    await prisma.satAlert.createMany({
+      data: alerts.map(a => ({
+        doctorId: job.doctorId,
+        type: a.type,
+        uuid: a.uuid,
+        direction: a.direction,
+        issuerName: a.issuerName,
+        monto: a.monto,
+        message: a.message,
+      })),
+    });
   }
 
   await prisma.satSyncJob.update({

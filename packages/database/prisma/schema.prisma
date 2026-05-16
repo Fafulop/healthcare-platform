@@ -257,6 +257,7 @@ model Doctor {
   satSyncJobs        SatSyncJob[]
   satCfdiMetadata    SatCfdiMetadata[]
   satCfdiDetails     SatCfdiDetail[]
+  satAlerts          SatAlert[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -2463,6 +2464,26 @@ model SatCfdiConcepto {
 
   @@index([detailId])
   @@map("sat_cfdi_conceptos")
+  @@schema("practice_management")
+}
+
+// Alertas SAT — new CFDIs, cancellations, etc.
+model SatAlert {
+  id          Int       @id @default(autoincrement())
+  doctorId    String    @map("doctor_id")
+  type        String    @db.VarChar(20) // new_cfdi | cancelled
+  uuid        String?   @db.VarChar(36)
+  direction   String?   @db.VarChar(10)
+  issuerName  String?   @map("issuer_name") @db.VarChar(300)
+  monto       Decimal?  @db.Decimal(14, 2)
+  message     String?
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  doctor      Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, read])
+  @@map("sat_alerts")
   @@schema("practice_management")
 }
 
