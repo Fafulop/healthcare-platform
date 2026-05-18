@@ -30,7 +30,10 @@ export async function getCalendarTokens(doctorId: string) {
       });
     }
     return { accessToken, refreshToken, calendarId: doctor.googleCalendarId };
-  } catch { return null; }
+  } catch (err) {
+    console.error('[GCal] getCalendarTokens failed for doctor', doctorId, err);
+    return null;
+  }
 }
 
 export function generateConfirmationCode(): string {

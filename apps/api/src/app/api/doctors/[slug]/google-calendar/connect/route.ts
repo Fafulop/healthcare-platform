@@ -138,6 +138,50 @@ export async function POST(
       }
     }
 
+    // ── Initial sync: freeform (range-based) bookings ──
+    const freeformBookings = await prisma.booking.findMany({
+      where: {
+        doctorId: doctor.id,
+        slotId: null,
+        status: { in: ["PENDING", "CONFIRMED"] },
+        date: { not: null, gte: today, lte: in60Days },
+        googleEventId: null,
+      },
+    });
+
+    let syncedFreeform = 0;
+    for (const booking of freeformBookings) {
+      if (!booking.date || !booking.startTime || !booking.endTime) continue;
+      try {
+        const dateStr = booking.date.toISOString().split("T")[0];
+        const googleEventId = await createSlotEvent(
+          accessToken,
+          refreshToken,
+          calendarId,
+          {
+            id: booking.id,
+            date: dateStr,
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            isOpen: true,
+            patientName: booking.patientName,
+            bookingStatus: booking.status as "PENDING" | "CONFIRMED",
+            patientPhone: booking.patientPhone,
+            patientEmail: booking.patientEmail,
+            patientNotes: booking.notes ?? undefined,
+            finalPrice: Number(booking.finalPrice),
+          }
+        );
+        await prisma.booking.update({
+          where: { id: booking.id },
+          data: { googleEventId },
+        });
+        syncedFreeform++;
+      } catch (err) {
+        console.error(`[Google Calendar] Failed to sync freeform booking ${booking.id}:`, err);
+      }
+    }
+
     // ── Initial sync: pending/in-progress tasks (with dueDate) ──
     const tasks = await prisma.task.findMany({
       where: {
@@ -148,6 +192,7 @@ export async function POST(
       },
     });
 
+    let syncedTaskCount = 0;
     for (const task of tasks) {
       try {
         const dueDateStr = task.dueDate!.toISOString().split("T")[0];
@@ -164,12 +209,14 @@ export async function POST(
             endTime: task.endTime,
             status: task.status,
             priority: task.priority,
+            category: task.category,
           }
         );
         await prisma.task.update({
           where: { id: task.id },
           data: { googleEventId },
         });
+        syncedTaskCount++;
       } catch (err) {
         console.error(`[Google Calendar] Failed to sync task ${task.id}:`, err);
       }
@@ -180,7 +227,8 @@ export async function POST(
       success: true,
       calendarId,
       syncedSlots: syncedBookings,
-      syncedTasks: tasks.length,
+      syncedFreeform,
+      syncedTasks: syncedTaskCount,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

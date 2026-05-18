@@ -86,6 +86,16 @@ export async function POST(
       },
     });
 
+    // Range-based (freeform) bookings — slotId is null, event ID lives on Booking record
+    const freeformBookings = await prisma.booking.findMany({
+      where: {
+        doctorId: doctor.id,
+        slotId: null,
+        status: { in: ["PENDING", "CONFIRMED"] },
+        date: { gte: today, lte: in60Days },
+      },
+    });
+
     const tasks = await prisma.task.findMany({
       where: {
         doctorId: doctor.id,
@@ -95,6 +105,7 @@ export async function POST(
     });
 
     const activeSlotIds = new Set(slots.map((s) => s.id));
+    const activeFreeformIds = new Set(freeformBookings.map((b) => b.id));
     const activeTaskIds = new Set(tasks.map((t) => t.id));
 
     // ── 2. List all GCal events we created (source=tusalud.pro) ──────────────
@@ -124,14 +135,18 @@ export async function POST(
       const slotId = event.extendedProperties?.private?.slotId;
       const taskId = event.extendedProperties?.private?.taskId;
 
-      if (slotId && !activeSlotIds.has(slotId)) {
-        // Slot deleted from DB or outside the resync window — remove from GCal
+      if (slotId && !activeSlotIds.has(slotId) && !activeFreeformIds.has(slotId)) {
+        // Slot/booking deleted from DB or outside the resync window — remove from GCal
         try {
           await calendarApi.events.delete({ calendarId, eventId: event.id });
           deletedOrphans++;
         } catch { /* already gone, ignore */ }
-        // Clear stale googleEventId from any DB slot that still references it
+        // Clear stale googleEventId from any DB slot or booking that still references it
         await prisma.appointmentSlot.updateMany({
+          where: { googleEventId: event.id },
+          data: { googleEventId: null },
+        }).catch(() => {});
+        await prisma.booking.updateMany({
           where: { googleEventId: event.id },
           data: { googleEventId: null },
         }).catch(() => {});
@@ -245,11 +260,57 @@ export async function POST(
       }
     }
 
+    // ── 6. Upsert freeform (range-based) booking events ───────────────────────
+
+    let createdFreeform = 0;
+    let updatedFreeform = 0;
+
+    for (const booking of freeformBookings) {
+      if (!booking.date || !booking.startTime || !booking.endTime) continue;
+
+      const dateStr = booking.date.toISOString().split("T")[0];
+      const bookingData = {
+        id: booking.id,
+        date: dateStr,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        isOpen: true,
+        patientName: booking.patientName,
+        bookingStatus: booking.status as "PENDING" | "CONFIRMED",
+        patientPhone: booking.patientPhone,
+        patientEmail: booking.patientEmail,
+        patientNotes: booking.notes ?? undefined,
+        finalPrice: Number(booking.finalPrice),
+      };
+
+      try {
+        if (booking.googleEventId) {
+          try {
+            await updateSlotEvent(accessToken, refreshToken, calendarId, booking.googleEventId, bookingData);
+            updatedFreeform++;
+          } catch {
+            // Event may have been manually deleted in GCal — re-create it
+            const eventId = await createSlotEvent(accessToken, refreshToken, calendarId, bookingData);
+            await prisma.booking.update({ where: { id: booking.id }, data: { googleEventId: eventId } });
+            createdFreeform++;
+          }
+        } else {
+          const eventId = await createSlotEvent(accessToken, refreshToken, calendarId, bookingData);
+          await prisma.booking.update({ where: { id: booking.id }, data: { googleEventId: eventId } });
+          createdFreeform++;
+        }
+      } catch (err) {
+        console.error(`[Resync] Freeform booking ${booking.id} failed:`, err);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       deletedOrphans,
       createdSlots,
       updatedSlots,
+      createdFreeform,
+      updatedFreeform,
       createdTasks,
       updatedTasks,
     });

@@ -60,6 +60,11 @@ export async function DELETE(
         where: { doctorId: doctor.id },
         data: { googleEventId: null },
       }),
+      // Remove event IDs from freeform bookings
+      prisma.booking.updateMany({
+        where: { doctorId: doctor.id, googleEventId: { not: null } },
+        data: { googleEventId: null },
+      }),
       // Remove event IDs from tasks
       prisma.task.updateMany({
         where: { doctorId: doctor.id },
