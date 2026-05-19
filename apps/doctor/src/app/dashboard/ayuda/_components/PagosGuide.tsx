@@ -18,7 +18,10 @@ import {
   Bell,
   Settings,
   XCircle,
+  Unlink,
+  Wallet,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { SectionAccordion } from "./SectionAccordion";
 import { WorkflowStep } from "./WorkflowStep";
 
@@ -64,13 +67,26 @@ function FeeRow({
 export function PagosGuide() {
   return (
     <div className="space-y-4">
+      {/* Intro */}
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+        <p className="text-sm text-blue-800 leading-relaxed">
+          <strong>Tienes dos opciones para cobrar a tus pacientes:</strong> Stripe y Mercado Pago.
+          Puedes conectar uno o ambos proveedores. Cada uno tiene sus propias ventajas y metodos de pago.
+          Selecciona un proveedor en la pestana de &ldquo;Mis pagos&rdquo; para configurarlo.
+        </p>
+      </div>
+
+      {/* ═══════════ STRIPE ═══════════ */}
+      <div className="pt-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-purple-500 mb-3 px-1">Stripe</p>
+      </div>
+
       {/* 1. Que es y como funciona */}
       <SectionAccordion
         title="Que es Stripe y como funciona en tu cuenta"
         subtitle="Resumen general del sistema de pagos"
         icon={CreditCard}
-        accentColor="blue"
-        defaultOpen
+        accentColor="purple"
       >
         <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
           <p>
@@ -543,6 +559,246 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
+      {/* ═══════════ MERCADO PAGO ═══════════ */}
+      <div className="pt-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-sky-500 mb-3 px-1">Mercado Pago</p>
+      </div>
+
+      {/* MP-1. Que es y como funciona */}
+      <SectionAccordion
+        title="Que es Mercado Pago y como funciona"
+        subtitle="Cobrar con la plataforma de pagos mas popular de Mexico"
+        icon={Wallet}
+        accentColor="blue"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <p>
+            Mercado Pago es la plataforma de pagos de Mercado Libre, la mas utilizada en
+            Mexico y Latinoamerica. Al conectar tu cuenta, podras generar links de pago
+            que aceptan <strong>tarjetas, transferencias bancarias, OXXO, SPEI y Mercado Credito</strong>.
+          </p>
+          <InfoBox>
+            <strong>tusalud.pro no interviene en tus cobros.</strong> No
+            retenemos dinero, no cobramos comision, y no aparecemos en los
+            cobros. Tu eres el titular de la cuenta de Mercado Pago y
+            recibes el dinero directamente.
+          </InfoBox>
+          <p>El flujo funciona asi:</p>
+          <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600 ml-1">
+            <li>
+              Tu creas un <strong>link de pago</strong> con el monto y descripcion.
+            </li>
+            <li>
+              Compartes el link con tu paciente por WhatsApp, mensaje o como prefieras.
+            </li>
+            <li>
+              El paciente abre el link y elige como pagar: tarjeta, transferencia, OXXO, SPEI
+              o Mercado Credito (meses sin intereses).
+            </li>
+            <li>
+              El link solo puede usarse una vez. Una vez pagado, ya no acepta otro pago.
+            </li>
+            <li>
+              Mercado Pago deposita el dinero en tu cuenta. Puedes retirarlo a tu banco
+              desde la app de Mercado Pago.
+            </li>
+          </ol>
+        </div>
+      </SectionAccordion>
+
+      {/* MP-2. Metodos de pago */}
+      <SectionAccordion
+        title="Metodos de pago en Mercado Pago"
+        subtitle="Que opciones tiene tu paciente al abrir un link"
+        icon={Smartphone}
+        accentColor="blue"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <p>
+            Mercado Pago ofrece mas metodos de pago que Stripe en Mexico, incluyendo
+            transferencia bancaria (SPEI) y Mercado Credito.
+          </p>
+
+          <div className="space-y-2">
+            <PaymentMethodCard
+              icon={CreditCard}
+              title="Tarjeta de credito o debito"
+              description="Visa, Mastercard, American Express. Incluye opcion de meses sin intereses con Mercado Credito."
+              speed="Inmediato"
+              limit="Segun limite de la tarjeta"
+            />
+            <PaymentMethodCard
+              icon={Banknote}
+              title="Transferencia bancaria (SPEI)"
+              description="El paciente paga por transferencia desde su banca en linea. Disponible en todos los bancos de Mexico."
+              speed="Minutos a horas"
+              limit="Sin limite practico"
+            />
+            <PaymentMethodCard
+              icon={Store}
+              title="OXXO (efectivo)"
+              description="El paciente recibe un codigo de barras y paga en cualquier OXXO. Ideal para pacientes sin tarjeta."
+              speed="1-2 dias habiles"
+              limit="Maximo $10,000 MXN"
+            />
+            <PaymentMethodCard
+              icon={Wallet}
+              title="Mercado Credito"
+              description="Meses sin intereses financiado por Mercado Libre. El paciente paga en cuotas, tu recibes el monto completo."
+              speed="Inmediato"
+              limit="Segun linea de credito del paciente"
+            />
+          </div>
+
+          <InfoBox>
+            <strong>Ventaja clave sobre Stripe:</strong> Mercado Pago acepta transferencias
+            bancarias (SPEI) y Mercado Credito (meses sin intereses). Stripe no ofrece
+            estas opciones en Mexico.
+          </InfoBox>
+        </div>
+      </SectionAccordion>
+
+      {/* MP-3. Conectar cuenta */}
+      <SectionAccordion
+        title="Conectar Mercado Pago: paso a paso"
+        subtitle="Como vincular tu cuenta por primera vez"
+        icon={Shield}
+        accentColor="green"
+      >
+        <div className="space-y-1">
+          <WorkflowStep number={1} title="Ir a Pagos" icon={CreditCard}>
+            En el menu lateral, haz clic en <strong>Pagos</strong>. Selecciona
+            <strong> Mercado Pago</strong> para expandir sus opciones.
+          </WorkflowStep>
+
+          <WorkflowStep number={2} title="Conectar con Mercado Pago" icon={ExternalLink}>
+            Haz clic en &ldquo;Conectar con Mercado Pago&rdquo;. Seras redirigido al sitio
+            de Mercado Pago para autorizar la conexion. Si ya tienes cuenta de Mercado Pago,
+            solo necesitas iniciar sesion y autorizar.
+          </WorkflowStep>
+
+          <WorkflowStep number={3} title="Autorizar acceso" icon={Shield}>
+            Mercado Pago te pedira que autorices a tusalud.pro para crear links de pago
+            a tu nombre. Haz clic en <strong>&ldquo;Autorizar&rdquo;</strong>.
+            <ul className="list-disc list-inside mt-1 space-y-0.5 text-xs text-gray-500">
+              <li>No compartimos tus datos bancarios ni tu saldo</li>
+              <li>Solo creamos links de pago cuando tu lo solicitas</li>
+              <li>Puedes revocar el acceso en cualquier momento</li>
+            </ul>
+          </WorkflowStep>
+
+          <WorkflowStep number={4} title="Listo para cobrar" icon={LinkIcon}>
+            Al regresar a tusalud.pro, veras que Mercado Pago esta conectado.
+            Ya puedes crear links de pago inmediatamente.
+          </WorkflowStep>
+        </div>
+
+        <InfoBox>
+          Si no tienes cuenta de Mercado Pago, puedes crear una gratis en{" "}
+          <strong>mercadopago.com.mx</strong>. Necesitaras tu RFC y una cuenta bancaria
+          para recibir retiros.
+        </InfoBox>
+      </SectionAccordion>
+
+      {/* MP-4. Comisiones */}
+      <SectionAccordion
+        title="Comisiones de Mercado Pago"
+        subtitle="Cuanto cobra Mercado Pago por cada pago"
+        icon={DollarSign}
+        accentColor="amber"
+      >
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Comision de Mercado Pago (se descuenta del monto cobrado)
+            </p>
+            <FeeRow
+              label="Tarjeta de credito"
+              value="3.49% + IVA"
+              note="Visa, Mastercard, Amex"
+            />
+            <FeeRow
+              label="Tarjeta de debito"
+              value="2.69% + IVA"
+              note="Generalmente menor que credito"
+            />
+            <FeeRow
+              label="Transferencia / SPEI"
+              value="3.49% + IVA"
+              note="Aunque la transferencia es gratis para el paciente, MP cobra comision"
+            />
+            <FeeRow
+              label="OXXO"
+              value="3.49% + IVA"
+              note="Porcentaje sobre el monto"
+            />
+            <FeeRow
+              label="Mercado Credito (MSI)"
+              value="Variable"
+              note="Depende del plazo. El paciente paga en cuotas, tu recibes el monto completo"
+            />
+          </div>
+
+          <WarningBox>
+            Las tarifas pueden variar segun tu tipo de cuenta y volumen. Consulta{" "}
+            <strong>mercadopago.com.mx/costs</strong> para tarifas actualizadas.
+            Las comisiones incluyen IVA.
+          </WarningBox>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Comision de tusalud.pro
+            </p>
+            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+              <p className="text-sm font-semibold text-green-700">
+                $0 — Sin comision
+              </p>
+              <p className="text-xs text-green-600 mt-0.5">
+                tusalud.pro no cobra ninguna comision por los pagos que recibas.
+                El unico costo es la comision de Mercado Pago.
+              </p>
+            </div>
+          </div>
+        </div>
+      </SectionAccordion>
+
+      {/* MP-5. Desconectar y seguridad */}
+      <SectionAccordion
+        title="Desconectar Mercado Pago"
+        subtitle="Como revocar acceso y que pasa con tus links"
+        icon={Unlink}
+        accentColor="amber"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <p>
+            Puedes desconectar tu cuenta de Mercado Pago en cualquier momento desde
+            la seccion de Pagos. Al desconectar:
+          </p>
+          <ul className="list-disc list-inside text-xs text-gray-500 space-y-0.5 ml-1">
+            <li>Los links de pago pendientes <strong>dejaran de funcionar</strong></li>
+            <li>Los pagos ya completados no se ven afectados</li>
+            <li>Tu cuenta de Mercado Pago sigue existiendo (no se elimina)</li>
+            <li>Puedes reconectar en cualquier momento</li>
+          </ul>
+
+          <InfoBox>
+            Tambien puedes revocar el acceso directamente desde tu cuenta de Mercado Pago,
+            en la seccion de &ldquo;Aplicaciones autorizadas&rdquo;. El efecto es el mismo.
+          </InfoBox>
+
+          <WarningBox>
+            La conexion con Mercado Pago se renueva automaticamente cada 6 meses.
+            Si por alguna razon la renovacion falla, recibiras una notificacion por
+            Telegram para que reconectes tu cuenta manualmente.
+          </WarningBox>
+        </div>
+      </SectionAccordion>
+
+      {/* ═══════════ GENERAL ═══════════ */}
+      <div className="pt-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 px-1">General</p>
+      </div>
+
       {/* 9. Notificaciones por Telegram */}
       <SectionAccordion
         title="Notificaciones por Telegram"
@@ -553,19 +809,33 @@ export function PagosGuide() {
         <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
           <p>
             Si tienes Telegram conectado, recibiras notificaciones automaticas
-            sobre eventos importantes de tus pagos:
+            sobre eventos importantes de tus pagos (tanto de Stripe como de Mercado Pago):
           </p>
 
           <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Stripe y Mercado Pago
+            </p>
             <NotificationRow
               emoji="💰"
               title="Pago recibido"
-              description="Cuando un paciente paga un link de pago (tarjeta o OXXO). Incluye monto y concepto."
+              description="Cuando un paciente paga un link de pago. Incluye monto, metodo de pago y concepto."
             />
+            <NotificationRow
+              emoji="⚠️"
+              title="Contracargo"
+              description="Si un paciente reclama un cargo con su banco. Incluye monto y detalles."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Solo Stripe
+            </p>
             <NotificationRow
               emoji="🚨"
               title="Disputa de pago"
-              description="Si un paciente reclama un cargo con su banco. Incluye monto y razon. Debes responder desde tu panel de Stripe."
+              description="Si un paciente reclama un cargo. Debes responder desde tu panel de Stripe con evidencia."
             />
             <NotificationRow
               emoji="✅"
@@ -575,12 +845,33 @@ export function PagosGuide() {
             <NotificationRow
               emoji="🏦"
               title="Deposito bancario fallido"
-              description="Si Stripe no puede depositar en tu cuenta. Debes actualizar tus datos bancarios desde tu panel de Stripe."
+              description="Si Stripe no puede depositar en tu cuenta. Debes actualizar tus datos bancarios."
             />
             <NotificationRow
               emoji="⚠️"
               title="Alerta de cuenta"
               description="Si tu cuenta de Stripe es restringida, deshabilitada o necesita informacion adicional."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Solo Mercado Pago
+            </p>
+            <NotificationRow
+              emoji="🔄"
+              title="Conexion renovada"
+              description="Tu token de acceso fue renovado automaticamente. No necesitas hacer nada."
+            />
+            <NotificationRow
+              emoji="⚠️"
+              title="Cuenta desconectada"
+              description="Si la renovacion automatica falla o revocas acceso desde MP. Debes reconectar desde Pagos."
+            />
+            <NotificationRow
+              emoji="🚨"
+              title="Alerta de fraude"
+              description="Si Mercado Pago detecta una operacion sospechosa. Revisa tu cuenta de MP."
             />
           </div>
 
@@ -948,6 +1239,76 @@ export function PagosGuide() {
         </div>
       </SectionAccordion>
 
+      {/* Stripe vs MP comparison */}
+      <SectionAccordion
+        title="Stripe vs Mercado Pago: cual elegir?"
+        subtitle="Comparacion rapida para ayudarte a decidir"
+        icon={CreditCard}
+        accentColor="indigo"
+      >
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="text-left px-3 py-2 font-semibold text-gray-700">Caracteristica</th>
+                  <th className="text-left px-3 py-2 font-semibold text-purple-700">Stripe</th>
+                  <th className="text-left px-3 py-2 font-semibold text-sky-700">Mercado Pago</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2 text-gray-600">Tarjetas</td>
+                  <td className="px-3 py-2 text-gray-900">Si</td>
+                  <td className="px-3 py-2 text-gray-900">Si</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-600">OXXO</td>
+                  <td className="px-3 py-2 text-gray-900">Si</td>
+                  <td className="px-3 py-2 text-gray-900">Si</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-600">Transferencia (SPEI)</td>
+                  <td className="px-3 py-2 text-red-600">No</td>
+                  <td className="px-3 py-2 text-green-600 font-medium">Si</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-600">Meses sin intereses</td>
+                  <td className="px-3 py-2 text-red-600">No</td>
+                  <td className="px-3 py-2 text-green-600 font-medium">Si (Mercado Credito)</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-600">Apple Pay / Google Pay</td>
+                  <td className="px-3 py-2 text-green-600 font-medium">Si</td>
+                  <td className="px-3 py-2 text-red-600">No</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-600">Panel de administracion</td>
+                  <td className="px-3 py-2 text-green-600 font-medium">Completo (Express)</td>
+                  <td className="px-3 py-2 text-gray-900">App de MP</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-600">Depositos automaticos</td>
+                  <td className="px-3 py-2 text-green-600 font-medium">Si (2 dias habiles)</td>
+                  <td className="px-3 py-2 text-gray-900">Retiro manual desde app</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-600">Comision tarjeta nacional</td>
+                  <td className="px-3 py-2 text-gray-900">3.6% + $3</td>
+                  <td className="px-3 py-2 text-gray-900">~3.49% + IVA</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <InfoBox>
+            <strong>Puedes conectar ambos proveedores al mismo tiempo.</strong>{" "}
+            Usa Stripe para pacientes que prefieren Apple Pay o depositos automaticos,
+            y Mercado Pago para pacientes que prefieren SPEI o meses sin intereses.
+          </InfoBox>
+        </div>
+      </SectionAccordion>
+
       {/* 14. Preguntas frecuentes */}
       <SectionAccordion
         title="Preguntas frecuentes"
@@ -1006,7 +1367,7 @@ export function PagosGuide() {
           />
           <FAQ
             q="Mis pacientes pueden pagar con transferencia bancaria (SPEI)?"
-            a="No. Stripe no permite transferencias bancarias (SPEI) en links de pago. Tus pacientes pueden pagar con tarjeta de credito/debito, Apple Pay, Google Pay, o en efectivo en OXXO. Si un paciente necesita pagar por transferencia, tendrias que darle tus datos bancarios directamente fuera de la plataforma."
+            a="Con Stripe no. Pero si conectas Mercado Pago, tus pacientes si pueden pagar por transferencia bancaria (SPEI). Es una de las ventajas principales de Mercado Pago."
           />
           <FAQ
             q="Mis pacientes pueden pagar con meses sin intereses?"
@@ -1026,7 +1387,36 @@ export function PagosGuide() {
           />
           <FAQ
             q="Cuanto tarda en llegar el dinero a mi banco?"
-            a="El primer deposito puede tardar ~7 dias. Despues, los depositos son automaticos cada 2 dias habiles. Puedes cambiar la frecuencia desde tu panel de Stripe (diario, semanal o mensual)."
+            a="Con Stripe: el primer deposito puede tardar ~7 dias, despues son automaticos cada 2 dias habiles. Con Mercado Pago: el dinero llega a tu cuenta de MP inmediatamente y puedes retirarlo a tu banco desde la app (tarda 1-2 dias habiles)."
+          />
+
+          {/* MP-specific FAQs */}
+          <div className="border-t border-gray-200 pt-3 mt-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-sky-500 mb-3">Mercado Pago</p>
+          </div>
+          <FAQ
+            q="Necesito una cuenta de Mercado Pago para conectar?"
+            a="Si. Necesitas una cuenta de Mercado Pago verificada (con RFC y cuenta bancaria). Si no tienes una, puedes crearla gratis en mercadopago.com.mx."
+          />
+          <FAQ
+            q="Puedo tener Stripe y Mercado Pago conectados al mismo tiempo?"
+            a="Si. Puedes tener ambos proveedores activos y usar el que prefieras para cada paciente. En la seccion de Pagos puedes expandir cualquiera de los dos."
+          />
+          <FAQ
+            q="Que pasa si mi conexion de Mercado Pago expira?"
+            a="La conexion se renueva automaticamente cada 6 meses. Si la renovacion falla, recibiras una notificacion por Telegram y deberas reconectar desde la seccion de Pagos. Tus links pendientes dejaran de funcionar hasta que reconectes."
+          />
+          <FAQ
+            q="Puedo desconectar Mercado Pago sin afectar Stripe?"
+            a="Si. Cada proveedor es independiente. Desconectar uno no afecta al otro."
+          />
+          <FAQ
+            q="Mis pacientes pueden pagar con meses sin intereses en Mercado Pago?"
+            a="Si, a traves de Mercado Credito. Mercado Pago ofrece financiamiento al paciente. Tu recibes el monto completo de inmediato, y el paciente le paga a Mercado Pago en cuotas."
+          />
+          <FAQ
+            q="Donde veo mis pagos de Mercado Pago?"
+            a="En la seccion de Pagos de tusalud.pro veras tus links de pago y su estado. Para ver tu saldo, retiros y detalles de comisiones, usa la app de Mercado Pago directamente."
           />
         </div>
       </SectionAccordion>
@@ -1034,7 +1424,7 @@ export function PagosGuide() {
   );
 }
 
-function PanelFeature({ icon: Icon, label, description }: { icon: typeof Banknote; label: string; description: string }) {
+function PanelFeature({ icon: Icon, label, description }: { icon: LucideIcon; label: string; description: string }) {
   return (
     <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
       <div className="flex items-center gap-2 mb-0.5">
@@ -1065,7 +1455,7 @@ function PaymentMethodCard({
   speed,
   limit,
 }: {
-  icon: typeof CreditCard;
+  icon: LucideIcon;
   title: string;
   description: string;
   speed: string;
