@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { redirect } from "next/navigation";
@@ -35,7 +35,7 @@ export default function PagosPage() {
   const stripeReturnSuccess = searchParams.get("success") === "true" || searchParams.get("refresh") === "true";
   const mpReturnConnected = searchParams.get("mp") === "connected";
 
-  const handleError = (msg: string) => setError(msg);
+  const handleError = useCallback((msg: string) => setError(msg), []);
 
   const toggleProvider = (provider: Provider) => {
     setExpandedProvider((prev) => (prev === provider ? null : provider));
