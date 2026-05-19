@@ -1,5 +1,6 @@
 // POST /api/mercadopago/preferences — Create a payment preference (payment link)
 // GET  /api/mercadopago/preferences — List doctor's preferences
+// v0.1.2 — payer.email, items.description, statement_descriptor, no back_urls
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
