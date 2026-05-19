@@ -4,6 +4,7 @@ import Link from "next/link";
 import { InlinePatientSearch } from "./InlinePatientSearch";
 import { CreatePatientFromBookingModal } from "./CreatePatientFromBookingModal";
 import { FormularioStatusButton } from "./FormularioStatusButton";
+import { FiscalFormButton } from "./FiscalFormButton";
 import { CompleteBookingModal } from "./CompleteBookingModal";
 import { formatLocalDate, getLocalDateString } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
@@ -29,7 +30,8 @@ interface Props {
   onDeleteFormLink: (bookingId: string) => void;
   onSendEmail: (id: string) => Promise<void>;
   onReschedule: (booking: Booking) => void;
-  onCompleteBooking: (id: string, price: number, formaDePago: string) => void;
+  onCompleteBooking: (id: string, price: number, formaDePago: string) => Promise<{ ledgerEntryId?: number }>;
+  onEmitCfdi?: (params: import("./CompleteBookingModal").CfdiParams) => Promise<{ success: boolean; error?: string }>;
   onUpdatePrice: (id: string, price: number) => Promise<void>;
   getStatusColor: (status: string, endTime?: string, date?: string) => string;
   sortColumn: SortColumn;
@@ -65,6 +67,7 @@ export function BookingsSection({
   onSendEmail,
   onReschedule,
   onCompleteBooking,
+  onEmitCfdi,
   onUpdatePrice,
   getStatusColor,
   sortColumn,
@@ -258,6 +261,7 @@ export function BookingsSection({
                         onSendEmail={onSendEmail}
                         onReschedule={onReschedule}
                         onCompleteBooking={onCompleteBooking}
+                        onEmitCfdi={onEmitCfdi}
                       />
                     </div>
                   );
@@ -360,6 +364,7 @@ export function BookingsSection({
                               onSendEmail={onSendEmail}
                               onReschedule={onReschedule}
                               onCompleteBooking={onCompleteBooking}
+                              onEmitCfdi={onEmitCfdi}
                             />
                           </td>
                         </tr>
@@ -602,6 +607,7 @@ function StatusActions({
   onSendEmail,
   onReschedule,
   onCompleteBooking,
+  onEmitCfdi,
 }: {
   booking: Booking;
   onUpdateStatus: (id: string, status: string) => void;
@@ -611,7 +617,8 @@ function StatusActions({
   onDeleteFormLink: (bookingId: string) => void;
   onSendEmail: (id: string) => Promise<void>;
   onReschedule: (booking: Booking) => void;
-  onCompleteBooking: (id: string, price: number, formaDePago: string) => void;
+  onCompleteBooking: (id: string, price: number, formaDePago: string) => Promise<{ ledgerEntryId?: number }>;
+  onEmitCfdi?: (params: import("./CompleteBookingModal").CfdiParams) => Promise<{ success: boolean; error?: string }>;
 }) {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
@@ -639,9 +646,10 @@ function StatusActions({
           booking={booking}
           onClose={() => setCompleteModalOpen(false)}
           onConfirm={async (price, formaDePago) => {
-            onCompleteBooking(booking.id, price, formaDePago);
-            setCompleteModalOpen(false);
+            const result = await onCompleteBooking(booking.id, price, formaDePago);
+            return result || {};
           }}
+          onEmitCfdi={onEmitCfdi}
         />
       )}
     <div className="flex gap-1 flex-wrap">
@@ -691,6 +699,7 @@ function StatusActions({
             onCreateForm={() => onOpenFormLinkModal(booking)}
             onDeleteForm={() => onDeleteFormLink(booking.id)}
           />
+          <FiscalFormButton booking={booking} />
           {booking.appointmentMode === "TELEMEDICINA" ? (
             <button
               onClick={handleSendEmail}

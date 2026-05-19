@@ -336,9 +336,11 @@ export default function AppointmentsPage() {
           rangesHook.fetchRanges();
         }}
         onCompleteBooking={async (id, price, formaDePago) => {
-          await bookingsHook.completeBooking(id, price, formaDePago);
+          const result = await bookingsHook.completeBooking(id, price, formaDePago);
           rangesHook.fetchRanges();
+          return result;
         }}
+        onEmitCfdi={bookingsHook.emitCfdi}
         onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
         onUpdatePatientLink={bookingsHook.updatePatientLink}

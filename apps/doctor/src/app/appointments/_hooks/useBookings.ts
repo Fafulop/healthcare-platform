@@ -51,7 +51,17 @@ export interface Booking {
   isRescheduled?: boolean;
   extendedBlockMinutes?: number | null;
   patientId?: string | null;
-  patient?: { id: string; firstName: string; lastName: string } | null;
+  patient?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    requiereFactura?: boolean;
+    rfc?: string | null;
+    razonSocial?: string | null;
+    regimenFiscal?: string | null;
+    usoCfdi?: string | null;
+    codigoPostalFiscal?: string | null;
+  } | null;
   formLink?: {
     id: string;
     token: string;
@@ -190,7 +200,7 @@ export function useBookings(doctorId: string | undefined) {
     }
   };
 
-  const completeBooking = async (bookingId: string, price: number, formaDePago: string) => {
+  const completeBooking = async (bookingId: string, price: number, formaDePago: string): Promise<{ ledgerEntryId?: number }> => {
     try {
       // 1. Mark booking as COMPLETED
       const statusRes = await authFetch(
@@ -200,7 +210,7 @@ export function useBookings(doctorId: string | undefined) {
       const statusData = await statusRes.json();
       if (!statusData.success) {
         toast.error(statusData.error || "Error al completar la cita");
-        return;
+        return {};
       }
 
       // 2. Build concept from local booking state
@@ -232,13 +242,16 @@ export function useBookings(doctorId: string | undefined) {
       const ledgerData = await ledgerRes.json();
       if (!ledgerData.data) {
         toast.error("Cita completada, pero hubo un error al crear el movimiento en Flujo de Dinero");
+        return {};
       } else {
         toast.success("Cita completada · ingreso registrado en Flujo de Dinero");
+        return { ledgerEntryId: ledgerData.data.id };
       }
-
-      fetchBookings();
     } catch {
       toast.error("Error al completar la cita");
+      return {};
+    } finally {
+      fetchBookings();
     }
   };
 
@@ -381,6 +394,38 @@ export function useBookings(doctorId: string | undefined) {
     }
   };
 
+  const emitCfdi = async (params: {
+    bookingId: string;
+    receiver: { rfc: string; name: string; cfdiUse: string; fiscalRegime: string; taxZipCode: string };
+    items: Array<{ productCode: string; description: string; quantity: number; unitCode: string; unitPrice: number; subtotal: number; total: number }>;
+    paymentForm: string;
+    paymentMethod: string;
+    ledgerEntryId?: number;
+  }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi`, {
+        method: "POST",
+        body: JSON.stringify({
+          receiver: params.receiver,
+          items: params.items,
+          paymentForm: params.paymentForm,
+          paymentMethod: params.paymentMethod,
+          cfdiType: "I",
+          ...(params.ledgerEntryId ? { ledgerEntryId: params.ledgerEntryId } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (data.data?.Id || data.success) {
+        toast.success("Factura (CFDI) emitida correctamente");
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || "Error al emitir CFDI" };
+      }
+    } catch {
+      return { success: false, error: "Error de conexión al emitir CFDI" };
+    }
+  };
+
   return {
     bookings,
     filteredBookings,
@@ -397,6 +442,7 @@ export function useBookings(doctorId: string | undefined) {
     updatePatientLink,
     updateExtendedBlock,
     completeBooking,
+    emitCfdi,
     updateBookingPrice,
     deleteBooking,
     deleteFormLink,

@@ -1595,6 +1595,16 @@ model Patient {
   // Profile photo (optional)
   photoUrl      String?  @map("photo_url") @db.Text
 
+  // Fiscal / Facturacion (optional, for CFDI emission)
+  requiereFactura       Boolean  @default(false) @map("requiere_factura")
+  rfc                   String?  @map("rfc") @db.VarChar(13)
+  razonSocial           String?  @map("razon_social") @db.VarChar(300)
+  regimenFiscal         String?  @map("regimen_fiscal") @db.VarChar(10)  // SAT catalog code e.g. "612"
+  usoCfdi               String?  @map("uso_cfdi") @db.VarChar(10)       // SAT catalog code e.g. "D01"
+  codigoPostalFiscal    String?  @map("codigo_postal_fiscal") @db.VarChar(10)
+  constanciaFiscalUrl   String?  @map("constancia_fiscal_url") @db.Text
+  constanciaFiscalName  String?  @map("constancia_fiscal_name") @db.VarChar(255)
+
   // Timestamps
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
