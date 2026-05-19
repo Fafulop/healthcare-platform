@@ -50,9 +50,10 @@ export async function POST(request: Request) {
 
     const accessToken = decrypt(doctorData.mpAccessToken);
     const externalReference = `mp-${doctor.id}-${Date.now()}`;
-    const doctorAppUrl = process.env.DOCTOR_APP_URL || '';
 
     // Create preference on MP using seller's access token
+    // NOTE: No back_urls — MP shows its own default completion screen.
+    // back_urls must NEVER point to the doctor app (patients would land on the doctor dashboard).
     const response = await mpFetch('/checkout/preferences', {
       method: 'POST',
       accessToken,
@@ -66,18 +67,8 @@ export async function POST(request: Request) {
             currency_id: 'MXN',
           },
         ],
-        back_urls: {
-          success: `${doctorAppUrl}/dashboard/pagos?mp_payment=success`,
-          failure: `${doctorAppUrl}/dashboard/pagos?mp_payment=failure`,
-          pending: `${doctorAppUrl}/dashboard/pagos?mp_payment=pending`,
-        },
-        auto_return: 'approved',
         notification_url: `${process.env.NEXT_PUBLIC_API_URL || ''}/api/mercadopago/webhook`,
         external_reference: externalReference,
-        payment_methods: {
-          installments: 12,
-          default_installments: 1,
-        },
       },
     });
 
