@@ -4,11 +4,12 @@ import { useState } from "react";
 import { Loader2, Link as LinkIcon } from "lucide-react";
 
 interface CreatePaymentFormProps {
-  onSubmit: (amount: number, description: string) => Promise<void>;
+  onSubmit: (amount: number, description: string, patientEmail?: string) => Promise<void>;
   onCancel: () => void;
   loading: boolean;
   submitLabel?: string;
   hint?: string;
+  showEmailField?: boolean;
 }
 
 export function CreatePaymentForm({
@@ -17,17 +18,20 @@ export function CreatePaymentForm({
   loading,
   submitLabel = "Crear link de pago",
   hint = "Cada link solo puede usarse una vez.",
+  showEmailField = false,
 }: CreatePaymentFormProps) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [patientEmail, setPatientEmail] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = parseFloat(amount);
     if (!parsed || parsed < 10) return;
-    await onSubmit(parsed, description);
+    await onSubmit(parsed, description, patientEmail || undefined);
     setAmount("");
     setDescription("");
+    setPatientEmail("");
   };
 
   return (
@@ -61,6 +65,21 @@ export function CreatePaymentForm({
           maxLength={200}
         />
       </div>
+      {showEmailField && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Email del paciente (opcional)
+          </label>
+          <input
+            type="email"
+            value={patientEmail}
+            onChange={(e) => setPatientEmail(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="paciente@email.com"
+          />
+          <p className="text-xs text-gray-400 mt-1">Mejora la tasa de aprobacion del pago</p>
+        </div>
+      )}
       {hint && <p className="text-xs text-gray-400">{hint}</p>}
       <div className="flex gap-2">
         <button

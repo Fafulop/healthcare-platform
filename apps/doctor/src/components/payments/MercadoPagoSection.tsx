@@ -129,7 +129,7 @@ export function MercadoPagoSection({ onError, returnConnected }: MercadoPagoSect
     }
   };
 
-  const handleCreatePreference = async (amount: number, description: string) => {
+  const handleCreatePreference = async (amount: number, description: string, patientEmail?: string) => {
     try {
       setCreateLoading(true);
       const res = await authFetch(`${API_URL}/api/mercadopago/preferences`, {
@@ -137,6 +137,7 @@ export function MercadoPagoSection({ onError, returnConnected }: MercadoPagoSect
         body: JSON.stringify({
           amount,
           description: description || undefined,
+          patientEmail: patientEmail || undefined,
         }),
       });
       const data = await res.json();
@@ -312,6 +313,7 @@ export function MercadoPagoSection({ onError, returnConnected }: MercadoPagoSect
             onCancel={() => setShowCreateForm(false)}
             loading={createLoading}
             submitLabel="Crear link de pago"
+            showEmailField
           />
         )}
 

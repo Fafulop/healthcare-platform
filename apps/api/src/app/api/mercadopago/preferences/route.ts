@@ -36,8 +36,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const { amount, description: rawDescription } = await request.json();
+    const { amount, description: rawDescription, patientEmail: rawEmail } = await request.json();
     const description = typeof rawDescription === 'string' ? rawDescription.trim() : '';
+    const patientEmail = typeof rawEmail === 'string' ? rawEmail.trim() : '';
+
+    // Validate email format if provided
+    if (patientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientEmail)) {
+      return NextResponse.json(
+        { error: 'Formato de email invalido' },
+        { status: 400 }
+      );
+    }
 
     // Validate amount
     const parsedAmount = parseFloat(amount);
@@ -62,11 +71,16 @@ export async function POST(request: Request) {
           {
             id: externalReference,
             title: description || 'Consulta Medica',
+            description: description || 'Consulta Medica',
             quantity: 1,
             unit_price: parsedAmount,
             currency_id: 'MXN',
           },
         ],
+        ...(patientEmail && {
+          payer: { email: patientEmail },
+        }),
+        statement_descriptor: (doctorData.doctorFullName || 'Consulta Medica').slice(0, 22),
         notification_url: `${process.env.NEXT_PUBLIC_API_URL || ''}/api/mercadopago/webhook`,
         external_reference: externalReference,
       },
