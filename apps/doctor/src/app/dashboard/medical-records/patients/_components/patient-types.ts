@@ -26,5 +26,13 @@ export interface Patient {
   bloodType?: string;
   generalNotes?: string;
   photoUrl?: string;
+  requiereFactura?: boolean;
+  rfc?: string | null;
+  razonSocial?: string | null;
+  regimenFiscal?: string | null;
+  usoCfdi?: string | null;
+  codigoPostalFiscal?: string | null;
+  constanciaFiscalUrl?: string | null;
+  constanciaFiscalName?: string | null;
   encounters: Encounter[];
 }

@@ -29,6 +29,21 @@ const USOS_CFDI = [
   { Value: 'S01', Name: 'Sin efectos fiscales' },
 ];
 
+// SAT compatibility: which uso CFDI values are valid for each régimen fiscal
+// Source: Anexo 20 del SAT — Catálogo de UsoCFDI por RegimenFiscalReceptor
+const REGIMEN_USO_CFDI_VALID: Record<string, string[]> = {
+  '601': ['G03', 'S01'],           // General de Ley PM
+  '603': ['G03', 'S01'],           // PM sin Fines Lucrativos
+  '605': ['D01', 'D02', 'S01'],    // Sueldos y Salarios
+  '606': ['D01', 'D02', 'G03', 'S01'], // Arrendamiento
+  '608': ['D01', 'D02', 'G03', 'S01'], // Demás ingresos
+  '612': ['D01', 'D02', 'G03', 'S01'], // Actividades Empresariales y Profesionales
+  '616': ['S01'],                  // Sin obligaciones fiscales
+  '621': ['D01', 'D02', 'G03', 'S01'], // Incorporación Fiscal
+  '625': ['D01', 'D02', 'G03', 'S01'], // Plataformas Tecnológicas
+  '626': ['G03', 'S01'],           // RESICO
+};
+
 // GET — Validate token and return context for the fiscal form
 export async function GET(request: Request) {
   try {
@@ -105,6 +120,7 @@ export async function GET(request: Request) {
         catalogos: {
           regimenesFiscales: REGIMENES_FISCALES,
           usosCfdi: USOS_CFDI,
+          regimenUsoCfdiValid: REGIMEN_USO_CFDI_VALID,
         },
       },
     });
@@ -162,6 +178,15 @@ export async function POST(request: Request) {
     if (!/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfcClean)) {
       return NextResponse.json(
         { success: false, error: 'El formato del RFC no es válido' },
+        { status: 400 }
+      );
+    }
+
+    // SAT compatibility: validate uso CFDI is valid for the selected régimen fiscal
+    const validUsos = REGIMEN_USO_CFDI_VALID[regimenFiscal];
+    if (validUsos && !validUsos.includes(usoCfdi)) {
+      return NextResponse.json(
+        { success: false, error: `El uso de CFDI "${usoCfdi}" no es válido para el régimen fiscal "${regimenFiscal}". Opciones válidas: ${validUsos.join(', ')}` },
         { status: 400 }
       );
     }

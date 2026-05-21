@@ -61,6 +61,16 @@ function renderFieldValue(field: FieldDefinition, value: any): string {
   return String(value);
 }
 
+const FISCAL_FIELD_LABELS: Record<string, string> = {
+  rfc: 'RFC',
+  razonSocial: 'Razón Social',
+  regimenFiscal: 'Régimen Fiscal',
+  usoCfdi: 'Uso del CFDI',
+  codigoPostalFiscal: 'Código Postal Fiscal',
+  constanciaUrl: 'Constancia de Situación Fiscal',
+  constanciaName: 'Archivo de Constancia',
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function FormularioDetailPage() {
@@ -142,7 +152,7 @@ export default function FormularioDetailPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-gray-900">
-            {formLink.template?.name ?? 'Formulario pre-cita'}
+            {formLink.templateId === 'FISCAL' ? 'Datos Fiscales' : formLink.template?.name ?? 'Formulario pre-cita'}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Enviado por {formLink.patientName}
@@ -161,7 +171,28 @@ export default function FormularioDetailPage() {
               Respuestas del paciente
             </h2>
 
-            {fields.length === 0 ? (
+            {formLink.templateId === 'FISCAL' ? (
+              <div className="space-y-4">
+                {Object.entries(FISCAL_FIELD_LABELS).map(([key, label]) => {
+                  const value = submissionData[key];
+                  if (value === undefined || value === null || value === '') return null;
+                  return (
+                    <div key={key}>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">
+                        {label}
+                      </p>
+                      {key === 'constanciaUrl' ? (
+                        <a href={value} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                          {submissionData.constanciaName || 'Ver constancia'}
+                        </a>
+                      ) : (
+                        <p className="text-sm text-gray-900">{String(value)}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : fields.length === 0 ? (
               <p className="text-sm text-gray-400">Plantilla no disponible — los datos están guardados.</p>
             ) : (
               <div className="space-y-4">

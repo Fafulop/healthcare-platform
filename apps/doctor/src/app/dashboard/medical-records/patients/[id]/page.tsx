@@ -261,6 +261,48 @@ export default function PatientProfilePage() {
             </div>
           </div>
 
+          {/* Fiscal Data */}
+          {patient.requiereFactura && patient.rfc && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-teal-600" />
+                Datos Fiscales
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">RFC</label>
+                  <p className="text-gray-900 font-mono">{patient.rfc}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Razón Social</label>
+                  <p className="text-gray-900">{patient.razonSocial || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Régimen Fiscal</label>
+                  <p className="text-gray-900">{patient.regimenFiscal || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Uso CFDI</label>
+                  <p className="text-gray-900">{patient.usoCfdi || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Código Postal Fiscal</label>
+                  <p className="text-gray-900">{patient.codigoPostalFiscal || '—'}</p>
+                </div>
+                {patient.constanciaFiscalUrl && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Constancia Fiscal</label>
+                    <p>
+                      <a href={patient.constanciaFiscalUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                        {patient.constanciaFiscalName || 'Ver constancia'}
+                      </a>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Emergency Contact */}
           {patient.emergencyContactName && (
             <div className="bg-white rounded-lg shadow p-6">
@@ -368,7 +410,7 @@ export default function PatientProfilePage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
                 <ClipboardList className="w-5 h-5" />
-                Formularios Pre-Cita
+                Formularios
               </h2>
 
             </div>

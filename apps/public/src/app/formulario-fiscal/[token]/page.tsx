@@ -24,6 +24,7 @@ interface FiscalFormPayload {
   catalogos: {
     regimenesFiscales: CatalogItem[];
     usosCfdi: CatalogItem[];
+    regimenUsoCfdiValid: Record<string, string[]>;
   };
 }
 
@@ -336,7 +337,13 @@ export default function FormularioFiscalPage() {
               <select
                 value={regimenFiscal}
                 onChange={(e) => {
-                  setRegimenFiscal(e.target.value);
+                  const newRegimen = e.target.value;
+                  setRegimenFiscal(newRegimen);
+                  // Reset uso CFDI if current selection is not valid for the new régimen
+                  if (newRegimen && usoCfdi) {
+                    const valid = payload!.catalogos.regimenUsoCfdiValid[newRegimen];
+                    if (valid && !valid.includes(usoCfdi)) setUsoCfdi('');
+                  }
                   if (fieldErrors.regimenFiscal) setFieldErrors((p) => { const n = { ...p }; delete n.regimenFiscal; return n; });
                 }}
                 className={inputClass('regimenFiscal')}
@@ -365,14 +372,22 @@ export default function FormularioFiscalPage() {
                 className={inputClass('usoCfdi')}
               >
                 <option value="">Selecciona el uso del CFDI</option>
-                {payload!.catalogos.usosCfdi.map((u) => (
+                {payload!.catalogos.usosCfdi
+                  .filter((u) => {
+                    if (!regimenFiscal) return true; // show all if no régimen selected yet
+                    const valid = payload!.catalogos.regimenUsoCfdiValid[regimenFiscal];
+                    return !valid || valid.includes(u.Value);
+                  })
+                  .map((u) => (
                   <option key={u.Value} value={u.Value}>
                     {u.Value} - {u.Name}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-gray-500">
-                Para consultas médicas, lo más común es <strong>D01 - Honorarios médicos</strong>
+                {!regimenFiscal
+                  ? 'Selecciona primero tu régimen fiscal para ver las opciones disponibles'
+                  : 'Solo se muestran los usos de CFDI válidos para tu régimen fiscal'}
               </p>
               {fieldErrors.usoCfdi && <p className="text-xs text-red-500">{fieldErrors.usoCfdi}</p>}
             </div>

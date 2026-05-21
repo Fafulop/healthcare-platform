@@ -62,7 +62,7 @@ export async function GET(
       const appointmentTime = fl.booking?.slot?.startTime ?? fl.booking?.startTime ?? null;
       return {
         id: fl.id,
-        templateName: templateMap[fl.templateId] ?? null,
+        templateName: fl.templateId === 'FISCAL' ? 'Datos Fiscales' : templateMap[fl.templateId] ?? null,
         submittedAt: fl.submittedAt,
         appointmentDate: appointmentDate ? appointmentDate.toISOString().split('T')[0] : null,
         appointmentTime,
