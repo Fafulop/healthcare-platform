@@ -133,11 +133,11 @@
 - CfdiEmitted → LedgerEntry (via ledgerEntryId, vinculado al usar boton "Facturar")
 - CfdiEmitted → DoctorFiscalProfile
 
-**PROBLEMA:**
+**PROBLEMA (parcialmente resuelto):**
 - No hay vinculo CfdiEmitted → Sale
 - No hay vinculo CfdiEmitted → Booking
-- No hay auto-facturacion (todo es manual via boton "Facturar" en LedgerEntry)
-- El doctor tiene que llenar datos del receptor manualmente cada vez
+- ~~No hay auto-facturacion~~ **RESUELTO** — Toggle en modal de completar cita emite CFDI con datos fiscales del paciente
+- ~~El doctor tiene que llenar datos del receptor manualmente cada vez~~ **RESUELTO** — Pre-llenado automatico desde expediente del paciente
 
 ---
 
@@ -169,16 +169,18 @@
 **Datos clave:**
 - Datos personales, contacto, historial medico
 - Encounters, prescripciones, notas clinicas
-- NO tiene datos financieros
+- **Datos fiscales:** RFC, razon social, regimen fiscal, uso CFDI, CP, constancia fiscal (desde 2026-05-19)
 
 **Conexiones actuales:**
 - Patient → Booking (opcional, via patientId)
-- Patient → AppointmentFormLink
+- Patient → AppointmentFormLink (formulario fiscal con templateId="FISCAL")
+- Patient → CfdiEmitted (indirecto, via datos fiscales usados como receptor del CFDI)
 
-**PROBLEMA:**
+**PROBLEMA (parcialmente resuelto):**
+- ~~No hay RFC/datos fiscales en Patient~~ **RESUELTO** — 8 campos fiscales agregados, formulario publico implementado
 - Patient NO es Client. Son entidades completamente separadas.
-- No hay forma de ver "cuanto ha generado este paciente" o "facturas de este paciente"
-- No hay RFC/datos fiscales en Patient
+- No hay forma de ver "cuanto ha generado este paciente" (historial financiero)
+- Datos fiscales visibles en expediente del paciente (card "Datos Fiscales") **RESUELTO**
 
 ---
 
@@ -190,11 +192,19 @@ Appointment (Booking)
     |--COMPLETED--> LedgerEntry (auto)
     |                    |
     |                    |--"Facturar" (manual)--> CfdiEmitted
+    |                    |--auto (toggle)--> CfdiEmitted (si paciente tiene datos fiscales)
     |
     |--opcional-------> PaymentLink / MpPreference
     |                    (webhook PAID = NO hace nada mas)
     |
-    |--opcional-------> Patient (expediente medico, sin datos financieros)
+    |--opcional-------> Patient (expediente medico + datos fiscales)
+    |                    |
+    |                    |--formulario fiscal--> RFC, razon social, regimen, uso CFDI, CP
+    |                    |--card en expediente--> visualizacion de datos fiscales
+    |
+    |--FiscalFormButton--> AppointmentFormLink (templateId=FISCAL)
+                            |
+                            +--> formulario publico /formulario-fiscal/[token]
 
 Quotation --conversion--> Sale --auto--> LedgerEntry --"Facturar" (manual)--> CfdiEmitted
                             |
@@ -216,8 +226,9 @@ Se crea LedgerEntry pero no Sale. Esto significa que no hay items detallados, no
 ### B3: Patient != Client
 El paciente del expediente medico y el cliente del modulo financiero son entidades separadas. El doctor no puede ver el historial financiero de un paciente.
 
-### B4: Sin auto-facturacion
-Toda emision de CFDI requiere que el doctor vaya a flujo de dinero, encuentre el LedgerEntry, haga click en "Facturar", y llene datos del receptor. Esto deberia ser semi-automatico.
+### ~~B4: Sin auto-facturacion~~ RESUELTO
+~~Toda emision de CFDI requiere que el doctor vaya a flujo de dinero, encuentre el LedgerEntry, haga click en "Facturar", y llene datos del receptor.~~
+**Implementado:** Toggle "Emitir factura (CFDI)" en modal de completar cita. Pre-llena receptor con datos fiscales del paciente. CFDI emitido automaticamente y vinculado a LedgerEntry. Validacion SAT de regimen ↔ uso CFDI incluida.
 
 ### B5: SAT Descarga aislado
 Los CFDIs descargados del SAT no se reconcilian con nada. Los gastos (CFDIs recibidos) no se registran como egresos en el ledger. Los ingresos no se cruzan con CfdiEmitted.

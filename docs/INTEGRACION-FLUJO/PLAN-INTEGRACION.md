@@ -85,19 +85,24 @@ model Sale {
 
 ## FASE 4: Auto-Facturacion
 
-### F4.1 - Facturacion desde Venta/Cita
+### F4.1 - Facturacion desde Venta/Cita (parcialmente implementado)
 **Problema:** B4
-**Cambio:** Agregar boton "Facturar" en:
-- Detalle de Venta (`/dashboard/practice/ventas/[id]`)
-- Detalle de Booking (al completar cita)
-- Pre-llenar TODO: receptor (RFC, nombre del Client/Patient), conceptos (items de la Sale), montos, impuestos
+**Implementado:**
+- ✅ Facturar al completar cita (toggle en modal, auto-emision CFDI con datos del paciente)
+- ✅ Pre-llenado automatico del receptor desde datos fiscales del paciente
+**Pendiente:**
+- Boton "Facturar" en detalle de Venta (`/dashboard/practice/ventas/[id]`)
+- Pre-llenar conceptos desde items de la Sale
 
-### F4.2 - Datos fiscales del paciente
-**Cambio:** Cuando el paciente llena el formulario pre-cita (AppointmentFormLink):
-- Agregar campos opcionales: "Requiere factura? Si/No"
-- Si Si: RFC, Razon Social, Regimen Fiscal, Uso CFDI, Codigo Postal
-- Estos datos se guardan en Patient y/o Client
-- Al completar la cita, si el paciente requiere factura → emitir automaticamente
+### F4.2 - Datos fiscales del paciente ✅ IMPLEMENTADO (2026-05-20)
+**Implementado:**
+- Formulario fiscal publico dedicado (`/formulario-fiscal/[token]`) con campos RFC, razon social, regimen fiscal, uso CFDI, CP, constancia fiscal PDF
+- Boton "Facturacion" en citas genera enlace, copia, WhatsApp
+- Datos se guardan en Patient (8 campos fiscales)
+- Al completar cita: toggle "Emitir factura (CFDI)" pre-llena datos del paciente
+- Validacion SAT: regimen ↔ uso CFDI (dropdown filtrado + validacion servidor)
+- Datos fiscales visibles en expediente del paciente (card dedicada)
+- Vista de formulario fiscal en detalle de formularios del expediente
 
 ### F4.3 - Facturacion en lote
 **Cambio:** En flujo de dinero, seleccionar multiples LedgerEntries → "Facturar seleccionados"
@@ -231,13 +236,16 @@ model Client {
   patient    Patient? @relation(...)
 }
 
-// Datos fiscales en Patient
+// Datos fiscales en Patient ✅ IMPLEMENTADO
 model Patient {
-  rfc            String?
-  regimenFiscal  String?
-  usoCfdi        String?
-  codigoPostal   String?
-  requiereFactura Boolean @default(false)
+  requiereFactura       Boolean @default(false)
+  rfc                   String? @db.VarChar(13)
+  razonSocial           String? @db.VarChar(300)
+  regimenFiscal         String? @db.VarChar(10)
+  usoCfdi               String? @db.VarChar(10)
+  codigoPostalFiscal    String? @db.VarChar(10)
+  constanciaFiscalUrl   String?
+  constanciaFiscalName  String? @db.VarChar(255)
 }
 
 // Sale ↔ Booking

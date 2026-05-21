@@ -68,8 +68,23 @@ Cuando doctor marca COMPLETED:
 - Si datos incompletos: mostrar aviso "Datos fiscales incompletos"
 - Si requiereFactura=false: no mostrar nada (flujo normal)
 
+## Estado: IMPLEMENTADO (2026-05-19, actualizado 2026-05-20)
+
+Todo lo descrito arriba fue implementado. Cambios adicionales post-implementacion:
+
+### Validacion SAT Regimen ↔ Uso CFDI (2026-05-20)
+- El dropdown de Uso CFDI se filtra automaticamente segun el regimen fiscal seleccionado
+- Ejemplo: RESICO (626) solo permite G03 y S01, no D01
+- Validacion duplicada: cliente (dropdown filtrado) + servidor (rechaza con 400)
+- Esto previene rechazos de Facturama por combinaciones invalidas
+
+### Visualizacion en Expediente (2026-05-20)
+- Card "Datos Fiscales" en perfil del paciente muestra RFC, razon social, regimen, uso CFDI, CP, constancia
+- Vista detalle de formulario muestra titulo "Datos Fiscales" y renderiza todos los campos enviados
+- Lista de formularios en expediente muestra "Datos Fiscales" en vez de "Formulario pre-cita"
+
 ## Notas
 - Para pacientes recurrentes, los datos fiscales ya estan guardados. No se envia formulario de nuevo.
 - El formulario fiscal es INDEPENDIENTE del formulario medico pre-cita. Son dos formularios separados.
-- El doctor puede ver/editar datos fiscales del paciente desde el expediente.
-- Uso CFDI mas comun para consultas medicas: D01 (Honorarios medicos, dentales y gastos hospitalarios)
+- El doctor puede ver datos fiscales del paciente desde el expediente (card "Datos Fiscales").
+- Uso CFDI mas comun para consultas medicas: D01 (Honorarios medicos) — solo disponible para regimenes 605, 606, 608, 612, 621, 625. Para RESICO (626) usar G03 o S01.
