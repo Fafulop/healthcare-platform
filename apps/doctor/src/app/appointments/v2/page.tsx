@@ -336,8 +336,9 @@ export default function AppointmentsV2RangePage() {
           rangesHook.fetchRanges();
         }}
         onCompleteBooking={async (id, price, formaDePago) => {
-          await bookingsHook.completeBooking(id, price, formaDePago);
+          const result = await bookingsHook.completeBooking(id, price, formaDePago);
           rangesHook.fetchRanges();
+          return result;
         }}
         onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}

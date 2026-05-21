@@ -379,8 +379,9 @@ export default function AppointmentsV1Page() {
           slotsHook.fetchSlots();
         }}
         onCompleteBooking={async (id, price, formaDePago) => {
-          await bookingsHook.completeBooking(id, price, formaDePago);
+          const result = await bookingsHook.completeBooking(id, price, formaDePago);
           slotsHook.fetchSlots();
+          return result;
         }}
         onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
