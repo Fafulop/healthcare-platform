@@ -42,7 +42,7 @@ export function FiscalFormButton({ booking }: Props) {
         if (res.status === 409) {
           // Patient already has fiscal data
           setState('has-fiscal-data');
-          toast.info(`El paciente ya tiene datos fiscales (RFC: ${json.existingRfc})`);
+          toast.success(`El paciente ya tiene datos fiscales (RFC: ${json.existingRfc})`);
         } else {
           setErrorMsg(json.error || 'Error al crear enlace');
           setState('idle');

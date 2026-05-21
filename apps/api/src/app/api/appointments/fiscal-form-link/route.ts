@@ -10,19 +10,16 @@ const FISCAL_TEMPLATE_ID = 'FISCAL';
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await validateAuthToken(request);
+    const { doctorId } = await validateAuthToken(request);
 
-    const doctor = await prisma.doctor.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    if (!doctor) {
+    if (!doctorId) {
       return NextResponse.json(
         { success: false, error: 'Doctor no encontrado' },
         { status: 404 }
       );
     }
+
+    const doctor = { id: doctorId };
 
     const body = await request.json();
     const { patientId } = body;
