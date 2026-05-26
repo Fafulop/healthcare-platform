@@ -27,9 +27,9 @@ function daysDiff(a: string, b: string): number {
   return Math.abs(Math.round((da.getTime() - db.getTime()) / 86400000));
 }
 
-function amountsMatch(a: number | string, b: number | string): boolean {
-  const na = typeof a === 'string' ? parseFloat(a) : a;
-  const nb = typeof b === 'string' ? parseFloat(b) : b;
+function amountsMatch(a: number | string | { toNumber(): number }, b: number | string | { toNumber(): number }): boolean {
+  const na = typeof a === 'object' && 'toNumber' in a ? a.toNumber() : typeof a === 'string' ? parseFloat(a) : a;
+  const nb = typeof b === 'object' && 'toNumber' in b ? b.toNumber() : typeof b === 'string' ? parseFloat(b) : b;
   return Math.abs(na - nb) < 0.01;
 }
 

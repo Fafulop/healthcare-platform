@@ -120,10 +120,7 @@ export async function POST(request: NextRequest) {
         amount: m.amount,
         movementType: m.movementType,
       })),
-      ledgerEntries.map(e => ({
-        ...e,
-        amount: Number(e.amount),
-      })),
+      ledgerEntries,
     );
 
     // Create statement + movements in a transaction
