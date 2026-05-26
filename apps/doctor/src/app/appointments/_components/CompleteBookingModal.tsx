@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { X, CheckCircle, Loader2, Banknote, CreditCard, FileText } from "lucide-react";
+import { X, CheckCircle, Loader2, Banknote, CreditCard, FileText, Building2, Receipt } from "lucide-react";
 import type { Booking } from "../_hooks/useBookings";
 
 interface Props {
   booking: Booking;
   onClose: () => void;
-  onConfirm: (price: number, formaDePago: "efectivo" | "transferencia") => Promise<{ ledgerEntryId?: number }>;
+  onConfirm: (price: number, formaDePago: string) => Promise<{ ledgerEntryId?: number }>;
   onEmitCfdi?: (params: CfdiParams) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -37,12 +37,23 @@ export interface CfdiParams {
 // Map appointment formaDePago to SAT payment form code
 const FORMA_TO_SAT: Record<string, string> = {
   efectivo: "01",
+  cheque: "02",
   transferencia: "03",
+  tarjeta: "04",
+  deposito: "03",
 };
+
+const FORMAS_DE_PAGO = [
+  { value: "efectivo", label: "Efectivo", icon: Banknote, activeColor: "border-green-500 bg-green-50 text-green-800" },
+  { value: "transferencia", label: "Transferencia", icon: Building2, activeColor: "border-blue-500 bg-blue-50 text-blue-800" },
+  { value: "tarjeta", label: "Tarjeta", icon: CreditCard, activeColor: "border-purple-500 bg-purple-50 text-purple-800" },
+  { value: "cheque", label: "Cheque", icon: Receipt, activeColor: "border-amber-500 bg-amber-50 text-amber-800" },
+  { value: "deposito", label: "Depósito", icon: Building2, activeColor: "border-teal-500 bg-teal-50 text-teal-800" },
+] as const;
 
 export function CompleteBookingModal({ booking, onClose, onConfirm, onEmitCfdi }: Props) {
   const [price, setPrice] = useState(String(Number(booking.finalPrice)));
-  const [formaDePago, setFormaDePago] = useState<"efectivo" | "transferencia">("efectivo");
+  const [formaDePago, setFormaDePago] = useState("efectivo");
   const [submitting, setSubmitting] = useState(false);
   const [emitirFactura, setEmitirFactura] = useState(false);
   const [cfdiStatus, setCfdiStatus] = useState<"idle" | "emitting" | "success" | "error">("idle");
@@ -177,31 +188,26 @@ export function CompleteBookingModal({ booking, onClose, onConfirm, onEmitCfdi }
             <label className="block text-xs font-medium text-gray-500 mb-1.5">
               Forma de pago
             </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setFormaDePago("efectivo")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 border-2 rounded-lg text-sm font-medium transition-all ${
-                  formaDePago === "efectivo"
-                    ? "border-green-500 bg-green-50 text-green-800"
-                    : "border-gray-200 text-gray-600 hover:border-gray-300"
-                }`}
-              >
-                <Banknote className="w-4 h-4" />
-                Efectivo
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormaDePago("transferencia")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 border-2 rounded-lg text-sm font-medium transition-all ${
-                  formaDePago === "transferencia"
-                    ? "border-blue-500 bg-blue-50 text-blue-800"
-                    : "border-gray-200 text-gray-600 hover:border-gray-300"
-                }`}
-              >
-                <CreditCard className="w-4 h-4" />
-                Banco
-              </button>
+            <div className="grid grid-cols-3 gap-2">
+              {FORMAS_DE_PAGO.map((fp) => {
+                const Icon = fp.icon;
+                const isActive = formaDePago === fp.value;
+                return (
+                  <button
+                    key={fp.value}
+                    type="button"
+                    onClick={() => setFormaDePago(fp.value)}
+                    className={`flex flex-col items-center justify-center gap-1 py-2 px-1 border-2 rounded-lg text-xs font-medium transition-all ${
+                      isActive
+                        ? fp.activeColor
+                        : "border-gray-200 text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {fp.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
