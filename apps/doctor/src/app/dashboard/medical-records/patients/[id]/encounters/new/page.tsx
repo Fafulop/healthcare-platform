@@ -11,6 +11,7 @@ import { useNewEncounterPage } from '../_components/useNewEncounterPage';
 export default function NewEncounterPage() {
   const {
     patientId,
+    patientName,
     session,
     sessionStatus,
     doctorProfile,
@@ -61,6 +62,9 @@ export default function NewEncounterPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Nueva Consulta</h1>
+            {patientName && (
+              <p className="text-base font-medium text-gray-700 mt-1">{patientName}</p>
+            )}
             <p className="text-gray-600 mt-1">Registre los detalles de la consulta</p>
           </div>
           <div className="flex items-center gap-2">

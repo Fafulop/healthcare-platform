@@ -51,6 +51,7 @@ export function useNewEncounterPage() {
   });
 
   const [doctorProfile, setDoctorProfile] = useState<PracticeDoctorProfile | null>(null);
+  const [patientName, setPatientName] = useState<string>('');
 
   // Template state
   const [selectedTemplate, setSelectedTemplate] = useState<EncounterTemplate | null>(null);
@@ -122,6 +123,22 @@ export function useNewEncounterPage() {
       });
     }
   }, [session]);
+
+  // Fetch patient name
+  useEffect(() => {
+    fetch(`/api/medical-records/patients/${patientId}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to fetch patient: ${r.status}`);
+        return r.json();
+      })
+      .then((res) => {
+        const p = res?.data;
+        if (p?.firstName) {
+          setPatientName(`${p.firstName} ${p.lastName || ''}`.trim());
+        }
+      })
+      .catch((err) => console.error('Error loading patient name:', err));
+  }, [patientId]);
 
   // Handle modal completion - transition to sidebar with initial data
   const handleModalComplete = useCallback((
@@ -273,6 +290,7 @@ export function useNewEncounterPage() {
     session,
     sessionStatus: status,
     // Data
+    patientName,
     doctorProfile,
     selectedTemplate,
     // Voice
