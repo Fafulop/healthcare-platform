@@ -399,6 +399,22 @@ function CitasIngresosSection({ bookings, patient, patientId, onBookingsChange }
     }
   };
 
+  const handleDownloadFile = async (cfdiId: number, format: 'pdf' | 'xml') => {
+    try {
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${cfdiId}/${format}`);
+      if (!res.ok) throw new Error(`Error al descargar ${format.toUpperCase()}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `factura_${cfdiId}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast.error(err.message || `Error al descargar ${format.toUpperCase()}`);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
@@ -474,22 +490,18 @@ function CitasIngresosSection({ bookings, patient, patientId, onBookingsChange }
                       <div className="flex items-center gap-1.5">
                         {b.cfdi ? (
                           <>
-                            <a
-                              href={`${API_URL}/api/facturacion/cfdi/${b.cfdi.id}/pdf`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              onClick={() => handleDownloadFile(b.cfdi!.id, 'pdf')}
                               className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                             >
                               PDF
-                            </a>
-                            <a
-                              href={`${API_URL}/api/facturacion/cfdi/${b.cfdi.id}/xml`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            </button>
+                            <button
+                              onClick={() => handleDownloadFile(b.cfdi!.id, 'xml')}
                               className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                             >
                               XML
-                            </a>
+                            </button>
                           </>
                         ) : hasFiscalData && b.ledgerEntryId ? (
                           <button
