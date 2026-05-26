@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { usePatientProfile } from '../_components/usePatientProfile';
+import { authFetch } from '@/lib/auth-fetch';
+import { toast } from '@/lib/practice-toast';
 
 interface RecentNote {
   id: string;
@@ -20,6 +22,19 @@ interface PatientFormulario {
   appointmentTime: string | null;
 }
 
+interface BookingCfdi {
+  id: number;
+  uuid: string;
+  folio: string | null;
+  status: string;
+  total: number;
+  rfcReceptor: string;
+  nombreReceptor: string;
+  usoCfdi: string;
+  formaPago: string;
+  issuedAt: string;
+}
+
 interface PatientBooking {
   id: string;
   date: string | null;
@@ -28,8 +43,32 @@ interface PatientBooking {
   serviceName: string | null;
   status: string;
   appointmentMode: string | null;
+  finalPrice: number | null;
   formLinkId?: string | null;
+  // Financial
+  ledgerEntryId: number | null;
+  amount: number | null;
+  formaDePago: string | null;
+  cfdi: BookingCfdi | null;
 }
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
+const FORMA_PAGO_LABEL: Record<string, string> = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  tarjeta: 'Tarjeta',
+  cheque: 'Cheque',
+  deposito: 'Depósito',
+};
+
+const FORMA_TO_SAT: Record<string, string> = {
+  efectivo: '01',
+  transferencia: '03',
+  tarjeta: '04',
+  cheque: '02',
+  deposito: '03',
+};
 
 function BookingStatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -58,6 +97,440 @@ function parseNoteTitle(content: string): string {
   return first || 'Nota vacía';
 }
 
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+}
+
+// SAT catalogs for the fiscal edit modal
+const REGIMENES_FISCALES = [
+  { value: '601', label: '601 - General de Ley PM' },
+  { value: '603', label: '603 - PM sin Fines Lucrativos' },
+  { value: '605', label: '605 - Sueldos y Salarios' },
+  { value: '606', label: '606 - Arrendamiento' },
+  { value: '608', label: '608 - Demás ingresos' },
+  { value: '612', label: '612 - Actividades Empresariales y Profesionales' },
+  { value: '616', label: '616 - Sin obligaciones fiscales' },
+  { value: '621', label: '621 - Incorporación Fiscal' },
+  { value: '625', label: '625 - Plataformas Tecnológicas' },
+  { value: '626', label: '626 - RESICO' },
+];
+
+const USOS_CFDI = [
+  { value: 'D01', label: 'D01 - Honorarios médicos' },
+  { value: 'D02', label: 'D02 - Gastos médicos por incapacidad' },
+  { value: 'G03', label: 'G03 - Gastos en general' },
+  { value: 'S01', label: 'S01 - Sin efectos fiscales' },
+];
+
+const REGIMEN_USO_VALID: Record<string, string[]> = {
+  '601': ['G03', 'S01'],
+  '603': ['G03', 'S01'],
+  '605': ['D01', 'D02', 'S01'],
+  '606': ['D01', 'D02', 'G03', 'S01'],
+  '608': ['D01', 'D02', 'G03', 'S01'],
+  '612': ['D01', 'D02', 'G03', 'S01'],
+  '616': ['S01'],
+  '621': ['D01', 'D02', 'G03', 'S01'],
+  '625': ['D01', 'D02', 'G03', 'S01'],
+  '626': ['G03', 'S01'],
+};
+
+interface DatosFiscalesCardProps {
+  patient: import('../_components/patient-types').Patient;
+  patientId: string;
+  onUpdate: () => void;
+}
+
+function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardProps) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    rfc: patient.rfc || '',
+    razonSocial: patient.razonSocial || '',
+    regimenFiscal: patient.regimenFiscal || '',
+    usoCfdi: patient.usoCfdi || '',
+    codigoPostalFiscal: patient.codigoPostalFiscal || '',
+  });
+
+  const validUsos = form.regimenFiscal ? REGIMEN_USO_VALID[form.regimenFiscal] : null;
+  const filteredUsos = validUsos ? USOS_CFDI.filter(u => validUsos.includes(u.value)) : USOS_CFDI;
+
+  const handleRegimenChange = (val: string) => {
+    setForm(prev => {
+      const newValid = REGIMEN_USO_VALID[val];
+      const usoStillValid = newValid && prev.usoCfdi ? newValid.includes(prev.usoCfdi) : true;
+      return { ...prev, regimenFiscal: val, usoCfdi: usoStillValid ? prev.usoCfdi : '' };
+    });
+  };
+
+  const handleSave = async () => {
+    if (!form.rfc || !form.razonSocial || !form.regimenFiscal || !form.usoCfdi || !form.codigoPostalFiscal) {
+      toast.error('Todos los campos son requeridos');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/medical-records/patients/${patientId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requiereFactura: true,
+          rfc: form.rfc.toUpperCase().trim(),
+          razonSocial: form.razonSocial.trim(),
+          regimenFiscal: form.regimenFiscal,
+          usoCfdi: form.usoCfdi,
+          codigoPostalFiscal: form.codigoPostalFiscal.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Datos fiscales actualizados');
+        setEditing(false);
+        onUpdate();
+      } else {
+        toast.error(data.error || 'Error al actualizar');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent";
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-teal-600" />
+          Datos Fiscales
+        </h2>
+        {!editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+          >
+            <Edit className="w-3.5 h-3.5" />
+            Editar
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">RFC</label>
+              <input
+                value={form.rfc}
+                onChange={e => setForm(p => ({ ...p, rfc: e.target.value.toUpperCase() }))}
+                maxLength={13}
+                className={inputClass}
+                placeholder="XAXX010101000"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Razón Social</label>
+              <input
+                value={form.razonSocial}
+                onChange={e => setForm(p => ({ ...p, razonSocial: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Régimen Fiscal</label>
+              <select
+                value={form.regimenFiscal}
+                onChange={e => handleRegimenChange(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Seleccionar</option>
+                {REGIMENES_FISCALES.map(r => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Uso CFDI</label>
+              <select
+                value={form.usoCfdi}
+                onChange={e => setForm(p => ({ ...p, usoCfdi: e.target.value }))}
+                className={inputClass}
+              >
+                <option value="">Seleccionar</option>
+                {filteredUsos.map(u => (
+                  <option key={u.value} value={u.value}>{u.label}</option>
+                ))}
+              </select>
+              {validUsos && (
+                <p className="text-xs text-gray-400 mt-1">Filtrado por régimen fiscal</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Código Postal Fiscal</label>
+              <input
+                value={form.codigoPostalFiscal}
+                onChange={e => setForm(p => ({ ...p, codigoPostalFiscal: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+                maxLength={5}
+                className={inputClass}
+                placeholder="44100"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="px-4 py-2 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium text-gray-500">RFC</label>
+            <p className="text-gray-900 font-mono">{patient.rfc}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-500">Razón Social</label>
+            <p className="text-gray-900">{patient.razonSocial || '—'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-500">Régimen Fiscal</label>
+            <p className="text-gray-900">{patient.regimenFiscal || '—'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-500">Uso CFDI</label>
+            <p className="text-gray-900">{patient.usoCfdi || '—'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-500">Código Postal Fiscal</label>
+            <p className="text-gray-900">{patient.codigoPostalFiscal || '—'}</p>
+          </div>
+          {patient.constanciaFiscalUrl && (
+            <div>
+              <label className="text-sm font-medium text-gray-500">Constancia Fiscal</label>
+              <p>
+                <a href={patient.constanciaFiscalUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                  {patient.constanciaFiscalName || 'Ver constancia'}
+                </a>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface CitasIngresosSectionProps {
+  bookings: PatientBooking[];
+  patient: import('../_components/patient-types').Patient;
+  patientId: string;
+  onBookingsChange: (bookings: PatientBooking[]) => void;
+}
+
+function CitasIngresosSection({ bookings, patient, patientId, onBookingsChange }: CitasIngresosSectionProps) {
+  const [emittingCfdiFor, setEmittingCfdiFor] = useState<string | null>(null);
+
+  const hasFiscalData = !!(
+    patient.requiereFactura &&
+    patient.rfc &&
+    patient.razonSocial &&
+    patient.regimenFiscal &&
+    patient.usoCfdi &&
+    patient.codigoPostalFiscal
+  );
+
+  const handleEmitCfdi = async (booking: PatientBooking) => {
+    if (!hasFiscalData || !booking.ledgerEntryId || !booking.amount) return;
+    setEmittingCfdiFor(booking.id);
+    try {
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi`, {
+        method: 'POST',
+        body: JSON.stringify({
+          receiver: {
+            rfc: patient.rfc,
+            name: patient.razonSocial,
+            cfdiUse: patient.usoCfdi,
+            fiscalRegime: patient.regimenFiscal,
+            taxZipCode: patient.codigoPostalFiscal,
+          },
+          items: [{
+            productCode: '85121800',
+            description: booking.serviceName || 'Consulta médica',
+            quantity: 1,
+            unitCode: 'E48',
+            unitPrice: booking.amount,
+            subtotal: booking.amount,
+            total: booking.amount,
+          }],
+          paymentForm: FORMA_TO_SAT[booking.formaDePago || 'efectivo'] || '03',
+          paymentMethod: 'PUE',
+          cfdiType: 'I',
+          ledgerEntryId: booking.ledgerEntryId,
+        }),
+      });
+      const data = await res.json();
+      if (data.data?.id) {
+        toast.success('Factura (CFDI) emitida correctamente');
+        // Refresh bookings to show the new CFDI
+        const refreshRes = await fetch(`/api/medical-records/patients/${patientId}/bookings`);
+        const refreshData = await refreshRes.json();
+        if (refreshData.success) onBookingsChange(refreshData.data);
+      } else {
+        toast.error(data.error || 'Error al emitir factura');
+      }
+    } catch {
+      toast.error('Error de conexión al emitir factura');
+    } finally {
+      setEmittingCfdiFor(null);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+        <CalendarDays className="w-5 h-5" />
+        Citas e Ingresos
+      </h2>
+      {bookings.length > 0 ? (
+        <div className="space-y-3">
+          {bookings.map((b) => {
+            const isCompleted = b.status === 'COMPLETED';
+            const isEmitting = emittingCfdiFor === b.id;
+            return (
+              <div key={b.id} className="rounded-lg border border-gray-200 overflow-hidden">
+                {/* Top row: date, service, status */}
+                <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">
+                      {b.date
+                        ? new Date(b.date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : '—'}
+                      {b.startTime && ` · ${b.startTime}`}
+                      {b.endTime && `–${b.endTime}`}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">{b.serviceName || '—'}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {b.formLinkId && (
+                      <Link
+                        href={`/dashboard/medical-records/formularios/${b.formLinkId}`}
+                        className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+                      >
+                        Formulario
+                      </Link>
+                    )}
+                    <BookingStatusPill status={b.status} />
+                  </div>
+                </div>
+
+                {/* Financial row: only for completed bookings with ledger data */}
+                {isCompleted && b.amount != null && (
+                  <div className="px-4 py-3 border-t border-gray-100 space-y-2">
+                    {/* Amount + forma de pago */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-teal-600" />
+                        <span className="text-sm font-semibold text-teal-700">{formatCurrency(b.amount)}</span>
+                        {b.formaDePago && (
+                          <span className="text-xs text-gray-500">· {FORMA_PAGO_LABEL[b.formaDePago] || b.formaDePago}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* CFDI status */}
+                    <div className="flex items-center justify-between">
+                      {b.cfdi ? (
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <span className="text-xs text-green-700 font-medium">
+                            CFDI emitida{b.cfdi.folio ? ` · Folio ${b.cfdi.folio}` : ''}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(b.cfdi.issuedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                          <span className="text-xs text-amber-700 font-medium">Sin factura</span>
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1.5">
+                        {b.cfdi ? (
+                          <>
+                            <a
+                              href={`${API_URL}/api/facturacion/cfdi/${b.cfdi.id}/pdf`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                            >
+                              PDF
+                            </a>
+                            <a
+                              href={`${API_URL}/api/facturacion/cfdi/${b.cfdi.id}/xml`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                            >
+                              XML
+                            </a>
+                          </>
+                        ) : hasFiscalData && b.ledgerEntryId ? (
+                          <button
+                            onClick={() => handleEmitCfdi(b)}
+                            disabled={isEmitting}
+                            className="text-xs px-2.5 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors disabled:opacity-50 flex items-center gap-1"
+                          >
+                            {isEmitting ? (
+                              <><Loader2 className="w-3 h-3 animate-spin" /> Emitiendo...</>
+                            ) : (
+                              <><Receipt className="w-3 h-3" /> Emitir factura</>
+                            )}
+                          </button>
+                        ) : !hasFiscalData && b.ledgerEntryId ? (
+                          <span className="text-xs text-gray-400">Sin datos fiscales</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Completed but no ledger entry (legacy bookings before bookingId link) */}
+                {isCompleted && b.amount == null && (
+                  <div className="px-4 py-2 border-t border-gray-100">
+                    <span className="text-xs text-gray-400">Sin datos financieros registrados</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-6 text-gray-500">
+          <CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm">No hay citas vinculadas a este paciente.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PatientProfilePage() {
   const {
     patientId,
@@ -69,6 +542,7 @@ export default function PatientProfilePage() {
     calculateAge,
     formatDate,
     handleArchive,
+    refreshPatient,
   } = usePatientProfile();
 
   const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
@@ -263,44 +737,7 @@ export default function PatientProfilePage() {
 
           {/* Fiscal Data */}
           {patient.requiereFactura && patient.rfc && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-teal-600" />
-                Datos Fiscales
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">RFC</label>
-                  <p className="text-gray-900 font-mono">{patient.rfc}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Razón Social</label>
-                  <p className="text-gray-900">{patient.razonSocial || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Régimen Fiscal</label>
-                  <p className="text-gray-900">{patient.regimenFiscal || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Uso CFDI</label>
-                  <p className="text-gray-900">{patient.usoCfdi || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Código Postal Fiscal</label>
-                  <p className="text-gray-900">{patient.codigoPostalFiscal || '—'}</p>
-                </div>
-                {patient.constanciaFiscalUrl && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Constancia Fiscal</label>
-                    <p>
-                      <a href={patient.constanciaFiscalUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
-                        {patient.constanciaFiscalName || 'Ver constancia'}
-                      </a>
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+            <DatosFiscalesCard patient={patient} patientId={patient.id} onUpdate={refreshPatient} />
           )}
 
           {/* Emergency Contact */}
@@ -446,49 +883,13 @@ export default function PatientProfilePage() {
             )}
           </div>
 
-          {/* Citas (linked bookings) */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
-              <CalendarDays className="w-5 h-5" />
-              Citas
-            </h2>
-            {patientBookings.length > 0 ? (
-              <div className="space-y-2">
-                {patientBookings.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between px-3 py-2.5 rounded-md border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors">
-                    <div>
-                      <p className="text-sm text-gray-800">
-                        {b.date
-                          ? new Date(b.date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
-                          : '—'}
-                        {b.startTime && ` · ${b.startTime}`}
-                        {b.endTime && `–${b.endTime}`}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {b.serviceName || '—'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      {b.formLinkId && (
-                        <Link
-                          href={`/dashboard/medical-records/formularios/${b.formLinkId}`}
-                          className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
-                        >
-                          Formulario
-                        </Link>
-                      )}
-                      <BookingStatusPill status={b.status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6 text-gray-500">
-                <CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm">No hay citas vinculadas a este paciente.</p>
-              </div>
-            )}
-          </div>
+          {/* Citas e Ingresos */}
+          <CitasIngresosSection
+            bookings={patientBookings}
+            patient={patient}
+            patientId={patient.id}
+            onBookingsChange={setPatientBookings}
+          />
         </div>
 
         {/* Right Column - Quick Info */}

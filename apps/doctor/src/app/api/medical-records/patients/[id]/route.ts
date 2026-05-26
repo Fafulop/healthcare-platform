@@ -164,6 +164,48 @@ export async function PUT(
   }
 }
 
+// PATCH /api/medical-records/patients/:id — partial update (fiscal fields, etc.)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { doctorId } = await requireDoctorAuth(request);
+    const { id: patientId } = await params;
+    const body = await request.json();
+
+    const existingPatient = await prisma.patient.findFirst({
+      where: { id: patientId, doctorId },
+    });
+    if (!existingPatient) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+    }
+
+    // Whitelist of fields that can be patched
+    const allowed = [
+      'requiereFactura', 'rfc', 'razonSocial', 'regimenFiscal',
+      'usoCfdi', 'codigoPostalFiscal', 'constanciaFiscalUrl', 'constanciaFiscalName',
+    ];
+    const data: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (body[key] !== undefined) data[key] = body[key];
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    const patient = await prisma.patient.update({
+      where: { id: patientId },
+      data,
+    });
+
+    return NextResponse.json({ success: true, data: patient });
+  } catch (error) {
+    return handleApiError(error, 'PATCH /api/medical-records/patients/[id]');
+  }
+}
+
 // DELETE /api/medical-records/patients/:id
 export async function DELETE(
   request: NextRequest,

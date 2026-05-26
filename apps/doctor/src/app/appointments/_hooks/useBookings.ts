@@ -236,6 +236,7 @@ export function useBookings(doctorId: string | undefined) {
             transactionDate,
             paymentStatus: "PAID",
             amountPaid: price,
+            bookingId,
           }),
         }
       );

@@ -89,5 +89,6 @@ export function usePatientProfile() {
     formatDate: formatDateLong,
     // Actions
     handleArchive,
+    refreshPatient: fetchPatient,
   };
 }

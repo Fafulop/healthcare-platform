@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
       porRealizar,
       amountPaid,
       paymentStatus,
+      bookingId,
     } = body;
 
     // Validation - required fields
@@ -233,6 +234,7 @@ export async function POST(request: NextRequest) {
         transactionType: txType,
         amountPaid: finalAmountPaid,
         paymentStatus: finalPaymentStatus,
+        ...(bookingId ? { bookingId } : {}),
       },
       include: {
         attachments: true,

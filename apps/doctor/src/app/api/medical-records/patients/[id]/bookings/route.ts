@@ -31,6 +31,7 @@ export async function GET(
         status: true,
         serviceName: true,
         appointmentMode: true,
+        finalPrice: true,
         slot: {
           select: {
             date: true,
@@ -45,6 +46,31 @@ export async function GET(
         formLink: {
           select: { id: true, status: true },
         },
+        // Financial data via LedgerEntry → CfdiEmitted
+        ledgerEntry: {
+          select: {
+            id: true,
+            amount: true,
+            formaDePago: true,
+            cfdisEmitted: {
+              where: { status: 'active' },
+              select: {
+                id: true,
+                uuid: true,
+                folio: true,
+                status: true,
+                total: true,
+                rfcReceptor: true,
+                nombreReceptor: true,
+                usoCfdi: true,
+                formaPago: true,
+                issuedAt: true,
+              },
+              take: 1,
+              orderBy: { issuedAt: 'desc' },
+            },
+          },
+        },
       },
       orderBy: [
         { slot: { date: 'desc' } },
@@ -53,16 +79,38 @@ export async function GET(
       ],
     });
 
-    const data = bookings.map((b) => ({
-      id: b.id,
-      date: (b.slot?.date ?? b.date)?.toISOString().split('T')[0] ?? null,
-      startTime: b.slot?.startTime ?? b.startTime ?? null,
-      endTime: b.slot?.endTime ?? b.endTime ?? null,
-      serviceName: b.serviceName ?? null,
-      status: b.status,
-      appointmentMode: b.appointmentMode ?? null,
-      formLinkId: b.formLink?.status === 'SUBMITTED' ? (b.formLink.id ?? null) : null,
-    }));
+    const data = bookings.map((b) => {
+      const le = b.ledgerEntry;
+      const cfdi = le?.cfdisEmitted?.[0] ?? null;
+      return {
+        id: b.id,
+        date: (b.slot?.date ?? b.date)?.toISOString().split('T')[0] ?? null,
+        startTime: b.slot?.startTime ?? b.startTime ?? null,
+        endTime: b.slot?.endTime ?? b.endTime ?? null,
+        serviceName: b.serviceName ?? null,
+        status: b.status,
+        appointmentMode: b.appointmentMode ?? null,
+        finalPrice: b.finalPrice ? Number(b.finalPrice) : null,
+        formLinkId: b.formLink?.status === 'SUBMITTED' ? (b.formLink.id ?? null) : null,
+        // Financial
+        ledgerEntryId: le?.id ?? null,
+        amount: le ? Number(le.amount) : null,
+        formaDePago: le?.formaDePago ?? null,
+        // CFDI
+        cfdi: cfdi ? {
+          id: cfdi.id,
+          uuid: cfdi.uuid,
+          folio: cfdi.folio,
+          status: cfdi.status,
+          total: Number(cfdi.total),
+          rfcReceptor: cfdi.rfcReceptor,
+          nombreReceptor: cfdi.nombreReceptor,
+          usoCfdi: cfdi.usoCfdi,
+          formaPago: cfdi.formaPago,
+          issuedAt: cfdi.issuedAt.toISOString(),
+        } : null,
+      };
+    });
 
     return NextResponse.json({ success: true, data });
   } catch (error) {

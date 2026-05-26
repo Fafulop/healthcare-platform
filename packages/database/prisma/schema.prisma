@@ -614,6 +614,7 @@ model Booking {
   paymentLink        PaymentLink?
   mpPaymentPreference MpPaymentPreference?
   formLink           AppointmentFormLink?  @relation("BookingFormLink")
+  ledgerEntry        LedgerEntry?          @relation("BookingLedgerEntry")
 
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
@@ -1117,6 +1118,9 @@ model LedgerEntry {
   subarea         String?            @db.VarChar(255)
   porRealizar     Boolean            @default(false) @map("por_realizar")
 
+  // Link to Booking (set when ledger entry is created from completing a booking)
+  bookingId       String?            @unique @map("booking_id")
+
   // Integration with Sales/Purchases
   transactionType String?            @default("N/A") @map("transaction_type") @db.VarChar(20) // "N/A", "COMPRA", "VENTA"
   saleId          Int?               @map("sale_id")
@@ -1137,6 +1141,7 @@ model LedgerEntry {
   updatedAt       DateTime           @updatedAt @map("updated_at")
 
   doctor          Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  booking         Booking?           @relation("BookingLedgerEntry", fields: [bookingId], references: [id], onDelete: SetNull)
   sale            Sale?              @relation("SaleLedgerEntries", fields: [saleId], references: [id], onDelete: SetNull)
   purchase        Purchase?          @relation("PurchaseLedgerEntries", fields: [purchaseId], references: [id], onDelete: SetNull)
   client          Client?            @relation("ClientLedgerEntries", fields: [clientId], references: [id], onDelete: SetNull)
@@ -1148,6 +1153,7 @@ model LedgerEntry {
 
   @@unique([doctorId, internalId])
   @@index([doctorId])
+  @@index([bookingId])
   @@index([doctorId, entryType])
   @@index([doctorId, transactionDate])
   @@index([doctorId, area, subarea])
