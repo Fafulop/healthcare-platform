@@ -142,9 +142,9 @@ export const ourFileRouter = {
   // ============================================================================
 
   bankStatementCsv: f({
-    "text/csv": { maxFileSize: "10MB", maxFileCount: 1 },
-    "text/plain": { maxFileSize: "10MB", maxFileCount: 1 },
-    "application/vnd.ms-excel": { maxFileSize: "10MB", maxFileCount: 1 },
+    "text/csv": { maxFileSize: "16MB", maxFileCount: 1 },
+    "text/plain": { maxFileSize: "16MB", maxFileCount: 1 },
+    "application/vnd.ms-excel": { maxFileSize: "16MB", maxFileCount: 1 },
   }).middleware(authMiddleware).onUploadComplete(async ({ file }) => {
     console.log("Bank statement CSV uploaded:", file.ufsUrl);
     return { uploadedBy: "doctor" };
