@@ -6,12 +6,13 @@ import { getAuthenticatedDoctor } from '@/lib/auth';
 // Actions: confirm_match, ignore, create_entry, update_category, unmatch
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; movId: string } }
+  { params }: { params: Promise<{ id: string; movId: string }> }
 ) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
-    const statementId = parseInt(params.id);
-    const movementId = parseInt(params.movId);
+    const { id, movId } = await params;
+    const statementId = parseInt(id);
+    const movementId = parseInt(movId);
 
     if (isNaN(statementId) || isNaN(movementId)) {
       return NextResponse.json({ error: 'IDs inválidos' }, { status: 400 });

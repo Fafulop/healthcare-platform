@@ -6,11 +6,12 @@ import { getAuthenticatedDoctor } from '@/lib/auth';
 // Get statement detail with all movements
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
-    const statementId = parseInt(params.id);
+    const { id } = await params;
+    const statementId = parseInt(id);
     if (isNaN(statementId)) {
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
     }
@@ -58,11 +59,12 @@ export async function GET(
 // Delete a statement and all its movements (cascade)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
-    const statementId = parseInt(params.id);
+    const { id } = await params;
+    const statementId = parseInt(id);
     if (isNaN(statementId)) {
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
     }
