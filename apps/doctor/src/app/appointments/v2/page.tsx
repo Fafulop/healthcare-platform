@@ -440,6 +440,9 @@ export default function AppointmentsV2RangePage() {
             }
           }
           await onRefresh();
+          // Auto-send email is fire-and-forget on the API; re-fetch after a delay
+          // so confirmationEmailSentAt/meetLink are reflected in the UI
+          setTimeout(() => bookingsHook.fetchBookings(), 5000);
         }}
         rescheduleBooking={rescheduleBooking}
       />

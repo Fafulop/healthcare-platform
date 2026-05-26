@@ -1,4 +1,4 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2, X, Pencil } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2, X, Pencil, ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { InlinePatientSearch } from "./InlinePatientSearch";
@@ -639,6 +639,11 @@ function StatusActions({
     setIsSendingEmail(false);
   };
 
+  const showStatusGroup = booking.status === "PENDING" || booking.status === "CONFIRMED";
+  const showCommsGroup = booking.status === "CONFIRMED";
+  const showDocsGroup = booking.status === "CONFIRMED";
+  const showScheduleGroup = booking.status === "CONFIRMED";
+
   return (
     <>
       {completeModalOpen && (
@@ -652,107 +657,146 @@ function StatusActions({
           onEmitCfdi={onEmitCfdi}
         />
       )}
-    <div className="flex gap-1 flex-wrap">
-      {booking.status === "PENDING" && (
-        <button
-          onClick={() => onUpdateStatus(booking.id, "CONFIRMED")}
-          className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
-        >
-          Confirmar
-        </button>
-      )}
-      {(booking.status === "PENDING" || booking.status === "CONFIRMED") && (
-        <>
-          <button
-            onClick={() => setCompleteModalOpen(true)}
-            className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
-          >
-            Completar
-          </button>
-          <button
-            onClick={() => onUpdateStatus(booking.id, "NO_SHOW")}
-            className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
-          >
-            No asistió
-          </button>
-          <button
-            onClick={() => onUpdateStatus(booking.id, "CANCELLED")}
-            className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
-          >
-            Cancelar
-          </button>
-        </>
-      )}
-      {canReschedule && (
-        <button
-          onClick={() => onReschedule(booking)}
-          className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1"
-        >
-          <CalendarClock className="w-3 h-3" />
-          Reagendar
-        </button>
-      )}
-      {booking.status === "CONFIRMED" && (
-        <>
-          <FormularioStatusButton
-            booking={booking}
-            onCreateForm={() => onOpenFormLinkModal(booking)}
-            onDeleteForm={() => onDeleteFormLink(booking.id)}
-          />
-          <FiscalFormButton booking={booking} />
-          {booking.appointmentMode === "TELEMEDICINA" ? (
+    <div className="flex flex-col gap-2">
+      {/* Group 1: Estado */}
+      {showStatusGroup && (
+        <div>
+          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Estado</span>
+          <div className="flex gap-1 flex-wrap">
+            {booking.status === "PENDING" && (
+              <button
+                onClick={() => onUpdateStatus(booking.id, "CONFIRMED")}
+                className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
+              >
+                Confirmar
+              </button>
+            )}
             <button
-              onClick={handleSendEmail}
-              disabled={isSendingEmail}
-              title={
-                booking.meetLink
-                  ? `Meet creado · ${booking.confirmationEmailSentAt ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Enviar correo con enlace Google Meet al paciente"}`
-                  : "Crear Google Meet y enviar correo al paciente"
-              }
-              className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={() => setCompleteModalOpen(true)}
+              className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 font-medium"
             >
-              {isSendingEmail ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : booking.meetLink ? (
-                <CheckCircle className="w-3 h-3 text-blue-600" />
-              ) : (
-                <Video className="w-3 h-3" />
-              )}
-              {isSendingEmail ? "Enviando..." : booking.meetLink ? "Reenviar Meet" : "Enviar Meet"}
+              Completar
             </button>
-          ) : (
             <button
-              onClick={handleSendEmail}
-              disabled={isSendingEmail}
-              title={
-                booking.confirmationEmailSentAt
-                  ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-                  : "Enviar correo de confirmación al paciente"
-              }
-              className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={() => onUpdateStatus(booking.id, "NO_SHOW")}
+              className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
             >
-              {isSendingEmail ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : booking.confirmationEmailSentAt ? (
-                <CheckCircle className="w-3 h-3 text-teal-600" />
-              ) : (
-                <Send className="w-3 h-3" />
-              )}
-              {isSendingEmail ? "Enviando..." : booking.confirmationEmailSentAt ? "Reenviar" : "Correo"}
+              No asistió
             </button>
-          )}
-        </>
+            <button
+              onClick={() => onUpdateStatus(booking.id, "CANCELLED")}
+              className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
+            >
+              Cancelar
+            </button>
+            {canReschedule && (
+              <button
+                onClick={() => onReschedule(booking)}
+                className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1"
+              >
+                <CalendarClock className="w-3 h-3" />
+                Reagendar
+              </button>
+            )}
+          </div>
+        </div>
       )}
+
+      {/* Group 2: Comunicación */}
+      {showCommsGroup && (
+        <div className="border-t border-gray-100 pt-2">
+          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Comunicación</span>
+          <div className="flex gap-1 flex-wrap">
+            {booking.appointmentMode === "TELEMEDICINA" ? (
+              <button
+                onClick={handleSendEmail}
+                disabled={isSendingEmail}
+                title={
+                  booking.meetLink
+                    ? `Meet creado · ${booking.confirmationEmailSentAt ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Enviar correo con enlace Google Meet al paciente"}`
+                    : "Crear Google Meet y enviar correo al paciente"
+                }
+                className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSendingEmail ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : booking.meetLink ? (
+                  <CheckCircle className="w-3 h-3 text-blue-600" />
+                ) : (
+                  <Video className="w-3 h-3" />
+                )}
+                {isSendingEmail ? "Enviando..." : booking.meetLink ? "Reenviar Meet" : "Enviar Meet"}
+              </button>
+              {booking.meetLink && (
+                <a
+                  href={booking.meetLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 flex items-center gap-1"
+                  title="Abrir Google Meet"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Entrar a Meet
+                </a>
+              )}
+            ) : (
+              <button
+                onClick={handleSendEmail}
+                disabled={isSendingEmail}
+                title={
+                  booking.confirmationEmailSentAt
+                    ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                    : "Enviar correo de confirmación al paciente"
+                }
+                className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSendingEmail ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : booking.confirmationEmailSentAt ? (
+                  <CheckCircle className="w-3 h-3 text-teal-600" />
+                ) : (
+                  <Send className="w-3 h-3" />
+                )}
+                {isSendingEmail ? "Enviando..." : booking.confirmationEmailSentAt ? "Reenviar" : "Correo"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Group 3: Documentos */}
+      {showDocsGroup && (
+        <div className="border-t border-gray-100 pt-2">
+          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Documentos</span>
+          <div className="flex gap-1 flex-wrap">
+            <FormularioStatusButton
+              booking={booking}
+              onCreateForm={() => onOpenFormLinkModal(booking)}
+              onDeleteForm={() => onDeleteFormLink(booking.id)}
+            />
+            <FiscalFormButton booking={booking} />
+          </div>
+        </div>
+      )}
+
+      {/* Group 4: Horario */}
+      {showScheduleGroup && (
+        <div className="border-t border-gray-100 pt-2">
+          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Horario</span>
+          <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
+        </div>
+      )}
+
+      {/* Group 5: Eliminar */}
       {isTerminal && (
-        <button
-          onClick={() => onDeleteBooking(booking.id, booking.patientName)}
-          className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
-        >
-          Eliminar
-        </button>
-      )}
-      {booking.status === "CONFIRMED" && (
-        <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
+        <div>
+          <button
+            onClick={() => onDeleteBooking(booking.id, booking.patientName)}
+            className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
+          >
+            Eliminar
+          </button>
+        </div>
       )}
     </div>
     </>

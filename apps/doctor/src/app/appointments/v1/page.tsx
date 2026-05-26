@@ -517,6 +517,9 @@ export default function AppointmentsV1Page() {
             // Confirmation email is sent automatically by the API (sendBookingConfirmationEmail in .finally())
           }
           await onRefresh();
+          // Auto-send email is fire-and-forget on the API; re-fetch after a delay
+          // so confirmationEmailSentAt/meetLink are reflected in the UI
+          setTimeout(() => bookingsHook.fetchBookings(), 5000);
         }}
         preSelectedSlot={bookPatientPreSlot}
         rescheduleBooking={rescheduleBooking}
