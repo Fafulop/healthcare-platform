@@ -8,6 +8,7 @@ import { LedgerFilters } from './_components/LedgerFilters';
 import { BatchActionBar } from './_components/BatchActionBar';
 import { LedgerTable } from './_components/LedgerTable';
 import { EstadoDeResultados } from './_components/EstadoDeResultados';
+import { CompletenessTab } from './_components/CompletenessTab';
 import { EntryDetailModal } from './_components/EntryDetailModal';
 
 export default function FlujoDeDineroPage() {
@@ -49,18 +50,22 @@ export default function FlujoDeDineroPage() {
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow mb-6 overflow-hidden">
         <div className="border-b border-gray-200">
-          <div className="flex">
-            {(['movimientos', 'estado-resultados'] as const).map((tab) => (
+          <div className="flex overflow-x-auto">
+            {([
+              { key: 'movimientos', label: 'Movimientos' },
+              { key: 'estado-resultados', label: 'Estado de Resultados' },
+              { key: 'completitud', label: 'Completitud' },
+            ] as const).map((tab) => (
               <button
-                key={tab}
-                onClick={() => page.setActiveTab(tab)}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-colors text-sm sm:text-base ${
-                  page.activeTab === tab
+                key={tab.key}
+                onClick={() => page.setActiveTab(tab.key)}
+                className={`px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-colors text-sm sm:text-base whitespace-nowrap ${
+                  page.activeTab === tab.key
                     ? 'text-slate-700 border-b-2 border-slate-500 bg-slate-50'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
-                {tab === 'movimientos' ? 'Movimientos' : 'Estado de Resultados'}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -79,6 +84,8 @@ export default function FlujoDeDineroPage() {
             startDate={page.startDate} onStartDateChange={page.setStartDate}
             endDate={page.endDate} onEndDateChange={page.setEndDate}
             showFilters={page.showFilters} onToggleFilters={() => page.setShowFilters(v => !v)}
+            originFilter={page.originFilter} onOriginChange={page.setOriginFilter}
+            evidenceFilter={page.evidenceFilter} onEvidenceChange={page.setEvidenceFilter}
           />
 
           <BatchActionBar
@@ -141,6 +148,9 @@ export default function FlujoDeDineroPage() {
           onExportPDF={page.handleExportEstadoResultadosPDF}
         />
       )}
+
+      {/* Completitud */}
+      {page.activeTab === 'completitud' && <CompletenessTab />}
 
       {/* Entry Detail Modal */}
       {page.modalEntry && (

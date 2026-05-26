@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { decrypt, mpFetch, verifyWebhookSignature } from '@/lib/mercadopago';
 import { sendTelegramMessage } from '@/lib/telegram';
+import { createPaymentLedgerEntry } from '@/lib/practice-utils';
 
 export async function POST(request: Request) {
   try {
@@ -147,7 +148,7 @@ export async function POST(request: Request) {
     // Find our preference record
     const preference = await prisma.mpPaymentPreference.findFirst({
       where: { externalReference },
-      select: { id: true, status: true, description: true, amount: true },
+      select: { id: true, status: true, description: true, amount: true, doctorId: true, bookingId: true },
     });
 
     if (!preference) {
@@ -182,6 +183,17 @@ export async function POST(request: Request) {
               `${preference.description ? `Descripcion: ${preference.description}` : ''}`
             ).catch(err => console.error('[MP Webhook] Telegram error:', err));
           }
+
+          // Create LedgerEntry for the payment
+          const mpFormaDePago = mapMpPaymentMethod(payment.payment_method_id || payment.payment_type_id);
+          await createPaymentLedgerEntry({
+            doctorId: preference.doctorId,
+            amount: Number(payment.transaction_amount || preference.amount),
+            concept: preference.description || 'Pago recibido via Mercado Pago',
+            bookingId: preference.bookingId,
+            formaDePago: mpFormaDePago,
+            paymentProvider: 'mercadopago',
+          }).catch(err => console.error('[MP Webhook] Error creating LedgerEntry:', err));
         }
         break;
       }
@@ -223,4 +235,19 @@ export async function POST(request: Request) {
     // Return 200 to prevent MP from retrying on our errors
     return NextResponse.json({ received: true });
   }
+}
+
+function mapMpPaymentMethod(method: string | null): string {
+  if (!method) return 'transferencia';
+  const map: Record<string, string> = {
+    credit_card: 'tarjeta',
+    debit_card: 'tarjeta',
+    account_money: 'transferencia',
+    ticket: 'efectivo',
+    bank_transfer: 'transferencia',
+    atm: 'efectivo',
+    digital_currency: 'transferencia',
+    digital_wallet: 'transferencia',
+  };
+  return map[method] || 'transferencia';
 }

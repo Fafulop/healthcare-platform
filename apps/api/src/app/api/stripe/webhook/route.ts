@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { prisma } from '@healthcare/database';
 import { stripe } from '@/lib/stripe';
 import { sendTelegramMessage } from '@/lib/telegram';
+import { createPaymentLedgerEntry } from '@/lib/practice-utils';
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -107,9 +108,10 @@ export async function POST(request: Request) {
               },
             });
 
-            // Notify doctor of payment received
+            // Notify doctor + create LedgerEntry
             if (updated.count > 0) {
               await notifyPaymentReceived(paymentLinkId);
+              await createLedgerFromStripePayment(paymentLinkId, 'tarjeta');
             }
           }
           // For async methods (OXXO), payment_status will be 'unpaid'
@@ -151,6 +153,7 @@ export async function POST(request: Request) {
 
           if (updated.count > 0) {
             await notifyPaymentReceived(paymentLinkId);
+            await createLedgerFromStripePayment(paymentLinkId, 'efectivo');
           }
         }
         break;
@@ -296,6 +299,36 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+/**
+ * Helper: create a LedgerEntry when a Stripe payment is received
+ */
+async function createLedgerFromStripePayment(stripePaymentLinkId: string, formaDePago: string) {
+  try {
+    const link = await prisma.paymentLink.findFirst({
+      where: { stripePaymentLinkId },
+      select: {
+        doctorId: true,
+        amount: true,
+        description: true,
+        bookingId: true,
+      },
+    });
+
+    if (!link) return;
+
+    await createPaymentLedgerEntry({
+      doctorId: link.doctorId,
+      amount: Number(link.amount),
+      concept: link.description || 'Pago recibido via Stripe',
+      bookingId: link.bookingId,
+      formaDePago,
+      paymentProvider: 'stripe',
+    });
+  } catch (err) {
+    console.error('[stripe-webhook] Error creating LedgerEntry:', err);
+  }
 }
 
 /**

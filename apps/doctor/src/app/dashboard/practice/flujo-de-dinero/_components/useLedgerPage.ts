@@ -28,7 +28,7 @@ export function useLedgerPage() {
     pendingIngresos: 0, pendingEgresos: 0, projectedBalance: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'movimientos' | 'estado-resultados'>('movimientos');
+  const [activeTab, setActiveTab] = useState<'movimientos' | 'estado-resultados' | 'completitud'>('movimientos');
   const [searchTerm, setSearchTerm] = useState('');
   const [entryTypeFilter, setEntryTypeFilter] = useState('all');
   const [porRealizarFilter, setPorRealizarFilter] = useState<string>('all');
@@ -55,6 +55,8 @@ export function useLedgerPage() {
   const [editingAmountPaidValue, setEditingAmountPaidValue] = useState<string>('');
   const [updatingAmountPaid, setUpdatingAmountPaid] = useState(false);
 
+  const [originFilter, setOriginFilter] = useState('all');
+  const [evidenceFilter, setEvidenceFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [modalEntry, setModalEntry] = useState<LedgerEntry | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -107,6 +109,11 @@ export function useLedgerPage() {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       if (searchTerm) params.append('search', searchTerm);
+      if (originFilter !== 'all') params.append('origin', originFilter);
+      if (evidenceFilter === 'con_comprobante') params.append('hasComprobante', 'true');
+      if (evidenceFilter === 'sin_comprobante') params.append('hasComprobante', 'false');
+      if (evidenceFilter === 'con_factura') params.append('hasFactura', 'true');
+      if (evidenceFilter === 'sin_factura') params.append('hasFactura', 'false');
 
       const res = await authFetch(`${API_URL}/api/practice-management/ledger?${params}`);
       if (!res.ok) throw new Error('Error al cargar movimientos');
@@ -138,7 +145,7 @@ export function useLedgerPage() {
       fetchBalance();
       fetchAreas();
     }
-  }, [entryTypeFilter, porRealizarFilter, startDate, endDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [entryTypeFilter, porRealizarFilter, startDate, endDate, originFilter, evidenceFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Delete handlers ────────────────────────────────────────────────────────
 
@@ -510,6 +517,8 @@ export function useLedgerPage() {
     startDate, setStartDate,
     endDate, setEndDate,
     showFilters, setShowFilters,
+    originFilter, setOriginFilter,
+    evidenceFilter, setEvidenceFilter,
 
     // Day navigator
     showAllEntries, setShowAllEntries,

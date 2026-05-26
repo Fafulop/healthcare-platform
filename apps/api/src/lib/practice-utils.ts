@@ -83,6 +83,63 @@ export async function generateLedgerInternalId(
   return nextSequence(last?.internalId, prefix);
 }
 
+// ─── Webhook Payment → LedgerEntry ──────────────────────────────────────────
+
+interface PaymentLedgerInput {
+  doctorId: string;
+  amount: number;
+  concept: string;
+  bookingId?: string | null;
+  formaDePago: string;
+  paymentProvider: 'stripe' | 'mercadopago';
+}
+
+/**
+ * Creates a LedgerEntry from a payment webhook (Stripe or MercadoPago).
+ * Idempotent: skips if a LedgerEntry already exists for the bookingId.
+ * Returns the created entry or null if skipped.
+ */
+export async function createPaymentLedgerEntry(
+  input: PaymentLedgerInput
+): Promise<{ id: number; internalId: string } | null> {
+  const { doctorId, amount, concept, bookingId, formaDePago, paymentProvider } = input;
+
+  // Idempotency: if bookingId is set, check if a LedgerEntry already exists
+  if (bookingId) {
+    const existing = await prisma.ledgerEntry.findUnique({
+      where: { bookingId },
+      select: { id: true, internalId: true },
+    });
+    if (existing) return null;
+  }
+
+  const internalId = await generateLedgerInternalId(doctorId, 'ingreso');
+
+  const entry = await prisma.ledgerEntry.create({
+    data: {
+      doctorId,
+      amount,
+      concept: concept.substring(0, 500),
+      entryType: 'ingreso',
+      transactionDate: new Date(),
+      internalId,
+      formaDePago,
+      area: 'Consultas Médicas',
+      subarea: 'Pago en Línea',
+      origin: 'webhook_pago',
+      transactionType: 'N/A',
+      amountPaid: amount,
+      paymentStatus: 'PAID',
+      hasComprobante: true,
+      ...(bookingId ? { bookingId } : {}),
+    },
+    select: { id: true, internalId: true },
+  });
+
+  console.log(`[${paymentProvider}] LedgerEntry ${entry.internalId} created for payment of $${amount}${bookingId ? ` (booking ${bookingId})` : ''}`);
+  return entry;
+}
+
 // ─── Pagination ─────────────────────────────────────────────────────────────
 
 export interface PaginationParams {
