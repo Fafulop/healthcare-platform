@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown, Sparkles, Plus, FileText, File, X } from "lucide-react";
 import Link from "next/link";
 import { VoiceRecordingModal } from "@/components/voice-assistant/VoiceRecordingModal";
 import { VoiceChatSidebar } from "@/components/voice-assistant/chat/VoiceChatSidebar";
@@ -28,8 +28,11 @@ export default function NewFlujoDeDineroPage() {
     sidebarInitialData, clearSidebarInitialData,
     chatPanelOpen, setChatPanelOpen,
     accumulatedEntries,
+    pendingFiles,
     handleChange,
     handleSubmit,
+    handleAddFile,
+    handleRemovePendingFile,
     handleChatEntryUpdates,
     handleChatBatchCreate,
     handleVoiceModalComplete,
@@ -325,6 +328,75 @@ export default function NewFlujoDeDineroPage() {
             />
           </div>
 
+          {/* File Uploads */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Archivos Adjuntos
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 cursor-pointer transition-all">
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => handleAddFile(e, 'attachment')}
+                />
+                <Plus className="w-6 h-6 text-gray-400 mb-1" />
+                <span className="text-xs font-medium text-gray-700">Comprobante</span>
+                <span className="text-[10px] text-gray-500">Ticket, voucher, etc.</span>
+              </label>
+
+              <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => handleAddFile(e, 'factura')}
+                />
+                <FileText className="w-6 h-6 text-gray-400 mb-1" />
+                <span className="text-xs font-medium text-gray-700">Factura PDF</span>
+                <span className="text-[10px] text-gray-500">Archivo PDF</span>
+              </label>
+
+              <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 cursor-pointer transition-all">
+                <input
+                  type="file"
+                  accept=".xml"
+                  className="hidden"
+                  onChange={(e) => handleAddFile(e, 'xml')}
+                />
+                <File className="w-6 h-6 text-gray-400 mb-1" />
+                <span className="text-xs font-medium text-gray-700">Factura XML</span>
+                <span className="text-[10px] text-gray-500">CFDI</span>
+              </label>
+            </div>
+
+            {/* Pending files list */}
+            {pendingFiles.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {pendingFiles.map((pf, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-sm">
+                    <div className="flex items-center gap-2">
+                      {pf.type === 'attachment' && <Plus className="w-4 h-4 text-green-600" />}
+                      {pf.type === 'factura' && <FileText className="w-4 h-4 text-blue-600" />}
+                      {pf.type === 'xml' && <File className="w-4 h-4 text-purple-600" />}
+                      <span className="text-gray-900 truncate max-w-[200px]">{pf.file.name}</span>
+                      <span className="text-xs text-gray-500">
+                        {pf.type === 'attachment' ? 'Comprobante' : pf.type === 'factura' ? 'Factura PDF' : 'Factura XML'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePendingFile(idx)}
+                      className="text-gray-400 hover:text-red-500 p-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Action Buttons */}
           <div className="flex gap-3 pt-2">
             <Link
@@ -341,7 +413,7 @@ export default function NewFlujoDeDineroPage() {
               {submitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Guardando...
+                  {pendingFiles.length > 0 ? 'Guardando y subiendo archivos...' : 'Guardando...'}
                 </>
               ) : (
                 <>

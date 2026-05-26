@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, Save, Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useEditLedgerEntry } from "../../_components/useEditLedgerEntry";
+import { LedgerAttachmentsSection } from "../../_components/LedgerAttachmentsSection";
 
 export default function EditFlujoDeDineroPage() {
   const { status } = useSession({
@@ -20,8 +21,14 @@ export default function EditFlujoDeDineroPage() {
     formData,
     filteredAreas,
     availableSubareas,
+    attachments,
+    facturas,
+    facturasXml,
+    uploading,
+    uploadType,
     handleChange,
     handleSubmit,
+    handleFileUpload,
   } = useEditLedgerEntry();
 
   if (status === "loading" || loading) {
@@ -416,6 +423,18 @@ export default function EditFlujoDeDineroPage() {
           </div>
         </div>
       </form>
+
+      {/* File Uploads */}
+      <div className="mt-3 sm:mt-6">
+        <LedgerAttachmentsSection
+          attachments={attachments}
+          facturas={facturas}
+          facturasXml={facturasXml}
+          uploading={uploading}
+          uploadType={uploadType}
+          onUpload={handleFileUpload}
+        />
+      </div>
     </div>
   );
 }

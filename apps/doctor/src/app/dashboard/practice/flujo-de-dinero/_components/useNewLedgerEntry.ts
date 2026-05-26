@@ -4,6 +4,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { authFetch } from '@/lib/auth-fetch';
+import { uploadFiles } from '@/lib/uploadthing';
+import { toast } from '@/lib/practice-toast';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoiceStructuredData, VoiceLedgerEntryData, VoiceLedgerEntryBatch } from '@/types/voice-assistant';
 import type { LedgerEntryData } from '@/hooks/useLedgerChat';
@@ -58,6 +60,9 @@ export function useNewLedgerEntry() {
 
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [accumulatedEntries, setAccumulatedEntries] = useState<LedgerEntryData[]>([]);
+
+  // Pending file uploads
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; type: 'attachment' | 'factura' | 'xml' }[]>([]);
 
   useEffect(() => {
     if (searchParams.get('chat') === 'true') {
@@ -235,6 +240,57 @@ export function useNewLedgerEntry() {
     }
   };
 
+  const handleAddFile = (e: React.ChangeEvent<HTMLInputElement>, type: 'attachment' | 'factura' | 'xml') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingFiles(prev => [...prev, { file, type }]);
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleRemovePendingFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFilesToEntry = async (entryId: number) => {
+    for (const { file, type } of pendingFiles) {
+      try {
+        let uploadEndpoint: 'ledgerAttachments' | 'ledgerFacturasPdf' | 'ledgerFacturasXml';
+        if (type === 'attachment') uploadEndpoint = 'ledgerAttachments';
+        else if (type === 'factura') uploadEndpoint = 'ledgerFacturasPdf';
+        else uploadEndpoint = 'ledgerFacturasXml';
+
+        const uploadResult = await uploadFiles(uploadEndpoint, { files: [file] });
+        if (!uploadResult || uploadResult.length === 0) continue;
+
+        const uploadedFile = uploadResult[0];
+        const metadata: Record<string, unknown> = {
+          fileUrl: uploadedFile.url,
+          fileName: uploadedFile.name,
+          fileSize: uploadedFile.size,
+          fileType: file.type,
+        };
+
+        if (type === 'xml') {
+          metadata.xmlContent = await file.text();
+        }
+
+        let apiEndpoint = '';
+        if (type === 'attachment') apiEndpoint = `/api/practice-management/ledger/${entryId}/attachments`;
+        if (type === 'factura') apiEndpoint = `/api/practice-management/ledger/${entryId}/facturas`;
+        if (type === 'xml') apiEndpoint = `/api/practice-management/ledger/${entryId}/facturas-xml`;
+
+        await authFetch(`${API_URL}${apiEndpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(metadata),
+        });
+      } catch (err) {
+        console.error(`Error uploading file ${file.name}:`, err);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
@@ -256,6 +312,13 @@ export function useNewLedgerEntry() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al crear movimiento');
       }
+      const result = await response.json();
+
+      // Upload pending files if any
+      if (pendingFiles.length > 0 && result.data?.id) {
+        await uploadFilesToEntry(result.data.id);
+      }
+
       router.push('/dashboard/practice/flujo-de-dinero');
     } catch (err: any) {
       setError(err.message);
@@ -284,8 +347,11 @@ export function useNewLedgerEntry() {
     clearSidebarInitialData: () => setSidebarInitialData(undefined),
     chatPanelOpen, setChatPanelOpen,
     accumulatedEntries,
+    pendingFiles,
     handleChange,
     handleSubmit,
+    handleAddFile,
+    handleRemovePendingFile,
     handleChatEntryUpdates,
     handleChatBatchCreate,
     handleVoiceModalComplete,

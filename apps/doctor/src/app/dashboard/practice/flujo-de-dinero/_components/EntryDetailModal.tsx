@@ -152,10 +152,16 @@ export function EntryDetailModal({ entry, onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-200 bg-white">
+        <div className="px-5 py-3 border-t border-gray-200 bg-white space-y-2">
+          <Link
+            href={`/dashboard/practice/flujo-de-dinero/${entry.id}`}
+            className="block w-full text-center px-4 py-3 bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-800"
+          >
+            Ver detalle completo
+          </Link>
           <Link
             href={`/dashboard/practice/flujo-de-dinero/${entry.id}/edit`}
-            className="block w-full text-center px-4 py-3 bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-800"
+            className="block w-full text-center px-4 py-3 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
           >
             Editar
           </Link>

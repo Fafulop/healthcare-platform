@@ -4,7 +4,10 @@ import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { authFetch } from '@/lib/auth-fetch';
+import { uploadFiles } from '@/lib/uploadthing';
+import { toast } from '@/lib/practice-toast';
 import type { Area, LedgerEntry } from './ledger-types';
+import type { Attachment, Factura, FacturaXml } from './useLedgerDetail';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -34,6 +37,13 @@ export function useEditLedgerEntry() {
   const [error, setError] = useState<string | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
   const [entry, setEntry] = useState<LedgerEntry | null>(null);
+
+  // File upload state
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [facturas, setFacturas] = useState<Factura[]>([]);
+  const [facturasXml, setFacturasXml] = useState<FacturaXml[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadType, setUploadType] = useState<'attachment' | 'factura' | 'xml' | null>(null);
 
   const [formData, setFormData] = useState<EditFormData>({
     entryType: 'ingreso',
@@ -76,6 +86,9 @@ export function useEditLedgerEntry() {
       const result = await response.json();
       const e = result.data;
       setEntry(e);
+      setAttachments(e.attachments || []);
+      setFacturas(e.facturas || []);
+      setFacturasXml(e.facturasXml || []);
 
       const amount = parseFloat(e.amount);
       const amountPaid = parseFloat(e.amountPaid || '0');
@@ -156,6 +169,64 @@ export function useEditLedgerEntry() {
     }
   };
 
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'attachment' | 'factura' | 'xml'
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadType(type);
+    setUploading(true);
+    try {
+      let uploadEndpoint: 'ledgerAttachments' | 'ledgerFacturasPdf' | 'ledgerFacturasXml';
+      if (type === 'attachment') uploadEndpoint = 'ledgerAttachments';
+      else if (type === 'factura') uploadEndpoint = 'ledgerFacturasPdf';
+      else uploadEndpoint = 'ledgerFacturasXml';
+
+      const uploadResult = await uploadFiles(uploadEndpoint, { files: [file] });
+      if (!uploadResult || uploadResult.length === 0) throw new Error('Error al subir archivo');
+
+      const uploadedFile = uploadResult[0];
+      const metadata: Record<string, unknown> = {
+        fileUrl: uploadedFile.url,
+        fileName: uploadedFile.name,
+        fileSize: uploadedFile.size,
+        fileType: file.type,
+      };
+
+      if (type === 'xml') {
+        metadata.xmlContent = await file.text();
+      }
+
+      let apiEndpoint = '';
+      if (type === 'attachment') apiEndpoint = `/api/practice-management/ledger/${entryId}/attachments`;
+      if (type === 'factura') apiEndpoint = `/api/practice-management/ledger/${entryId}/facturas`;
+      if (type === 'xml') apiEndpoint = `/api/practice-management/ledger/${entryId}/facturas-xml`;
+
+      const response = await authFetch(`${API_URL}${apiEndpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(metadata),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al guardar archivo');
+      }
+
+      // Re-fetch to get updated attachments
+      await fetchEntry();
+      toast.success('Archivo subido correctamente');
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast.error(err.message || 'Error al subir archivo');
+    } finally {
+      setUploading(false);
+      setUploadType(null);
+    }
+  };
+
   const filteredAreas = areas.filter(a =>
     formData.entryType === 'ingreso' ? a.type === 'INGRESO' : a.type === 'EGRESO'
   );
@@ -170,7 +241,13 @@ export function useEditLedgerEntry() {
     formData,
     filteredAreas,
     availableSubareas,
+    attachments,
+    facturas,
+    facturasXml,
+    uploading,
+    uploadType,
     handleChange,
     handleSubmit,
+    handleFileUpload,
   };
 }
