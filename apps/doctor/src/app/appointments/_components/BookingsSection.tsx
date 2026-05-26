@@ -708,37 +708,39 @@ function StatusActions({
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Comunicación</span>
           <div className="flex gap-1 flex-wrap">
             {booking.appointmentMode === "TELEMEDICINA" ? (
-              <button
-                onClick={handleSendEmail}
-                disabled={isSendingEmail}
-                title={
-                  booking.meetLink
-                    ? `Meet creado · ${booking.confirmationEmailSentAt ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Enviar correo con enlace Google Meet al paciente"}`
-                    : "Crear Google Meet y enviar correo al paciente"
-                }
-                className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSendingEmail ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : booking.meetLink ? (
-                  <CheckCircle className="w-3 h-3 text-blue-600" />
-                ) : (
-                  <Video className="w-3 h-3" />
-                )}
-                {isSendingEmail ? "Enviando..." : booking.meetLink ? "Reenviar Meet" : "Enviar Meet"}
-              </button>
-              {booking.meetLink && (
-                <a
-                  href={booking.meetLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 flex items-center gap-1"
-                  title="Abrir Google Meet"
+              <>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail}
+                  title={
+                    booking.meetLink
+                      ? `Meet creado · ${booking.confirmationEmailSentAt ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Enviar correo con enlace Google Meet al paciente"}`
+                      : "Crear Google Meet y enviar correo al paciente"
+                  }
+                  className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <ExternalLink className="w-3 h-3" />
-                  Entrar a Meet
-                </a>
-              )}
+                  {isSendingEmail ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : booking.meetLink ? (
+                    <CheckCircle className="w-3 h-3 text-blue-600" />
+                  ) : (
+                    <Video className="w-3 h-3" />
+                  )}
+                  {isSendingEmail ? "Enviando..." : booking.meetLink ? "Reenviar Meet" : "Enviar Meet"}
+                </button>
+                {booking.meetLink && (
+                  <a
+                    href={booking.meetLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 flex items-center gap-1"
+                    title="Abrir Google Meet"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Entrar a Meet
+                  </a>
+                )}
+              </>
             ) : (
               <button
                 onClick={handleSendEmail}
