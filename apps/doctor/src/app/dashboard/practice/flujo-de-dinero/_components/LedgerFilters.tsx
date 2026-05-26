@@ -15,6 +15,10 @@ interface Props {
   onEndDateChange: (v: string) => void;
   showFilters: boolean;
   onToggleFilters: () => void;
+  originFilter: string;
+  onOriginChange: (v: string) => void;
+  evidenceFilter: string;
+  onEvidenceChange: (v: string) => void;
 }
 
 export function LedgerFilters({
@@ -24,8 +28,10 @@ export function LedgerFilters({
   startDate, onStartDateChange,
   endDate, onEndDateChange,
   showFilters, onToggleFilters,
+  originFilter, onOriginChange,
+  evidenceFilter, onEvidenceChange,
 }: Props) {
-  const hasActiveFilters = searchTerm || entryTypeFilter !== 'all' || porRealizarFilter !== 'all' || startDate || endDate;
+  const hasActiveFilters = searchTerm || entryTypeFilter !== 'all' || porRealizarFilter !== 'all' || startDate || endDate || originFilter !== 'all' || evidenceFilter !== 'all';
 
   return (
     <>
@@ -50,7 +56,7 @@ export function LedgerFilters({
           <Filter className="w-5 h-5 text-gray-600" />
           <h3 className="text-lg font-semibold text-gray-900">Filtros</h3>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 sm:gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
             <div className="relative">
@@ -88,6 +94,39 @@ export function LedgerFilters({
               <option value="all">Todos</option>
               <option value="false">Realizados</option>
               <option value="true">Por Realizar</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Origen</label>
+            <select
+              value={originFilter}
+              onChange={(e) => onOriginChange(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-300 focus:border-transparent"
+            >
+              <option value="all">Todos</option>
+              <option value="cita">Cita</option>
+              <option value="manual">Manual</option>
+              <option value="venta">Venta</option>
+              <option value="compra">Compra</option>
+              <option value="sat_recibido">SAT</option>
+              <option value="banco">Banco</option>
+              <option value="webhook_pago">Pago Online</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Evidencia</label>
+            <select
+              value={evidenceFilter}
+              onChange={(e) => onEvidenceChange(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-300 focus:border-transparent"
+            >
+              <option value="all">Todos</option>
+              <option value="con_comprobante">Con comprobante</option>
+              <option value="sin_comprobante">Sin comprobante</option>
+              <option value="con_factura">Con factura</option>
+              <option value="sin_factura">Sin factura</option>
             </select>
           </div>
 

@@ -46,17 +46,23 @@ export async function POST(
       );
     }
 
-    // Create attachment record
-    const attachment = await prisma.ledgerAttachment.create({
-      data: {
-        ledgerEntryId: entryId,
-        fileName,
-        fileUrl,
-        fileSize: fileSize || 0,
-        fileType: fileType || 'application/octet-stream',
-        attachmentType: 'file'
-      }
-    });
+    // Create attachment record and mark entry as having comprobante
+    const [attachment] = await prisma.$transaction([
+      prisma.ledgerAttachment.create({
+        data: {
+          ledgerEntryId: entryId,
+          fileName,
+          fileUrl,
+          fileSize: fileSize || 0,
+          fileType: fileType || 'application/octet-stream',
+          attachmentType: 'file'
+        }
+      }),
+      prisma.ledgerEntry.update({
+        where: { id: entryId },
+        data: { hasComprobante: true },
+      }),
+    ]);
 
     return NextResponse.json({ data: attachment }, { status: 201 });
   } catch (error: any) {

@@ -271,6 +271,10 @@ model Doctor {
   satPagos           SatPago[]
   satAlerts          SatAlert[]
 
+  // Bank Reconciliation
+  bankStatements     BankStatement[]
+  bankCategorizationRules BankCategorizationRule[]
+
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -1136,6 +1140,12 @@ model LedgerEntry {
   fileSize        Int?               @map("file_size")
   fileType        String?            @map("file_type") @db.VarChar(100)
 
+  // Origin tracking & evidence flags
+  origin          String?            @default("manual") @db.VarChar(30) // "cita", "manual", "venta", "sat_recibido", "banco", "webhook_pago"
+  hasComprobante  Boolean            @default(false) @map("has_comprobante")
+  hasFactura      Boolean            @default(false) @map("has_factura")
+  satCfdiUuid     String?            @unique @map("sat_cfdi_uuid") @db.VarChar(100)
+
   // Timestamps
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
@@ -1150,6 +1160,7 @@ model LedgerEntry {
   facturas        LedgerFactura[]
   facturasXml     LedgerFacturaXml[]
   cfdisEmitted    CfdiEmitted[]
+  bankMovement    BankMovement?  @relation("BankMovementLedgerEntry")
 
   @@unique([doctorId, internalId])
   @@index([doctorId])
@@ -1158,6 +1169,8 @@ model LedgerEntry {
   @@index([doctorId, transactionDate])
   @@index([doctorId, area, subarea])
   @@index([doctorId, porRealizar])
+  @@index([doctorId, origin])
+  @@index([satCfdiUuid])
   @@map("ledger_entries")
   @@schema("practice_management")
 }
@@ -1227,6 +1240,99 @@ model LedgerFacturaXml {
   @@index([ledgerEntryId])
   @@index([uuid])
   @@map("ledger_facturas_xml")
+  @@schema("practice_management")
+}
+
+// -----------------------------------------------------------------------------
+// 6b. BANK RECONCILIATION
+// -----------------------------------------------------------------------------
+
+model BankStatement {
+  id               Int       @id @default(autoincrement())
+  doctorId         String    @map("doctor_id")
+
+  fileName         String    @map("file_name") @db.VarChar(255)
+  fileUrl          String    @map("file_url") @db.Text
+  fileType         String    @map("file_type") @db.VarChar(50)
+
+  bankName         String    @map("bank_name") @db.VarChar(100)
+  accountNumber    String    @map("account_number") @db.VarChar(50)
+  periodMonth      Int       @map("period_month")
+  periodYear       Int       @map("period_year")
+
+  totalDeposits    Decimal?  @map("total_deposits") @db.Decimal(12, 2)
+  totalWithdrawals Decimal?  @map("total_withdrawals") @db.Decimal(12, 2)
+  endingBalance    Decimal?  @map("ending_balance") @db.Decimal(12, 2)
+
+  status           String    @default("uploaded") @db.VarChar(20)
+  movementCount    Int       @default(0) @map("movement_count")
+  matchedCount     Int       @default(0) @map("matched_count")
+  newCount         Int       @default(0) @map("new_count")
+
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  doctor           Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  movements        BankMovement[]
+
+  @@unique([doctorId, bankName, accountNumber, periodMonth, periodYear])
+  @@index([doctorId])
+  @@map("bank_statements")
+  @@schema("practice_management")
+}
+
+model BankMovement {
+  id                Int       @id @default(autoincrement())
+  bankStatementId   Int       @map("bank_statement_id")
+
+  transactionDate   DateTime  @map("transaction_date") @db.Date
+  description       String    @db.VarChar(500)
+  reference         String?   @db.VarChar(255)
+  amount            Decimal   @db.Decimal(12, 2)
+  movementType      String    @map("movement_type") @db.VarChar(10)
+  balance           Decimal?  @db.Decimal(12, 2)
+
+  suggestedArea     String?   @map("suggested_area") @db.VarChar(255)
+  suggestedSubarea  String?   @map("suggested_subarea") @db.VarChar(255)
+  suggestedConcept  String?   @map("suggested_concept") @db.VarChar(500)
+
+  matchStatus       String    @default("unmatched") @map("match_status") @db.VarChar(20)
+  matchConfidence   Decimal?  @map("match_confidence") @db.Decimal(3, 2)
+
+  ledgerEntryId     Int?      @unique @map("ledger_entry_id")
+
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  bankStatement     BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
+  ledgerEntry       LedgerEntry?  @relation("BankMovementLedgerEntry", fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  @@index([bankStatementId])
+  @@index([matchStatus])
+  @@map("bank_movements")
+  @@schema("practice_management")
+}
+
+model BankCategorizationRule {
+  id          Int      @id @default(autoincrement())
+  doctorId    String   @map("doctor_id")
+
+  pattern     String   @db.VarChar(255)
+  patternType String   @default("contains") @map("pattern_type") @db.VarChar(20)
+  movementType String  @map("movement_type") @db.VarChar(10)
+
+  entryType   String   @map("entry_type") @db.VarChar(20)
+  area        String   @db.VarChar(255)
+  subarea     String?  @db.VarChar(255)
+  concept     String?  @db.VarChar(500)
+
+  timesUsed   Int      @default(1) @map("times_used")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@map("bank_categorization_rules")
   @@schema("practice_management")
 }
 

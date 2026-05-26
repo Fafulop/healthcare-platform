@@ -269,6 +269,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Mark linked ledger entry as having factura
+    if (ledgerEntryId) {
+      await prisma.ledgerEntry.update({
+        where: { id: ledgerEntryId },
+        data: { hasFactura: true },
+      });
+    }
+
     return NextResponse.json({
       data: cfdiRecord,
       facturama: {

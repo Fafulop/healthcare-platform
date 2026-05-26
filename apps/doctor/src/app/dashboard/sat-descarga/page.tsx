@@ -19,6 +19,8 @@ import {
   FileSpreadsheet,
   Bell,
   X,
+  BookmarkPlus,
+  BookmarkCheck,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -109,7 +111,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "jobs" | "info" | "contable">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "reconciliacion" | "jobs" | "info" | "contable">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -151,6 +153,7 @@ export default function SatDescargaPage() {
         <div className="flex gap-6">
           <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
           <TabBtn active={activeTab === "resumen"} onClick={() => setActiveTab("resumen")} label="Resumen Fiscal" />
+          <TabBtn active={activeTab === "reconciliacion"} onClick={() => setActiveTab("reconciliacion")} label="Reconciliación" />
           <TabBtn active={activeTab === "jobs"} onClick={() => setActiveTab("jobs")} label="Historial de Syncs" />
           <TabBtn active={activeTab === "contable"} onClick={() => setActiveTab("contable")} label="Guía Contable" />
           <TabBtn active={activeTab === "info"} onClick={() => setActiveTab("info")} label="Info" />
@@ -161,6 +164,7 @@ export default function SatDescargaPage() {
         <CfdiList direction={direction} setDirection={setDirection} month={month} />
       )}
       {activeTab === "resumen" && <ResumenFiscal />}
+      {activeTab === "reconciliacion" && <ReconciliacionTab month={month} />}
       {activeTab === "jobs" && <JobsList />}
       {activeTab === "contable" && <ContableTab />}
       {activeTab === "info" && <InfoTab />}
@@ -438,6 +442,44 @@ function CfdiList({
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [montoFilter, setMontoFilter] = useState<string>("");
+  const [registeredMap, setRegisteredMap] = useState<Record<string, number>>({});
+  const [registering, setRegistering] = useState<string | null>(null); // uuid being registered
+
+  // Check which CFDIs are already registered as LedgerEntries
+  const checkRegistered = useCallback(async (uuids: string[]) => {
+    if (uuids.length === 0) return;
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/register-to-ledger?uuids=${uuids.join(",")}`);
+      if (res.ok) {
+        const { data: map } = await res.json();
+        setRegisteredMap(prev => ({ ...prev, ...map }));
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  const registerCfdi = async (uuid: string) => {
+    setRegistering(uuid);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/register-to-ledger`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uuids: [uuid] }),
+      });
+      if (res.ok) {
+        const result = await res.json();
+        if (result.data?.entries?.[0]) {
+          setRegisteredMap(prev => ({ ...prev, [uuid]: result.data.entries[0].ledgerEntryId }));
+        }
+      } else {
+        const err = await res.json();
+        alert(err.error || "Error al registrar");
+      }
+    } catch {
+      alert("Error de conexión");
+    } finally {
+      setRegistering(null);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -460,6 +502,14 @@ function CfdiList({
   }, [direction, month, page, statusFilter, sortOrder]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // When data loads, check which are registered
+  useEffect(() => {
+    if (data?.data) {
+      const uuids = data.data.map(c => c.uuid);
+      checkRegistered(uuids);
+    }
+  }, [data, checkRegistered]);
 
   const items = data?.data || [];
   const pagination = data?.pagination;
@@ -614,11 +664,18 @@ function CfdiList({
                       ]}
                     />
                   </th>
+                  <th className="pb-2 font-medium text-center text-xs text-gray-500">Registro</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredItems.map(item => (
-                  <CfdiRow key={item.id} item={item} />
+                  <CfdiRow
+                    key={item.id}
+                    item={item}
+                    isRegistered={!!registeredMap[item.uuid]}
+                    registering={registering === item.uuid}
+                    onRegister={registerCfdi}
+                  />
                 ))}
               </tbody>
             </table>
@@ -725,7 +782,12 @@ function ColumnFilter({
 // CFDI Row
 // ---------------------------------------------------------------------------
 
-function CfdiRow({ item }: { item: CfdiMetadata }) {
+function CfdiRow({ item, isRegistered, registering, onRegister }: {
+  item: CfdiMetadata;
+  isRegistered: boolean;
+  registering: boolean;
+  onRegister: (uuid: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [xmlDetail, setXmlDetail] = useState<CfdiDetailData | null>(null);
   const [xmlLoading, setXmlLoading] = useState(false);
@@ -804,10 +866,33 @@ function CfdiRow({ item }: { item: CfdiMetadata }) {
             <span className="text-xs text-red-500 font-medium">Cancelado</span>
           )}
         </td>
+        <td className="py-2.5 text-center">
+          {isRegistered ? (
+            <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+              <BookmarkCheck className="w-3.5 h-3.5" />
+              Registrado
+            </span>
+          ) : item.satStatus === "Vigente" ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRegister(item.uuid); }}
+              disabled={registering}
+              className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-2 py-1 rounded transition-colors disabled:opacity-50"
+            >
+              {registering ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <BookmarkPlus className="w-3.5 h-3.5" />
+              )}
+              Registrar
+            </button>
+          ) : (
+            <span className="text-xs text-gray-400">—</span>
+          )}
+        </td>
       </tr>
       {expanded && (
         <tr className="border-b border-gray-100 bg-gray-50/50">
-          <td colSpan={6} className="px-4 py-3">
+          <td colSpan={7} className="px-4 py-3">
             {/* Metadata section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-2 text-xs">
               <DetailItem label="UUID (Folio Fiscal)" value={item.uuid} mono />
@@ -2312,6 +2397,168 @@ function InfoTab() {
           </ul>
         </div>
       </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reconciliation Tab
+// ---------------------------------------------------------------------------
+
+interface ReconciliationData {
+  matched: any[];
+  missingFromSat: any[];
+  cancelledInSat: any[];
+  onlyInSat: any[];
+}
+
+interface ReconciliationSummary {
+  totalEmitted: number;
+  totalInSat: number;
+  matched: number;
+  missingFromSat: number;
+  cancelledInSat: number;
+  onlyInSat: number;
+  hasAlerts: boolean;
+}
+
+function ReconciliacionTab({ month }: { month: string }) {
+  const [data, setData] = useState<ReconciliationData | null>(null);
+  const [summary, setSummary] = useState<ReconciliationSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<"matched" | "missing" | "cancelled" | "onlyInSat">("matched");
+
+  const fetchReconciliation = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (month) params.set("month", month);
+      const res = await authFetch(`${API_URL}/api/sat-descarga/reconciliation?${params}`);
+      if (res.ok) {
+        const result = await res.json();
+        setData(result.data);
+        setSummary(result.summary);
+      }
+    } catch (err) {
+      console.error("Error fetching reconciliation:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [month]);
+
+  useEffect(() => { fetchReconciliation(); }, [fetchReconciliation]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  if (!data || !summary) {
+    return <div className="text-center py-12 text-gray-500">No hay datos de reconciliación.</div>;
+  }
+
+  const fmt = (n: any) => n !== null && n !== undefined
+    ? `$${Number(n).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+    : "—";
+
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+
+  const currentItems = view === "matched" ? data.matched
+    : view === "missing" ? data.missingFromSat
+    : view === "cancelled" ? data.cancelledInSat
+    : data.onlyInSat;
+
+  return (
+    <div>
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <button onClick={() => setView("matched")} className={`rounded-lg border p-3 text-left transition-colors ${view === "matched" ? "border-green-400 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+          <p className="text-xs text-gray-500">Coinciden</p>
+          <p className="text-xl font-bold text-green-700">{summary.matched}</p>
+        </button>
+        <button onClick={() => setView("missing")} className={`rounded-lg border p-3 text-left transition-colors ${view === "missing" ? "border-yellow-400 bg-yellow-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+          <p className="text-xs text-gray-500">No en SAT</p>
+          <p className="text-xl font-bold text-yellow-700">{summary.missingFromSat}</p>
+        </button>
+        <button onClick={() => setView("cancelled")} className={`rounded-lg border p-3 text-left transition-colors ${view === "cancelled" ? "border-red-400 bg-red-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+          <p className="text-xs text-gray-500">Cancelados SAT</p>
+          <p className="text-xl font-bold text-red-700">{summary.cancelledInSat}</p>
+          {summary.hasAlerts && <p className="text-[10px] text-red-500 mt-0.5">Requiere atención</p>}
+        </button>
+        <button onClick={() => setView("onlyInSat")} className={`rounded-lg border p-3 text-left transition-colors ${view === "onlyInSat" ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+          <p className="text-xs text-gray-500">Solo en SAT</p>
+          <p className="text-xl font-bold text-purple-700">{summary.onlyInSat}</p>
+        </button>
+      </div>
+
+      {/* Table */}
+      {currentItems.length === 0 ? (
+        <div className="text-center py-8 text-gray-400 text-sm">
+          No hay CFDIs en esta categoría
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-left text-gray-500 text-xs">
+                <th className="pb-2 pr-4 font-medium">Fecha</th>
+                <th className="pb-2 pr-4 font-medium">Receptor</th>
+                <th className="pb-2 pr-4 font-medium text-right">Monto</th>
+                <th className="pb-2 pr-4 font-medium">Folio</th>
+                <th className="pb-2 pr-4 font-medium">UUID</th>
+                {view === "cancelled" && <th className="pb-2 font-medium">Alerta</th>}
+                {view === "onlyInSat" && <th className="pb-2 font-medium">Status SAT</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {currentItems.map((item: any, idx: number) => (
+                <tr key={item.uuid || idx} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="py-2 pr-4 whitespace-nowrap text-xs">{fmtDate(item.issuedAt)}</td>
+                  <td className="py-2 pr-4">
+                    <div className="text-xs font-medium text-gray-900 truncate max-w-[180px]">
+                      {item.receptor || item.receiverName || "—"}
+                    </div>
+                    {(item.rfcReceptor || item.receiverRfc) && (
+                      <div className="text-[10px] text-gray-400">{item.rfcReceptor || item.receiverRfc}</div>
+                    )}
+                  </td>
+                  <td className="py-2 pr-4 text-right font-mono text-xs whitespace-nowrap">
+                    {fmt(item.total || item.monto)}
+                  </td>
+                  <td className="py-2 pr-4 text-xs text-gray-600">
+                    {item.serie && item.folio ? `${item.serie}-${item.folio}` : item.folio || "—"}
+                  </td>
+                  <td className="py-2 pr-4 text-[10px] text-gray-400 font-mono truncate max-w-[120px]" title={item.uuid}>
+                    {item.uuid?.substring(0, 8)}...
+                  </td>
+                  {view === "cancelled" && (
+                    <td className="py-2 text-xs">
+                      {item.alert ? (
+                        <span className="text-red-600 font-medium flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {item.alert}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">OK — cancelado en ambos</span>
+                      )}
+                    </td>
+                  )}
+                  {view === "onlyInSat" && (
+                    <td className="py-2 text-xs">
+                      <span className={item.satStatus === "Vigente" ? "text-green-600" : "text-red-500"}>
+                        {item.satStatus}
+                      </span>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

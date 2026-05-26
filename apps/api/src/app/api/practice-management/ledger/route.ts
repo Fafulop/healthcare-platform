@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
     const porRealizar = searchParams.get('porRealizar');
     const bankAccount = searchParams.get('bankAccount');
     const search = searchParams.get('search');
+    const origin = searchParams.get('origin');
+    const hasComprobante = searchParams.get('hasComprobante');
+    const hasFactura = searchParams.get('hasFactura');
 
     const where: any = { doctorId: doctor.id };
 
@@ -56,6 +59,17 @@ export async function GET(request: NextRequest) {
     if (bankAccount) {
       where.bankAccount = bankAccount;
     }
+
+    // Filter by origin
+    if (origin) {
+      where.origin = origin;
+    }
+
+    // Filter by evidence flags
+    if (hasComprobante === 'true') where.hasComprobante = true;
+    if (hasComprobante === 'false') where.hasComprobante = false;
+    if (hasFactura === 'true') where.hasFactura = true;
+    if (hasFactura === 'false') where.hasFactura = false;
 
     // Search across concept and internal ID
     if (search) {
@@ -125,6 +139,7 @@ export async function POST(request: NextRequest) {
       amountPaid,
       paymentStatus,
       bookingId,
+      origin,
     } = body;
 
     // Validation - required fields
@@ -234,6 +249,7 @@ export async function POST(request: NextRequest) {
         transactionType: txType,
         amountPaid: finalAmountPaid,
         paymentStatus: finalPaymentStatus,
+        origin: origin || 'manual',
         ...(bookingId ? { bookingId } : {}),
       },
       include: {

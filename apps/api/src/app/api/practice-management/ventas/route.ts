@@ -177,6 +177,7 @@ export async function POST(request: NextRequest) {
               paymentStatus: calculatePaymentStatus(paidAmount, total),
               amountPaid: paidAmount,
               formaDePago: formaDePago || 'transferencia',
+              origin: 'venta',
             },
           });
 

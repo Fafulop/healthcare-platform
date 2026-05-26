@@ -113,6 +113,7 @@ export async function POST(
               paymentStatus: 'PENDING',
               amountPaid: 0,
               formaDePago: 'transferencia',
+              origin: 'venta',
             },
           });
 

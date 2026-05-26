@@ -46,22 +46,28 @@ export async function POST(
       );
     }
 
-    // Create factura record
-    const factura = await prisma.ledgerFactura.create({
-      data: {
-        ledgerEntryId: entryId,
-        fileName,
-        fileUrl,
-        fileSize: fileSize || 0,
-        fileType: fileType || 'application/pdf',
-        folio: folio || null,
-        uuid: uuid || null,
-        rfcEmisor: rfcEmisor || null,
-        rfcReceptor: rfcReceptor || null,
-        total: total ? parseFloat(total) : null,
-        notes: notes || null
-      }
-    });
+    // Create factura record and mark entry as having factura
+    const [factura] = await prisma.$transaction([
+      prisma.ledgerFactura.create({
+        data: {
+          ledgerEntryId: entryId,
+          fileName,
+          fileUrl,
+          fileSize: fileSize || 0,
+          fileType: fileType || 'application/pdf',
+          folio: folio || null,
+          uuid: uuid || null,
+          rfcEmisor: rfcEmisor || null,
+          rfcReceptor: rfcReceptor || null,
+          total: total ? parseFloat(total) : null,
+          notes: notes || null
+        }
+      }),
+      prisma.ledgerEntry.update({
+        where: { id: entryId },
+        data: { hasFactura: true },
+      }),
+    ]);
 
     return NextResponse.json({ data: factura }, { status: 201 });
   } catch (error: any) {

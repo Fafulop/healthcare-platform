@@ -237,6 +237,9 @@ export function useBookings(doctorId: string | undefined) {
             paymentStatus: "PAID",
             amountPaid: price,
             bookingId,
+            origin: "cita",
+            area: "Consultas Médicas",
+            subarea: serviceName || "Consulta General",
           }),
         }
       );

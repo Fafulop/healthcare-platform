@@ -136,6 +136,19 @@ export const ourFileRouter = {
     console.log("Prescription signature uploaded:", file.ufsUrl);
     return { uploadedBy: "doctor" };
   }),
+
+  // ============================================================================
+  // BANK STATEMENT CSV
+  // ============================================================================
+
+  bankStatementCsv: f({
+    "text/csv": { maxFileSize: "10MB", maxFileCount: 1 },
+    "text/plain": { maxFileSize: "10MB", maxFileCount: 1 },
+    "application/vnd.ms-excel": { maxFileSize: "10MB", maxFileCount: 1 },
+  }).middleware(authMiddleware).onUploadComplete(async ({ file }) => {
+    console.log("Bank statement CSV uploaded:", file.ufsUrl);
+    return { uploadedBy: "doctor" };
+  }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

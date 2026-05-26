@@ -70,28 +70,34 @@ export async function POST(
       );
     }
 
-    // Create factura XML record with parsed data
-    const facturaXml = await prisma.ledgerFacturaXml.create({
-      data: {
-        ledgerEntryId: entryId,
-        fileName,
-        fileUrl,
-        fileSize: fileSize || 0,
-        xmlContent,
-        folio: cfdiData.folio,
-        uuid: cfdiData.uuid,
-        rfcEmisor: cfdiData.rfcEmisor,
-        rfcReceptor: cfdiData.rfcReceptor,
-        total: cfdiData.total,
-        subtotal: cfdiData.subtotal,
-        iva: cfdiData.iva,
-        fecha: cfdiData.fecha,
-        metodoPago: cfdiData.metodoPago,
-        formaPago: cfdiData.formaPago,
-        moneda: cfdiData.moneda,
-        notes: notes || null
-      }
-    });
+    // Create factura XML record with parsed data and mark entry as having factura
+    const [facturaXml] = await prisma.$transaction([
+      prisma.ledgerFacturaXml.create({
+        data: {
+          ledgerEntryId: entryId,
+          fileName,
+          fileUrl,
+          fileSize: fileSize || 0,
+          xmlContent,
+          folio: cfdiData.folio,
+          uuid: cfdiData.uuid,
+          rfcEmisor: cfdiData.rfcEmisor,
+          rfcReceptor: cfdiData.rfcReceptor,
+          total: cfdiData.total,
+          subtotal: cfdiData.subtotal,
+          iva: cfdiData.iva,
+          fecha: cfdiData.fecha,
+          metodoPago: cfdiData.metodoPago,
+          formaPago: cfdiData.formaPago,
+          moneda: cfdiData.moneda,
+          notes: notes || null
+        }
+      }),
+      prisma.ledgerEntry.update({
+        where: { id: entryId },
+        data: { hasFactura: true },
+      }),
+    ]);
 
     return NextResponse.json(
       {

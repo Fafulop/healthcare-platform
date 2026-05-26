@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Edit2, Eye, TrendingUp, TrendingDown, DollarSign, Calendar, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Edit2, Eye, TrendingUp, TrendingDown, DollarSign, Calendar, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileText, Receipt, FileCheck2 } from 'lucide-react';
 import { getLocalDateString } from '@/lib/dates';
 import type { LedgerEntry, Area } from './ledger-types';
-import { FORMAS_DE_PAGO } from './ledger-types';
+import { FORMAS_DE_PAGO, ORIGIN_LABELS } from './ledger-types';
 import { formatCurrency, formatDate, cleanConcept, getAvailableAreasForEntry } from './ledger-utils';
 
 interface Props {
@@ -171,9 +171,20 @@ export function LedgerTable({
               </div>
 
               <p className="text-sm font-medium text-gray-900 mt-1.5 truncate">{cleanConcept(entry.concept)}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {formatDate(entry.transactionDate)} · {entry.area}{entry.subarea ? ` / ${entry.subarea}` : ''}
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-xs text-gray-500">
+                  {formatDate(entry.transactionDate)} · {entry.area}{entry.subarea ? ` / ${entry.subarea}` : ''}
+                </p>
+                <div className="flex items-center gap-1">
+                  {entry.origin && ORIGIN_LABELS[entry.origin] && (
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ORIGIN_LABELS[entry.origin].color}`}>
+                      {ORIGIN_LABELS[entry.origin].label}
+                    </span>
+                  )}
+                  <Receipt className={`w-3 h-3 ${entry.hasComprobante ? 'text-green-600' : 'text-gray-300'}`} />
+                  <FileCheck2 className={`w-3 h-3 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
+                </div>
+              </div>
 
               {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -242,6 +253,9 @@ export function LedgerTable({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onSort('tipo')}>
                 <div className="flex items-center">Tipo<SortIcon column="tipo" sortColumn={sortColumn} sortDirection={sortDirection} /></div>
               </th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Origen / Comprobante / Factura">
+                Evidencia
+              </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onSort('monto')}>
                 <div className="flex items-center justify-end">Monto<SortIcon column="monto" sortColumn={sortColumn} sortDirection={sortDirection} /></div>
               </th>
@@ -276,7 +290,7 @@ export function LedgerTable({
           <tbody className="divide-y divide-gray-200">
             {filteredEntries.length === 0 ? (
               <tr>
-                <td colSpan={15} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={16} className="px-6 py-12 text-center text-gray-500">
                   <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                   <p className="text-lg font-medium">
                     {showAllEntries ? 'No hay movimientos registrados' : `Sin movimientos para ${formatDate(ledgerDate + 'T00:00:00')}`}
@@ -313,6 +327,25 @@ export function LedgerTable({
                     }`}>
                       {entry.entryType === 'ingreso' ? <><TrendingUp className="w-3 h-3" />Ingreso</> : <><TrendingDown className="w-3 h-3" />Egreso</>}
                     </span>
+                  </td>
+                  {/* Evidencia: Origen + Comprobante + Factura */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      {/* Origin badge */}
+                      {entry.origin && ORIGIN_LABELS[entry.origin] && (
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ORIGIN_LABELS[entry.origin].color}`}>
+                          {ORIGIN_LABELS[entry.origin].label}
+                        </span>
+                      )}
+                      {/* Comprobante indicator */}
+                      <span title={entry.hasComprobante ? 'Comprobante adjunto' : 'Sin comprobante'}>
+                        <Receipt className={`w-3.5 h-3.5 ${entry.hasComprobante ? 'text-green-600' : 'text-gray-300'}`} />
+                      </span>
+                      {/* Factura indicator */}
+                      <span title={entry.hasFactura ? 'Factura CFDI' : 'Sin factura'}>
+                        <FileCheck2 className={`w-3.5 h-3.5 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
+                      </span>
+                    </div>
                   </td>
                   {/* Monto */}
                   <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold ${entry.entryType === 'ingreso' ? 'text-teal-700' : 'text-rose-600'}`}>

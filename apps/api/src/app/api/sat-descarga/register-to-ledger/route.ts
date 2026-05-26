@@ -1,0 +1,224 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@healthcare/database';
+import { getAuthenticatedDoctor } from '@/lib/auth';
+import { generateLedgerInternalId } from '@/lib/practice-utils';
+
+// POST /api/sat-descarga/register-to-ledger
+// Register one or more SAT CFDIs as LedgerEntries
+// Body: { uuids: string[], areaOverride?, subareaOverride? }
+export async function POST(request: NextRequest) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const body = await request.json();
+
+    const { uuids, areaOverride, subareaOverride } = body;
+
+    if (!uuids || !Array.isArray(uuids) || uuids.length === 0) {
+      return NextResponse.json({ error: 'Se requiere al menos un UUID' }, { status: 400 });
+    }
+
+    if (uuids.length > 100) {
+      return NextResponse.json({ error: 'Máximo 100 CFDIs por lote' }, { status: 400 });
+    }
+
+    // Fetch the CFDIs from SAT metadata
+    const cfdis = await prisma.satCfdiMetadata.findMany({
+      where: {
+        doctorId: doctor.id,
+        uuid: { in: uuids },
+        satStatus: 'Vigente',
+      },
+    });
+
+    if (cfdis.length === 0) {
+      return NextResponse.json({ error: 'No se encontraron CFDIs vigentes con esos UUIDs' }, { status: 404 });
+    }
+
+    // Check which are already registered
+    const existingEntries = await prisma.ledgerEntry.findMany({
+      where: {
+        doctorId: doctor.id,
+        satCfdiUuid: { in: cfdis.map((c) => c.uuid) },
+      },
+      select: { satCfdiUuid: true },
+    });
+    const alreadyRegistered = new Set(existingEntries.map((e) => e.satCfdiUuid));
+
+    const toRegister = cfdis.filter((c) => !alreadyRegistered.has(c.uuid));
+
+    if (toRegister.length === 0) {
+      return NextResponse.json({
+        data: { created: 0, skipped: cfdis.length },
+        message: 'Todos los CFDIs seleccionados ya están registrados',
+      });
+    }
+
+    // Fetch XML details for richer data (if available)
+    const details = await prisma.satCfdiDetail.findMany({
+      where: {
+        doctorId: doctor.id,
+        uuid: { in: toRegister.map((c) => c.uuid) },
+      },
+      include: { conceptos: true },
+    });
+    const detailMap = new Map(details.map((d) => [d.uuid, d]));
+
+    // Create entries in transaction
+    const created = await prisma.$transaction(async (tx) => {
+      const results: any[] = [];
+
+      for (const cfdi of toRegister) {
+        const detail = detailMap.get(cfdi.uuid);
+        const isReceived = cfdi.direction === 'received';
+
+        // Determine entry type from direction + efecto
+        let entryType: string;
+        if (isReceived) {
+          // Received: efecto I = gasto para el doctor, E = nota de crédito (ingreso)
+          entryType = cfdi.efecto === 'E' ? 'ingreso' : 'egreso';
+        } else {
+          // Emitted: efecto I = ingreso, E = nota de crédito (egreso)
+          entryType = cfdi.efecto === 'I' ? 'ingreso' : 'egreso';
+        }
+
+        // Build concept from XML details or metadata
+        let concept = '';
+        if (detail?.conceptos && detail.conceptos.length > 0) {
+          const descriptions = detail.conceptos
+            .map((c) => c.descripcion)
+            .filter(Boolean)
+            .slice(0, 3);
+          concept = descriptions.join(', ');
+          if (detail.conceptos.length > 3) concept += ` (+${detail.conceptos.length - 3} más)`;
+        }
+        if (!concept) {
+          const counterpart = isReceived ? cfdi.issuerName : cfdi.receiverName;
+          concept = `CFDI ${isReceived ? 'recibido de' : 'emitido a'} ${counterpart || (isReceived ? cfdi.issuerRfc : cfdi.receiverRfc)}`;
+        }
+
+        // Determine area
+        let area = areaOverride || null;
+        let subarea = subareaOverride || null;
+        if (!area && isReceived && entryType === 'egreso') {
+          area = 'Gastos Operativos';
+          subarea = 'Proveedores';
+        }
+        if (!area && !isReceived && entryType === 'ingreso') {
+          area = 'Consultas Médicas';
+          subarea = 'Consulta General';
+        }
+
+        // Forma de pago from XML detail
+        const formaPagoMap: Record<string, string> = {
+          '01': 'efectivo', '03': 'transferencia', '04': 'tarjeta',
+          '02': 'cheque', '28': 'tarjeta', '06': 'transferencia',
+        };
+        const formaPago = detail?.formaPago
+          ? (formaPagoMap[detail.formaPago] || 'transferencia')
+          : 'transferencia';
+
+        const amount = detail?.total ? Number(detail.total) : Number(cfdi.monto);
+        const internalId = await generateLedgerInternalId(doctor.id, entryType);
+
+        // Find or create supplier for received CFDIs (egresos)
+        let supplierId: number | null = null;
+        if (isReceived && entryType === 'egreso' && cfdi.issuerRfc) {
+          const existing = await tx.proveedor.findFirst({
+            where: { doctorId: doctor.id, rfc: cfdi.issuerRfc },
+          });
+          if (existing) {
+            supplierId = existing.id;
+          } else {
+            const newSupplier = await tx.proveedor.create({
+              data: {
+                doctorId: doctor.id,
+                businessName: cfdi.issuerName || cfdi.issuerRfc,
+                rfc: cfdi.issuerRfc,
+              },
+            });
+            supplierId = newSupplier.id;
+          }
+        }
+
+        const entry = await tx.ledgerEntry.create({
+          data: {
+            doctorId: doctor.id,
+            amount,
+            concept: concept.substring(0, 500),
+            entryType,
+            transactionDate: new Date(cfdi.issuedAt),
+            internalId,
+            formaDePago: formaPago,
+            area,
+            subarea,
+            origin: isReceived ? 'sat_recibido' : 'sat_emitido',
+            hasFactura: true,
+            satCfdiUuid: cfdi.uuid,
+            transactionType: 'N/A',
+            amountPaid: amount,
+            paymentStatus: 'PAID',
+            ...(supplierId ? { supplierId } : {}),
+          },
+        });
+
+        results.push({ uuid: cfdi.uuid, ledgerEntryId: entry.id, entryType, amount });
+      }
+
+      return results;
+    });
+
+    return NextResponse.json({
+      data: {
+        created: created.length,
+        skipped: cfdis.length - toRegister.length,
+        entries: created,
+      },
+    }, { status: 201 });
+  } catch (error: any) {
+    if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    if (error.code === 'P2002') {
+      return NextResponse.json({ error: 'Uno o más CFDIs ya están registrados' }, { status: 409 });
+    }
+    console.error('Error registering SAT CFDIs to ledger:', error);
+    return NextResponse.json({ error: 'Error al registrar CFDIs', details: error.message }, { status: 500 });
+  }
+}
+
+// GET /api/sat-descarga/register-to-ledger?uuids=uuid1,uuid2
+// Check which UUIDs are already registered
+export async function GET(request: NextRequest) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const { searchParams } = new URL(request.url);
+    const uuidsParam = searchParams.get('uuids');
+
+    if (!uuidsParam) {
+      return NextResponse.json({ error: 'Se requiere parámetro uuids' }, { status: 400 });
+    }
+
+    const uuids = uuidsParam.split(',').map((u) => u.trim()).filter(Boolean);
+
+    const registered = await prisma.ledgerEntry.findMany({
+      where: {
+        doctorId: doctor.id,
+        satCfdiUuid: { in: uuids },
+      },
+      select: { satCfdiUuid: true, id: true },
+    });
+
+    const registeredMap: Record<string, number> = {};
+    for (const r of registered) {
+      if (r.satCfdiUuid) registeredMap[r.satCfdiUuid] = r.id;
+    }
+
+    return NextResponse.json({ data: registeredMap });
+  } catch (error: any) {
+    if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    console.error('Error checking registered CFDIs:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}
