@@ -126,16 +126,24 @@ async function handleCreateEntry(
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    const { generateLedgerInternalId } = await import('@/lib/practice-utils');
+    const internalId = await generateLedgerInternalId(doctorId, entryType, tx);
+
     // Create the LedgerEntry
     const entry = await tx.ledgerEntry.create({
       data: {
         doctorId,
+        internalId,
         entryType,
         area,
         subarea: subarea || null,
         concept: concept || movement.description,
         amount: movement.amount,
         transactionDate: movement.transactionDate,
+        formaDePago: 'transferencia',
+        transactionType: 'N/A',
+        amountPaid: movement.amount,
+        paymentStatus: 'PAID',
         origin: 'banco',
         hasComprobante: true, // the bank statement itself is the comprobante
       },
