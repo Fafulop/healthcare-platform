@@ -56,10 +56,19 @@ interface Alert {
   message: string;
 }
 
+interface ReconciliationMatrix {
+  fullyReconciled: number;
+  invoicedUnmatched: number;
+  matchedNoInvoice: number;
+  undocumented: number;
+  totalIngresos: number;
+}
+
 interface CompletenessData {
   total: number;
   evidence: EvidenceStats;
   bankReconciliation?: BankReconciliation;
+  reconciliationMatrix?: ReconciliationMatrix;
   byOrigin: OriginItem[];
   byEntryType: TypeItem[];
   alerts: Alert[];
@@ -214,6 +223,55 @@ export function CompletenessTab() {
           )}
         </div>
       </div>
+
+      {/* Reconciliation Matrix */}
+      {data.reconciliationMatrix && data.reconciliationMatrix.totalIngresos > 0 && (
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-1">Matriz de Conciliacion (Ingresos)</h3>
+          <p className="text-[10px] text-gray-400 mb-4">Cruce entre factura emitida (CFDI) y conciliacion bancaria</p>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Fully Reconciled */}
+            <div className="p-3 rounded-lg border border-green-200 bg-green-50">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <span className="text-xs font-medium text-green-800">Totalmente Conciliado</span>
+              </div>
+              <p className="text-xl font-bold text-green-700">{data.reconciliationMatrix.fullyReconciled}</p>
+              <p className="text-[10px] text-green-600">CFDI emitido + banco conciliado</p>
+            </div>
+            {/* Invoiced but Unmatched */}
+            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50">
+              <div className="flex items-center gap-2 mb-1">
+                <FileText className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-medium text-amber-800">Facturado sin Banco</span>
+              </div>
+              <p className="text-xl font-bold text-amber-700">{data.reconciliationMatrix.invoicedUnmatched}</p>
+              <p className="text-[10px] text-amber-600">CFDI emitido, sin match bancario</p>
+            </div>
+            {/* Matched but No Invoice */}
+            <div className="p-3 rounded-lg border border-blue-200 bg-blue-50">
+              <div className="flex items-center gap-2 mb-1">
+                <Landmark className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-medium text-blue-800">Banco sin Factura</span>
+              </div>
+              <p className="text-xl font-bold text-blue-700">{data.reconciliationMatrix.matchedNoInvoice}</p>
+              <p className="text-[10px] text-blue-600">Banco conciliado, sin CFDI emitido</p>
+            </div>
+            {/* Undocumented */}
+            <div className="p-3 rounded-lg border border-red-200 bg-red-50">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle className="w-4 h-4 text-red-600" />
+                <span className="text-xs font-medium text-red-800">Sin Documentar</span>
+              </div>
+              <p className="text-xl font-bold text-red-700">{data.reconciliationMatrix.undocumented}</p>
+              <p className="text-[10px] text-red-600">Sin CFDI ni match bancario</p>
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-3 text-right">
+            Total ingresos en matriz: {data.reconciliationMatrix.totalIngresos}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* By Origin */}

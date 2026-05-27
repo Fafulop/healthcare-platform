@@ -9,6 +9,17 @@ export async function GET(request: NextRequest) {
     const { doctor } = await getAuthenticatedDoctor(request);
     const doctorId = doctor.id;
 
+    // Shared filter for "bank matched" entries (has a linked BankMovement with confirmed/auto status)
+    const bankMatchedFilter = {
+      bankMovement: { is: { matchStatus: { in: ['matched_auto', 'matched_confirmed'] } } },
+    };
+    const bankUnmatchedFilter = {
+      OR: [
+        { bankMovement: { is: null } },
+        { bankMovement: { is: { matchStatus: { notIn: ['matched_auto', 'matched_confirmed'] } } } },
+      ],
+    };
+
     // Run all counts in parallel
     const [
       total,
@@ -24,6 +35,11 @@ export async function GET(request: NextRequest) {
       bankMatchedCount,
       cashCount,
       webhookCount,
+      // Cross-status matrix (ingresos only): CFDI x Bank
+      matrixFullyReconciled,
+      matrixInvoicedUnmatched,
+      matrixMatchedNoInvoice,
+      matrixUndocumented,
     ] = await Promise.all([
       prisma.ledgerEntry.count({ where: { doctorId } }),
 
@@ -89,6 +105,24 @@ export async function GET(request: NextRequest) {
       // Includes webhook+efectivo (e.g. OXXO) to avoid double-counting with cashCount
       prisma.ledgerEntry.count({
         where: { doctorId, origin: 'webhook_pago' },
+      }),
+
+      // Cross-status matrix: hasFactura x bankMatched (ingresos only)
+      // Fully reconciled: has CFDI + bank matched
+      prisma.ledgerEntry.count({
+        where: { doctorId, entryType: 'ingreso', hasFactura: true, ...bankMatchedFilter },
+      }),
+      // Invoiced but unmatched: has CFDI but no bank match
+      prisma.ledgerEntry.count({
+        where: { doctorId, entryType: 'ingreso', hasFactura: true, ...bankUnmatchedFilter },
+      }),
+      // Bank matched but no invoice
+      prisma.ledgerEntry.count({
+        where: { doctorId, entryType: 'ingreso', hasFactura: false, ...bankMatchedFilter },
+      }),
+      // Undocumented: no CFDI, no bank match
+      prisma.ledgerEntry.count({
+        where: { doctorId, entryType: 'ingreso', hasFactura: false, ...bankUnmatchedFilter },
       }),
     ]);
 
@@ -186,6 +220,13 @@ export async function GET(request: NextRequest) {
           pctReconciled: pctBankReconciled,
           excludedCash: cashCount,
           excludedWebhook: webhookCount,
+        },
+        reconciliationMatrix: {
+          fullyReconciled: matrixFullyReconciled,
+          invoicedUnmatched: matrixInvoicedUnmatched,
+          matchedNoInvoice: matrixMatchedNoInvoice,
+          undocumented: matrixUndocumented,
+          totalIngresos: matrixFullyReconciled + matrixInvoicedUnmatched + matrixMatchedNoInvoice + matrixUndocumented,
         },
         byOrigin: originBreakdown,
         byEntryType: typeBreakdown,
