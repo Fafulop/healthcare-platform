@@ -101,24 +101,32 @@ This means:
 
 ---
 
-### GAP 4: No reconciliation of received CFDIs (expenses)
+### GAP 4: No reconciliation of received CFDIs (expenses) — FIXED
 
 **Severity: High**
 
-The SAT reconciliation endpoint ONLY handles **emitted** CFDIs (direction=emitted). There is NO reconciliation for **received** CFDIs (invoices from vendors/suppliers).
+**Status: RESOLVED**
 
-**What exists:**
-- `SatCfdiMetadata` stores both `direction: 'emitted'` and `direction: 'received'`
-- Received CFDIs can be registered to the ledger via `register-to-ledger`
-- BUT there's no automated matching between received CFDIs and bank withdrawal movements
+The SAT reconciliation endpoint only handled **emitted** CFDIs. Now a dedicated received CFDI reconciliation endpoint exists.
 
-**What's missing:**
-- When doctor pays a vendor (egreso), the bank movement shows the withdrawal
-- The received CFDI from that vendor sits in SAT metadata
-- No logic connects the two automatically
-- Doctor must manually: (1) create ledger entry from bank movement, (2) upload the CFDI XML to that entry
+**What was built:**
+- `GET /api/sat-descarga/received-reconciliation?month=YYYY-MM` — Cross-references received CFDIs from SAT against egreso ledger entries
+- `POST /api/sat-descarga/received-reconciliation` — Links a received CFDI to an existing ledger entry (sets `satCfdiUuid` + `hasFactura: true`)
 
-**Impact:** Expense reconciliation is entirely manual. For income this is less critical (doctor controls when they emit), but for expenses this creates significant audit gaps.
+**Matching logic (3 tiers):**
+1. **UUID match** (already registered via register-to-ledger) → `registered`
+2. **Amount + RFC + date proximity** (unlinked egresos) → `suggestedMatches` with confidence score
+3. **No match found** → `unregistered` (doctor must register or create entry)
+
+**Confidence scoring:**
+- 0.95: exact amount + RFC match + same day
+- 0.85: exact amount + RFC match + ±7 days
+- 0.70: exact amount + RFC match + distant date
+- 0.60: exact amount + same day (no RFC)
+- 0.50: exact amount + ±7 days (no RFC)
+
+**Files changed:**
+- `apps/api/src/app/api/sat-descarga/received-reconciliation/route.ts` — new endpoint (GET + POST)
 
 ---
 
@@ -177,46 +185,46 @@ Bank statements are checked for uniqueness at the statement level (doctorId + ba
 
 ---
 
-### GAP 8: No audit trail for manual match overrides
+### GAP 8: No audit trail for manual match overrides — FIXED
 
 **Severity: Medium**
 
-When a doctor performs these actions, there's no record of WHO did it or WHY:
-- `confirm_match` — just flips matchStatus
-- `unmatch` — clears the link
-- `ignore` — marks as not relevant
-- `create_entry` — creates entry and links
+**Status: RESOLVED**
 
-If an accountant reviews later, they can't see:
-- When was this match confirmed?
-- Who confirmed it?
-- Was it ever unmatched and re-matched?
-- Why was a movement ignored?
+When a doctor performed match actions, there was no record of who did it or when.
 
-**Recommendation:** Add `matchedAt`, `matchedBy`, `matchHistory` (JSON array of actions) to BankMovement.
+**What was built:**
+- 3 new fields on `BankMovement`: `matchedAt` (DateTime), `matchedBy` (doctorId), `matchHistory` (JSONB array)
+- Every action (`confirm_match`, `unmatch`, `ignore`, `create_entry`, `matched_auto`) now appends to `matchHistory` with: action, timestamp, userId, previous state, confidence
+- `matchedAt`/`matchedBy` are set on match actions and cleared on unmatch
+
+**Files changed:**
+- `packages/database/prisma/schema.prisma` — 3 new fields on BankMovement
+- `packages/database/prisma/migrations/add-bank-movement-audit-trail.sql` — ALTER TABLE
+- `apps/api/src/app/api/practice-management/conciliacion-bancaria/[id]/movements/[movId]/route.ts` — audit helper + all 4 action handlers updated
+- `apps/api/src/app/api/practice-management/conciliacion-bancaria/route.ts` — auto-match on upload includes audit entry
 
 ---
 
-### GAP 9: CFDI emission is disconnected from conciliacion
+### GAP 9: CFDI emission is disconnected from conciliacion — FIXED
 
 **Severity: Medium**
 
-The CFDI emission and bank reconciliation are two parallel tracks with no cross-validation:
+**Status: RESOLVED**
 
-- A LedgerEntry can be `hasFactura: true` (CFDI emitted) but NOT bank-matched
-- A LedgerEntry can be bank-matched but NOT have a CFDI
-- There's no view that shows "entries with CFDI but no bank proof" or vice versa
+The CFDI emission and bank reconciliation were two parallel tracks with no cross-validation. Now a 2×2 reconciliation matrix exists in the Completeness API and CompletenessTab UI.
 
-**What would be ideal:**
-```
-Entry has CFDI?    + Bank matched?    = Status
-Yes                  Yes               FULLY RECONCILED
-Yes                  No                INVOICED BUT UNMATCHED (fiscal risk: can't prove payment)
-No                   Yes               MATCHED BUT NO INVOICE (fiscal risk: income without CFDI)
-No                   No                UNDOCUMENTED (highest risk)
-```
+**What was built:**
+- Backend: 4 new queries in `/api/practice-management/ledger/completeness` counting ingresos by `hasFactura × bankMatched`
+- Frontend: Color-coded 2×2 grid in CompletenessTab showing:
+  - **Green** — Totalmente Conciliado (CFDI + banco)
+  - **Amber** — Facturado sin Banco (CFDI but no bank match)
+  - **Blue** — Banco sin Factura (bank match but no CFDI)
+  - **Red** — Sin Documentar (neither)
 
-This matrix doesn't exist anywhere in the UI.
+**Files changed:**
+- `apps/api/src/app/api/practice-management/ledger/completeness/route.ts` — shared `bankMatchedFilter`/`bankUnmatchedFilter`, 4 matrix count queries, `reconciliationMatrix` response object
+- `apps/doctor/src/app/dashboard/practice/flujo-de-dinero/_components/CompletenessTab.tsx` — `ReconciliationMatrix` interface, visual 2×2 grid section
 
 ---
 
@@ -321,12 +329,12 @@ But if an appointment was completed and its ledger entry `transactionDate` is ou
 | Priority | Gap | Effort | Impact | Status |
 | -------- | --- | ------ | ------ | ------ |
 | ~~P3~~ | ~~GAP 1: Cash excluded from KPIs~~ | ~~Low~~ | ~~Misleading conciliacion %~~ | **DONE** |
-| P1 | GAP 9: No cross-view CFDI + Bank | Medium | Doctors can't see full reconciliation status | Pending |
+| ~~P1~~ | ~~GAP 9: No cross-view CFDI + Bank~~ | ~~Medium~~ | ~~Doctors can't see full reconciliation status~~ | **DONE** |
 | P2 | GAP 2: No reverse matching | Medium | Late entries stay unmatched | Pending |
-| P2 | GAP 4: No received CFDI reconciliation | High | Expense side completely manual | Pending |
+| ~~P2~~ | ~~GAP 4: No received CFDI reconciliation~~ | ~~High~~ | ~~Expense side completely manual~~ | **DONE** |
 | P2 | GAP 6: Partial payment matching | Medium | Installment payments unmatched | Pending |
 | P2 | GAP 5: Webhook payout aggregation | High | Full payout reconciliation (KPI fix done, deep matching pending) | Partial |
-| P3 | GAP 8: No audit trail | Medium | Accountant can't verify | Pending |
+| ~~P3~~ | ~~GAP 8: No audit trail~~ | ~~Medium~~ | ~~Accountant can't verify~~ | **DONE** |
 | P3 | GAP 3: Field naming confusion | Low | Developer confusion | Pending |
 | P4 | GAP 7: Movement deduplication | Low | Edge case | Pending |
 | P4 | GAP 10: Date window edge cases | Low | Rare scenario | Pending |

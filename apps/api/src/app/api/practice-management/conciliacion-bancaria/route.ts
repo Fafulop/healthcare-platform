@@ -189,6 +189,12 @@ export async function POST(request: NextRequest) {
             suggestedArea,
             suggestedSubarea,
             suggestedConcept,
+            // Audit trail for auto-matched movements
+            ...(matchResult.match ? {
+              matchedAt: new Date(),
+              matchedBy: doctor.id,
+              matchHistory: [{ action: 'matched_auto', at: new Date().toISOString(), by: 'system', confidence: matchResult.match.confidence }],
+            } : {}),
           },
         });
       }

@@ -1301,6 +1301,11 @@ model BankMovement {
 
   ledgerEntryId     Int?      @unique @map("ledger_entry_id")
 
+  // Audit trail for match actions
+  matchedAt         DateTime? @map("matched_at")
+  matchedBy         String?   @map("matched_by") @db.VarChar(255)
+  matchHistory      Json?     @map("match_history") @db.JsonB
+
   createdAt         DateTime  @default(now()) @map("created_at")
 
   bankStatement     BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)

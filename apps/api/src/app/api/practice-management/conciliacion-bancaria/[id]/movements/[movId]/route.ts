@@ -43,10 +43,10 @@ export async function PATCH(
         return handleConfirmMatch(movement, doctor.id);
 
       case 'unmatch':
-        return handleUnmatch(movement, statementId);
+        return handleUnmatch(movement, statementId, doctor.id);
 
       case 'ignore':
-        return handleIgnore(movement);
+        return handleIgnore(movement, doctor.id);
 
       case 'create_entry':
         return handleCreateEntry(movement, doctor.id, body, statementId);
@@ -66,6 +66,24 @@ export async function PATCH(
   }
 }
 
+// ─── Audit Trail Helper ──────────────────────────────────────────────────────
+
+function buildAuditEntry(action: string, movement: any, doctorId: string) {
+  return {
+    action,
+    at: new Date().toISOString(),
+    by: doctorId,
+    from: movement.matchStatus,
+    ledgerEntryId: movement.ledgerEntryId,
+    confidence: movement.matchConfidence ? Number(movement.matchConfidence) : null,
+  };
+}
+
+function appendHistory(existing: any, entry: any): any[] {
+  const history = Array.isArray(existing) ? existing : [];
+  return [...history, entry];
+}
+
 // ─── Action Handlers ─────────────────────────────────────────────────────────
 
 async function handleConfirmMatch(movement: any, doctorId: string) {
@@ -73,9 +91,15 @@ async function handleConfirmMatch(movement: any, doctorId: string) {
     return NextResponse.json({ error: 'Este movimiento no tiene un match asignado' }, { status: 400 });
   }
 
+  const audit = buildAuditEntry('confirm_match', movement, doctorId);
   const updated = await prisma.bankMovement.update({
     where: { id: movement.id },
-    data: { matchStatus: 'matched_confirmed' },
+    data: {
+      matchStatus: 'matched_confirmed',
+      matchedAt: new Date(),
+      matchedBy: doctorId,
+      matchHistory: appendHistory(movement.matchHistory, audit),
+    },
   });
 
   await updateStatementCounts(movement.bankStatementId);
@@ -83,17 +107,21 @@ async function handleConfirmMatch(movement: any, doctorId: string) {
   return NextResponse.json({ data: updated });
 }
 
-async function handleUnmatch(movement: any, statementId: number) {
+async function handleUnmatch(movement: any, statementId: number, doctorId: string) {
   if (!movement.ledgerEntryId) {
     return NextResponse.json({ error: 'Este movimiento no tiene un match' }, { status: 400 });
   }
 
+  const audit = buildAuditEntry('unmatch', movement, doctorId);
   const updated = await prisma.bankMovement.update({
     where: { id: movement.id },
     data: {
       matchStatus: 'unmatched',
       matchConfidence: null,
       ledgerEntryId: null,
+      matchedAt: null,
+      matchedBy: null,
+      matchHistory: appendHistory(movement.matchHistory, audit),
     },
   });
 
@@ -102,10 +130,16 @@ async function handleUnmatch(movement: any, statementId: number) {
   return NextResponse.json({ data: updated });
 }
 
-async function handleIgnore(movement: any) {
+async function handleIgnore(movement: any, doctorId: string) {
+  const audit = buildAuditEntry('ignore', movement, doctorId);
   const updated = await prisma.bankMovement.update({
     where: { id: movement.id },
-    data: { matchStatus: 'ignored' },
+    data: {
+      matchStatus: 'ignored',
+      matchedAt: new Date(),
+      matchedBy: doctorId,
+      matchHistory: appendHistory(movement.matchHistory, audit),
+    },
   });
 
   await updateStatementCounts(movement.bankStatementId);
@@ -150,12 +184,16 @@ async function handleCreateEntry(
     });
 
     // Link movement to new entry
+    const audit = buildAuditEntry('create_entry', movement, doctorId);
     const updated = await tx.bankMovement.update({
       where: { id: movement.id },
       data: {
         matchStatus: 'matched_confirmed',
         matchConfidence: 1.0,
         ledgerEntryId: entry.id,
+        matchedAt: new Date(),
+        matchedBy: doctorId,
+        matchHistory: appendHistory(movement.matchHistory, audit),
         suggestedArea: area,
         suggestedSubarea: subarea || null,
         suggestedConcept: concept || null,
