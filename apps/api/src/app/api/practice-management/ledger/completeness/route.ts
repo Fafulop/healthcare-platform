@@ -19,6 +19,11 @@ export async function GET(request: NextRequest) {
       byEntryType,
       uncategorized,
       unpaidIngresos,
+      // Bank reconciliation stats
+      bankReconcilableCount,
+      bankMatchedCount,
+      cashCount,
+      webhookCount,
     ] = await Promise.all([
       prisma.ledgerEntry.count({ where: { doctorId } }),
 
@@ -56,6 +61,35 @@ export async function GET(request: NextRequest) {
           paymentStatus: { in: ['PENDING', 'PARTIAL'] },
         },
       }),
+
+      // Bank reconcilable = non-cash AND non-webhook entries
+      // Cash (efectivo) leaves no bank trace, webhook_pago is already self-proven
+      prisma.ledgerEntry.count({
+        where: {
+          doctorId,
+          formaDePago: { not: 'efectivo' },
+          origin: { not: 'webhook_pago' },
+        },
+      }),
+
+      // Bank matched = entries that have a BankMovement linked to them
+      prisma.bankMovement.count({
+        where: {
+          ledgerEntry: { is: { doctorId } },
+          matchStatus: { in: ['matched_auto', 'matched_confirmed'] },
+        },
+      }),
+
+      // Excluded: cash entries that are NOT also webhook (no bank trace possible)
+      prisma.ledgerEntry.count({
+        where: { doctorId, formaDePago: 'efectivo', origin: { not: 'webhook_pago' } },
+      }),
+
+      // Excluded: webhook entries (self-proven, payout aggregation makes matching impossible)
+      // Includes webhook+efectivo (e.g. OXXO) to avoid double-counting with cashCount
+      prisma.ledgerEntry.count({
+        where: { doctorId, origin: 'webhook_pago' },
+      }),
     ]);
 
     // Build origin breakdown
@@ -77,6 +111,13 @@ export async function GET(request: NextRequest) {
     const pctFactura = total > 0 ? Math.round((withFactura / total) * 100) : 0;
     const pctCategorized = total > 0 ? Math.round((withArea / total) * 100) : 0;
 
+    // Bank reconciliation percentage (only for reconcilable entries)
+    const pctBankReconciled = bankReconcilableCount > 0
+      ? Math.round((bankMatchedCount / bankReconcilableCount) * 100)
+      : 100; // No reconcilable entries = nothing to reconcile
+
+    const bankUnmatched = bankReconcilableCount - bankMatchedCount;
+
     // Build alerts
     const alerts: { type: string; severity: string; count: number; message: string }[] = [];
 
@@ -95,6 +136,15 @@ export async function GET(request: NextRequest) {
         severity: unpaidIngresos > 5 ? 'high' : 'medium',
         count: unpaidIngresos,
         message: `${unpaidIngresos} ingreso${unpaidIngresos > 1 ? 's' : ''} pendiente${unpaidIngresos > 1 ? 's' : ''} de cobro`,
+      });
+    }
+
+    if (bankUnmatched > 0) {
+      alerts.push({
+        type: 'bank_unmatched',
+        severity: bankUnmatched > 10 ? 'high' : 'medium',
+        count: bankUnmatched,
+        message: `${bankUnmatched} movimiento${bankUnmatched > 1 ? 's' : ''} sin conciliar con banco (excluye efectivo y pagos online)`,
       });
     }
 
@@ -128,6 +178,14 @@ export async function GET(request: NextRequest) {
           pctComprobante,
           pctFactura,
           pctCategorized,
+        },
+        bankReconciliation: {
+          reconcilable: bankReconcilableCount,
+          matched: bankMatchedCount,
+          unmatched: bankUnmatched,
+          pctReconciled: pctBankReconciled,
+          excludedCash: cashCount,
+          excludedWebhook: webhookCount,
         },
         byOrigin: originBreakdown,
         byEntryType: typeBreakdown,

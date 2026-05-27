@@ -12,6 +12,7 @@ import {
   FolderTree,
   TrendingUp,
   AlertCircle,
+  Landmark,
 } from 'lucide-react';
 import { ORIGIN_LABELS } from './ledger-types';
 import { formatCurrency } from './ledger-utils';
@@ -25,6 +26,15 @@ interface EvidenceStats {
   pctComprobante: number;
   pctFactura: number;
   pctCategorized: number;
+}
+
+interface BankReconciliation {
+  reconcilable: number;
+  matched: number;
+  unmatched: number;
+  pctReconciled: number;
+  excludedCash: number;
+  excludedWebhook: number;
 }
 
 interface OriginItem {
@@ -49,6 +59,7 @@ interface Alert {
 interface CompletenessData {
   total: number;
   evidence: EvidenceStats;
+  bankReconciliation?: BankReconciliation;
   byOrigin: OriginItem[];
   byEntryType: TypeItem[];
   alerts: Alert[];
@@ -113,7 +124,7 @@ export function CompletenessTab() {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="bg-white rounded-lg shadow p-4 border-t-4 border-slate-500">
           <p className="text-xs text-gray-500 mb-1">Total Movimientos</p>
           <p className="text-2xl font-bold text-gray-900">{data.total}</p>
@@ -142,6 +153,16 @@ export function CompletenessTab() {
           <p className="text-2xl font-bold text-purple-700">{data.evidence.pctCategorized}%</p>
           <p className="text-xs text-gray-400">{data.evidence.withArea} de {data.total}</p>
         </div>
+        {data.bankReconciliation && (
+          <div className="bg-white rounded-lg shadow p-4 border-t-4 border-indigo-500">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Landmark className="w-3.5 h-3.5 text-indigo-600" />
+              <p className="text-xs text-gray-500">Conciliado Banco</p>
+            </div>
+            <p className="text-2xl font-bold text-indigo-700">{data.bankReconciliation.pctReconciled}%</p>
+            <p className="text-xs text-gray-400">{data.bankReconciliation.matched} de {data.bankReconciliation.reconcilable}</p>
+          </div>
+        )}
       </div>
 
       {/* Evidence Progress */}
@@ -172,6 +193,25 @@ export function CompletenessTab() {
             <ProgressBar pct={data.evidence.pctFactura} color="bg-blue-500" />
             <p className="text-[10px] text-gray-400 mt-0.5">CFDI emitido, recibido, o descargado del SAT</p>
           </div>
+          {data.bankReconciliation && (
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-600">Capa 4: Conciliacion Bancaria</span>
+                <span className="font-medium text-indigo-700">{data.bankReconciliation.pctReconciled}%</span>
+              </div>
+              <ProgressBar pct={data.bankReconciliation.pctReconciled} color="bg-indigo-500" />
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                {data.bankReconciliation.matched} conciliados de {data.bankReconciliation.reconcilable} conciliables
+                {(data.bankReconciliation.excludedCash > 0 || data.bankReconciliation.excludedWebhook > 0) && (
+                  <span className="text-gray-300">
+                    {' '}(excluye {data.bankReconciliation.excludedCash > 0 ? `${data.bankReconciliation.excludedCash} en efectivo` : ''}
+                    {data.bankReconciliation.excludedCash > 0 && data.bankReconciliation.excludedWebhook > 0 ? ' y ' : ''}
+                    {data.bankReconciliation.excludedWebhook > 0 ? `${data.bankReconciliation.excludedWebhook} pagos online` : ''})
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
