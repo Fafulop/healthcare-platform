@@ -370,7 +370,6 @@ export function useLedgerPage() {
         }
         case 'paciente': aVal = (a.client?.businessName || '').toLowerCase(); bVal = (b.client?.businessName || '').toLowerCase(); break;
         case 'proveedor': aVal = (a.supplier?.businessName || '').toLowerCase(); bVal = (b.supplier?.businessName || '').toLowerCase(); break;
-        case 'servicio': aVal = (a.serviceName || '').toLowerCase(); bVal = (b.serviceName || '').toLowerCase(); break;
         default: return 0;
       }
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
