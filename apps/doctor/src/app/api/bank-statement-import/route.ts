@@ -2,7 +2,7 @@
  * POST /api/bank-statement-import
  *
  * Bulk-creates LedgerEntries from user-reviewed bank statement PDF items.
- * Each item becomes a LedgerEntry with origin='banco_pdf'.
+ * Each item becomes a LedgerEntry with origin='banco'.
  *
  * Request:  { entries: ImportEntry[], bank, periodMonth, periodYear, fileUrl }
  * Response: { success, data: { created: number, internalIds: string[] } }
@@ -13,10 +13,14 @@ import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { prisma } from '@healthcare/database';
 
-async function generateLedgerInternalId(doctorId: string, entryType: string): Promise<string> {
+async function generateLedgerInternalId(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  doctorId: string,
+  entryType: string,
+): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = entryType === 'ingreso' ? `ING-${year}-` : `EGR-${year}-`;
-  const last = await prisma.ledgerEntry.findFirst({
+  const last = await tx.ledgerEntry.findFirst({
     where: { doctorId, internalId: { startsWith: prefix } },
     orderBy: { internalId: 'desc' },
     select: { internalId: true },
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest) {
     const created = await prisma.$transaction(async (tx) => {
       const results: { id: number; internalId: string }[] = [];
       for (const e of entries) {
-        const internalId = await generateLedgerInternalId(doctorId, e.entryType);
+        const internalId = await generateLedgerInternalId(tx, doctorId, e.entryType);
         const entry = await tx.ledgerEntry.create({
           data: {
             doctorId,
