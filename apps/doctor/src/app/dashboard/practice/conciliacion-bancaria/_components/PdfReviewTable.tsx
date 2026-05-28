@@ -8,7 +8,7 @@ interface Props {
   selectedCount: number;
   totalDeposits: number;
   totalWithdrawals: number;
-  meta: { pages: number; textLength: number; tokensUsed: number } | null;
+  meta: { pdfSizeKB: number; tokensUsed: number } | null;
   importing: boolean;
   onToggleItem: (index: number) => void;
   onToggleAll: (selected: boolean) => void;
@@ -47,7 +47,7 @@ export function PdfReviewTable({
             </h2>
             <p className="text-sm text-gray-500 mt-0.5">
               {items.length} movimientos encontrados
-              {meta ? ` · ${meta.pages} páginas` : ''}
+              {meta ? ` · ${meta.pdfSizeKB}KB` : ''}
               {' · '}{selectedCount} seleccionados
             </p>
           </div>

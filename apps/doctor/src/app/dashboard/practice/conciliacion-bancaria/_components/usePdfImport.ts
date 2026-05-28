@@ -11,7 +11,7 @@ type Step = 'idle' | 'uploading' | 'parsing' | 'review' | 'importing';
 export function usePdfImport(onImportDone: () => void) {
   const [step, setStep] = useState<Step>('idle');
   const [items, setItems] = useState<ReviewItem[]>([]);
-  const [meta, setMeta] = useState<{ pages: number; textLength: number; tokensUsed: number } | null>(null);
+  const [meta, setMeta] = useState<{ pdfSizeKB: number; tokensUsed: number } | null>(null);
   const [uploadContext, setUploadContext] = useState<{
     bank: string;
     accountNumber: string;

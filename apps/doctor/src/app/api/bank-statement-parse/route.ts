@@ -11,14 +11,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
-import { getChatProvider } from '@/lib/ai';
-import type { ChatMessage } from '@/lib/ai';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
-// @ts-ignore — pdfjs-dist legacy build has no type declarations for .mjs
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
-
-// Disable worker — we run server-side in Node.js
-(GlobalWorkerOptions as any).workerSrc = '';
+import OpenAI from 'openai';
 
 const MODEL = 'gpt-4o';
 const MAX_TOKENS = 16384;
@@ -96,7 +90,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Fetch PDF and extract text
+    // 1. Fetch PDF and convert to base64
     const pdfResponse = await fetch(fileUrl);
     if (!pdfResponse.ok) {
       return NextResponse.json(
@@ -105,59 +99,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pdfBuffer = new Uint8Array(await pdfResponse.arrayBuffer());
-    const doc = await getDocument({ data: pdfBuffer, useWorkerFetch: false, isEvalSupported: false, useSystemFonts: true }).promise;
-    const numpages = doc.numPages;
+    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const pdfBase64 = pdfBuffer.toString('base64');
+    const pdfSizeKB = Math.round(pdfBuffer.length / 1024);
 
-    // Extract text from all pages
-    const pageTexts: string[] = [];
-    for (let i = 1; i <= numpages; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      const text = content.items
-        .filter((item: any) => 'str' in item)
-        .map((item: any) => item.str)
-        .join(' ');
-      pageTexts.push(text);
-    }
-    const pdfText = pageTexts.join('\n\n');
-    doc.destroy();
+    console.log(`[Bank PDF Parse] Doctor: ${doctorId}, Bank: ${bank}, PDF size: ${pdfSizeKB}KB`);
 
-    if (!pdfText || pdfText.trim().length < 50) {
+    // 2. Send raw PDF to GPT-4o (it reads PDFs natively)
+    const systemPrompt = buildSystemPrompt(bank, periodMonth || new Date().getMonth() + 1, periodYear || new Date().getFullYear());
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: MODEL,
+      temperature: TEMPERATURE,
+      max_tokens: MAX_TOKENS,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Analiza el estado de cuenta PDF adjunto y extrae todos los movimientos.' },
+            {
+              type: 'file',
+              file: {
+                filename: 'estado-de-cuenta.pdf',
+                file_data: `data:application/pdf;base64,${pdfBase64}`,
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const responseText = completion.choices[0]?.message?.content;
+    if (!responseText) {
       return NextResponse.json(
-        { success: false, error: 'El PDF no contiene texto legible. Puede ser un PDF escaneado (imagen).' },
-        { status: 400 },
+        { success: false, error: 'El modelo no generó una respuesta' },
+        { status: 500 },
       );
     }
 
-    console.log(`[Bank PDF Parse] Doctor: ${doctorId}, Bank: ${bank}, Pages: ${numpages}, Text length: ${pdfText.length}`);
-
-    // 2. Truncate text if too long for context window (keep ~60k chars)
-    const maxChars = 60000;
-    const truncatedText = pdfText.length > maxChars
-      ? pdfText.substring(0, maxChars) + '\n\n[... texto truncado ...]'
-      : pdfText;
-
-    // 3. Send to GPT-4o for structured extraction
-    const systemPrompt = buildSystemPrompt(bank, periodMonth || new Date().getMonth() + 1, periodYear || new Date().getFullYear());
-
-    const chatMessages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Aqui esta el texto extraido del estado de cuenta PDF:\n\n${truncatedText}` },
-    ];
-
-    const { content: responseText, usage } = await getChatProvider().chatCompletion(chatMessages, {
-      model: MODEL,
-      temperature: TEMPERATURE,
-      maxTokens: MAX_TOKENS,
-      jsonMode: true,
-    });
+    const usage = {
+      promptTokens: completion.usage?.prompt_tokens ?? 0,
+      completionTokens: completion.usage?.completion_tokens ?? 0,
+      totalTokens: completion.usage?.total_tokens ?? 0,
+    };
 
     logTokenUsage({
       doctorId,
       endpoint: 'bank-statement-parse',
       model: MODEL,
-      provider: process.env.LLM_PROVIDER || 'openai',
+      provider: 'openai',
       usage,
     });
 
@@ -184,8 +177,7 @@ export async function POST(request: NextRequest) {
       data: {
         movements: parsed.movements,
         meta: {
-          pages: numpages,
-          textLength: pdfText.length,
+          pdfSizeKB,
           tokensUsed: usage.totalTokens,
         },
       },
