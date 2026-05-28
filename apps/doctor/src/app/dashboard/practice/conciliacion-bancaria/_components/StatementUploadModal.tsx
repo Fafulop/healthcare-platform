@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { X, Upload, Loader2, FileSpreadsheet } from 'lucide-react';
+import { X, Upload, Loader2, FileSpreadsheet, FileText } from 'lucide-react';
 import { BANK_OPTIONS, MONTH_NAMES } from './conciliacion-types';
+
+type FileType = 'csv' | 'pdf';
 
 interface Props {
   open: boolean;
@@ -14,11 +16,19 @@ interface Props {
     periodMonth: number,
     periodYear: number,
   ) => Promise<number | null>;
+  onUploadPdf: (
+    file: File,
+    bank: string,
+    accountNumber: string,
+    periodMonth: number,
+    periodYear: number,
+  ) => Promise<void>;
   uploading: boolean;
 }
 
-export function StatementUploadModal({ open, onClose, onUpload, uploading }: Props) {
+export function StatementUploadModal({ open, onClose, onUpload, onUploadPdf, uploading }: Props) {
   const [file, setFile] = useState<File | null>(null);
+  const [fileType, setFileType] = useState<FileType>('pdf');
   const [bank, setBank] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [periodMonth, setPeriodMonth] = useState(new Date().getMonth() + 1);
@@ -31,11 +41,25 @@ export function StatementUploadModal({ open, onClose, onUpload, uploading }: Pro
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    const newId = await onUpload(file, bank, accountNumber.trim(), periodMonth, periodYear);
-    if (newId) {
-      setFile(null);
-      setBank('');
-      setAccountNumber('');
+    if (fileType === 'pdf') {
+      await onUploadPdf(file, bank, accountNumber.trim(), periodMonth, periodYear);
+      // Don't reset — the review table will show
+    } else {
+      const newId = await onUpload(file, bank, accountNumber.trim(), periodMonth, periodYear);
+      if (newId) {
+        setFile(null);
+        setBank('');
+        setAccountNumber('');
+      }
+    }
+  };
+
+  const handleFileChange = (f: File | null) => {
+    setFile(f);
+    if (f) {
+      const ext = f.name.toLowerCase();
+      if (ext.endsWith('.pdf')) setFileType('pdf');
+      else setFileType('csv');
     }
   };
 
@@ -55,7 +79,7 @@ export function StatementUploadModal({ open, onClose, onUpload, uploading }: Pro
         <div className="space-y-4">
           {/* File picker */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Archivo CSV</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Archivo PDF o CSV</label>
             <div
               onClick={() => inputRef.current?.click()}
               className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 transition-colors"
@@ -63,19 +87,21 @@ export function StatementUploadModal({ open, onClose, onUpload, uploading }: Pro
               <input
                 ref={inputRef}
                 type="file"
-                accept=".csv,.txt,text/csv,text/plain,application/vnd.ms-excel"
+                accept=".pdf,.csv,.txt,application/pdf,text/csv,text/plain,application/vnd.ms-excel"
                 className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
               />
               {file ? (
                 <div className="flex items-center justify-center gap-2 text-green-700">
-                  <FileSpreadsheet className="w-5 h-5" />
+                  {fileType === 'pdf' ? <FileText className="w-5 h-5" /> : <FileSpreadsheet className="w-5 h-5" />}
                   <span className="text-sm font-medium">{file.name}</span>
+                  <span className="text-xs text-gray-400 uppercase">{fileType}</span>
                 </div>
               ) : (
                 <div className="text-gray-500">
                   <Upload className="w-8 h-8 mx-auto mb-1 text-gray-400" />
-                  <p className="text-sm">Click para seleccionar archivo CSV</p>
+                  <p className="text-sm">Click para seleccionar archivo PDF o CSV</p>
+                  <p className="text-xs text-gray-400 mt-1">PDF: extracción con IA · CSV: procesamiento directo</p>
                 </div>
               )}
             </div>

@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { Loader2, Plus, Trash2, Eye, Landmark } from 'lucide-react';
 import { useConciliacionPage } from './_components/useConciliacionPage';
 import { StatementUploadModal } from './_components/StatementUploadModal';
+import { PdfReviewTable } from './_components/PdfReviewTable';
+import { usePdfImport } from './_components/usePdfImport';
 import { BANK_OPTIONS, MONTH_NAMES } from './_components/conciliacion-types';
 
 function formatCurrency(val: string | null) {
@@ -18,6 +20,18 @@ function bankLabel(val: string) {
 
 export default function ConciliacionBancariaPage() {
   const page = useConciliacionPage();
+  const pdfImport = usePdfImport(page.fetchStatements);
+
+  const handlePdfUpload = async (
+    file: File,
+    bank: string,
+    accountNumber: string,
+    periodMonth: number,
+    periodYear: number,
+  ) => {
+    page.setShowUploadModal(false);
+    await pdfImport.handlePdfUpload(file, bank, accountNumber, periodMonth, periodYear);
+  };
 
   if (page.sessionStatus === 'loading' || page.loading) {
     return (
@@ -51,13 +65,43 @@ export default function ConciliacionBancariaPage() {
         </div>
       </div>
 
+      {/* PDF parsing state */}
+      {(pdfImport.step === 'uploading' || pdfImport.step === 'parsing') && (
+        <div className="bg-white rounded-lg shadow p-8 text-center mb-6">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+          <p className="mt-4 text-gray-600 font-medium">
+            {pdfImport.step === 'uploading' ? 'Subiendo PDF...' : 'Analizando estado de cuenta con IA...'}
+          </p>
+          <p className="mt-1 text-sm text-gray-400">Esto puede tardar unos segundos</p>
+        </div>
+      )}
+
+      {/* PDF review table */}
+      {(pdfImport.step === 'review' || pdfImport.step === 'importing') && (
+        <div className="mb-6">
+          <PdfReviewTable
+            items={pdfImport.items}
+            selectedCount={pdfImport.selectedCount}
+            totalDeposits={pdfImport.totalDeposits}
+            totalWithdrawals={pdfImport.totalWithdrawals}
+            meta={pdfImport.meta}
+            importing={pdfImport.step === 'importing'}
+            onToggleItem={pdfImport.toggleItem}
+            onToggleAll={pdfImport.toggleAll}
+            onUpdateItem={pdfImport.updateItem}
+            onImport={pdfImport.handleImport}
+            onCancel={pdfImport.cancelReview}
+          />
+        </div>
+      )}
+
       {/* Statements list */}
-      {page.statements.length === 0 ? (
+      {page.statements.length === 0 && pdfImport.step === 'idle' ? (
         <div className="bg-white rounded-lg shadow p-8 text-center">
           <Landmark className="w-16 h-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-semibold text-gray-700 mb-2">No hay estados de cuenta</h3>
           <p className="text-gray-500 mb-4">
-            Sube tu primer estado de cuenta en formato CSV para comenzar la conciliación
+            Sube tu primer estado de cuenta en formato PDF o CSV para comenzar
           </p>
           <button
             onClick={() => page.setShowUploadModal(true)}
@@ -67,7 +111,7 @@ export default function ConciliacionBancariaPage() {
             Subir Estado de Cuenta
           </button>
         </div>
-      ) : (
+      ) : page.statements.length > 0 ? (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {/* Desktop table */}
           <div className="hidden sm:block overflow-x-auto">
@@ -183,13 +227,14 @@ export default function ConciliacionBancariaPage() {
             })}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Upload Modal */}
       <StatementUploadModal
         open={page.showUploadModal}
         onClose={() => page.setShowUploadModal(false)}
         onUpload={page.handleUpload}
+        onUploadPdf={handlePdfUpload}
         uploading={page.uploading}
       />
     </div>
