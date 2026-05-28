@@ -1,8 +1,8 @@
 /**
  * POST /api/bank-statement-parse
  *
- * Receives a PDF bank statement URL, extracts text with pdf-parse,
- * sends to GPT-4o for structured transaction extraction.
+ * Receives a PDF bank statement URL, sends it as base64 to GPT-4o
+ * which reads PDFs natively, and returns structured transactions.
  *
  * Request:  { fileUrl, bank, periodMonth, periodYear }
  * Response: { success, data: { movements: ParsedMovement[] } }
