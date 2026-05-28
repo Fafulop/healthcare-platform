@@ -14,7 +14,11 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { getChatProvider } from '@/lib/ai';
 import type { ChatMessage } from '@/lib/ai';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
-import { PDFParse } from 'pdf-parse';
+// @ts-ignore — pdfjs-dist legacy build has no type declarations for .mjs
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
+
+// Disable worker — we run server-side in Node.js
+(GlobalWorkerOptions as any).workerSrc = '';
 
 const MODEL = 'gpt-4o';
 const MAX_TOKENS = 16384;
@@ -101,12 +105,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
-    const parser = new PDFParse({ data: new Uint8Array(pdfBuffer) });
-    const textResult = await parser.getText();
-    const pdfText = textResult.text;
-    const numpages = textResult.pages.length;
-    await parser.destroy();
+    const pdfBuffer = new Uint8Array(await pdfResponse.arrayBuffer());
+    const doc = await getDocument({ data: pdfBuffer, useWorkerFetch: false, isEvalSupported: false, useSystemFonts: true }).promise;
+    const numpages = doc.numPages;
+
+    // Extract text from all pages
+    const pageTexts: string[] = [];
+    for (let i = 1; i <= numpages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const text = content.items
+        .filter((item: any) => 'str' in item)
+        .map((item: any) => item.str)
+        .join(' ');
+      pageTexts.push(text);
+    }
+    const pdfText = pageTexts.join('\n\n');
+    doc.destroy();
 
     if (!pdfText || pdfText.trim().length < 50) {
       return NextResponse.json(
