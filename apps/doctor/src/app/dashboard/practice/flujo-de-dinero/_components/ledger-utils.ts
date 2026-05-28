@@ -33,6 +33,7 @@ export function getAvailableAreasForEntry(entry: LedgerEntry, areas: Area[]): Ar
 export interface EstadoResultadosData {
   ingresos: Record<string, Record<string, number>>;
   egresos: Record<string, Record<string, number>>;
+  ingresosByService: Record<string, number>;
   cuentasPorCobrar: number;
   cuentasPorPagar: number;
 }
@@ -45,6 +46,7 @@ export function processEstadoResultados(
   const result: EstadoResultadosData = {
     ingresos: {},
     egresos: {},
+    ingresosByService: {},
     cuentasPorCobrar: 0,
     cuentasPorPagar: 0,
   };
@@ -64,6 +66,8 @@ export function processEstadoResultados(
       if (entry.entryType === 'ingreso') {
         if (!result.ingresos[entry.area]) result.ingresos[entry.area] = {};
         result.ingresos[entry.area][entry.subarea] = (result.ingresos[entry.area][entry.subarea] || 0) + amountPaid;
+        const svcKey = entry.serviceName || 'Sin servicio';
+        result.ingresosByService[svcKey] = (result.ingresosByService[svcKey] || 0) + amountPaid;
         result.cuentasPorCobrar += saldo;
       } else if (entry.entryType === 'egreso') {
         if (!result.egresos[entry.area]) result.egresos[entry.area] = {};

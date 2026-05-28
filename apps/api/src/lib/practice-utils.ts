@@ -115,6 +115,20 @@ export async function createPaymentLedgerEntry(
 
   const internalId = await generateLedgerInternalId(doctorId, 'ingreso');
 
+  // Resolve service from linked booking if available
+  let serviceId: string | null = null;
+  let serviceName: string | null = null;
+  if (bookingId) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { serviceId: true, serviceName: true },
+    });
+    if (booking) {
+      serviceId = booking.serviceId;
+      serviceName = booking.serviceName;
+    }
+  }
+
   const entry = await prisma.ledgerEntry.create({
     data: {
       doctorId,
@@ -125,13 +139,15 @@ export async function createPaymentLedgerEntry(
       internalId,
       formaDePago,
       area: 'Consultas Médicas',
-      subarea: 'Pago en Línea',
+      subarea: serviceName || 'Pago en Línea',
       origin: 'webhook_pago',
       transactionType: 'N/A',
       amountPaid: amount,
       paymentStatus: 'PAID',
       hasComprobante: true,
       ...(bookingId ? { bookingId } : {}),
+      ...(serviceId ? { serviceId } : {}),
+      ...(serviceName ? { serviceName } : {}),
     },
     select: { id: true, internalId: true },
   });

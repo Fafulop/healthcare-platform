@@ -46,6 +46,8 @@ export interface LedgerEntry {
   origin?: string;
   hasComprobante?: boolean;
   hasFactura?: boolean;
+  serviceId?: string | null;
+  serviceName?: string | null;
 }
 
 export const ORIGIN_LABELS: Record<string, { label: string; color: string }> = {

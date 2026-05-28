@@ -140,6 +140,8 @@ export async function POST(request: NextRequest) {
       paymentStatus,
       bookingId,
       origin,
+      serviceId,
+      serviceName: serviceNameFromBody,
     } = body;
 
     // Validation - required fields
@@ -227,6 +229,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve service name from serviceId if provided
+    let finalServiceId: string | null = serviceId || null;
+    let finalServiceName: string | null = serviceNameFromBody || null;
+    if (finalServiceId && !finalServiceName) {
+      const service = await prisma.service.findFirst({
+        where: { id: finalServiceId, doctorId: doctor.id },
+        select: { serviceName: true },
+      });
+      if (service) {
+        finalServiceName = service.serviceName;
+      } else {
+        finalServiceId = null; // Service not found or doesn't belong to doctor
+      }
+    }
+
     // Default to fully paid unless caller explicitly sets pending
     const finalAmountPaid = amountPaid !== undefined ? parseFloat(String(amountPaid)) : amount;
     const finalPaymentStatus = paymentStatus || (finalAmountPaid >= amount ? 'PAID' : finalAmountPaid > 0 ? 'PARTIAL' : 'PENDING');
@@ -251,6 +268,8 @@ export async function POST(request: NextRequest) {
         paymentStatus: finalPaymentStatus,
         origin: origin || 'manual',
         ...(bookingId ? { bookingId } : {}),
+        ...(finalServiceId ? { serviceId: finalServiceId } : {}),
+        ...(finalServiceName ? { serviceName: finalServiceName } : {}),
       },
       include: {
         attachments: true,

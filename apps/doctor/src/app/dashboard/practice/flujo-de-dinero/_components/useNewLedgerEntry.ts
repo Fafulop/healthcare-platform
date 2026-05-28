@@ -24,6 +24,12 @@ export interface Subarea {
   name: string;
 }
 
+export interface ServiceOption {
+  id: string;
+  serviceName: string;
+  price: number | null;
+}
+
 export function useNewLedgerEntry() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -33,6 +39,7 @@ export function useNewLedgerEntry() {
   const [error, setError] = useState<string | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
   const [loadingAreas, setLoadingAreas] = useState(true);
+  const [services, setServices] = useState<ServiceOption[]>([]);
 
   const [formData, setFormData] = useState({
     entryType: 'ingreso' as 'ingreso' | 'egreso',
@@ -52,6 +59,7 @@ export function useNewLedgerEntry() {
     bankMovementId: '',
     porRealizar: false,
     paymentOption: 'paid' as 'paid' | 'pending',
+    serviceId: '',
   });
 
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
@@ -81,6 +89,13 @@ export function useNewLedgerEntry() {
       if (!response.ok) throw new Error('Error al cargar áreas');
       const result = await response.json();
       setAreas(result.data || []);
+      // Services come from the same endpoint
+      const svcList = (result.services || []).map((s: any) => ({
+        id: s.id,
+        serviceName: s.serviceName,
+        price: s.price ? Number(s.price) : null,
+      }));
+      setServices(svcList);
     } catch (err) {
       console.error('Error al cargar áreas:', err);
     } finally {
@@ -236,7 +251,21 @@ export function useNewLedgerEntry() {
       setFormData(prev => ({ ...prev, subarea: '' }));
     }
     if (name === 'entryType') {
-      setFormData(prev => ({ ...prev, area: '', subarea: '' }));
+      setFormData(prev => ({ ...prev, area: '', subarea: '', serviceId: '' }));
+    }
+    // Auto-fill from selected service
+    if (name === 'serviceId' && value) {
+      const svc = services.find(s => s.id === value);
+      if (svc) {
+        setFormData(prev => ({
+          ...prev,
+          serviceId: value,
+          concept: svc.serviceName,
+          ...(svc.price ? { amount: String(svc.price) } : {}),
+          area: prev.area || 'Consultas Médicas',
+          subarea: prev.subarea || svc.serviceName,
+        }));
+      }
     }
   };
 
@@ -306,7 +335,14 @@ export function useNewLedgerEntry() {
       const response = await authFetch(`${API_URL}/api/practice-management/ledger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, amount, amountPaid, paymentStatus }),
+        body: JSON.stringify({
+          ...formData,
+          amount,
+          amountPaid,
+          paymentStatus,
+          serviceId: formData.serviceId || undefined,
+          serviceName: formData.serviceId ? services.find(s => s.id === formData.serviceId)?.serviceName : undefined,
+        }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -341,6 +377,7 @@ export function useNewLedgerEntry() {
     loadingAreas,
     filteredAreas,
     availableSubareas,
+    services,
     voiceModalOpen, setVoiceModalOpen,
     voiceSidebarOpen, setVoiceSidebarOpen,
     sidebarInitialData,

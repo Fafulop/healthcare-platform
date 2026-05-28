@@ -86,6 +86,7 @@ export default function FlujoDeDineroPage() {
             showFilters={page.showFilters} onToggleFilters={() => page.setShowFilters(v => !v)}
             originFilter={page.originFilter} onOriginChange={page.setOriginFilter}
             evidenceFilter={page.evidenceFilter} onEvidenceChange={page.setEvidenceFilter}
+            serviceFilter={page.serviceFilter} onServiceChange={page.setServiceFilter} services={page.services}
           />
 
           <BatchActionBar

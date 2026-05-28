@@ -38,6 +38,7 @@ export interface Booking {
   finalPrice: number;
   confirmationCode: string;
   createdAt: string;
+  serviceId?: string | null;
   serviceName?: string | null;
   isFirstTime?: boolean | null;
   appointmentMode?: string | null;
@@ -240,6 +241,8 @@ export function useBookings(doctorId: string | undefined) {
             origin: "cita",
             area: "Consultas Médicas",
             subarea: serviceName || "Consulta General",
+            serviceId: booking?.serviceId || null,
+            serviceName: serviceName || null,
           }),
         }
       );

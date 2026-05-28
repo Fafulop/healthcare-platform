@@ -19,6 +19,9 @@ interface Props {
   onOriginChange: (v: string) => void;
   evidenceFilter: string;
   onEvidenceChange: (v: string) => void;
+  serviceFilter: string;
+  onServiceChange: (v: string) => void;
+  services: { id: string; serviceName: string }[];
 }
 
 export function LedgerFilters({
@@ -30,8 +33,9 @@ export function LedgerFilters({
   showFilters, onToggleFilters,
   originFilter, onOriginChange,
   evidenceFilter, onEvidenceChange,
+  serviceFilter, onServiceChange, services,
 }: Props) {
-  const hasActiveFilters = searchTerm || entryTypeFilter !== 'all' || porRealizarFilter !== 'all' || startDate || endDate || originFilter !== 'all' || evidenceFilter !== 'all';
+  const hasActiveFilters = searchTerm || entryTypeFilter !== 'all' || porRealizarFilter !== 'all' || startDate || endDate || originFilter !== 'all' || evidenceFilter !== 'all' || serviceFilter !== 'all';
 
   return (
     <>
@@ -129,6 +133,23 @@ export function LedgerFilters({
               <option value="sin_factura">Sin factura</option>
             </select>
           </div>
+
+          {services.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Servicio</label>
+              <select
+                value={serviceFilter}
+                onChange={(e) => onServiceChange(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-300 focus:border-transparent"
+              >
+                <option value="all">Todos</option>
+                <option value="none">Sin servicio</option>
+                {services.map(svc => (
+                  <option key={svc.id} value={svc.serviceName}>{svc.serviceName}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>

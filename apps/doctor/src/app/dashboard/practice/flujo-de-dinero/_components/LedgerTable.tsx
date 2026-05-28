@@ -171,6 +171,7 @@ export function LedgerTable({
               </div>
 
               <p className="text-sm font-medium text-gray-900 mt-1.5 truncate">{cleanConcept(entry.concept)}</p>
+              {entry.serviceName && <p className="text-xs text-blue-600 font-medium mt-0.5">{entry.serviceName}</p>}
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-xs text-gray-500">
                   {formatDate(entry.transactionDate)} · {entry.area}{entry.subarea ? ` / ${entry.subarea}` : ''}
@@ -253,6 +254,9 @@ export function LedgerTable({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onSort('tipo')}>
                 <div className="flex items-center">Tipo<SortIcon column="tipo" sortColumn={sortColumn} sortDirection={sortDirection} /></div>
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onSort('servicio')}>
+                <div className="flex items-center">Servicio<SortIcon column="servicio" sortColumn={sortColumn} sortDirection={sortDirection} /></div>
+              </th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Origen / Comprobante / Factura">
                 Evidencia
               </th>
@@ -290,7 +294,7 @@ export function LedgerTable({
           <tbody className="divide-y divide-gray-200">
             {filteredEntries.length === 0 ? (
               <tr>
-                <td colSpan={16} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={17} className="px-6 py-12 text-center text-gray-500">
                   <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                   <p className="text-lg font-medium">
                     {showAllEntries ? 'No hay movimientos registrados' : `Sin movimientos para ${formatDate(ledgerDate + 'T00:00:00')}`}
@@ -327,6 +331,14 @@ export function LedgerTable({
                     }`}>
                       {entry.entryType === 'ingreso' ? <><TrendingUp className="w-3 h-3" />Ingreso</> : <><TrendingDown className="w-3 h-3" />Egreso</>}
                     </span>
+                  </td>
+                  {/* Servicio */}
+                  <td className="px-6 py-4 text-sm text-gray-700">
+                    {entry.serviceName ? (
+                      <div className="max-w-[150px] truncate" title={entry.serviceName}>{entry.serviceName}</div>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
                   </td>
                   {/* Evidencia: Origen + Comprobante + Factura */}
                   <td className="px-4 py-4 whitespace-nowrap">

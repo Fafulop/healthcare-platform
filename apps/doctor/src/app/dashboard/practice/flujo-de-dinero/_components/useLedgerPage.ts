@@ -57,6 +57,8 @@ export function useLedgerPage() {
 
   const [originFilter, setOriginFilter] = useState('all');
   const [evidenceFilter, setEvidenceFilter] = useState('all');
+  const [serviceFilter, setServiceFilter] = useState('all');
+  const [services, setServices] = useState<{ id: string; serviceName: string }[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [modalEntry, setModalEntry] = useState<LedgerEntry | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -133,6 +135,9 @@ export function useLedgerPage() {
       if (!res.ok) throw new Error('Error al cargar áreas');
       const result = await res.json();
       setAreas(result.data || []);
+      if (result.services) {
+        setServices(result.services.map((s: any) => ({ id: s.id, serviceName: s.serviceName })));
+      }
     } catch (err) {
       console.error('Error al cargar áreas:', err);
     }
@@ -330,12 +335,20 @@ export function useLedgerPage() {
         const entryDate = entry.transactionDate.split('T')[0];
         if (entryDate !== ledgerDate) return false;
       }
+      if (serviceFilter !== 'all') {
+        if (serviceFilter === 'none') {
+          if (entry.serviceName) return false;
+        } else {
+          if (entry.serviceName !== serviceFilter) return false;
+        }
+      }
       if (searchTerm) {
         const s = searchTerm.toLowerCase();
         return entry.concept.toLowerCase().includes(s) ||
           entry.internalId.toLowerCase().includes(s) ||
           entry.area.toLowerCase().includes(s) ||
-          entry.subarea.toLowerCase().includes(s);
+          entry.subarea.toLowerCase().includes(s) ||
+          (entry.serviceName || '').toLowerCase().includes(s);
       }
       return true;
     })
@@ -357,6 +370,7 @@ export function useLedgerPage() {
         }
         case 'paciente': aVal = (a.client?.businessName || '').toLowerCase(); bVal = (b.client?.businessName || '').toLowerCase(); break;
         case 'proveedor': aVal = (a.supplier?.businessName || '').toLowerCase(); bVal = (b.supplier?.businessName || '').toLowerCase(); break;
+        case 'servicio': aVal = (a.serviceName || '').toLowerCase(); bVal = (b.serviceName || '').toLowerCase(); break;
         default: return 0;
       }
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
@@ -519,6 +533,8 @@ export function useLedgerPage() {
     showFilters, setShowFilters,
     originFilter, setOriginFilter,
     evidenceFilter, setEvidenceFilter,
+    serviceFilter, setServiceFilter,
+    services,
 
     // Day navigator
     showAllEntries, setShowAllEntries,

@@ -128,7 +128,9 @@ export async function PUT(
       subarea,
       porRealizar,
       paymentStatus,
-      amountPaid
+      amountPaid,
+      serviceId,
+      serviceName
     } = body;
 
     // Validation - required fields
@@ -229,6 +231,22 @@ export async function PUT(
       }
     }
 
+    // Resolve service if serviceId is being changed
+    let finalServiceId = serviceId !== undefined ? (serviceId || null) : existingEntry.serviceId;
+    let finalServiceName = serviceName !== undefined ? (serviceName || null) : existingEntry.serviceName;
+    if (serviceId && !serviceName) {
+      const svc = await prisma.service.findFirst({
+        where: { id: serviceId, doctorId: doctor.id },
+        select: { serviceName: true },
+      });
+      if (svc) {
+        finalServiceName = svc.serviceName;
+      } else {
+        finalServiceId = null;
+        finalServiceName = null;
+      }
+    }
+
     // Update ledger entry
     const entry = await prisma.ledgerEntry.update({
       where: { id: entryId },
@@ -244,6 +262,8 @@ export async function PUT(
         area: area.trim(),
         subarea: subarea.trim(),
         porRealizar: porRealizar !== undefined ? porRealizar : existingEntry.porRealizar,
+        serviceId: finalServiceId,
+        serviceName: finalServiceName,
         paymentStatus: calculatePaymentStatus(
           amountPaid !== undefined ? parseFloat(amountPaid) : parseFloat(existingEntry.amountPaid?.toString() || '0'),
           amount
@@ -328,7 +348,7 @@ export async function PATCH(
       );
     }
 
-    const { area, subarea, formaDePago, amountPaid, paymentStatus } = body;
+    const { area, subarea, formaDePago, amountPaid, paymentStatus, serviceId, serviceName } = body;
 
     // Validation
     if (area !== undefined && (!area || typeof area !== 'string' || area.trim().length === 0)) {
@@ -366,6 +386,23 @@ export async function PATCH(
     if (area !== undefined) updateData.area = area.trim();
     if (subarea !== undefined) updateData.subarea = subarea ? subarea.trim() : '';
     if (formaDePago !== undefined) updateData.formaDePago = formaDePago;
+    if (serviceId !== undefined) {
+      updateData.serviceId = serviceId || null;
+      updateData.serviceName = serviceName || null;
+      // Resolve serviceName from DB if serviceId provided without name
+      if (serviceId && !serviceName) {
+        const svc = await prisma.service.findFirst({
+          where: { id: serviceId, doctorId: doctor.id },
+          select: { serviceName: true },
+        });
+        if (svc) {
+          updateData.serviceName = svc.serviceName;
+        } else {
+          updateData.serviceId = null;
+          updateData.serviceName = null;
+        }
+      }
+    }
 
     // Handle amountPaid and auto-calculate paymentStatus
     if (amountPaid !== undefined) {

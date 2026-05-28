@@ -23,6 +23,7 @@ export default function NewFlujoDeDineroPage() {
     loadingAreas,
     filteredAreas,
     availableSubareas,
+    services,
     voiceModalOpen, setVoiceModalOpen,
     voiceSidebarOpen, setVoiceSidebarOpen,
     sidebarInitialData, clearSidebarInitialData,
@@ -133,6 +134,29 @@ export default function NewFlujoDeDineroPage() {
               </label>
             </div>
           </div>
+
+          {/* Service Selection (ingresos only) */}
+          {formData.entryType === 'ingreso' && services.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Servicio
+              </label>
+              <select
+                name="serviceId"
+                value={formData.serviceId}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="">Otro ingreso (sin servicio)</option>
+                {services.map(svc => (
+                  <option key={svc.id} value={svc.id}>
+                    {svc.serviceName}{svc.price ? ` — $${svc.price.toLocaleString('es-MX')}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Selecciona un servicio para auto-llenar monto y concepto</p>
+            </div>
+          )}
 
           {/* Amount and Date */}
           <div className="grid grid-cols-2 gap-3 sm:gap-6">

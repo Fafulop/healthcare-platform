@@ -8,17 +8,24 @@ export async function GET(request: NextRequest) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
 
-    const areas = await prisma.area.findMany({
-      where: { doctorId: doctor.id },
-      include: {
-        subareas: {
-          orderBy: { name: 'asc' }
-        }
-      },
-      orderBy: { name: 'asc' }
-    });
+    const [areas, services] = await prisma.$transaction([
+      prisma.area.findMany({
+        where: { doctorId: doctor.id },
+        include: {
+          subareas: {
+            orderBy: { name: 'asc' }
+          }
+        },
+        orderBy: { name: 'asc' }
+      }),
+      prisma.service.findMany({
+        where: { doctorId: doctor.id, isBookingActive: true },
+        select: { id: true, serviceName: true, price: true },
+        orderBy: { serviceName: 'asc' }
+      }),
+    ]);
 
-    return NextResponse.json({ data: areas });
+    return NextResponse.json({ data: areas, services });
   } catch (error: any) {
     console.error('Error fetching areas:', error);
 

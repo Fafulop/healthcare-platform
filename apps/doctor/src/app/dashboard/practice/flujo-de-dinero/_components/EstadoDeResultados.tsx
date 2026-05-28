@@ -87,6 +87,21 @@ export function EstadoDeResultados({
               );
             })
           )}
+          {Object.keys(estadoResultados.ingresosByService).length > 0 && (
+            <div className="border-l-2 border-blue-400 pl-3">
+              <h3 className="font-semibold text-sm text-gray-900 mb-2">Por Servicio</h3>
+              <div className="space-y-1 ml-3">
+                {Object.entries(estadoResultados.ingresosByService)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([service, amount]) => (
+                    <div key={service} className="flex justify-between items-center py-1.5 border-b border-gray-100">
+                      <span className="text-gray-600 text-xs">└── {service}</span>
+                      <span className="font-medium text-blue-700 text-xs">{formatCurrency(amount)}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
           {estadoResultados.cuentasPorCobrar > 0 && (
             <div className="bg-amber-50 border-l-2 border-amber-400 p-3 rounded-r">
               <div className="flex justify-between items-center">
