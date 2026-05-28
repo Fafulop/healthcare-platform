@@ -69,6 +69,20 @@ export interface Balance {
   projectedBalance: number;
 }
 
+export interface CfdiSuggestion {
+  uuid: string;
+  direction: string;
+  efecto: string | null;
+  issuerRfc: string;
+  issuerName: string | null;
+  receiverRfc: string;
+  receiverName: string | null;
+  monto: string;
+  issuedAt: string;
+  score: number;
+  confidence: 'high' | 'medium' | 'low';
+}
+
 export const FORMAS_DE_PAGO = [
   { value: 'efectivo', label: 'Efectivo' },
   { value: 'transferencia', label: 'Transferencia' },

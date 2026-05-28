@@ -6,6 +6,7 @@ import { getLocalDateString } from '@/lib/dates';
 import type { LedgerEntry, Area } from './ledger-types';
 import { FORMAS_DE_PAGO, ORIGIN_LABELS } from './ledger-types';
 import { formatCurrency, formatDate, cleanConcept, getAvailableAreasForEntry } from './ledger-utils';
+import { CfdiSuggestionPopover } from './CfdiSuggestionPopover';
 
 interface Props {
   filteredEntries: LedgerEntry[];
@@ -184,6 +185,9 @@ export function LedgerTable({
                   )}
                   <Receipt className={`w-3 h-3 ${entry.hasComprobante ? 'text-green-600' : 'text-gray-300'}`} />
                   <FileCheck2 className={`w-3 h-3 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
+                  {!entry.hasFactura && (
+                    <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
+                  )}
                 </div>
               </div>
 
@@ -393,7 +397,7 @@ export function LedgerTable({
                       </div>
                     )}
                   </td>
-                  {/* Evidencia: Origen + Comprobante + Factura */}
+                  {/* Evidencia: Origen + Comprobante + Factura + CFDI Suggestion */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
                       {entry.origin && ORIGIN_LABELS[entry.origin] && (
@@ -407,6 +411,9 @@ export function LedgerTable({
                       <span title={entry.hasFactura ? 'Factura CFDI' : 'Sin factura'}>
                         <FileCheck2 className={`w-3.5 h-3.5 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
                       </span>
+                      {!entry.hasFactura && (
+                        <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
+                      )}
                     </div>
                   </td>
                   {/* Estado Pago */}
