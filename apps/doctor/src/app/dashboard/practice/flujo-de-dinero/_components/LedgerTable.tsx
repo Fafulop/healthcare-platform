@@ -175,7 +175,7 @@ export function LedgerTable({
               {entry.serviceName && <p className="text-xs text-blue-600 font-medium mt-0.5">{entry.serviceName}</p>}
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-xs text-gray-500">
-                  {formatDate(entry.transactionDate)} · {entry.area}{entry.subarea ? ` / ${entry.subarea}` : ''}
+                  {formatDate(entry.transactionDate)} · {entry.area || '—'}{entry.subarea ? ` / ${entry.subarea}` : ''}
                 </p>
                 <div className="flex items-center gap-1">
                   {entry.origin && ORIGIN_LABELS[entry.origin] && (
@@ -389,8 +389,8 @@ export function LedgerTable({
                       <div className="text-gray-600 cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 transition-colors group" onClick={() => onStartEditArea(entry)} title="Click para editar área y subárea">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="text-sm">{entry.area}</div>
-                            <div className="text-xs text-gray-500">{entry.subarea}</div>
+                            <div className="text-sm">{entry.area || '—'}</div>
+                            <div className="text-xs text-gray-500">{entry.subarea || ''}</div>
                           </div>
                           <Edit2 className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>

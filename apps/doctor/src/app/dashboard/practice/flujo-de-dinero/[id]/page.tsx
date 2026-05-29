@@ -70,7 +70,7 @@ export default function FlujoDeDineroDetailPage() {
             <div className="flex gap-2">
               {entry.entryType === "ingreso" && (
                 <Link
-                  href={`/dashboard/facturacion?from=ledger&ledgerId=${entry.id}&amount=${entry.amount}&concept=${encodeURIComponent(entry.concept)}&clientName=${encodeURIComponent(entry.client?.businessName || "")}&formaDePago=${encodeURIComponent(entry.formaDePago)}`}
+                  href={`/dashboard/facturacion?from=ledger&ledgerId=${entry.id}&amount=${entry.amount}&concept=${encodeURIComponent(entry.concept)}&clientName=${encodeURIComponent(entry.client?.businessName || "")}&formaDePago=${encodeURIComponent(entry.formaDePago || '')}`}
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
                 >
                   <Receipt className="w-4 h-4" />
@@ -136,12 +136,12 @@ export default function FlujoDeDineroDetailPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Área</label>
-              <p className="text-gray-900">{entry.area}</p>
+              <p className="text-gray-900">{entry.area || '—'}</p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Subárea</label>
-              <p className="text-gray-900">{entry.subarea}</p>
+              <p className="text-gray-900">{entry.subarea || '—'}</p>
             </div>
 
             {entry.bankAccount && (
@@ -153,7 +153,7 @@ export default function FlujoDeDineroDetailPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Forma de Pago</label>
-              <p className="text-gray-900 capitalize">{entry.formaDePago}</p>
+              <p className="text-gray-900 capitalize">{entry.formaDePago || '—'}</p>
             </div>
 
             {entry.bankMovementId && (

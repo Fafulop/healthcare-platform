@@ -78,7 +78,7 @@ export function EntryDetailModal({ entry, onClose }: Props) {
             </div>
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Forma de Pago</p>
-              <p className="text-sm text-gray-900 capitalize">{entry.formaDePago}</p>
+              <p className="text-sm text-gray-900 capitalize">{entry.formaDePago || '—'}</p>
             </div>
             {entry.bankAccount && (
               <div>

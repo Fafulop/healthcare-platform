@@ -200,7 +200,7 @@ export function useLedgerPage() {
 
   const handleStartEditArea = (entry: LedgerEntry) => {
     setEditingAreaId(entry.id);
-    setEditingAreaData({ area: entry.area, subarea: entry.subarea });
+    setEditingAreaData({ area: entry.area || '', subarea: entry.subarea || '' });
   };
 
   const handleCancelEditArea = () => {
@@ -344,10 +344,10 @@ export function useLedgerPage() {
       }
       if (searchTerm) {
         const s = searchTerm.toLowerCase();
-        return entry.concept.toLowerCase().includes(s) ||
-          entry.internalId.toLowerCase().includes(s) ||
-          entry.area.toLowerCase().includes(s) ||
-          entry.subarea.toLowerCase().includes(s) ||
+        return (entry.concept || '').toLowerCase().includes(s) ||
+          (entry.internalId || '').toLowerCase().includes(s) ||
+          (entry.area || '').toLowerCase().includes(s) ||
+          (entry.subarea || '').toLowerCase().includes(s) ||
           (entry.serviceName || '').toLowerCase().includes(s);
       }
       return true;
@@ -359,8 +359,8 @@ export function useLedgerPage() {
         case 'fecha': aVal = new Date(a.transactionDate).getTime(); bVal = new Date(b.transactionDate).getTime(); break;
         case 'tipo': aVal = a.entryType; bVal = b.entryType; break;
         case 'monto': aVal = parseFloat(a.amount); bVal = parseFloat(b.amount); break;
-        case 'area': aVal = a.area.toLowerCase(); bVal = b.area.toLowerCase(); break;
-        case 'concepto': aVal = a.concept.toLowerCase(); bVal = b.concept.toLowerCase(); break;
+        case 'area': aVal = (a.area || '').toLowerCase(); bVal = (b.area || '').toLowerCase(); break;
+        case 'concepto': aVal = (a.concept || '').toLowerCase(); bVal = (b.concept || '').toLowerCase(); break;
         case 'formaDePago': aVal = (a.formaDePago || '').toLowerCase(); bVal = (b.formaDePago || '').toLowerCase(); break;
         case 'cobrado':
         case 'pagado': aVal = parseFloat(a.amountPaid || '0'); bVal = parseFloat(b.amountPaid || '0'); break;
@@ -414,7 +414,7 @@ export function useLedgerPage() {
         formatDate(entry.transactionDate),
         entry.entryType === 'ingreso' ? 'Ingreso' : 'Egreso',
         formatCurrency(entry.amount),
-        entry.area, entry.subarea,
+        entry.area || '', entry.subarea || '',
         cleanConcept(entry.concept).substring(0, 40) + (cleanConcept(entry.concept).length > 40 ? '...' : ''),
         entry.formaDePago || '-',
         entry.entryType === 'ingreso' ? formatCurrency(paid) : '-',

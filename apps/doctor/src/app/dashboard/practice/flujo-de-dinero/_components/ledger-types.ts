@@ -24,12 +24,12 @@ export interface LedgerEntry {
   concept: string;
   bankAccount: string | null;
   bankMovementId: string | null;
-  formaDePago: string;
+  formaDePago: string | null;
   internalId: string;
   entryType: string;
   transactionDate: string;
-  area: string;
-  subarea: string;
+  area: string | null;
+  subarea: string | null;
   porRealizar: boolean;
   attachments: any[];
   facturas: any[];
