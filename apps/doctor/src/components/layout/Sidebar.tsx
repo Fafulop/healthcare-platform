@@ -156,12 +156,6 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             href="/dashboard/reportes"
             active={pathname?.startsWith("/dashboard/reportes")}
           />
-          <NavItem
-            icon={CreditCard}
-            label="Pagos"
-            href="/dashboard/pagos"
-            active={pathname?.startsWith("/dashboard/pagos")}
-          />
         </div>
 
         <hr className="my-3 border-gray-200" />
@@ -174,22 +168,28 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             active={pathname?.startsWith("/dashboard/practice/flujo-de-dinero")}
           />
           <NavItem
+            icon={CreditCard}
+            label="Pagos"
+            href="/dashboard/pagos"
+            active={pathname?.startsWith("/dashboard/pagos")}
+          />
+          <NavItem
             icon={Receipt}
             label="Facturación"
             href="/dashboard/facturacion"
             active={pathname?.startsWith("/dashboard/facturacion")}
           />
           <NavItem
-            icon={Landmark}
-            label="Conciliación Bancaria"
-            href="/dashboard/practice/conciliacion-bancaria"
-            active={pathname?.startsWith("/dashboard/practice/conciliacion-bancaria")}
-          />
-          <NavItem
             icon={Download}
             label="Descarga SAT"
             href="/dashboard/sat-descarga"
             active={pathname?.startsWith("/dashboard/sat-descarga")}
+          />
+          <NavItem
+            icon={Landmark}
+            label="Conciliación Bancaria"
+            href="/dashboard/practice/conciliacion-bancaria"
+            active={pathname?.startsWith("/dashboard/practice/conciliacion-bancaria")}
           />
           <NavItem
             icon={ShoppingCart}

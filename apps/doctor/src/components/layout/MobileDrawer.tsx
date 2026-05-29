@@ -24,6 +24,7 @@ import {
   DollarSign,
   Receipt,
   Download,
+  Landmark,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -202,13 +203,6 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               active={pathname.startsWith("/dashboard/reportes")}
               onClick={onClose}
             />
-            <NavItem
-              icon={CreditCard}
-              label="Pagos"
-              href="/dashboard/pagos"
-              active={pathname.startsWith("/dashboard/pagos")}
-              onClick={onClose}
-            />
           </div>
 
           <hr className="border-gray-200" />
@@ -223,6 +217,13 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               onClick={onClose}
             />
             <NavItem
+              icon={CreditCard}
+              label="Pagos"
+              href="/dashboard/pagos"
+              active={pathname.startsWith("/dashboard/pagos")}
+              onClick={onClose}
+            />
+            <NavItem
               icon={Receipt}
               label="Facturación"
               href="/dashboard/facturacion"
@@ -234,6 +235,13 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               label="Descarga SAT"
               href="/dashboard/sat-descarga"
               active={pathname.startsWith("/dashboard/sat-descarga")}
+              onClick={onClose}
+            />
+            <NavItem
+              icon={Landmark}
+              label="Conciliación Bancaria"
+              href="/dashboard/practice/conciliacion-bancaria"
+              active={pathname.startsWith("/dashboard/practice/conciliacion-bancaria")}
               onClick={onClose}
             />
             <NavItem
