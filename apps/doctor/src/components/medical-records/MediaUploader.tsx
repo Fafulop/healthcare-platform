@@ -22,14 +22,15 @@ interface Encounter {
   chiefComplaint: string;
 }
 
-const CATEGORIES = [
-  'wound',
-  'x-ray',
-  'dermatology',
-  'lab-result',
-  'procedure',
-  'consultation',
-  'other'
+const CATEGORIES: { value: string; label: string }[] = [
+  { value: 'wound', label: 'Herida' },
+  { value: 'x-ray', label: 'Rayos X' },
+  { value: 'dermatology', label: 'Dermatología' },
+  { value: 'cardiology', label: 'Cardiología' },
+  { value: 'lab-result', label: 'Resultado de Laboratorio' },
+  { value: 'procedure', label: 'Procedimiento' },
+  { value: 'consultation', label: 'Consulta' },
+  { value: 'other', label: 'Otro' },
 ];
 
 const BODY_AREAS = [
@@ -302,8 +303,8 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
             >
               <option value="">Seleccionar categoría...</option>
               {CATEGORIES.map(cat => (
-                <option key={cat} value={cat}>
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
                 </option>
               ))}
             </select>
