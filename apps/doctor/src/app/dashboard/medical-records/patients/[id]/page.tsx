@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { usePatientProfile } from '../_components/usePatientProfile';
 import { authFetch } from '@/lib/auth-fetch';
@@ -60,14 +61,6 @@ const FORMA_PAGO_LABEL: Record<string, string> = {
   tarjeta: 'Tarjeta',
   cheque: 'Cheque',
   deposito: 'Depósito',
-};
-
-const FORMA_TO_SAT: Record<string, string> = {
-  efectivo: '01',
-  transferencia: '03',
-  tarjeta: '04',
-  cheque: '02',
-  deposito: '03',
 };
 
 function BookingStatusPill({ status }: { status: string }) {
@@ -337,12 +330,10 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
 interface CitasIngresosSectionProps {
   bookings: PatientBooking[];
   patient: import('../_components/patient-types').Patient;
-  patientId: string;
-  onBookingsChange: (bookings: PatientBooking[]) => void;
 }
 
-function CitasIngresosSection({ bookings, patient, patientId, onBookingsChange }: CitasIngresosSectionProps) {
-  const [emittingCfdiFor, setEmittingCfdiFor] = useState<string | null>(null);
+function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) {
+  const router = useRouter();
 
   const hasFiscalData = !!(
     patient.requiereFactura &&
@@ -353,50 +344,21 @@ function CitasIngresosSection({ bookings, patient, patientId, onBookingsChange }
     patient.codigoPostalFiscal
   );
 
-  const handleEmitCfdi = async (booking: PatientBooking) => {
+  const handleEmitCfdi = (booking: PatientBooking) => {
     if (!hasFiscalData || !booking.ledgerEntryId || !booking.amount) return;
-    setEmittingCfdiFor(booking.id);
-    try {
-      const res = await authFetch(`${API_URL}/api/facturacion/cfdi`, {
-        method: 'POST',
-        body: JSON.stringify({
-          receiver: {
-            rfc: patient.rfc,
-            name: patient.razonSocial,
-            cfdiUse: patient.usoCfdi,
-            fiscalRegime: patient.regimenFiscal,
-            taxZipCode: patient.codigoPostalFiscal,
-          },
-          items: [{
-            productCode: '85121800',
-            description: booking.serviceName || 'Consulta médica',
-            quantity: 1,
-            unitCode: 'E48',
-            unitPrice: booking.amount,
-            subtotal: booking.amount,
-            total: booking.amount,
-          }],
-          paymentForm: FORMA_TO_SAT[booking.formaDePago || 'efectivo'] || '03',
-          paymentMethod: 'PUE',
-          cfdiType: 'I',
-          ledgerEntryId: booking.ledgerEntryId,
-        }),
-      });
-      const data = await res.json();
-      if (data.data?.id) {
-        toast.success('Factura (CFDI) emitida correctamente');
-        // Refresh bookings to show the new CFDI
-        const refreshRes = await fetch(`/api/medical-records/patients/${patientId}/bookings`);
-        const refreshData = await refreshRes.json();
-        if (refreshData.success) onBookingsChange(refreshData.data);
-      } else {
-        toast.error(data.error || 'Error al emitir factura');
-      }
-    } catch {
-      toast.error('Error de conexión al emitir factura');
-    } finally {
-      setEmittingCfdiFor(null);
-    }
+    const params = new URLSearchParams({
+      from: 'booking',
+      ledgerId: String(booking.ledgerEntryId),
+      concept: booking.serviceName || 'Consulta médica',
+      amount: String(booking.amount),
+      clientName: patient.razonSocial!,
+      formaDePago: booking.formaDePago || 'efectivo',
+      rfc: patient.rfc!,
+      fiscalRegime: patient.regimenFiscal!,
+      cfdiUse: patient.usoCfdi!,
+      taxZipCode: patient.codigoPostalFiscal!,
+    });
+    router.push(`/dashboard/facturacion?${params.toString()}`);
   };
 
   const handleDownloadFile = async (cfdiId: number, format: 'pdf' | 'xml') => {
@@ -425,7 +387,6 @@ function CitasIngresosSection({ bookings, patient, patientId, onBookingsChange }
         <div className="space-y-3">
           {bookings.map((b) => {
             const isCompleted = b.status === 'COMPLETED';
-            const isEmitting = emittingCfdiFor === b.id;
             return (
               <div key={b.id} className="rounded-lg border border-gray-200 overflow-hidden">
                 {/* Top row: date, service, status */}
@@ -506,14 +467,9 @@ function CitasIngresosSection({ bookings, patient, patientId, onBookingsChange }
                         ) : hasFiscalData && b.ledgerEntryId ? (
                           <button
                             onClick={() => handleEmitCfdi(b)}
-                            disabled={isEmitting}
-                            className="text-xs px-2.5 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            className="text-xs px-2.5 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors flex items-center gap-1"
                           >
-                            {isEmitting ? (
-                              <><Loader2 className="w-3 h-3 animate-spin" /> Emitiendo...</>
-                            ) : (
-                              <><Receipt className="w-3 h-3" /> Emitir factura</>
-                            )}
+                            <Receipt className="w-3 h-3" /> Emitir factura
                           </button>
                         ) : !hasFiscalData && b.ledgerEntryId ? (
                           <span className="text-xs text-gray-400">Sin datos fiscales</span>
@@ -899,8 +855,6 @@ export default function PatientProfilePage() {
           <CitasIngresosSection
             bookings={patientBookings}
             patient={patient}
-            patientId={patient.id}
-            onBookingsChange={setPatientBookings}
           />
         </div>
 

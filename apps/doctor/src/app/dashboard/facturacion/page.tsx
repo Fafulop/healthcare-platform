@@ -147,15 +147,19 @@ function FacturacionPageInner() {
   const [csdStatus, setCsdStatus] = useState<CSDStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Pre-fill data from ledger integration (query params)
-  const fromLedger = searchParams.get("from") === "ledger";
-  const ledgerData = useMemo(() => fromLedger ? {
+  // Pre-fill data from ledger/booking integration (query params)
+  const fromPrefill = searchParams.get("from") === "ledger" || searchParams.get("from") === "booking";
+  const ledgerData = useMemo(() => fromPrefill ? {
     ledgerEntryId: parseInt(searchParams.get("ledgerId") || "0") || undefined,
     concept: searchParams.get("concept") || "",
     amount: parseFloat(searchParams.get("amount") || "0") || 0,
     clientName: searchParams.get("clientName") || "",
     formaDePago: searchParams.get("formaDePago") || "",
-  } : null, [fromLedger, searchParams]);
+    rfc: searchParams.get("rfc") || undefined,
+    fiscalRegime: searchParams.get("fiscalRegime") || undefined,
+    cfdiUse: searchParams.get("cfdiUse") || undefined,
+    taxZipCode: searchParams.get("taxZipCode") || undefined,
+  } : null, [fromPrefill, searchParams]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -1236,6 +1240,11 @@ interface LedgerPrefill {
   amount: number;
   clientName: string;
   formaDePago: string;
+  // Receiver fiscal data (pre-filled from booking/patient)
+  rfc?: string;
+  fiscalRegime?: string;
+  cfdiUse?: string;
+  taxZipCode?: string;
 }
 
 // Map ledger formaDePago values to SAT payment form codes
@@ -1255,11 +1264,11 @@ function NuevaFacturaTab({
   ledgerData?: LedgerPrefill | null;
 }) {
   const [receiver, setReceiver] = useState({
-    rfc: "",
+    rfc: ledgerData?.rfc || "",
     name: ledgerData?.clientName || "",
-    cfdiUse: "D01",
-    fiscalRegime: "",
-    taxZipCode: "",
+    cfdiUse: ledgerData?.cfdiUse || "D01",
+    fiscalRegime: ledgerData?.fiscalRegime || "",
+    taxZipCode: ledgerData?.taxZipCode || "",
   });
   const [items, setItems] = useState([{
     description: ledgerData?.concept || "",
