@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { generateLedgerInternalId, parsePagination, buildPaginationMeta } from '@/lib/practice-utils';
+import { generateLedgerInternalId, getDefaultArea, parsePagination, buildPaginationMeta } from '@/lib/practice-utils';
 
 // GET /api/practice-management/ledger
 // Get all ledger entries for authenticated doctor with optional filtering
@@ -248,6 +248,15 @@ export async function POST(request: NextRequest) {
     const finalAmountPaid = amountPaid !== undefined ? parseFloat(String(amountPaid)) : amount;
     const finalPaymentStatus = paymentStatus || (finalAmountPaid >= amount ? 'PAID' : finalAmountPaid > 0 ? 'PARTIAL' : 'PENDING');
 
+    // Resolve area from doctor's configured areas if not provided
+    let finalArea = area?.trim() || '';
+    let finalSubarea = subarea?.trim() || '';
+    if (!finalArea) {
+      const defaultArea = await getDefaultArea(doctor.id, entryType === 'ingreso' ? 'INGRESO' : 'EGRESO');
+      finalArea = defaultArea.area;
+      finalSubarea = finalSubarea || defaultArea.subarea;
+    }
+
     // Create ledger entry (no auto-creation of sales/purchases)
     const entry = await prisma.ledgerEntry.create({
       data: {
@@ -260,8 +269,8 @@ export async function POST(request: NextRequest) {
         bankMovementId: bankMovementId?.trim() || null,
         entryType: entryType,
         transactionDate: new Date(finalTransactionDate + 'T12:00:00'),
-        area: area?.trim() || null,
-        subarea: subarea?.trim() || null,
+        area: finalArea || null,
+        subarea: finalSubarea || null,
         porRealizar: porRealizar || false,
         transactionType: txType,
         amountPaid: finalAmountPaid,

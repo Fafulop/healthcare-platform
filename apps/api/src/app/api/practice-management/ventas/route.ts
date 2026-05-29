@@ -8,6 +8,7 @@ import {
   computeItemTotals,
   parsePagination,
   buildPaginationMeta,
+  getDefaultArea,
 } from '@/lib/practice-utils';
 
 // GET /api/practice-management/ventas
@@ -160,6 +161,8 @@ export async function POST(request: NextRequest) {
             },
           });
 
+          const defaultArea = await getDefaultArea(doctor.id, 'INGRESO', tx);
+
           await tx.ledgerEntry.create({
             data: {
               doctorId: doctor.id,
@@ -167,8 +170,8 @@ export async function POST(request: NextRequest) {
               concept: `Venta ${saleNumber} - Cliente: ${client.businessName}`,
               entryType: 'ingreso',
               transactionDate: saleDateValue,
-              area: 'Ventas',
-              subarea: 'Ventas Generales',
+              area: defaultArea.area,
+              subarea: defaultArea.subarea,
               porRealizar: false,
               internalId: ledgerInternalId,
               transactionType: 'VENTA',

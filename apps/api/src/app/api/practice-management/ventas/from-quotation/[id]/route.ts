@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { generateSaleNumber, generateLedgerInternalId } from '@/lib/practice-utils';
+import { generateSaleNumber, generateLedgerInternalId, getDefaultArea } from '@/lib/practice-utils';
 
 // POST /api/practice-management/ventas/from-quotation/:id
 // Convertir cotización a venta
@@ -96,6 +96,8 @@ export async function POST(
 
           const client = await tx.client.findUnique({ where: { id: quotation.clientId } });
 
+          const defaultArea = await getDefaultArea(doctor.id, 'INGRESO', tx);
+
           await tx.ledgerEntry.create({
             data: {
               doctorId: doctor.id,
@@ -103,8 +105,8 @@ export async function POST(
               concept: `Venta ${saleNumber} - Cliente: ${client?.businessName || 'Sin nombre'}`,
               entryType: 'ingreso',
               transactionDate: new Date(),
-              area: 'Ventas',
-              subarea: 'Ventas Generales',
+              area: defaultArea.area,
+              subarea: defaultArea.subarea,
               porRealizar: false,
               internalId: ledgerInternalId,
               transactionType: 'VENTA',

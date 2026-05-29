@@ -129,6 +129,8 @@ export async function createPaymentLedgerEntry(
     }
   }
 
+  const defaultArea = await getDefaultArea(doctorId, 'INGRESO');
+
   const entry = await prisma.ledgerEntry.create({
     data: {
       doctorId,
@@ -138,8 +140,8 @@ export async function createPaymentLedgerEntry(
       transactionDate: new Date(),
       internalId,
       formaDePago,
-      area: 'Consultas Médicas',
-      subarea: serviceName || 'Pago en Línea',
+      area: defaultArea.area,
+      subarea: serviceName || defaultArea.subarea,
       origin: 'webhook_pago',
       transactionType: 'N/A',
       amountPaid: amount,
@@ -154,6 +156,30 @@ export async function createPaymentLedgerEntry(
 
   console.log(`[${paymentProvider}] LedgerEntry ${entry.internalId} created for payment of $${amount}${bookingId ? ` (booking ${bookingId})` : ''}`);
   return entry;
+}
+
+// ─── Default Area Resolution ────────────────────────────────────────────────
+
+/**
+ * Look up the doctor's first configured area (and optionally first subarea)
+ * for the given type. Returns empty strings if no area is configured.
+ */
+export async function getDefaultArea(
+  doctorId: string,
+  type: 'INGRESO' | 'EGRESO',
+  tx?: TxClient,
+): Promise<{ area: string; subarea: string }> {
+  const db = tx || prisma;
+  const found = await db.practiceArea.findFirst({
+    where: { doctorId, type },
+    include: { subareas: { take: 1, orderBy: { id: 'asc' } } },
+    orderBy: { id: 'asc' },
+  });
+  if (!found) return { area: '', subarea: '' };
+  return {
+    area: found.name,
+    subarea: found.subareas[0]?.name || '',
+  };
 }
 
 // ─── Pagination ─────────────────────────────────────────────────────────────

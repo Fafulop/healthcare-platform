@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { generateLedgerInternalId } from '@/lib/practice-utils';
+import { generateLedgerInternalId, getDefaultArea } from '@/lib/practice-utils';
 
 // POST /api/sat-descarga/register-to-ledger
 // Register one or more SAT CFDIs as LedgerEntries
@@ -96,16 +96,17 @@ export async function POST(request: NextRequest) {
           concept = `CFDI ${isReceived ? 'recibido de' : 'emitido a'} ${counterpart || (isReceived ? cfdi.issuerRfc : cfdi.receiverRfc)}`;
         }
 
-        // Determine area
+        // Determine area from doctor's configured areas
+        const areaType = entryType === 'ingreso' ? 'INGRESO' : 'EGRESO';
         let area = areaOverride || null;
         let subarea = subareaOverride || null;
-        if (!area && isReceived && entryType === 'egreso') {
-          area = 'Gastos Operativos';
-          subarea = 'Proveedores';
-        }
-        if (!area && !isReceived && entryType === 'ingreso') {
-          area = 'Consultas Médicas';
-          subarea = 'Consulta General';
+        if (!area) {
+          const defaultArea = await getDefaultArea(doctor.id, areaType, tx);
+          area = defaultArea.area;
+          subarea = subarea || defaultArea.subarea;
+        } else if (!subarea) {
+          const defaultArea = await getDefaultArea(doctor.id, areaType, tx);
+          subarea = defaultArea.subarea;
         }
 
         // Forma de pago from XML detail

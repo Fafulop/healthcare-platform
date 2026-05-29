@@ -62,16 +62,18 @@ export function processEstadoResultados(
       const amount = parseFloat(entry.amount);
       const amountPaid = parseFloat(entry.amountPaid || '0');
       const saldo = amount - amountPaid;
+      const area = entry.area || 'Sin Área';
+      const subarea = entry.subarea || 'Sin Subárea';
 
       if (entry.entryType === 'ingreso') {
-        if (!result.ingresos[entry.area]) result.ingresos[entry.area] = {};
-        result.ingresos[entry.area][entry.subarea] = (result.ingresos[entry.area][entry.subarea] || 0) + amountPaid;
+        if (!result.ingresos[area]) result.ingresos[area] = {};
+        result.ingresos[area][subarea] = (result.ingresos[area][subarea] || 0) + amountPaid;
         const svcKey = entry.serviceName || 'Sin servicio';
         result.ingresosByService[svcKey] = (result.ingresosByService[svcKey] || 0) + amountPaid;
         result.cuentasPorCobrar += saldo;
       } else if (entry.entryType === 'egreso') {
-        if (!result.egresos[entry.area]) result.egresos[entry.area] = {};
-        result.egresos[entry.area][entry.subarea] = (result.egresos[entry.area][entry.subarea] || 0) + amountPaid;
+        if (!result.egresos[area]) result.egresos[area] = {};
+        result.egresos[area][subarea] = (result.egresos[area][subarea] || 0) + amountPaid;
         result.cuentasPorPagar += saldo;
       }
     });

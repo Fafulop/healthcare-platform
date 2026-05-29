@@ -8,6 +8,7 @@ import {
   computeItemTotals,
   parsePagination,
   buildPaginationMeta,
+  getDefaultArea,
 } from '@/lib/practice-utils';
 
 // GET /api/practice-management/compras
@@ -156,6 +157,8 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      const defaultArea = await getDefaultArea(doctor.id, 'EGRESO', tx);
+
       await tx.ledgerEntry.create({
         data: {
           doctorId: doctor.id,
@@ -163,8 +166,8 @@ export async function POST(request: NextRequest) {
           concept: `Compra ${purchaseNumber} - Proveedor: ${supplier.businessName}`,
           entryType: 'egreso',
           transactionDate: purchaseDateValue,
-          area: 'Compras',
-          subarea: 'Compras Generales',
+          area: defaultArea.area,
+          subarea: defaultArea.subarea,
           porRealizar: false,
           internalId: ledgerInternalId,
           transactionType: 'COMPRA',

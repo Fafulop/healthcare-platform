@@ -239,8 +239,6 @@ export function useBookings(doctorId: string | undefined) {
             amountPaid: price,
             bookingId,
             origin: "cita",
-            area: "Consultas Médicas",
-            subarea: serviceName || "Consulta General",
             serviceId: booking?.serviceId || null,
             serviceName: serviceName || null,
           }),

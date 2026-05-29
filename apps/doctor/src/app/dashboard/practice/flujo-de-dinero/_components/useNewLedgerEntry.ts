@@ -262,7 +262,7 @@ export function useNewLedgerEntry() {
           serviceId: value,
           concept: svc.serviceName,
           ...(svc.price ? { amount: String(svc.price) } : {}),
-          area: prev.area || 'Consultas Médicas',
+          area: prev.area || '',
           subarea: prev.subarea || svc.serviceName,
         }));
       }

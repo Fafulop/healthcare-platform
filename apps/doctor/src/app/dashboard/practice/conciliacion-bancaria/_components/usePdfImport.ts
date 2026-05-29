@@ -63,7 +63,7 @@ export function usePdfImport(onImportDone: () => void) {
         ...m,
         selected: true,
         entryType: m.movementType === 'deposit' ? 'ingreso' as const : 'egreso' as const,
-        area: m.movementType === 'deposit' ? 'Consultas Médicas' : 'Gastos Operativos',
+        area: '',
         subarea: '',
         formaDePago: 'transferencia',
       }));
