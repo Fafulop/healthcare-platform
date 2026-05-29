@@ -170,7 +170,7 @@ export async function getDefaultArea(
   tx?: TxClient | PrismaClient,
 ): Promise<{ area: string; subarea: string }> {
   const db = (tx || prisma) as PrismaClient;
-  const found = await db.practiceArea.findFirst({
+  const found = await db.area.findFirst({
     where: { doctorId, type },
     include: { subareas: { take: 1, orderBy: { id: 'asc' } } },
     orderBy: { id: 'asc' },
