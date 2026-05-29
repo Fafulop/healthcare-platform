@@ -167,9 +167,9 @@ export async function createPaymentLedgerEntry(
 export async function getDefaultArea(
   doctorId: string,
   type: 'INGRESO' | 'EGRESO',
-  tx?: TxClient,
+  tx?: TxClient | PrismaClient,
 ): Promise<{ area: string; subarea: string }> {
-  const db = tx || prisma;
+  const db = (tx || prisma) as PrismaClient;
   const found = await db.practiceArea.findFirst({
     where: { doctorId, type },
     include: { subareas: { take: 1, orderBy: { id: 'asc' } } },
