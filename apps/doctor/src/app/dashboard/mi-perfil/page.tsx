@@ -90,6 +90,41 @@ const DEFAULT_FORM_DATA = {
   color_palette: "professional",
 };
 
+function GuiaSeoSection() {
+  const [html, setHtml] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/guia-para-doctores.html")
+      .then((r) => r.text())
+      .then((text) => {
+        // Extract <style> blocks and <body> content
+        const styles = Array.from(text.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi))
+          .map((m) => m[0])
+          .join("\n");
+        const body = text.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        setHtml(styles + (body ? body[1] : text));
+      })
+      .catch(() => setHtml("<p>Error al cargar la guía.</p>"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="guia-seo-content"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 export default function MiPerfilPage() {
   const { doctorProfile, refetch } = useDoctorProfile();
   const [activeTab, setActiveTab] = useState<TabId>("general");
@@ -687,14 +722,7 @@ export default function MiPerfilPage() {
           <ReviewsSection reviews={reviews} reviewStats={reviewStats} onDelete={handleDeleteReview} />
         )}
         {activeTab === "receta" && <PrescriptionTemplateSection />}
-        {activeTab === "guia" && (
-          <iframe
-            src="/guia-para-doctores.html"
-            className="w-full border-0 rounded-lg"
-            style={{ minHeight: "80vh" }}
-            title="Guía para Doctores"
-          />
-        )}
+        {activeTab === "guia" && <GuiaSeoSection />}
         {activeTab === "integraciones" && (
           <div className="space-y-6">
             <div>
