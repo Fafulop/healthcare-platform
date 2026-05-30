@@ -87,15 +87,20 @@ export function RangeTimePickerStep({
   useEffect(() => {
     if (!selectedServiceId || !doctorSlug) return;
 
+    const abortController = new AbortController();
+
     const fetchAvailability = async () => {
       setLoadingAvailability(true);
+      setAvailableDates([]);
+      setTimeSlots({});
       try {
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth() + 1;
         const monthStr = `${year}-${String(month).padStart(2, "0")}`;
 
         const res = await fetch(
-          `${API_URL}/api/doctors/${doctorSlug}/range-availability?serviceId=${selectedServiceId}&month=${monthStr}`
+          `${API_URL}/api/doctors/${doctorSlug}/range-availability?serviceId=${selectedServiceId}&month=${monthStr}`,
+          { signal: abortController.signal }
         );
         const data = await res.json();
 
@@ -104,12 +109,17 @@ export function RangeTimePickerStep({
           setTimeSlots(data.timeSlots || {});
         }
       } catch (err) {
+        if ((err as Error).name === "AbortError") return;
         console.error("Error fetching range availability:", err);
       } finally {
-        setLoadingAvailability(false);
+        if (!abortController.signal.aborted) {
+          setLoadingAvailability(false);
+        }
       }
     };
     fetchAvailability();
+
+    return () => abortController.abort();
   }, [selectedServiceId, currentMonth, doctorSlug]);
 
   // Calendar rendering
