@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, Sparkles, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
+import { PatientSummaryModal } from '@/components/medical-records/PatientSummaryModal';
 import { usePatientProfile } from '../_components/usePatientProfile';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
@@ -51,6 +52,13 @@ interface PatientBooking {
   amount: number | null;
   formaDePago: string | null;
   cfdi: BookingCfdi | null;
+}
+
+interface PatientSummaryData {
+  id: string;
+  content: string;
+  dataPoints: { encounters: number; prescriptions: number; notes: number };
+  createdAt: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -516,6 +524,10 @@ export default function PatientProfilePage() {
   const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
   const [patientBookings, setPatientBookings] = useState<PatientBooking[]>([]);
   const [patientFormularios, setPatientFormularios] = useState<PatientFormulario[]>([]);
+  const [summary, setSummary] = useState<PatientSummaryData | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
 
   useEffect(() => {
     if (!patientId) return;
@@ -537,7 +549,36 @@ export default function PatientProfilePage() {
         if (d.success) setPatientFormularios(d.data);
       })
       .catch(() => {});
+    fetch(`/api/medical-records/patients/${patientId}/summary`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.data) setSummary(d.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingSummary(false));
   }, [patientId]);
+
+  const handleGenerateSummary = async () => {
+    if (!patientId) return;
+    setGeneratingSummary(true);
+    try {
+      const res = await fetch(`/api/medical-records/patients/${patientId}/summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const d = await res.json();
+      if (d.data) {
+        setSummary(d.data);
+        toast.success('Resumen generado exitosamente');
+      } else {
+        toast.error(d.error || 'Error al generar resumen');
+      }
+    } catch {
+      toast.error('Error al generar resumen');
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
 
   if (sessionStatus === 'loading' || loading) {
     return (
@@ -858,6 +899,18 @@ export default function PatientProfilePage() {
           />
         </div>
 
+        {/* Summary Modal */}
+        {summary && (
+          <PatientSummaryModal
+            isOpen={showSummaryModal}
+            onClose={() => setShowSummaryModal(false)}
+            summary={summary}
+            patientName={`${patient.firstName} ${patient.lastName}`}
+            onRegenerate={handleGenerateSummary}
+            isRegenerating={generatingSummary}
+          />
+        )}
+
         {/* Right Column - Quick Info */}
         <div className="space-y-6 order-1 lg:order-2">
           <div className="bg-white rounded-lg shadow p-6">
@@ -888,6 +941,69 @@ export default function PatientProfilePage() {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Resumen Paciente */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
+              <Sparkles className="w-5 h-5 text-purple-500" />
+              Resumen Paciente
+            </h3>
+
+            {loadingSummary ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              </div>
+            ) : summary ? (
+              <div>
+                <p className="text-xs font-medium text-purple-600 mb-2">
+                  Generado el {new Date(summary.createdAt).toLocaleDateString('es-MX', {
+                    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                  })}
+                </p>
+                <button
+                  onClick={() => setShowSummaryModal(true)}
+                  className="w-full text-left"
+                >
+                  <p className="text-sm text-gray-700 line-clamp-4 leading-relaxed">
+                    {summary.content}
+                  </p>
+                  <p className="text-xs text-purple-600 mt-2 hover:text-purple-800 transition-colors font-medium">
+                    Ver resumen completo
+                  </p>
+                </button>
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <button
+                    onClick={handleGenerateSummary}
+                    disabled={generatingSummary}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    {generatingSummary ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    )}
+                    {generatingSummary ? 'Regenerando...' : 'Regenerar Resumen'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-sm text-gray-500 mb-3">No hay resumen generado</p>
+                <button
+                  onClick={handleGenerateSummary}
+                  disabled={generatingSummary}
+                  className="w-full px-3 py-2.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 font-medium"
+                >
+                  {generatingSummary ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  {generatingSummary ? 'Generando...' : 'Generar Resumen'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

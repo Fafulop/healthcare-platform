@@ -275,6 +275,9 @@ model Doctor {
   bankStatements     BankStatement[]
   bankCategorizationRules BankCategorizationRule[]
 
+  // Patient AI Summaries
+  patientSummaries   PatientSummary[]
+
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -1744,6 +1747,7 @@ model Patient {
   patientNotes         PatientNote[]
   bookings             Booking[]
   formLinks            AppointmentFormLink[]
+  summaries            PatientSummary[]
 
   @@unique([doctorId, internalId])
   @@index([doctorId, status])
@@ -2244,6 +2248,25 @@ model PatientNote {
   @@index([patientId, updatedAt])
   @@index([doctorId])
   @@map("patient_notes")
+  @@schema("medical_records")
+}
+
+/// Patient Summary
+/// AI-generated clinical summary for a patient, persisted so it's available across sessions
+model PatientSummary {
+  id         String   @id @default(cuid())
+  patientId  String   @map("patient_id")
+  doctorId   String   @map("doctor_id")
+  content    String   @db.Text
+  dataPoints Json     @map("data_points")
+
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor     Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@map("patient_summaries")
   @@schema("medical_records")
 }
 
