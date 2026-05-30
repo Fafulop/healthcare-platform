@@ -51,7 +51,6 @@ export async function GET(
         where: {
           id: serviceId,
           doctorId: doctor.id,
-          isBookingActive: true,
         },
         select: {
           id: true,

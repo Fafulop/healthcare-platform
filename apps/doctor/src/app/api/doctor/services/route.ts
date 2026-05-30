@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const { doctorId } = await requireDoctorAuth(request);
 
     const services = await prisma.service.findMany({
-      where: { doctorId, isBookingActive: true },
+      where: { doctorId },
       select: { id: true, serviceName: true, durationMinutes: true, price: true },
       orderBy: { serviceName: 'asc' },
     });
