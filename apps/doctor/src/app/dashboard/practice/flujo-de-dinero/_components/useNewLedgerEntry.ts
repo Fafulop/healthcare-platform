@@ -8,6 +8,7 @@ import { uploadFiles } from '@/lib/uploadthing';
 import { toast } from '@/lib/practice-toast';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoiceStructuredData, VoiceLedgerEntryData, VoiceLedgerEntryBatch } from '@/types/voice-assistant';
+import { AREA_INGRESOS_CONSULTA } from './ledger-types';
 import type { LedgerEntryData } from '@/hooks/useLedgerChat';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -262,7 +263,7 @@ export function useNewLedgerEntry() {
           serviceId: value,
           concept: svc.serviceName,
           ...(svc.price ? { amount: String(svc.price) } : {}),
-          area: prev.area || '',
+          area: prev.area || AREA_INGRESOS_CONSULTA,
           subarea: prev.subarea || svc.serviceName,
         }));
       }

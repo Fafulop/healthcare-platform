@@ -3,9 +3,10 @@
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, FolderTree, ChevronDown, ChevronRight, ArrowLeft, TrendingUp, TrendingDown, Stethoscope, Lock } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import { AREA_INGRESOS_CONSULTA } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
 import { toast } from '@/lib/practice-toast';
 import { practiceConfirm } from '@/lib/practice-confirm';
 
@@ -34,6 +35,7 @@ export default function AreasPage() {
   });
 
   const [areas, setAreas] = useState<Area[]>([]);
+  const [services, setServices] = useState<{ id: string; serviceName: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedAreas, setExpandedAreas] = useState<Set<number>>(new Set());
 
@@ -70,6 +72,9 @@ export default function AreasPage() {
 
       const result = await response.json();
       setAreas(result.data || []);
+      if (result.services) {
+        setServices(result.services.map((s: any) => ({ id: s.id, serviceName: s.serviceName })));
+      }
     } catch (err) {
       console.error('Error fetching areas:', err);
       setError('Error al cargar las áreas');
@@ -304,7 +309,57 @@ export default function AreasPage() {
               </h2>
             </div>
             <div className="p-4 sm:p-6">
-              {areas.filter(a => a.type === 'INGRESO').length === 0 ? (
+              {/* Hardcoded Ingresos Consulta area */}
+              {services.length > 0 && (
+                <div className="border border-teal-200 rounded-lg overflow-hidden mb-3 bg-teal-50/30">
+                  <div className="bg-teal-50 p-3 sm:p-4 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <button
+                        onClick={() => {
+                          const newExpanded = new Set(expandedAreas);
+                          if (newExpanded.has(-1)) newExpanded.delete(-1);
+                          else newExpanded.add(-1);
+                          setExpandedAreas(newExpanded);
+                        }}
+                        className="text-teal-600 hover:text-teal-700 flex-shrink-0"
+                      >
+                        {expandedAreas.has(-1) ? (
+                          <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                        )}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-gray-800 text-sm sm:text-base truncate flex items-center gap-2">
+                          <Stethoscope className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                          {AREA_INGRESOS_CONSULTA}
+                          <Lock className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Servicios de tu perfil · {services.length} servicio{services.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {expandedAreas.has(-1) && (
+                    <div className="bg-white p-3 sm:p-4 pl-8 sm:pl-12 space-y-2">
+                      {services.map((svc) => (
+                        <div
+                          key={svc.id}
+                          className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg gap-2"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-700 text-sm sm:text-base truncate">{svc.serviceName}</p>
+                          </div>
+                          <span className="text-xs text-gray-400 flex-shrink-0">desde perfil</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {areas.filter(a => a.type === 'INGRESO').length === 0 && services.length === 0 ? (
                 <div className="text-center py-6 sm:py-8">
                   <p className="text-gray-400 text-sm sm:text-base">No hay áreas de ingresos</p>
                   <p className="text-gray-400 text-xs sm:text-sm mt-2">

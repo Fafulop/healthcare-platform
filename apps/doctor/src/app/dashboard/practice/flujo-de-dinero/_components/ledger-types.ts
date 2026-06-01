@@ -1,3 +1,6 @@
+/** Hardcoded area name for service-based ingresos (appointments, manual with service). */
+export const AREA_INGRESOS_CONSULTA = 'Ingresos Consulta';
+
 export interface DoctorProfile {
   id: string;
   slug: string;

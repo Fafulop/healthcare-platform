@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { getLocalDateString } from '@/lib/dates';
 import { authFetch } from '@/lib/auth-fetch';
+import { AREA_INGRESOS_CONSULTA } from './ledger-types';
 import type { LedgerEntry, Area, Balance, DoctorProfile } from './ledger-types';
 import {
   formatCurrency,
@@ -327,6 +328,20 @@ export function useLedgerPage() {
     }
   };
 
+  // ─── Virtual "Ingresos Consulta" area from services ────────────────────────
+
+  const areasWithServices = useMemo<Area[]>(() => {
+    const virtualArea: Area = {
+      id: -1,
+      name: AREA_INGRESOS_CONSULTA,
+      description: 'Servicios del doctor',
+      type: 'INGRESO',
+      subareas: services.map((s, i) => ({ id: -(i + 1), name: s.serviceName, description: null })),
+    };
+    const hasIt = areas.some(a => a.name === AREA_INGRESOS_CONSULTA && a.type === 'INGRESO');
+    return hasIt ? areas : [virtualArea, ...areas];
+  }, [areas, services]);
+
   // ─── Derived state ───────────────────────────────────────────────────────────
 
   const filteredEntries = entries
@@ -512,7 +527,7 @@ export function useLedgerPage() {
 
     // Data
     entries,
-    areas,
+    areas: areasWithServices,
     doctorProfile,
     balance,
     filteredEntries,

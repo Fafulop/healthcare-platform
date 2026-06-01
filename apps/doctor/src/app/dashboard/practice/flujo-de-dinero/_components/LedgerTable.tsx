@@ -172,7 +172,7 @@ export function LedgerTable({
               </div>
 
               <p className="text-sm font-medium text-gray-900 mt-1.5 truncate">{cleanConcept(entry.concept)}</p>
-              {entry.serviceName && <p className="text-xs text-blue-600 font-medium mt-0.5">{entry.serviceName}</p>}
+              {entry.serviceName && !cleanConcept(entry.concept).toLowerCase().includes(entry.serviceName.toLowerCase()) && <p className="text-xs text-blue-600 font-medium mt-0.5">{entry.serviceName}</p>}
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-xs text-gray-500">
                   {formatDate(entry.transactionDate)} · {entry.area || '—'}{entry.subarea ? ` / ${entry.subarea}` : ''}
@@ -340,7 +340,7 @@ export function LedgerTable({
                   {/* Concepto */}
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 max-w-xs truncate" title={cleanConcept(entry.concept)}>{cleanConcept(entry.concept)}</div>
-                    {entry.serviceName && <div className="text-xs text-blue-600 font-medium mt-0.5">{entry.serviceName}</div>}
+                    {entry.serviceName && !cleanConcept(entry.concept).toLowerCase().includes(entry.serviceName.toLowerCase()) && <div className="text-xs text-blue-600 font-medium mt-0.5">{entry.serviceName}</div>}
                     {entry.bankAccount && <div className="text-xs text-gray-500 mt-0.5">{entry.bankAccount}</div>}
                   </td>
                   {/* Área — inline editable */}

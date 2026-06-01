@@ -3,6 +3,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { practiceConfirm } from "@/lib/practice-confirm";
 import { getLocalDateString } from "@/lib/dates";
+import { AREA_INGRESOS_CONSULTA } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -241,6 +242,8 @@ export function useBookings(doctorId: string | undefined) {
             origin: "cita",
             serviceId: booking?.serviceId || null,
             serviceName: serviceName || null,
+            area: AREA_INGRESOS_CONSULTA,
+            subarea: serviceName || "",
           }),
         }
       );
