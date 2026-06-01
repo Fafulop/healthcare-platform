@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' }
       }),
       prisma.service.findMany({
-        where: { doctorId: doctor.id, isBookingActive: true },
+        where: { doctorId: doctor.id },
         select: { id: true, serviceName: true, price: true },
         orderBy: { serviceName: 'asc' }
       }),
