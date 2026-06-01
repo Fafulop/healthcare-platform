@@ -20,43 +20,41 @@ export async function GET(
       return NextResponse.json({ error: 'UUID invalido' }, { status: 400 });
     }
 
-    const detail = await prisma.satCfdiDetail.findUnique({
-      where: {
-        doctorId_uuid: {
-          doctorId: doctor.id,
-          uuid: uuid.toLowerCase(),
-        },
-      },
-      include: {
-        conceptos: {
-          orderBy: { id: 'asc' },
-        },
-      },
-    });
+    const uuidLower = uuid.toLowerCase();
 
-    if (!detail) {
+    const [detail, metadata] = await Promise.all([
+      prisma.satCfdiDetail.findUnique({
+        where: { doctorId_uuid: { doctorId: doctor.id, uuid: uuidLower } },
+        include: { conceptos: { orderBy: { id: 'asc' } } },
+      }),
+      prisma.satCfdiMetadata.findUnique({
+        where: { doctorId_uuid: { doctorId: doctor.id, uuid: uuidLower } },
+      }),
+    ]);
+
+    if (!detail && !metadata) {
       return NextResponse.json({ error: 'No se encontraron detalles XML para este CFDI' }, { status: 404 });
     }
 
     return NextResponse.json({
       data: {
-        uuid: detail.uuid,
-        subtotal: detail.subtotal?.toNumber() ?? null,
-        descuento: detail.descuento?.toNumber() ?? null,
-        total: detail.total?.toNumber() ?? null,
-        ivaTrasladado: detail.ivaTrasladado?.toNumber() ?? null,
-        isrRetenido: detail.isrRetenido?.toNumber() ?? null,
-        ivaRetenido: detail.ivaRetenido?.toNumber() ?? null,
-        ieps: detail.ieps?.toNumber() ?? null,
-        metodoPago: detail.metodoPago,
-        formaPago: detail.formaPago,
-        usoCfdi: detail.usoCfdi,
-        moneda: detail.moneda,
-        tipoCambio: detail.tipoCambio?.toNumber() ?? null,
-        serie: detail.serie,
-        folio: detail.folio,
-        lugarExpedicion: detail.lugarExpedicion,
-        conceptos: detail.conceptos.map(c => ({
+        uuid: uuidLower,
+        subtotal: detail?.subtotal?.toNumber() ?? null,
+        descuento: detail?.descuento?.toNumber() ?? null,
+        total: detail?.total?.toNumber() ?? null,
+        ivaTrasladado: detail?.ivaTrasladado?.toNumber() ?? null,
+        isrRetenido: detail?.isrRetenido?.toNumber() ?? null,
+        ivaRetenido: detail?.ivaRetenido?.toNumber() ?? null,
+        ieps: detail?.ieps?.toNumber() ?? null,
+        metodoPago: detail?.metodoPago ?? null,
+        formaPago: detail?.formaPago ?? null,
+        usoCfdi: detail?.usoCfdi ?? null,
+        moneda: detail?.moneda ?? null,
+        tipoCambio: detail?.tipoCambio?.toNumber() ?? null,
+        serie: detail?.serie ?? null,
+        folio: detail?.folio ?? null,
+        lugarExpedicion: detail?.lugarExpedicion ?? null,
+        conceptos: detail?.conceptos.map(c => ({
           claveProdServ: c.claveProdServ,
           descripcion: c.descripcion,
           cantidad: c.cantidad?.toNumber() ?? null,
@@ -67,7 +65,20 @@ export async function GET(
           descuento: c.descuento?.toNumber() ?? null,
           ivaTrasladado: c.ivaTrasladado?.toNumber() ?? null,
           isrRetenido: c.isrRetenido?.toNumber() ?? null,
-        })),
+        })) ?? [],
+        // Metadata fields
+        metadata: metadata ? {
+          direction: metadata.direction,
+          efecto: metadata.efecto,
+          issuerRfc: metadata.issuerRfc,
+          issuerName: metadata.issuerName,
+          receiverRfc: metadata.receiverRfc,
+          receiverName: metadata.receiverName,
+          monto: metadata.monto?.toNumber() ?? null,
+          satStatus: metadata.satStatus,
+          issuedAt: metadata.issuedAt?.toISOString() ?? null,
+          certifiedAt: metadata.certifiedAt?.toISOString() ?? null,
+        } : null,
       },
     });
   } catch (error: any) {

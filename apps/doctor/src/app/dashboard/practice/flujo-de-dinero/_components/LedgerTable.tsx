@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Edit2, Eye, TrendingUp, TrendingDown, DollarSign, Calendar, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Receipt, FileCheck2 } from 'lucide-react';
 import { getLocalDateString } from '@/lib/dates';
@@ -7,6 +8,7 @@ import type { LedgerEntry, Area } from './ledger-types';
 import { FORMAS_DE_PAGO, ORIGIN_LABELS } from './ledger-types';
 import { formatCurrency, formatDate, cleanConcept, getAvailableAreasForEntry } from './ledger-utils';
 import { CfdiSuggestionPopover } from './CfdiSuggestionPopover';
+import { CfdiDetailModal } from './CfdiDetailModal';
 
 interface Props {
   filteredEntries: LedgerEntry[];
@@ -65,6 +67,8 @@ export function LedgerTable({
   editingFormaPagoId, editingFormaPagoValue, onEditFormaPagoValueChange, updatingFormaPago, onStartEditFormaPago, onSaveFormaPago, onCancelEditFormaPago,
   editingAmountPaidId, editingAmountPaidValue, onEditAmountPaidValueChange, updatingAmountPaid, onStartEditAmountPaid, onSaveAmountPaid, onCancelEditAmountPaid,
 }: Props) {
+  const [cfdiUuid, setCfdiUuid] = useState<string | null>(null);
+
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       {/* Day Navigator */}
@@ -184,7 +188,13 @@ export function LedgerTable({
                     </span>
                   )}
                   <Receipt className={`w-3 h-3 ${entry.hasComprobante ? 'text-green-600' : 'text-gray-300'}`} />
-                  <FileCheck2 className={`w-3 h-3 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
+                  {entry.hasFactura && entry.satCfdiUuid ? (
+                    <button onClick={() => setCfdiUuid(entry.satCfdiUuid!)} title="Ver factura CFDI">
+                      <FileCheck2 className="w-3 h-3 text-green-600 hover:text-green-800 cursor-pointer" />
+                    </button>
+                  ) : (
+                    <FileCheck2 className={`w-3 h-3 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
+                  )}
                   {!entry.hasFactura && (
                     <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
                   )}
@@ -255,8 +265,8 @@ export function LedgerTable({
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-[152px] z-20 bg-gray-50 border-r border-gray-200">
                 Acciones
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onSort('tipo')}>
-                <div className="flex items-center">Tipo<SortIcon column="tipo" sortColumn={sortColumn} sortDirection={sortDirection} /></div>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Origen / Comprobante / Factura">
+                Evidencia
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onSort('monto')}>
                 <div className="flex items-center justify-end">Monto<SortIcon column="monto" sortColumn={sortColumn} sortDirection={sortDirection} /></div>
@@ -267,8 +277,8 @@ export function LedgerTable({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-amber-50 cursor-pointer hover:bg-amber-100 transition-colors" onClick={() => onSort('area')}>
                 <div className="flex items-center">Área<SortIcon column="area" sortColumn={sortColumn} sortDirection={sortDirection} /></div>
               </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Origen / Comprobante / Factura">
-                Evidencia
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onSort('tipo')}>
+                <div className="flex items-center">Tipo<SortIcon column="tipo" sortColumn={sortColumn} sortDirection={sortDirection} /></div>
               </th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onSort('estadoPago')}>
                 <div className="flex items-center justify-center">Estado Pago<SortIcon column="estadoPago" sortColumn={sortColumn} sortDirection={sortDirection} /></div>
@@ -325,13 +335,30 @@ export function LedgerTable({
                       </Link>
                     </div>
                   </td>
-                  {/* Tipo */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-                      entry.entryType === 'ingreso' ? 'bg-teal-100 text-teal-800' : 'bg-rose-100 text-rose-800'
-                    }`}>
-                      {entry.entryType === 'ingreso' ? <><TrendingUp className="w-3 h-3" />Ingreso</> : <><TrendingDown className="w-3 h-3" />Egreso</>}
-                    </span>
+                  {/* Evidencia: Origen + Comprobante + Factura + CFDI Suggestion */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      {entry.origin && ORIGIN_LABELS[entry.origin] && (
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ORIGIN_LABELS[entry.origin].color}`}>
+                          {ORIGIN_LABELS[entry.origin].label}
+                        </span>
+                      )}
+                      <span title={entry.hasComprobante ? 'Comprobante adjunto' : 'Sin comprobante'}>
+                        <Receipt className={`w-3.5 h-3.5 ${entry.hasComprobante ? 'text-green-600' : 'text-gray-300'}`} />
+                      </span>
+                      {entry.hasFactura && entry.satCfdiUuid ? (
+                        <button onClick={() => setCfdiUuid(entry.satCfdiUuid!)} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver factura CFDI">
+                          <FileCheck2 className="w-3.5 h-3.5 text-green-600 hover:text-green-800" />
+                        </button>
+                      ) : (
+                        <span title={entry.hasFactura ? 'Factura CFDI' : 'Sin factura'}>
+                          <FileCheck2 className={`w-3.5 h-3.5 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
+                        </span>
+                      )}
+                      {!entry.hasFactura && (
+                        <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
+                      )}
+                    </div>
                   </td>
                   {/* Monto */}
                   <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold ${entry.entryType === 'ingreso' ? 'text-teal-700' : 'text-rose-600'}`}>
@@ -397,24 +424,13 @@ export function LedgerTable({
                       </div>
                     )}
                   </td>
-                  {/* Evidencia: Origen + Comprobante + Factura + CFDI Suggestion */}
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-1.5">
-                      {entry.origin && ORIGIN_LABELS[entry.origin] && (
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ORIGIN_LABELS[entry.origin].color}`}>
-                          {ORIGIN_LABELS[entry.origin].label}
-                        </span>
-                      )}
-                      <span title={entry.hasComprobante ? 'Comprobante adjunto' : 'Sin comprobante'}>
-                        <Receipt className={`w-3.5 h-3.5 ${entry.hasComprobante ? 'text-green-600' : 'text-gray-300'}`} />
-                      </span>
-                      <span title={entry.hasFactura ? 'Factura CFDI' : 'Sin factura'}>
-                        <FileCheck2 className={`w-3.5 h-3.5 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
-                      </span>
-                      {!entry.hasFactura && (
-                        <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
-                      )}
-                    </div>
+                  {/* Tipo */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                      entry.entryType === 'ingreso' ? 'bg-teal-100 text-teal-800' : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      {entry.entryType === 'ingreso' ? <><TrendingUp className="w-3 h-3" />Ingreso</> : <><TrendingDown className="w-3 h-3" />Egreso</>}
+                    </span>
                   </td>
                   {/* Estado Pago */}
                   <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -529,6 +545,7 @@ export function LedgerTable({
           </div>
         </div>
       )}
+      {cfdiUuid && <CfdiDetailModal uuid={cfdiUuid} onClose={() => setCfdiUuid(null)} />}
     </div>
   );
 }

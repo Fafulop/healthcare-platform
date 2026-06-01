@@ -51,6 +51,7 @@ export interface LedgerEntry {
   hasFactura?: boolean;
   serviceId?: string | null;
   serviceName?: string | null;
+  satCfdiUuid?: string | null;
 }
 
 export const ORIGIN_LABELS: Record<string, { label: string; color: string }> = {
@@ -93,3 +94,14 @@ export const FORMAS_DE_PAGO = [
   { value: 'cheque', label: 'Cheque' },
   { value: 'deposito', label: 'Depósito' },
 ] as const;
+
+/** SAT forma de pago codes → labels (used in CFDI detail views). */
+export const SAT_FORMA_PAGO_LABELS: Record<string, string> = {
+  '01': 'Efectivo', '02': 'Cheque nominativo', '03': 'Transferencia',
+  '04': 'Tarjeta de crédito', '06': 'Dinero electrónico',
+  '28': 'Tarjeta de débito', '99': 'Por definir',
+};
+
+export const SAT_EFECTO_LABELS: Record<string, string> = {
+  I: 'Ingreso', E: 'Egreso', P: 'Pago', T: 'Traslado', N: 'Nómina',
+};

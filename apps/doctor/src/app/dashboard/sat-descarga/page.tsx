@@ -23,6 +23,7 @@ import {
   BookmarkCheck,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { SAT_FORMA_PAGO_LABELS } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -820,11 +821,7 @@ function CfdiRow({ item, isRegistered, registering, onRegister }: {
     }
   };
 
-  const formaPagoLabels: Record<string, string> = {
-    "01": "Efectivo", "02": "Cheque nominativo", "03": "Transferencia",
-    "04": "Tarjeta de crédito", "06": "Dinero electrónico",
-    "28": "Tarjeta de débito", "99": "Por definir",
-  };
+  const formaPagoLabels = SAT_FORMA_PAGO_LABELS;
 
   return (
     <>
