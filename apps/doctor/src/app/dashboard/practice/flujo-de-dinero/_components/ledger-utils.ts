@@ -30,13 +30,24 @@ export function getAvailableAreasForEntry(entry: LedgerEntry, areas: Area[]): Ar
   );
 }
 
+export interface MonthlyRow {
+  key: string;       // YYYY-MM
+  label: string;     // "Ene 2026"
+  ingresos: number;
+  egresos: number;
+}
+
 export interface EstadoResultadosData {
   ingresos: Record<string, Record<string, number>>;
   egresos: Record<string, Record<string, number>>;
   ingresosByService: Record<string, number>;
   cuentasPorCobrar: number;
   cuentasPorPagar: number;
+  flujoPorFormaPago: Record<string, { ingresos: number; egresos: number }>;
+  monthly: MonthlyRow[];
 }
+
+const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 export function processEstadoResultados(
   entries: LedgerEntry[],
@@ -49,7 +60,11 @@ export function processEstadoResultados(
     ingresosByService: {},
     cuentasPorCobrar: 0,
     cuentasPorPagar: 0,
+    flujoPorFormaPago: {},
+    monthly: [],
   };
+
+  const monthlyMap: Record<string, { ingresos: number; egresos: number }> = {};
 
   entries
     .filter(entry => {
@@ -65,17 +80,37 @@ export function processEstadoResultados(
       const area = entry.area || 'Sin Área';
       const subarea = entry.subarea || 'Sin Subárea';
 
+      // Forma de pago breakdown
+      const fp = entry.formaDePago || 'Sin especificar';
+      if (!result.flujoPorFormaPago[fp]) result.flujoPorFormaPago[fp] = { ingresos: 0, egresos: 0 };
+
+      // Monthly breakdown
+      const monthKey = entry.transactionDate.slice(0, 7); // YYYY-MM
+      if (!monthlyMap[monthKey]) monthlyMap[monthKey] = { ingresos: 0, egresos: 0 };
+
       if (entry.entryType === 'ingreso') {
         if (!result.ingresos[area]) result.ingresos[area] = {};
         result.ingresos[area][subarea] = (result.ingresos[area][subarea] || 0) + amountPaid;
         const svcKey = entry.serviceName || 'Sin servicio';
         result.ingresosByService[svcKey] = (result.ingresosByService[svcKey] || 0) + amountPaid;
         result.cuentasPorCobrar += saldo;
+        result.flujoPorFormaPago[fp].ingresos += amountPaid;
+        monthlyMap[monthKey].ingresos += amountPaid;
       } else if (entry.entryType === 'egreso') {
         if (!result.egresos[area]) result.egresos[area] = {};
         result.egresos[area][subarea] = (result.egresos[area][subarea] || 0) + amountPaid;
         result.cuentasPorPagar += saldo;
+        result.flujoPorFormaPago[fp].egresos += amountPaid;
+        monthlyMap[monthKey].egresos += amountPaid;
       }
+    });
+
+  // Convert monthly map to sorted array
+  result.monthly = Object.entries(monthlyMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, data]) => {
+      const [y, m] = key.split('-');
+      return { key, label: `${MONTH_NAMES[parseInt(m, 10) - 1]} ${y}`, ...data };
     });
 
   return result;
