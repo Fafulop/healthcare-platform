@@ -34,7 +34,7 @@ export interface LedgerEntry {
   area: string | null;
   subarea: string | null;
   porRealizar: boolean;
-  attachments: any[];
+  attachments: { id: number; fileName: string; fileUrl: string; fileSize: number; fileType: string; createdAt: string }[];
   facturas: any[];
   facturasXml: any[];
   transactionType?: string;

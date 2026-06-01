@@ -9,6 +9,7 @@ import { FORMAS_DE_PAGO, ORIGIN_LABELS } from './ledger-types';
 import { formatCurrency, formatDate, cleanConcept, getAvailableAreasForEntry } from './ledger-utils';
 import { CfdiSuggestionPopover } from './CfdiSuggestionPopover';
 import { CfdiDetailModal } from './CfdiDetailModal';
+import { ComprobanteModal } from './ComprobanteModal';
 
 interface Props {
   filteredEntries: LedgerEntry[];
@@ -68,6 +69,7 @@ export function LedgerTable({
   editingAmountPaidId, editingAmountPaidValue, onEditAmountPaidValueChange, updatingAmountPaid, onStartEditAmountPaid, onSaveAmountPaid, onCancelEditAmountPaid,
 }: Props) {
   const [cfdiUuid, setCfdiUuid] = useState<string | null>(null);
+  const [comprobanteAttachments, setComprobanteAttachments] = useState<LedgerEntry['attachments'] | null>(null);
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -187,7 +189,13 @@ export function LedgerTable({
                       {ORIGIN_LABELS[entry.origin].label}
                     </span>
                   )}
-                  <Receipt className={`w-3 h-3 ${entry.hasComprobante ? 'text-green-600' : 'text-gray-300'}`} />
+                  {entry.hasComprobante ? (
+                    <button onClick={() => setComprobanteAttachments(entry.attachments)} title="Ver comprobantes">
+                      <Receipt className="w-3 h-3 text-green-600 hover:text-green-800 cursor-pointer" />
+                    </button>
+                  ) : (
+                    <Receipt className="w-3 h-3 text-gray-300" />
+                  )}
                   {entry.hasFactura && entry.satCfdiUuid ? (
                     <button onClick={() => setCfdiUuid(entry.satCfdiUuid!)} title="Ver factura CFDI">
                       <FileCheck2 className="w-3 h-3 text-green-600 hover:text-green-800 cursor-pointer" />
@@ -343,9 +351,15 @@ export function LedgerTable({
                           {ORIGIN_LABELS[entry.origin].label}
                         </span>
                       )}
-                      <span title={entry.hasComprobante ? 'Comprobante adjunto' : 'Sin comprobante'}>
-                        <Receipt className={`w-3.5 h-3.5 ${entry.hasComprobante ? 'text-green-600' : 'text-gray-300'}`} />
-                      </span>
+                      {entry.hasComprobante ? (
+                        <button onClick={() => setComprobanteAttachments(entry.attachments)} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver comprobantes">
+                          <Receipt className="w-3.5 h-3.5 text-green-600 hover:text-green-800" />
+                        </button>
+                      ) : (
+                        <span title="Sin comprobante">
+                          <Receipt className="w-3.5 h-3.5 text-gray-300" />
+                        </span>
+                      )}
                       {entry.hasFactura && entry.satCfdiUuid ? (
                         <button onClick={() => setCfdiUuid(entry.satCfdiUuid!)} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver factura CFDI">
                           <FileCheck2 className="w-3.5 h-3.5 text-green-600 hover:text-green-800" />
@@ -546,6 +560,7 @@ export function LedgerTable({
         </div>
       )}
       {cfdiUuid && <CfdiDetailModal uuid={cfdiUuid} onClose={() => setCfdiUuid(null)} />}
+      {comprobanteAttachments && <ComprobanteModal attachments={comprobanteAttachments} onClose={() => setComprobanteAttachments(null)} />}
     </div>
   );
 }
