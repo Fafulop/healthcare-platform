@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
     const { doctor } = await getAuthenticatedDoctor(request);
     const body = await request.json();
 
-    const { uuids, areaOverride, subareaOverride } = body;
+    const { uuids, areaOverride, subareaOverride, skipMatchUuids } = body;
+    const skipMatchSet = new Set<string>(Array.isArray(skipMatchUuids) ? skipMatchUuids : []);
 
     if (!uuids || !Array.isArray(uuids) || uuids.length === 0) {
       return NextResponse.json({ error: 'Se requiere al menos un UUID' }, { status: 400 });
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
         const amount = detail?.total ? Number(detail.total) : Number(cfdi.monto);
         const cfdiDate = new Date(cfdi.issuedAt);
 
-        // --- Match-before-create: search for existing entries to link ---
+        // --- Match-before-create: search for existing entries to suggest linking ---
         const tolerance = amount * 0.01;
         const dateFrom = new Date(cfdiDate);
         dateFrom.setDate(dateFrom.getDate() - 7);
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
           if (daysDiff < 1) score += 30;
           else if (daysDiff <= 2) score += 25;
           else if (daysDiff <= 4) score += 15;
-          else score += 8;
+          else score += 12;
 
           // RFC scoring (30)
           const entryRfc = candidate.entryType === 'ingreso'
@@ -148,48 +149,25 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // If high-confidence match found, LINK instead of CREATE
-        // Score >= 70 requires strong signal: exact amount(40) + close date(30) = 70,
-        // or amount(40) + name(20) + some date(8-15) = 68-75
-        if (bestMatch && bestMatch.score >= 70) {
-          const linkedEntry = bestMatch.entry;
-
-          await tx.ledgerEntry.update({
-            where: { id: linkedEntry.id },
-            data: { satCfdiUuid: cfdi.uuid, hasFactura: true },
-          });
-
-          // Create LedgerFacturaXml record if XML detail available
-          if (detail) {
-            await tx.ledgerFacturaXml.create({
-              data: {
-                ledgerEntryId: linkedEntry.id,
-                fileName: `CFDI-${cfdi.uuid}.xml`,
-                fileUrl: '',
-                uuid: cfdi.uuid,
-                rfcEmisor: cfdi.issuerRfc,
-                rfcReceptor: cfdi.receiverRfc,
-                total: detail.total,
-                subtotal: detail.subtotal,
-                iva: detail.ivaTrasladado,
-                fecha: cfdiDate,
-                metodoPago: detail.metodoPago,
-                formaPago: detail.formaPago,
-                moneda: detail.moneda,
-                folio: detail.folio,
-              },
-            });
-          }
+        // If high-confidence match found, return as suggestion (don't auto-link)
+        // User must confirm the link from the frontend
+        // Skip if user explicitly chose "create new" for this CFDI
+        if (bestMatch && bestMatch.score >= 70 && !skipMatchSet.has(cfdi.uuid)) {
+          const matchedEntry = bestMatch.entry;
+          const confidence = bestMatch.score >= 80 ? 'high' : 'medium';
 
           entries.push({
             uuid: cfdi.uuid,
-            ledgerEntryId: linkedEntry.id,
             entryType,
             amount,
-            action: 'linked',
+            action: 'suggestion',
             matchScore: bestMatch.score,
-            matchedConcept: linkedEntry.concept,
-            matchedOrigin: linkedEntry.origin,
+            matchConfidence: confidence,
+            suggestedLedgerEntryId: matchedEntry.id,
+            matchedConcept: matchedEntry.concept,
+            matchedOrigin: matchedEntry.origin,
+            matchedAmount: Number(matchedEntry.amount),
+            matchedDate: matchedEntry.transactionDate,
           });
           continue;
         }
@@ -282,13 +260,13 @@ export async function POST(request: NextRequest) {
       return entries;
     });
 
-    const linked = results.filter((r) => r.action === 'linked');
+    const suggestions = results.filter((r) => r.action === 'suggestion');
     const created = results.filter((r) => r.action === 'created');
 
     return NextResponse.json({
       data: {
         created: created.length,
-        linked: linked.length,
+        suggestions: suggestions.length,
         skipped: cfdis.length - toRegister.length,
         entries: results,
       },

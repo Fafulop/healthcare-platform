@@ -105,7 +105,7 @@ export async function GET(
         if (daysDiff < 1) score += 30;
         else if (daysDiff <= 2) score += 25;
         else if (daysDiff <= 4) score += 15;
-        else score += 8;
+        else score += 12;
 
         // RFC match scoring
         const cfdiRfc = c.direction === 'received' ? c.issuerRfc : c.receiverRfc;

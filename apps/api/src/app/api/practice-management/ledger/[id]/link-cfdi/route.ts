@@ -119,3 +119,57 @@ export async function POST(
     return NextResponse.json({ error: 'Error al vincular CFDI' }, { status: 500 });
   }
 }
+
+// DELETE /api/practice-management/ledger/:id/link-cfdi
+// Unlink a SAT CFDI from a ledger entry
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const resolvedParams = await params;
+    const entryId = parseInt(resolvedParams.id);
+
+    if (isNaN(entryId)) {
+      return NextResponse.json({ error: 'ID de entrada inválido' }, { status: 400 });
+    }
+
+    const entry = await prisma.ledgerEntry.findFirst({
+      where: { id: entryId, doctorId: doctor.id },
+      select: { id: true, satCfdiUuid: true, _count: { select: { facturas: true } } },
+    });
+
+    if (!entry) {
+      return NextResponse.json({ error: 'Movimiento no encontrado' }, { status: 404 });
+    }
+
+    if (!entry.satCfdiUuid) {
+      return NextResponse.json({ error: 'Este movimiento no tiene un CFDI vinculado' }, { status: 400 });
+    }
+
+    // Keep hasFactura true if there are still PDF facturas uploaded
+    const stillHasFactura = entry._count.facturas > 0;
+
+    await prisma.$transaction(async (tx) => {
+      // Remove linked LedgerFacturaXml records for this CFDI
+      await tx.ledgerFacturaXml.deleteMany({
+        where: { ledgerEntryId: entryId, uuid: entry.satCfdiUuid! },
+      });
+
+      // Unlink the CFDI from the entry
+      await tx.ledgerEntry.update({
+        where: { id: entryId },
+        data: { satCfdiUuid: null, hasFactura: stillHasFactura },
+      });
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    console.error('Error unlinking CFDI from ledger entry:', error);
+    return NextResponse.json({ error: 'Error al desvincular CFDI' }, { status: 500 });
+  }
+}

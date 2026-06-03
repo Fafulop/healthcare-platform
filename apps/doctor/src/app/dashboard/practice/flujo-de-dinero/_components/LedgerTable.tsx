@@ -69,6 +69,7 @@ export function LedgerTable({
   editingAmountPaidId, editingAmountPaidValue, onEditAmountPaidValueChange, updatingAmountPaid, onStartEditAmountPaid, onSaveAmountPaid, onCancelEditAmountPaid,
 }: Props) {
   const [cfdiUuid, setCfdiUuid] = useState<string | null>(null);
+  const [cfdiEntryId, setCfdiEntryId] = useState<number | null>(null);
   const [comprobanteAttachments, setComprobanteAttachments] = useState<LedgerEntry['attachments'] | null>(null);
 
   return (
@@ -197,7 +198,7 @@ export function LedgerTable({
                     <Receipt className="w-3 h-3 text-gray-300" />
                   )}
                   {entry.hasFactura && entry.satCfdiUuid ? (
-                    <button onClick={() => setCfdiUuid(entry.satCfdiUuid!)} title="Ver factura CFDI">
+                    <button onClick={() => { setCfdiUuid(entry.satCfdiUuid!); setCfdiEntryId(entry.id); }} title="Ver factura CFDI">
                       <FileCheck2 className="w-3 h-3 text-green-600 hover:text-green-800 cursor-pointer" />
                     </button>
                   ) : (
@@ -361,7 +362,7 @@ export function LedgerTable({
                         </span>
                       )}
                       {entry.hasFactura && entry.satCfdiUuid ? (
-                        <button onClick={() => setCfdiUuid(entry.satCfdiUuid!)} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver factura CFDI">
+                        <button onClick={() => { setCfdiUuid(entry.satCfdiUuid!); setCfdiEntryId(entry.id); }} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver factura CFDI">
                           <FileCheck2 className="w-3.5 h-3.5 text-green-600 hover:text-green-800" />
                         </button>
                       ) : (
@@ -559,7 +560,14 @@ export function LedgerTable({
           </div>
         </div>
       )}
-      {cfdiUuid && <CfdiDetailModal uuid={cfdiUuid} onClose={() => setCfdiUuid(null)} />}
+      {cfdiUuid && (
+        <CfdiDetailModal
+          uuid={cfdiUuid}
+          entryId={cfdiEntryId ?? undefined}
+          onClose={() => { setCfdiUuid(null); setCfdiEntryId(null); }}
+          onUnlinked={() => { setCfdiUuid(null); setCfdiEntryId(null); onRefresh(); }}
+        />
+      )}
       {comprobanteAttachments && <ComprobanteModal attachments={comprobanteAttachments} onClose={() => setComprobanteAttachments(null)} />}
     </div>
   );

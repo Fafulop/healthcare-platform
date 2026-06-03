@@ -458,21 +458,61 @@ function CfdiList({
     } catch { /* silent */ }
   }, []);
 
-  const registerCfdi = async (uuid: string) => {
+  const registerCfdi = async (uuid: string, skipMatch = false) => {
     setRegistering(uuid);
     try {
       const res = await authFetch(`${API_URL}/api/sat-descarga/register-to-ledger`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uuids: [uuid] }),
+        body: JSON.stringify({
+          uuids: [uuid],
+          ...(skipMatch ? { skipMatchUuids: [uuid] } : {}),
+        }),
       });
       if (res.ok) {
         const result = await res.json();
         const entry = result.data?.entries?.[0];
         if (entry) {
-          setRegisteredMap(prev => ({ ...prev, [uuid]: entry.ledgerEntryId }));
-          if (entry.action === 'linked') {
-            alert(`CFDI vinculado a movimiento existente: "${entry.matchedConcept}" (${entry.matchedOrigin})`);
+          if (entry.action === 'suggestion') {
+            // Show confirmation dialog — user decides to link or create new
+            const matchInfo = `"${entry.matchedConcept || 'Sin concepto'}" — $${Number(entry.matchedAmount || 0).toLocaleString('es-MX')} (${entry.matchedOrigin || 'manual'})`;
+            const userChoice = confirm(
+              `Se encontró un movimiento existente similar:\n\n${matchInfo}\n\nPuntuación: ${entry.matchScore} (${entry.matchConfidence})\n\n¿Vincular este CFDI al movimiento existente?\n\n• OK = Vincular al existente\n• Cancelar = Crear movimiento nuevo`
+            );
+            if (userChoice) {
+              // User chose to link — call link-cfdi endpoint
+              const linkRes = await authFetch(`${API_URL}/api/practice-management/ledger/${entry.suggestedLedgerEntryId}/link-cfdi`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ uuid }),
+              });
+              if (linkRes.ok) {
+                setRegisteredMap(prev => ({ ...prev, [uuid]: entry.suggestedLedgerEntryId }));
+              } else {
+                const linkErr = await linkRes.json();
+                alert(linkErr.error || "Error al vincular");
+              }
+            } else {
+              // User chose to create new — call again with skipMatch inline (no recursion)
+              const createRes = await authFetch(`${API_URL}/api/sat-descarga/register-to-ledger`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ uuids: [uuid], skipMatchUuids: [uuid] }),
+              });
+              if (createRes.ok) {
+                const createResult = await createRes.json();
+                const created = createResult.data?.entries?.[0];
+                if (created) {
+                  setRegisteredMap(prev => ({ ...prev, [uuid]: created.ledgerEntryId }));
+                }
+              } else {
+                const createErr = await createRes.json();
+                alert(createErr.error || "Error al crear movimiento");
+              }
+            }
+          } else {
+            // action === 'created'
+            setRegisteredMap(prev => ({ ...prev, [uuid]: entry.ledgerEntryId }));
           }
         }
       } else {

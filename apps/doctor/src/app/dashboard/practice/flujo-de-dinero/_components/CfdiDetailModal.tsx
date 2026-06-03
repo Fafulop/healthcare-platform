@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { X, Loader2, FileCheck2 } from 'lucide-react';
+import { X, Loader2, FileCheck2, Unlink } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { SAT_FORMA_PAGO_LABELS, SAT_EFECTO_LABELS } from './ledger-types';
 
@@ -50,7 +50,9 @@ interface CfdiDetail {
 
 interface Props {
   uuid: string;
+  entryId?: number;
   onClose: () => void;
+  onUnlinked?: () => void;
 }
 
 const fmt = (n: number | null) =>
@@ -65,10 +67,11 @@ function Item({ label, value, mono }: { label: string; value: string; mono?: boo
   );
 }
 
-export function CfdiDetailModal({ uuid, onClose }: Props) {
+export function CfdiDetailModal({ uuid, entryId, onClose, onUnlinked }: Props) {
   const [data, setData] = useState<CfdiDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
 
   const handleClose = useCallback(() => onClose(), [onClose]);
 
@@ -230,8 +233,35 @@ export function CfdiDetailModal({ uuid, onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-200">
-          <button onClick={onClose} className="w-full px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
+        <div className="px-5 py-3 border-t border-gray-200 flex gap-2">
+          {entryId && onUnlinked && (
+            <button
+              onClick={async () => {
+                if (!confirm('¿Desvincular esta factura CFDI del movimiento?')) return;
+                setUnlinking(true);
+                try {
+                  const res = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}/link-cfdi`, { method: 'DELETE' });
+                  if (res.ok) {
+                    onUnlinked();
+                    onClose();
+                  } else {
+                    const err = await res.json();
+                    alert(err.error || 'Error al desvincular');
+                  }
+                } catch {
+                  alert('Error de conexión');
+                } finally {
+                  setUnlinking(false);
+                }
+              }}
+              disabled={unlinking}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+            >
+              {unlinking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlink className="w-4 h-4" />}
+              Desvincular
+            </button>
+          )}
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
             Cerrar
           </button>
         </div>
