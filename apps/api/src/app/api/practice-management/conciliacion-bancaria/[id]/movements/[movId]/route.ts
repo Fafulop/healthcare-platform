@@ -2,8 +2,108 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 
+// GET /api/practice-management/conciliacion-bancaria/[id]/movements/[movId]
+// Returns match suggestions: existing ledger entries that could match this bank movement
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; movId: string }> }
+) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const { id, movId } = await params;
+    const statementId = parseInt(id);
+    const movementId = parseInt(movId);
+
+    if (isNaN(statementId) || isNaN(movementId)) {
+      return NextResponse.json({ error: 'IDs inválidos' }, { status: 400 });
+    }
+
+    const statement = await prisma.bankStatement.findUnique({
+      where: { id: statementId },
+      select: { id: true, doctorId: true },
+    });
+    if (!statement || statement.doctorId !== doctor.id) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    const movement = await prisma.bankMovement.findUnique({
+      where: { id: movementId },
+    });
+    if (!movement || movement.bankStatementId !== statementId) {
+      return NextResponse.json({ error: 'Movimiento no encontrado' }, { status: 404 });
+    }
+
+    const amount = Number(movement.amount);
+    const movDate = new Date(movement.transactionDate);
+    const tolerance = amount * 0.02; // 2% tolerance for bank matching
+    const dateFrom = new Date(movDate);
+    dateFrom.setDate(dateFrom.getDate() - 5);
+    const dateTo = new Date(movDate);
+    dateTo.setDate(dateTo.getDate() + 5);
+
+    const entryType = movement.movementType === 'deposit' ? 'ingreso' : 'egreso';
+
+    // Find candidate entries not already linked to a bank movement
+    const candidates = await prisma.ledgerEntry.findMany({
+      where: {
+        doctorId: doctor.id,
+        entryType,
+        amount: { gte: amount - tolerance, lte: amount + tolerance },
+        transactionDate: { gte: dateFrom, lte: dateTo },
+        bankMovement: null, // not already linked to another bank movement
+      },
+      select: {
+        id: true,
+        amount: true,
+        concept: true,
+        transactionDate: true,
+        origin: true,
+        area: true,
+        subarea: true,
+        formaDePago: true,
+        internalId: true,
+        hasFactura: true,
+        hasComprobante: true,
+      },
+      take: 10,
+    });
+
+    // Score and rank
+    const suggestions = candidates.map((c) => {
+      let score = 0;
+
+      const amountDiff = Math.abs(Number(c.amount) - amount);
+      if (amountDiff === 0) score += 40;
+      else if (amountDiff < amount * 0.005) score += 30;
+      else score += 15;
+
+      const daysDiff = Math.abs(
+        (new Date(c.transactionDate).getTime() - movDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysDiff < 1) score += 40;
+      else if (daysDiff <= 2) score += 25;
+      else score += 10;
+
+      // Bonus for entries that already have evidence (more likely to be real)
+      if (c.hasFactura) score += 10;
+
+      const confidence = score >= 70 ? 'high' : score >= 45 ? 'medium' : 'low';
+
+      return { ...c, amount: Number(c.amount), score, confidence };
+    }).sort((a, b) => b.score - a.score).slice(0, 5);
+
+    return NextResponse.json({ data: suggestions });
+  } catch (error: any) {
+    if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    console.error('Error fetching movement match suggestions:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}
+
 // PATCH /api/practice-management/conciliacion-bancaria/[id]/movements/[movId]
-// Actions: confirm_match, ignore, create_entry, update_category, unmatch
+// Actions: confirm_match, ignore, create_entry, link_existing, update_category, unmatch
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; movId: string }> }
@@ -50,6 +150,9 @@ export async function PATCH(
 
       case 'create_entry':
         return handleCreateEntry(movement, doctor.id, body, statementId);
+
+      case 'link_existing':
+        return handleLinkExisting(movement, doctor.id, body, statementId);
 
       case 'update_category':
         return handleUpdateCategory(movement, doctor.id, body);
@@ -245,6 +348,78 @@ async function handleCreateEntry(
   await updateStatementCounts(statementId);
 
   return NextResponse.json({ data: result }, { status: 201 });
+}
+
+async function handleLinkExisting(
+  movement: any,
+  doctorId: string,
+  body: any,
+  statementId: number
+) {
+  const { ledgerEntryId } = body;
+
+  if (!ledgerEntryId || typeof ledgerEntryId !== 'number') {
+    return NextResponse.json({ error: 'ledgerEntryId es requerido' }, { status: 400 });
+  }
+
+  // Verify the movement is not already linked to a different entry
+  if (movement.ledgerEntryId && movement.ledgerEntryId !== ledgerEntryId) {
+    return NextResponse.json(
+      { error: 'Este movimiento bancario ya está vinculado a otro movimiento' },
+      { status: 409 }
+    );
+  }
+
+  // Verify the ledger entry exists and belongs to this doctor
+  const entry = await prisma.ledgerEntry.findFirst({
+    where: { id: ledgerEntryId, doctorId },
+  });
+
+  if (!entry) {
+    return NextResponse.json({ error: 'Movimiento de ledger no encontrado' }, { status: 404 });
+  }
+
+  // Check if this entry is already linked to another bank movement
+  const alreadyLinked = await prisma.bankMovement.findFirst({
+    where: { ledgerEntryId, id: { not: movement.id } },
+    select: { id: true },
+  });
+
+  if (alreadyLinked) {
+    return NextResponse.json(
+      { error: 'Este movimiento de ledger ya está vinculado a otro movimiento bancario' },
+      { status: 409 }
+    );
+  }
+
+  const audit = buildAuditEntry('link_existing', movement, doctorId);
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Link bank movement to existing entry
+    const updated = await tx.bankMovement.update({
+      where: { id: movement.id },
+      data: {
+        matchStatus: 'matched_confirmed',
+        matchConfidence: 1.0,
+        ledgerEntryId,
+        matchedAt: new Date(),
+        matchedBy: doctorId,
+        matchHistory: appendHistory(movement.matchHistory, audit),
+      },
+    });
+
+    // Mark the ledger entry as having bank comprobante
+    await tx.ledgerEntry.update({
+      where: { id: ledgerEntryId },
+      data: { hasComprobante: true },
+    });
+
+    return updated;
+  });
+
+  await updateStatementCounts(statementId);
+
+  return NextResponse.json({ data: result });
 }
 
 async function handleUpdateCategory(movement: any, doctorId: string, body: any) {

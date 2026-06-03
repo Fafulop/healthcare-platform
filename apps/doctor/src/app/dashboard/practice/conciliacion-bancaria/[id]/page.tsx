@@ -193,6 +193,8 @@ export default function StatementDetailPage() {
                       onUnmatch={detail.unmatch}
                       onIgnore={detail.ignore}
                       onCreateEntry={detail.createEntry}
+                      onLinkExisting={detail.linkExisting}
+                      statementId={id}
                     />
                   </td>
                 </tr>
@@ -245,6 +247,8 @@ export default function StatementDetailPage() {
                   onUnmatch={detail.unmatch}
                   onIgnore={detail.ignore}
                   onCreateEntry={detail.createEntry}
+                  onLinkExisting={detail.linkExisting}
+                  statementId={id}
                 />
               </div>
             );

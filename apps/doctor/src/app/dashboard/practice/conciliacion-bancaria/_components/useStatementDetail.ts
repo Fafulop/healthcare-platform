@@ -83,6 +83,9 @@ export function useStatementDetail(statementId: number) {
       saveRule,
     });
 
+  const linkExisting = (movId: number, ledgerEntryId: number) =>
+    performAction(movId, { action: 'link_existing', ledgerEntryId });
+
   const filteredMovements = statement?.movements.filter((m) => {
     if (filter === 'all') return true;
     if (filter === 'unmatched') return m.matchStatus === 'unmatched';
@@ -103,6 +106,7 @@ export function useStatementDetail(statementId: number) {
     unmatch,
     ignore,
     createEntry,
+    linkExisting,
     fetchDetail,
   };
 }

@@ -468,8 +468,12 @@ function CfdiList({
       });
       if (res.ok) {
         const result = await res.json();
-        if (result.data?.entries?.[0]) {
-          setRegisteredMap(prev => ({ ...prev, [uuid]: result.data.entries[0].ledgerEntryId }));
+        const entry = result.data?.entries?.[0];
+        if (entry) {
+          setRegisteredMap(prev => ({ ...prev, [uuid]: entry.ledgerEntryId }));
+          if (entry.action === 'linked') {
+            alert(`CFDI vinculado a movimiento existente: "${entry.matchedConcept}" (${entry.matchedOrigin})`);
+          }
         }
       } else {
         const err = await res.json();

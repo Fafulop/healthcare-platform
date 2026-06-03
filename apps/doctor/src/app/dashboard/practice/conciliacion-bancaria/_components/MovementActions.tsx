@@ -1,11 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, X, Plus, Loader2, Eye, Undo2 } from 'lucide-react';
+import { Check, X, Plus, Loader2, Eye, Undo2, Link2 } from 'lucide-react';
+import { authFetch } from '@/lib/auth-fetch';
 import type { BankMovement } from './conciliacion-types';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
+const ORIGIN_LABELS: Record<string, string> = {
+  cita: 'Cita', manual: 'Manual', venta: 'Venta', compra: 'Compra',
+  sat_recibido: 'SAT', banco: 'Banco', webhook_pago: 'Pago Online',
+};
+
+interface MatchSuggestion {
+  id: number;
+  amount: number;
+  concept: string;
+  transactionDate: string;
+  origin: string | null;
+  area: string | null;
+  internalId: string;
+  score: number;
+  confidence: 'high' | 'medium' | 'low';
+}
 
 interface Props {
   movement: BankMovement;
+  statementId: number;
   actionLoading: number | null;
   onConfirm: (id: number) => Promise<boolean>;
   onUnmatch: (id: number) => Promise<boolean>;
@@ -18,21 +39,42 @@ interface Props {
     concept: string,
     saveRule: boolean,
   ) => Promise<boolean>;
+  onLinkExisting: (id: number, ledgerEntryId: number) => Promise<boolean>;
 }
 
 export function MovementActions({
   movement,
+  statementId,
   actionLoading,
   onConfirm,
   onUnmatch,
   onIgnore,
   onCreateEntry,
+  onLinkExisting,
 }: Props) {
   const [showCreate, setShowCreate] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<MatchSuggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [area, setArea] = useState(movement.suggestedArea || '');
   const [subarea, setSubarea] = useState(movement.suggestedSubarea || '');
   const [concept, setConcept] = useState(movement.suggestedConcept || movement.description);
   const [saveRule, setSaveRule] = useState(true);
+
+  const fetchSuggestions = async () => {
+    if (suggestions.length > 0 || loadingSuggestions) return;
+    setLoadingSuggestions(true);
+    try {
+      const res = await authFetch(
+        `${API_URL}/api/practice-management/conciliacion-bancaria/${statementId}/movements/${movement.id}`
+      );
+      if (res.ok) {
+        const { data } = await res.json();
+        setSuggestions(data || []);
+      }
+    } catch { /* silent */ }
+    finally { setLoadingSuggestions(false); }
+  };
 
   const isLoading = actionLoading === movement.id;
   const entryType = movement.movementType === 'deposit' ? 'ingreso' : 'egreso';
@@ -96,12 +138,25 @@ export function MovementActions({
     <div>
       <div className="flex items-center gap-1.5">
         <button
-          onClick={() => setShowCreate(!showCreate)}
+          onClick={() => {
+            setShowSuggestions(!showSuggestions);
+            setShowCreate(false);
+            if (!showSuggestions) fetchSuggestions();
+          }}
+          disabled={isLoading}
+          className="text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 px-2 py-1 rounded flex items-center gap-1"
+          title="Buscar movimientos existentes que coincidan"
+        >
+          <Link2 className="w-3 h-3" />
+          Vincular
+        </button>
+        <button
+          onClick={() => { setShowCreate(!showCreate); setShowSuggestions(false); }}
           disabled={isLoading}
           className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-1 rounded flex items-center gap-1"
         >
           <Plus className="w-3 h-3" />
-          Registrar
+          Nuevo
         </button>
         <button
           onClick={() => onIgnore(movement.id)}
@@ -112,6 +167,64 @@ export function MovementActions({
           {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
         </button>
       </div>
+
+      {showSuggestions && (
+        <div className="mt-2 p-3 bg-amber-50 rounded-lg border border-amber-200 space-y-2">
+          <p className="text-xs font-medium text-amber-800">Movimientos existentes que coinciden:</p>
+          {loadingSuggestions ? (
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <Loader2 className="w-3 h-3 animate-spin" /> Buscando...
+            </div>
+          ) : suggestions.length === 0 ? (
+            <p className="text-xs text-gray-500">No se encontraron coincidencias. Usa &quot;Nuevo&quot; para crear uno.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {suggestions.map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-2 bg-white rounded p-2 border border-amber-100">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                        s.confidence === 'high' ? 'bg-green-100 text-green-700' :
+                        s.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {s.confidence === 'high' ? 'Alta' : s.confidence === 'medium' ? 'Media' : 'Baja'}
+                      </span>
+                      {s.origin && (
+                        <span className="text-[10px] text-gray-500">
+                          {ORIGIN_LABELS[s.origin] || s.origin}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-900 truncate mt-0.5">{s.concept}</p>
+                    <p className="text-[10px] text-gray-500">
+                      ${Number(s.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })} &middot; {new Date(s.transactionDate).toLocaleDateString('es-MX')}
+                      {s.area ? ` · ${s.area}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const ok = await onLinkExisting(movement.id, s.id);
+                      if (ok) setShowSuggestions(false);
+                    }}
+                    disabled={isLoading}
+                    className="text-xs bg-amber-600 text-white px-2 py-1 rounded hover:bg-amber-700 disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
+                  >
+                    {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
+                    Vincular
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => setShowSuggestions(false)}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
 
       {showCreate && (
         <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">

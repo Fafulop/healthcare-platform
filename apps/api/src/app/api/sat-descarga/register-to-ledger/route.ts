@@ -63,9 +63,9 @@ export async function POST(request: NextRequest) {
     });
     const detailMap = new Map(details.map((d) => [d.uuid, d]));
 
-    // Create entries in transaction
-    const created = await prisma.$transaction(async (tx) => {
-      const results: any[] = [];
+    // Create or link entries in transaction
+    const results = await prisma.$transaction(async (tx) => {
+      const entries: any[] = [];
 
       for (const cfdi of toRegister) {
         const detail = detailMap.get(cfdi.uuid);
@@ -74,12 +74,114 @@ export async function POST(request: NextRequest) {
         // Determine entry type from direction + efecto
         let entryType: string;
         if (isReceived) {
-          // Received: efecto I = gasto para el doctor, E = nota de crédito (ingreso)
           entryType = cfdi.efecto === 'E' ? 'ingreso' : 'egreso';
         } else {
-          // Emitted: efecto I = ingreso, E = nota de crédito (egreso)
           entryType = cfdi.efecto === 'I' ? 'ingreso' : 'egreso';
         }
+
+        const amount = detail?.total ? Number(detail.total) : Number(cfdi.monto);
+        const cfdiDate = new Date(cfdi.issuedAt);
+
+        // --- Match-before-create: search for existing entries to link ---
+        const tolerance = amount * 0.01;
+        const dateFrom = new Date(cfdiDate);
+        dateFrom.setDate(dateFrom.getDate() - 3);
+        const dateTo = new Date(cfdiDate);
+        dateTo.setDate(dateTo.getDate() + 3);
+
+        const matchCandidates = await tx.ledgerEntry.findMany({
+          where: {
+            doctorId: doctor.id,
+            satCfdiUuid: null,
+            entryType,
+            amount: { gte: amount - tolerance, lte: amount + tolerance },
+            transactionDate: { gte: dateFrom, lte: dateTo },
+          },
+          include: {
+            client: { select: { rfc: true } },
+            supplier: { select: { rfc: true } },
+          },
+          take: 10,
+        });
+
+        // Score candidates (same logic as cfdi-suggestions but in reverse)
+        const cfdiRfc = isReceived ? cfdi.issuerRfc : cfdi.receiverRfc;
+        let bestMatch: { entry: typeof matchCandidates[0]; score: number } | null = null;
+
+        for (const candidate of matchCandidates) {
+          let score = 0;
+
+          // Amount scoring (up to 40)
+          const amountDiff = Math.abs(Number(candidate.amount) - amount);
+          if (amountDiff === 0) score += 40;
+          else if (amountDiff < amount * 0.001) score += 30;
+          else score += 20;
+
+          // Date scoring (up to 30)
+          const daysDiff = Math.abs(
+            (new Date(candidate.transactionDate).getTime() - cfdiDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          if (daysDiff < 1) score += 30;
+          else if (daysDiff <= 1) score += 20;
+          else score += 10;
+
+          // RFC scoring (30)
+          const entryRfc = candidate.entryType === 'ingreso'
+            ? candidate.client?.rfc
+            : candidate.supplier?.rfc;
+          if (entryRfc && cfdiRfc && entryRfc === cfdiRfc) score += 30;
+
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { entry: candidate, score };
+          }
+        }
+
+        // If high-confidence match found, LINK instead of CREATE
+        // Require score >= 70 (amount+date alone = 50-70, so RFC or exact match needed)
+        if (bestMatch && bestMatch.score >= 70) {
+          const linkedEntry = bestMatch.entry;
+
+          await tx.ledgerEntry.update({
+            where: { id: linkedEntry.id },
+            data: { satCfdiUuid: cfdi.uuid, hasFactura: true },
+          });
+
+          // Create LedgerFacturaXml record if XML detail available
+          if (detail) {
+            await tx.ledgerFacturaXml.create({
+              data: {
+                ledgerEntryId: linkedEntry.id,
+                fileName: `CFDI-${cfdi.uuid}.xml`,
+                fileUrl: '',
+                uuid: cfdi.uuid,
+                rfcEmisor: cfdi.issuerRfc,
+                rfcReceptor: cfdi.receiverRfc,
+                total: detail.total,
+                subtotal: detail.subtotal,
+                iva: detail.ivaTrasladado,
+                fecha: cfdiDate,
+                metodoPago: detail.metodoPago,
+                formaPago: detail.formaPago,
+                moneda: detail.moneda,
+                folio: detail.folio,
+              },
+            });
+          }
+
+          entries.push({
+            uuid: cfdi.uuid,
+            ledgerEntryId: linkedEntry.id,
+            entryType,
+            amount,
+            action: 'linked',
+            matchScore: bestMatch.score,
+            matchedConcept: linkedEntry.concept,
+            matchedOrigin: linkedEntry.origin,
+          });
+          continue;
+        }
+
+        // --- No match found: CREATE new entry (original behavior) ---
 
         // Build concept from XML details or metadata
         let concept = '';
@@ -118,7 +220,6 @@ export async function POST(request: NextRequest) {
           ? (formaPagoMap[detail.formaPago] || 'transferencia')
           : 'transferencia';
 
-        const amount = detail?.total ? Number(detail.total) : Number(cfdi.monto);
         const internalId = await generateLedgerInternalId(doctor.id, entryType);
 
         // Find or create supplier for received CFDIs (egresos)
@@ -147,7 +248,7 @@ export async function POST(request: NextRequest) {
             amount,
             concept: concept.substring(0, 500),
             entryType,
-            transactionDate: new Date(cfdi.issuedAt),
+            transactionDate: cfdiDate,
             internalId,
             formaDePago: formaPago,
             area,
@@ -162,17 +263,21 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        results.push({ uuid: cfdi.uuid, ledgerEntryId: entry.id, entryType, amount });
+        entries.push({ uuid: cfdi.uuid, ledgerEntryId: entry.id, entryType, amount, action: 'created' });
       }
 
-      return results;
+      return entries;
     });
+
+    const linked = results.filter((r) => r.action === 'linked');
+    const created = results.filter((r) => r.action === 'created');
 
     return NextResponse.json({
       data: {
         created: created.length,
+        linked: linked.length,
         skipped: cfdis.length - toRegister.length,
-        entries: created,
+        entries: results,
       },
     }, { status: 201 });
   } catch (error: any) {

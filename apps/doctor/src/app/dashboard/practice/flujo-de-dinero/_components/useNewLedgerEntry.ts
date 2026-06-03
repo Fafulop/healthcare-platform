@@ -124,6 +124,7 @@ export function useNewLedgerEntry() {
               amount: entryAmount,
               amountPaid: isPending ? (entry.amountPaid ?? 0) : entryAmount,
               paymentStatus: entry.paymentStatus || 'PAID',
+              force: true, // batch entries skip duplicate detection
             }),
           });
           if (!response.ok) {
@@ -321,12 +322,7 @@ export function useNewLedgerEntry() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      setError('El monto debe ser mayor a 0');
-      return;
-    }
+  const submitEntry = async (force = false) => {
     setSubmitting(true);
     setError(null);
     try {
@@ -343,6 +339,7 @@ export function useNewLedgerEntry() {
           paymentStatus,
           serviceId: formData.serviceId || undefined,
           serviceName: formData.serviceId ? services.find(s => s.id === formData.serviceId)?.serviceName : undefined,
+          ...(force ? { force: true } : {}),
         }),
       });
       if (!response.ok) {
@@ -350,6 +347,23 @@ export function useNewLedgerEntry() {
         throw new Error(errorData.error || 'Error al crear movimiento');
       }
       const result = await response.json();
+
+      // Duplicate warning — ask user to confirm
+      if (result.warning && result.potentialDuplicates?.length > 0 && !force) {
+        const dupes = result.potentialDuplicates as Array<{
+          concept: string; amount: number; transactionDate: string; origin: string;
+        }>;
+        const dupeList = dupes.map((d) =>
+          `  - $${d.amount.toLocaleString()} "${d.concept}" (${new Date(d.transactionDate).toLocaleDateString('es-MX')}, ${d.origin})`
+        ).join('\n');
+        const confirmed = window.confirm(
+          `Se encontraron movimientos similares:\n\n${dupeList}\n\n¿Deseas crear el movimiento de todas formas?`
+        );
+        if (confirmed) {
+          await submitEntry(true);
+        }
+        return;
+      }
 
       // Upload pending files if any
       if (pendingFiles.length > 0 && result.data?.id) {
@@ -362,6 +376,15 @@ export function useNewLedgerEntry() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      setError('El monto debe ser mayor a 0');
+      return;
+    }
+    await submitEntry(false);
   };
 
   const filteredAreas = areas.filter(a =>

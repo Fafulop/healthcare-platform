@@ -244,6 +244,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // --- Duplicate detection (skip for cita/webhook origins which have their own guards) ---
+    const skipDupeCheck = body.force === true || origin === 'cita' || origin === 'webhook_pago';
+    if (!skipDupeCheck) {
+      const dupeDate = new Date(finalTransactionDate + 'T12:00:00');
+      const dupeDateFrom = new Date(dupeDate);
+      dupeDateFrom.setDate(dupeDateFrom.getDate() - 3);
+      const dupeDateTo = new Date(dupeDate);
+      dupeDateTo.setDate(dupeDateTo.getDate() + 3);
+
+      const potentialDuplicates = await prisma.ledgerEntry.findMany({
+        where: {
+          doctorId: doctor.id,
+          entryType,
+          amount: { gte: amount * 0.99, lte: amount * 1.01 },
+          transactionDate: { gte: dupeDateFrom, lte: dupeDateTo },
+        },
+        select: {
+          id: true, amount: true, concept: true, transactionDate: true,
+          origin: true, area: true, internalId: true,
+        },
+        take: 5,
+      });
+
+      if (potentialDuplicates.length > 0) {
+        return NextResponse.json({
+          warning: true,
+          message: 'Se encontraron movimientos similares. Verifica que no sea un duplicado.',
+          potentialDuplicates: potentialDuplicates.map((d) => ({
+            ...d, amount: Number(d.amount),
+          })),
+        }, { status: 200 });
+      }
+    }
+
     // Default to fully paid unless caller explicitly sets pending
     const finalAmountPaid = amountPaid !== undefined ? parseFloat(String(amountPaid)) : amount;
     const finalPaymentStatus = paymentStatus || (finalAmountPaid >= amount ? 'PAID' : finalAmountPaid > 0 ? 'PARTIAL' : 'PENDING');
