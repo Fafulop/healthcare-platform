@@ -98,9 +98,10 @@ export async function GET(
         else score += 20;
 
         // Date match scoring (gradual decay over 7-day window)
-        const daysDiff = Math.abs(
-          (new Date(c.issuedAt).getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
+        // Normalize to UTC midnight to avoid time-of-day skew
+        const cfdiDay = new Date(new Date(c.issuedAt).toISOString().split('T')[0] + 'T00:00:00Z');
+        const entryDay = new Date(entryDate.toISOString().split('T')[0] + 'T00:00:00Z');
+        const daysDiff = Math.abs((cfdiDay.getTime() - entryDay.getTime()) / (1000 * 60 * 60 * 24));
         if (daysDiff < 1) score += 30;
         else if (daysDiff <= 2) score += 25;
         else if (daysDiff <= 4) score += 15;
@@ -111,10 +112,13 @@ export async function GET(
         if (entryRfc && cfdiRfc === entryRfc) score += 30;
 
         // Name/concept match scoring — counterpart name appears in entry concept
-        const cfdiName = (c.direction === 'received' ? c.issuerName : c.receiverName)?.toLowerCase() || '';
-        const entryConcept = (entry.concept || '').toLowerCase();
-        if (cfdiName && entryConcept && (entryConcept.includes(cfdiName) || cfdiName.includes(entryConcept.split(' - ')[0].trim()))) {
-          score += 20;
+        // Require min 4 chars to avoid false positives on "SA", "de", "OP" etc.
+        const cfdiName = (c.direction === 'received' ? c.issuerName : c.receiverName)?.toLowerCase().trim() || '';
+        const entryConcept = (entry.concept || '').toLowerCase().trim();
+        if (cfdiName.length >= 4 && entryConcept.length >= 4) {
+          if (entryConcept.includes(cfdiName) || cfdiName.includes(entryConcept)) {
+            score += 20;
+          }
         }
 
         const confidence = score >= 80 ? 'high' : score >= 50 ? 'medium' : 'low';

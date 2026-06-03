@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
           potentialDuplicates: potentialDuplicates.map((d) => ({
             ...d, amount: Number(d.amount),
           })),
-        }, { status: 200 });
+        }, { status: 409 });
       }
     }
 

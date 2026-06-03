@@ -322,35 +322,29 @@ export function useNewLedgerEntry() {
     }
   };
 
-  const submitEntry = async (force = false) => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const amount = parseFloat(formData.amount);
-      const amountPaid = formData.paymentOption === 'paid' ? amount : 0;
-      const paymentStatus = formData.paymentOption === 'paid' ? 'PAID' : 'PENDING';
-      const response = await authFetch(`${API_URL}/api/practice-management/ledger`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          amount,
-          amountPaid,
-          paymentStatus,
-          serviceId: formData.serviceId || undefined,
-          serviceName: formData.serviceId ? services.find(s => s.id === formData.serviceId)?.serviceName : undefined,
-          ...(force ? { force: true } : {}),
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al crear movimiento');
-      }
-      const result = await response.json();
+  const submitEntry = async (force: boolean) => {
+    const amount = parseFloat(formData.amount);
+    const amountPaid = formData.paymentOption === 'paid' ? amount : 0;
+    const paymentStatus = formData.paymentOption === 'paid' ? 'PAID' : 'PENDING';
+    const response = await authFetch(`${API_URL}/api/practice-management/ledger`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...formData,
+        amount,
+        amountPaid,
+        paymentStatus,
+        serviceId: formData.serviceId || undefined,
+        serviceName: formData.serviceId ? services.find(s => s.id === formData.serviceId)?.serviceName : undefined,
+        ...(force ? { force: true } : {}),
+      }),
+    });
 
-      // Duplicate warning — ask user to confirm
-      if (result.warning && result.potentialDuplicates?.length > 0 && !force) {
-        const dupes = result.potentialDuplicates as Array<{
+    // Duplicate warning (409 with warning flag) — ask user to confirm
+    if (response.status === 409 && !force) {
+      const data = await response.json();
+      if (data.warning && data.potentialDuplicates?.length > 0) {
+        const dupes = data.potentialDuplicates as Array<{
           concept: string; amount: number; transactionDate: string; origin: string;
         }>;
         const dupeList = dupes.map((d) =>
@@ -360,10 +354,30 @@ export function useNewLedgerEntry() {
           `Se encontraron movimientos similares:\n\n${dupeList}\n\n¿Deseas crear el movimiento de todas formas?`
         );
         if (confirmed) {
-          await submitEntry(true);
+          return submitEntry(true);
         }
-        return;
+        return null; // user cancelled
       }
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Error al crear movimiento');
+    }
+    return response.json();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      setError('El monto debe ser mayor a 0');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await submitEntry(false);
+      if (!result) return; // user cancelled duplicate warning
 
       // Upload pending files if any
       if (pendingFiles.length > 0 && result.data?.id) {
@@ -376,15 +390,6 @@ export function useNewLedgerEntry() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      setError('El monto debe ser mayor a 0');
-      return;
-    }
-    await submitEntry(false);
   };
 
   const filteredAreas = areas.filter(a =>

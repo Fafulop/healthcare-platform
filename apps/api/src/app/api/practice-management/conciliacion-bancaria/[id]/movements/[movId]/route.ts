@@ -50,7 +50,7 @@ export async function GET(
         entryType,
         amount: { gte: amount - tolerance, lte: amount + tolerance },
         transactionDate: { gte: dateFrom, lte: dateTo },
-        bankMovement: null, // not already linked to another bank movement
+        bankMovement: { is: null }, // not already linked to another bank movement
       },
       select: {
         id: true,
@@ -362,8 +362,13 @@ async function handleLinkExisting(
     return NextResponse.json({ error: 'ledgerEntryId es requerido' }, { status: 400 });
   }
 
+  // Already linked to the same entry — return success (idempotent)
+  if (movement.ledgerEntryId === ledgerEntryId) {
+    return NextResponse.json({ data: movement });
+  }
+
   // Verify the movement is not already linked to a different entry
-  if (movement.ledgerEntryId && movement.ledgerEntryId !== ledgerEntryId) {
+  if (movement.ledgerEntryId) {
     return NextResponse.json(
       { error: 'Este movimiento bancario ya está vinculado a otro movimiento' },
       { status: 409 }

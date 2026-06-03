@@ -118,9 +118,10 @@ export async function POST(request: NextRequest) {
           else score += 20;
 
           // Date scoring (up to 30, gradual decay over 7-day window)
-          const daysDiff = Math.abs(
-            (new Date(candidate.transactionDate).getTime() - cfdiDate.getTime()) / (1000 * 60 * 60 * 24)
-          );
+          // Normalize both dates to UTC midnight to avoid time-of-day skew
+          const entryDay = new Date(new Date(candidate.transactionDate).toISOString().split('T')[0] + 'T00:00:00Z');
+          const cfdiDay = new Date(cfdiDate.toISOString().split('T')[0] + 'T00:00:00Z');
+          const daysDiff = Math.abs((entryDay.getTime() - cfdiDay.getTime()) / (1000 * 60 * 60 * 24));
           if (daysDiff < 1) score += 30;
           else if (daysDiff <= 2) score += 25;
           else if (daysDiff <= 4) score += 15;
@@ -133,10 +134,13 @@ export async function POST(request: NextRequest) {
           if (entryRfc && cfdiRfc && entryRfc === cfdiRfc) score += 30;
 
           // Name/concept match scoring (20) — CFDI counterpart name in entry concept
-          const cfdiName = (isReceived ? cfdi.issuerName : cfdi.receiverName)?.toLowerCase() || '';
-          const entryConcept = (candidate.concept || '').toLowerCase();
-          if (cfdiName && entryConcept && (entryConcept.includes(cfdiName) || cfdiName.includes(entryConcept.split(' - ')[0].trim()))) {
-            score += 20;
+          // Require min 4 chars to avoid false positives on "SA", "de", "OP" etc.
+          const cfdiName = (isReceived ? cfdi.issuerName : cfdi.receiverName)?.toLowerCase().trim() || '';
+          const entryConcept = (candidate.concept || '').toLowerCase().trim();
+          if (cfdiName.length >= 4 && entryConcept.length >= 4) {
+            if (entryConcept.includes(cfdiName) || cfdiName.includes(entryConcept)) {
+              score += 20;
+            }
           }
 
           if (!bestMatch || score > bestMatch.score) {
@@ -145,8 +149,9 @@ export async function POST(request: NextRequest) {
         }
 
         // If high-confidence match found, LINK instead of CREATE
-        // Require score >= 65 (amount+date alone = ~48, needs name or RFC match too)
-        if (bestMatch && bestMatch.score >= 65) {
+        // Score >= 70 requires strong signal: exact amount(40) + close date(30) = 70,
+        // or amount(40) + name(20) + some date(8-15) = 68-75
+        if (bestMatch && bestMatch.score >= 70) {
           const linkedEntry = bestMatch.entry;
 
           await tx.ledgerEntry.update({
