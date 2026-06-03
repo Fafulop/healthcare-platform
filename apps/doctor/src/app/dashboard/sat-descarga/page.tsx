@@ -21,9 +21,10 @@ import {
   X,
   BookmarkPlus,
   BookmarkCheck,
+  Link2,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
-import { SAT_FORMA_PAGO_LABELS } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
+import { SAT_FORMA_PAGO_LABELS, ORIGIN_LABELS } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -445,6 +446,11 @@ function CfdiList({
   const [montoFilter, setMontoFilter] = useState<string>("");
   const [registeredMap, setRegisteredMap] = useState<Record<string, number>>({});
   const [registering, setRegistering] = useState<string | null>(null); // uuid being registered
+  const [suggestionModal, setSuggestionModal] = useState<{
+    uuid: string;
+    suggestions: { ledgerEntryId: number; score: number; confidence: 'high' | 'medium'; concept: string; origin: string; amount: number; transactionDate: string }[];
+  } | null>(null);
+  const [linking, setLinking] = useState<number | null>(null); // ledgerEntryId being linked
 
   // Check which CFDIs are already registered as LedgerEntries
   const checkRegistered = useCallback(async (uuids: string[]) => {
@@ -474,42 +480,8 @@ function CfdiList({
         const entry = result.data?.entries?.[0];
         if (entry) {
           if (entry.action === 'suggestion') {
-            // Show confirmation dialog — user decides to link or create new
-            const matchInfo = `"${entry.matchedConcept || 'Sin concepto'}" — $${Number(entry.matchedAmount || 0).toLocaleString('es-MX')} (${entry.matchedOrigin || 'manual'})`;
-            const userChoice = confirm(
-              `Se encontró un movimiento existente similar:\n\n${matchInfo}\n\nPuntuación: ${entry.matchScore} (${entry.matchConfidence})\n\n¿Vincular este CFDI al movimiento existente?\n\n• OK = Vincular al existente\n• Cancelar = Crear movimiento nuevo`
-            );
-            if (userChoice) {
-              // User chose to link — call link-cfdi endpoint
-              const linkRes = await authFetch(`${API_URL}/api/practice-management/ledger/${entry.suggestedLedgerEntryId}/link-cfdi`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ uuid }),
-              });
-              if (linkRes.ok) {
-                setRegisteredMap(prev => ({ ...prev, [uuid]: entry.suggestedLedgerEntryId }));
-              } else {
-                const linkErr = await linkRes.json();
-                alert(linkErr.error || "Error al vincular");
-              }
-            } else {
-              // User chose to create new — call again with skipMatch inline (no recursion)
-              const createRes = await authFetch(`${API_URL}/api/sat-descarga/register-to-ledger`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ uuids: [uuid], skipMatchUuids: [uuid] }),
-              });
-              if (createRes.ok) {
-                const createResult = await createRes.json();
-                const created = createResult.data?.entries?.[0];
-                if (created) {
-                  setRegisteredMap(prev => ({ ...prev, [uuid]: created.ledgerEntryId }));
-                }
-              } else {
-                const createErr = await createRes.json();
-                alert(createErr.error || "Error al crear movimiento");
-              }
-            }
+            // Open modal with suggestions — user picks one to link or creates new
+            setSuggestionModal({ uuid, suggestions: entry.suggestions || [] });
           } else {
             // action === 'created'
             setRegisteredMap(prev => ({ ...prev, [uuid]: entry.ledgerEntryId }));
@@ -524,6 +496,35 @@ function CfdiList({
     } finally {
       setRegistering(null);
     }
+  };
+
+  const handleSuggestionLink = async (ledgerEntryId: number) => {
+    if (!suggestionModal) return;
+    setLinking(ledgerEntryId);
+    try {
+      const res = await authFetch(`${API_URL}/api/practice-management/ledger/${ledgerEntryId}/link-cfdi`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uuid: suggestionModal.uuid }),
+      });
+      if (res.ok) {
+        setRegisteredMap(prev => ({ ...prev, [suggestionModal.uuid]: ledgerEntryId }));
+        setSuggestionModal(null);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Error al vincular");
+      }
+    } catch {
+      alert("Error de conexión");
+    } finally {
+      setLinking(null);
+    }
+  };
+
+  const handleSuggestionCreateNew = async () => {
+    if (!suggestionModal) return;
+    setSuggestionModal(null);
+    await registerCfdi(suggestionModal.uuid, true);
   };
 
   const fetchData = useCallback(async () => {
@@ -756,6 +757,97 @@ function CfdiList({
             </div>
           )}
         </>
+      )}
+
+      {/* Suggestion Modal — matches found for a CFDI */}
+      {suggestionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setSuggestionModal(null)}
+          onKeyDown={e => { if (e.key === 'Escape') setSuggestionModal(null); }}
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative w-full sm:max-w-md sm:rounded-xl rounded-t-2xl bg-white shadow-xl max-h-[80vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-200">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Movimientos similares encontrados</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Selecciona uno para vincular o crea un movimiento nuevo</p>
+              </div>
+              <button onClick={() => setSuggestionModal(null)} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Suggestions list */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {suggestionModal.suggestions.length === 0 && (
+                <div className="px-5 py-8 text-center text-sm text-gray-500">
+                  No se encontraron movimientos similares
+                </div>
+              )}
+              {suggestionModal.suggestions.map((s) => {
+                const originInfo = ORIGIN_LABELS[s.origin] || { label: s.origin, color: 'bg-gray-100 text-gray-700' };
+                return (
+                  <div key={s.ledgerEntryId} className="px-5 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                            s.confidence === 'high' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {s.confidence === 'high' ? 'Alta' : 'Media'}
+                          </span>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${originInfo.color}`}>
+                            {originInfo.label}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900 truncate">{s.concept || 'Sin concepto'}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                          <span>${Number(s.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                          <span>&middot;</span>
+                          <span>{new Date(s.transactionDate).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleSuggestionLink(s.ledgerEntryId)}
+                        disabled={linking !== null}
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                      >
+                        {linking === s.ledgerEntryId ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Link2 className="w-3 h-3" />
+                        )}
+                        Vincular
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-200 flex gap-2">
+              <button
+                onClick={handleSuggestionCreateNew}
+                disabled={linking !== null}
+                className="flex-1 px-4 py-2.5 border border-purple-300 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-50 disabled:opacity-50 transition-colors"
+              >
+                Crear movimiento nuevo
+              </button>
+              <button
+                onClick={() => setSuggestionModal(null)}
+                className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
 
         // Score candidates (same logic as cfdi-suggestions but in reverse)
         const cfdiRfc = isReceived ? cfdi.issuerRfc : cfdi.receiverRfc;
-        let bestMatch: { entry: typeof matchCandidates[0]; score: number } | null = null;
+        const scoredMatches: { entry: typeof matchCandidates[0]; score: number }[] = [];
 
         for (const candidate of matchCandidates) {
           let score = 0;
@@ -144,30 +144,33 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          if (!bestMatch || score > bestMatch.score) {
-            bestMatch = { entry: candidate, score };
+          if (score >= 70) {
+            scoredMatches.push({ entry: candidate, score });
           }
         }
 
-        // If high-confidence match found, return as suggestion (don't auto-link)
+        // If matches found, return as suggestions (don't auto-link)
         // User must confirm the link from the frontend
         // Skip if user explicitly chose "create new" for this CFDI
-        if (bestMatch && bestMatch.score >= 70 && !skipMatchSet.has(cfdi.uuid)) {
-          const matchedEntry = bestMatch.entry;
-          const confidence = bestMatch.score >= 80 ? 'high' : 'medium';
+        const topMatches = scoredMatches
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
 
+        if (topMatches.length > 0 && !skipMatchSet.has(cfdi.uuid)) {
           entries.push({
             uuid: cfdi.uuid,
             entryType,
             amount,
             action: 'suggestion',
-            matchScore: bestMatch.score,
-            matchConfidence: confidence,
-            suggestedLedgerEntryId: matchedEntry.id,
-            matchedConcept: matchedEntry.concept,
-            matchedOrigin: matchedEntry.origin,
-            matchedAmount: Number(matchedEntry.amount),
-            matchedDate: matchedEntry.transactionDate,
+            suggestions: topMatches.map((m) => ({
+              ledgerEntryId: m.entry.id,
+              score: m.score,
+              confidence: m.score >= 80 ? 'high' as const : 'medium' as const,
+              concept: m.entry.concept,
+              origin: m.entry.origin,
+              amount: Number(m.entry.amount),
+              transactionDate: m.entry.transactionDate,
+            })),
           });
           continue;
         }
