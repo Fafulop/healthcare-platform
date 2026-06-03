@@ -32,20 +32,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 // Types
 // ---------------------------------------------------------------------------
 
-interface SyncJob {
-  id: number;
-  status: string;
-  requestType: string;
-  direction: string;
-  dateFrom: string;
-  dateTo: string;
-  cfdiCount: number | null;
-  attempts: number;
-  lastError: string | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  createdAt: string;
-}
 
 interface CfdiMetadata {
   id: number;
@@ -113,7 +99,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "reconciliacion" | "jobs" | "info" | "contable">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "info" | "contable">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -155,8 +141,8 @@ export default function SatDescargaPage() {
         <div className="flex gap-6">
           <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
           <TabBtn active={activeTab === "resumen"} onClick={() => setActiveTab("resumen")} label="Resumen Fiscal" />
-          <TabBtn active={activeTab === "reconciliacion"} onClick={() => setActiveTab("reconciliacion")} label="Reconciliación" />
-          <TabBtn active={activeTab === "jobs"} onClick={() => setActiveTab("jobs")} label="Historial de Syncs" />
+
+
           <TabBtn active={activeTab === "contable"} onClick={() => setActiveTab("contable")} label="Guía Contable" />
           <TabBtn active={activeTab === "info"} onClick={() => setActiveTab("info")} label="Info" />
         </div>
@@ -166,8 +152,8 @@ export default function SatDescargaPage() {
         <CfdiList direction={direction} setDirection={setDirection} month={month} />
       )}
       {activeTab === "resumen" && <ResumenFiscal />}
-      {activeTab === "reconciliacion" && <ReconciliacionTab month={month} />}
-      {activeTab === "jobs" && <JobsList />}
+
+
       {activeTab === "contable" && <ContableTab />}
       {activeTab === "info" && <InfoTab />}
     </div>
@@ -249,7 +235,7 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
           className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
         >
           {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          Descargar Todo
+          Descarga Manual Mensual
         </button>
       </div>
 
@@ -2471,342 +2457,6 @@ function InfoTab() {
           </ul>
         </div>
       </section>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Reconciliation Tab
-// ---------------------------------------------------------------------------
-
-interface ReconciliationData {
-  matched: any[];
-  missingFromSat: any[];
-  cancelledInSat: any[];
-  onlyInSat: any[];
-}
-
-interface ReconciliationSummary {
-  totalEmitted: number;
-  totalInSat: number;
-  matched: number;
-  missingFromSat: number;
-  cancelledInSat: number;
-  onlyInSat: number;
-  hasAlerts: boolean;
-}
-
-function ReconciliacionTab({ month }: { month: string }) {
-  const [data, setData] = useState<ReconciliationData | null>(null);
-  const [summary, setSummary] = useState<ReconciliationSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"matched" | "missing" | "cancelled" | "onlyInSat">("matched");
-
-  const fetchReconciliation = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (month) params.set("month", month);
-      const res = await authFetch(`${API_URL}/api/sat-descarga/reconciliation?${params}`);
-      if (res.ok) {
-        const result = await res.json();
-        setData(result.data);
-        setSummary(result.summary);
-      }
-    } catch (err) {
-      console.error("Error fetching reconciliation:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [month]);
-
-  useEffect(() => { fetchReconciliation(); }, [fetchReconciliation]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-      </div>
-    );
-  }
-
-  if (!data || !summary) {
-    return <div className="text-center py-12 text-gray-500">No hay datos de reconciliación.</div>;
-  }
-
-  const fmt = (n: any) => n !== null && n !== undefined
-    ? `$${Number(n).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
-    : "—";
-
-  const fmtDate = (d: string) => new Date(d).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
-
-  const currentItems = view === "matched" ? data.matched
-    : view === "missing" ? data.missingFromSat
-    : view === "cancelled" ? data.cancelledInSat
-    : data.onlyInSat;
-
-  return (
-    <div>
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <button onClick={() => setView("matched")} className={`rounded-lg border p-3 text-left transition-colors ${view === "matched" ? "border-green-400 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-          <p className="text-xs text-gray-500">Coinciden</p>
-          <p className="text-xl font-bold text-green-700">{summary.matched}</p>
-        </button>
-        <button onClick={() => setView("missing")} className={`rounded-lg border p-3 text-left transition-colors ${view === "missing" ? "border-yellow-400 bg-yellow-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-          <p className="text-xs text-gray-500">No en SAT</p>
-          <p className="text-xl font-bold text-yellow-700">{summary.missingFromSat}</p>
-        </button>
-        <button onClick={() => setView("cancelled")} className={`rounded-lg border p-3 text-left transition-colors ${view === "cancelled" ? "border-red-400 bg-red-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-          <p className="text-xs text-gray-500">Cancelados SAT</p>
-          <p className="text-xl font-bold text-red-700">{summary.cancelledInSat}</p>
-          {summary.hasAlerts && <p className="text-[10px] text-red-500 mt-0.5">Requiere atención</p>}
-        </button>
-        <button onClick={() => setView("onlyInSat")} className={`rounded-lg border p-3 text-left transition-colors ${view === "onlyInSat" ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-          <p className="text-xs text-gray-500">Solo en SAT</p>
-          <p className="text-xl font-bold text-purple-700">{summary.onlyInSat}</p>
-        </button>
-      </div>
-
-      {/* Table */}
-      {currentItems.length === 0 ? (
-        <div className="text-center py-8 text-gray-400 text-sm">
-          No hay CFDIs en esta categoría
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-gray-500 text-xs">
-                <th className="pb-2 pr-4 font-medium">Fecha</th>
-                <th className="pb-2 pr-4 font-medium">Receptor</th>
-                <th className="pb-2 pr-4 font-medium text-right">Monto</th>
-                <th className="pb-2 pr-4 font-medium">Folio</th>
-                <th className="pb-2 pr-4 font-medium">UUID</th>
-                {view === "cancelled" && <th className="pb-2 font-medium">Alerta</th>}
-                {view === "onlyInSat" && <th className="pb-2 font-medium">Status SAT</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {currentItems.map((item: any, idx: number) => (
-                <tr key={item.uuid || idx} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-2 pr-4 whitespace-nowrap text-xs">{fmtDate(item.issuedAt)}</td>
-                  <td className="py-2 pr-4">
-                    <div className="text-xs font-medium text-gray-900 truncate max-w-[180px]">
-                      {item.receptor || item.receiverName || "—"}
-                    </div>
-                    {(item.rfcReceptor || item.receiverRfc) && (
-                      <div className="text-[10px] text-gray-400">{item.rfcReceptor || item.receiverRfc}</div>
-                    )}
-                  </td>
-                  <td className="py-2 pr-4 text-right font-mono text-xs whitespace-nowrap">
-                    {fmt(item.total || item.monto)}
-                  </td>
-                  <td className="py-2 pr-4 text-xs text-gray-600">
-                    {item.serie && item.folio ? `${item.serie}-${item.folio}` : item.folio || "—"}
-                  </td>
-                  <td className="py-2 pr-4 text-[10px] text-gray-400 font-mono truncate max-w-[120px]" title={item.uuid}>
-                    {item.uuid?.substring(0, 8)}...
-                  </td>
-                  {view === "cancelled" && (
-                    <td className="py-2 text-xs">
-                      {item.alert ? (
-                        <span className="text-red-600 font-medium flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          {item.alert}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">OK — cancelado en ambos</span>
-                      )}
-                    </td>
-                  )}
-                  {view === "onlyInSat" && (
-                    <td className="py-2 text-xs">
-                      <span className={item.satStatus === "Vigente" ? "text-green-600" : "text-red-500"}>
-                        {item.satStatus}
-                      </span>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Jobs List
-// ---------------------------------------------------------------------------
-
-function JobsList() {
-  const [jobs, setJobs] = useState<SyncJob[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-
-  const fetchJobs = useCallback(async (p = 1) => {
-    try {
-      const res = await authFetch(`${API_URL}/api/sat-descarga/sync?page=${p}&limit=50`);
-      if (res.ok) {
-        const json = await res.json();
-        setJobs(json.data);
-        if (json.pagination) {
-          setTotalPages(json.pagination.totalPages);
-          setTotal(json.pagination.total);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching jobs:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchJobs(page); }, [fetchJobs, page]);
-
-  // Auto-refresh if any job is in progress
-  useEffect(() => {
-    const hasActive = jobs.some(j =>
-      ["pending", "authenticating", "requesting", "polling", "downloading"].includes(j.status)
-    );
-    if (!hasActive) return;
-
-    const interval = setInterval(() => fetchJobs(page), 15000);
-    return () => clearInterval(interval);
-  }, [jobs, fetchJobs, page]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-      </div>
-    );
-  }
-
-  if (jobs.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <Clock className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-        <p>No hay sincronizaciones registradas.</p>
-      </div>
-    );
-  }
-
-  const deleteJob = async (id: number) => {
-    if (!confirm("¿Eliminar esta sincronización?")) return;
-    try {
-      const res = await authFetch(`${API_URL}/api/sat-descarga/sync/${id}`, { method: "DELETE" });
-      if (res.ok) fetchJobs();
-    } catch (err) {
-      console.error("Error deleting job:", err);
-    }
-  };
-
-  const statusColors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-700",
-    authenticating: "bg-blue-100 text-blue-700",
-    requesting: "bg-blue-100 text-blue-700",
-    polling: "bg-blue-100 text-blue-700",
-    downloading: "bg-blue-100 text-blue-700",
-    completed: "bg-green-100 text-green-700",
-    failed: "bg-red-100 text-red-700",
-  };
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-200 text-left text-gray-500">
-            <th className="pb-2 pr-4 font-medium">ID</th>
-            <th className="pb-2 pr-4 font-medium">Periodo</th>
-            <th className="pb-2 pr-4 font-medium">Dirección</th>
-            <th className="pb-2 pr-4 font-medium">Tipo</th>
-            <th className="pb-2 pr-4 font-medium">Status</th>
-            <th className="pb-2 pr-4 font-medium">CFDIs</th>
-            <th className="pb-2 pr-4 font-medium">Creado</th>
-            <th className="pb-2 font-medium"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {jobs.map(job => (
-            <tr key={job.id} className="border-b border-gray-100 hover:bg-gray-50">
-              <td className="py-2.5 pr-4 text-gray-400">#{job.id}</td>
-              <td className="py-2.5 pr-4 whitespace-nowrap">
-                {new Date(job.dateFrom).toLocaleDateString("es-MX", { month: "short", year: "numeric", timeZone: "UTC" })}
-              </td>
-              <td className="py-2.5 pr-4">
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  job.direction === "received" ? "bg-purple-100 text-purple-700" : "bg-indigo-100 text-indigo-700"
-                }`}>
-                  {job.direction === "received" ? "Recibidos" : "Emitidos"}
-                </span>
-              </td>
-              <td className="py-2.5 pr-4">
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  job.requestType === "xml" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-700"
-                }`}>
-                  {job.requestType === "xml" ? "XML" : "Metadata"}
-                </span>
-              </td>
-              <td className="py-2.5 pr-4">
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[job.status] || "bg-gray-100 text-gray-700"}`}>
-                  {job.status}
-                </span>
-                {job.lastError && (
-                  <div className="text-xs text-red-500 mt-0.5 max-w-[200px] truncate" title={job.lastError}>
-                    {job.lastError}
-                  </div>
-                )}
-              </td>
-              <td className="py-2.5 pr-4 font-medium">
-                {job.cfdiCount ?? "—"}
-              </td>
-              <td className="py-2.5 pr-4 text-xs text-gray-400 whitespace-nowrap">
-                {new Date(job.createdAt).toLocaleString("es-MX")}
-              </td>
-              <td className="py-2.5">
-                {job.status !== "downloading" && job.status !== "completed" && (
-                  <button
-                    onClick={() => deleteJob(job.id)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Eliminar
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
-          <span className="text-xs text-gray-500">
-            {total} sincronizaciones — Página {page} de {totalPages}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-3 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Anterior
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-3 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Siguiente
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
