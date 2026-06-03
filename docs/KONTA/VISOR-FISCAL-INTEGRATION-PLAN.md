@@ -564,16 +564,23 @@ Both the **Facturación** module and the **SAT Descarga** module guide tabs were
 
 6. **No schema changes needed** — all fields already exist
 
-### Phase 2 — Pilar 2: Deducciones Tab for 612 (2-3 days)
+### Phase 2 — Pilar 2: Deducciones Tab for 612 (2-3 days) **DONE**
 
-1. **New API route:** `GET /api/sat-descarga/deductions?year=2026`
-   - Query `sat_cfdi_metadata` + `sat_cfdi_concepto` for received, vigente CFDIs
-   - Classify each CFDI into categories using `claveProdServ` + keyword matching
-   - Aggregate by category, month
-   - Flag non-deductible items (cash > $2k, cancelled, etc.)
-   - Return: categories[], monthlyBreakdown[], alerts[], totals{}
-2. **New tab in sat-descarga:** "Deducciones" (only visible for 612 doctors)
-3. **RESICO variant:** Same tab but with informational framing + IVA focus + income limit tracker
+1. **New API route:** `GET /api/sat-descarga/deductions?year=YYYY` **DONE**
+   - Queries `sat_cfdi_metadata` + `sat_cfdi_details` + `sat_cfdi_conceptos` for received Vigente Ingreso CFDIs
+   - Classifies each CFDI into 12 categories using `claveProdServ` ranges + word-boundary keyword matching
+   - Aggregates by category and month
+   - Flags non-deductible items (cash > $2k, no XML, proportional expenses)
+   - Returns: categories[], months[], totals{}, alerts[], resicoMonitor?{}
+
+2. **New lib:** `apps/api/src/lib/deduction-categories.ts` **DONE**
+   - 12 deduction categories (renta, insumos, equipo médico, cómputo, mobiliario, servicios profesionales, seguros, servicios básicos, capacitación, vehículo, nómina, otros)
+   - SAT claveProdServ range matching (primary) + keyword matching with word boundaries (fallback)
+   - `checkDeductibility()` flags: cash > $2k (Art. 27 LISR), no XML, proportional expenses
+
+3. **New tab in sat-descarga:** "Deducciones" **DONE**
+   - **612 doctors:** Full deductions dashboard — summary cards (total gastos, IVA acreditable, non-deductible, flagged), category breakdown with expandable CFDI lists (up to 100 per category), deductibility flag badges (Efectivo, Proporcional, Sin XML), monthly breakdown table (top 5 categories)
+   - **626/RESICO doctors:** Expense overview with amber banner ("gastos no son deducibles para ISR"), IVA acreditable focus, income monitor progress bar (YTD vs $3.5M with color thresholds: green <70%, amber 70-90%, red >90%), forced-migration warning at >80%
 
 ### Phase 3 — Pilar 1: Opinión de Cumplimiento (1-2 days)
 
@@ -593,13 +600,13 @@ Both the **Facturación** module and the **SAT Descarga** module guide tabs were
    - Implement using existing e.Firma infrastructure in `apps/api/src/lib/sat-descarga.ts`
    - Auto-refresh monthly
 
-### Phase 4 — RESICO Income Monitor (1 day)
+### Phase 4 — RESICO Income Monitor (1 day) **DONE (merged into Phase 2)**
 
-1. **New API route:** `GET /api/sat-descarga/resico-monitor?year=2026`
-   - Sum all emitted Ingreso CFDIs YTD
-   - Compare against $3.5M limit
-   - Return: totalIncome, limit, percentage, monthlyBreakdown[]
-2. **Widget in Deducciones tab** (RESICO variant only)
+Built as part of the Deducciones tab RESICO variant:
+- Income monitor integrated into `GET /api/sat-descarga/deductions` response (`resicoMonitor` field)
+- Raw SQL sums emitted Ingreso CFDIs YTD, compares against $3.5M limit
+- Progress bar in Deducciones tab with color-coded thresholds and warning text
+- No separate route needed — data served alongside expense categories
 
 ### Phase 5 — Nómina Support (future, major feature)
 
@@ -616,21 +623,19 @@ Out of scope for now. Requires:
 ## File Impact Summary
 
 ### New Files
-| File | Purpose |
-|------|---------|
-| `apps/api/src/app/api/sat-descarga/deductions/route.ts` | Deductions API (categorize, aggregate, flag) |
-| `apps/api/src/app/api/sat-descarga/opinion-cumplimiento/route.ts` | Opinion upload/query |
-| `apps/api/src/app/api/sat-descarga/resico-monitor/route.ts` | RESICO income limit tracker |
-| `apps/api/src/lib/deduction-categories.ts` | Category classification logic (claveProdServ mappings) |
-| Migration: `add-opinion-cumplimiento-table.sql` | New table for opinion history |
+| File | Purpose | Status |
+|------|---------|--------|
+| `apps/api/src/app/api/sat-descarga/deductions/route.ts` | Deductions API (categorize, aggregate, flag, RESICO monitor) | **DONE** |
+| `apps/api/src/lib/deduction-categories.ts` | Category classification logic (12 categories, claveProdServ + keywords) | **DONE** |
+| `apps/api/src/app/api/sat-descarga/opinion-cumplimiento/route.ts` | Opinion upload/query | Pending (Phase 3) |
+| Migration: `add-opinion-cumplimiento-table.sql` | New table for opinion history | Pending (Phase 3) |
 
 ### Modified Files
 | File | Change | Status |
 |------|--------|--------|
 | `apps/doctor/src/app/dashboard/facturacion/page.tsx` | Phase 0: GuiaTab régimen content. Phase 1: Editable IVA/ISR rates in NuevaFacturaTab + EgresoTab | **DONE** |
-| `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` | Phase 0: ContableTab régimen content. Phase 2+: Add Deducciones/Cumplimiento tabs | Phase 0 **DONE**, Phase 2+ pending |
+| `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` | Phase 0: ContableTab. Phase 2: DeduccionesTab (612 deductions + RESICO monitor) | **DONE** |
 | `apps/api/src/app/api/facturacion/cfdi/route.ts` | Phase 1: ISR rate soft validation (warn if custom rate used) | **DONE** |
-| `apps/api/src/lib/facturama.ts` | Pass régimen-aware tax config | Pending (not needed — frontend sends correct rates) |
 
 ### No Changes Needed
 | File | Reason |

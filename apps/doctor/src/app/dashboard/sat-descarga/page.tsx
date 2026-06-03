@@ -99,7 +99,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "info" | "contable">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "info" | "contable">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -141,8 +141,7 @@ export default function SatDescargaPage() {
         <div className="flex gap-6">
           <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
           <TabBtn active={activeTab === "resumen"} onClick={() => setActiveTab("resumen")} label="Resumen Fiscal" />
-
-
+          <TabBtn active={activeTab === "deducciones"} onClick={() => setActiveTab("deducciones")} label="Deducciones" />
           <TabBtn active={activeTab === "contable"} onClick={() => setActiveTab("contable")} label="Guía Contable" />
           <TabBtn active={activeTab === "info"} onClick={() => setActiveTab("info")} label="Info" />
         </div>
@@ -152,8 +151,7 @@ export default function SatDescargaPage() {
         <CfdiList direction={direction} setDirection={setDirection} month={month} />
       )}
       {activeTab === "resumen" && <ResumenFiscal />}
-
-
+      {activeTab === "deducciones" && <DeduccionesTab />}
       {activeTab === "contable" && <ContableTab />}
       {activeTab === "info" && <InfoTab />}
     </div>
@@ -1552,6 +1550,352 @@ function ExportButton({ label, href, secondary }: { label: string; href: string;
       <FileSpreadsheet className="w-3.5 h-3.5" />
       {label}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Deducciones Tab — Categorized expenses (612) / Expense overview (RESICO)
+// ---------------------------------------------------------------------------
+
+interface DeductionCategory {
+  id: string;
+  name: string;
+  icon: string;
+  count: number;
+  subtotal: number;
+  iva: number;
+  flaggedCount: number;
+  cfdiSamples: Array<{
+    uuid: string;
+    issuerName: string | null;
+    issuerRfc: string;
+    subtotal: number;
+    issuedAt: string;
+    categoryId: string;
+    flags: Array<{ type: string; message: string }>;
+  }>;
+}
+
+interface DeductionsResponse {
+  year: number;
+  regimenFiscal: string;
+  categories: DeductionCategory[];
+  months: Array<{
+    month: number;
+    categories: Record<string, { count: number; subtotal: number; iva: number }>;
+  }>;
+  totals: {
+    count: number;
+    subtotal: number;
+    iva: number;
+    nonDeductible: number;
+    flagged: number;
+  };
+  alerts: Array<{ type: string; message: string; count: number }>;
+  resicoMonitor?: {
+    ytdIncome: number;
+    limit: number;
+    percentage: number;
+  };
+}
+
+function DeduccionesTab() {
+  const [data, setData] = useState<DeductionsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [expandedCat, setExpandedCat] = useState<string | null>(null);
+
+  const fetchDeductions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/deductions?year=${year}`);
+      if (res.ok) {
+        const json = await res.json();
+        setData(json.data);
+      }
+    } catch (err) {
+      console.error('Error fetching deductions:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [year]);
+
+  useEffect(() => { fetchDeductions(); }, [fetchDeductions]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-500">Calculando deducciones...</span>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+        <p>No se pudieron cargar las deducciones. Intenta de nuevo.</p>
+      </div>
+    );
+  }
+
+  const isResico = data.regimenFiscal === '626';
+  const fmtMoney = (n: number) => `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+
+  return (
+    <div className="space-y-6">
+      {/* Year selector */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">
+          {isResico ? 'Gastos del Ejercicio' : 'Deducciones Fiscales'} — {year}
+        </h2>
+        <YearSelector year={year} setYear={setYear} />
+      </div>
+
+      {/* RESICO banner */}
+      {isResico && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <p className="text-sm text-amber-800 font-medium">
+            En RESICO, tus gastos no son deducibles para ISR.
+          </p>
+          <p className="text-xs text-amber-600 mt-1">
+            Tu ISR se calcula sobre ingresos brutos a tasa fija (1% a 2.5%). Esta sección te muestra tus gastos
+            para control interno y para el cálculo de IVA acreditable, que sí aplica en RESICO.
+          </p>
+        </div>
+      )}
+
+      {/* RESICO income monitor */}
+      {isResico && data.resicoMonitor && (
+        <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-gray-700">Monitor de Ingresos RESICO</h3>
+            <span className={`text-sm font-bold ${
+              data.resicoMonitor.percentage > 90 ? 'text-red-600' :
+              data.resicoMonitor.percentage > 70 ? 'text-amber-600' : 'text-green-600'
+            }`}>
+              {data.resicoMonitor.percentage}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+            <div
+              className={`h-3 rounded-full transition-all ${
+                data.resicoMonitor.percentage > 90 ? 'bg-red-500' :
+                data.resicoMonitor.percentage > 70 ? 'bg-amber-500' : 'bg-green-500'
+              }`}
+              style={{ width: `${Math.min(data.resicoMonitor.percentage, 100)}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>Ingresos YTD: {fmtMoney(data.resicoMonitor.ytdIncome)}</span>
+            <span>Límite: {fmtMoney(data.resicoMonitor.limit)}</span>
+          </div>
+          {data.resicoMonitor.percentage > 80 && (
+            <p className="text-xs text-red-600 mt-2 font-medium">
+              Te acercas al límite de $3.5M. Si lo excedes, el SAT puede cambiarte a Régimen 612.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Total Gastos</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{fmtMoney(data.totals.subtotal)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{data.totals.count} CFDIs</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">IVA Acreditable</p>
+          <p className="text-xl font-bold text-green-700 mt-1">{fmtMoney(data.totals.iva)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{isResico ? 'Aplica en RESICO' : 'Para declaración mensual'}</p>
+        </div>
+        {!isResico && (
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">No Deducible</p>
+            <p className="text-xl font-bold text-red-600 mt-1">{fmtMoney(data.totals.nonDeductible)}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Efectivo &gt; $2k, cancelados</p>
+          </div>
+        )}
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">{isResico ? 'Categorías' : 'Con Alertas'}</p>
+          <p className="text-xl font-bold text-amber-600 mt-1">
+            {isResico ? data.categories.length : data.totals.flagged}
+          </p>
+          <p className="text-xs text-gray-400 mt-0.5">{isResico ? 'tipos de gasto' : 'requieren revisión'}</p>
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {!isResico && data.alerts.length > 0 && (
+        <div className="space-y-2">
+          {data.alerts.map((alert, i) => (
+            <div key={i} className={`flex items-center gap-2 text-sm p-3 rounded-md border ${
+              alert.type === 'cash_over_2k' ? 'bg-red-50 border-red-200 text-red-700' :
+              alert.type === 'no_xml' ? 'bg-gray-50 border-gray-200 text-gray-600' :
+              'bg-amber-50 border-amber-200 text-amber-700'
+            }`}>
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {alert.message}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Category breakdown */}
+      {data.categories.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <p>No se encontraron gastos recibidos en {year}.</p>
+          <p className="text-xs text-gray-400 mt-1">Sincroniza tus CFDIs recibidos para ver las deducciones.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700">
+              {isResico ? 'Desglose por Categoría' : 'Categorías de Deducción'}
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {data.categories.map(cat => {
+              const pct = data.totals.subtotal > 0
+                ? Math.round((cat.subtotal / data.totals.subtotal) * 100)
+                : 0;
+              const isExpanded = expandedCat === cat.id;
+
+              return (
+                <div key={cat.id}>
+                  <button
+                    onClick={() => setExpandedCat(isExpanded ? null : cat.id)}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <span className="text-xl">{cat.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-900">{cat.name}</span>
+                        <span className="text-sm font-semibold text-gray-900">{fmtMoney(cat.subtotal)}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                          <div
+                            className="bg-blue-500 h-1.5 rounded-full"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-500 w-8 text-right">{pct}%</span>
+                        <span className="text-xs text-gray-400">{cat.count} CFDIs</span>
+                        {cat.flaggedCount > 0 && !isResico && (
+                          <span className="text-xs text-amber-600">{cat.flaggedCount} alerta(s)</span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Expanded: CFDI list */}
+                  {isExpanded && cat.cfdiSamples.length > 0 && (
+                    <div className="px-4 pb-3 bg-gray-50">
+                      <div className="space-y-1">
+                        {cat.cfdiSamples.map((cfdi, i) => (
+                          <div key={i} className="flex items-center justify-between py-1.5 px-2 text-xs rounded hover:bg-white">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-gray-700 font-medium truncate block">
+                                {cfdi.issuerName || cfdi.issuerRfc}
+                              </span>
+                              <span className="text-gray-400">
+                                {new Date(cfdi.issuedAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
+                              </span>
+                            </div>
+                            <div className="text-right ml-4">
+                              <span className="text-gray-900 font-medium">{fmtMoney(cfdi.subtotal)}</span>
+                              {cfdi.flags.length > 0 && !isResico && (
+                                <div className="mt-0.5">
+                                  {cfdi.flags.map((f, fi) => (
+                                    <span key={fi} className={`inline-block text-[10px] px-1.5 py-0.5 rounded mr-1 ${
+                                      f.type === 'cash_over_2k' ? 'bg-red-100 text-red-600' :
+                                      f.type === 'proportional' ? 'bg-amber-100 text-amber-600' :
+                                      'bg-gray-100 text-gray-500'
+                                    }`}>
+                                      {f.type === 'cash_over_2k' ? 'Efectivo' :
+                                       f.type === 'proportional' ? 'Proporcional' :
+                                       f.type === 'no_xml' ? 'Sin XML' : f.type}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {cat.count > cat.cfdiSamples.length && (
+                        <p className="text-xs text-gray-400 mt-2 text-center">
+                          Mostrando {cat.cfdiSamples.length} de {cat.count} CFDIs
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* IVA summary row */}
+          <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-between text-sm">
+            <span className="font-medium text-gray-700">
+              Total IVA Acreditable
+            </span>
+            <span className="font-bold text-green-700">{fmtMoney(data.totals.iva)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Monthly breakdown table */}
+      {data.months.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700">Desglose Mensual</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left text-gray-600 font-medium">Mes</th>
+                  {data.categories.slice(0, 5).map(cat => (
+                    <th key={cat.id} className="px-3 py-2 text-right text-gray-600 font-medium" title={cat.name}>
+                      {cat.icon}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 text-right text-gray-600 font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {data.months.map(m => {
+                  const monthTotal = Object.values(m.categories).reduce((s, c) => s + c.subtotal, 0);
+                  return (
+                    <tr key={m.month} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 text-gray-700 font-medium">
+                        {MONTH_NAMES[m.month - 1]}
+                      </td>
+                      {data.categories.slice(0, 5).map(cat => (
+                        <td key={cat.id} className="px-3 py-2 text-right text-gray-600">
+                          {m.categories[cat.id]
+                            ? fmtMoney(m.categories[cat.id].subtotal)
+                            : '-'}
+                        </td>
+                      ))}
+                      <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                        {fmtMoney(monthTotal)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
