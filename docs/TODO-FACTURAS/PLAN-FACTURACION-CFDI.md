@@ -399,8 +399,14 @@ FACTURAMA_API_URL=https://apisandbox.facturama.mx  # cambiar a api.facturama.mx 
 - **Regimenes fiscales comunes para doctores**:
   - `612` - Personas Fisicas con Actividades Empresariales y Profesionales
   - `626` - Regimen Simplificado de Confianza (RESICO)
-- **Retencion ISR**: Si el receptor es persona moral, debe retener 10% ISR
-- **IVA**: Servicios medicos generalmente estan exentos de IVA (tasa 0% o exento segun el caso)
+- **Retencion ISR**: Si el receptor es persona moral, debe retener ISR. La tasa depende del regimen del emisor:
+  - **612** (Act. Empresarial): 10% ISR
+  - **626** (RESICO): 1.25% ISR
+  - Personas fisicas (pacientes) generalmente NO retienen ISR
+  - Tasa editable en la UI para casos especiales (backend registra warning si difiere del default)
+- **IVA**: Servicios medicos a personas fisicas generalmente estan **exentos** de IVA (Art. 15 frac. XIV LIVA). Servicios a personas morales cobran 16% IVA (con retencion de 2/3 por parte de la PM). Procedimientos esteticos/cosmeticos siempre causan 16% IVA.
+  - Tasa editable en la UI (default 16%, pero medico puede dejar en 0% para servicios exentos)
+  - Hint automatico cuando receptor es PF y servicio es medico: "Servicios medicos a PF suelen ser exentos de IVA"
 
 ---
 

@@ -84,6 +84,19 @@ El paciente puede deducir el **menor** de estos dos montos:
 | 601 | General de Ley Personas Morales | Si operas como persona moral (clinica/SC) |
 | 603 | Personas Morales con Fines no Lucrativos | Asociaciones civiles medicas |
 
+### Diferencias clave entre 612 y 626 (RESICO) para facturacion
+
+| Aspecto | 612 | 626 (RESICO) |
+|---------|-----|--------------|
+| Limite de ingresos | Sin limite | $3,500,000 MXN/ano |
+| Retencion ISR al facturar a PM | 10% | 1.25% |
+| Deducciones para ISR | Si, completas | No — ISR es tasa fija sobre ingresos brutos |
+| IVA acreditable | Si | Si (IVA funciona igual en ambos) |
+| Contabilidad electronica | Obligatoria | No requerida |
+| Declaracion anual | Completa (abril) | Simplificada |
+
+> **Importante para RESICO:** Si tus ingresos superan $3.5M en el ano, el SAT puede migrarte automaticamente a regimen 612. TuSalud monitorea tus ingresos y te avisa cuando te acerques al limite.
+
 ---
 
 ## 6. Formas y metodos de pago
@@ -182,23 +195,42 @@ Si necesitas aplicar un descuento, devolucion o bonificacion sobre una factura y
 
 ## 11. Retencion de ISR
 
-Si tu paciente es **persona moral** (empresa), esta obligada a retenerte el **10% de ISR** sobre el monto del servicio. En este caso:
+Cuando facturas a una **persona moral** (empresa, hospital, aseguradora), esta debe retenerte ISR. La tasa depende de tu regimen fiscal:
 
-- La factura debe reflejar la retencion de ISR
-- El paciente (persona moral) te pagara el monto menos la retencion
-- La empresa entera el ISR retenido al SAT
+| Tu regimen | Tasa de retencion ISR | Ejemplo sobre $10,000 |
+|------------|----------------------|----------------------|
+| **612** (Act. Empresarial) | **10%** | $1,000 retenido |
+| **626** (RESICO) | **1.25%** | $125 retenido |
+
+- La factura debe reflejar la retencion de ISR como impuesto retenido
+- La empresa te pagara el monto menos la retencion
+- La empresa entera el ISR retenido al SAT a tu nombre
+- **Personas fisicas (pacientes)** generalmente **NO retienen ISR** — TuSalud te avisa si activas retencion ISR para un receptor PF
+
+> En TuSalud, la tasa de retencion ISR se configura automaticamente segun tu regimen (10% para 612, 1.25% para RESICO). Puedes ajustarla manualmente si tu caso es diferente.
 
 ---
 
 ## 12. IVA en servicios medicos
 
-Los servicios medicos generalmente estan **exentos de IVA** o aplican **tasa 0%**, dependiendo del tipo de servicio:
+El tratamiento de IVA depende del **tipo de servicio** y del **tipo de receptor**:
 
-- **Consultas medicas** — generalmente exentas
-- **Procedimientos esteticos** — pueden causar IVA al 16%
-- **Venta de medicamentos** — puede causar IVA segun el tipo
+### Servicios medicos a personas fisicas (pacientes)
+- **Exentos de IVA** por Art. 15 fraccion XIV de la LIVA
+- Aplica a: consultas, diagnosticos, tratamientos, hospitalizacion
+- TuSalud te avisa si activas IVA al facturar servicios medicos a un paciente PF
 
-Consulta con tu contador el tratamiento de IVA especifico para tus servicios.
+### Servicios medicos a personas morales (empresas)
+- **16% IVA trasladado**
+- La empresa retiene 2/3 del IVA (10.6667%)
+- Total IVA neto para ti: 1/3 del IVA (5.3333%)
+
+### Servicios que SI causan IVA (16%)
+- Procedimientos esteticos y cosmeticos
+- Venta de medicamentos no basicos
+- Servicios de spa o bienestar no medico
+
+> En TuSalud, la tasa de IVA es editable (por defecto 16%). Para servicios exentos, simplemente deja la casilla de IVA desactivada.
 
 ---
 

@@ -252,9 +252,9 @@ Both 612 and 626 can have employees. Nómina CFDI requirements are identical reg
 | ISR retention rate should be 1.25% for RESICO doctors billing PM | High | **DONE** | `cfdi/route.ts` (soft validation + warning), `facturacion/page.tsx` (NuevaFacturaTab — dynamic default + editable) |
 | IVA rate should be editable for edge cases | High | **DONE** | `facturacion/page.tsx` (NuevaFacturaTab + EgresoTab — editable IVA rate, default 16%) |
 | Doctor's régimen should drive default tax configuration in "Nueva Factura" | Medium | **DONE** | `facturacion/page.tsx` (reads `profile.regimenFiscal`, sets ISR default, syncs on régimen change) |
-| IVA exemption for medical services to PF should be auto-detected | Medium | Pending | `facturacion/page.tsx` (detect PF RFC pattern 13 chars, auto-set TaxObject to "01") |
-| Update `GUIA-FACTURACION-DOCTORES.md` with RESICO-specific sections | Medium | Pending | `docs/TODO-FACTURAS/GUIA-FACTURACION-DOCTORES.md` |
-| Update `PLAN-FACTURACION-CFDI.md` Consideraciones Fiscales section | Low | Pending | `docs/TODO-FACTURAS/PLAN-FACTURACION-CFDI.md` |
+| IVA/ISR hints for PF receivers (medical service exemption, no retention) | Medium | **DONE** | `facturacion/page.tsx` (amber hints when IVA/ISR enabled for PF receiver) |
+| Update `GUIA-FACTURACION-DOCTORES.md` with RESICO-specific sections | Medium | **DONE** | Sections 5, 11, 12 updated with 612 vs 626 comparison |
+| Update `PLAN-FACTURACION-CFDI.md` Consideraciones Fiscales section | Low | **DONE** | RESICO rate, IVA exemption rules, editability notes added |
 | No nómina support | Low (future) | Pending | New module entirely |
 | No multi-currency | Low | Not needed | N/A |
 
@@ -552,15 +552,17 @@ Both the **Facturación** module and the **SAT Descarga** module guide tabs were
    - Applied to both NuevaFacturaTab and EgresoTab
    - No hardcoded `0.16` remains in tax calculations
 
-3. **IVA exemption auto-detection for medical services to PF:** Pending
-   - When receiver RFC is PF pattern (13 chars), should auto-default IVA to exempt
-   - Low effort, deferred to avoid scope creep
+3. **IVA/ISR hints for PF receivers:** **DONE**
+   - Detects PF RFC (13 chars, 4 letters) vs PM (12 chars, 3 letters)
+   - Amber hint when IVA enabled + receiver is PF + service is medical: "Servicios médicos a PF suelen ser exentos de IVA (Art. 15 LIVA)"
+   - Amber hint when ISR retention enabled + receiver is PF: "Personas físicas generalmente no retienen ISR"
+   - All values remain fully editable — hints are informational only
 
 4. **Store régimen in fiscal profile** (already exists as `regimenFiscal` field in `DoctorFiscalProfile`) — no changes needed
 
-5. **Update user-facing documentation:** Pending
-   - `docs/TODO-FACTURAS/GUIA-FACTURACION-DOCTORES.md` — Add RESICO-specific sections
-   - `docs/TODO-FACTURAS/PLAN-FACTURACION-CFDI.md` — Update Consideraciones Fiscales
+5. **Update user-facing documentation:** **DONE**
+   - `docs/TODO-FACTURAS/GUIA-FACTURACION-DOCTORES.md` — Added RESICO-specific content: section 5 (612 vs 626 comparison table), section 11 (ISR retention by régimen), section 12 (IVA by receiver type)
+   - `docs/TODO-FACTURAS/PLAN-FACTURACION-CFDI.md` — Updated Consideraciones Fiscales with RESICO rate, IVA exemption rules, editability notes
 
 6. **No schema changes needed** — all fields already exist
 

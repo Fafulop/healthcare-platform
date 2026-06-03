@@ -1331,6 +1331,12 @@ function NuevaFacturaTab({
     setIsrRetentionRate(profile.regimenFiscal === '626' ? 0.0125 : 0.10);
   }, [profile.regimenFiscal]);
 
+  // Detect if receiver is persona física (13-char RFC, 4 letters + 6 digits + 3 alphanum)
+  // vs persona moral (12 chars, 3 letters + 6 digits + 3 alphanum)
+  const isReceiverPF = receiver.rfc.length === 13 && /^[A-Z]{4}/.test(receiver.rfc);
+  const isReceiverPublicoGeneral = receiver.rfc === 'XAXX010101000';
+  const isMedicalService = items.some(i => i.productCode.startsWith('8512'));
+
   const addItem = () => {
     setItems([...items, {
       description: "",
@@ -1633,6 +1639,11 @@ function NuevaFacturaTab({
                     )}
                   </div>
                 )}
+                {item.withIva && isReceiverPF && isMedicalService && !isReceiverPublicoGeneral && (
+                  <span className="text-xs text-amber-600">
+                    Servicios médicos a PF suelen ser exentos de IVA (Art. 15 LIVA)
+                  </span>
+                )}
                 <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1668,6 +1679,11 @@ function NuevaFacturaTab({
                       </button>
                     )}
                   </div>
+                )}
+                {item.withIsrRetention && isReceiverPF && !isReceiverPublicoGeneral && (
+                  <span className="text-xs text-amber-600">
+                    Personas físicas generalmente no retienen ISR
+                  </span>
                 )}
               </div>
 
