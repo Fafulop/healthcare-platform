@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import {
@@ -22,6 +22,7 @@ import {
   BookmarkPlus,
   BookmarkCheck,
   Link2,
+  Calculator,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { SAT_FORMA_PAGO_LABELS, ORIGIN_LABELS } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
@@ -99,7 +100,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "info" | "contable">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "declaraciones" | "info" | "contable">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -142,6 +143,7 @@ export default function SatDescargaPage() {
           <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
           <TabBtn active={activeTab === "resumen"} onClick={() => setActiveTab("resumen")} label="Resumen Fiscal" />
           <TabBtn active={activeTab === "deducciones"} onClick={() => setActiveTab("deducciones")} label="Deducciones" />
+          <TabBtn active={activeTab === "declaraciones"} onClick={() => setActiveTab("declaraciones")} label="Declaraciones" />
           <TabBtn active={activeTab === "contable"} onClick={() => setActiveTab("contable")} label="Guía Contable" />
           <TabBtn active={activeTab === "info"} onClick={() => setActiveTab("info")} label="Info" />
         </div>
@@ -152,6 +154,7 @@ export default function SatDescargaPage() {
       )}
       {activeTab === "resumen" && <ResumenFiscal />}
       {activeTab === "deducciones" && <DeduccionesTab />}
+      {activeTab === "declaraciones" && <DeclaracionesTab />}
       {activeTab === "contable" && <ContableTab />}
       {activeTab === "info" && <InfoTab />}
     </div>
@@ -1895,6 +1898,292 @@ function DeduccionesTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Declaraciones Tab — Monthly ISR/IVA declaration helper
+// ---------------------------------------------------------------------------
+
+interface DeclarationMonth {
+  month: number;
+  hasData: boolean;
+  ingresos: number;
+  deducciones: number;
+  isr: {
+    baseGravable: number;
+    isrCausado: number;
+    isrRetenido: number;
+    pagosPrevios: number;
+    isrAPagar: number;
+    tasaEfectiva: number;
+    tasaResico?: number;
+  };
+  iva: {
+    ivaCobrado: number;
+    ivaAcreditable: number;
+    ivaRetenido: number;
+    ivaAPagar: number;
+  };
+}
+
+interface DeclarationResponse {
+  year: number;
+  regimenFiscal: string;
+  months: DeclarationMonth[];
+  totals: {
+    ingresos: number;
+    deducciones: number;
+    isrAPagar: number;
+    ivaAPagar: number;
+    isrRetenido: number;
+  };
+  isrTable: string;
+}
+
+function DeclaracionesTab() {
+  const [data, setData] = useState<DeclarationResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
+
+  const fetchDeclaration = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/declaration?year=${year}`);
+      if (res.ok) {
+        const json = await res.json();
+        setData(json.data);
+      }
+    } catch (err) {
+      console.error("Error fetching declaration:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [year]);
+
+  useEffect(() => { fetchDeclaration(); }, [fetchDeclaration]);
+
+  const fmt = (n: number) => `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtPct = (n: number) => `${n.toFixed(2)}%`;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  if (!data || data.months.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <Calculator className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+        <p>No hay datos para calcular declaraciones de {year}.</p>
+        <p className="text-xs mt-1">Sincroniza CFDIs con tipo &quot;Completa&quot; para ver el calculo.</p>
+        <div className="mt-4">
+          <YearSelector year={year} setYear={setYear} />
+        </div>
+      </div>
+    );
+  }
+
+  const isResico = data.regimenFiscal === '626';
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <Calculator className="w-5 h-5 text-purple-600" />
+          Declaraciones Mensuales {year}
+        </h3>
+        <YearSelector year={year} setYear={setYear} />
+      </div>
+
+      {/* Regime badge */}
+      <div className={`rounded-lg border p-3 text-sm ${isResico ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+        <strong>Regimen {data.regimenFiscal}</strong>
+        {isResico
+          ? ' — RESICO: ISR es tasa fija sobre ingresos brutos mensuales. No se deducen gastos para ISR.'
+          : ' — Actividad Empresarial: ISR provisional acumulado con tabla progresiva Art. 96 LISR.'}
+      </div>
+
+      {/* Annual summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="rounded-lg border bg-green-50 border-green-200 p-4">
+          <p className="text-xs font-medium text-green-600">Ingresos acumulados</p>
+          <p className="text-lg font-bold text-green-800 mt-1">{fmt(data.totals.ingresos)}</p>
+        </div>
+        {!isResico && (
+          <div className="rounded-lg border bg-red-50 border-red-200 p-4">
+            <p className="text-xs font-medium text-red-600">Deducciones acumuladas</p>
+            <p className="text-lg font-bold text-red-800 mt-1">{fmt(data.totals.deducciones)}</p>
+          </div>
+        )}
+        <div className={`rounded-lg border p-4 ${data.totals.isrAPagar > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
+          <p className="text-xs font-medium text-orange-600">ISR pagado en el ano</p>
+          <p className="text-lg font-bold text-orange-800 mt-1">{fmt(data.totals.isrAPagar)}</p>
+        </div>
+        <div className={`rounded-lg border p-4 ${data.totals.ivaAPagar > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+          <p className="text-xs font-medium text-amber-600">IVA neto del ano</p>
+          <p className={`text-lg font-bold mt-1 ${data.totals.ivaAPagar >= 0 ? 'text-amber-800' : 'text-green-800'}`}>{fmt(data.totals.ivaAPagar)}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{data.totals.ivaAPagar >= 0 ? 'A pagar' : 'A favor'}</p>
+        </div>
+      </div>
+
+      {/* Monthly table */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+          <h4 className="text-sm font-semibold text-gray-700">
+            {isResico ? 'ISR RESICO + IVA por mes' : 'ISR Provisional + IVA por mes'}
+          </h4>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {isResico
+              ? 'Cada mes es independiente. ISR = ingresos x tasa fija RESICO.'
+              : 'ISR provisional es acumulado: cada mes recalcula sobre la base del ano. Haz clic en un mes para ver el desglose.'}
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+                <th className="px-3 py-2 text-left font-semibold">Mes</th>
+                <th className="px-3 py-2 text-right font-semibold">Ingresos</th>
+                {!isResico && <th className="px-3 py-2 text-right font-semibold">Deducciones</th>}
+                <th className="px-3 py-2 text-right font-semibold">{isResico ? 'Tasa' : 'Tasa ef.'}</th>
+                <th className="px-3 py-2 text-right font-semibold">ISR causado</th>
+                <th className="px-3 py-2 text-right font-semibold">ISR retenido</th>
+                {!isResico && <th className="px-3 py-2 text-right font-semibold">Pagos prev.</th>}
+                <th className="px-3 py-2 text-right font-semibold text-orange-700">ISR a pagar</th>
+                <th className="px-3 py-2 text-right font-semibold text-amber-700">IVA a pagar</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {data.months.map(m => (
+                <Fragment key={m.month}>
+                  <tr
+                    className={`hover:bg-gray-50 ${!isResico ? 'cursor-pointer' : ''} ${expandedMonth === m.month ? 'bg-purple-50' : ''}`}
+                    onClick={() => !isResico && setExpandedMonth(expandedMonth === m.month ? null : m.month)}
+                  >
+                    <td className="px-3 py-2.5 font-medium text-gray-900">
+                      {!isResico && (
+                        <ChevronDown className={`w-3 h-3 inline mr-1 transition-transform ${expandedMonth === m.month ? 'rotate-180' : ''}`} />
+                      )}
+                      {MONTH_NAMES[m.month - 1]}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-green-700">{fmt(m.ingresos)}</td>
+                    {!isResico && <td className="px-3 py-2.5 text-right font-mono text-red-700">{fmt(m.deducciones)}</td>}
+                    <td className="px-3 py-2.5 text-right font-mono text-gray-600">
+                      {isResico ? fmtPct((m.isr.tasaResico ?? 0) * 100) : fmtPct(m.isr.tasaEfectiva)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-gray-700">{fmt(m.isr.isrCausado)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-gray-500">{m.isr.isrRetenido > 0 ? fmt(m.isr.isrRetenido) : '—'}</td>
+                    {!isResico && <td className="px-3 py-2.5 text-right font-mono text-gray-500">{m.isr.pagosPrevios > 0 ? fmt(m.isr.pagosPrevios) : '—'}</td>}
+                    <td className={`px-3 py-2.5 text-right font-mono font-medium ${m.isr.isrAPagar > 0 ? 'text-orange-700' : 'text-gray-400'}`}>
+                      {fmt(m.isr.isrAPagar)}
+                    </td>
+                    <td className={`px-3 py-2.5 text-right font-mono font-medium ${m.iva.ivaAPagar > 0 ? 'text-amber-700' : m.iva.ivaAPagar < 0 ? 'text-green-700' : 'text-gray-400'}`}>
+                      {m.iva.ivaAPagar !== 0 ? `${m.iva.ivaAPagar > 0 ? '+' : ''}${fmt(m.iva.ivaAPagar)}` : '—'}
+                    </td>
+                  </tr>
+
+                  {/* Expanded detail for 612 */}
+                  {!isResico && expandedMonth === m.month && (
+                    <tr key={`${m.month}-detail`}>
+                      <td colSpan={9} className="px-4 py-3 bg-purple-50 border-t border-purple-100">
+                        <div className="grid grid-cols-2 gap-4 text-xs max-w-2xl">
+                          <div>
+                            <p className="font-semibold text-gray-700 mb-2">ISR Provisional (acumulado)</p>
+                            <div className="space-y-1 text-gray-600">
+                              <div className="flex justify-between">
+                                <span>Base gravable acumulada</span>
+                                <span className="font-mono">{fmt(m.isr.baseGravable)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>ISR causado (tabla Art. 96)</span>
+                                <span className="font-mono">{fmt(m.isr.isrCausado)}</span>
+                              </div>
+                              <div className="flex justify-between text-gray-500">
+                                <span>(-) ISR retenido acumulado</span>
+                                <span className="font-mono">{fmt(m.isr.isrRetenido)}</span>
+                              </div>
+                              <div className="flex justify-between text-gray-500">
+                                <span>(-) Pagos provisionales previos</span>
+                                <span className="font-mono">{fmt(m.isr.pagosPrevios)}</span>
+                              </div>
+                              <div className="flex justify-between font-semibold text-orange-700 border-t border-purple-200 pt-1 mt-1">
+                                <span>= ISR a pagar este mes</span>
+                                <span className="font-mono">{fmt(m.isr.isrAPagar)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700 mb-2">IVA Mensual</p>
+                            <div className="space-y-1 text-gray-600">
+                              <div className="flex justify-between">
+                                <span>IVA trasladado (cobrado)</span>
+                                <span className="font-mono">{fmt(m.iva.ivaCobrado)}</span>
+                              </div>
+                              <div className="flex justify-between text-gray-500">
+                                <span>(-) IVA acreditable (pagado)</span>
+                                <span className="font-mono">{fmt(m.iva.ivaAcreditable)}</span>
+                              </div>
+                              <div className="flex justify-between text-gray-500">
+                                <span>(-) IVA retenido</span>
+                                <span className="font-mono">{fmt(m.iva.ivaRetenido)}</span>
+                              </div>
+                              <div className={`flex justify-between font-semibold border-t border-purple-200 pt-1 mt-1 ${m.iva.ivaAPagar >= 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                                <span>= IVA {m.iva.ivaAPagar >= 0 ? 'a pagar' : 'a favor'}</span>
+                                <span className="font-mono">{fmt(Math.abs(m.iva.ivaAPagar))}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
+                <td className="px-3 py-2.5 text-gray-900">Total {year}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-green-700">{fmt(data.totals.ingresos)}</td>
+                {!isResico && <td className="px-3 py-2.5 text-right font-mono text-red-700">{fmt(data.totals.deducciones)}</td>}
+                <td className="px-3 py-2.5 text-right font-mono text-gray-500">—</td>
+                <td className="px-3 py-2.5 text-right font-mono text-gray-500">—</td>
+                <td className="px-3 py-2.5 text-right font-mono text-gray-500">{fmt(data.totals.isrRetenido)}</td>
+                {!isResico && <td className="px-3 py-2.5 text-right font-mono text-gray-500">—</td>}
+                <td className="px-3 py-2.5 text-right font-mono text-orange-700">{fmt(data.totals.isrAPagar)}</td>
+                <td className={`px-3 py-2.5 text-right font-mono ${data.totals.ivaAPagar >= 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                  {fmt(data.totals.ivaAPagar)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Deadline reminder */}
+      <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 text-xs text-amber-800">
+        <p className="font-semibold mb-1">Fecha limite de declaracion: dia 17 de cada mes</p>
+        <p>Las declaraciones mensuales provisionales de ISR e IVA se presentan a mas tardar el dia 17 del mes siguiente al periodo que se declara.</p>
+        {!isResico && (
+          <p className="mt-1 text-amber-600">
+            Los montos de ISR son acumulados: cada mes recalcula sobre el total del ano. El &quot;ISR a pagar&quot; ya descuenta retenciones y pagos previos.
+          </p>
+        )}
+      </div>
+
+      {/* Disclaimer */}
+      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-xs text-gray-500 space-y-1">
+        <p><strong>Importante:</strong> Estos calculos son una <strong>estimacion</strong> basada en los CFDIs descargados del SAT. Consulta con tu contador antes de presentar tus declaraciones.</p>
+        <p>Los ingresos considerados son subtotales de facturas emitidas vigentes tipo Ingreso. Las deducciones son subtotales de facturas recibidas vigentes tipo Ingreso.</p>
+        {!isResico && <p>El calculo de ISR provisional usa la tabla mensual del Art. 96 LISR. No incluye deducciones personales ni otros ajustes que tu contador puede aplicar.</p>}
+        <p>IVA: solo se consideran CFDIs con detalles XML descargados. Facturas sin XML no se incluyen en el calculo.</p>
+      </div>
     </div>
   );
 }

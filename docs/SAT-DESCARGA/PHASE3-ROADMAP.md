@@ -1,7 +1,7 @@
 # SAT Descarga — Phase 3+ Roadmap
 
 **Date:** 2026-05-16
-**Status:** IN PROGRESS (5 of 9 features complete)
+**Status:** IN PROGRESS (6 of 9 features complete)
 **Depends on:** Phase 2 (COMPLETE — metadata + XML download working)
 
 ---
@@ -146,7 +146,9 @@ if (dayOfMonth % 3 === 0 && hourUtc === 6) {
 
 ---
 
-## 6. Declaracion Helper
+## 6. Declaracion Helper — COMPLETE
+
+**Status:** DONE (deployed 2026-06-03)
 
 **Goal:** Pre-calculate monthly ISR/IVA amounts ready for declaration, matching SAT's format.
 
@@ -154,58 +156,24 @@ if (dayOfMonth % 3 === 0 && hourUtc === 6) {
 - Monthly view showing exactly what to enter in the SAT portal for ISR and IVA declarations
 - ISR provisional: Ingresos acumulados − Deducciones acumuladas − Retenciones = Base × Tasa − Pagos anteriores
 - IVA mensual: IVA trasladado cobrado − IVA acreditable pagado − IVA retenido = IVA a pagar/favor
-- Compares with what should have been declared (detects missing declarations)
 
-### Implementation
-- Extends Resumen Fiscal tab or creates a new "Declaraciones" sub-view
-- Uses existing summary endpoint data + adds cumulative calculations
-- May need to store declaration history (what was actually declared) for comparison
+### What was built:
+- `GET /api/sat-descarga/declaration?year=YYYY` — computes monthly ISR + IVA from existing CFDI XML data
+- **612 (Act. Empresarial):** Cumulative ISR provisional using Art. 96 progressive table (11 brackets, 1.92%-35%)
+  - Monthly base = cumulative(ingresos - deducciones), apply table, subtract cumulative retenciones + previous payments
+  - Expandable detail per month showing full calculation breakdown
+- **626 (RESICO):** Monthly ISR at fixed rate from Art. 113-E table (5 brackets, 1%-2.5%)
+- **IVA (both):** Monthly IVA cobrado - IVA acreditable - IVA retenido = IVA a pagar/favor
+- New "Declaraciones" tab in SAT Descarga page with:
+  - Annual summary cards (ingresos, deducciones, ISR pagado, IVA neto)
+  - Monthly table with ISR + IVA columns, expandable ISR breakdown (612 only)
+  - Deadline reminder (day 17)
+  - Disclaimer about estimation nature
+- No DB migration needed — computes everything from existing sat_cfdi_details + sat_cfdi_metadata
 
-#### Migration (optional — `packages/database/prisma/migrations/add-sat-declarations.sql`)
-```sql
--- Migration: Add sat_declarations table for tracking filed declarations
--- Date: YYYY-MM-DD
-
-CREATE TABLE IF NOT EXISTS practice_management.sat_declarations (
-  id SERIAL PRIMARY KEY,
-  doctor_id TEXT NOT NULL,
-  period VARCHAR(7) NOT NULL,    -- YYYY-MM
-  type VARCHAR(5) NOT NULL,      -- 'ISR' | 'IVA'
-  amount DECIMAL(14,2),
-  declared_at TIMESTAMP,
-  status VARCHAR(20) DEFAULT 'pending', -- pending | declared | late
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  CONSTRAINT sat_declarations_doctor_id_fkey
-    FOREIGN KEY (doctor_id) REFERENCES public.doctors(id) ON DELETE CASCADE
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS sat_declarations_unique_idx
-  ON practice_management.sat_declarations(doctor_id, period, type);
-```
-
-#### Calculations
-- **ISR provisional mensual:**
-  - Ingresos del mes (subtotal emitidos tipo I, vigentes, efectivamente cobrados PUE + complementos PPD)
-  - − Deducciones del mes (subtotal recibidos tipo I, vigentes, efectivamente pagados)
-  - = Utilidad fiscal
-  - × Tasa ISR segun tabla (1.92% a 35%)
-  - − ISR retenido del mes (ya pagado por personas morales)
-  - − Pagos provisionales anteriores
-  - = ISR a pagar
-
-- **IVA mensual:**
-  - IVA trasladado cobrado (PUE del mes + complementos de pago recibidos en el mes)
-  - − IVA acreditable pagado (IVA de gastos pagados en el mes)
-  - − IVA retenido (ya enterado por personas morales)
-  - = IVA a pagar (o saldo a favor)
-
-### Files to modify
+### Files
 - New: `apps/api/src/app/api/sat-descarga/declaration/route.ts`
-- Modify: page.tsx (new tab or sub-view in Resumen Fiscal)
-- Optional: migration for declarations tracking table
-
-### Effort: Large (5-8 hours) — complex tax logic
+- Modified: `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` (DeclaracionesTab component + tab)
 
 ---
 
