@@ -122,6 +122,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Log warning if ISR retention rate differs from the régimen default.
+    // User can override the rate in the UI for edge cases, so we don't reject — just log.
+    // Tolerance 0.001 avoids floating-point noise (gap between 0.0125 and 0.10 is 0.0875).
+    const expectedIsrRate = profile.regimenFiscal === '626' ? 0.0125 : 0.10;
+    for (const item of items) {
+      if (item.taxes) {
+        for (const tax of item.taxes) {
+          if (tax.Name === 'ISR' && tax.IsRetention && Math.abs(tax.Rate - expectedIsrRate) > 0.001) {
+            console.warn(`[CFDI] Custom ISR rate ${tax.Rate} for régimen ${profile.regimenFiscal} (expected ${expectedIsrRate}), doctor ${doctor.id}`);
+          }
+        }
+      }
+    }
+
     // Auto-generate folio if not provided (mandatory for Multiemisor per Facturama docs)
     let cfdifolio = folio;
     if (!cfdifolio) {

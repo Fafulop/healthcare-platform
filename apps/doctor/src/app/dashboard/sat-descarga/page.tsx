@@ -1576,6 +1576,58 @@ function ContableTab() {
         </div>
       </section>
 
+      {/* Regimen-specific overview */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Tu Regimen Fiscal y Como Afecta tus Impuestos</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            Como medico persona fisica, solo puedes estar en uno de estos dos regimenes para emitir facturas por servicios profesionales:
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
+              <p className="font-bold text-indigo-800 mb-2">612 — Actividad Empresarial y Profesional</p>
+              <ul className="list-disc list-inside space-y-1.5 text-xs text-indigo-700">
+                <li><strong>Sin limite de ingresos</strong></li>
+                <li>ISR sobre ingresos <strong>menos deducciones</strong> (tasa progresiva 1.92% a 35%)</li>
+                <li>Puedes deducir todos tus gastos de negocio (renta, insumos, equipo, sueldos, etc.)</li>
+                <li>Retencion ISR cuando facturas a persona moral: <strong>10%</strong></li>
+                <li>Debes llevar contabilidad electronica</li>
+                <li>Declaraciones mensuales de ISR y IVA + anual en abril</li>
+              </ul>
+            </div>
+            <div className="border border-emerald-200 rounded-lg p-4 bg-emerald-50">
+              <p className="font-bold text-emerald-800 mb-2">626 — RESICO (Simplificado de Confianza)</p>
+              <ul className="list-disc list-inside space-y-1.5 text-xs text-emerald-700">
+                <li>Limite de ingresos: <strong>$3,500,000 MXN/ano</strong></li>
+                <li>ISR sobre ingresos <strong>brutos</strong> a tasa fija baja (1% a 2.5%)</li>
+                <li><strong>NO puedes deducir gastos</strong> para efectos de ISR</li>
+                <li>Retencion ISR cuando facturas a persona moral: <strong>1.25%</strong> (no 10%)</li>
+                <li>No requiere contabilidad electronica</li>
+                <li>Declaracion anual simplificada</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3">
+            <p className="font-semibold text-amber-800 text-xs mb-1">Diferencia clave en deducciones</p>
+            <p className="text-xs text-amber-700">
+              En <strong>612</strong>, tus gastos reducen la base sobre la que pagas ISR — entre mas gastos deducibles, menos ISR pagas.
+              En <strong>RESICO</strong>, tus gastos <strong>no afectan tu ISR</strong> — pagas un porcentaje fijo sobre todo lo que facturas, sin importar cuanto gastes.
+              Sin embargo, en ambos regimenes puedes <strong>acreditar IVA</strong> (restar el IVA que pagas en tus compras del IVA que cobras).
+            </p>
+          </div>
+
+          <div className="bg-red-50 border border-red-200 rounded p-3">
+            <p className="font-semibold text-red-800 text-xs mb-1">Si estas en RESICO, vigila tu limite</p>
+            <p className="text-xs text-red-700">
+              Si tus ingresos anuales superan $3,500,000 MXN, el SAT te saca de RESICO automaticamente y pasas al regimen 612.
+              Esto cambia radicalmente tus obligaciones fiscales. Usa la pestana de Resumen Fiscal para monitorear tus ingresos acumulados.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* IVA Section */}
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">IVA (Impuesto al Valor Agregado)</h3>
@@ -1670,10 +1722,16 @@ function ContableTab() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   <tr>
-                    <td className="px-3 py-2">Persona fisica</td>
+                    <td className="px-3 py-2">Persona fisica (612)</td>
                     <td className="px-3 py-2 font-medium">Persona moral</td>
                     <td className="px-3 py-2">Servicios profesionales (honorarios)</td>
                     <td className="px-3 py-2 text-red-600 font-medium">ISR 10% + IVA 10.6667%</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2">Persona fisica (RESICO 626)</td>
+                    <td className="px-3 py-2 font-medium">Persona moral</td>
+                    <td className="px-3 py-2">Servicios profesionales (honorarios)</td>
+                    <td className="px-3 py-2 text-orange-600 font-medium">ISR 1.25% + IVA 10.6667%</td>
                   </tr>
                   <tr>
                     <td className="px-3 py-2">Persona fisica</td>
@@ -1898,23 +1956,17 @@ function ContableTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                <tr>
-                  <td className="px-3 py-2 font-medium">612 — Servicios Profesionales</td>
-                  <td className="px-3 py-2">Medicos en consultorio privado (honorarios)</td>
+                <tr className="bg-indigo-50">
+                  <td className="px-3 py-2 font-medium">612 — Actividad Empresarial y Profesional</td>
+                  <td className="px-3 py-2">Medicos en consultorio privado (el mas comun)</td>
                   <td className="px-3 py-2 text-gray-500">Sin limite</td>
-                  <td className="px-3 py-2 text-gray-500">Tabla progresiva (1.92% a 35%)</td>
+                  <td className="px-3 py-2 text-gray-500">Tabla progresiva (1.92% a 35%) sobre ingresos − deducciones</td>
                 </tr>
-                <tr>
-                  <td className="px-3 py-2 font-medium">621 — Actividad Empresarial</td>
-                  <td className="px-3 py-2">Medicos que ademas venden productos (farmacia, insumos)</td>
-                  <td className="px-3 py-2 text-gray-500">Sin limite</td>
-                  <td className="px-3 py-2 text-gray-500">Tabla progresiva (1.92% a 35%)</td>
-                </tr>
-                <tr>
+                <tr className="bg-emerald-50">
                   <td className="px-3 py-2 font-medium">626 — RESICO (Simplificado de Confianza)</td>
-                  <td className="px-3 py-2">Medicos con ingresos menores</td>
+                  <td className="px-3 py-2">Medicos con ingresos hasta $3.5M/ano que prefieren simplicidad</td>
                   <td className="px-3 py-2 text-gray-500">$3,500,000/anio</td>
-                  <td className="px-3 py-2 text-gray-500">Tasa fija baja (1% a 2.5%)</td>
+                  <td className="px-3 py-2 text-gray-500">Tasa fija (1% a 2.5%) sobre ingresos brutos — sin deducciones</td>
                 </tr>
               </tbody>
             </table>
@@ -1923,11 +1975,25 @@ function ContableTab() {
           <div className="bg-amber-50 border border-amber-200 rounded p-3">
             <p className="font-semibold text-amber-800 text-xs mb-1">RESICO: Restricciones importantes</p>
             <ul className="list-disc list-inside space-y-1 text-xs text-amber-700">
-              <li>Si un solo cliente representa mas del 50% de tus ingresos, RESICO puede obligarte a retenciones especiales</li>
-              <li>No puedes facturar al publico en general (siempre necesitas RFC del receptor)</li>
-              <li>Si rebasas $3.5M en el anio, sales de RESICO automaticamente</li>
+              <li><strong>No puedes deducir gastos</strong> — tu ISR se calcula sobre ingresos brutos, no sobre utilidad</li>
+              <li>Retencion ISR cuando facturas a persona moral: <strong>1.25%</strong> (no 10% como en regimen 612)</li>
+              <li>Si rebasas $3.5M en el ano, el SAT te migra automaticamente a 612</li>
               <li>No puedes ser socio o accionista de persona moral</li>
+              <li>Si puedes tener empleados y emitir nomina (mismas obligaciones patronales que 612)</li>
             </ul>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Otros regimenes que NO aplican para facturar servicios medicos</p>
+            <ul className="list-disc list-inside space-y-1 text-xs text-blue-700">
+              <li><strong>605 (Sueldos y Salarios)</strong> — solo para empleados de hospital, no pueden emitir facturas propias</li>
+              <li><strong>606 (Arrendamiento)</strong> — para ingresos por renta, no servicios medicos</li>
+              <li><strong>621 (Incorporacion Fiscal)</strong> — descontinuado en 2022, reemplazado por RESICO</li>
+              <li><strong>625 (Plataformas Tecnologicas)</strong> — para economia gig, no aplica a medicos</li>
+            </ul>
+            <p className="text-xs text-blue-700 mt-1">
+              <strong>Caso especial:</strong> Un medico puede ser multi-regimen (ej. 605 como empleado de hospital + 612 para consultorio privado), pero las facturas de servicios profesionales siempre se emiten bajo 612 o 626.
+            </p>
           </div>
         </div>
       </section>
@@ -1936,6 +2002,15 @@ function ContableTab() {
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">Gastos Deducibles para Medicos</h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <div className="bg-amber-50 border border-amber-200 rounded p-3">
+            <p className="font-semibold text-amber-800 text-xs mb-1">Aplica solo a Regimen 612 (Actividad Empresarial y Profesional)</p>
+            <p className="text-xs text-amber-700">
+              Si estas en <strong>RESICO (626)</strong>, tus gastos <strong>no son deducibles para ISR</strong> — tu impuesto se calcula sobre ingresos brutos a tasa fija.
+              Sin embargo, si puedes <strong>acreditar el IVA</strong> que pagas en tus compras (IVA funciona igual en ambos regimenes).
+              La informacion de gastos sigue siendo util para entender tu flujo de efectivo y el IVA acreditable.
+            </p>
+          </div>
+
           <p>
             Los gastos deducibles son facturas que <strong>recibes</strong> (aparecen como "Gasto" en tu listado)
             y que puedes restar de tus ingresos para pagar menos ISR. Deben cumplir requisitos:
@@ -2072,13 +2147,22 @@ function ContableTab() {
             </table>
           </div>
 
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Diferencias por regimen</p>
+            <ul className="list-disc list-inside space-y-1 text-xs text-blue-700">
+              <li><strong>612:</strong> ISR mensual provisional (ingresos − deducciones × tabla), IVA mensual, DIOT, contabilidad electronica, declaracion anual en abril</li>
+              <li><strong>RESICO (626):</strong> ISR mensual (ingresos brutos × tasa fija), IVA mensual, DIOT, declaracion anual simplificada. <strong>No requiere</strong> contabilidad electronica</li>
+            </ul>
+          </div>
+
           <div className="bg-green-50 border border-green-200 rounded p-3">
             <p className="font-semibold text-green-800 text-xs mb-1">Como te ayuda esta herramienta</p>
             <p className="text-xs text-green-700">
               Con los CFDIs descargados del SAT puedes:<br/>
               • Verificar que tienes todas las facturas de ingresos y gastos del mes<br/>
-              • Calcular tu IVA trasladado vs acreditable<br/>
+              • Calcular tu IVA trasladado vs acreditable (aplica a 612 y RESICO)<br/>
               • Identificar facturas canceladas que ya no debes considerar<br/>
+              • Monitorear tus ingresos acumulados (importante para RESICO y su limite de $3.5M)<br/>
               • Preparar la informacion para tu contador antes de la fecha limite
             </p>
           </div>

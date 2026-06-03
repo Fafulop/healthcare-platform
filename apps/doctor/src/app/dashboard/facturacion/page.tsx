@@ -1310,6 +1310,27 @@ function NuevaFacturaTab({
     });
   }, []);
 
+  // Tax rates default by law, but user can override for edge cases
+  const DEFAULT_IVA_RATE = 0.16;
+  const defaultIsrRate = profile.regimenFiscal === '626' ? 0.0125 : 0.10;
+
+  const [ivaRate, setIvaRate] = useState(DEFAULT_IVA_RATE);
+  const [isrRetentionRate, setIsrRetentionRate] = useState(defaultIsrRate);
+
+  const formatRateLabel = (rate: number) => {
+    const pct = rate * 100;
+    return `${pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(2)}%`;
+  };
+  const ivaLabel = formatRateLabel(ivaRate);
+  const isrRetentionLabel = formatRateLabel(isrRetentionRate);
+  const ivaRateIsCustom = Math.abs(ivaRate - DEFAULT_IVA_RATE) > 0.0001;
+  const isrRateIsCustom = Math.abs(isrRetentionRate - defaultIsrRate) > 0.0001;
+
+  // Sync ISR rate when profile régimen changes (e.g. user updates fiscal config)
+  useEffect(() => {
+    setIsrRetentionRate(profile.regimenFiscal === '626' ? 0.0125 : 0.10);
+  }, [profile.regimenFiscal]);
+
   const addItem = () => {
     setItems([...items, {
       description: "",
@@ -1339,8 +1360,8 @@ function NuevaFacturaTab({
     for (const item of items) {
       const itemSubtotal = item.quantity * item.unitPrice;
       subtotal += itemSubtotal;
-      if (item.withIva) iva += itemSubtotal * 0.16;
-      if (item.withIsrRetention) isrRetention += itemSubtotal * 0.10;
+      if (item.withIva) iva += itemSubtotal * ivaRate;
+      if (item.withIsrRetention) isrRetention += itemSubtotal * isrRetentionRate;
     }
 
     return { subtotal, iva, isrRetention, total: subtotal + iva - isrRetention };
@@ -1359,27 +1380,27 @@ function NuevaFacturaTab({
 
         if (item.withIva) {
           taxes.push({
-            Total: Math.round(itemSubtotal * 0.16 * 100) / 100,
+            Total: Math.round(itemSubtotal * ivaRate * 100) / 100,
             Name: "IVA",
             Base: itemSubtotal,
-            Rate: 0.16,
+            Rate: ivaRate,
             IsRetention: false,
           });
         }
 
         if (item.withIsrRetention) {
           taxes.push({
-            Total: Math.round(itemSubtotal * 0.10 * 100) / 100,
+            Total: Math.round(itemSubtotal * isrRetentionRate * 100) / 100,
             Name: "ISR",
             Base: itemSubtotal,
-            Rate: 0.10,
+            Rate: isrRetentionRate,
             IsRetention: true,
           });
         }
 
         const total = itemSubtotal
-          + (item.withIva ? itemSubtotal * 0.16 : 0)
-          - (item.withIsrRetention ? itemSubtotal * 0.10 : 0);
+          + (item.withIva ? itemSubtotal * ivaRate : 0)
+          - (item.withIsrRetention ? itemSubtotal * isrRetentionRate : 0);
 
         return {
           productCode: item.productCode,
@@ -1575,7 +1596,7 @@ function NuevaFacturaTab({
               </div>
 
               {/* Tax toggles */}
-              <div className="flex gap-4 mt-3">
+              <div className="flex flex-wrap gap-4 mt-3">
                 <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1583,8 +1604,35 @@ function NuevaFacturaTab({
                     onChange={e => updateItem(idx, "withIva", e.target.checked)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  IVA 16%
+                  IVA
                 </label>
+                {item.withIva && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={parseFloat((ivaRate * 100).toFixed(4))}
+                      onChange={e => {
+                        const pct = parseFloat(e.target.value);
+                        if (!isNaN(pct) && pct >= 0 && pct <= 100) setIvaRate(pct / 100);
+                      }}
+                      className="w-16 px-1.5 py-0.5 text-xs border border-gray-300 rounded text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <span className="text-xs text-gray-500">%</span>
+                    {ivaRateIsCustom && (
+                      <button
+                        type="button"
+                        onClick={() => setIvaRate(DEFAULT_IVA_RATE)}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline ml-1"
+                        title="Restaurar tasa por defecto: 16%"
+                      >
+                        restaurar
+                      </button>
+                    )}
+                  </div>
+                )}
                 <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1592,8 +1640,35 @@ function NuevaFacturaTab({
                     onChange={e => updateItem(idx, "withIsrRetention", e.target.checked)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  Retención ISR 10%
+                  Retención ISR
                 </label>
+                {item.withIsrRetention && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={parseFloat((isrRetentionRate * 100).toFixed(4))}
+                      onChange={e => {
+                        const pct = parseFloat(e.target.value);
+                        if (!isNaN(pct) && pct >= 0 && pct <= 100) setIsrRetentionRate(pct / 100);
+                      }}
+                      className="w-16 px-1.5 py-0.5 text-xs border border-gray-300 rounded text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <span className="text-xs text-gray-500">%</span>
+                    {isrRateIsCustom && (
+                      <button
+                        type="button"
+                        onClick={() => setIsrRetentionRate(defaultIsrRate)}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline ml-1"
+                        title={`Restaurar tasa por defecto: ${(defaultIsrRate * 100)}%`}
+                      >
+                        restaurar
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="text-right text-sm text-gray-500 mt-2">
@@ -1644,15 +1719,29 @@ function NuevaFacturaTab({
             <span className="font-medium">${totals.subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
           </div>
           {totals.iva > 0 && (
-            <div className="flex gap-8">
-              <span className="text-gray-600">IVA 16%:</span>
-              <span className="font-medium">${totals.iva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            <div>
+              <div className="flex gap-8">
+                <span className="text-gray-600">IVA {ivaLabel}:</span>
+                <span className="font-medium">${totals.iva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+              </div>
+              {ivaRateIsCustom && (
+                <p className="text-xs text-amber-600 text-right mt-0.5">
+                  Tasa modificada (por defecto: 16%)
+                </p>
+              )}
             </div>
           )}
           {totals.isrRetention > 0 && (
-            <div className="flex gap-8">
-              <span className="text-gray-600">Retención ISR 10%:</span>
-              <span className="font-medium text-red-600">-${totals.isrRetention.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            <div>
+              <div className="flex gap-8">
+                <span className="text-gray-600">Retención ISR {isrRetentionLabel}:</span>
+                <span className="font-medium text-red-600">-${totals.isrRetention.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+              </div>
+              {isrRateIsCustom && (
+                <p className="text-xs text-amber-600 text-right mt-0.5">
+                  Tasa modificada (por defecto para régimen {profile.regimenFiscal}: {(defaultIsrRate * 100)}%)
+                </p>
+              )}
             </div>
           )}
           <div className="flex gap-8 pt-2 border-t border-gray-200 mt-1">
@@ -2043,6 +2132,15 @@ function EgresoTab({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const DEFAULT_IVA = 0.16;
+  const [egresoIvaRate, setEgresoIvaRate] = useState(DEFAULT_IVA);
+  const formatRate = (rate: number) => {
+    const pct = rate * 100;
+    return `${pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(2)}%`;
+  };
+  const egresoIvaLabel = formatRate(egresoIvaRate);
+  const egresoIvaIsCustom = Math.abs(egresoIvaRate - DEFAULT_IVA) > 0.0001;
+
   const [formasPago, setFormasPago] = useState<CatalogItem[]>([]);
   const [regimenes, setRegimenes] = useState<CatalogItem[]>([]);
 
@@ -2114,7 +2212,7 @@ function EgresoTab({
     for (const item of items) {
       const s = item.quantity * item.unitPrice;
       subtotal += s;
-      if (item.withIva) iva += s * 0.16;
+      if (item.withIva) iva += s * egresoIvaRate;
     }
     return { subtotal, iva, total: subtotal + iva };
   };
@@ -2131,14 +2229,14 @@ function EgresoTab({
         const taxes: any[] = [];
         if (item.withIva) {
           taxes.push({
-            Total: Math.round(itemSubtotal * 0.16 * 100) / 100,
+            Total: Math.round(itemSubtotal * egresoIvaRate * 100) / 100,
             Name: "IVA",
             Base: itemSubtotal,
-            Rate: 0.16,
+            Rate: egresoIvaRate,
             IsRetention: false,
           });
         }
-        const total = itemSubtotal + (item.withIva ? itemSubtotal * 0.16 : 0);
+        const total = itemSubtotal + (item.withIva ? itemSubtotal * egresoIvaRate : 0);
         return {
           productCode: item.productCode,
           description: item.description,
@@ -2344,7 +2442,7 @@ function EgresoTab({
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-4 mt-3">
+                  <div className="flex flex-wrap gap-4 mt-3">
                     <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
                       <input
                         type="checkbox"
@@ -2352,8 +2450,35 @@ function EgresoTab({
                         onChange={e => updateItem(idx, "withIva", e.target.checked)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      IVA 16%
+                      IVA
                     </label>
+                    {item.withIva && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={parseFloat((egresoIvaRate * 100).toFixed(4))}
+                          onChange={e => {
+                            const pct = parseFloat(e.target.value);
+                            if (!isNaN(pct) && pct >= 0 && pct <= 100) setEgresoIvaRate(pct / 100);
+                          }}
+                          className="w-16 px-1.5 py-0.5 text-xs border border-gray-300 rounded text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-xs text-gray-500">%</span>
+                        {egresoIvaIsCustom && (
+                          <button
+                            type="button"
+                            onClick={() => setEgresoIvaRate(DEFAULT_IVA)}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline ml-1"
+                            title="Restaurar tasa por defecto: 16%"
+                          >
+                            restaurar
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="text-right text-sm text-gray-500 mt-2">
                     Subtotal: ${(item.quantity * item.unitPrice).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
@@ -2386,9 +2511,16 @@ function EgresoTab({
                 <span className="font-medium">${totals.subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
               </div>
               {totals.iva > 0 && (
-                <div className="flex gap-8">
-                  <span className="text-gray-600">IVA 16%:</span>
-                  <span className="font-medium">${totals.iva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                <div>
+                  <div className="flex gap-8">
+                    <span className="text-gray-600">IVA {egresoIvaLabel}:</span>
+                    <span className="font-medium">${totals.iva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  {egresoIvaIsCustom && (
+                    <p className="text-xs text-amber-600 text-right mt-0.5">
+                      Tasa modificada (por defecto: 16%)
+                    </p>
+                  )}
                 </div>
               )}
               <div className="flex gap-8 pt-2 border-t border-gray-200 mt-1">
@@ -2546,16 +2678,28 @@ function GuiaTab() {
         </div>
       </GuiaSection>
 
-      <GuiaSection title="5. Regímenes fiscales comunes para doctores">
+      <GuiaSection title="5. Tu régimen fiscal y cómo afecta tu facturación">
+        <p>Como médico persona física, solo puedes emitir facturas por servicios profesionales bajo uno de estos dos regímenes:</p>
         <GuiaTable
-          headers={["Clave", "Régimen", "Notas"]}
+          headers={["Clave", "Régimen", "ISR", "Deducciones", "Retención ISR (PM)"]}
           rows={[
-            ["612", "Personas Físicas con Actividades Empresariales y Profesionales", "El más común para doctores"],
-            ["626", "Régimen Simplificado de Confianza (RESICO)", "Para ingresos anuales hasta $3.5M MXN"],
-            ["601", "General de Ley Personas Morales", "Si operas como persona moral (clínica/SC)"],
-            ["603", "Personas Morales con Fines no Lucrativos", "Asociaciones civiles médicas"],
+            ["612", "Actividad Empresarial y Profesional", "Progresiva (1.92% a 35%) sobre ingresos − deducciones", "Sí — todos los gastos de negocio", "10% del subtotal"],
+            ["626", "RESICO (Simplificado de Confianza)", "Fija (1% a 2.5%) sobre ingresos brutos", "No — ISR sobre ingresos brutos", "1.25% del subtotal"],
           ]}
         />
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-800 mt-2">
+          <strong>Diferencias clave de RESICO:</strong>
+          <ul className="list-disc list-inside mt-1 space-y-0.5">
+            <li>Retención ISR al facturar a persona moral: <strong>1.25%</strong> (no 10%). TuSalud aplica la tasa correcta según tu perfil.</li>
+            <li>Límite de ingresos: <strong>$3,500,000 MXN/año</strong>. Si lo rebasas, el SAT te migra a 612 automáticamente.</li>
+            <li><strong>No puedes deducir gastos</strong> para ISR — tu impuesto es un porcentaje fijo sobre ingresos brutos.</li>
+            <li>Sí puedes <strong>acreditar IVA</strong> (restar el IVA que pagas en compras del IVA que cobras) — funciona igual que en 612.</li>
+          </ul>
+        </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-800 mt-2">
+          <strong>Otros regímenes</strong> como 605 (Sueldos), 606 (Arrendamiento), o 621 (Incorporación Fiscal, descontinuado) no aplican para facturar servicios médicos.
+          Si eres empleado de hospital (605) y además tienes consultorio privado, facturas bajo 612 o 626.
+        </div>
       </GuiaSection>
 
       <GuiaSection title="6. Formas y métodos de pago">
@@ -2623,19 +2767,44 @@ function GuiaTab() {
       <GuiaSection title="10. Retención de ISR e IVA">
         <h4 className="font-medium text-gray-900 mb-2">Retención de ISR</h4>
         <p>
-          Si tu paciente es <strong>persona moral</strong> (empresa), está obligada a retenerte el <strong>10% de ISR</strong> sobre el monto del servicio.
-          La factura debe reflejar la retención y el paciente te pagará el monto menos la retención.
+          Si tu paciente es <strong>persona moral</strong> (empresa, hospital, aseguradora), está obligada a retenerte ISR.
+          La tasa depende de tu régimen fiscal:
         </p>
+        <GuiaTable
+          headers={["Tu régimen", "Retención ISR", "Retención IVA", "Ejemplo sobre $10,000"]}
+          rows={[
+            ["612 (Act. Empresarial)", "10% del subtotal", "2/3 del IVA (10.67%)", "ISR: $1,000 + IVA ret: $1,067 = cobras $9,533"],
+            ["626 (RESICO)", "1.25% del subtotal", "2/3 del IVA (10.67%)", "ISR: $125 + IVA ret: $1,067 = cobras $10,408"],
+          ]}
+        />
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-800 mt-2">
+          <strong>Importante:</strong> Las retenciones solo aplican cuando facturas servicios profesionales a <strong>persona moral</strong>.
+          Si facturas a otra persona física (pacientes), no hay retención. Si vendes productos (bienes), tampoco hay retención.
+        </div>
         <h4 className="font-medium text-gray-900 mt-4 mb-2">IVA en servicios médicos</h4>
         <ul className="list-disc list-inside space-y-1 ml-1">
-          <li><strong>Consultas médicas</strong> — generalmente exentas</li>
-          <li><strong>Procedimientos estéticos</strong> — pueden causar IVA al 16%</li>
-          <li><strong>Venta de medicamentos</strong> — puede causar IVA según el tipo</li>
+          <li><strong>Consultas médicas a persona física</strong> — <strong>exentas de IVA</strong> (Art. 15 fracción XIV LIVA)</li>
+          <li><strong>Consultas médicas a persona moral</strong> — <strong>16% IVA</strong> (la persona moral puede acreditarlo)</li>
+          <li><strong>Procedimientos estéticos</strong> — 16% IVA siempre (no son servicios médicos para efectos de IVA)</li>
+          <li><strong>Venta de medicamentos</strong> — 0% si son de patente, 16% si son suplementos o cosméticos</li>
         </ul>
-        <p className="text-xs text-gray-500 mt-2">Consulta con tu contador el tratamiento de IVA específico para tus servicios.</p>
+        <div className="bg-red-50 border border-red-200 rounded-md p-3 text-xs text-red-800 mt-2">
+          <strong>Error común:</strong> Cobrar IVA en consultas médicas a pacientes (personas físicas). Los servicios médicos a PF son exentos — no debes trasladar IVA.
+        </div>
       </GuiaSection>
 
-      <GuiaSection title="11. Configuración de sellos digitales (CSD)">
+      <GuiaSection title="11. Errores comunes al facturar">
+        <ul className="list-disc list-inside space-y-2 ml-1">
+          <li><strong>Usar retención ISR de 10% en RESICO</strong> — Si estás en régimen 626, la retención correcta es 1.25%. Verifica tu régimen en Configuración.</li>
+          <li><strong>Cobrar IVA a pacientes (PF) por consultas</strong> — Los servicios médicos a personas físicas están exentos de IVA.</li>
+          <li><strong>No emitir REP para facturas PPD</strong> — Si usaste método PPD y ya te pagaron, debes emitir un Recibo Electrónico de Pago. El SAT puede multarte.</li>
+          <li><strong>Datos del receptor incorrectos</strong> — Nombre, RFC, régimen fiscal y CP deben coincidir exactamente con la Constancia de Situación Fiscal del paciente.</li>
+          <li><strong>Paciente paga en efectivo más de $2,000</strong> — El gasto no será deducible para el paciente. Recomiéndale pagar con tarjeta o transferencia.</li>
+          <li><strong>No cancelar facturas erróneas a tiempo</strong> — Facturas con errores deben cancelarse lo antes posible. Después de declarar, requieren declaración complementaria.</li>
+        </ul>
+      </GuiaSection>
+
+      <GuiaSection title="12. Configuración de sellos digitales (CSD)">
         <p>Para emitir facturas necesitas subir tus archivos CSD del SAT:</p>
         <GuiaTable
           headers={["Archivo", "Dónde obtenerlo"]}
