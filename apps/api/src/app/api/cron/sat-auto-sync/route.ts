@@ -3,9 +3,9 @@
  *
  * Automatically creates sync jobs for all doctors with auto-sync enabled.
  * Creates full (metadata + XML) sync for current month, both directions,
- * if no completed job exists for that period in the last 3 days.
+ * if no completed job exists for that period in the last 20 hours.
  *
- * Protected by CRON_SECRET. Called every 3 days.
+ * Protected by CRON_SECRET. Called daily at 6 AM UTC (midnight MX).
  * Limits to 5 doctors per run to avoid SAT throttling.
  */
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const endOfMonth = new Date(Date.UTC(year, monthNum, lastDay));
   const dateTo = endOfMonth > todayMx ? todayMx : endOfMonth;
 
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  const recentWindow = new Date(Date.now() - 20 * 60 * 60 * 1000); // 20 hours
 
   // Find doctors with auto-sync enabled and FIEL uploaded
   const profiles = await prisma.doctorFiscalProfile.findMany({
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
     for (const direction of ['received', 'emitted'] as const) {
       for (const requestType of ['metadata', 'xml'] as const) {
-        // Check if a completed job exists for this period in the last 3 days
+        // Check if a completed job exists for this period in the last 20 hours
         const recentJob = await prisma.satSyncJob.findFirst({
           where: {
             doctorId: profile.doctorId,
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
             requestType,
             dateFrom,
             status: 'completed',
-            completedAt: { gte: threeDaysAgo },
+            completedAt: { gte: recentWindow },
           },
         });
 
@@ -69,7 +69,8 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // Check for active job (avoid duplicates)
+        // Check for active job (avoid duplicates) — ignore jobs stuck for >6 hours
+        const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
         const activeJob = await prisma.satSyncJob.findFirst({
           where: {
             doctorId: profile.doctorId,
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
             dateFrom,
             dateTo,
             status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading'] },
+            createdAt: { gte: sixHoursAgo },
           },
         });
 

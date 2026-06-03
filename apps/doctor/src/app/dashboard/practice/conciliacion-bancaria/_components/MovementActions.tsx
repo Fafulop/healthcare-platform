@@ -9,7 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 const ORIGIN_LABELS: Record<string, string> = {
   cita: 'Cita', manual: 'Manual', venta: 'Venta', compra: 'Compra',
-  sat_recibido: 'SAT', banco: 'Banco', webhook_pago: 'Pago Online',
+  sat_recibido: 'SAT Recibido', sat_emitido: 'SAT Emitido', banco: 'Banco', webhook_pago: 'Pago Online',
 };
 
 interface MatchSuggestion {

@@ -196,62 +196,36 @@ function TabBtn({ active, onClick, label }: { active: boolean; onClick: () => vo
 // ---------------------------------------------------------------------------
 
 function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
-  const [syncing, setSyncing] = useState<string | null>(null); // "emitted" | "received" | "both" | null
+  const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [syncType, setSyncType] = useState<"metadata" | "xml" | "full">("full");
 
-  const triggerSync = async (direction: "emitted" | "received") => {
-    const res = await authFetch(`${API_URL}/api/sat-descarga/sync`, {
-      method: "POST",
-      body: JSON.stringify({ direction, month, requestType: syncType }),
-    });
-    const json = await res.json();
-    if (!res.ok) {
-      throw new Error(json.error || "Error al crear sincronización");
-    }
-    const jobId = Array.isArray(json.data) ? json.data.map((j: any) => `#${j.id}`).join(', ') : `#${json.data.id}`;
-    return { direction, jobId };
-  };
-
-  const triggerSingle = async (direction: "emitted" | "received") => {
-    setSyncing(direction);
-    setMessage(null);
-    try {
-      const result = await triggerSync(direction);
-      const typeLabel = syncType === "full" ? "metadata + XML" : syncType === "xml" ? "XMLs" : "metadata";
-      setMessage({
-        type: "success",
-        text: `Sincronización de ${typeLabel} ${direction === "emitted" ? "emitidos" : "recibidos"} creada (Job ${result.jobId}). Se procesará en unos minutos.`,
-      });
-    } catch (err: any) {
-      setMessage({ type: "error", text: err.message });
-    } finally {
-      setSyncing(null);
-    }
-  };
-
-  const triggerBoth = async () => {
-    setSyncing("both");
+  const triggerSync = async () => {
+    setSyncing(true);
     setMessage(null);
     const results: string[] = [];
     const errors: string[] = [];
     for (const dir of ["received", "emitted"] as const) {
       try {
-        const result = await triggerSync(dir);
-        results.push(`${dir === "emitted" ? "Emitidos" : "Recibidos"} (Job ${result.jobId})`);
+        const res = await authFetch(`${API_URL}/api/sat-descarga/sync`, {
+          method: "POST",
+          body: JSON.stringify({ direction: dir, month, requestType: "full" }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Error al crear sincronización");
+        const jobId = Array.isArray(json.data) ? json.data.map((j: any) => `#${j.id}`).join(', ') : `#${json.data.id}`;
+        results.push(`${dir === "emitted" ? "Emitidos" : "Recibidos"} (Job ${jobId})`);
       } catch (err: any) {
         errors.push(`${dir === "emitted" ? "Emitidos" : "Recibidos"}: ${err.message}`);
       }
     }
     if (results.length > 0 && errors.length === 0) {
-      const typeLabel = syncType === "full" ? "metadata + XML" : syncType === "xml" ? "XMLs" : "metadata";
-      setMessage({ type: "success", text: `Sincronización de ${typeLabel} creada: ${results.join(" + ")}. Se procesará en unos minutos.` });
-    } else if (results.length > 0 && errors.length > 0) {
+      setMessage({ type: "success", text: `Sincronización creada: ${results.join(" + ")}. Se procesará en unos minutos.` });
+    } else if (results.length > 0) {
       setMessage({ type: "success", text: `Parcial: ${results.join(" + ")}. Errores: ${errors.join("; ")}` });
     } else {
       setMessage({ type: "error", text: errors.join("; ") });
     }
-    setSyncing(null);
+    setSyncing(false);
   };
 
   return (
@@ -269,52 +243,19 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-          <select
-            value={syncType}
-            onChange={e => setSyncType(e.target.value as "metadata" | "xml" | "full")}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="full">Completa (metadata + XML)</option>
-            <option value="metadata">Solo metadata (listado)</option>
-            <option value="xml">Solo XML (desglose fiscal)</option>
-          </select>
-        </div>
-
         <button
-          onClick={triggerBoth}
-          disabled={syncing !== null}
+          onClick={triggerSync}
+          disabled={syncing}
           className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
         >
-          {syncing === "both" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           Descargar Todo
-        </button>
-
-        <button
-          onClick={() => triggerSingle("received")}
-          disabled={syncing !== null}
-          className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 disabled:opacity-50 flex items-center gap-2 border border-gray-300"
-        >
-          {syncing === "received" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDownLeft className="w-4 h-4" />}
-          Solo Recibidos
-        </button>
-
-        <button
-          onClick={() => triggerSingle("emitted")}
-          disabled={syncing !== null}
-          className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 disabled:opacity-50 flex items-center gap-2 border border-gray-300"
-        >
-          {syncing === "emitted" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUpRight className="w-4 h-4" />}
-          Solo Emitidos
         </button>
       </div>
 
-      {syncType === "xml" && (
-        <p className="mt-2 text-xs text-gray-500">
-          Solo descarga XMLs. Requiere haber descargado la metadata primero.
-        </p>
-      )}
+      <p className="mt-2 text-xs text-gray-500">
+        Descarga metadata y XML de todos los CFDIs emitidos y recibidos del mes seleccionado.
+      </p>
 
       {message && (
         <div className={`mt-4 p-3 rounded-md text-sm flex items-center gap-2 ${

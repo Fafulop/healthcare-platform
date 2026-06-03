@@ -113,7 +113,8 @@ export function LedgerFilters({
               <option value="manual">Manual</option>
               <option value="venta">Venta</option>
               <option value="compra">Compra</option>
-              <option value="sat_recibido">SAT</option>
+              <option value="sat_recibido">SAT Recibido</option>
+              <option value="sat_emitido">SAT Emitido</option>
               <option value="banco">Banco</option>
               <option value="webhook_pago">Pago Online</option>
             </select>
