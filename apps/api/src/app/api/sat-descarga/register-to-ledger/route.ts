@@ -85,9 +85,9 @@ export async function POST(request: NextRequest) {
         // --- Match-before-create: search for existing entries to link ---
         const tolerance = amount * 0.01;
         const dateFrom = new Date(cfdiDate);
-        dateFrom.setDate(dateFrom.getDate() - 3);
+        dateFrom.setDate(dateFrom.getDate() - 7);
         const dateTo = new Date(cfdiDate);
-        dateTo.setDate(dateTo.getDate() + 3);
+        dateTo.setDate(dateTo.getDate() + 7);
 
         const matchCandidates = await tx.ledgerEntry.findMany({
           where: {
@@ -117,13 +117,14 @@ export async function POST(request: NextRequest) {
           else if (amountDiff < amount * 0.001) score += 30;
           else score += 20;
 
-          // Date scoring (up to 30)
+          // Date scoring (up to 30, gradual decay over 7-day window)
           const daysDiff = Math.abs(
             (new Date(candidate.transactionDate).getTime() - cfdiDate.getTime()) / (1000 * 60 * 60 * 24)
           );
           if (daysDiff < 1) score += 30;
-          else if (daysDiff <= 1) score += 20;
-          else score += 10;
+          else if (daysDiff <= 2) score += 25;
+          else if (daysDiff <= 4) score += 15;
+          else score += 8;
 
           // RFC scoring (30)
           const entryRfc = candidate.entryType === 'ingreso'
@@ -131,14 +132,21 @@ export async function POST(request: NextRequest) {
             : candidate.supplier?.rfc;
           if (entryRfc && cfdiRfc && entryRfc === cfdiRfc) score += 30;
 
+          // Name/concept match scoring (20) — CFDI counterpart name in entry concept
+          const cfdiName = (isReceived ? cfdi.issuerName : cfdi.receiverName)?.toLowerCase() || '';
+          const entryConcept = (candidate.concept || '').toLowerCase();
+          if (cfdiName && entryConcept && (entryConcept.includes(cfdiName) || cfdiName.includes(entryConcept.split(' - ')[0].trim()))) {
+            score += 20;
+          }
+
           if (!bestMatch || score > bestMatch.score) {
             bestMatch = { entry: candidate, score };
           }
         }
 
         // If high-confidence match found, LINK instead of CREATE
-        // Require score >= 70 (amount+date alone = 50-70, so RFC or exact match needed)
-        if (bestMatch && bestMatch.score >= 70) {
+        // Require score >= 65 (amount+date alone = ~48, needs name or RFC match too)
+        if (bestMatch && bestMatch.score >= 65) {
           const linkedEntry = bestMatch.entry;
 
           await tx.ledgerEntry.update({

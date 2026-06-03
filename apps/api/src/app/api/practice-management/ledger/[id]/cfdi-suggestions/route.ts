@@ -37,7 +37,7 @@ export async function GET(
     const amount = Number(entry.amount);
     const entryDate = new Date(entry.transactionDate);
     const tolerance = amount * 0.01; // 1% tolerance
-    const dayRange = 3;
+    const dayRange = 7;
 
     const dateFrom = new Date(entryDate);
     dateFrom.setDate(dateFrom.getDate() - dayRange);
@@ -97,17 +97,25 @@ export async function GET(
         else if (amountDiff < amount * 0.001) score += 30;
         else score += 20;
 
-        // Date match scoring
+        // Date match scoring (gradual decay over 7-day window)
         const daysDiff = Math.abs(
           (new Date(c.issuedAt).getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)
         );
-        if (daysDiff === 0) score += 30;
-        else if (daysDiff <= 1) score += 20;
-        else score += 10;
+        if (daysDiff < 1) score += 30;
+        else if (daysDiff <= 2) score += 25;
+        else if (daysDiff <= 4) score += 15;
+        else score += 8;
 
         // RFC match scoring
         const cfdiRfc = c.direction === 'received' ? c.issuerRfc : c.receiverRfc;
         if (entryRfc && cfdiRfc === entryRfc) score += 30;
+
+        // Name/concept match scoring — counterpart name appears in entry concept
+        const cfdiName = (c.direction === 'received' ? c.issuerName : c.receiverName)?.toLowerCase() || '';
+        const entryConcept = (entry.concept || '').toLowerCase();
+        if (cfdiName && entryConcept && (entryConcept.includes(cfdiName) || cfdiName.includes(entryConcept.split(' - ')[0].trim()))) {
+          score += 20;
+        }
 
         const confidence = score >= 80 ? 'high' : score >= 50 ? 'medium' : 'low';
 
