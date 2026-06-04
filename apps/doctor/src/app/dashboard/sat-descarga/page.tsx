@@ -211,16 +211,14 @@ function getFiscalDeadlines(): FiscalDeadline[] {
     daysLeft: Math.ceil((day17next.getTime() - today.getTime()) / 86400000),
   });
 
-  // April 30: Declaracion anual PF
+  // April 30: Declaracion anual PF (shown Jan–May 7 approx, filtered by daysLeft >= -7 below)
   const april30 = new Date(year, 3, 30);
-  if (april30.getTime() >= today.getTime() - 7 * 86400000) {
-    deadlines.push({
-      name: 'Declaracion anual PF',
-      description: 'Declaracion anual de personas fisicas',
-      date: april30,
-      daysLeft: Math.ceil((april30.getTime() - today.getTime()) / 86400000),
-    });
-  }
+  deadlines.push({
+    name: 'Declaracion anual PF',
+    description: 'Declaracion anual de personas fisicas',
+    date: april30,
+    daysLeft: Math.ceil((april30.getTime() - today.getTime()) / 86400000),
+  });
 
   // Sort by date, filter out deadlines more than 7 days overdue, take next 3
   return deadlines
