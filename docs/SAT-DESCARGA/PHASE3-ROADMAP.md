@@ -1,7 +1,7 @@
 # SAT Descarga — Phase 3+ Roadmap
 
 **Date:** 2026-05-16
-**Status:** IN PROGRESS (6 of 9 features complete)
+**Status:** IN PROGRESS (7 of 9 features complete)
 **Depends on:** Phase 2 (COMPLETE — metadata + XML download working)
 
 ---
@@ -177,56 +177,39 @@ if (dayOfMonth % 3 === 0 && hourUtc === 6) {
 
 ---
 
-## 7. Deducibility Checker
+## 7. Deducibility Checker — COMPLETE
+
+**Status:** DONE (deployed 2026-06-03)
 
 **Goal:** Automatically flag received CFDIs that might NOT be deducible.
 
-### Scope
-- Rules engine that checks each received CFDI against deducibility criteria
-- Flags with reasons: "Pago en efectivo >$2,000", "Proveedor en lista 69-B", "Sin relacion con actividad", etc.
-- Visual indicator in CFDI list (warning icon)
+### What was built:
+- Extended `deduction-categories.ts` with severity levels and new flag types
+- Rules engine (`checkDeductibilityExtended()`) checks each received CFDI for:
+  1. **Efectivo >$2,000** — FormaPago="01" AND subtotal > 2,000 → error (Art. 27 frac. III LISR)
+  2. **Factura cancelada** — satStatus="Cancelado" → error
+  3. **Descripción genérica** — 1-2 word descriptions using only common terms → warning
+  4. **Gasto proporcional** — servicios_basicos or vehiculo category → warning
+  5. **Sin XML** — no parsed XML details → info
+  6. **Monto alto** — subtotal > $50,000 → info (verify documentation)
+  7. **Moneda extranjera** — non-MXN currency → info (verify exchange rate)
+- `GET /api/sat-descarga/check-deducibility?year=YYYY` scans all received CFDIs for year
+  - Returns summary (total, flagged, errors, warnings, infos), byType breakdown, flaggedCfdis[]
+  - flaggedCfdis sorted by severity (errors first), capped at 200
+- UI: Warning badge on CfdiRow (red !/amber !/blue i based on worst severity)
+  - Expandable "Alertas de deducibilidad" section with colored flag badges
+  - Tooltip with all flag messages on hover
+- No DB migration needed — purely computational rules, no Lista 69-B yet (future enhancement)
 
-### Rules to implement
-1. **Efectivo >$2,000** — FormaPago="01" AND total > 2,000 → not deducible
-2. **Lista 69-B** — Check issuerRfc against SAT's published list of fraudulent providers
-3. **Factura cancelada** — satStatus="Cancelado" → obviously not deducible
-4. **Proveedor inactivo** — RFC lookup against SAT's l_RFC endpoint (future)
-5. **Descripcion generica** — NLP/keyword check for overly vague descriptions
-6. **Periodo incorrecto** — Paid in a different fiscal year than declared
-
-### Implementation
-- **Lista 69-B:** SAT publishes CSV quarterly. Store in DB and check against it.
-  - Download: http://omawww.sat.gob.mx/cifras_sat/Paginas/datos/vinculoEntworka/69B/Listado_69_B.zip
-  - ~20K records, store in `practice_management.sat_lista_69b`
-- **Rules engine:** Simple function that takes a CFDI + detail and returns flags[]
-- **UI:** Warning icon on flagged CFDIs, detail shows reason
-
-### Migration (`packages/database/prisma/migrations/add-sat-lista-69b.sql`)
-```sql
--- Migration: Add lista 69-B table for deducibility checking
--- Date: YYYY-MM-DD
-
-CREATE TABLE IF NOT EXISTS practice_management.sat_lista_69b (
-  id SERIAL PRIMARY KEY,
-  rfc VARCHAR(13) NOT NULL,
-  nombre VARCHAR(500),
-  tipo_listado VARCHAR(50),  -- 'definitivo' | 'presunto' | 'desvirtuado' | 'sentencia_favorable'
-  fecha_publicacion DATE,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS sat_lista_69b_rfc_idx
-  ON practice_management.sat_lista_69b(rfc);
-```
-
-### Files to modify
-- New: `apps/api/src/lib/deducibility-checker.ts`
+### Files
+- Modified: `apps/api/src/lib/deduction-categories.ts` (severity, new flags, `checkDeductibilityExtended()`)
 - New: `apps/api/src/app/api/sat-descarga/check-deducibility/route.ts`
-- New: `packages/database/prisma/migrations/add-sat-lista-69b.sql`
-- Modify: `packages/database/prisma/schema.prisma` (add SatLista69B model)
-- Modify: page.tsx (warning indicators)
+- Modified: `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` (CfdiList fetch + CfdiRow indicators)
 
-### Effort: Large (6-8 hours)
+### Future enhancements (not built):
+- Lista 69-B lookup (requires DB table + periodic CSV import from SAT)
+- Proveedor inactivo RFC lookup
+- Periodo incorrecto detection
 
 ---
 

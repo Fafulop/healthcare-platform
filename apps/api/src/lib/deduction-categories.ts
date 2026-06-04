@@ -194,7 +194,8 @@ export function classifyConcepto(
 // ---------------------------------------------------------------------------
 
 export interface DeductibilityFlag {
-  type: 'cash_over_2k' | 'no_xml' | 'proportional';
+  type: 'cash_over_2k' | 'no_xml' | 'proportional' | 'cancelled' | 'generic_description' | 'high_amount' | 'foreign_currency';
+  severity: 'error' | 'warning' | 'info';
   message: string;
 }
 
@@ -211,10 +212,20 @@ export function checkDeductibility(cfdi: {
 }): DeductibilityFlag[] {
   const flags: DeductibilityFlag[] = [];
 
+  // Cancelled = not deductible at all
+  if (cfdi.satStatus === 'Cancelado') {
+    flags.push({
+      type: 'cancelled',
+      severity: 'error',
+      message: 'CFDI cancelado — no deducible',
+    });
+  }
+
   // Cash > $2,000 MXN is not deductible (must be bancarized)
   if (cfdi.formaPago === '01' && cfdi.subtotal > 2000) {
     flags.push({
       type: 'cash_over_2k',
+      severity: 'error',
       message: 'Pago en efectivo > $2,000 — no deducible (Art. 27 frac. III LISR)',
     });
   }
@@ -223,6 +234,7 @@ export function checkDeductibility(cfdi: {
   if (!cfdi.hasDetails) {
     flags.push({
       type: 'no_xml',
+      severity: 'info',
       message: 'Sin detalles XML — clasificación aproximada',
     });
   }
@@ -231,7 +243,63 @@ export function checkDeductibility(cfdi: {
   if (cfdi.categoryId === 'servicios_basicos' || cfdi.categoryId === 'vehiculo') {
     flags.push({
       type: 'proportional',
+      severity: 'warning',
       message: 'Gasto proporcional — solo deducible la parte de uso profesional',
+    });
+  }
+
+  return flags;
+}
+
+/**
+ * Extended deductibility check for individual CFDIs with XML details.
+ * Used by the check-deducibility endpoint for comprehensive scanning.
+ */
+export function checkDeductibilityExtended(cfdi: {
+  formaPago: string | null;
+  subtotal: number;
+  total: number;
+  satStatus: string;
+  hasDetails: boolean;
+  categoryId: string;
+  conceptoDescriptions: string[];
+  moneda: string | null;
+}): DeductibilityFlag[] {
+  // Start with basic checks
+  const flags = checkDeductibility(cfdi);
+
+  // Generic/vague description detection
+  if (cfdi.conceptoDescriptions.length > 0) {
+    const genericTerms = ['servicio', 'servicios', 'producto', 'productos', 'concepto', 'varios', 'diverso', 'pago', 'cobro', 'honorarios'];
+    const allGeneric = cfdi.conceptoDescriptions.every(desc => {
+      const words = desc.toLowerCase().trim().split(/\s+/);
+      // Flag if description is 1-2 words and all words are generic
+      return words.length <= 2 && words.every(w => genericTerms.includes(w));
+    });
+    if (allGeneric) {
+      flags.push({
+        type: 'generic_description',
+        severity: 'warning',
+        message: 'Descripción genérica — el SAT podría rechazar la deducción por falta de detalle',
+      });
+    }
+  }
+
+  // High single expense (> $50k) — flag for review
+  if (cfdi.subtotal > 50000) {
+    flags.push({
+      type: 'high_amount',
+      severity: 'info',
+      message: `Gasto mayor a $50,000 — verifica documentación de soporte`,
+    });
+  }
+
+  // Foreign currency — exchange rate must be documented
+  if (cfdi.moneda && cfdi.moneda !== 'MXN') {
+    flags.push({
+      type: 'foreign_currency',
+      severity: 'info',
+      message: `Moneda ${cfdi.moneda} — verifica tipo de cambio aplicado para deducción`,
     });
   }
 

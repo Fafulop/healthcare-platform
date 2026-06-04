@@ -379,6 +379,7 @@ function CfdiList({
     suggestions: { ledgerEntryId: number; score: number; confidence: 'high' | 'medium'; concept: string; origin: string; amount: number; transactionDate: string }[];
   } | null>(null);
   const [linking, setLinking] = useState<number | null>(null); // ledgerEntryId being linked
+  const [deducibilityFlags, setDeducibilityFlags] = useState<Record<string, Array<{ type: string; severity: string; message: string }>>>({});
 
   // Check which CFDIs are already registered as LedgerEntries
   const checkRegistered = useCallback(async (uuids: string[]) => {
@@ -484,6 +485,25 @@ function CfdiList({
       checkRegistered(uuids);
     }
   }, [data, checkRegistered]);
+
+  // Fetch deducibility flags for the current month
+  useEffect(() => {
+    if (!month) return;
+    const yearFromMonth = month.slice(0, 4);
+    (async () => {
+      try {
+        const res = await authFetch(`${API_URL}/api/sat-descarga/check-deducibility?year=${yearFromMonth}`);
+        if (res.ok) {
+          const json = await res.json();
+          const flagMap: Record<string, Array<{ type: string; severity: string; message: string }>> = {};
+          for (const cfdi of json.data?.flaggedCfdis || []) {
+            flagMap[cfdi.uuid] = cfdi.flags;
+          }
+          setDeducibilityFlags(flagMap);
+        }
+      } catch { /* silent */ }
+    })();
+  }, [month]);
 
   const items = data?.data || [];
   const pagination = data?.pagination;
@@ -649,6 +669,7 @@ function CfdiList({
                     isRegistered={!!registeredMap[item.uuid]}
                     registering={registering === item.uuid}
                     onRegister={registerCfdi}
+                    deducibilityFlags={deducibilityFlags[item.uuid]}
                   />
                 ))}
               </tbody>
@@ -847,11 +868,12 @@ function ColumnFilter({
 // CFDI Row
 // ---------------------------------------------------------------------------
 
-function CfdiRow({ item, isRegistered, registering, onRegister }: {
+function CfdiRow({ item, isRegistered, registering, onRegister, deducibilityFlags }: {
   item: CfdiMetadata;
   isRegistered: boolean;
   registering: boolean;
   onRegister: (uuid: string) => void;
+  deducibilityFlags?: Array<{ type: string; severity: string; message: string }>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [xmlDetail, setXmlDetail] = useState<CfdiDetailData | null>(null);
@@ -921,11 +943,26 @@ function CfdiRow({ item, isRegistered, registering, onRegister }: {
           </span>
         </td>
         <td className="py-2.5">
-          {item.satStatus === "Vigente" ? (
-            <span className="text-xs text-green-600 font-medium">Vigente</span>
-          ) : (
-            <span className="text-xs text-red-500 font-medium">Cancelado</span>
-          )}
+          <div className="flex items-center gap-1">
+            {item.satStatus === "Vigente" ? (
+              <span className="text-xs text-green-600 font-medium">Vigente</span>
+            ) : (
+              <span className="text-xs text-red-500 font-medium">Cancelado</span>
+            )}
+            {deducibilityFlags && deducibilityFlags.length > 0 && (
+              <span
+                title={deducibilityFlags.map(f => f.message).join('\n')}
+                className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold ${
+                  deducibilityFlags.some(f => f.severity === 'error') ? 'bg-red-100 text-red-600' :
+                  deducibilityFlags.some(f => f.severity === 'warning') ? 'bg-amber-100 text-amber-600' :
+                  'bg-blue-100 text-blue-600'
+                }`}
+              >
+                {deducibilityFlags.some(f => f.severity === 'error') ? '!' :
+                 deducibilityFlags.some(f => f.severity === 'warning') ? '!' : 'i'}
+              </span>
+            )}
+          </div>
         </td>
         <td className="py-2.5 text-center">
           {isRegistered ? (
@@ -982,6 +1019,24 @@ function CfdiRow({ item, isRegistered, registering, onRegister }: {
                 />
               )}
             </div>
+
+            {/* Deducibility flags */}
+            {deducibilityFlags && deducibilityFlags.length > 0 && (
+              <div className="mt-3 pt-2 border-t border-gray-200">
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">Alertas de deducibilidad</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {deducibilityFlags.map((f, i) => (
+                    <span key={i} className={`text-[11px] px-2 py-0.5 rounded ${
+                      f.severity === 'error' ? 'bg-red-100 text-red-700' :
+                      f.severity === 'warning' ? 'bg-amber-100 text-amber-700' :
+                      'bg-blue-100 text-blue-700'
+                    }`}>
+                      {f.severity === 'error' ? '✕ ' : f.severity === 'warning' ? '⚠ ' : 'ℹ '}{f.message}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* XML Details section */}
             <div className="mt-4 pt-3 border-t border-gray-200">
