@@ -23,6 +23,7 @@ import {
   BookmarkCheck,
   Link2,
   Calculator,
+  CalendarClock,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { SAT_FORMA_PAGO_LABELS, ORIGIN_LABELS } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
@@ -137,6 +138,9 @@ export default function SatDescargaPage() {
       {/* Backfill */}
       <BackfillSection />
 
+      {/* Fiscal Calendar */}
+      <FiscalCalendarBanner />
+
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6 mt-6">
         <div className="flex gap-6">
@@ -163,6 +167,133 @@ export default function SatDescargaPage() {
 
 // ---------------------------------------------------------------------------
 // Tab Button
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Fiscal Calendar Banner
+// ---------------------------------------------------------------------------
+
+interface FiscalDeadline {
+  name: string;
+  description: string;
+  date: Date;
+  daysLeft: number;
+}
+
+function getFiscalDeadlines(): FiscalDeadline[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const year = today.getFullYear();
+  const month = today.getMonth(); // 0-indexed
+
+  const deadlines: FiscalDeadline[] = [];
+
+  // Day 17 of current month: ISR provisional + IVA + DIOT (for previous month)
+  const monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const day17current = new Date(year, month, 17);
+  const prevMonthName = monthNames[month === 0 ? 11 : month - 1];
+  deadlines.push({
+    name: `Declaracion mensual (${prevMonthName})`,
+    description: 'ISR provisional + IVA mensual + DIOT',
+    date: day17current,
+    daysLeft: Math.ceil((day17current.getTime() - today.getTime()) / 86400000),
+  });
+
+  // Day 17 of next month
+  const nextMonth = month + 1 > 11 ? 0 : month + 1;
+  const nextMonthYear = month + 1 > 11 ? year + 1 : year;
+  const day17next = new Date(nextMonthYear, nextMonth, 17);
+  const currentMonthName = monthNames[month];
+  deadlines.push({
+    name: `Declaracion mensual (${currentMonthName})`,
+    description: 'ISR provisional + IVA mensual + DIOT',
+    date: day17next,
+    daysLeft: Math.ceil((day17next.getTime() - today.getTime()) / 86400000),
+  });
+
+  // April 30: Declaracion anual PF
+  const april30 = new Date(year, 3, 30);
+  if (april30.getTime() >= today.getTime() - 7 * 86400000) {
+    deadlines.push({
+      name: 'Declaracion anual PF',
+      description: 'Declaracion anual de personas fisicas',
+      date: april30,
+      daysLeft: Math.ceil((april30.getTime() - today.getTime()) / 86400000),
+    });
+  }
+
+  // Sort by date, filter out deadlines more than 7 days overdue, take next 3
+  return deadlines
+    .filter(d => d.daysLeft >= -7)
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, 3);
+}
+
+function FiscalCalendarBanner() {
+  const deadlines = getFiscalDeadlines();
+  if (deadlines.length === 0) return null;
+
+  const nearest = deadlines[0];
+  const isUrgent = nearest.daysLeft <= 3 && nearest.daysLeft >= 0;
+  const isOverdue = nearest.daysLeft < 0;
+
+  const bannerColor = isOverdue
+    ? 'bg-red-50 border-red-200'
+    : isUrgent
+    ? 'bg-amber-50 border-amber-200'
+    : 'bg-blue-50 border-blue-200';
+
+  const iconColor = isOverdue ? 'text-red-500' : isUrgent ? 'text-amber-500' : 'text-blue-500';
+
+  return (
+    <div className={`rounded-lg border p-4 mt-4 ${bannerColor}`}>
+      <div className="flex items-start gap-3">
+        <CalendarClock className={`w-5 h-5 mt-0.5 flex-shrink-0 ${iconColor}`} />
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold text-gray-900">Calendario Fiscal</h3>
+          <div className="mt-2 space-y-2">
+            {deadlines.map((d, i) => {
+              const color = d.daysLeft < 0
+                ? 'text-red-700'
+                : d.daysLeft <= 3
+                ? 'text-amber-700'
+                : 'text-gray-700';
+              const badge = d.daysLeft < 0
+                ? 'bg-red-100 text-red-700'
+                : d.daysLeft === 0
+                ? 'bg-amber-100 text-amber-700'
+                : d.daysLeft <= 3
+                ? 'bg-amber-50 text-amber-600'
+                : 'bg-gray-100 text-gray-600';
+              const label = d.daysLeft < 0
+                ? `${Math.abs(d.daysLeft)}d vencido`
+                : d.daysLeft === 0
+                ? 'Hoy'
+                : `${d.daysLeft}d`;
+              return (
+                <div key={i} className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className={`text-sm font-medium ${color}`}>{d.name}</span>
+                    <span className="text-xs text-gray-500 ml-2 hidden sm:inline">{d.description}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs text-gray-500 hidden sm:inline">
+                      {d.date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                    </span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badge}`}>
+                      {label}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 
 function TabBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {

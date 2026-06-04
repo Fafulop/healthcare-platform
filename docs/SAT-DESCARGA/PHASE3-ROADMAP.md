@@ -1,7 +1,7 @@
 # SAT Descarga — Phase 3+ Roadmap
 
 **Date:** 2026-05-16
-**Status:** IN PROGRESS (7 of 9 features complete)
+**Status:** IN PROGRESS (8 of 9 features complete)
 **Depends on:** Phase 2 (COMPLETE — metadata + XML download working)
 
 ---
@@ -239,34 +239,34 @@ if (dayOfMonth % 3 === 0 && hourUtc === 6) {
 
 ---
 
-## 9. Tax Calendar Reminders
+## 9. Tax Calendar Reminders — COMPLETE
+
+**Status:** DONE (deployed 2026-06-03)
 
 **Goal:** Alert doctors before fiscal deadlines (day 17 declarations, annual, DIOT).
 
-### Scope
-- Pre-configured calendar of fiscal obligations
-- Push notifications / in-app alerts 3 days before deadline
-- Shows what needs to be declared and estimated amounts (from #6)
-- Marks as "done" when doctor confirms they declared
+### What was built:
+- `FiscalCalendarBanner` client-side component (no API needed — deadlines are fixed rules)
+- Always-visible banner between BackfillSection and tabs on SAT Descarga page
+- Computes upcoming deadlines:
+  - Day 17 of current month: ISR provisional + IVA mensual + DIOT (for previous month)
+  - Day 17 of next month: same (for current month)
+  - April 30: Declaracion anual personas fisicas (shown when within range)
+- Color-coded urgency:
+  - Red: overdue (up to 7 days past)
+  - Amber: 0-3 days remaining
+  - Blue/green: upcoming
+- Shows days remaining badge, date, and obligation description
+- Responsive: hides description text on mobile
+- No DB migration needed
 
-### Implementation
+### Files
+- Modified: `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` (FiscalCalendarBanner component)
 
-#### Fixed deadlines (no DB needed for rules)
-- Day 17 of each month: ISR provisional + IVA mensual + DIOT
-- April 30: Declaracion anual personas fisicas
-- Day 3-5 of second month: Contabilidad electronica
-
-#### Notification system
-- Check current date against upcoming deadlines
-- If within 3 days of deadline, show banner in dashboard
-- Optional: email notification (requires email service)
-
-### Files to modify
-- New: `apps/api/src/app/api/sat-descarga/calendar/route.ts`
-- Modify: page.tsx or dashboard layout (show reminder banner)
-- Optional: email notification integration
-
-### Effort: Small-Medium (2-3 hours for in-app, more for email)
+### Future enhancements (not built):
+- Email notifications before deadlines
+- "Mark as done" confirmation tracking
+- Contabilidad electronica deadline (day 3-5 of second month)
 
 ---
 
