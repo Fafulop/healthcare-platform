@@ -168,9 +168,11 @@ export async function GET(request: NextRequest) {
       }
 
       // Check deductibility flags
+      const cfdiTotal = detail ? Number(detail.total) : Number(cfdi.monto);
       const flags = checkDeductibility({
         formaPago: detail?.formaPago || null,
         subtotal: cfdiSubtotal,
+        total: cfdiTotal,
         satStatus: cfdi.satStatus,
         hasDetails: !!detail,
         categoryId: primaryCategory,

@@ -181,6 +181,9 @@ const CLAVE_RANGES: Array<{ start: string; end: string; categoryId: string }> = 
   { start: '44100000', end: '44129999', categoryId: 'papeleria' },
   { start: '14110000', end: '14119999', categoryId: 'papeleria' }, // Paper products
 
+  // -- Nómina (payroll services) — must come before servicios_profesionales to avoid shadowing --
+  { start: '80111500', end: '80111599', categoryId: 'nomina' },
+
   // -- Servicios profesionales / healthcare services --
   { start: '80100000', end: '80129999', categoryId: 'servicios_profesionales' },
   { start: '80140000', end: '80149999', categoryId: 'servicios_profesionales' },
@@ -210,9 +213,6 @@ const CLAVE_RANGES: Array<{ start: string; end: string; categoryId: string }> = 
   { start: '90100000', end: '90159999', categoryId: 'alimentos' },
   // Food products (Div 50) — supermarkets, catering
   { start: '50000000', end: '50399999', categoryId: 'alimentos' },
-
-  // -- Nómina (payroll services) --
-  { start: '80111500', end: '80111599', categoryId: 'nomina' },
 
   // -- Servicios de limpieza y mantenimiento (Div 72, 76) --
   { start: '76100000', end: '76129999', categoryId: 'papeleria' },
@@ -309,6 +309,7 @@ export interface DeductibilityFlag {
 export function checkDeductibility(cfdi: {
   formaPago: string | null;
   subtotal: number;
+  total?: number;
   satStatus: string;
   hasDetails: boolean;
   categoryId: string;
@@ -346,8 +347,10 @@ export function checkDeductibility(cfdi: {
     });
   }
 
-  // Cash > $2,000 MXN is not deductible (must be bancarized) — only matters for 612
-  if (!isResico && cfdi.formaPago === '01' && cfdi.subtotal > 2000) {
+  // Cash > $2,000 MXN is not deductible (must be bancarized) — Art. 27 frac. III LISR
+  // Compare against total (payment amount = subtotal + IVA), not just subtotal
+  const paymentAmount = cfdi.total ?? cfdi.subtotal;
+  if (!isResico && cfdi.formaPago === '01' && paymentAmount > 2000) {
     flags.push({
       type: 'cash_over_2k',
       severity: 'error',
@@ -356,7 +359,7 @@ export function checkDeductibility(cfdi: {
   }
 
   // Cash > $2,000 for RESICO: IVA acreditable still requires bancarización
-  if (isResico && cfdi.formaPago === '01' && cfdi.subtotal > 2000) {
+  if (isResico && cfdi.formaPago === '01' && paymentAmount > 2000) {
     flags.push({
       type: 'cash_over_2k',
       severity: 'warning',

@@ -2715,7 +2715,7 @@ function AyudaTab() {
             <p className="text-xs text-gray-600">
               Tu contador te pide el total de ingresos y gastos del trimestre para la declaracion provisional.
               Abres Resumen Fiscal, seleccionas el ano, y en la tabla mensual sumas enero + febrero + marzo.
-              Tambien ves cuanto IVA trasladado cobraste vs cuanto IVA acreditable pagaste — la diferencia es lo que debes al SAT.
+              Tambien ves cuanto IVA trasladado cobraste vs cuanto IVA acreditable pagaste y cuanto IVA te retuvieron — la diferencia es lo que debes al SAT.
             </p>
           </div>
 
@@ -2807,6 +2807,16 @@ function AyudaTab() {
             </ul>
           </div>
 
+          <div className="bg-green-50 border border-green-200 rounded p-3">
+            <p className="font-semibold text-green-800 text-xs mb-1">ISR acumulado — meses malos compensan meses buenos</p>
+            <p className="text-xs text-green-700">
+              En regimen 612, el ISR se calcula sobre la <strong>utilidad acumulada del ano</strong>, no del mes aislado.
+              Si un mes gastas mas de lo que ingresas, la base gravable acumulada baja y puedes generar <strong>ISR a favor</strong> —
+              es decir, no pagas ISR hasta que la utilidad acumulada supere lo que ya pagaste. El excedente se recupera en la
+              declaracion anual. Consulta la seccion "ISR Provisional: Calculo Acumulado" en la pestana <strong>Guia</strong> para un ejemplo con numeros.
+            </p>
+          </div>
+
           <div className="bg-amber-50 border border-amber-200 rounded p-3">
             <p className="font-semibold text-amber-800 text-xs mb-1">Importante</p>
             <p className="text-xs text-amber-700">
@@ -2822,7 +2832,8 @@ function AyudaTab() {
               Es 15 de abril y necesitas presentar tu declaracion de marzo. Abres Declaraciones, expandes el mes de marzo,
               y ves: ingresos $85,000, deducciones $22,000, base gravable $63,000, ISR provisional estimado $8,500,
               menos retenciones que te hicieron $4,200, ISR a pagar ~$4,300. Le mandas estos numeros a tu contador
-              para que verifique y presente la declaracion.
+              para que verifique y presente la declaracion. Si febrero fue un mes malo con muchos gastos,
+              veras que el ISR de marzo es menor (o incluso $0) gracias al calculo acumulado.
             </p>
           </div>
 
@@ -3194,8 +3205,8 @@ function GuiaTab() {
                   </tr>
                   <tr>
                     <td className="px-3 py-2 font-medium text-orange-700">Exento</td>
-                    <td className="px-3 py-2">Servicios medicos, educacion, venta de casa habitacion</td>
-                    <td className="px-3 py-2 text-gray-500">Honorarios medicos a personas fisicas (consulta, cirugia), colegiaturas, venta de primer inmueble</td>
+                    <td className="px-3 py-2">Servicios medicos por PF, educacion, venta de casa habitacion</td>
+                    <td className="px-3 py-2 text-gray-500">Honorarios medicos prestados por PF con titulo (consulta, cirugia), colegiaturas, venta de primer inmueble</td>
                   </tr>
                 </tbody>
               </table>
@@ -3205,9 +3216,16 @@ function GuiaTab() {
           <div className="bg-amber-50 border border-amber-200 rounded p-3">
             <p className="font-semibold text-amber-800 text-xs mb-1">Caso especial: Servicios medicos</p>
             <p className="text-xs text-amber-700">
-              Los honorarios medicos a <strong>personas fisicas</strong> estan <strong>exentos</strong> de IVA
-              (Art. 15 fraccion XIV LIVA). Pero si facturas a una <strong>persona moral</strong> (hospital, aseguradora,
-              empresa), SI debes cobrar IVA al 16%. La diferencia es quien es el receptor de tu factura.
+              Los servicios medicos profesionales prestados por una <strong>persona fisica con titulo de medico</strong> estan
+              <strong>exentos</strong> de IVA (Art. 15 fraccion XIV LIVA), sin importar si el receptor es persona fisica o persona moral.
+              Es decir, si eres medico PF y facturas honorarios a un hospital (PM) o a un paciente (PF), en ambos casos
+              la consulta es <strong>exenta de IVA</strong>. La exencion se basa en la naturaleza del servicio y en que el prestador
+              sea persona fisica, no en quien recibe la factura.
+            </p>
+            <p className="text-xs text-amber-600 mt-1">
+              <strong>Excepcion:</strong> Si los servicios medicos se prestan a traves de una <strong>sociedad mercantil</strong>
+              (persona moral como S.A. de C.V.), entonces SI se cobra IVA al 16%. La exencion solo aplica cuando el
+              prestador es persona fisica (individualmente o a traves de sociedad civil).
             </p>
           </div>
 
@@ -3224,7 +3242,7 @@ function GuiaTab() {
             <p className="font-semibold text-gray-800 mb-1">¿Por que algunos CFDIs muestran IVA = $0.00?</p>
             <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
               <li>Productos alimenticios basicos (cafe, leche, pan) → tasa 0%</li>
-              <li>Servicios medicos a persona fisica → exento</li>
+              <li>Servicios medicos profesionales prestados por PF con titulo → exento (Art. 15 frac. XIV LIVA)</li>
               <li>Complementos de pago (tipo P) → no llevan IVA, solo referencian el pago</li>
               <li>Facturas de nomina → exentas</li>
             </ul>
@@ -3534,7 +3552,7 @@ function GuiaTab() {
                   <tr>
                     <td className="px-3 py-2 font-medium">Equipo medico</td>
                     <td className="px-3 py-2 text-gray-500">Estetoscopio, baumanometro, ultrasonido</td>
-                    <td className="px-3 py-2 text-gray-500">Depreciacion anual (excepto si &lt;$4,400)</td>
+                    <td className="px-3 py-2 text-gray-500">Depreciacion anual (% segun tipo de activo, Art. 31-38 LISR)</td>
                   </tr>
                   <tr>
                     <td className="px-3 py-2 font-medium">Software / SaaS</td>
@@ -3564,7 +3582,7 @@ function GuiaTab() {
                   <tr>
                     <td className="px-3 py-2 font-medium">Alimentos y viajes</td>
                     <td className="px-3 py-2 text-gray-500">Restaurantes, hoteles, vuelos, viaticos</td>
-                    <td className="px-3 py-2 text-gray-500">Parcial (8.5% a 50% segun caso)</td>
+                    <td className="px-3 py-2 text-gray-500">Restaurantes: 8.5% deducible. Viaticos: 100% hasta $750/dia nacional</td>
                   </tr>
                   <tr>
                     <td className="px-3 py-2 font-medium">Papeleria y limpieza</td>
@@ -3598,6 +3616,148 @@ function GuiaTab() {
               <li>Donaciones a entidades no autorizadas</li>
               <li>CFDIs cancelados</li>
             </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* ISR Provisional Acumulado */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">ISR Provisional: Como Funciona el Calculo Acumulado</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            El ISR para personas fisicas con actividad empresarial (regimen 612) se paga de forma <strong>provisional cada mes</strong>,
+            pero el calculo es <strong>acumulado</strong> desde enero hasta el mes que declaras. Esto significa que un mes malo
+            puede compensar un mes bueno.
+          </p>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Regla fundamental</p>
+            <p className="text-xs text-blue-700">
+              Cada mes calculas ISR sobre la <strong>utilidad acumulada del ano</strong> (todos los ingresos del ano menos todas las
+              deducciones del ano), no solo sobre lo de ese mes. Luego restas lo que ya pagaste en meses anteriores.
+              El resultado es lo que pagas (o no pagas) ese mes.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Ejemplo con numeros</p>
+            <p className="text-xs text-gray-600 mb-3">
+              Un medico con consultorio privado tiene estos movimientos (ISR calculado con tarifa acumulada Art. 96 LISR,
+              que es la tarifa mensual multiplicada por el numero de meses del periodo):
+            </p>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border border-gray-200 rounded">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Concepto</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-600">Enero</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-600">Febrero</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-600">Marzo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Ingresos del mes</td>
+                    <td className="px-3 py-2 text-right font-mono text-green-700">$100,000</td>
+                    <td className="px-3 py-2 text-right font-mono text-green-700">$30,000</td>
+                    <td className="px-3 py-2 text-right font-mono text-green-700">$80,000</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Deducciones del mes</td>
+                    <td className="px-3 py-2 text-right font-mono text-red-700">$40,000</td>
+                    <td className="px-3 py-2 text-right font-mono text-red-700">$80,000</td>
+                    <td className="px-3 py-2 text-right font-mono text-red-700">$35,000</td>
+                  </tr>
+                  <tr className="bg-gray-50">
+                    <td className="px-3 py-2 font-medium">Utilidad del mes</td>
+                    <td className="px-3 py-2 text-right font-mono font-medium text-blue-700">$60,000</td>
+                    <td className="px-3 py-2 text-right font-mono font-medium text-orange-700">−$50,000</td>
+                    <td className="px-3 py-2 text-right font-mono font-medium text-blue-700">$45,000</td>
+                  </tr>
+                  <tr className="border-t-2 border-gray-300">
+                    <td className="px-3 py-2 font-bold">Ingresos acumulados</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold">$100,000</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold">$130,000</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold">$210,000</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-bold">Deducciones acumuladas</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold">$40,000</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold">$120,000</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold">$155,000</td>
+                  </tr>
+                  <tr className="bg-blue-50">
+                    <td className="px-3 py-2 font-bold">Base gravable acumulada</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold text-blue-700">$60,000</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold text-blue-700">$10,000</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold text-blue-700">$55,000</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">ISR acumulado (tarifa Art. 96)</td>
+                    <td className="px-3 py-2 text-right font-mono">~$11,500</td>
+                    <td className="px-3 py-2 text-right font-mono">~$570</td>
+                    <td className="px-3 py-2 text-right font-mono">~$6,700</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">ISR ya pagado en meses previos</td>
+                    <td className="px-3 py-2 text-right font-mono">$0</td>
+                    <td className="px-3 py-2 text-right font-mono">$11,500</td>
+                    <td className="px-3 py-2 text-right font-mono">$11,500</td>
+                  </tr>
+                  <tr className="bg-green-50 font-bold">
+                    <td className="px-3 py-2">ISR a pagar este mes</td>
+                    <td className="px-3 py-2 text-right font-mono text-red-700">$11,500</td>
+                    <td className="px-3 py-2 text-right font-mono text-green-700">$0 (a favor: ~$10,900)</td>
+                    <td className="px-3 py-2 text-right font-mono text-green-700">$0 (a favor: ~$4,800)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">¿Que paso en este ejemplo?</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Enero:</strong> Buen mes — gano $60k netos, paga ~$11,500 de ISR provisional</li>
+              <li><strong>Febrero:</strong> Mal mes — gasto mas de lo que ingreso ($80k vs $30k). La base gravable acumulada baja de $60k a $10k.
+                El ISR acumulado sobre $10k (2 meses) es solo ~$570, pero ya pago $11,500. Resultado: <strong>ISR a favor de ~$10,900</strong>. No paga nada este mes.</li>
+              <li><strong>Marzo:</strong> Buen mes de nuevo — la base acumulada sube a $55k. ISR acumulado (3 meses) ~$6,700, pero ya pago $11,500.
+                Todavia tiene <strong>~$4,800 a favor</strong>. Sigue sin pagar ISR.</li>
+              <li>En abril, si sigue facturando bien, el ISR acumulado eventualmente superara los $11,500 que ya pago, y entonces empezara a pagar de nuevo.</li>
+            </ul>
+          </div>
+
+          <div className="bg-green-50 border border-green-200 rounded p-3">
+            <p className="font-semibold text-green-800 text-xs mb-1">ISR a favor — ¿como lo recuperas?</p>
+            <ul className="list-disc list-inside space-y-1 text-xs text-green-700">
+              <li>El ISR a favor se <strong>arrastra automaticamente</strong> a los meses siguientes — no pagas ISR hasta que la utilidad acumulada genere mas ISR del que ya pagaste</li>
+              <li>Si al terminar el ano todavia tienes ISR a favor, lo recuperas en la <strong>declaracion anual</strong> (abril del ano siguiente)</li>
+              <li>En la anual puedes solicitar <strong>devolucion</strong> (el SAT te deposita el saldo a tu cuenta bancaria)</li>
+              <li>El pago provisional mensual <strong>nunca puede ser negativo</strong> — lo minimo que pagas es $0, no te devuelven mes a mes</li>
+            </ul>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3">
+            <p className="font-semibold text-amber-800 text-xs mb-1">Diferencia clave vs RESICO</p>
+            <p className="text-xs text-amber-700">
+              En <strong>RESICO (626)</strong>, el ISR se calcula sobre <strong>ingresos brutos de cada mes</strong> a tasa fija, sin deducciones
+              y sin acumulacion. Un mes malo no te ayuda — si facturaste $30,000, pagas 1-2.5% sobre esos $30,000 sin importar
+              cuanto hayas gastado. No puedes generar ISR a favor por exceso de gastos (porque no hay deducciones).
+              Sin embargo, si facturas a personas morales y las retenciones de ISR (1.25%) superan el ISR calculado del mes,
+              si puedes tener ISR a favor por retenciones.
+              En general, si tus gastos son altos o variables, el regimen 612 puede ser mas conveniente.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Las retenciones tambien se acumulan</p>
+            <p className="text-xs text-blue-700">
+              Si facturas a personas morales (hospitales, aseguradoras), te retienen 10% de ISR. Esas retenciones se restan
+              del ISR provisional que debes pagar. Si las retenciones son mayores que el ISR calculado,
+              el excedente se convierte en ISR a favor adicional. Ejemplo: si tu ISR del mes es $8,000 pero te retuvieron
+              $12,000 en el ano, tienes $4,000 mas a favor.
+            </p>
           </div>
         </div>
       </section>
@@ -3655,7 +3815,7 @@ function GuiaTab() {
             <p className="font-semibold text-blue-800 text-xs mb-1">Diferencias por regimen</p>
             <ul className="list-disc list-inside space-y-1 text-xs text-blue-700">
               <li><strong>612:</strong> ISR mensual provisional (ingresos − deducciones × tabla), IVA mensual, DIOT, contabilidad electronica, declaracion anual en abril</li>
-              <li><strong>RESICO (626):</strong> ISR mensual (ingresos brutos × tasa fija), IVA mensual, DIOT, declaracion anual simplificada. <strong>No requiere</strong> contabilidad electronica</li>
+              <li><strong>RESICO (626):</strong> ISR mensual (ingresos brutos × tasa fija), IVA mensual, declaracion anual simplificada. <strong>No requiere</strong> contabilidad electronica ni DIOT</li>
             </ul>
           </div>
 
@@ -3829,7 +3989,7 @@ function GuiaTab() {
               <li>Un gasto es deducible en el <strong>ejercicio en que se paga</strong>, no cuando se factura</li>
               <li>Si recibes una factura de diciembre pero la pagas en enero, se deduce en enero</li>
               <li>Excepcion: facturas PUE se consideran pagadas en el mes de emision</li>
-              <li>Puedes deducir facturas de hasta 10 dias antes del inicio del mes (regla de devengo)</li>
+              <li>Para PF, la deduccion se toma en el periodo en que se <strong>paga efectivamente</strong> (flujo de efectivo, Art. 105 LISR), sin importar la fecha de la factura</li>
             </ul>
           </div>
 
@@ -3853,7 +4013,7 @@ function GuiaTab() {
           <p>
             Cuando emites una factura con metodo de pago <strong>PPD</strong> (Pago en Parcialidades o Diferido),
             el pago no se recibe al momento de facturar. El SAT requiere que cuando recibas el pago,
-            tu cliente emita un <strong>CFDI tipo P</strong> (Complemento de Pago) que vincula el pago con tu factura original.
+            emitas un <strong>CFDI tipo P</strong> (Complemento de Pago) que vincula el pago recibido con tu factura original.
           </p>
 
           <div>
