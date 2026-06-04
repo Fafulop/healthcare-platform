@@ -2050,9 +2050,9 @@ function DeduccionesTab() {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="px-3 py-2 text-left text-gray-600 font-medium">Mes</th>
-                  {data.categories.slice(0, 5).map(cat => (
-                    <th key={cat.id} className="px-3 py-2 text-right text-gray-600 font-medium" title={cat.name}>
-                      {cat.icon}
+                  {data.categories.map(cat => (
+                    <th key={cat.id} className="px-3 py-2 text-right text-gray-600 font-medium whitespace-nowrap" title={cat.name}>
+                      <span className="mr-1">{cat.icon}</span>{cat.name.split(' ')[0]}
                     </th>
                   ))}
                   <th className="px-3 py-2 text-right text-gray-600 font-medium">Total</th>
@@ -2061,20 +2061,22 @@ function DeduccionesTab() {
               <tbody className="divide-y divide-gray-100">
                 {data.months.map(m => {
                   const monthTotal = Object.values(m.categories).reduce((s, c) => s + c.subtotal, 0);
+                  const monthCount = Object.values(m.categories).reduce((s, c) => s + c.count, 0);
                   return (
                     <tr key={m.month} className="hover:bg-gray-50">
                       <td className="px-3 py-2 text-gray-700 font-medium">
                         {MONTH_NAMES[m.month - 1]}
                       </td>
-                      {data.categories.slice(0, 5).map(cat => (
+                      {data.categories.map(cat => (
                         <td key={cat.id} className="px-3 py-2 text-right text-gray-600">
                           {m.categories[cat.id]
-                            ? fmtMoney(m.categories[cat.id].subtotal)
+                            ? <span title={`${m.categories[cat.id].count} CFDIs`}>{fmtMoney(m.categories[cat.id].subtotal)}</span>
                             : '-'}
                         </td>
                       ))}
                       <td className="px-3 py-2 text-right font-semibold text-gray-900">
-                        {fmtMoney(monthTotal)}
+                        <div>{fmtMoney(monthTotal)}</div>
+                        <div className="text-[10px] text-gray-400 font-normal">{monthCount} CFDIs</div>
                       </td>
                     </tr>
                   );

@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Batch-fetch XML details
-    const uuids = cfdis.map(c => c.uuid);
+    const uuids = cfdis.map(c => c.uuid.toLowerCase());
     const details = uuids.length > 0
       ? await prisma.satCfdiDetail.findMany({
           where: { doctorId: doctor.id, uuid: { in: uuids } },

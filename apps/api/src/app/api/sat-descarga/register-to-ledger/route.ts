@@ -58,18 +58,18 @@ export async function POST(request: NextRequest) {
     const details = await prisma.satCfdiDetail.findMany({
       where: {
         doctorId: doctor.id,
-        uuid: { in: toRegister.map((c) => c.uuid) },
+        uuid: { in: toRegister.map((c) => c.uuid.toLowerCase()) },
       },
       include: { conceptos: true },
     });
-    const detailMap = new Map(details.map((d) => [d.uuid, d]));
+    const detailMap = new Map(details.map((d) => [d.uuid.toLowerCase(), d]));
 
     // Create or link entries in transaction
     const results = await prisma.$transaction(async (tx) => {
       const entries: any[] = [];
 
       for (const cfdi of toRegister) {
-        const detail = detailMap.get(cfdi.uuid);
+        const detail = detailMap.get(cfdi.uuid.toLowerCase());
         const isReceived = cfdi.direction === 'received';
 
         // Determine entry type from direction + efecto

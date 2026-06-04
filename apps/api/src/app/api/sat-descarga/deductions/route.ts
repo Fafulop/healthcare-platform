@@ -64,7 +64,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Batch-fetch details for all CFDIs
-    const uuids = cfdis.map(c => c.uuid);
+    // Metadata stores UUIDs as-is from SAT (uppercase), but XML parser stores them lowercase.
+    // Normalize to lowercase for matching.
+    const uuids = cfdis.map(c => c.uuid.toLowerCase());
     const details = uuids.length > 0
       ? await prisma.satCfdiDetail.findMany({
           where: { doctorId: doctor.id, uuid: { in: uuids } },
