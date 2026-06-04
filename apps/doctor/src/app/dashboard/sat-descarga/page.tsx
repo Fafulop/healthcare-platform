@@ -101,7 +101,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "declaraciones" | "cobranza" | "info" | "contable">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "declaraciones" | "cobranza" | "guia" | "ayuda">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -149,8 +149,8 @@ export default function SatDescargaPage() {
           <TabBtn active={activeTab === "deducciones"} onClick={() => setActiveTab("deducciones")} label="Deducciones" />
           <TabBtn active={activeTab === "declaraciones"} onClick={() => setActiveTab("declaraciones")} label="Declaraciones" />
           <TabBtn active={activeTab === "cobranza"} onClick={() => setActiveTab("cobranza")} label="Cobranza" />
-          <TabBtn active={activeTab === "contable"} onClick={() => setActiveTab("contable")} label="Guía Contable" />
-          <TabBtn active={activeTab === "info"} onClick={() => setActiveTab("info")} label="Info" />
+          <TabBtn active={activeTab === "guia"} onClick={() => setActiveTab("guia")} label="Guia" />
+          <TabBtn active={activeTab === "ayuda"} onClick={() => setActiveTab("ayuda")} label="Ayuda" />
         </div>
       </div>
 
@@ -161,8 +161,8 @@ export default function SatDescargaPage() {
       {activeTab === "deducciones" && <DeduccionesTab />}
       {activeTab === "declaraciones" && <DeclaracionesTab />}
       {activeTab === "cobranza" && <CobranzaTab />}
-      {activeTab === "contable" && <ContableTab />}
-      {activeTab === "info" && <InfoTab />}
+      {activeTab === "guia" && <GuiaTab />}
+      {activeTab === "ayuda" && <AyudaTab />}
     </div>
   );
 }
@@ -2624,20 +2624,488 @@ function DeclaracionesTab() {
 // Contable Tab — Accounting Guide
 // ---------------------------------------------------------------------------
 
-function ContableTab() {
+function AyudaTab() {
+  return (
+    <div className="space-y-8 max-w-3xl">
+      {/* Intro */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
+          <Info className="w-5 h-5 text-blue-600" />
+          Como usar esta herramienta
+        </h3>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 space-y-2">
+          <p>
+            Esta seccion de <strong>Descarga Masiva SAT</strong> te permite descargar, visualizar y analizar
+            todos los CFDIs (facturas) que has emitido y recibido, directamente desde el SAT usando tu e.Firma (FIEL).
+          </p>
+          <p>
+            La informacion se organiza en varias pestanas, cada una con un enfoque distinto.
+            Abajo encontraras una explicacion de cada una, como se relacionan entre si, y ejemplos de uso.
+          </p>
+        </div>
+      </section>
+
+      {/* 1. CFDIs Descargados */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">1</span>
+          CFDIs Descargados
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            <strong>Que es:</strong> El listado completo de todas tus facturas sincronizadas desde el SAT.
+            Es la <strong>base de datos central</strong> — todas las demas pestanas se alimentan de estos datos.
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Que puedes hacer aqui</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Filtrar</strong> por direccion (emitidas/recibidas), tipo (Ingreso, Egreso, Pago), status (Vigente/Cancelado) y monto</li>
+              <li><strong>Buscar</strong> por RFC o nombre del emisor/receptor</li>
+              <li><strong>Ver detalles XML</strong> — expande cualquier factura para ver subtotal, IVA, retenciones, conceptos, forma/metodo de pago, uso CFDI</li>
+              <li><strong>Registrar en contabilidad</strong> — vincula un CFDI a tu libro de ingresos/egresos con un clic</li>
+              <li><strong>Ver banderas de deducibilidad</strong> — cada CFDI recibido muestra alertas si tiene problemas (efectivo &gt;$2k, S01, cancelado, etc.)</li>
+            </ul>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded p-3">
+            <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
+            <p className="text-xs text-gray-600">
+              Quieres verificar que todas las facturas que emitiste en enero estan vigentes.
+              Seleccionas "Emitidas", mes "2026-01", y revisas que ninguna aparezca como "Cancelado".
+              Si encuentras una cancelada, haces clic para ver los detalles y verificas si necesitas emitir una nueva.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
+            <p className="text-xs text-blue-700">
+              Esta pestana es el <strong>origen de todos los datos</strong>. Si aqui no hay CFDIs sincronizados,
+              las demas pestanas apareceran vacias. Primero sincroniza tus CFDIs (usando el boton de descarga arriba),
+              y luego las demas pestanas se calculan automaticamente.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. Resumen Fiscal */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">2</span>
+          Resumen Fiscal
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            <strong>Que es:</strong> Un panorama anual de tu situacion financiera — ingresos, gastos, IVA y retenciones,
+            desglosado mes por mes. Piensalo como tu <strong>estado de resultados simplificado</strong>.
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Que muestra</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Tarjetas resumen</strong> — Ingresos totales, Gastos totales, Balance neto, IVA a pagar</li>
+              <li><strong>Desglose de impuestos</strong> — IVA trasladado, IVA acreditable, ISR retenido, IVA retenido</li>
+              <li><strong>Tabla mensual</strong> — Mes a mes: ingresos, gastos, IVA, retenciones, balance</li>
+              <li><strong>Leyenda explicativa</strong> — Que significa cada columna y como interpretar los numeros</li>
+            </ul>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded p-3">
+            <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
+            <p className="text-xs text-gray-600">
+              Tu contador te pide el total de ingresos y gastos del trimestre para la declaracion provisional.
+              Abres Resumen Fiscal, seleccionas el ano, y en la tabla mensual sumas enero + febrero + marzo.
+              Tambien ves cuanto IVA trasladado cobraste vs cuanto IVA acreditable pagaste — la diferencia es lo que debes al SAT.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
+            <p className="text-xs text-blue-700">
+              Usa los mismos CFDIs de la pestana 1, pero <strong>agrupados y sumados</strong> por mes.
+              Los numeros de ingresos y gastos aqui deben coincidir con lo que ves en <strong>Declaraciones</strong> (pestana 4).
+              Si eres RESICO, el monitor de ingresos aqui se complementa con el de <strong>Deducciones</strong> (pestana 3).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Deducciones */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">3</span>
+          Deducciones
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            <strong>Que es:</strong> Clasificacion automatica de tus gastos (facturas recibidas) en categorias como
+            Insumos Medicos, Renta, Equipo, Software, Alimentos, etc. Te ayuda a entender <strong>en que gastas</strong> y
+            si esos gastos son deducibles.
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Que muestra</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Tarjetas por categoria</strong> — Cada tipo de gasto con subtotal, IVA y numero de facturas</li>
+              <li><strong>Alertas de deducibilidad</strong> — CFDIs con uso S01, efectivo &gt;$2k, sin clasificar, cancelados</li>
+              <li><strong>Desglose mensual</strong> — Tabla con categorias por mes para ver tendencias</li>
+              <li><strong>Drill-down</strong> — Expande cada categoria para ver las facturas individuales</li>
+              <li><strong>Monitor RESICO</strong> — Si eres 626, muestra tus ingresos acumulados vs el limite de $3.5M</li>
+            </ul>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3">
+            <p className="font-semibold text-amber-800 text-xs mb-1">Diferencia segun tu regimen</p>
+            <p className="text-xs text-amber-700">
+              <strong>612:</strong> El titulo dice "Deducciones Fiscales" — tus gastos reducen ISR. Las alertas indican que gastos NO son deducibles.<br/>
+              <strong>RESICO:</strong> El titulo dice "Gastos del Ejercicio" — no hay deducciones de ISR, pero el IVA si es acreditable.
+              Las alertas se enfocan en IVA no acreditable.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded p-3">
+            <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
+            <p className="text-xs text-gray-600">
+              Notas que tienes 5 alertas de "Efectivo &gt;$2,000". Expandes la alerta y ves que son pagos a un proveedor
+              de insumos. La proxima vez le pagas por transferencia para que la factura salga con forma de pago "03 — Transferencia"
+              y el gasto sea deducible. Tambien ves 3 facturas con uso S01 — esas no son deducibles y debes
+              pedirle al emisor que las cancele y re-emita con uso G03 si realmente son gastos de negocio.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
+            <p className="text-xs text-blue-700">
+              Solo analiza facturas <strong>recibidas</strong> (gastos) de la pestana 1.
+              El total de gastos aqui debe coincidir con el total de gastos en <strong>Resumen Fiscal</strong> (pestana 2).
+              Las deducciones validas aqui son las que se usan para calcular ISR en <strong>Declaraciones</strong> (pestana 4).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Declaraciones */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">4</span>
+          Declaraciones
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            <strong>Que es:</strong> Calculo estimado de tus declaraciones mensuales de ISR e IVA,
+            usando la informacion de tus CFDIs. Es un <strong>borrador de pre-declaracion</strong> — te da una idea
+            de cuanto debes pagar antes de ir con tu contador.
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Que muestra</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Tarjetas anuales</strong> — Ingresos acumulados, deducciones acumuladas, ISR estimado, IVA a pagar</li>
+              <li><strong>Tabla mes a mes</strong> — Para cada mes: ingresos, deducciones, base gravable, ISR, IVA, retenciones</li>
+              <li><strong>Calculo segun regimen</strong> — 612 usa tabla progresiva Art. 96 LISR con pagos provisionales acumulados; RESICO usa tasa fija sobre ingresos brutos</li>
+              <li><strong>Detalle expandible</strong> — Clic en un mes para ver el desglose completo del calculo</li>
+            </ul>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3">
+            <p className="font-semibold text-amber-800 text-xs mb-1">Importante</p>
+            <p className="text-xs text-amber-700">
+              Estos calculos son <strong>estimaciones</strong> basadas en tus CFDIs. Tu contador puede ajustar montos
+              por depreciaciones, deducciones personales, pagos provisionales previos, y otros factores que el sistema
+              no contempla. Usa estos numeros como referencia, no como declaracion final.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded p-3">
+            <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
+            <p className="text-xs text-gray-600">
+              Es 15 de abril y necesitas presentar tu declaracion de marzo. Abres Declaraciones, expandes el mes de marzo,
+              y ves: ingresos $85,000, deducciones $22,000, base gravable $63,000, ISR provisional estimado $8,500,
+              menos retenciones que te hicieron $4,200, ISR a pagar ~$4,300. Le mandas estos numeros a tu contador
+              para que verifique y presente la declaracion.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
+            <p className="text-xs text-blue-700">
+              Toma los ingresos de facturas emitidas y los gastos deducibles de facturas recibidas (mismos datos que pestanas 2 y 3).
+              Las <strong>retenciones</strong> (ISR e IVA retenidos) vienen de las facturas emitidas a personas morales.
+              Si los montos no coinciden con <strong>Resumen Fiscal</strong>, revisa si hay facturas canceladas o notas de credito.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Cobranza */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">5</span>
+          Cobranza
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            <strong>Que es:</strong> Seguimiento de facturas PPD (pago diferido) que aun no has cobrado.
+            Es un <strong>reporte de cuentas por cobrar</strong> — te muestra cuanto te deben, hace cuanto, y quien.
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Que muestra</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Total por cobrar</strong> — Suma de facturas PPD emitidas sin complemento de pago completo</li>
+              <li><strong>Total vencido</strong> — Facturas con mas de 30 dias sin cobrar</li>
+              <li><strong>Buckets de antiguedad</strong> — 0-30 dias, 31-60 dias, 61-90 dias, +90 dias</li>
+              <li><strong>Lista de facturas</strong> — Expande cada bucket para ver las facturas individuales con RFC, nombre y monto</li>
+            </ul>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded p-3">
+            <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
+            <p className="text-xs text-gray-600">
+              Ves que tienes $45,000 en el bucket de "+90 dias" — son facturas de hace 3 meses que no te han pagado.
+              Expandes el bucket, identificas que son 2 facturas a la misma aseguradora, y decides llamarles para dar seguimiento.
+              Tambien notas que sin el complemento de pago, ese ingreso <strong>no cuenta como cobrado</strong> para efectos de IVA,
+              asi que no debes declarar el IVA de esas facturas hasta que te paguen.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
+            <p className="text-xs text-blue-700">
+              Solo analiza facturas <strong>emitidas con metodo PPD</strong>. Cruza la factura original con sus complementos de pago (tipo P)
+              para determinar cuanto se ha cobrado. Las facturas PUE (pago de contado) no aparecen aqui porque se consideran pagadas
+              al momento de emitirse. Si al expandir el XML de una factura PPD en la pestana 1 ves el indicador de pago en verde
+              pero aqui aparece como pendiente, puede ser que el complemento de pago aun no se ha sincronizado.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. Guia */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">6</span>
+          Guia
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            <strong>Que es:</strong> Referencia fiscal completa con conceptos de impuestos, regimenes, retenciones,
+            IVA, deducibilidad, y como funciona la clasificacion automatica. Es un <strong>manual de consulta</strong> —
+            no muestra datos, sino que explica los conceptos detras de los datos.
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Que contiene</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Como funciona la sincronizacion</strong> — Proceso de descarga, dos capas de datos, limitaciones del SAT</li>
+              <li><strong>Tu regimen fiscal</strong> — Diferencias entre 612 y RESICO, como afectan tus impuestos</li>
+              <li><strong>IVA</strong> — Tasas, trasladado vs acreditable, por que algunos CFDIs muestran IVA $0</li>
+              <li><strong>Retenciones</strong> — Cuando aplican, como se calculan, ejemplo numerico</li>
+              <li><strong>PUE vs PPD</strong> — Metodos de pago, implicaciones fiscales, complementos de pago</li>
+              <li><strong>Uso CFDI y clasificacion automatica</strong> — Tabla de usos con deducibilidad por regimen, como clasifica el sistema</li>
+              <li><strong>Gastos deducibles</strong> — Requisitos, tabla de gastos tipicos, errores comunes</li>
+              <li><strong>Obligaciones fiscales</strong> — Calendario de declaraciones, diferencias por regimen</li>
+              <li><strong>Detalles XML</strong> — Que significa cada campo del CFDI</li>
+              <li><strong>Casos especiales</strong> — Cancelaciones, notas de credito, moneda extranjera, facturas de periodos anteriores</li>
+            </ul>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded p-3">
+            <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
+            <p className="text-xs text-gray-600">
+              Ves una factura recibida con "IVA Retenido: $1,066.67" y no entiendes por que. Abres la Guia, buscas
+              la seccion de Retenciones, y encuentras que cuando una persona fisica factura servicios profesionales a una
+              persona moral, esta retiene 2/3 del IVA. Ahora entiendes que eso es un pago anticipado de tu IVA, no dinero perdido.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
+            <p className="text-xs text-blue-700">
+              No muestra datos — es pura referencia. Usala cuando no entiendas un concepto que aparece en las otras pestanas.
+              Si ves un termino como "PUE", "S01", "IVA acreditable" o "retencion" y no sabes que significa,
+              la explicacion esta en la Guia.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* How tabs relate — visual flow */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          Como se relacionan las pestanas
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <div className="bg-gray-50 rounded-lg p-4 font-mono text-xs space-y-2 text-center">
+            <p className="font-bold text-gray-800">Sincronizacion SAT (e.Firma)</p>
+            <p className="text-gray-400">|</p>
+            <p className="text-gray-400">v</p>
+            <p className="font-bold text-blue-700">[1] CFDIs Descargados</p>
+            <p className="text-gray-500 text-xs">(base de datos de todas tus facturas)</p>
+            <p className="text-gray-400">|</p>
+            <div className="flex justify-center gap-8 items-start">
+              <div className="text-center">
+                <p className="text-gray-400">v</p>
+                <p className="font-bold text-green-700">[2] Resumen</p>
+                <p className="text-gray-500 text-xs">(totales anuales)</p>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-400">v</p>
+                <p className="font-bold text-orange-700">[3] Deducciones</p>
+                <p className="text-gray-500 text-xs">(gastos clasificados)</p>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-400">v</p>
+                <p className="font-bold text-purple-700">[4] Declaraciones</p>
+                <p className="text-gray-500 text-xs">(ISR + IVA estimados)</p>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-400">v</p>
+                <p className="font-bold text-red-700">[5] Cobranza</p>
+                <p className="text-gray-500 text-xs">(cuentas por cobrar)</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            <p><strong>Flujo tipico de uso:</strong></p>
+            <ol className="list-decimal list-inside space-y-1.5 ml-2">
+              <li>Sincroniza tus CFDIs con tu e.Firma en la parte superior de la pagina</li>
+              <li>Revisa el <strong>listado de CFDIs</strong> para asegurarte que todo se descargo correctamente</li>
+              <li>Consulta el <strong>Resumen Fiscal</strong> para tener el panorama general del ano/mes</li>
+              <li>Revisa <strong>Deducciones</strong> para identificar gastos problematicos (S01, efectivo, sin clasificar)</li>
+              <li>Antes de declarar, abre <strong>Declaraciones</strong> para estimar ISR e IVA del mes</li>
+              <li>Si emites facturas PPD, revisa <strong>Cobranza</strong> periodicamente para dar seguimiento a pagos pendientes</li>
+              <li>Si no entiendes algun concepto, consultalo en la <strong>Guia</strong></li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Preguntas frecuentes</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <div>
+            <p className="font-semibold text-gray-800">¿Por que no veo datos en las pestanas?</p>
+            <p className="text-xs text-gray-600 mt-1">
+              Necesitas sincronizar primero. Sube tu e.Firma (.key y .cer) en la parte superior, selecciona un mes,
+              y haz clic en "Descargar". La sincronizacion tipo "Completa" descarga metadata + XML (necesario para Resumen Fiscal,
+              Deducciones y Declaraciones). La sincronizacion tipo "Solo metadata" es mas rapida pero solo llena el listado de CFDIs.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800">¿Cada cuanto debo sincronizar?</p>
+            <p className="text-xs text-gray-600 mt-1">
+              Idealmente una vez al mes, despues de que termines de facturar. Si necesitas informacion actualizada para
+              una declaracion, sincroniza el mes correspondiente. Los datos ya sincronizados no se pierden — la descarga
+              solo agrega facturas nuevas o actualiza status de las existentes (ej. si alguna se cancelo).
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800">¿Los datos de Declaraciones son exactos?</p>
+            <p className="text-xs text-gray-600 mt-1">
+              Son estimaciones basadas en tus CFDIs. Tu contador puede tener ajustes adicionales (depreciaciones, deducciones
+              personales, pagos provisionales de meses anteriores). Usa los numeros como punto de partida, no como declaracion final.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800">¿Que pasa si una factura aparece como "Sin Clasificar" en Deducciones?</p>
+            <p className="text-xs text-gray-600 mt-1">
+              Significa que el sistema no pudo determinar automaticamente la categoria del gasto. Esto pasa cuando el XML no tiene
+              clave de producto/servicio reconocida o no tiene XML descargado. La factura podria ser deducible — revisala manualmente
+              o consultalo con tu contador.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800">¿Puedo cambiar mi regimen fiscal aqui?</p>
+            <p className="text-xs text-gray-600 mt-1">
+              El sistema lee tu regimen desde la configuracion de Facturacion (/dashboard/facturacion, pestana Configuracion).
+              Si cambias de regimen ante el SAT, actualiza esa configuracion para que los calculos de Deducciones y Declaraciones
+              reflejen las reglas correctas (612 vs RESICO).
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function GuiaTab() {
   return (
     <div className="space-y-8 max-w-3xl">
       {/* Intro */}
       <section>
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
           <BookOpen className="w-5 h-5 text-purple-600" />
-          Guia de Informacion Contable
+          Guia Fiscal y de Uso
         </h3>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-800">
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-800 space-y-2">
           <p>
-            Esta guia explica los conceptos fiscales que aparecen en tus CFDIs descargados del SAT.
-            Util para entender tus obligaciones, retenciones e impuestos como persona fisica con actividad empresarial o profesional.
+            Guia completa sobre la descarga masiva de CFDIs, conceptos fiscales, deducibilidad de gastos,
+            y como funciona la clasificacion automatica. Aplica para medicos persona fisica en regimen 612 o RESICO (626).
           </p>
+        </div>
+      </section>
+
+      {/* How sync works */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
+          <Info className="w-5 h-5 text-blue-600" />
+          Como funciona la sincronizacion
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
+          <p>
+            La sincronizacion se conecta <strong>directamente al SAT</strong> usando tu e.Firma (FIEL)
+            para descargar el listado de todos los CFDIs que has emitido o recibido en un mes determinado.
+          </p>
+          <ol className="list-decimal list-inside space-y-1.5 ml-2">
+            <li><strong>Autenticacion</strong> — Se firma una solicitud con tu e.Firma para obtener un token del SAT</li>
+            <li><strong>Solicitud</strong> — Se pide al SAT que prepare el paquete de metadata (emitidos o recibidos)</li>
+            <li><strong>Espera</strong> — El SAT procesa la solicitud (normalmente 30 seg a unos minutos, maximo 72 horas)</li>
+            <li><strong>Descarga</strong> — Se descarga el paquete ZIP con la metadata de tus CFDIs</li>
+            <li><strong>Almacenamiento</strong> — Se parsea y guarda cada CFDI en la base de datos</li>
+          </ol>
+          <p className="text-xs text-gray-500 mt-3">
+            Un worker automatico revisa el progreso cada 15 minutos. No necesitas mantener la pagina abierta.
+          </p>
+
+          <div className="mt-3">
+            <p className="font-semibold text-gray-800">Dos capas de informacion</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+              <div className="border border-gray-200 rounded p-3">
+                <p className="font-medium text-gray-800 text-xs mb-1">1. Metadata (listado basico)</p>
+                <p className="text-xs text-gray-500 mb-1">Se obtiene rapido — es lo que ves en la tabla principal.</p>
+                <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-600">
+                  <li>UUID, emisor, receptor, monto, fecha</li>
+                  <li>Tipo (Ingreso, Egreso, Pago, Traslado)</li>
+                  <li>Status (Vigente / Cancelado)</li>
+                </ul>
+              </div>
+              <div className="border border-gray-200 rounded p-3">
+                <p className="font-medium text-gray-800 text-xs mb-1">2. XML (desglose fiscal completo)</p>
+                <p className="text-xs text-gray-500 mb-1">Se descarga por separado — al hacer clic en "Ver detalles XML".</p>
+                <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-600">
+                  <li>Subtotal, IVA, retenciones, descuentos</li>
+                  <li>Metodo/forma de pago, Uso CFDI</li>
+                  <li>Conceptos con clave SAT y descripcion</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3 mt-2">
+            <p className="font-semibold text-amber-800 text-xs mb-1">Limitaciones del SAT</p>
+            <ul className="list-disc list-inside space-y-0.5 text-xs text-amber-700">
+              <li>Puede tardar hasta 72 horas en procesar (normalmente minutos)</li>
+              <li>Maximo 1,000,000 registros por solicitud</li>
+              <li>Historico disponible: hasta 5 anos fiscales + ano actual</li>
+            </ul>
+          </div>
         </div>
       </section>
 
@@ -2927,13 +3395,14 @@ function ContableTab() {
         </div>
       </section>
 
-      {/* Uso CFDI Section */}
+      {/* Uso CFDI + Clasificacion automatica */}
       <section>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Uso del CFDI (Clave de Uso)</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Uso del CFDI y Clasificacion Automatica</h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
           <p>
             El "Uso CFDI" indica para que usara el <strong>receptor</strong> esa factura en su contabilidad.
-            Lo define quien recibe la factura, no quien la emite.
+            Es la <strong>senal principal de deducibilidad</strong> — el sistema la usa para determinar automaticamente
+            si un gasto es deducible, acreditable, o sin efectos.
           </p>
 
           <div className="overflow-x-auto">
@@ -2942,122 +3411,67 @@ function ContableTab() {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Clave</th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Descripcion</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Uso tipico</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">612</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">RESICO</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                <tr>
+                <tr className="bg-green-50">
                   <td className="px-3 py-2 font-mono font-medium">G01</td>
                   <td className="px-3 py-2">Adquisicion de mercancias</td>
-                  <td className="px-3 py-2 text-gray-500">Compra de productos para reventa o insumos</td>
+                  <td className="px-3 py-2 text-green-700">Deducible + IVA</td>
+                  <td className="px-3 py-2 text-green-700">IVA acreditable</td>
                 </tr>
-                <tr>
+                <tr className="bg-green-50">
                   <td className="px-3 py-2 font-mono font-medium">G03</td>
                   <td className="px-3 py-2">Gastos en general</td>
-                  <td className="px-3 py-2 text-gray-500">Servicios, renta, software, SaaS, suministros</td>
+                  <td className="px-3 py-2 text-green-700">Deducible + IVA</td>
+                  <td className="px-3 py-2 text-green-700">IVA acreditable</td>
                 </tr>
                 <tr>
-                  <td className="px-3 py-2 font-mono font-medium">I01</td>
-                  <td className="px-3 py-2">Construcciones</td>
-                  <td className="px-3 py-2 text-gray-500">Remodelacion de consultorio, obra</td>
+                  <td className="px-3 py-2 font-mono font-medium">I01-I08</td>
+                  <td className="px-3 py-2">Inversiones (mobiliario, computo, construccion)</td>
+                  <td className="px-3 py-2 text-blue-700">Depreciable + IVA</td>
+                  <td className="px-3 py-2 text-green-700">IVA acreditable</td>
                 </tr>
                 <tr>
-                  <td className="px-3 py-2 font-mono font-medium">I02</td>
-                  <td className="px-3 py-2">Mobiliario y equipo de oficina</td>
-                  <td className="px-3 py-2 text-gray-500">Escritorios, sillas, equipo medico</td>
+                  <td className="px-3 py-2 font-mono font-medium">D01-D10</td>
+                  <td className="px-3 py-2">Deducciones personales (medicos, colegiaturas, etc.)</td>
+                  <td className="px-3 py-2 text-amber-700">Solo anual</td>
+                  <td className="px-3 py-2 text-red-600 font-medium">No aplica</td>
                 </tr>
-                <tr>
-                  <td className="px-3 py-2 font-mono font-medium">I04</td>
-                  <td className="px-3 py-2">Equipo de computo</td>
-                  <td className="px-3 py-2 text-gray-500">Computadoras, servidores, tablets</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2 font-mono font-medium">D01</td>
-                  <td className="px-3 py-2">Honorarios medicos, dentales y hospitalarios</td>
-                  <td className="px-3 py-2 text-gray-500">Cuando un paciente deduce tu consulta en su declaracion anual</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2 font-mono font-medium">D02</td>
-                  <td className="px-3 py-2">Gastos medicos por incapacidad</td>
-                  <td className="px-3 py-2 text-gray-500">Gastos por discapacidad o enfermedad</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2 font-mono font-medium">S01</td>
-                  <td className="px-3 py-2">Sin efectos fiscales</td>
-                  <td className="px-3 py-2 text-gray-500">El receptor no la va a deducir (uso informal)</td>
+                <tr className="bg-red-50">
+                  <td className="px-3 py-2 font-mono font-medium text-red-700">S01</td>
+                  <td className="px-3 py-2 text-red-700">Sin efectos fiscales</td>
+                  <td className="px-3 py-2 text-red-600 font-medium">No deducible</td>
+                  <td className="px-3 py-2 text-red-600 font-medium">Sin IVA</td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 font-mono font-medium">CP01</td>
-                  <td className="px-3 py-2">Pagos</td>
-                  <td className="px-3 py-2 text-gray-500">Exclusivo para complementos de pago (tipo P)</td>
+                  <td className="px-3 py-2">Pagos (complemento de pago tipo P)</td>
+                  <td className="px-3 py-2 text-gray-500">N/A</td>
+                  <td className="px-3 py-2 text-gray-500">N/A</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded p-3">
-            <p className="font-semibold text-blue-800 text-xs mb-1">Para medicos</p>
+            <p className="font-semibold text-blue-800 text-xs mb-1">Clasificacion automatica de gastos</p>
             <p className="text-xs text-blue-700">
-              Cuando un paciente (persona fisica) te pide factura con uso <strong>D01</strong>, significa que va a deducir
-              tu consulta en su declaracion anual como gasto medico personal. Esto es perfectamente valido y comun.
-              Si el paciente no piensa deducirla, usara S01.
+              Ademas del Uso CFDI, el sistema clasifica cada gasto en categorias (Insumos, Equipo Medico, Renta, Alimentos, etc.)
+              usando la <strong>clave de producto/servicio (claveProdServ)</strong> del XML — un codigo UNSPSC de 8 digitos que identifica
+              el tipo de bien o servicio. Si la clave no matchea, se buscan palabras clave en la descripcion del concepto.
+              Los gastos que no se pueden clasificar aparecen como <strong>"Sin Clasificar"</strong> para revision manual.
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Regimen Fiscal Section */}
-      <section>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Regimenes Fiscales para Medicos</h3>
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs border border-gray-200 rounded">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Regimen</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Para quien</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Limite ingresos</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">ISR</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                <tr className="bg-indigo-50">
-                  <td className="px-3 py-2 font-medium">612 — Actividad Empresarial y Profesional</td>
-                  <td className="px-3 py-2">Medicos en consultorio privado (el mas comun)</td>
-                  <td className="px-3 py-2 text-gray-500">Sin limite</td>
-                  <td className="px-3 py-2 text-gray-500">Tabla progresiva (1.92% a 35%) sobre ingresos − deducciones</td>
-                </tr>
-                <tr className="bg-emerald-50">
-                  <td className="px-3 py-2 font-medium">626 — RESICO (Simplificado de Confianza)</td>
-                  <td className="px-3 py-2">Medicos con ingresos hasta $3.5M/ano que prefieren simplicidad</td>
-                  <td className="px-3 py-2 text-gray-500">$3,500,000/anio</td>
-                  <td className="px-3 py-2 text-gray-500">Tasa fija (1% a 2.5%) sobre ingresos brutos — sin deducciones</td>
-                </tr>
-              </tbody>
-            </table>
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded p-3">
-            <p className="font-semibold text-amber-800 text-xs mb-1">RESICO: Restricciones importantes</p>
-            <ul className="list-disc list-inside space-y-1 text-xs text-amber-700">
-              <li><strong>No puedes deducir gastos</strong> — tu ISR se calcula sobre ingresos brutos, no sobre utilidad</li>
-              <li>Retencion ISR cuando facturas a persona moral: <strong>1.25%</strong> (no 10% como en regimen 612)</li>
-              <li>Si rebasas $3.5M en el ano, el SAT te migra automaticamente a 612</li>
-              <li>No puedes ser socio o accionista de persona moral</li>
-              <li>Si puedes tener empleados y emitir nomina (mismas obligaciones patronales que 612)</li>
-            </ul>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded p-3">
-            <p className="font-semibold text-blue-800 text-xs mb-1">Otros regimenes que NO aplican para facturar servicios medicos</p>
-            <ul className="list-disc list-inside space-y-1 text-xs text-blue-700">
-              <li><strong>605 (Sueldos y Salarios)</strong> — solo para empleados de hospital, no pueden emitir facturas propias</li>
-              <li><strong>606 (Arrendamiento)</strong> — para ingresos por renta, no servicios medicos</li>
-              <li><strong>621 (Incorporacion Fiscal)</strong> — descontinuado en 2022, reemplazado por RESICO</li>
-              <li><strong>625 (Plataformas Tecnologicas)</strong> — para economia gig, no aplica a medicos</li>
-            </ul>
-            <p className="text-xs text-blue-700 mt-1">
-              <strong>Caso especial:</strong> Un medico puede ser multi-regimen (ej. 605 como empleado de hospital + 612 para consultorio privado), pero las facturas de servicios profesionales siempre se emiten bajo 612 o 626.
+            <p className="font-semibold text-amber-800 text-xs mb-1">Para medicos</p>
+            <p className="text-xs text-amber-700">
+              Cuando un paciente (persona fisica) te pide factura con uso <strong>D01</strong>, significa que va a deducir
+              tu consulta como gasto medico personal en su declaracion anual. Si no piensa deducirla, usara S01.
+              Esto afecta al <em>receptor</em>, no a ti como emisor — tu ingreso es el mismo.
             </p>
           </div>
         </div>
@@ -3067,12 +3481,15 @@ function ContableTab() {
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">Gastos Deducibles para Medicos</h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
-          <div className="bg-amber-50 border border-amber-200 rounded p-3">
-            <p className="font-semibold text-amber-800 text-xs mb-1">Aplica solo a Regimen 612 (Actividad Empresarial y Profesional)</p>
-            <p className="text-xs text-amber-700">
-              Si estas en <strong>RESICO (626)</strong>, tus gastos <strong>no son deducibles para ISR</strong> — tu impuesto se calcula sobre ingresos brutos a tasa fija.
-              Sin embargo, si puedes <strong>acreditar el IVA</strong> que pagas en tus compras (IVA funciona igual en ambos regimenes).
-              La informacion de gastos sigue siendo util para entender tu flujo de efectivo y el IVA acreditable.
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Deducibilidad segun tu regimen</p>
+            <p className="text-xs text-blue-700">
+              <strong>612 (Actividad Empresarial):</strong> Tus gastos son deducibles para ISR — reducen la base sobre la que pagas impuestos.
+              El sistema clasifica automaticamente cada gasto usando el <strong>Uso CFDI</strong> (S01 = no deducible, G01/G03 = gasto operativo, I0x = inversion)
+              y la <strong>clave de producto/servicio SAT</strong> del XML.<br/><br/>
+              <strong>RESICO (626):</strong> Tus gastos <strong>no reducen ISR</strong>, pero el <strong>IVA si es acreditable</strong> (regla 3.13.20 RMF).
+              Para acreditar IVA necesitas: CFDI valido, gasto indispensable para tu actividad, y pago bancarizado.
+              CFDIs con uso S01 no generan IVA acreditable en ningun regimen.
             </p>
           </div>
 
@@ -3144,20 +3561,42 @@ function ContableTab() {
                     <td className="px-3 py-2 text-gray-500">Servicios profesionales que contratas</td>
                     <td className="px-3 py-2 text-gray-500">100% deducible</td>
                   </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Alimentos y viajes</td>
+                    <td className="px-3 py-2 text-gray-500">Restaurantes, hoteles, vuelos, viaticos</td>
+                    <td className="px-3 py-2 text-gray-500">Parcial (8.5% a 50% segun caso)</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Papeleria y limpieza</td>
+                    <td className="px-3 py-2 text-gray-500">Material de oficina, toner, articulos de limpieza</td>
+                    <td className="px-3 py-2 text-gray-500">100% deducible</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Clasificacion automatica</p>
+            <p className="text-xs text-blue-700">
+              El sistema clasifica tus gastos automaticamente usando dos senales del XML:<br/>
+              1. <strong>Uso CFDI</strong> — Determina si el gasto es deducible (G01/G03 = si, S01 = no, I0x = inversion depreciable)<br/>
+              2. <strong>Clave de producto/servicio (claveProdServ)</strong> — Codigo UNSPSC de 8 digitos que indica la categoria del gasto<br/>
+              Si ninguna senal matchea, el gasto aparece como <strong>"Sin Clasificar"</strong> y requiere revision manual.
+            </p>
+          </div>
+
           <div className="bg-red-50 border border-red-200 rounded p-3">
             <p className="font-semibold text-red-800 text-xs mb-1">Gastos NO deducibles (errores comunes)</p>
             <ul className="list-disc list-inside space-y-1 text-xs text-red-700">
+              <li><strong>Uso CFDI "S01 — Sin efectos fiscales"</strong> — no deducible y sin IVA acreditable en ningun regimen</li>
               <li>Gastos personales (supermercado, ropa, entretenimiento)</li>
               <li>Facturas a nombre de otra persona</li>
-              <li>Pagos en efectivo mayores a $2,000 (aun con factura)</li>
+              <li>Pagos en efectivo mayores a $2,000 (aun con factura — Art. 27 frac. III LISR)</li>
               <li>Facturas de proveedores en lista negra del SAT (Art. 69-B)</li>
               <li>Gastos sin relacion con tu actividad profesional</li>
               <li>Donaciones a entidades no autorizadas</li>
+              <li>CFDIs cancelados</li>
             </ul>
           </div>
         </div>
@@ -3205,7 +3644,7 @@ function ContableTab() {
                 <tr>
                   <td className="px-3 py-2 font-medium">Contabilidad electronica</td>
                   <td className="px-3 py-2">Mensual</td>
-                  <td className="px-3 py-2 text-gray-500">Varies (3-5 del segundo mes)</td>
+                  <td className="px-3 py-2 text-gray-500">Variable (3-5 del segundo mes)</td>
                   <td className="px-3 py-2 text-gray-500">Balanza de comprobacion y catalogo de cuentas</td>
                 </tr>
               </tbody>
@@ -3234,9 +3673,125 @@ function ContableTab() {
         </div>
       </section>
 
+      {/* XML Details */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Detalles XML — Campos del CFDI</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            Al expandir un CFDI y hacer clic en <strong>"Ver detalles XML"</strong>, se muestra el desglose
+            fiscal completo. Estos son los campos principales:
+          </p>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border border-gray-200 rounded">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Campo</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Que es</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2 font-medium">Subtotal</td>
+                  <td className="px-3 py-2 text-gray-500">Suma de conceptos antes de impuestos</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">IVA Trasladado</td>
+                  <td className="px-3 py-2 text-gray-500">Impuesto al 16% cobrado al cliente. Tasa 0% en alimentos basicos y medicinas.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">ISR Retenido</td>
+                  <td className="px-3 py-2 text-gray-500">Retencion de ISR (10% en 612, 1.25% en RESICO) cuando persona moral paga honorarios.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">IVA Retenido</td>
+                  <td className="px-3 py-2 text-gray-500">Retencion de IVA (2/3 del IVA). Aplica en servicios profesionales PF a PM.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">Metodo Pago</td>
+                  <td className="px-3 py-2 text-gray-500"><strong>PUE</strong> = pago al contado. <strong>PPD</strong> = pago diferido/parcialidades.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">Forma Pago</td>
+                  <td className="px-3 py-2 text-gray-500">01=Efectivo, 03=Transferencia, 04=Tarjeta credito, 28=Tarjeta debito, 99=Por definir</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">Uso CFDI</td>
+                  <td className="px-3 py-2 text-gray-500">Destino fiscal (G03=Gastos, I04=Computo, S01=Sin efectos). Determina deducibilidad.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium">Conceptos</td>
+                  <td className="px-3 py-2 text-gray-500">Lineas de la factura con descripcion, clave SAT (claveProdServ), cantidad, precio e IVA. El sistema usa la clave SAT para clasificar el gasto automaticamente.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">
+            <strong>Nota:</strong> Los complementos de pago (tipo P) no tienen subtotal ni conceptos — solo registran
+            que se realizo un pago asociado a una factura previa.
+          </p>
+        </div>
+      </section>
+
+      {/* Tipo column */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Columna "Tipo" — Impacto Financiero</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
+          <p>
+            El SAT clasifica cada CFDI por su <strong>EfectoComprobante</strong> (I=Ingreso, E=Egreso, P=Pago).
+            Pero el impacto financiero depende de si tu lo <em>emitiste</em> o lo <em>recibiste</em>:
+          </p>
+
+          <div className="overflow-x-auto mt-3">
+            <table className="w-full text-xs border border-gray-200 rounded">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Direccion + Efecto</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Se muestra como</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Significado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">Emi</span> + Ingreso</td>
+                  <td className="px-3 py-2"><span className="font-medium text-green-600">Ingreso</span></td>
+                  <td className="px-3 py-2 text-gray-500">Facturaste a alguien — dinero a tu favor</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs">Rec</span> + Ingreso</td>
+                  <td className="px-3 py-2"><span className="font-medium text-red-600">Gasto</span></td>
+                  <td className="px-3 py-2 text-gray-500">Alguien te facturo — dinero que pagaste</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">Emi</span> + Egreso</td>
+                  <td className="px-3 py-2"><span className="font-medium text-orange-600">Nota de credito</span></td>
+                  <td className="px-3 py-2 text-gray-500">Emitiste una devolucion/descuento</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs">Rec</span> + Egreso</td>
+                  <td className="px-3 py-2"><span className="font-medium text-blue-600">Nota de credito</span></td>
+                  <td className="px-3 py-2 text-gray-500">Te emitieron una devolucion/descuento a tu favor</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs">Rec</span> + Pago</td>
+                  <td className="px-3 py-2"><span className="font-medium text-green-600">Pago recibido</span></td>
+                  <td className="px-3 py-2 text-gray-500">Complemento de pago — te pagaron una factura PPD</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2"><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">Emi</span> + Pago</td>
+                  <td className="px-3 py-2"><span className="font-medium text-red-600">Pago emitido</span></td>
+                  <td className="px-3 py-2 text-gray-500">Complemento de pago — pagaste una factura PPD</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       {/* Edge Cases Section */}
       <section>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Casos Especiales y Edge Cases</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Casos Especiales</h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
           <div>
             <p className="font-semibold text-gray-800 mb-2">Facturas canceladas</p>
@@ -3288,14 +3843,6 @@ function ContableTab() {
             </ul>
           </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded p-3">
-            <p className="font-semibold text-gray-700 text-xs mb-1">Disclaimer</p>
-            <p className="text-xs text-gray-500">
-              Esta guia es informativa y no sustituye el consejo de un contador publico certificado.
-              Las leyes fiscales cambian frecuentemente. Consulta a tu contador para decisiones
-              especificas sobre tu situacion fiscal.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -3343,269 +3890,19 @@ function ContableTab() {
           </div>
         </div>
       </section>
-    </div>
-  );
-}
 
-// ---------------------------------------------------------------------------
-// Info Tab
-// ---------------------------------------------------------------------------
-
-function InfoTab() {
-  return (
-    <div className="space-y-8 max-w-3xl">
-      {/* What does sync do */}
+      {/* Disclaimer */}
       <section>
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
-          <Info className="w-5 h-5 text-purple-600" />
-          ¿Qué hace la sincronización?
-        </h3>
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
-          <p>
-            La sincronización se conecta <strong>directamente al SAT</strong> usando tu e.Firma (FIEL)
-            para descargar el listado de todos los CFDIs que has emitido o recibido en un mes determinado.
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <p className="font-semibold text-gray-700 text-xs mb-1">Disclaimer</p>
+          <p className="text-xs text-gray-500">
+            Esta guia es informativa y no sustituye el consejo de un contador publico certificado.
+            Las leyes fiscales cambian frecuentemente. Consulta a tu contador para decisiones
+            especificas sobre tu situacion fiscal.
           </p>
-          <p>El proceso funciona así:</p>
-          <ol className="list-decimal list-inside space-y-1.5 ml-2">
-            <li><strong>Autenticación</strong> — Se firma una solicitud con tu e.Firma para obtener un token del SAT</li>
-            <li><strong>Solicitud</strong> — Se pide al SAT que prepare el paquete de metadata (emitidos o recibidos)</li>
-            <li><strong>Espera</strong> — El SAT procesa la solicitud (normalmente 30 seg a unos minutos, máximo 72 horas)</li>
-            <li><strong>Descarga</strong> — Se descarga el paquete ZIP con la metadata de tus CFDIs</li>
-            <li><strong>Almacenamiento</strong> — Se parsea y guarda cada CFDI en la base de datos</li>
-          </ol>
-          <p className="text-xs text-gray-500 mt-3">
-            Un worker automático revisa el progreso cada 15 minutos. No necesitas mantener la página abierta.
-          </p>
-        </div>
-      </section>
-
-      {/* What data do we get */}
-      <section>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">¿Qué datos obtenemos?</h3>
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
-          <p>La descarga tiene <strong>dos capas</strong> de información:</p>
-
-          <div className="mt-2">
-            <p className="font-semibold text-gray-800">1. Metadata (listado básico)</p>
-            <p className="text-xs text-gray-500 mb-1">Se obtiene rápido — es lo que ves en la tabla principal.</p>
-            <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>UUID (folio fiscal único)</li>
-              <li>Emisor y receptor (nombre + RFC)</li>
-              <li>Monto total</li>
-              <li>Fecha de emisión y certificación</li>
-              <li>Tipo de comprobante (Ingreso, Egreso, Pago, Traslado)</li>
-              <li>Status (Vigente / Cancelado)</li>
-              <li>PAC que certificó</li>
-            </ul>
-          </div>
-
-          <div className="mt-3">
-            <p className="font-semibold text-gray-800">2. XML (desglose fiscal completo)</p>
-            <p className="text-xs text-gray-500 mb-1">Se descarga por separado — es lo que ves al hacer clic en "Ver detalles XML".</p>
-            <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>Subtotal (monto antes de impuestos)</li>
-              <li>IVA trasladado (16% cobrado al cliente)</li>
-              <li>ISR retenido (retención de ISR que te hacen)</li>
-              <li>IVA retenido (retención de IVA — personas morales)</li>
-              <li>Descuentos aplicados</li>
-              <li>Método de pago: PUE (una exhibición) o PPD (parcialidades)</li>
-              <li>Forma de pago: efectivo, transferencia, tarjeta, cheque, etc.</li>
-              <li>Uso CFDI: G01 (adquisición), G03 (gastos), D01 (honorarios médicos), etc.</li>
-              <li>Moneda y tipo de cambio (para facturas en USD)</li>
-              <li>Serie y folio (numeración interna del emisor)</li>
-              <li>Conceptos: cada línea de la factura con descripción, cantidad, precio unitario, importe e IVA</li>
-            </ul>
-          </div>
-
-          <p className="text-xs text-gray-500 mt-3">
-            El tipo "Completa" descarga ambas capas en una sola acción. Si solo quieres el listado
-            sin desglose, usa "Solo metadata".
-          </p>
-        </div>
-      </section>
-
-      {/* XML Details explanation */}
-      <section>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Detalles XML — ¿Para qué sirve cada campo?</h3>
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
-          <p>
-            Al expandir un CFDI y hacer clic en <strong>"Ver detalles XML"</strong>, se muestra el desglose
-            fiscal completo extraído del XML original. Aquí una explicación de cada sección:
-          </p>
-
-          <div className="mt-3">
-            <p className="font-semibold text-gray-800 mb-1">Desglose financiero</p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border border-gray-200 rounded">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Campo</th>
-                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Qué es</th>
-                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Ejemplo</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  <tr>
-                    <td className="px-3 py-2 font-medium">Subtotal</td>
-                    <td className="px-3 py-2 text-gray-500">Suma de conceptos antes de impuestos</td>
-                    <td className="px-3 py-2 font-mono">$8,620.69</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 font-medium">IVA Trasladado</td>
-                    <td className="px-3 py-2 text-gray-500">Impuesto al 16% que se cobra al cliente. Algunos productos tienen tasa 0% (alimentos básicos, medicinas).</td>
-                    <td className="px-3 py-2 font-mono">$1,379.31</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 font-medium">ISR Retenido</td>
-                    <td className="px-3 py-2 text-gray-500">Retención de Impuesto Sobre la Renta. Aplica cuando una persona moral te paga honorarios (te retienen el 10%).</td>
-                    <td className="px-3 py-2 font-mono">$862.07</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 font-medium">IVA Retenido</td>
-                    <td className="px-3 py-2 text-gray-500">Retención de IVA (2/3 del IVA). Aplica en servicios profesionales de persona física a moral.</td>
-                    <td className="px-3 py-2 font-mono">$689.66</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 font-medium">Total</td>
-                    <td className="px-3 py-2 text-gray-500">Subtotal + IVA − Retenciones − Descuentos = lo que efectivamente se cobra/paga</td>
-                    <td className="px-3 py-2 font-mono">$10,000.00</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <p className="font-semibold text-gray-800 mb-1">Información de pago</p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border border-gray-200 rounded">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Campo</th>
-                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Qué es</th>
-                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Valores comunes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  <tr>
-                    <td className="px-3 py-2 font-medium">Método de Pago</td>
-                    <td className="px-3 py-2 text-gray-500">Cuándo se paga la factura</td>
-                    <td className="px-3 py-2"><strong>PUE</strong> = pago en una sola exhibición (contado) • <strong>PPD</strong> = pago en parcialidades o diferido (crédito)</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 font-medium">Forma de Pago</td>
-                    <td className="px-3 py-2 text-gray-500">Cómo se paga</td>
-                    <td className="px-3 py-2">01=Efectivo • 02=Cheque • 03=Transferencia • 04=Tarjeta crédito • 28=Tarjeta débito • 99=Por definir</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 font-medium">Uso CFDI</td>
-                    <td className="px-3 py-2 text-gray-500">Para qué usará el receptor este CFDI fiscalmente</td>
-                    <td className="px-3 py-2">G01=Adquisición de mercancías • G03=Gastos en general • D01=Honorarios médicos • S01=Sin efectos fiscales</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 font-medium">Moneda</td>
-                    <td className="px-3 py-2 text-gray-500">Moneda de la factura</td>
-                    <td className="px-3 py-2">MXN (pesos) • USD (dólares) — si es USD incluye tipo de cambio</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <p className="font-semibold text-gray-800 mb-1">Conceptos (líneas de la factura)</p>
-            <p className="text-gray-600">
-              Cada factura tiene uno o más conceptos. Cada concepto es un producto o servicio facturado
-              con su descripción, cantidad, precio unitario e importe. Los conceptos son útiles para:
-            </p>
-            <ul className="list-disc list-inside space-y-1 ml-2 mt-2">
-              <li><strong>Deducibilidad</strong> — Verificar que la descripción coincide con un gasto deducible</li>
-              <li><strong>Clasificación</strong> — La clave de producto/servicio SAT indica la categoría fiscal</li>
-              <li><strong>Auditoría</strong> — Revisar que cantidades y precios coinciden con lo acordado</li>
-              <li><strong>IVA por concepto</strong> — Algunos conceptos tienen IVA 0% (alimentos, medicinas) y otros 16%</li>
-            </ul>
-          </div>
-
-          <p className="text-xs text-gray-500 mt-4 border-t border-gray-100 pt-3">
-            <strong>Nota:</strong> No todos los campos están presentes en todas las facturas. Por ejemplo,
-            los complementos de pago (tipo P) no tienen subtotal ni conceptos con importe — solo registran
-            que se realizó un pago asociado a una factura previa.
-          </p>
-        </div>
-      </section>
-
-      {/* Financial impact explanation */}
-      <section>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Columna "Tipo" — Impacto financiero</h3>
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
-          <p>
-            El SAT clasifica cada CFDI por su <strong>EfectoComprobante</strong> (I=Ingreso, E=Egreso, P=Pago, T=Traslado).
-            Pero este código describe el tipo de documento, <strong>no el impacto en tus finanzas</strong>.
-          </p>
-          <p>
-            Por ejemplo, un CFDI tipo "Ingreso" que tú <em>recibes</em> significa que alguien te cobró — es un <strong>gasto</strong> para ti.
-            Por eso traducimos la combinación Dirección + Efecto a lo que realmente significa:
-          </p>
-
-          <div className="overflow-x-auto mt-3">
-            <table className="w-full text-xs border border-gray-200 rounded">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Dirección + Efecto SAT</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Se muestra como</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Significado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                <tr>
-                  <td className="px-3 py-2"><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">Emi</span> + Ingreso</td>
-                  <td className="px-3 py-2"><span className="font-medium text-green-600">Ingreso</span></td>
-                  <td className="px-3 py-2 text-gray-500">Facturaste a alguien — dinero a tu favor</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs">Rec</span> + Ingreso</td>
-                  <td className="px-3 py-2"><span className="font-medium text-red-600">Gasto</span></td>
-                  <td className="px-3 py-2 text-gray-500">Alguien te facturó — dinero que pagaste</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2"><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">Emi</span> + Egreso</td>
-                  <td className="px-3 py-2"><span className="font-medium text-orange-600">Nota de crédito</span></td>
-                  <td className="px-3 py-2 text-gray-500">Emitiste una devolución/descuento</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs">Rec</span> + Egreso</td>
-                  <td className="px-3 py-2"><span className="font-medium text-blue-600">Nota de crédito</span></td>
-                  <td className="px-3 py-2 text-gray-500">Te emitieron una devolución/descuento a tu favor</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2"><span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs">Rec</span> + Pago</td>
-                  <td className="px-3 py-2"><span className="font-medium text-green-600">Pago recibido</span></td>
-                  <td className="px-3 py-2 text-gray-500">Complemento de pago — te pagaron una factura</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2"><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">Emi</span> + Pago</td>
-                  <td className="px-3 py-2"><span className="font-medium text-red-600">Pago emitido</span></td>
-                  <td className="px-3 py-2 text-gray-500">Complemento de pago — pagaste una factura</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      {/* Limitations */}
-      <section>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Limitaciones del SAT</h3>
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-2 text-sm text-gray-700">
-          <ul className="list-disc list-inside space-y-1.5 ml-2">
-            <li>El SAT puede tardar hasta <strong>72 horas</strong> en procesar una solicitud (normalmente minutos)</li>
-            <li>Máximo <strong>1,000,000</strong> registros por solicitud</li>
-            <li>Histórico disponible: hasta <strong>5 años fiscales</strong> + año actual</li>
-            <li>No puedes descargar el mismo XML más de 2 veces</li>
-            <li>Si ya existe una solicitud activa para el mismo periodo, el SAT la rechaza</li>
-          </ul>
         </div>
       </section>
     </div>
   );
 }
+
