@@ -1846,11 +1846,12 @@ function DeduccionesTab() {
       {isResico && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <p className="text-sm text-amber-800 font-medium">
-            En RESICO, tus gastos no son deducibles para ISR.
+            RESICO: Tus gastos no reducen ISR, pero el IVA sí es acreditable.
           </p>
           <p className="text-xs text-amber-600 mt-1">
-            Tu ISR se calcula sobre ingresos brutos a tasa fija (1% a 2.5%). Esta sección te muestra tus gastos
-            para control interno y para el cálculo de IVA acreditable, que sí aplica en RESICO.
+            Tu ISR se calcula sobre ingresos brutos a tasa fija (1% a 2.5%) — los gastos no lo reducen.
+            Sin embargo, el <strong>IVA de tus gastos sí es acreditable</strong> contra el IVA que cobras (regla 3.13.20 RMF),
+            siempre que sean gastos indispensables, con CFDI válido y pagados con medios bancarios.
           </p>
         </div>
       )}
@@ -1898,30 +1899,31 @@ function DeduccionesTab() {
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wide">IVA Acreditable</p>
           <p className="text-xl font-bold text-green-700 mt-1">{fmtMoney(data.totals.iva)}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{isResico ? 'Aplica en RESICO' : 'Para declaración mensual'}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{isResico ? 'Aplica en RESICO (regla 3.13.20)' : 'Para declaración mensual'}</p>
         </div>
-        {!isResico && (
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">No Deducible</p>
-            <p className="text-xl font-bold text-red-600 mt-1">{fmtMoney(data.totals.nonDeductible)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Efectivo &gt; $2k, cancelados</p>
-          </div>
-        )}
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">{isResico ? 'Categorías' : 'Con Alertas'}</p>
-          <p className="text-xl font-bold text-amber-600 mt-1">
-            {isResico ? data.categories.length : data.totals.flagged}
+          <p className="text-xs text-gray-500 uppercase tracking-wide">
+            {isResico ? 'Sin IVA Acreditable' : 'No Deducible'}
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">{isResico ? 'tipos de gasto' : 'requieren revisión'}</p>
+          <p className="text-xl font-bold text-red-600 mt-1">{fmtMoney(data.totals.nonDeductible)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {isResico ? 'S01, efectivo >$2k' : 'S01, efectivo >$2k, cancelados'}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Con Alertas</p>
+          <p className="text-xl font-bold text-amber-600 mt-1">{data.totals.flagged}</p>
+          <p className="text-xs text-gray-400 mt-0.5">requieren revisión</p>
         </div>
       </div>
 
       {/* Alerts */}
-      {!isResico && data.alerts.length > 0 && (
+      {data.alerts.length > 0 && (
         <div className="space-y-2">
           {data.alerts.map((alert, i) => (
             <div key={i} className={`flex items-center gap-2 text-sm p-3 rounded-md border ${
-              alert.type === 'cash_over_2k' ? 'bg-red-50 border-red-200 text-red-700' :
+              alert.type === 'cash_over_2k' || alert.type === 'sin_efectos' ? 'bg-red-50 border-red-200 text-red-700' :
+              alert.type === 'sin_clasificar' ? 'bg-amber-50 border-amber-200 text-amber-700' :
               alert.type === 'no_xml' ? 'bg-gray-50 border-gray-200 text-gray-600' :
               'bg-amber-50 border-amber-200 text-amber-700'
             }`}>
@@ -1998,16 +2000,19 @@ function DeduccionesTab() {
                             </div>
                             <div className="text-right ml-4">
                               <span className="text-gray-900 font-medium">{fmtMoney(cfdi.subtotal)}</span>
-                              {cfdi.flags.length > 0 && !isResico && (
+                              {cfdi.flags.length > 0 && (
                                 <div className="mt-0.5">
                                   {cfdi.flags.map((f, fi) => (
                                     <span key={fi} className={`inline-block text-[10px] px-1.5 py-0.5 rounded mr-1 ${
-                                      f.type === 'cash_over_2k' ? 'bg-red-100 text-red-600' :
-                                      f.type === 'proportional' ? 'bg-amber-100 text-amber-600' :
+                                      f.type === 'cash_over_2k' || f.type === 'sin_efectos' ? 'bg-red-100 text-red-600' :
+                                      f.type === 'proportional' || f.type === 'sin_clasificar' || f.type === 'deduccion_personal_resico' ? 'bg-amber-100 text-amber-600' :
                                       'bg-gray-100 text-gray-500'
                                     }`}>
-                                      {f.type === 'cash_over_2k' ? 'Efectivo' :
+                                      {f.type === 'cash_over_2k' ? 'Efectivo >$2k' :
+                                       f.type === 'sin_efectos' ? 'S01' :
                                        f.type === 'proportional' ? 'Proporcional' :
+                                       f.type === 'sin_clasificar' ? 'Sin clasificar' :
+                                       f.type === 'deduccion_personal_resico' ? 'Ded. personal' :
                                        f.type === 'no_xml' ? 'Sin XML' : f.type}
                                     </span>
                                   ))}

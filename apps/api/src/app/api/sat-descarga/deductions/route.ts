@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
             isrRetenido: true,
             ivaRetenido: true,
             formaPago: true,
+            usoCfdi: true,
             conceptos: {
               select: {
                 claveProdServ: true,
@@ -140,6 +141,8 @@ export async function GET(request: NextRequest) {
     let cashOver2kCount = 0;
     let noXmlCount = 0;
     let proportionalCount = 0;
+    let sinEfectosCount = 0;
+    let sinClasificarCount = 0;
     let totalNonDeductible = 0;
 
     // Classify each CFDI
@@ -149,7 +152,7 @@ export async function GET(request: NextRequest) {
       const cfdiSubtotal = detail ? Number(detail.subtotal) : Number(cfdi.monto);
       const cfdiIva = detail ? Number(detail.ivaTrasladado) : 0;
 
-      let primaryCategory = 'otros';
+      let primaryCategory = 'sin_clasificar';
 
       if (detail && detail.conceptos.length > 0) {
         // Classify by the highest-value concepto
@@ -171,16 +174,20 @@ export async function GET(request: NextRequest) {
         satStatus: cfdi.satStatus,
         hasDetails: !!detail,
         categoryId: primaryCategory,
+        usoCfdi: detail?.usoCfdi || null,
+        regimenFiscal,
       });
 
-      const hasCriticalFlag = flags.some(f => f.type === 'cash_over_2k');
-      if (hasCriticalFlag) totalNonDeductible += cfdiSubtotal;
+      const hasNonDeductible = flags.some(f => f.type === 'cash_over_2k' || f.type === 'sin_efectos' || f.type === 'cancelled');
+      if (hasNonDeductible) totalNonDeductible += cfdiSubtotal;
       if (flags.some(f => f.type === 'cash_over_2k')) cashOver2kCount++;
       if (flags.some(f => f.type === 'no_xml')) noXmlCount++;
       if (flags.some(f => f.type === 'proportional')) proportionalCount++;
+      if (flags.some(f => f.type === 'sin_efectos')) sinEfectosCount++;
+      if (flags.some(f => f.type === 'sin_clasificar')) sinClasificarCount++;
 
       // Aggregate into category
-      const cat = categoryMap[primaryCategory] || categoryMap['otros'];
+      const cat = categoryMap[primaryCategory] || categoryMap['sin_clasificar'];
       cat.count++;
       cat.subtotal += cfdiSubtotal;
       cat.iva += cfdiIva;
@@ -200,7 +207,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Monthly
-      const monthCat = monthlyMap[month]?.[primaryCategory] || monthlyMap[month]?.['otros'];
+      const monthCat = monthlyMap[month]?.[primaryCategory] || monthlyMap[month]?.['sin_clasificar'];
       if (monthCat) {
         monthCat.count++;
         monthCat.subtotal += cfdiSubtotal;
@@ -228,12 +235,29 @@ export async function GET(request: NextRequest) {
     const totalFlagged = categories.reduce((s, c) => s + c.flaggedCount, 0);
 
     // Build alerts
+    const isResico = regimenFiscal === '626';
     const alerts: Array<{ type: string; message: string; count: number }> = [];
+    if (sinEfectosCount > 0) {
+      alerts.push({
+        type: 'sin_efectos',
+        message: `${sinEfectosCount} CFDI(s) con uso "S01 — Sin efectos fiscales" — no deducible(s), sin IVA acreditable`,
+        count: sinEfectosCount,
+      });
+    }
     if (cashOver2kCount > 0) {
       alerts.push({
         type: 'cash_over_2k',
-        message: `${cashOver2kCount} gasto(s) en efectivo > $2,000 — no deducible(s)`,
+        message: isResico
+          ? `${cashOver2kCount} gasto(s) en efectivo > $2,000 — IVA no acreditable sin bancarización`
+          : `${cashOver2kCount} gasto(s) en efectivo > $2,000 — no deducible(s)`,
         count: cashOver2kCount,
+      });
+    }
+    if (sinClasificarCount > 0) {
+      alerts.push({
+        type: 'sin_clasificar',
+        message: `${sinClasificarCount} gasto(s) sin clasificar — revisa manualmente si son deducibles`,
+        count: sinClasificarCount,
       });
     }
     if (noXmlCount > 0) {
@@ -243,7 +267,7 @@ export async function GET(request: NextRequest) {
         count: noXmlCount,
       });
     }
-    if (proportionalCount > 0) {
+    if (!isResico && proportionalCount > 0) {
       alerts.push({
         type: 'proportional',
         message: `${proportionalCount} gasto(s) proporcional(es) — revisa % de uso profesional`,

@@ -32,6 +32,13 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const year = parseInt(url.searchParams.get('year') || String(new Date().getFullYear()), 10);
 
+    // Get doctor's fiscal profile for régimen
+    const fiscalProfile = await prisma.doctorFiscalProfile.findUnique({
+      where: { doctorId: doctor.id },
+      select: { regimenFiscal: true },
+    });
+    const regimenFiscal = fiscalProfile?.regimenFiscal || '612';
+
     // Fetch all received CFDIs for the year (include cancelled for this check)
     const cfdis = await prisma.satCfdiMetadata.findMany({
       where: {
@@ -63,6 +70,7 @@ export async function GET(request: NextRequest) {
             subtotal: true,
             total: true,
             formaPago: true,
+            usoCfdi: true,
             moneda: true,
             conceptos: {
               select: {
@@ -99,7 +107,7 @@ export async function GET(request: NextRequest) {
       const cfdiTotal = detail ? Number(detail.total) : Number(cfdi.monto);
 
       // Classify primary category
-      let primaryCategory = 'otros';
+      let primaryCategory = 'sin_clasificar';
       if (detail && detail.conceptos.length > 0) {
         let maxImporte = 0;
         for (const concepto of detail.conceptos) {
@@ -121,6 +129,8 @@ export async function GET(request: NextRequest) {
         categoryId: primaryCategory,
         conceptoDescriptions: detail?.conceptos.map(c => c.descripcion || '') || [],
         moneda: detail?.moneda || null,
+        usoCfdi: detail?.usoCfdi || null,
+        regimenFiscal,
       });
 
       if (flags.length > 0) {
