@@ -1,7 +1,7 @@
 # SAT Descarga — Phase 3+ Roadmap
 
 **Date:** 2026-05-16
-**Status:** IN PROGRESS (8 of 9 features complete)
+**Status:** COMPLETE (9 of 9 features)
 **Depends on:** Phase 2 (COMPLETE — metadata + XML download working)
 
 ---
@@ -213,29 +213,29 @@ if (dayOfMonth % 3 === 0 && hourUtc === 6) {
 
 ---
 
-## 8. Cash Flow Projection
+## 8. Cash Flow Projection — COMPLETE
+
+**Status:** DONE (deployed 2026-06-03)
 
 **Goal:** Based on PPD invoices pending payment, project expected income timeline.
 
-### Scope
-- Identify all emitted PPD invoices that haven't received full payment
-- Show projected income: "Pending to collect: $X across Y invoices"
-- Timeline view: expected collection dates based on payment terms
-- Aging report: 0-30 days, 30-60, 60-90, 90+ overdue
+### What was built:
+- `GET /api/sat-descarga/cashflow?year=YYYY` — finds all emitted PPD invoices, cross-refs with sat_pagos
+  - Returns summary (totalPending, totalOverdue, invoiceCount, overdueCount)
+  - Aging buckets: 0-30, 31-60, 61-90, 90+ days since issued
+  - Each bucket includes invoice list with receiver, total, paid, pending, days aged
+  - Recent payments list (last 10 complementos received)
+- New "Cobranza" tab in SAT Descarga page:
+  - Summary cards: por cobrar, vencido (>30d), al corriente, % vencido
+  - Expandable aging bucket rows with color coding (green→red)
+  - Invoice detail table per bucket (client, total, paid, pending, days)
+  - Recent payments section showing latest complementos de pago
+  - Empty state when all PPD invoices are paid
+- No DB migration needed — uses existing sat_cfdi_metadata + sat_cfdi_details + sat_pagos
 
-### Implementation
-- Requires Complementos de Pago tracking (#4) to know what's been paid
-- Compare emitted PPD invoice totals vs sum of received payments
-- Difference = pending to collect
-
-### Dependencies
-- Requires feature #4 (Complementos de Pago) to be built first
-
-### Files to modify
+### Files
 - New: `apps/api/src/app/api/sat-descarga/cashflow/route.ts`
-- Modify: page.tsx (new tab or card in Resumen Fiscal)
-
-### Effort: Medium (3-4 hours, after #4 is done)
+- Modified: `apps/doctor/src/app/dashboard/sat-descarga/page.tsx` (CobranzaTab component + tab)
 
 ---
 

@@ -101,7 +101,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "declaraciones" | "info" | "contable">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "declaraciones" | "cobranza" | "info" | "contable">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -148,6 +148,7 @@ export default function SatDescargaPage() {
           <TabBtn active={activeTab === "resumen"} onClick={() => setActiveTab("resumen")} label="Resumen Fiscal" />
           <TabBtn active={activeTab === "deducciones"} onClick={() => setActiveTab("deducciones")} label="Deducciones" />
           <TabBtn active={activeTab === "declaraciones"} onClick={() => setActiveTab("declaraciones")} label="Declaraciones" />
+          <TabBtn active={activeTab === "cobranza"} onClick={() => setActiveTab("cobranza")} label="Cobranza" />
           <TabBtn active={activeTab === "contable"} onClick={() => setActiveTab("contable")} label="Guía Contable" />
           <TabBtn active={activeTab === "info"} onClick={() => setActiveTab("info")} label="Info" />
         </div>
@@ -159,6 +160,7 @@ export default function SatDescargaPage() {
       {activeTab === "resumen" && <ResumenFiscal />}
       {activeTab === "deducciones" && <DeduccionesTab />}
       {activeTab === "declaraciones" && <DeclaracionesTab />}
+      {activeTab === "cobranza" && <CobranzaTab />}
       {activeTab === "contable" && <ContableTab />}
       {activeTab === "info" && <InfoTab />}
     </div>
@@ -2088,6 +2090,245 @@ function DeduccionesTab() {
 
 // ---------------------------------------------------------------------------
 // Declaraciones Tab — Monthly ISR/IVA declaration helper
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Cobranza Tab (Cash Flow / Aging Report)
+// ---------------------------------------------------------------------------
+
+interface CashflowInvoice {
+  uuid: string;
+  receiverRfc: string;
+  receiverName: string | null;
+  total: number;
+  totalPagado: number;
+  pendiente: number;
+  issuedAt: string;
+  daysSinceIssued: number;
+  pagosCount: number;
+  status: 'pendiente' | 'parcial' | 'pagado';
+}
+
+interface CashflowBucket {
+  label: string;
+  range: string;
+  count: number;
+  total: number;
+  invoices: CashflowInvoice[];
+}
+
+interface CashflowData {
+  year: number;
+  summary: {
+    totalPending: number;
+    totalOverdue: number;
+    invoiceCount: number;
+    overdueCount: number;
+  };
+  buckets: CashflowBucket[];
+  recentPayments: Array<{
+    uuid: string;
+    receiverName: string | null;
+    montoPagado: number;
+    fechaPago: string | null;
+  }>;
+}
+
+function CobranzaTab() {
+  const [data, setData] = useState<CashflowData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [expandedBucket, setExpandedBucket] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    authFetch(`${API_URL}/api/sat-descarga/cashflow?year=${year}`)
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(json => setData(json.data))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [year]);
+
+  const fmt = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+        <p>Error al cargar datos de cobranza</p>
+      </div>
+    );
+  }
+
+  const bucketColors = [
+    'bg-green-50 border-green-200',
+    'bg-yellow-50 border-yellow-200',
+    'bg-orange-50 border-orange-200',
+    'bg-red-50 border-red-200',
+  ];
+  const bucketTextColors = ['text-green-700', 'text-yellow-700', 'text-orange-700', 'text-red-700'];
+
+  return (
+    <div className="space-y-6">
+      {/* Year selector */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-900">Cobranza — Facturas PPD Pendientes</h2>
+        <select
+          value={year}
+          onChange={e => setYear(Number(e.target.value))}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+        >
+          {[2025, 2026, 2027].map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+      </div>
+
+      {data.summary.invoiceCount === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-lg border">
+          <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-500" />
+          <p className="text-gray-600 font-medium">Sin facturas PPD pendientes de cobro</p>
+          <p className="text-sm text-gray-400 mt-1">Todas las facturas PPD emitidas en {year} estan pagadas</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white border rounded-lg p-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Por cobrar</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">{fmt(data.summary.totalPending)}</p>
+              <p className="text-xs text-gray-400 mt-1">{data.summary.invoiceCount} facturas</p>
+            </div>
+            <div className="bg-white border rounded-lg p-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Vencido (&gt;30d)</p>
+              <p className={`text-xl font-bold mt-1 ${data.summary.totalOverdue > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                {fmt(data.summary.totalOverdue)}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">{data.summary.overdueCount} facturas</p>
+            </div>
+            <div className="bg-white border rounded-lg p-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Al corriente (&le;30d)</p>
+              <p className="text-xl font-bold text-green-600 mt-1">
+                {fmt(data.summary.totalPending - data.summary.totalOverdue)}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">{data.summary.invoiceCount - data.summary.overdueCount} facturas</p>
+            </div>
+            <div className="bg-white border rounded-lg p-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">% Vencido</p>
+              <p className={`text-xl font-bold mt-1 ${data.summary.totalOverdue > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                {data.summary.totalPending > 0
+                  ? Math.round((data.summary.totalOverdue / data.summary.totalPending) * 100)
+                  : 0}%
+              </p>
+            </div>
+          </div>
+
+          {/* Aging buckets */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-700">Antiguedad de Saldos</h3>
+            {data.buckets.map((bucket, idx) => (
+              <div key={idx} className={`border rounded-lg overflow-hidden ${bucketColors[idx]}`}>
+                <button
+                  onClick={() => setExpandedBucket(expandedBucket === idx ? null : idx)}
+                  className="w-full flex items-center justify-between p-3 text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-semibold ${bucketTextColors[idx]}`}>{bucket.label}</span>
+                    <span className="text-xs text-gray-500">{bucket.count} facturas</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-bold ${bucketTextColors[idx]}`}>{fmt(bucket.total)}</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedBucket === idx ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+                {expandedBucket === idx && bucket.invoices.length > 0 && (
+                  <div className="border-t bg-white">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-xs text-gray-500 border-b">
+                          <th className="text-left p-2 pl-3">Cliente</th>
+                          <th className="text-right p-2">Total</th>
+                          <th className="text-right p-2">Pagado</th>
+                          <th className="text-right p-2">Pendiente</th>
+                          <th className="text-right p-2 pr-3">Dias</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bucket.invoices.map(inv => (
+                          <tr key={inv.uuid} className="border-b last:border-0 hover:bg-gray-50">
+                            <td className="p-2 pl-3">
+                              <div className="font-medium text-gray-900 truncate max-w-[200px]">
+                                {inv.receiverName || inv.receiverRfc}
+                              </div>
+                              {inv.receiverName && (
+                                <div className="text-xs text-gray-400">{inv.receiverRfc}</div>
+                              )}
+                            </td>
+                            <td className="text-right p-2 text-gray-600">{fmt(inv.total)}</td>
+                            <td className="text-right p-2 text-green-600">{fmt(inv.totalPagado)}</td>
+                            <td className="text-right p-2 font-medium text-gray-900">{fmt(inv.pendiente)}</td>
+                            <td className="text-right p-2 pr-3">
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                inv.daysSinceIssued > 90 ? 'bg-red-100 text-red-700' :
+                                inv.daysSinceIssued > 60 ? 'bg-orange-100 text-orange-700' :
+                                inv.daysSinceIssued > 30 ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                                {inv.daysSinceIssued}d
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Recent payments */}
+          {data.recentPayments.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">Pagos Recientes</h3>
+              <div className="bg-white border rounded-lg divide-y">
+                {data.recentPayments.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between p-3">
+                    <div>
+                      <span className="text-sm text-gray-900">{p.receiverName || p.uuid.slice(0, 8)}</span>
+                      {p.fechaPago && (
+                        <span className="text-xs text-gray-400 ml-2">
+                          {new Date(p.fechaPago).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-green-600">+{fmt(p.montoPagado)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <p className="text-xs text-gray-400 text-center mt-4">
+        Solo incluye facturas emitidas con metodo de pago PPD (Pago en Parcialidades o Diferido).
+        Los montos pendientes se calculan a partir de los complementos de pago recibidos.
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Declaraciones Tab
 // ---------------------------------------------------------------------------
 
 interface DeclarationMonth {
