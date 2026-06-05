@@ -1545,6 +1545,54 @@ function ResumenFiscal() {
         <p><strong>ISR ret.:</strong> ISR que te retuvieron (personas morales). Se resta en tu declaracion anual.</p>
         <p className="text-gray-400 mt-2">Datos extraidos de los XMLs descargados. Solo incluye facturas vigentes tipo I y E.</p>
       </div>
+
+      {/* Accountant report download */}
+      <AccountantReportSection year={year} />
+    </div>
+  );
+}
+
+function AccountantReportSection({ year }: { year: number }) {
+  const [reportMonth, setReportMonth] = useState(() => {
+    const now = new Date();
+    // Default to previous month (most common use case for accountants)
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return prev.getMonth() + 1;
+  });
+
+  const monthParam = `${year}-${String(reportMonth).padStart(2, "0")}`;
+  const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+  return (
+    <div className="bg-white rounded-lg border border-purple-200 p-4">
+      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+        <FileSpreadsheet className="w-4 h-4 text-purple-600" />
+        Reporte para Contador
+      </h4>
+      <p className="text-xs text-gray-500 mb-3">
+        Descarga un CSV con toda la informacion necesaria para que tu contador haga la declaracion mensual o anual:
+        ISR, IVA, detalle de CFDIs, retenciones por cliente, y gastos no deducibles.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <select
+          value={reportMonth}
+          onChange={e => setReportMonth(Number(e.target.value))}
+          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+        >
+          {monthNames.map((name, i) => (
+            <option key={i + 1} value={i + 1}>{name}</option>
+          ))}
+        </select>
+        <ExportButton
+          label={`Reporte ${monthNames[reportMonth - 1]}`}
+          href={`${API_URL}/api/sat-descarga/export/accountant-report?month=${monthParam}`}
+        />
+        <ExportButton
+          label={`Reporte Anual ${year}`}
+          href={`${API_URL}/api/sat-descarga/export/accountant-report?period=annual&year=${year}`}
+          secondary
+        />
+      </div>
     </div>
   );
 }
