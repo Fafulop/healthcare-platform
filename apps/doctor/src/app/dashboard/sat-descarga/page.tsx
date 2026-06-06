@@ -423,7 +423,10 @@ function BackfillSection() {
       if (!res.ok) {
         setMessage({ type: "error", text: json.error || "Error al crear backfill" });
       } else {
-        setMessage({ type: "success", text: `Backfill creado: ${json.data.created} jobs nuevos (${json.data.skipped} ya existentes). Se procesarán gradualmente.` });
+        const parts = [];
+        if (json.data.created > 0) parts.push(`${json.data.created} jobs nuevos`);
+        if (json.data.skipped > 0) parts.push(`${json.data.skipped} ya existentes`);
+        setMessage({ type: "success", text: `Backfill: ${parts.join(', ')}. Se procesarán gradualmente.` });
         fetchProgress();
       }
     } catch (err) {

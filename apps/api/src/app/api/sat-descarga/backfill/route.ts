@@ -5,10 +5,12 @@ import { getAuthenticatedDoctor } from '@/lib/auth';
 /**
  * POST /api/sat-descarga/backfill — Create sync jobs for all months from a start date to now
  *
- * Body: { fromMonth?: "YYYY-MM" } (defaults to "2025-01")
+ * Body: { fromMonth?: "YYYY-MM", force?: boolean } (defaults to "2025-01")
  *
  * Creates metadata + XML jobs for both directions for each month not already completed.
- * Returns count of created/skipped jobs.
+ * When force=true, resets completed XML jobs to pending for re-download (useful for
+ * backfilling sat_pagos records from complementos de pago).
+ * Returns count of created/skipped/reset jobs.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -27,6 +29,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const fromMonth = body.fromMonth || '2025-01';
+    const force = body.force === true;
 
     if (!/^\d{4}-\d{2}$/.test(fromMonth)) {
       return NextResponse.json({ error: 'fromMonth debe ser YYYY-MM' }, { status: 400 });
@@ -50,6 +53,7 @@ export async function POST(request: NextRequest) {
 
     let created = 0;
     let skipped = 0;
+    let reset = 0;
 
     for (const { year, month } of months) {
       const dateFrom = new Date(Date.UTC(year, month, 1));
@@ -72,6 +76,23 @@ export async function POST(request: NextRequest) {
           });
 
           if (existingJob) {
+            // force mode: reset completed XML jobs to re-download and re-parse pagos
+            if (force && requestType === 'xml' && existingJob.status === 'completed') {
+              await prisma.satSyncJob.update({
+                where: { id: existingJob.id },
+                data: {
+                  status: 'pending',
+                  requestId: null,
+                  packageIds: [],
+                  attempts: 0,
+                  lastError: null,
+                  startedAt: null,
+                  completedAt: null,
+                },
+              });
+              reset++;
+              continue;
+            }
             skipped++;
             continue;
           }
@@ -96,6 +117,7 @@ export async function POST(request: NextRequest) {
         months: months.length,
         created,
         skipped,
+        reset,
         total: months.length * 4, // 4 jobs per month (2 directions × 2 types)
       },
     }, { status: 201 });
