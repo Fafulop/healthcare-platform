@@ -2691,6 +2691,8 @@ model SatPago {
   saldoAnterior   Decimal?  @map("saldo_anterior") @db.Decimal(14, 2)
   saldoInsoluto   Decimal?  @map("saldo_insoluto") @db.Decimal(14, 2)
   numParcialidad  Int?      @map("num_parcialidad")
+  source          String    @default("auto") @db.VarChar(10) // 'auto' | 'manual'
+  unlinkedAt      DateTime? @map("unlinked_at")
   createdAt       DateTime  @default(now()) @map("created_at")
 
   doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)

@@ -18,11 +18,12 @@ export async function GET(request: NextRequest) {
     const month = url.searchParams.get('month');
 
     if (uuid) {
-      // Get payments for a specific invoice
+      // Get active (non-unlinked) payments for a specific invoice
       const pagos = await prisma.satPago.findMany({
         where: {
           doctorId: doctor.id,
           facturaUuid: uuid.toLowerCase(),
+          unlinkedAt: null,
         },
         orderBy: { numParcialidad: 'asc' },
       });
@@ -70,11 +71,12 @@ export async function GET(request: NextRequest) {
 
       const ppdUuids = new Set(details.map(d => d.uuid));
 
-      // Get all pagos for these PPD invoices
+      // Get all active pagos for these PPD invoices
       const pagos = await prisma.satPago.findMany({
         where: {
           doctorId: doctor.id,
           facturaUuid: { in: Array.from(ppdUuids) },
+          unlinkedAt: null,
         },
       });
 
@@ -118,5 +120,133 @@ export async function GET(request: NextRequest) {
     }
     console.error('Error fetching pagos:', error);
     return NextResponse.json({ error: 'Error al obtener pagos' }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/sat-descarga/pagos — Unlink or re-link a pago record
+ *
+ * Body: { id: number, action: 'unlink' | 'relink' }
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const body = await request.json();
+    const { id, action } = body;
+
+    if (!id || !['unlink', 'relink'].includes(action)) {
+      return NextResponse.json({ error: 'Provide id and action (unlink|relink)' }, { status: 400 });
+    }
+
+    // Verify the pago belongs to this doctor
+    const pago = await prisma.satPago.findFirst({
+      where: { id: Number(id), doctorId: doctor.id },
+    });
+    if (!pago) {
+      return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 });
+    }
+
+    const updated = await prisma.satPago.update({
+      where: { id: pago.id },
+      data: {
+        unlinkedAt: action === 'unlink' ? new Date() : null,
+      },
+    });
+
+    return NextResponse.json({ data: updated });
+  } catch (error: any) {
+    if (error.name === 'AuthError') {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error('Error updating pago:', error);
+    return NextResponse.json({ error: 'Error al actualizar pago' }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/sat-descarga/pagos — Manually link a complemento to a factura
+ *
+ * Body: { pagoUuid: string, facturaUuid: string }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const body = await request.json();
+    const { pagoUuid, facturaUuid } = body;
+
+    if (!pagoUuid || !facturaUuid) {
+      return NextResponse.json({ error: 'Provide pagoUuid and facturaUuid' }, { status: 400 });
+    }
+
+    const pagoId = pagoUuid.toLowerCase();
+    const facturaId = facturaUuid.toLowerCase();
+
+    // Verify both CFDIs exist and belong to this doctor
+    const [pagoMeta, facturaMeta] = await Promise.all([
+      prisma.satCfdiMetadata.findFirst({
+        where: { doctorId: doctor.id, uuid: { equals: pagoId, mode: 'insensitive' } },
+        select: { uuid: true, efecto: true },
+      }),
+      prisma.satCfdiMetadata.findFirst({
+        where: { doctorId: doctor.id, uuid: { equals: facturaId, mode: 'insensitive' } },
+        select: { uuid: true },
+      }),
+    ]);
+
+    if (!pagoMeta) {
+      return NextResponse.json({ error: 'Complemento de pago no encontrado' }, { status: 404 });
+    }
+    if (pagoMeta.efecto !== 'P') {
+      return NextResponse.json({ error: 'El CFDI seleccionado no es un complemento de pago (tipo P)' }, { status: 400 });
+    }
+    if (!facturaMeta) {
+      return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 });
+    }
+
+    // Get pago detail for serie/folio and factura detail for monto
+    const [pagoDetail, facturaDetail] = await Promise.all([
+      prisma.satCfdiDetail.findFirst({
+        where: { doctorId: doctor.id, uuid: pagoId },
+        select: { serie: true, folio: true, formaPago: true },
+      }),
+      prisma.satCfdiDetail.findFirst({
+        where: { doctorId: doctor.id, uuid: facturaId },
+        select: { total: true },
+      }),
+    ]);
+
+    const created = await prisma.satPago.upsert({
+      where: {
+        doctorId_pagoUuid_facturaUuid: {
+          doctorId: doctor.id,
+          pagoUuid: pagoId,
+          facturaUuid: facturaId,
+        },
+      },
+      create: {
+        doctorId: doctor.id,
+        pagoUuid: pagoId,
+        facturaUuid: facturaId,
+        serie: pagoDetail?.serie ?? null,
+        folio: pagoDetail?.folio ?? null,
+        formaPago: pagoDetail?.formaPago ?? null,
+        fechaPago: new Date(),
+        montoPagado: facturaDetail?.total ?? null,
+        numParcialidad: 1,
+        source: 'manual',
+      },
+      update: {
+        unlinkedAt: null,
+        source: 'manual',
+      },
+    });
+
+    return NextResponse.json({ data: created });
+  } catch (error: any) {
+    if (error.name === 'AuthError') {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error('Error creating manual pago link:', error);
+    return NextResponse.json({ error: 'Error al vincular pago' }, { status: 500 });
   }
 }

@@ -311,8 +311,8 @@ export function parsePagoComplement(xml: string): PagoComplement | null {
     formaPago = formaPago || getAttr(attrs, 'FormaDePagoP');
     monto = monto || getAttrNum(attrs, 'Monto');
 
-    // Extract DoctoRelacionado nodes
-    const docRegex = /<[^>]*:?DoctoRelacionado\s([^>]+?)(?:\/>|>[^<]*<\/[^>]*:?DoctoRelacionado>)/gi;
+    // Extract DoctoRelacionado nodes (may contain child elements like ImpuestosDR)
+    const docRegex = /<[^>]*:?DoctoRelacionado\s([^>]+?)(?:\/>|>[\s\S]*?<\/[^>]*:?DoctoRelacionado>)/gi;
     let docMatch;
     while ((docMatch = docRegex.exec(body)) !== null) {
       const docAttrs = docMatch[1];

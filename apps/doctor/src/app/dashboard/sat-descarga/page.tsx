@@ -22,6 +22,7 @@ import {
   BookmarkPlus,
   BookmarkCheck,
   Link2,
+  Unlink,
   Calculator,
   CalendarClock,
   RefreshCw,
@@ -1250,7 +1251,7 @@ function XmlDetailPanel({ detail, formaPagoLabels }: { detail: CfdiDetailData; f
       </div>
 
       {/* Payment status for PPD invoices */}
-      {detail.metodoPago === "PPD" && <PagoStatusBadge uuid={detail.uuid} />}
+      {detail.metodoPago === "PPD" && <PagoStatusBadge uuid={detail.uuid} issuerRfc={item.issuerRfc} />}
 
       {/* Conceptos table */}
       {detail.conceptos.length > 0 && (
@@ -1301,28 +1302,66 @@ function XmlDetailPanel({ detail, formaPagoLabels }: { detail: CfdiDetailData; f
 // Payment Status Badge (for PPD invoices)
 // ---------------------------------------------------------------------------
 
-function PagoStatusBadge({ uuid }: { uuid: string }) {
-  const [status, setStatus] = useState<{ totalPagado: number; saldoInsoluto: number | null; status: string; pagosCount: number } | null>(null);
+function PagoStatusBadge({ uuid, issuerRfc }: { uuid: string; issuerRfc?: string }) {
+  const [data, setData] = useState<{
+    totalPagado: number; saldoInsoluto: number | null; status: string;
+    pagos: { id: number; pagoUuid: string; montoPagado: number | null; source: string }[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [acting, setActing] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchStatus = useCallback(() => {
+    setLoading(true);
     authFetch(`${API_URL}/api/sat-descarga/pagos?uuid=${uuid}`)
       .then(res => res.ok ? res.json() : null)
       .then(json => {
-        if (!cancelled && json?.data) {
-          setStatus({
+        if (json?.data) {
+          setData({
             totalPagado: json.data.totalPagado,
             saldoInsoluto: json.data.saldoInsoluto,
             status: json.data.status,
-            pagosCount: json.data.pagos?.length ?? 0,
+            pagos: (json.data.pagos ?? []).map((p: any) => ({
+              id: p.id, pagoUuid: p.pagoUuid,
+              montoPagado: typeof p.montoPagado === 'object' ? Number(p.montoPagado) : p.montoPagado,
+              source: p.source ?? 'auto',
+            })),
           });
         }
       })
       .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => setLoading(false));
   }, [uuid]);
+
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  const handleUnlink = async (pagoId: number) => {
+    if (!confirm("¿Desvincular este complemento de pago de la factura?")) return;
+    setActing(true);
+    try {
+      await authFetch(`${API_URL}/api/sat-descarga/pagos`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: pagoId, action: "unlink" }),
+      });
+      fetchStatus();
+    } catch {}
+    setActing(false);
+  };
+
+  const handleManualLink = async (pagoUuid: string) => {
+    setActing(true);
+    try {
+      await authFetch(`${API_URL}/api/sat-descarga/pagos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pagoUuid, facturaUuid: uuid }),
+      });
+      setShowLinkModal(false);
+      fetchStatus();
+    } catch {}
+    setActing(false);
+  };
 
   if (loading) {
     return (
@@ -1333,7 +1372,7 @@ function PagoStatusBadge({ uuid }: { uuid: string }) {
     );
   }
 
-  if (!status) return null;
+  if (!data) return null;
 
   const fmt = (n: number) => `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
 
@@ -1350,22 +1389,145 @@ function PagoStatusBadge({ uuid }: { uuid: string }) {
   };
 
   return (
-    <div className="flex items-center gap-3 p-2 rounded-md bg-gray-50 border border-gray-200">
-      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${badgeStyles[status.status] || badgeStyles.pendiente}`}>
-        {status.status === "pagado" && <CheckCircle2 className="w-3 h-3" />}
-        {status.status === "parcial" && <Clock className="w-3 h-3" />}
-        {status.status === "pendiente" && <AlertCircle className="w-3 h-3" />}
-        {badgeLabels[status.status] || "Pendiente"}
-      </span>
-      {status.pagosCount > 0 && (
-        <span className="text-xs text-gray-600">
-          {status.pagosCount} pago{status.pagosCount > 1 ? "s" : ""} — Total: {fmt(status.totalPagado)}
-          {status.saldoInsoluto !== null && status.saldoInsoluto > 0 && ` — Saldo: ${fmt(status.saldoInsoluto)}`}
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 p-2 rounded-md bg-gray-50 border border-gray-200">
+        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${badgeStyles[data.status] || badgeStyles.pendiente}`}>
+          {data.status === "pagado" && <CheckCircle2 className="w-3 h-3" />}
+          {data.status === "parcial" && <Clock className="w-3 h-3" />}
+          {data.status === "pendiente" && <AlertCircle className="w-3 h-3" />}
+          {badgeLabels[data.status] || "Pendiente"}
         </span>
+        {data.pagos.length > 0 && (
+          <span className="text-xs text-gray-600">
+            {data.pagos.length} pago{data.pagos.length > 1 ? "s" : ""} — Total: {fmt(data.totalPagado)}
+            {data.saldoInsoluto !== null && data.saldoInsoluto > 0 && ` — Saldo: ${fmt(data.saldoInsoluto)}`}
+          </span>
+        )}
+        {data.pagos.length === 0 && (
+          <span className="text-xs text-gray-500">Sin complementos de pago registrados</span>
+        )}
+        <button
+          onClick={() => setShowLinkModal(true)}
+          disabled={acting}
+          className="ml-auto inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
+          title="Vincular complemento manualmente"
+        >
+          <Link2 className="w-3 h-3" />
+          Vincular
+        </button>
+      </div>
+
+      {data.pagos.length > 0 && (
+        <div className="space-y-1 pl-2">
+          {data.pagos.map(p => (
+            <div key={p.id} className="flex items-center gap-2 text-xs text-gray-600">
+              <span className="font-mono text-gray-400">{p.pagoUuid.slice(0, 8)}...</span>
+              {p.montoPagado !== null && <span>{fmt(p.montoPagado)}</span>}
+              {p.source === "manual" && (
+                <span className="text-blue-500 text-[10px] font-medium">(manual)</span>
+              )}
+              <button
+                onClick={() => handleUnlink(p.id)}
+                disabled={acting}
+                className="inline-flex items-center gap-0.5 text-red-500 hover:text-red-700 hover:bg-red-50 px-1.5 py-0.5 rounded transition-colors"
+                title="Desvincular este complemento"
+              >
+                <Unlink className="w-3 h-3" />
+                Desvincular
+              </button>
+            </div>
+          ))}
+        </div>
       )}
-      {status.pagosCount === 0 && (
-        <span className="text-xs text-gray-500">Sin complementos de pago registrados</span>
+
+      {showLinkModal && (
+        <ManualLinkModal
+          facturaUuid={uuid}
+          issuerRfc={issuerRfc}
+          onLink={handleManualLink}
+          onClose={() => setShowLinkModal(false)}
+          acting={acting}
+        />
       )}
+    </div>
+  );
+}
+
+function ManualLinkModal({ facturaUuid, issuerRfc, onLink, onClose, acting }: {
+  facturaUuid: string; issuerRfc?: string;
+  onLink: (pagoUuid: string) => void; onClose: () => void; acting: boolean;
+}) {
+  const [complementos, setComplementos] = useState<{ uuid: string; issuerName: string; issuedAt: string; folio: string | null }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch available complementos de pago (tipo P) that could match
+    authFetch(`${API_URL}/api/sat-descarga/metadata?efecto=P&limit=200`)
+      .then(res => res.ok ? res.json() : null)
+      .then(json => {
+        if (Array.isArray(json?.data)) {
+          const filtered = (json.data as any[])
+            .filter((c: any) => {
+              // Match complementos by RFC: from CFDI detail, issuerRfc is the vendor;
+              // from Cobranza, issuerRfc is the customer (invoice receiver) whose
+              // complemento will have them as issuerRfc on the tipo P CFDI.
+              if (issuerRfc && c.issuerRfc !== issuerRfc && c.receiverRfc !== issuerRfc) return false;
+              return true;
+            })
+            .map((c: any) => ({
+              uuid: c.uuid,
+              issuerName: c.issuerName || c.issuerRfc,
+              issuedAt: c.issuedAt,
+              folio: c.folio || null,
+            }));
+          setComplementos(filtered);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [issuerRfc]);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="font-semibold text-sm">Vincular complemento de pago</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-4 overflow-y-auto flex-1">
+          {loading ? (
+            <div className="flex items-center justify-center py-8 text-gray-400">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Cargando complementos...
+            </div>
+          ) : complementos.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">No se encontraron complementos de pago disponibles{issuerRfc ? ` para RFC ${issuerRfc}` : ""}.</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500 mb-3">
+                Selecciona el complemento de pago que corresponde a esta factura:
+              </p>
+              {complementos.map(c => (
+                <button
+                  key={c.uuid}
+                  onClick={() => onLink(c.uuid)}
+                  disabled={acting}
+                  className="w-full text-left p-3 rounded-md border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{c.issuerName}</span>
+                    {c.folio && <span className="text-xs text-gray-400">Folio: {c.folio}</span>}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    <span className="font-mono">{c.uuid.slice(0, 8)}...{c.uuid.slice(-4)}</span>
+                    <span className="mx-2">·</span>
+                    {new Date(c.issuedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -2229,15 +2391,37 @@ function CobranzaTab() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
   const [expandedBucket, setExpandedBucket] = useState<number | null>(null);
+  const [linkTarget, setLinkTarget] = useState<{ uuid: string; rfc: string } | null>(null);
+  const [acting, setActing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     setLoading(true);
     authFetch(`${API_URL}/api/sat-descarga/cashflow?year=${year}`)
       .then(res => res.ok ? res.json() : Promise.reject())
       .then(json => setData(json.data))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, [year]);
+  }, [year, refreshKey]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleManualLink = async (pagoUuid: string) => {
+    if (!linkTarget) return;
+    setActing(true);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/pagos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pagoUuid, facturaUuid: linkTarget.uuid }),
+      });
+      if (res.ok) {
+        setLinkTarget(null);
+        setRefreshKey(k => k + 1);
+      }
+    } catch {}
+    setActing(false);
+  };
 
   const fmt = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -2349,7 +2533,8 @@ function CobranzaTab() {
                           <th className="text-right p-2">Total</th>
                           <th className="text-right p-2">Pagado</th>
                           <th className="text-right p-2">Pendiente</th>
-                          <th className="text-right p-2 pr-3">Dias</th>
+                          <th className="text-right p-2">Dias</th>
+                          <th className="text-right p-2 pr-3"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2372,7 +2557,7 @@ function CobranzaTab() {
                             <td className="text-right p-2 text-gray-600">{fmt(inv.total)}</td>
                             <td className="text-right p-2 text-green-600">{fmt(inv.totalPagado)}</td>
                             <td className="text-right p-2 font-medium text-gray-900">{fmt(inv.pendiente)}</td>
-                            <td className="text-right p-2 pr-3">
+                            <td className="text-right p-2">
                               <span className={`text-xs px-1.5 py-0.5 rounded ${
                                 inv.daysSinceIssued > 90 ? 'bg-red-100 text-red-700' :
                                 inv.daysSinceIssued > 60 ? 'bg-orange-100 text-orange-700' :
@@ -2381,6 +2566,18 @@ function CobranzaTab() {
                               }`}>
                                 {inv.daysSinceIssued}d
                               </span>
+                            </td>
+                            <td className="text-right p-2 pr-3">
+                              {inv.status === 'pendiente' && (
+                                <button
+                                  onClick={() => setLinkTarget({ uuid: inv.uuid, rfc: inv.receiverRfc })}
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
+                                  title="Vincular complemento de pago manualmente"
+                                >
+                                  <Link2 className="w-3 h-3" />
+                                  Vincular
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -2420,6 +2617,16 @@ function CobranzaTab() {
         Solo incluye facturas emitidas con metodo de pago PPD (Pago en Parcialidades o Diferido).
         Los montos pendientes se calculan a partir de los complementos de pago recibidos.
       </p>
+
+      {linkTarget && (
+        <ManualLinkModal
+          facturaUuid={linkTarget.uuid}
+          issuerRfc={linkTarget.rfc}
+          onLink={handleManualLink}
+          onClose={() => setLinkTarget(null)}
+          acting={acting}
+        />
+      )}
     </div>
   );
 }

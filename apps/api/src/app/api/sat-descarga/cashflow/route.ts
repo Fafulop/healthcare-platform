@@ -83,12 +83,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get all pagos for these PPD invoices
+    // Get all active (non-unlinked) pagos for these PPD invoices
     const ppdUuids = Array.from(ppdSet.keys());
     const allPagos = await prisma.satPago.findMany({
       where: {
         doctorId: doctor.id,
         facturaUuid: { in: ppdUuids },
+        unlinkedAt: null,
       },
       orderBy: { numParcialidad: 'asc' },
     });

@@ -488,8 +488,24 @@ async function downloadAndParseXml(
 
       // Parse payment complement (tipo P) and store pago records
       const pago = parsePagoComplement(entry.data);
+      if (detail.usoCfdi === 'CP01' && (!pago || pago.documentos.length === 0)) {
+        console.warn(`[SAT worker] CP01 complement parsed but no DoctoRelacionado found: ${detail.uuid} in job ${job.id}`);
+      }
       if (pago && pago.documentos.length > 0) {
         for (const doc of pago.documentos) {
+          // Skip if this link was manually unlinked by the user
+          const existing = await prisma.satPago.findUnique({
+            where: {
+              doctorId_pagoUuid_facturaUuid: {
+                doctorId: job.doctorId,
+                pagoUuid: pago.pagoUuid,
+                facturaUuid: doc.facturaUuid,
+              },
+            },
+            select: { unlinkedAt: true },
+          });
+          if (existing?.unlinkedAt) continue;
+
           await prisma.satPago.upsert({
             where: {
               doctorId_pagoUuid_facturaUuid: {
@@ -510,6 +526,7 @@ async function downloadAndParseXml(
               saldoAnterior: doc.saldoAnterior,
               saldoInsoluto: doc.saldoInsoluto,
               numParcialidad: doc.numParcialidad,
+              source: 'auto',
             },
             update: {
               montoPagado: doc.montoPagado,

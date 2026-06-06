@@ -36,6 +36,11 @@ export async function GET(request: NextRequest) {
       where.satStatus = status;
     }
 
+    const efecto = url.searchParams.get('efecto');
+    if (efecto && ['I', 'E', 'P', 'T', 'N'].includes(efecto)) {
+      where.efecto = efecto;
+    }
+
     if (month && /^\d{4}-\d{2}$/.test(month)) {
       const [year, monthNum] = month.split('-').map(Number);
       where.issuedAt = {
