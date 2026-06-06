@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
                   lastError: null,
                   startedAt: null,
                   completedAt: null,
+                  cfdiCount: null,
                 },
               });
               reset++;
