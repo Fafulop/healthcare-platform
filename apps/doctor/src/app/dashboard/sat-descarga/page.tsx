@@ -3600,7 +3600,7 @@ function GuiaTab() {
                   <tr>
                     <td className="px-3 py-2 font-medium">Equipo medico</td>
                     <td className="px-3 py-2 text-gray-500">Estetoscopio, baumanometro, ultrasonido</td>
-                    <td className="px-3 py-2 text-gray-500">Depreciacion anual (% segun tipo de activo, Art. 31-38 LISR)</td>
+                    <td className="px-3 py-2 text-gray-500">Depreciacion anual (% segun tipo de activo, Art. 34 LISR)</td>
                   </tr>
                   <tr>
                     <td className="px-3 py-2 font-medium">Software / SaaS</td>
@@ -3658,7 +3658,7 @@ function GuiaTab() {
               <li><strong>Uso CFDI "S01 — Sin efectos fiscales"</strong> — no deducible y sin IVA acreditable en ningun regimen</li>
               <li>Gastos personales (supermercado, ropa, entretenimiento)</li>
               <li>Facturas a nombre de otra persona</li>
-              <li>Pagos en efectivo mayores a $2,000 (aun con factura — Art. 27 frac. III LISR)</li>
+              <li>Pagos en efectivo mayores a $2,000 (aun con factura — Art. 105 LISR)</li>
               <li>Facturas de proveedores en lista negra del SAT (Art. 69-B)</li>
               <li>Gastos sin relacion con tu actividad profesional</li>
               <li>Donaciones a entidades no autorizadas</li>
@@ -3846,7 +3846,7 @@ function GuiaTab() {
                 <tr>
                   <td className="px-3 py-2 font-medium">DIOT</td>
                   <td className="px-3 py-2">Mensual</td>
-                  <td className="px-3 py-2 text-gray-500">Dia 17 del mes siguiente</td>
+                  <td className="px-3 py-2 text-gray-500">Ultimo dia del mes siguiente (Regla 4.5.1 RMF)</td>
                   <td className="px-3 py-2 text-gray-500">Informativa: a quienes les pagaste IVA (proveedores)</td>
                 </tr>
                 <tr>

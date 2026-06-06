@@ -12,7 +12,7 @@
  *   2. claveProdServ — UNSPSC product/service code ranges
  *   3. Keyword matching on concepto descriptions
  *
- * Reference: Art. 25-35 LISR, Art. 113-E LISR (RESICO), LIVA Art. 4-5.
+ * Reference: Art. 103-105, 34 LISR (PF), Art. 113-E LISR (RESICO), LIVA Art. 4-5.
  */
 
 export interface DeductionCategory {
@@ -42,21 +42,21 @@ export const DEDUCTION_CATEGORIES: DeductionCategory[] = [
     id: 'equipo_medico',
     name: 'Equipo Médico',
     icon: '🩺',
-    depreciationRate: 0.25, // 25% annual per Art. 35 LISR
-    description: 'Instrumentos y equipos médicos (depreciación 25% anual)',
+    depreciationRate: 0.10, // 10% annual per Art. 34 LISR
+    description: 'Instrumentos y equipos médicos (depreciación 10% anual)',
   },
   {
     id: 'computo',
     name: 'Equipo de Cómputo y Software',
     icon: '💻',
-    depreciationRate: 0.30, // 30% annual per Art. 35 LISR
+    depreciationRate: 0.30, // 30% annual per Art. 34 LISR
     description: 'Computadoras, impresoras, licencias de software (depreciación 30% anual)',
   },
   {
     id: 'mobiliario',
     name: 'Mobiliario y Equipo de Oficina',
     icon: '🪑',
-    depreciationRate: 0.10, // 10% annual per Art. 35 LISR
+    depreciationRate: 0.10, // 10% annual per Art. 34 LISR
     description: 'Escritorios, sillas, archiveros, muebles de recepción (depreciación 10% anual)',
   },
   {
@@ -347,14 +347,14 @@ export function checkDeductibility(cfdi: {
     });
   }
 
-  // Cash > $2,000 MXN is not deductible (must be bancarized) — Art. 27 frac. III LISR
+  // Cash > $2,000 MXN is not deductible (must be bancarized) — Art. 105 LISR
   // Compare against total (payment amount = subtotal + IVA), not just subtotal
   const paymentAmount = cfdi.total ?? cfdi.subtotal;
   if (!isResico && cfdi.formaPago === '01' && paymentAmount > 2000) {
     flags.push({
       type: 'cash_over_2k',
       severity: 'error',
-      message: 'Pago en efectivo > $2,000 — no deducible (Art. 27 frac. III LISR)',
+      message: 'Pago en efectivo > $2,000 — no deducible (Art. 105 LISR)',
     });
   }
 
