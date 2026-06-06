@@ -2558,6 +2558,7 @@ function DeclaracionesTab() {
                 <th className="px-3 py-2 text-right font-semibold">ISR retenido</th>
                 {!isResico && <th className="px-3 py-2 text-right font-semibold">Pagos prev.</th>}
                 <th className="px-3 py-2 text-right font-semibold text-orange-700">ISR a pagar</th>
+                {!isResico && <th className="px-3 py-2 text-right font-semibold text-blue-700">ISR a favor</th>}
                 <th className="px-3 py-2 text-right font-semibold text-amber-700">IVA a pagar</th>
               </tr>
             </thead>
@@ -2585,6 +2586,14 @@ function DeclaracionesTab() {
                     <td className={`px-3 py-2.5 text-right font-mono font-medium ${m.isr.isrAPagar > 0 ? 'text-orange-700' : 'text-gray-400'}`}>
                       {fmt(m.isr.isrAPagar)}
                     </td>
+                    {!isResico && (() => {
+                      const saldoAFavor = m.isr.isrRetenido + m.isr.pagosPrevios - m.isr.isrCausado;
+                      return (
+                        <td className={`px-3 py-2.5 text-right font-mono font-medium ${saldoAFavor > 0 ? 'text-blue-700' : 'text-gray-400'}`}>
+                          {saldoAFavor > 0 ? fmt(saldoAFavor) : '—'}
+                        </td>
+                      );
+                    })()}
                     <td className={`px-3 py-2.5 text-right font-mono font-medium ${m.iva.ivaAPagar > 0 ? 'text-amber-700' : m.iva.ivaAPagar < 0 ? 'text-green-700' : 'text-gray-400'}`}>
                       {m.iva.ivaAPagar !== 0 ? `${m.iva.ivaAPagar > 0 ? '+' : ''}${fmt(m.iva.ivaAPagar)}` : '—'}
                     </td>
@@ -2593,7 +2602,7 @@ function DeclaracionesTab() {
                   {/* Expanded detail for 612 */}
                   {!isResico && expandedMonth === m.month && (
                     <tr key={`${m.month}-detail`}>
-                      <td colSpan={9} className="px-4 py-3 bg-purple-50 border-t border-purple-100">
+                      <td colSpan={10} className="px-4 py-3 bg-purple-50 border-t border-purple-100">
                         <div className="grid grid-cols-2 gap-4 text-xs max-w-2xl">
                           <div>
                             <p className="font-semibold text-gray-700 mb-2">ISR Provisional (acumulado)</p>
@@ -2680,6 +2689,17 @@ function DeclaracionesTab() {
                 <td className="px-3 py-2.5 text-right font-mono text-gray-500">{fmt(data.totals.isrRetenido)}</td>
                 {!isResico && <td className="px-3 py-2.5 text-right font-mono text-gray-500">—</td>}
                 <td className="px-3 py-2.5 text-right font-mono text-orange-700">{fmt(data.totals.isrAPagar)}</td>
+                {!isResico && (() => {
+                  const lastMonth = data.months[data.months.length - 1];
+                  // Total paid = pagos previos (cumulative before last month) + last month's payment + retenciones
+                  // Total owed = ISR causado (cumulative through last month)
+                  const saldo = lastMonth ? (lastMonth.isr.pagosPrevios + lastMonth.isr.isrAPagar + lastMonth.isr.isrRetenido) - lastMonth.isr.isrCausado : 0;
+                  return (
+                    <td className={`px-3 py-2.5 text-right font-mono font-semibold ${saldo > 0 ? 'text-blue-700' : 'text-gray-500'}`}>
+                      {saldo > 0 ? fmt(saldo) : '—'}
+                    </td>
+                  );
+                })()}
                 <td className={`px-3 py-2.5 text-right font-mono ${data.totals.ivaAPagar >= 0 ? 'text-amber-700' : 'text-green-700'}`}>
                   {fmt(data.totals.ivaAPagar)}
                 </td>
