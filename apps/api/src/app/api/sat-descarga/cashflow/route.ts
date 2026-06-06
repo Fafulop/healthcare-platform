@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         uuid: { in: uuids },
         metodoPago: 'PPD',
       },
-      select: { uuid: true, total: true },
+      select: { uuid: true, total: true, folio: true, serie: true },
     });
 
     const ppdSet = new Map(ppdDetails.map(d => [d.uuid, d]));
@@ -107,6 +107,8 @@ export async function GET(request: NextRequest) {
 
     interface CashflowInvoice {
       uuid: string;
+      folio: string | null;
+      serie: string | null;
       receiverRfc: string;
       receiverName: string | null;
       total: number;
@@ -143,6 +145,8 @@ export async function GET(request: NextRequest) {
 
       unpaidInvoices.push({
         uuid: inv.uuid,
+        folio: detail.folio ?? null,
+        serie: detail.serie ?? null,
         receiverRfc: inv.receiverRfc,
         receiverName: inv.receiverName,
         total: invoiceTotal,

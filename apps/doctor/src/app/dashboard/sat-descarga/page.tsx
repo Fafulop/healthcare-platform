@@ -1066,7 +1066,9 @@ function CfdiRow({ item, isRegistered, registering, onRegister, deducibilityFlag
           )}
         </td>
         <td className="py-2.5 pr-4 text-right font-mono whitespace-nowrap">
-          ${Number(item.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          {item.efecto === 'P' && Number(item.monto) === 0
+            ? <span className="text-gray-400 text-xs font-sans">Comp. Pago</span>
+            : `$${Number(item.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
         </td>
         <td className="py-2.5 pr-4">
           <span className={`text-xs font-medium ${impact.color}`}>
@@ -2167,6 +2169,8 @@ function DeduccionesTab() {
 
 interface CashflowInvoice {
   uuid: string;
+  folio: string | null;
+  serie: string | null;
   receiverRfc: string;
   receiverName: string | null;
   total: number;
@@ -2323,7 +2327,8 @@ function CobranzaTab() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-xs text-gray-500 border-b">
-                          <th className="text-left p-2 pl-3">Cliente</th>
+                          <th className="text-left p-2 pl-3">Folio</th>
+                          <th className="text-left p-2">Cliente</th>
                           <th className="text-right p-2">Total</th>
                           <th className="text-right p-2">Pagado</th>
                           <th className="text-right p-2">Pendiente</th>
@@ -2334,6 +2339,12 @@ function CobranzaTab() {
                         {bucket.invoices.map(inv => (
                           <tr key={inv.uuid} className="border-b last:border-0 hover:bg-gray-50">
                             <td className="p-2 pl-3">
+                              <div className="font-medium text-gray-900 text-xs font-mono">
+                                {inv.serie && <span className="text-gray-400">{inv.serie}-</span>}
+                                {inv.folio || inv.uuid.slice(0, 8)}
+                              </div>
+                            </td>
+                            <td className="p-2">
                               <div className="font-medium text-gray-900 truncate max-w-[200px]">
                                 {inv.receiverName || inv.receiverRfc}
                               </div>
