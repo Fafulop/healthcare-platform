@@ -50,6 +50,7 @@ export function middleware(request: NextRequest) {
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': ALLOWED_HEADERS,
         'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Expose-Headers': 'Content-Disposition',
         'Access-Control-Max-Age': '86400',
       },
     });
@@ -65,6 +66,7 @@ export function middleware(request: NextRequest) {
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', ALLOWED_HEADERS);
   response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set('Access-Control-Expose-Headers', 'Content-Disposition');
 
   // Security headers
   response.headers.set('X-Content-Type-Options', 'nosniff');

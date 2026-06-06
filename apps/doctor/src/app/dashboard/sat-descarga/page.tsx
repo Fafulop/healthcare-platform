@@ -1771,7 +1771,10 @@ function ExportButton({ label, href, secondary }: { label: string; href: string;
       const blob = await res.blob();
       const disposition = res.headers.get("Content-Disposition") || "";
       const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
-      const filename = filenameMatch?.[1] || "export.xlsx";
+      // Derive extension from URL format param as fallback
+      const formatMatch = href.match(/[?&]format=(xlsx|csv|pdf)/);
+      const ext = formatMatch?.[1] || 'xlsx';
+      const filename = filenameMatch?.[1] || `export.${ext}`;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
