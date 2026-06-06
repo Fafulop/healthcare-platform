@@ -2413,6 +2413,13 @@ interface DeclarationMonth {
     isrAPagar: number;
     tasaEfectiva: number;
     tasaResico?: number;
+    bracket?: {
+      limiteInferior: number;
+      limiteSuperior: number; // -1 = infinity
+      cuotaFija: number;
+      tasa: number;
+      excedente: number;
+    };
   };
   iva: {
     ivaCobrado: number;
@@ -2595,10 +2602,32 @@ function DeclaracionesTab() {
                                 <span>Base gravable acumulada</span>
                                 <span className="font-mono">{fmt(m.isr.baseGravable)}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span>ISR causado (tabla Art. 96)</span>
-                                <span className="font-mono">{fmt(m.isr.isrCausado)}</span>
-                              </div>
+                              {/* Bracket breakdown */}
+                              {m.isr.bracket && (
+                                <div className="bg-purple-100/50 rounded p-2 my-1 space-y-0.5 text-[11px]">
+                                  <p className="font-semibold text-purple-700 mb-1">Desglose tabla Art. 96 (mes {m.month}, tramos ×{m.month}):</p>
+                                  <div className="flex justify-between text-purple-600">
+                                    <span>Tramo: {fmt(m.isr.bracket.limiteInferior)} – {m.isr.bracket.limiteSuperior === -1 ? 'en adelante' : fmt(m.isr.bracket.limiteSuperior)}</span>
+                                    <span className="font-mono">tasa {(m.isr.bracket.tasa * 100).toFixed(0)}%</span>
+                                  </div>
+                                  <div className="flex justify-between text-purple-600">
+                                    <span>Cuota fija (impuesto tramos inferiores)</span>
+                                    <span className="font-mono">{fmt(m.isr.bracket.cuotaFija)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-purple-600">
+                                    <span>Excedente ({fmt(m.isr.baseGravable)} − {fmt(m.isr.bracket.limiteInferior)})</span>
+                                    <span className="font-mono">{fmt(m.isr.bracket.excedente)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-purple-600">
+                                    <span>Impuesto excedente ({fmt(m.isr.bracket.excedente)} × {(m.isr.bracket.tasa * 100).toFixed(0)}%)</span>
+                                    <span className="font-mono">{fmt(m.isr.bracket.excedente * m.isr.bracket.tasa)}</span>
+                                  </div>
+                                  <div className="flex justify-between font-semibold text-purple-800 border-t border-purple-200 pt-0.5 mt-0.5">
+                                    <span>= ISR causado ({fmt(m.isr.bracket.cuotaFija)} + {fmt(m.isr.bracket.excedente * m.isr.bracket.tasa)})</span>
+                                    <span className="font-mono">{fmt(m.isr.isrCausado)}</span>
+                                  </div>
+                                </div>
+                              )}
                               <div className="flex justify-between text-gray-500">
                                 <span>(-) ISR retenido acumulado</span>
                                 <span className="font-mono">{fmt(m.isr.isrRetenido)}</span>
@@ -2876,6 +2905,42 @@ function AyudaTab() {
               Si un mes gastas mas de lo que ingresas, la base gravable acumulada baja y puedes generar <strong>ISR a favor</strong> —
               es decir, no pagas ISR hasta que la utilidad acumulada supere lo que ya pagaste. El excedente se recupera en la
               declaracion anual. Consulta la seccion "ISR Provisional: Calculo Acumulado" en la pestana <strong>Guia</strong> para un ejemplo con numeros.
+            </p>
+          </div>
+
+          <div className="bg-purple-50 border border-purple-200 rounded p-3">
+            <p className="font-semibold text-purple-800 text-xs mb-1">Tabla de ISR Art. 96 LISR (mensual, Anexo 8 RMF 2026)</p>
+            <p className="text-xs text-purple-700 mb-2">
+              Esta es la tabla que se usa para calcular tu ISR. Al expandir un mes en la tabla veras exactamente que tramo se uso.
+              Formula: <strong className="font-mono">ISR = Cuota Fija + (Base − Limite Inferior) × Tasa</strong>
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[10px] border border-purple-200 rounded">
+                <thead>
+                  <tr className="bg-purple-100 text-purple-800">
+                    <th className="px-2 py-1 text-right border-r border-purple-200">Limite Inferior</th>
+                    <th className="px-2 py-1 text-right border-r border-purple-200">Limite Superior</th>
+                    <th className="px-2 py-1 text-right border-r border-purple-200">Cuota Fija</th>
+                    <th className="px-2 py-1 text-right">Tasa</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono text-purple-700">
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$0.01</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$844.58</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$0.00</td><td className="px-2 py-0.5 text-right">1.92%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$844.59</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$7,167.67</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$16.22</td><td className="px-2 py-0.5 text-right">6.40%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$7,167.68</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$12,601.03</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$420.90</td><td className="px-2 py-0.5 text-right">10.88%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$12,601.04</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$14,648.87</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$1,012.08</td><td className="px-2 py-0.5 text-right">16.00%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$14,648.88</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$17,533.64</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$1,339.74</td><td className="px-2 py-0.5 text-right">17.92%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$17,533.65</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$35,362.83</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$1,856.84</td><td className="px-2 py-0.5 text-right">21.36%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$35,362.84</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$55,734.75</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$5,662.62</td><td className="px-2 py-0.5 text-right">23.52%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$55,734.76</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$79,388.37</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$10,454.09</td><td className="px-2 py-0.5 text-right">30.00%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$79,388.38</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$106,410.50</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$17,550.18</td><td className="px-2 py-0.5 text-right">32.00%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$106,410.51</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$375,975.61</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$26,197.27</td><td className="px-2 py-0.5 text-right">34.00%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$375,975.62</td><td className="px-2 py-0.5 text-right border-r border-purple-100">En adelante</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$117,829.97</td><td className="px-2 py-0.5 text-right">35.00%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10px] text-purple-500 mt-1">
+              Para pagos provisionales mensuales, los limites y cuotas se multiplican por el numero de mes (ej: marzo = ×3). La tasa no cambia. Al expandir un mes en la tabla de Declaraciones, veras el tramo exacto que se uso con los numeros ya escalados.
             </p>
           </div>
 
@@ -3823,6 +3888,36 @@ function GuiaTab() {
             </div>
             <p className="text-xs text-purple-600 mt-2">
               Por eso el ISR puede bajar de un mes a otro aunque tus ingresos suban: al escalar los tramos por mas meses, tu base puede caer en un tramo mas bajo con menor tasa.
+            </p>
+
+            <p className="text-xs text-purple-700 font-semibold mt-3 mb-1">Tabla mensual Art. 96 LISR (Anexo 8 RMF 2026):</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[10px] border border-purple-200 rounded">
+                <thead>
+                  <tr className="bg-purple-100 text-purple-800">
+                    <th className="px-2 py-1 text-right border-r border-purple-200">Limite Inferior</th>
+                    <th className="px-2 py-1 text-right border-r border-purple-200">Limite Superior</th>
+                    <th className="px-2 py-1 text-right border-r border-purple-200">Cuota Fija</th>
+                    <th className="px-2 py-1 text-right">Tasa</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono text-purple-700">
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$0.01</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$844.58</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$0.00</td><td className="px-2 py-0.5 text-right">1.92%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$844.59</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$7,167.67</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$16.22</td><td className="px-2 py-0.5 text-right">6.40%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$7,167.68</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$12,601.03</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$420.90</td><td className="px-2 py-0.5 text-right">10.88%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$12,601.04</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$14,648.87</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$1,012.08</td><td className="px-2 py-0.5 text-right">16.00%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$14,648.88</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$17,533.64</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$1,339.74</td><td className="px-2 py-0.5 text-right">17.92%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$17,533.65</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$35,362.83</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$1,856.84</td><td className="px-2 py-0.5 text-right">21.36%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$35,362.84</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$55,734.75</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$5,662.62</td><td className="px-2 py-0.5 text-right">23.52%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$55,734.76</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$79,388.37</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$10,454.09</td><td className="px-2 py-0.5 text-right">30.00%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$79,388.38</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$106,410.50</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$17,550.18</td><td className="px-2 py-0.5 text-right">32.00%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$106,410.51</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$375,975.61</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$26,197.27</td><td className="px-2 py-0.5 text-right">34.00%</td></tr>
+                  <tr className="border-t border-purple-100"><td className="px-2 py-0.5 text-right border-r border-purple-100">$375,975.62</td><td className="px-2 py-0.5 text-right border-r border-purple-100">En adelante</td><td className="px-2 py-0.5 text-right border-r border-purple-100">$117,829.97</td><td className="px-2 py-0.5 text-right">35.00%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10px] text-purple-500 mt-1">
+              Para pagos provisionales, multiplica Limite Inferior, Limite Superior y Cuota Fija por el numero de mes (ej: marzo = ×3). La Tasa no cambia.
             </p>
           </div>
 

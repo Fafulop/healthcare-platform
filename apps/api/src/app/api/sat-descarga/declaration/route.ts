@@ -118,6 +118,14 @@ export async function GET(request: NextRequest) {
         isrAPagar: number;            // Net ISR to pay this month
         tasaEfectiva: number;         // Effective rate (%)
         tasaResico?: number;          // RESICO bracket rate
+        // Bracket details for transparency (612 only)
+        bracket?: {
+          limiteInferior: number;     // Scaled by month
+          limiteSuperior: number;     // Scaled by month
+          cuotaFija: number;          // Scaled by month
+          tasa: number;               // Percentage (e.g. 0.30 = 30%)
+          excedente: number;          // baseGravable - limiteInferior
+        };
       };
       // IVA
       iva: {
@@ -185,13 +193,22 @@ export async function GET(request: NextRequest) {
         const baseGravable = Math.max(0, cumulativeIngresos - cumulativeDeducciones);
 
         // Apply progressive table to cumulative base (scaled by month count)
-        const { isr: isrCausado } = calculateIsr612(baseGravable, m);
+        const { isr: isrCausado, bracket } = calculateIsr612(baseGravable, m);
 
         // ISR a pagar = ISR causado - retenciones acumuladas - pagos provisionales previos
         const isrAPagar = Math.max(0, isrCausado - cumulativeIsrRetenido - cumulativeIsrPaid);
 
         // IVA is always monthly (not cumulative)
         const ivaNeto = raw.ivaCobrado - raw.ivaAcreditable - raw.ivaRetenido;
+
+        // Build bracket detail for transparency
+        const bracketDetail = bracket && baseGravable > 0 ? {
+          limiteInferior: round2(bracket.limiteInferior * m),
+          limiteSuperior: bracket.limiteSuperior === Infinity ? -1 : round2(bracket.limiteSuperior * m),
+          cuotaFija: round2(bracket.cuotaFija * m),
+          tasa: bracket.tasa,
+          excedente: round2(baseGravable - bracket.limiteInferior * m),
+        } : undefined;
 
         months.push({
           month: m,
@@ -205,6 +222,7 @@ export async function GET(request: NextRequest) {
             pagosPrevios: round2(cumulativeIsrPaid),
             isrAPagar: round2(isrAPagar),
             tasaEfectiva: baseGravable > 0 ? round2((isrCausado / baseGravable) * 100) : 0,
+            bracket: bracketDetail,
           },
           iva: {
             ivaCobrado: round2(raw.ivaCobrado),
