@@ -24,6 +24,7 @@ import {
   Link2,
   Calculator,
   CalendarClock,
+  RefreshCw,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { SAT_FORMA_PAGO_LABELS, ORIGIN_LABELS } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
@@ -411,13 +412,13 @@ function BackfillSection() {
 
   useEffect(() => { fetchProgress(); }, [fetchProgress]);
 
-  const triggerBackfill = async () => {
+  const triggerBackfill = async (force = false) => {
     setBackfilling(true);
     setMessage(null);
     try {
       const res = await authFetch(`${API_URL}/api/sat-descarga/backfill`, {
         method: "POST",
-        body: JSON.stringify({ fromMonth: "2025-01" }),
+        body: JSON.stringify({ fromMonth: "2025-01", force }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -425,6 +426,7 @@ function BackfillSection() {
       } else {
         const parts = [];
         if (json.data.created > 0) parts.push(`${json.data.created} jobs nuevos`);
+        if (json.data.reset > 0) parts.push(`${json.data.reset} XMLs re-sincronizados`);
         if (json.data.skipped > 0) parts.push(`${json.data.skipped} ya existentes`);
         setMessage({ type: "success", text: `Backfill: ${parts.join(', ')}. Se procesarán gradualmente.` });
         fetchProgress();
@@ -454,17 +456,28 @@ function BackfillSection() {
             {progress.activeJobs > 0 && ` · ${progress.activeJobs} jobs activos`}
           </p>
         </div>
-        {!isComplete && (
-          <button
-            onClick={triggerBackfill}
-            disabled={backfilling}
-            className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-100 border border-purple-200 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            Descargar historico
-          </button>
-        )}
-      </div>
+        <div className="flex items-center gap-2">
+          {!isComplete && (
+            <button
+              onClick={() => triggerBackfill(false)}
+              disabled={backfilling}
+              className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-100 border border-purple-200 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              Descargar historico
+            </button>
+          )}
+          {isComplete && (
+            <button
+              onClick={() => triggerBackfill(true)}
+              disabled={backfilling}
+              className="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-md hover:bg-amber-100 border border-amber-200 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Re-sincronizar XMLs
+            </button>
+          )}
+        </div>
 
       {/* Progress bar */}
       {!isComplete && (
