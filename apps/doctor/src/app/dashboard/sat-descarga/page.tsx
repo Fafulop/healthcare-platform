@@ -1559,9 +1559,11 @@ function AccountantReportSection({ year }: { year: number }) {
     const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     return prev.getMonth() + 1;
   });
+  const [reportFormat, setReportFormat] = useState<'xlsx' | 'csv' | 'pdf'>('xlsx');
 
   const monthParam = `${year}-${String(reportMonth).padStart(2, "0")}`;
   const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const formatSuffix = `&format=${reportFormat}`;
 
   return (
     <div className="bg-white rounded-lg border border-purple-200 p-4">
@@ -1570,7 +1572,7 @@ function AccountantReportSection({ year }: { year: number }) {
         Reporte para Contador
       </h4>
       <p className="text-xs text-gray-500 mb-3">
-        Descarga un CSV con toda la informacion necesaria para que tu contador haga la declaracion mensual o anual:
+        Descarga el reporte con toda la informacion necesaria para que tu contador haga la declaracion mensual o anual:
         ISR, IVA, detalle de CFDIs, retenciones por cliente, y gastos no deducibles.
       </p>
       <div className="flex flex-wrap items-center gap-3">
@@ -1583,13 +1585,22 @@ function AccountantReportSection({ year }: { year: number }) {
             <option key={i + 1} value={i + 1}>{name}</option>
           ))}
         </select>
+        <select
+          value={reportFormat}
+          onChange={e => setReportFormat(e.target.value as 'xlsx' | 'csv' | 'pdf')}
+          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+        >
+          <option value="xlsx">Excel (.xlsx)</option>
+          <option value="csv">CSV (.csv)</option>
+          <option value="pdf">PDF (.pdf)</option>
+        </select>
         <ExportButton
           label={`Reporte ${monthNames[reportMonth - 1]}`}
-          href={`${API_URL}/api/sat-descarga/export/accountant-report?month=${monthParam}`}
+          href={`${API_URL}/api/sat-descarga/export/accountant-report?month=${monthParam}${formatSuffix}`}
         />
         <ExportButton
           label={`Reporte Anual ${year}`}
-          href={`${API_URL}/api/sat-descarga/export/accountant-report?period=annual&year=${year}`}
+          href={`${API_URL}/api/sat-descarga/export/accountant-report?period=annual&year=${year}${formatSuffix}`}
           secondary
         />
       </div>
@@ -1760,7 +1771,7 @@ function ExportButton({ label, href, secondary }: { label: string; href: string;
       const blob = await res.blob();
       const disposition = res.headers.get("Content-Disposition") || "";
       const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
-      const filename = filenameMatch?.[1] || "export.csv";
+      const filename = filenameMatch?.[1] || "export.xlsx";
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1771,7 +1782,7 @@ function ExportButton({ label, href, secondary }: { label: string; href: string;
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert("Error al exportar CSV");
+      alert("Error al exportar reporte");
     }
   };
 
