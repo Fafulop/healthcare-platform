@@ -478,6 +478,7 @@ function BackfillSection() {
             </button>
           )}
         </div>
+      </div>
 
       {/* Progress bar */}
       {!isComplete && (
