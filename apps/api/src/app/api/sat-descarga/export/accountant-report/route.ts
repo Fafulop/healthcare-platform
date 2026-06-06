@@ -507,10 +507,11 @@ function generateCsv(data: ReportData, baseName: string): NextResponse {
         lines.push(csvRow([MONTH_NAMES[mi.month - 1], mi.ingresos, `${((mi.tasaResico || 0) * 100).toFixed(1)}%`, mi.isrCausado, mi.isrRetenido, mi.isrAPagar, mi.ivaCobrado, mi.ivaAcreditable, mi.ivaRetenido, mi.ivaAPagar]));
       }
     } else {
-      lines.push(csvRow(['Mes', 'Ingresos', 'Deducciones', 'Base Gravable (Acum)', 'ISR Causado (Acum)', 'ISR Retenido (Acum)', 'Pagos Previos', 'ISR a Pagar', 'IVA Cobrado', 'IVA Acreditable', 'IVA Retenido', 'IVA a Pagar']));
+      lines.push(csvRow(['Mes', 'Ingresos', 'Deducciones', 'Base Gravable (Acum)', 'ISR Causado (Acum)', 'ISR Retenido (Acum)', 'Pagos Previos', 'ISR a Pagar', 'ISR a Favor', 'IVA Cobrado', 'IVA Acreditable', 'IVA Retenido', 'IVA a Pagar']));
       for (const mi of data.allMonthIsr) {
         if (mi.ingresos === 0 && mi.deducciones === 0) continue;
-        lines.push(csvRow([MONTH_NAMES[mi.month - 1], mi.ingresos, mi.deducciones, mi.baseGravable, mi.isrCausado, mi.isrRetenido, mi.pagosPrevios, mi.isrAPagar, mi.ivaCobrado, mi.ivaAcreditable, mi.ivaRetenido, mi.ivaAPagar]));
+        const aFavor = Math.max(0, mi.isrRetenido + mi.pagosPrevios - mi.isrCausado);
+        lines.push(csvRow([MONTH_NAMES[mi.month - 1], mi.ingresos, mi.deducciones, mi.baseGravable, mi.isrCausado, mi.isrRetenido, mi.pagosPrevios, mi.isrAPagar, aFavor, mi.ivaCobrado, mi.ivaAcreditable, mi.ivaRetenido, mi.ivaAPagar]));
       }
     }
   }
@@ -537,6 +538,8 @@ function generateCsv(data: ReportData, baseName: string): NextResponse {
       lines.push(csvRow(['(-) ISR retenido acumulado', '', mi.isrRetenido]));
       lines.push(csvRow(['(-) Pagos provisionales previos', '', mi.pagosPrevios]));
       lines.push(csvRow(['ISR a pagar este mes', '', mi.isrAPagar]));
+      const aFavorMes = Math.max(0, mi.isrRetenido + mi.pagosPrevios - mi.isrCausado);
+      if (aFavorMes > 0) lines.push(csvRow(['ISR a favor acumulado', '', aFavorMes]));
     }
     section('RESUMEN IVA');
     lines.push(csvRow(['Concepto', 'Monto']));
@@ -709,6 +712,8 @@ async function generateXlsx(data: ReportData, baseName: string): Promise<NextRes
       xlsDataRow(ws1, ['(-) ISR retenido acumulado', null, mi.isrRetenido], [3]);
       xlsDataRow(ws1, ['(-) Pagos provisionales previos', null, mi.pagosPrevios], [3]);
       xlsTotalRow(ws1, ['ISR a pagar este mes', null, mi.isrAPagar], [3]);
+      const aFavorMes = Math.max(0, mi.isrRetenido + mi.pagosPrevios - mi.isrCausado);
+      if (aFavorMes > 0) xlsDataRow(ws1, ['ISR a favor acumulado', null, aFavorMes], [3]);
       xlsDataRow(ws1, ['Tasa efectiva', null, `${mi.tasaEfectiva}%`]);
     }
     ws1.addRow([]);
@@ -731,10 +736,15 @@ async function generateXlsx(data: ReportData, baseName: string): Promise<NextRes
       for (const mi of active) xlsDataRow(ws1, [MONTH_NAMES[mi.month - 1], mi.ingresos, `${((mi.tasaResico || 0) * 100).toFixed(1)}%`, mi.isrCausado, mi.isrRetenido, mi.isrAPagar, mi.ivaCobrado, mi.ivaAcreditable, mi.ivaRetenido, mi.ivaAPagar], nc);
       xlsTotalRow(ws1, ['TOTAL', round2(active.reduce((s, m) => s + m.ingresos, 0)), '', round2(active.reduce((s, m) => s + m.isrCausado, 0)), round2(active.reduce((s, m) => s + m.isrRetenido, 0)), round2(active.reduce((s, m) => s + m.isrAPagar, 0)), round2(active.reduce((s, m) => s + m.ivaCobrado, 0)), round2(active.reduce((s, m) => s + m.ivaAcreditable, 0)), round2(active.reduce((s, m) => s + m.ivaRetenido, 0)), round2(active.reduce((s, m) => s + m.ivaAPagar, 0))], nc);
     } else {
-      xlsHeaderRow(ws1, ['Mes', 'Ingresos', 'Deducciones', 'Base Gravable', 'ISR Causado', 'ISR Retenido', 'Pagos Previos', 'ISR a Pagar', 'IVA Cobrado', 'IVA Acreditable', 'IVA Retenido', 'IVA a Pagar'], COLORS.purpleLight);
-      const nc = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-      for (const mi of active) xlsDataRow(ws1, [MONTH_NAMES[mi.month - 1], mi.ingresos, mi.deducciones, mi.baseGravable, mi.isrCausado, mi.isrRetenido, mi.pagosPrevios, mi.isrAPagar, mi.ivaCobrado, mi.ivaAcreditable, mi.ivaRetenido, mi.ivaAPagar], nc);
-      xlsTotalRow(ws1, ['TOTAL', round2(active.reduce((s, m) => s + m.ingresos, 0)), round2(active.reduce((s, m) => s + m.deducciones, 0)), null, null, null, null, round2(active.reduce((s, m) => s + m.isrAPagar, 0)), round2(active.reduce((s, m) => s + m.ivaCobrado, 0)), round2(active.reduce((s, m) => s + m.ivaAcreditable, 0)), round2(active.reduce((s, m) => s + m.ivaRetenido, 0)), round2(active.reduce((s, m) => s + m.ivaAPagar, 0))], nc);
+      xlsHeaderRow(ws1, ['Mes', 'Ingresos', 'Deducciones', 'Base Gravable', 'ISR Causado', 'ISR Retenido', 'Pagos Previos', 'ISR a Pagar', 'ISR a Favor', 'IVA Cobrado', 'IVA Acreditable', 'IVA Retenido', 'IVA a Pagar'], COLORS.purpleLight);
+      const nc = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+      for (const mi of active) {
+        const aFavor = Math.max(0, mi.isrRetenido + mi.pagosPrevios - mi.isrCausado);
+        xlsDataRow(ws1, [MONTH_NAMES[mi.month - 1], mi.ingresos, mi.deducciones, mi.baseGravable, mi.isrCausado, mi.isrRetenido, mi.pagosPrevios, mi.isrAPagar, aFavor || null, mi.ivaCobrado, mi.ivaAcreditable, mi.ivaRetenido, mi.ivaAPagar], nc);
+      }
+      const lastActive = active[active.length - 1];
+      const totalAFavor = lastActive ? Math.max(0, lastActive.isrRetenido + lastActive.pagosPrevios + lastActive.isrAPagar - lastActive.isrCausado) : 0;
+      xlsTotalRow(ws1, ['TOTAL', round2(active.reduce((s, m) => s + m.ingresos, 0)), round2(active.reduce((s, m) => s + m.deducciones, 0)), null, null, null, null, round2(active.reduce((s, m) => s + m.isrAPagar, 0)), totalAFavor || null, round2(active.reduce((s, m) => s + m.ivaCobrado, 0)), round2(active.reduce((s, m) => s + m.ivaAcreditable, 0)), round2(active.reduce((s, m) => s + m.ivaRetenido, 0)), round2(active.reduce((s, m) => s + m.ivaAPagar, 0))], nc);
     }
   }
 
@@ -927,12 +937,17 @@ async function generatePdf(data: ReportData, baseName: string): Promise<NextResp
       for (const mi of active) y = drawTableRow([MONTH_NAMES[mi.month - 1], `$${fmtNum(mi.ingresos)}`, `${((mi.tasaResico || 0) * 100).toFixed(1)}%`, `$${fmtNum(mi.isrCausado)}`, `$${fmtNum(mi.isrRetenido)}`, `$${fmtNum(mi.isrAPagar)}`, `$${fmtNum(mi.ivaCobrado)}`, `$${fmtNum(mi.ivaAcreditable)}`, `$${fmtNum(mi.ivaRetenido)}`, `$${fmtNum(mi.ivaAPagar)}`], cw, y, { numCols: nc });
       y = drawTableRow(['TOTAL', `$${fmtNum(round2(active.reduce((s, m) => s + m.ingresos, 0)))}`, '', `$${fmtNum(round2(active.reduce((s, m) => s + m.isrCausado, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.isrRetenido, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.isrAPagar, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaCobrado, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaAcreditable, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaRetenido, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaAPagar, 0)))}`], cw, y, { bold: true, bg: '#EDE9FE', numCols: nc });
     } else {
-      const cw = [55, 60, 60, 65, 65, 65, 60, 65, 55, 55, 50, 55];
-      const hd = ['Mes', 'Ingresos', 'Deducc.', 'Base Grav.', 'ISR Caus.', 'ISR Ret.', 'Pag.Prev.', 'ISR Pagar', 'IVA Cob.', 'IVA Acred.', 'IVA Ret.', 'IVA Pagar'];
+      const cw = [50, 55, 55, 60, 60, 55, 55, 55, 55, 50, 50, 45, 50];
+      const hd = ['Mes', 'Ingresos', 'Deducc.', 'Base Grav.', 'ISR Caus.', 'ISR Ret.', 'Pag.Prev.', 'ISR Pagar', 'ISR Favor', 'IVA Cob.', 'IVA Acred.', 'IVA Ret.', 'IVA Pagar'];
       y = drawTableHeader(hd, cw, y);
-      const nc = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-      for (const mi of active) y = drawTableRow([MONTH_NAMES[mi.month - 1], `$${fmtNum(mi.ingresos)}`, `$${fmtNum(mi.deducciones)}`, `$${fmtNum(mi.baseGravable)}`, `$${fmtNum(mi.isrCausado)}`, `$${fmtNum(mi.isrRetenido)}`, `$${fmtNum(mi.pagosPrevios)}`, `$${fmtNum(mi.isrAPagar)}`, `$${fmtNum(mi.ivaCobrado)}`, `$${fmtNum(mi.ivaAcreditable)}`, `$${fmtNum(mi.ivaRetenido)}`, `$${fmtNum(mi.ivaAPagar)}`], cw, y, { numCols: nc });
-      y = drawTableRow(['TOTAL', `$${fmtNum(round2(active.reduce((s, m) => s + m.ingresos, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.deducciones, 0)))}`, '', '', '', '', `$${fmtNum(round2(active.reduce((s, m) => s + m.isrAPagar, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaCobrado, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaAcreditable, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaRetenido, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaAPagar, 0)))}`], cw, y, { bold: true, bg: '#EDE9FE', numCols: nc });
+      const nc = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+      for (const mi of active) {
+        const aFavor = Math.max(0, mi.isrRetenido + mi.pagosPrevios - mi.isrCausado);
+        y = drawTableRow([MONTH_NAMES[mi.month - 1], `$${fmtNum(mi.ingresos)}`, `$${fmtNum(mi.deducciones)}`, `$${fmtNum(mi.baseGravable)}`, `$${fmtNum(mi.isrCausado)}`, `$${fmtNum(mi.isrRetenido)}`, `$${fmtNum(mi.pagosPrevios)}`, `$${fmtNum(mi.isrAPagar)}`, aFavor > 0 ? `$${fmtNum(aFavor)}` : '', `$${fmtNum(mi.ivaCobrado)}`, `$${fmtNum(mi.ivaAcreditable)}`, `$${fmtNum(mi.ivaRetenido)}`, `$${fmtNum(mi.ivaAPagar)}`], cw, y, { numCols: nc });
+      }
+      const lastA = active[active.length - 1];
+      const totalAF = lastA ? Math.max(0, lastA.isrRetenido + lastA.pagosPrevios + lastA.isrAPagar - lastA.isrCausado) : 0;
+      y = drawTableRow(['TOTAL', `$${fmtNum(round2(active.reduce((s, m) => s + m.ingresos, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.deducciones, 0)))}`, '', '', '', '', `$${fmtNum(round2(active.reduce((s, m) => s + m.isrAPagar, 0)))}`, totalAF > 0 ? `$${fmtNum(totalAF)}` : '', `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaCobrado, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaAcreditable, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaRetenido, 0)))}`, `$${fmtNum(round2(active.reduce((s, m) => s + m.ivaAPagar, 0)))}`], cw, y, { bold: true, bg: '#EDE9FE', numCols: nc });
     }
   }
 
