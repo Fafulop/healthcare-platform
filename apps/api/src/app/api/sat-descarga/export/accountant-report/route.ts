@@ -9,6 +9,9 @@ import { calculateIsr612, calculateIsrResico } from '@/lib/isr-tables';
 import * as ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 
+// Force Node.js runtime (pdfkit requires fs for font loading)
+export const runtime = 'nodejs';
+
 /**
  * GET /api/sat-descarga/export/accountant-report
  *
