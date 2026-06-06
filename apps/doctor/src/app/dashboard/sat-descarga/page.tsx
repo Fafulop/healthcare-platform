@@ -3800,6 +3800,32 @@ function GuiaTab() {
             </ul>
           </div>
 
+          <div className="bg-purple-50 border border-purple-200 rounded p-3">
+            <p className="font-semibold text-purple-800 text-xs mb-2">Como funciona la tabla de ISR (Art. 96)</p>
+            <p className="text-xs text-purple-700 mb-2">
+              La tabla tiene <strong>tramos</strong> (brackets). Cada tramo tiene: limite inferior, limite superior, <strong>cuota fija</strong> y <strong>tasa</strong>.
+              Para calcular tu ISR, ubicas en que tramo cae tu base gravable y aplicas:
+            </p>
+            <div className="bg-white rounded p-2 mb-2 font-mono text-xs text-purple-900">
+              <p className="font-bold mb-1">ISR = Cuota Fija + (Base Gravable − Limite Inferior) × Tasa</p>
+            </div>
+            <ul className="list-disc list-inside space-y-1 text-xs text-purple-700 mb-2">
+              <li><strong>Cuota fija</strong> — Es el impuesto pre-calculado de todos los tramos debajo del tuyo. Es un atajo: en vez de calcular cada tramo inferior uno por uno, la tabla te da el total.</li>
+              <li><strong>Tasa</strong> — Solo se aplica al <strong>excedente</strong>, es decir, la parte de tu base que esta DENTRO de tu tramo (base − limite inferior).</li>
+              <li><strong>Escalamiento por mes</strong> — Para pagos provisionales (Art. 106), los limites y cuotas fijas se multiplican por el numero de mes. Enero ×1, febrero ×2, marzo ×3, etc. Esto ensancha los tramos conforme avanza el ano.</li>
+            </ul>
+            <p className="text-xs text-purple-700 mb-1 font-semibold">Ejemplo con numeros:</p>
+            <div className="bg-white rounded p-2 text-xs text-purple-800 font-mono space-y-0.5">
+              <p>Base gravable acumulada Ene-Feb: $130,492</p>
+              <p>Mes 2 → tramo escalado: $111,470 – $158,777 (cuota $20,908, tasa 30%)</p>
+              <p>Excedente = $130,492 − $111,470 = $19,023</p>
+              <p>ISR = $20,908 + ($19,023 × 30%) = $20,908 + $5,707 = <strong>$26,615</strong></p>
+            </div>
+            <p className="text-xs text-purple-600 mt-2">
+              Por eso el ISR puede bajar de un mes a otro aunque tus ingresos suban: al escalar los tramos por mas meses, tu base puede caer en un tramo mas bajo con menor tasa.
+            </p>
+          </div>
+
           <div className="bg-amber-50 border border-amber-200 rounded p-3">
             <p className="font-semibold text-amber-800 text-xs mb-1">Diferencia clave vs RESICO</p>
             <p className="text-xs text-amber-700">
