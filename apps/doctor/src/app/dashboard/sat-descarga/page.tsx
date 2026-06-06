@@ -1468,10 +1468,10 @@ function ManualLinkModal({ facturaUuid, issuerRfc, onLink, onClose, acting }: {
         if (Array.isArray(json?.data)) {
           const filtered = (json.data as any[])
             .filter((c: any) => {
-              // Match complementos by RFC: from CFDI detail, issuerRfc is the vendor;
-              // from Cobranza, issuerRfc is the customer (invoice receiver) whose
-              // complemento will have them as issuerRfc on the tipo P CFDI.
-              if (issuerRfc && c.issuerRfc !== issuerRfc && c.receiverRfc !== issuerRfc) return false;
+              // Only show complementos where the target RFC is the issuer.
+              // Cobranza: receiverRfc (customer) should be the issuer of the pago complement.
+              // CFDI detail: issuerRfc (vendor) should be the issuer of the pago complement.
+              if (issuerRfc && c.issuerRfc !== issuerRfc) return false;
               return true;
             })
             .map((c: any) => ({
