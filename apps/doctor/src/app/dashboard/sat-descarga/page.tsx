@@ -2944,6 +2944,34 @@ function AyudaTab() {
             </p>
           </div>
 
+          <div className="bg-emerald-50 border border-emerald-200 rounded p-3">
+            <p className="font-semibold text-emerald-800 text-xs mb-1">Tabla de ISR RESICO Art. 113-E LISR</p>
+            <p className="text-xs text-emerald-700 mb-2">
+              Si estas en RESICO (regimen 626), el ISR es mucho mas simple: <strong className="font-mono">ISR = Ingresos del mes × Tasa</strong>. No hay cuota fija, no hay excedente, no hay acumulacion. Cada mes es independiente.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[10px] border border-emerald-200 rounded">
+                <thead>
+                  <tr className="bg-emerald-100 text-emerald-800">
+                    <th className="px-2 py-1 text-right border-r border-emerald-200">Ingreso Mensual Desde</th>
+                    <th className="px-2 py-1 text-right border-r border-emerald-200">Hasta</th>
+                    <th className="px-2 py-1 text-right">Tasa</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono text-emerald-700">
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$0.01</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$25,000.00</td><td className="px-2 py-0.5 text-right">1.00%</td></tr>
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$25,000.01</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$50,000.00</td><td className="px-2 py-0.5 text-right">1.10%</td></tr>
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$50,000.01</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$83,333.33</td><td className="px-2 py-0.5 text-right">1.50%</td></tr>
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$83,333.34</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$208,333.33</td><td className="px-2 py-0.5 text-right">2.00%</td></tr>
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$208,333.34</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$291,666.67</td><td className="px-2 py-0.5 text-right">2.50%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10px] text-emerald-500 mt-1">
+              Limite anual RESICO: $3,500,000. Si lo excedes, el SAT te cambia a regimen 612 con tabla progresiva.
+            </p>
+          </div>
+
           <div className="bg-amber-50 border border-amber-200 rounded p-3">
             <p className="font-semibold text-amber-800 text-xs mb-1">Importante</p>
             <p className="text-xs text-amber-700">
@@ -3918,6 +3946,29 @@ function GuiaTab() {
             </div>
             <p className="text-[10px] text-purple-500 mt-1">
               Para pagos provisionales, multiplica Limite Inferior, Limite Superior y Cuota Fija por el numero de mes (ej: marzo = ×3). La Tasa no cambia.
+            </p>
+
+            <p className="text-xs text-purple-700 font-semibold mt-3 mb-1">Tabla RESICO Art. 113-E LISR:</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[10px] border border-emerald-200 rounded">
+                <thead>
+                  <tr className="bg-emerald-100 text-emerald-800">
+                    <th className="px-2 py-1 text-right border-r border-emerald-200">Ingreso Mensual Desde</th>
+                    <th className="px-2 py-1 text-right border-r border-emerald-200">Hasta</th>
+                    <th className="px-2 py-1 text-right">Tasa</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono text-emerald-700">
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$0.01</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$25,000.00</td><td className="px-2 py-0.5 text-right">1.00%</td></tr>
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$25,000.01</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$50,000.00</td><td className="px-2 py-0.5 text-right">1.10%</td></tr>
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$50,000.01</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$83,333.33</td><td className="px-2 py-0.5 text-right">1.50%</td></tr>
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$83,333.34</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$208,333.33</td><td className="px-2 py-0.5 text-right">2.00%</td></tr>
+                  <tr className="border-t border-emerald-100"><td className="px-2 py-0.5 text-right border-r border-emerald-100">$208,333.34</td><td className="px-2 py-0.5 text-right border-r border-emerald-100">$291,666.67</td><td className="px-2 py-0.5 text-right">2.50%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10px] text-emerald-500 mt-1">
+              RESICO: ISR = Ingresos × Tasa. Sin cuota fija, sin excedente, sin acumulacion. Limite anual $3.5M.
             </p>
           </div>
 
