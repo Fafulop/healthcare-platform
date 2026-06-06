@@ -1209,7 +1209,7 @@ function CfdiRow({ item, isRegistered, registering, onRegister, deducibilityFlag
               {xmlError && (
                 <p className="text-xs text-gray-500">{xmlError}</p>
               )}
-              {xmlDetail && <XmlDetailPanel detail={xmlDetail} formaPagoLabels={formaPagoLabels} />}
+              {xmlDetail && <XmlDetailPanel detail={xmlDetail} formaPagoLabels={formaPagoLabels} issuerRfc={item.issuerRfc} />}
             </div>
           </td>
         </tr>
@@ -1222,7 +1222,7 @@ function CfdiRow({ item, isRegistered, registering, onRegister, deducibilityFlag
 // XML Detail Panel (shown inside expanded row)
 // ---------------------------------------------------------------------------
 
-function XmlDetailPanel({ detail, formaPagoLabels }: { detail: CfdiDetailData; formaPagoLabels: Record<string, string> }) {
+function XmlDetailPanel({ detail, formaPagoLabels, issuerRfc }: { detail: CfdiDetailData; formaPagoLabels: Record<string, string>; issuerRfc?: string }) {
   const fmt = (n: number | null) => n !== null ? `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2 })}` : "—";
 
   return (
@@ -1251,7 +1251,7 @@ function XmlDetailPanel({ detail, formaPagoLabels }: { detail: CfdiDetailData; f
       </div>
 
       {/* Payment status for PPD invoices */}
-      {detail.metodoPago === "PPD" && <PagoStatusBadge uuid={detail.uuid} issuerRfc={item.issuerRfc} />}
+      {detail.metodoPago === "PPD" && <PagoStatusBadge uuid={detail.uuid} issuerRfc={issuerRfc} />}
 
       {/* Conceptos table */}
       {detail.conceptos.length > 0 && (
