@@ -2494,16 +2494,6 @@ function PpdPagosTab() {
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-purple-600" /></div>;
   if (!data) return <div className="text-center py-12 text-gray-500"><AlertCircle className="w-8 h-8 mx-auto mb-2" /><p>Error al cargar datos PPD</p></div>;
 
-  const statusBadge = (s: PpdFactura['status']) => {
-    const styles = { pagado: 'bg-green-100 text-green-700', parcial: 'bg-yellow-100 text-yellow-700', pendiente: 'bg-red-100 text-red-700' };
-    const labels = { pagado: 'Pagado', parcial: 'Parcial', pendiente: 'Pendiente' };
-    return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${styles[s]}`}>{labels[s]}</span>;
-  };
-
-  const confidenceBadge = (c: PpdSuggestion['confidence']) => {
-    const styles = { high: 'bg-green-100 text-green-700 border-green-300', medium: 'bg-yellow-100 text-yellow-700 border-yellow-300', low: 'bg-gray-100 text-gray-600 border-gray-300' };
-    return <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${styles[c]}`}>{c === 'high' ? 'Alta' : c === 'medium' ? 'Media' : 'Baja'}</span>;
-  };
 
   const hasEmitted = data.emitted.summary.totalFacturas > 0 || data.emitted.unmatchedComplementos.length > 0;
   const hasReceived = data.received.summary.totalFacturas > 0 || data.received.unmatchedComplementos.length > 0;
@@ -2536,8 +2526,8 @@ function PpdPagosTab() {
               accentColor="purple"
               fmt={fmt}
               fmtDate={fmtDate}
-              statusBadge={statusBadge}
-              confidenceBadge={confidenceBadge}
+
+
               handleLink={handleLink}
               handleUnlink={handleUnlink}
               acting={acting}
@@ -2554,8 +2544,8 @@ function PpdPagosTab() {
               accentColor="blue"
               fmt={fmt}
               fmtDate={fmtDate}
-              statusBadge={statusBadge}
-              confidenceBadge={confidenceBadge}
+
+
               handleLink={handleLink}
               handleUnlink={handleUnlink}
               acting={acting}
@@ -2573,7 +2563,7 @@ function PpdPagosTab() {
   );
 }
 
-function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt, fmtDate, statusBadge, confidenceBadge, handleLink, handleUnlink, acting }: {
+function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt, fmtDate, handleLink, handleUnlink, acting }: {
   side: PpdSide;
   title: string;
   subtitle: string;
@@ -2581,21 +2571,24 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
   accentColor: 'purple' | 'blue';
   fmt: (n: number) => string;
   fmtDate: (d: string) => string;
-  statusBadge: (s: PpdFactura['status']) => React.ReactNode;
-  confidenceBadge: (c: PpdSuggestion['confidence']) => React.ReactNode;
   handleLink: (pagoUuid: string, facturaUuid: string) => void;
   handleUnlink: (pagoId: number) => void;
   acting: boolean;
 }) {
   const [expandedFactura, setExpandedFactura] = useState<string | null>(null);
-  const [expandedComplemento, setExpandedComplemento] = useState<string | null>(null);
 
   const borderColor = accentColor === 'purple' ? 'border-purple-200' : 'border-blue-200';
-  const bgAccent = accentColor === 'purple' ? 'bg-purple-50' : 'bg-blue-50';
   const textAccent = accentColor === 'purple' ? 'text-purple-700' : 'text-blue-700';
 
+  const pendingFacturas = side.facturas.filter(f => f.status !== 'pagado');
+  const paidFacturas = side.facturas.filter(f => f.status === 'pagado');
+
+  // For each pending factura, find unlinked complementos that could match (same counterparty RFC)
+  const getMatchingComplementos = (factura: PpdFactura) =>
+    side.unmatchedComplementos.filter(c => c.counterpartyRfc === factura.counterpartyRfc);
+
   return (
-    <div className={`border-l-4 ${borderColor} pl-4 space-y-4`}>
+    <div className={`border-l-4 ${borderColor} pl-4 space-y-6`}>
       {/* Section header */}
       <div>
         <h3 className={`text-base font-bold ${textAccent}`}>{title}</h3>
@@ -2606,194 +2599,197 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
       {side.summary.totalFacturas > 0 && (
         <div className="flex gap-4 text-xs">
           <span className="text-gray-500">{side.summary.totalFacturas} facturas</span>
-          <span className="text-green-600">{side.summary.pagadas} pagadas</span>
+          <span className="text-green-600">{side.summary.pagadas} cobradas</span>
           {side.summary.parciales > 0 && <span className="text-yellow-600">{side.summary.parciales} parciales</span>}
           {side.summary.pendientes > 0 && <span className="text-red-600">{side.summary.pendientes} pendientes</span>}
-          {side.summary.totalPendiente > 0 && <span className="font-medium text-gray-700">Saldo: {fmt(side.summary.totalPendiente)}</span>}
+          {side.summary.totalPendiente > 0 && <span className="font-medium text-gray-700">Saldo pendiente: {fmt(side.summary.totalPendiente)}</span>}
         </div>
       )}
 
-      {/* Facturas table */}
-      {side.facturas.length > 0 && (
-        <div className="bg-white border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-gray-500 border-b bg-gray-50">
-                <th className="text-left p-2 pl-3">Folio</th>
-                <th className="text-left p-2">{counterpartyLabel}</th>
-                <th className="text-right p-2">Total</th>
-                <th className="text-right p-2">Pagado</th>
-                <th className="text-right p-2">Pendiente</th>
-                <th className="text-center p-2">Status</th>
-                <th className="text-right p-2 pr-3">Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {side.facturas.map(f => (
-                <Fragment key={f.uuid}>
-                  <tr
-                    className={`border-b hover:bg-gray-50 cursor-pointer ${expandedFactura === f.uuid ? bgAccent : ''}`}
-                    onClick={() => setExpandedFactura(expandedFactura === f.uuid ? null : f.uuid)}
-                  >
-                    <td className="p-2 pl-3 font-mono text-xs">
-                      {f.serie && <span className="text-gray-400">{f.serie}-</span>}
-                      {f.folio || f.uuid.slice(0, 8)}
-                    </td>
-                    <td className="p-2">
-                      <div className="font-medium text-gray-900 truncate max-w-[180px]">{f.counterpartyName || f.counterpartyRfc}</div>
-                      {f.counterpartyName && <div className="text-xs text-gray-400">{f.counterpartyRfc}</div>}
-                    </td>
-                    <td className="text-right p-2 text-gray-700">{fmt(f.total)}</td>
-                    <td className="text-right p-2 text-green-600">{fmt(f.totalPagado)}</td>
-                    <td className="text-right p-2 font-medium">{fmt(f.pendiente)}</td>
-                    <td className="text-center p-2">{statusBadge(f.status)}</td>
-                    <td className="text-right p-2 pr-3 text-xs text-gray-500">{fmtDate(f.issuedAt)}</td>
-                  </tr>
-                  {expandedFactura === f.uuid && (
-                    <tr>
-                      <td colSpan={7} className={`${bgAccent}/50 p-3 border-b`}>
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-gray-600">Complementos vinculados:</p>
-                          {f.pagos.filter(p => !p.unlinkedAt).length === 0 ? (
-                            <p className="text-xs text-gray-400 italic">Sin complementos vinculados aun</p>
-                          ) : (
-                            <div className="space-y-1">
-                              {f.pagos.filter(p => !p.unlinkedAt).map(p => (
-                                <div key={p.id} className="flex items-center justify-between bg-white rounded border px-3 py-2 text-xs">
+      {/* ═══════════════════════════════════════════════════════════════════
+          TABLE 1: PENDIENTES — facturas sin cobrar
+          Cada factura se puede expandir para ver complementos sin vincular
+          ═══════════════════════════════════════════════════════════════════ */}
+      {pendingFacturas.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-red-700 flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            Pendientes de cobro
+            <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-[10px]">{pendingFacturas.length}</span>
+          </h4>
+
+          <div className="bg-white border border-red-100 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-500 border-b bg-red-50/50">
+                  <th className="text-left p-2 pl-3">Folio</th>
+                  <th className="text-left p-2">{counterpartyLabel}</th>
+                  <th className="text-right p-2">Total</th>
+                  <th className="text-right p-2">Pagado</th>
+                  <th className="text-right p-2">Pendiente</th>
+                  <th className="text-right p-2 pr-3">Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingFacturas.map(f => {
+                  const matchingComplementos = getMatchingComplementos(f);
+                  const isExpanded = expandedFactura === f.uuid;
+                  return (
+                    <Fragment key={f.uuid}>
+                      <tr
+                        className={`border-b hover:bg-gray-50 ${matchingComplementos.length > 0 ? 'cursor-pointer' : ''} ${isExpanded ? 'bg-orange-50/50' : ''}`}
+                        onClick={() => matchingComplementos.length > 0 && setExpandedFactura(isExpanded ? null : f.uuid)}
+                      >
+                        <td className="p-2 pl-3 font-mono text-xs">
+                          {f.serie && <span className="text-gray-400">{f.serie}-</span>}
+                          {f.folio || f.uuid.slice(0, 8)}
+                        </td>
+                        <td className="p-2">
+                          <div className="font-medium text-gray-900 truncate max-w-[180px]">{f.counterpartyName || f.counterpartyRfc}</div>
+                          {f.counterpartyName && <div className="text-xs text-gray-400">{f.counterpartyRfc}</div>}
+                        </td>
+                        <td className="text-right p-2 text-gray-700">{fmt(f.total)}</td>
+                        <td className="text-right p-2 text-green-600">{f.totalPagado > 0 ? fmt(f.totalPagado) : '—'}</td>
+                        <td className="text-right p-2 font-medium text-red-600">{fmt(f.pendiente)}</td>
+                        <td className="text-right p-2 pr-3 text-xs text-gray-500 whitespace-nowrap">
+                          <span>{fmtDate(f.issuedAt)}</span>
+                          {matchingComplementos.length > 0 && (
+                            <span className="ml-2 inline-flex items-center bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full text-[10px]">
+                              {matchingComplementos.length} pago{matchingComplementos.length > 1 ? 's' : ''}
+                              <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="bg-orange-50/30 p-3 border-b">
+                            <p className="text-xs text-gray-600 font-medium mb-2">
+                              Complementos de pago disponibles — ¿Cual corresponde a esta factura?
+                            </p>
+                            <div className="space-y-1.5">
+                              {matchingComplementos.map(c => (
+                                <div key={c.uuid} className="flex items-center justify-between bg-white rounded border px-3 py-2 text-xs">
                                   <div className="flex items-center gap-3">
-                                    <span className="font-mono text-gray-500">{p.pagoUuid.slice(0, 8)}...</span>
-                                    {p.fechaPago && <span className="text-gray-500">{fmtDate(p.fechaPago)}</span>}
-                                    <span className="font-medium text-green-700">+{fmt(p.montoPagado)}</span>
-                                    {p.numParcialidad && <span className="text-gray-400">Parc. {p.numParcialidad}</span>}
-                                    {p.formaPago && <span className="text-gray-400">({p.formaPago})</span>}
-                                    <span className={`text-[10px] px-1 rounded ${p.source === 'auto' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
-                                      {p.source === 'auto' ? 'Auto' : 'Manual'}
-                                    </span>
+                                    <FileText className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                                    <span className="text-gray-900 font-medium">{c.counterpartyName || c.counterpartyRfc}</span>
+                                    <span className="text-gray-700 font-medium">{fmt(c.monto)}</span>
+                                    <span className="text-gray-400">{fmtDate(c.issuedAt)}</span>
                                   </div>
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); handleUnlink(p.id); }}
+                                    onClick={(e) => { e.stopPropagation(); handleLink(c.uuid, f.uuid); }}
                                     disabled={acting}
-                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
-                                    title="Desvincular"
+                                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded font-medium transition-colors"
                                   >
-                                    <Unlink className="w-3 h-3" />
+                                    <Link2 className="w-3 h-3" />
+                                    Vincular
                                   </button>
                                 </div>
                               ))}
                             </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Orphan complementos — no matching pending factura by RFC */}
+          {side.unmatchedComplementos.filter(c => !pendingFacturas.some(f => f.counterpartyRfc === c.counterpartyRfc)).length > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-xs text-yellow-800 font-medium mb-2">
+                Complementos sin factura pendiente del mismo RFC:
+              </p>
+              <div className="space-y-1">
+                {side.unmatchedComplementos
+                  .filter(c => !pendingFacturas.some(f => f.counterpartyRfc === c.counterpartyRfc))
+                  .map(c => (
+                    <div key={c.uuid} className="flex items-center gap-3 text-xs text-yellow-900">
+                      <FileText className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0" />
+                      <span className="font-medium">{c.counterpartyName || c.counterpartyRfc}</span>
+                      <span>{fmt(c.monto)}</span>
+                      <span className="text-yellow-600">{fmtDate(c.issuedAt)}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Unmatched Complementos */}
-      {side.unmatchedComplementos.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-2">
-            Complementos de pago sin vincular a una factura
-            <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-[10px]">{side.unmatchedComplementos.length}</span>
-          </p>
-          <div className="space-y-2">
-            {side.unmatchedComplementos.map(c => (
-              <div key={c.uuid} className="bg-white border rounded-lg overflow-hidden">
-                <button
-                  className={`w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 ${expandedComplemento === c.uuid ? 'bg-blue-50' : ''}`}
-                  onClick={() => setExpandedComplemento(expandedComplemento === c.uuid ? null : c.uuid)}
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                    <span className="text-sm font-medium text-gray-900">{c.counterpartyName || c.counterpartyRfc}</span>
-                    <span className="text-xs text-gray-400">{c.counterpartyRfc}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-gray-700">{fmt(c.monto)}</span>
-                    <span className="text-xs text-gray-400">{fmtDate(c.issuedAt)}</span>
-                    {c.suggestions.length > 0 && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                        {c.suggestions.length} sugerencia{c.suggestions.length > 1 ? 's' : ''}
-                      </span>
-                    )}
-                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedComplemento === c.uuid ? 'rotate-180' : ''}`} />
-                  </div>
-                </button>
-                {expandedComplemento === c.uuid && (
-                  <div className="border-t p-3 bg-gray-50">
-                    {c.suggestions.length === 0 ? (
-                      <p className="text-xs text-gray-500 italic">No hay facturas PPD pendientes del mismo RFC ({c.counterpartyRfc})</p>
-                    ) : (
-                      <div className="space-y-2">
-                        <p className="text-xs text-gray-600 font-medium">Posibles facturas a vincular:</p>
-                        {c.suggestions.map(s => (
-                          <div key={s.facturaUuid} className="flex items-center justify-between bg-white rounded border px-3 py-2">
-                            <div className="flex items-center gap-3 text-xs">
-                              {confidenceBadge(s.confidence)}
-                              <span className="font-mono text-gray-500">
-                                {s.serie && `${s.serie}-`}{s.folio || s.facturaUuid.slice(0, 8)}
-                              </span>
-                              <span className="text-gray-600">{s.counterpartyName}</span>
-                              <span className="text-gray-700 font-medium">{fmt(s.total)}</span>
-                              <span className="text-gray-400">Pend: {fmt(s.pendiente)}</span>
-                              <span className="text-gray-400">{s.reason}</span>
-                            </div>
+      {/* ═══════════════════════════════════════════════════════════════════
+          TABLE 2: COBRADAS — facturas pagadas + sus complementos de pago
+          ═══════════════════════════════════════════════════════════════════ */}
+      {paidFacturas.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-green-700 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            Cobradas
+            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full text-[10px]">{paidFacturas.length}</span>
+          </h4>
+
+          <div className="bg-white border border-green-100 rounded-lg overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-500 border-b bg-green-50/50">
+                  <th className="text-left p-2 pl-3">Folio factura</th>
+                  <th className="text-left p-2">{counterpartyLabel}</th>
+                  <th className="text-right p-2">Total factura</th>
+                  <th className="text-right p-2 pr-3">Fecha factura</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paidFacturas.map(f => {
+                  const activePagos = f.pagos.filter(p => !p.unlinkedAt);
+                  return (
+                    <Fragment key={f.uuid}>
+                      <tr className="border-b bg-white">
+                        <td className="p-2 pl-3 font-mono text-xs">
+                          {f.serie && <span className="text-gray-400">{f.serie}-</span>}
+                          {f.folio || f.uuid.slice(0, 8)}
+                        </td>
+                        <td className="p-2">
+                          <div className="font-medium text-gray-900 truncate max-w-[180px]">{f.counterpartyName || f.counterpartyRfc}</div>
+                        </td>
+                        <td className="text-right p-2 text-gray-700">{fmt(f.total)}</td>
+                        <td className="text-right p-2 pr-3 text-xs text-gray-500">{fmtDate(f.issuedAt)}</td>
+                      </tr>
+                      {/* Complementos de pago linked to this factura */}
+                      {activePagos.length > 0 && activePagos.map(p => (
+                        <tr key={p.id} className="group border-b bg-green-50/30">
+                          <td className="p-1.5 pl-6 font-mono text-xs text-green-700">
+                            ↳ Comp. {p.pagoUuid.slice(0, 8)}...
+                          </td>
+                          <td className="p-1.5 text-xs text-gray-500">
+                            {p.formaPago && <span>Forma: {p.formaPago}</span>}
+                            {p.numParcialidad && <span className="ml-2">Parcialidad {p.numParcialidad}</span>}
+                          </td>
+                          <td className="text-right p-1.5 text-xs font-medium text-green-700">
+                            {fmt(p.montoPagado)}
+                          </td>
+                          <td className="text-right p-1.5 pr-3 text-xs text-gray-500 whitespace-nowrap">
+                            {p.fechaPago ? fmtDate(p.fechaPago) : '—'}
                             <button
-                              onClick={() => handleLink(c.uuid, s.facturaUuid)}
+                              onClick={() => handleUnlink(p.id)}
                               disabled={acting}
-                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded font-medium transition-colors"
+                              className="ml-2 text-red-400 hover:text-red-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Desvincular"
                             >
-                              <Link2 className="w-3 h-3" />
-                              Vincular
+                              <Unlink className="w-3 h-3" />
                             </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
-
-      {/* Matched Complementos */}
-      {side.matchedComplementos.length > 0 && (
-        <details className="group">
-          <summary className="text-xs font-semibold text-gray-600 cursor-pointer flex items-center gap-2">
-            <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
-            Complementos ya vinculados a facturas ({side.matchedComplementos.length})
-          </summary>
-          <div className="mt-2 bg-white border rounded-lg divide-y">
-            {side.matchedComplementos.map(c => (
-              <div key={c.uuid} className="p-2.5 text-xs">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                    <span className="text-gray-900">{c.counterpartyName || c.counterpartyRfc}</span>
-                    <span className="text-gray-400">{fmtDate(c.issuedAt)}</span>
-                  </div>
-                  <span className="font-medium text-green-600">{fmt(c.monto)}</span>
-                </div>
-                {c.linkedTo.length > 0 && (
-                  <div className="mt-1 ml-5 flex flex-wrap gap-1">
-                    {c.linkedTo.map(f => (
-                      <span key={f.uuid} className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[10px]">
-                        → {f.folio ? `${f.serie ? f.serie + '-' : ''}${f.folio}` : f.uuid.slice(0, 8)}
-                        {f.total != null && <span className="text-green-500">{fmt(f.total)}</span>}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </details>
       )}
     </div>
   );
