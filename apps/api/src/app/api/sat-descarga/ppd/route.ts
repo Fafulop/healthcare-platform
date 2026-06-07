@@ -149,22 +149,42 @@ export async function GET(request: NextRequest) {
         orderBy: { issuedAt: 'desc' },
       });
 
-      // 6. Determine which complementos are already linked
+      // 6. Determine which complementos are already linked + get amounts
       const complementoUuids = complementos.map(c => c.uuid.toLowerCase());
-      const linkedPagos = await prisma.satPago.findMany({
-        where: {
-          doctorId: doctor.id,
-          pagoUuid: { in: complementoUuids },
-          unlinkedAt: null,
-        },
-        select: { pagoUuid: true, facturaUuid: true },
-      });
+      const [linkedPagos, allComplementoPagos] = await Promise.all([
+        prisma.satPago.findMany({
+          where: {
+            doctorId: doctor.id,
+            pagoUuid: { in: complementoUuids },
+            unlinkedAt: null,
+          },
+          select: { pagoUuid: true, facturaUuid: true, montoPagado: true },
+        }),
+        // Also get ALL pagos (including unlinked) to know complemento amounts
+        prisma.satPago.findMany({
+          where: {
+            doctorId: doctor.id,
+            pagoUuid: { in: complementoUuids },
+          },
+          select: { pagoUuid: true, montoPagado: true },
+        }),
+      ]);
 
-      const linkedPagoMap = new Map<string, string[]>();
+      // Sum total monto per complemento (regardless of link status) for display
+      const complementoMontoMap = new Map<string, number>();
+      for (const p of allComplementoPagos) {
+        const key = p.pagoUuid.toLowerCase();
+        const current = complementoMontoMap.get(key) || 0;
+        complementoMontoMap.set(key, current + (p.montoPagado?.toNumber() ?? 0));
+      }
+
+      const linkedPagoMap = new Map<string, { facturas: string[]; totalMonto: number }>();
       for (const lp of linkedPagos) {
-        const arr = linkedPagoMap.get(lp.pagoUuid) || [];
-        arr.push(lp.facturaUuid);
-        linkedPagoMap.set(lp.pagoUuid, arr);
+        const key = lp.pagoUuid.toLowerCase();
+        const entry = linkedPagoMap.get(key) || { facturas: [], totalMonto: 0 };
+        entry.facturas.push(lp.facturaUuid);
+        entry.totalMonto += lp.montoPagado?.toNumber() ?? 0;
+        linkedPagoMap.set(key, entry);
       }
 
       // 7. Build complemento list with suggestions
@@ -172,8 +192,9 @@ export async function GET(request: NextRequest) {
 
       const complementoItems = complementos.map(c => {
         const uuidLower = c.uuid.toLowerCase();
-        const linked = linkedPagoMap.get(uuidLower) || [];
-        const montoNum = Number(c.monto);
+        const entry = linkedPagoMap.get(uuidLower);
+        const linked = entry?.facturas || [];
+        const montoNum = complementoMontoMap.get(uuidLower) || Number(c.monto);
 
         // Counterparty on complemento: same logic as invoice
         const counterpartyRfc = direction === 'emitted' ? c.receiverRfc : c.issuerRfc;
