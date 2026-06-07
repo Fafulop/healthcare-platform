@@ -99,10 +99,11 @@ export async function POST(request: Request) {
   // SAT rejects XML solicitudes when too many are active simultaneously.
   // Strategy: process in-progress jobs first (polling/downloading), then only
   // start ONE new XML job at a time. Metadata jobs are unthrottled.
+  // Count only actively-processing XML jobs (not pending ones waiting in queue)
   const activeXmlCount = await prisma.satSyncJob.count({
     where: {
       requestType: 'xml',
-      status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading'] },
+      status: { in: ['authenticating', 'requesting', 'polling', 'downloading'] },
     },
   });
 
