@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Fragment } from "react";
+import React, { useState, useEffect, useCallback, Fragment } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import {
@@ -2573,8 +2573,8 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
   accentColor: 'purple' | 'blue';
   fmt: (n: number) => string;
   fmtDate: (d: string) => string;
-  statusBadge: (s: PpdFactura['status']) => JSX.Element;
-  confidenceBadge: (c: PpdSuggestion['confidence']) => JSX.Element;
+  statusBadge: (s: PpdFactura['status']) => React.ReactNode;
+  confidenceBadge: (c: PpdSuggestion['confidence']) => React.ReactNode;
   handleLink: (pagoUuid: string, facturaUuid: string) => void;
   handleUnlink: (pagoId: number) => void;
   acting: boolean;
