@@ -68,9 +68,9 @@ El SAT considera cualquier diferencia de al menos 1 segundo como un rango difere
 2. Se "resetea" el limite de 2 intentos ya que es un rango nuevo
 3. No se pierde ningun CFDI porque ninguna factura tiene hora de emision a las 00:00:00
 
-### Cambio en codigo
+### Cambios en codigo
 
-**Archivo:** `apps/api/src/lib/sat-descarga.ts` — funcion `requestXml()`
+**1. Offset de FechaInicial** — `apps/api/src/lib/sat-descarga.ts` funcion `requestXml()`
 
 ```typescript
 // ANTES (colisionaba con metadata y quemaba el limite)
@@ -79,6 +79,34 @@ const fechaInicial = formatSatDate(dateFrom, '00:00:00');
 // DESPUES (rango diferente, evita error 5002)
 const fechaInicial = formatSatDate(dateFrom, '00:00:01');
 ```
+
+**2. Captura de CodigoEstadoSolicitud** — `apps/api/src/lib/sat-descarga.ts` funcion `verifyRequest()`
+
+Se agrego parsing de `CodigoEstadoSolicitud` y `Mensaje` en la respuesta de verificacion, y logging del body completo para estados no exitosos.
+
+**3. Fix del throttle de XML** — `apps/api/src/app/api/cron/sat-sync-worker/route.ts`
+
+El conteo de XML activos incluia jobs `pending`, lo que bloqueaba el procesamiento despues de un reset masivo. Se corrigio para solo contar jobs en progreso (`authenticating`, `requesting`, `polling`, `downloading`).
+
+```typescript
+// ANTES (bloqueaba cuando habia muchos pending)
+status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading'] }
+
+// DESPUES (solo cuenta jobs activamente procesandose)
+status: { in: ['authenticating', 'requesting', 'polling', 'downloading'] }
+```
+
+## Verificacion
+
+Fix verificado en produccion el 2026-06-06. Despues de aplicar el offset de 1 segundo y resetear los 69 jobs fallidos:
+
+```
+Job 29 (emitted  Apr 2026): polling → downloading → completed: 12 XML CFDIs parsed
+Job 30 (emitted  May 2026): polling → downloading → completed: 5 XML CFDIs parsed
+Job 31 (received Apr 2026): polling → downloading → completed: 18 XML CFDIs parsed
+```
+
+SAT acepto las solicitudes sin error 5002. Los 66 jobs restantes se procesan via cron automatico.
 
 ## Codigos de Error SAT Relevantes
 
@@ -95,6 +123,7 @@ const fechaInicial = formatSatDate(dateFrom, '00:00:01');
 2. **Las solicitudes XML y Metadata deben usar rangos de fecha distintos** para evitar colisiones con el limite de 2 solicitudes
 3. **No reintentar con los mismos parametros exactos** — cada reintento quema uno de los 2 intentos permitidos
 4. **El limite de metadata es mucho mas permisivo** que el de CFDI — se puede probar libremente con metadata
+5. **El throttle de XML no debe contar jobs `pending`** — solo jobs activamente procesandose, de lo contrario un reset masivo bloquea todo el procesamiento
 
 ## Referencias
 

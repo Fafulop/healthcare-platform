@@ -27,6 +27,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (profile.fielValidUntil && new Date() > profile.fielValidUntil) {
+      return NextResponse.json(
+        { error: 'Tu e.Firma ha expirado. Sube una nueva para continuar.' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const fromMonth = body.fromMonth || '2025-01';
     const force = body.force === true;
@@ -64,7 +71,7 @@ export async function POST(request: NextRequest) {
 
       for (const direction of ['received', 'emitted'] as const) {
         for (const requestType of ['metadata', 'xml'] as const) {
-          // Skip if already completed or active
+          // Check for completed or active jobs
           const existingJob = await prisma.satSyncJob.findFirst({
             where: {
               doctorId: doctor.id,
@@ -95,6 +102,36 @@ export async function POST(request: NextRequest) {
               continue;
             }
             skipped++;
+            continue;
+          }
+
+          // Check for failed jobs — reset them instead of creating duplicates
+          const failedJob = await prisma.satSyncJob.findFirst({
+            where: {
+              doctorId: doctor.id,
+              direction,
+              requestType,
+              dateFrom,
+              status: 'failed',
+            },
+          });
+
+          if (failedJob) {
+            await prisma.satSyncJob.update({
+              where: { id: failedJob.id },
+              data: {
+                status: 'pending',
+                requestId: null,
+                packageIds: [],
+                attempts: 0,
+                lastError: null,
+                startedAt: null,
+                completedAt: null,
+                cfdiCount: null,
+                dateTo,
+              },
+            });
+            reset++;
             continue;
           }
 
@@ -156,43 +193,53 @@ export async function GET(request: NextRequest) {
       if (m > 11) { m = 0; y++; }
     }
 
-    // Count completed jobs grouped by month
+    // Count jobs grouped by month
     let completedMonths = 0;
     let pendingMonths = 0;
+    let failedMonths = 0;
 
     for (const { year, month } of months) {
       const dateFrom = new Date(Date.UTC(year, month, 1));
 
-      // A month is "complete" if all 4 jobs are done (received+emitted × metadata+xml)
-      const completedJobs = await prisma.satSyncJob.count({
-        where: {
-          doctorId: doctor.id,
-          dateFrom,
-          status: 'completed',
-        },
-      });
+      const [completedJobs, failedJobs] = await Promise.all([
+        prisma.satSyncJob.count({
+          where: { doctorId: doctor.id, dateFrom, status: 'completed' },
+        }),
+        prisma.satSyncJob.count({
+          where: { doctorId: doctor.id, dateFrom, status: 'failed' },
+        }),
+      ]);
 
       if (completedJobs >= 4) {
         completedMonths++;
+      } else if (failedJobs > 0) {
+        failedMonths++;
       } else {
         pendingMonths++;
       }
     }
 
-    // Count active jobs
-    const activeJobs = await prisma.satSyncJob.count({
-      where: {
-        doctorId: doctor.id,
-        status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading'] },
-      },
-    });
+    // Count active and failed jobs
+    const [activeJobs, failedJobs] = await Promise.all([
+      prisma.satSyncJob.count({
+        where: {
+          doctorId: doctor.id,
+          status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading'] },
+        },
+      }),
+      prisma.satSyncJob.count({
+        where: { doctorId: doctor.id, status: 'failed' },
+      }),
+    ]);
 
     return NextResponse.json({
       data: {
         totalMonths: months.length,
         completedMonths,
         pendingMonths,
+        failedMonths,
         activeJobs,
+        failedJobs,
         fromMonth,
         toMonth: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`,
       },

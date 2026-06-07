@@ -31,11 +31,15 @@ export async function POST(request: Request) {
 
   const recentWindow = new Date(Date.now() - 20 * 60 * 60 * 1000); // 20 hours
 
-  // Find doctors with auto-sync enabled and FIEL uploaded
+  // Find doctors with auto-sync enabled, FIEL uploaded, and not expired
   const profiles = await prisma.doctorFiscalProfile.findMany({
     where: {
       fielUploaded: true,
       autoSyncEnabled: true,
+      OR: [
+        { fielValidUntil: null },
+        { fielValidUntil: { gt: new Date() } },
+      ],
     },
     select: {
       id: true,

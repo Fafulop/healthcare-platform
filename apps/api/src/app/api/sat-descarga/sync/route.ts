@@ -31,6 +31,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (profile.fielValidUntil && new Date() > profile.fielValidUntil) {
+      return NextResponse.json(
+        { error: 'Tu e.Firma ha expirado. Sube una nueva para continuar.' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const { direction, month, requestType: reqType } = body;
 

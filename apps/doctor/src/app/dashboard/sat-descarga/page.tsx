@@ -394,7 +394,11 @@ function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string)
 // ---------------------------------------------------------------------------
 
 function BackfillSection() {
-  const [progress, setProgress] = useState<{ totalMonths: number; completedMonths: number; activeJobs: number; fromMonth: string; toMonth: string } | null>(null);
+  const [progress, setProgress] = useState<{
+    totalMonths: number; completedMonths: number; activeJobs: number;
+    failedMonths?: number; failedJobs?: number;
+    fromMonth: string; toMonth: string;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -412,6 +416,13 @@ function BackfillSection() {
   }, []);
 
   useEffect(() => { fetchProgress(); }, [fetchProgress]);
+
+  // Auto-refresh while jobs are active
+  useEffect(() => {
+    if (!progress || progress.activeJobs === 0) return;
+    const interval = setInterval(fetchProgress, 15000);
+    return () => clearInterval(interval);
+  }, [progress?.activeJobs, fetchProgress]);
 
   const triggerBackfill = async (force = false) => {
     setBackfilling(true);
@@ -442,6 +453,7 @@ function BackfillSection() {
   if (!progress) return null;
 
   const isComplete = progress.completedMonths >= progress.totalMonths;
+  const hasFailed = (progress.failedJobs || 0) > 0;
   const pct = progress.totalMonths > 0 ? Math.round((progress.completedMonths / progress.totalMonths) * 100) : 0;
 
   return (
@@ -455,10 +467,21 @@ function BackfillSection() {
               : `${progress.completedMonths} de ${progress.totalMonths} meses completados (${progress.fromMonth} a ${progress.toMonth})`
             }
             {progress.activeJobs > 0 && ` · ${progress.activeJobs} jobs activos`}
+            {hasFailed && ` · ${progress.failedJobs} jobs fallidos`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {!isComplete && (
+          {hasFailed && (
+            <button
+              onClick={() => triggerBackfill(false)}
+              disabled={backfilling}
+              className="px-3 py-1.5 bg-red-50 text-red-700 text-xs font-medium rounded-md hover:bg-red-100 border border-red-200 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Reintentar fallidos
+            </button>
+          )}
+          {!isComplete && !hasFailed && (
             <button
               onClick={() => triggerBackfill(false)}
               disabled={backfilling}
@@ -468,7 +491,7 @@ function BackfillSection() {
               Descargar historico
             </button>
           )}
-          {isComplete && (
+          {isComplete && !hasFailed && (
             <button
               onClick={() => triggerBackfill(true)}
               disabled={backfilling}
@@ -483,11 +506,17 @@ function BackfillSection() {
 
       {/* Progress bar */}
       {!isComplete && (
-        <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
+        <div className="mt-3 w-full bg-gray-200 rounded-full h-2 overflow-hidden flex">
           <div
-            className="bg-purple-600 h-2 rounded-full transition-all"
+            className="bg-purple-600 h-2 transition-all"
             style={{ width: `${pct}%` }}
           />
+          {hasFailed && (
+            <div
+              className="bg-red-400 h-2 transition-all"
+              style={{ width: `${Math.min(100 - pct, Math.round(((progress.failedMonths || 0) / progress.totalMonths) * 100))}%` }}
+            />
+          )}
         </div>
       )}
 
