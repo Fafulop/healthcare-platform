@@ -83,10 +83,27 @@ export async function POST(request: Request) {
 
   const results: Array<{ jobId: number; status: string; error?: string }> = [];
 
-  // Pick up pending jobs (limit to 3 per run to stay within timeout)
+  // SAT rejects XML solicitudes when too many are active simultaneously.
+  // Strategy: process in-progress jobs first (polling/downloading), then only
+  // start ONE new XML job at a time. Metadata jobs are unthrottled.
+  const activeXmlCount = await prisma.satSyncJob.count({
+    where: {
+      requestType: 'xml',
+      status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading'] },
+    },
+  });
+
+  // Pick up: always process in-progress jobs, but only start new XML if none active
   const pendingJobs = await prisma.satSyncJob.findMany({
     where: {
-      status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading'] },
+      OR: [
+        // Always continue in-progress jobs (any type)
+        { status: { in: ['authenticating', 'requesting', 'polling', 'downloading'] } },
+        // Start new metadata jobs freely
+        { status: 'pending', requestType: 'metadata' },
+        // Only start a new XML job if no XML jobs are currently active
+        ...(activeXmlCount <= 1 ? [{ status: 'pending' as const, requestType: 'xml' as const }] : []),
+      ],
     },
     orderBy: { createdAt: 'asc' },
     take: 3,
