@@ -323,8 +323,7 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
     data: { attempts: { increment: 1 } },
   });
 
-  const raw = (result as any).rawBody;
-  return `polling: ${result.estadoName}${raw ? ' | raw: ' + raw : ''}`;
+  return `polling: estado=${result.estado} cod=${result.codEstatus} name=${result.estadoName}`;
 }
 
 // ---------------------------------------------------------------------------
