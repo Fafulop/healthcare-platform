@@ -293,15 +293,18 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
 
   if (result.estado === '4' || result.estado === '5' || result.estado === '6') {
     // Terminal error from SAT
+    const errorDetail = result.mensaje
+      ? `SAT: ${result.estadoName} (${result.codEstatus}) — ${result.mensaje}`
+      : `SAT: ${result.estadoName} (${result.codEstatus})`;
     await prisma.satSyncJob.update({
       where: { id: job.id },
       data: {
         status: 'failed',
-        lastError: `SAT: ${result.estadoName} (${result.codEstatus})`,
+        lastError: errorDetail,
         attempts: { increment: 1 },
       },
     });
-    return `failed: ${result.estadoName}`;
+    return `failed: ${errorDetail}`;
   }
 
   // 5004 = "Información de solicitud no encontrada" — the request expired (SAT keeps
@@ -339,7 +342,8 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
     data: { attempts: { increment: 1 } },
   });
 
-  return `polling: estado=${result.estado} cod=${result.codEstatus} name=${result.estadoName}`;
+  const msgSuffix = result.mensaje ? ` msg=${result.mensaje}` : '';
+  return `polling: estado=${result.estado} cod=${result.codEstatus} name=${result.estadoName}${msgSuffix}`;
 }
 
 // ---------------------------------------------------------------------------

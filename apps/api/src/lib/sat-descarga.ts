@@ -538,6 +538,7 @@ export async function verifyRequest(
   const estadoSolicitud = res.body.match(/EstadoSolicitud="([^"]+)"/i);
   const codEstatus = res.body.match(/CodEstatus="([^"]+)"/i);
   const numeroCFDIs = res.body.match(/NumeroCFDIs="([^"]+)"/i);
+  const mensaje = res.body.match(/Mensaje="([^"]+)"/i);
   const packageIds = [...res.body.matchAll(/<IdsPaquetes>([^<]+)<\/IdsPaquetes>/gi)].map(m => m[1]);
 
   const estado = estadoSolicitud?.[1] || 'unknown';
@@ -550,6 +551,7 @@ export async function verifyRequest(
     estado,
     estadoName: ESTADO_NAMES[estado] || 'Desconocido',
     codEstatus: codEstatus?.[1] || '',
+    mensaje: mensaje?.[1] || '',
     numeroCFDIs: parseInt(numeroCFDIs?.[1] || '0', 10),
     packageIds,
     ...(estado === 'unknown' ? { rawBody: res.body.slice(0, 500) } : {}),
