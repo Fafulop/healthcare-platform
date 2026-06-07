@@ -1240,7 +1240,7 @@ function CfdiRow({ item, isRegistered, registering, onRegister, deducibilityFlag
               {xmlError && (
                 <p className="text-xs text-gray-500">{xmlError}</p>
               )}
-              {xmlDetail && <XmlDetailPanel detail={xmlDetail} formaPagoLabels={formaPagoLabels} issuerRfc={item.issuerRfc} />}
+              {xmlDetail && <XmlDetailPanel detail={xmlDetail} formaPagoLabels={formaPagoLabels} clientRfc={item.direction === 'emitted' ? item.receiverRfc : item.issuerRfc} />}
             </div>
           </td>
         </tr>
@@ -1253,7 +1253,7 @@ function CfdiRow({ item, isRegistered, registering, onRegister, deducibilityFlag
 // XML Detail Panel (shown inside expanded row)
 // ---------------------------------------------------------------------------
 
-function XmlDetailPanel({ detail, formaPagoLabels, issuerRfc }: { detail: CfdiDetailData; formaPagoLabels: Record<string, string>; issuerRfc?: string }) {
+function XmlDetailPanel({ detail, formaPagoLabels, clientRfc }: { detail: CfdiDetailData; formaPagoLabels: Record<string, string>; clientRfc?: string }) {
   const fmt = (n: number | null) => n !== null ? `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2 })}` : "—";
 
   return (
@@ -1282,7 +1282,7 @@ function XmlDetailPanel({ detail, formaPagoLabels, issuerRfc }: { detail: CfdiDe
       </div>
 
       {/* Payment status for PPD invoices */}
-      {detail.metodoPago === "PPD" && <PagoStatusBadge uuid={detail.uuid} issuerRfc={issuerRfc} />}
+      {detail.metodoPago === "PPD" && <PagoStatusBadge uuid={detail.uuid} clientRfc={clientRfc} />}
 
       {/* Conceptos table */}
       {detail.conceptos.length > 0 && (
@@ -1333,7 +1333,7 @@ function XmlDetailPanel({ detail, formaPagoLabels, issuerRfc }: { detail: CfdiDe
 // Payment Status Badge (for PPD invoices)
 // ---------------------------------------------------------------------------
 
-function PagoStatusBadge({ uuid, issuerRfc }: { uuid: string; issuerRfc?: string }) {
+function PagoStatusBadge({ uuid, clientRfc }: { uuid: string; clientRfc?: string }) {
   const [data, setData] = useState<{
     totalPagado: number; saldoInsoluto: number | null; status: string;
     pagos: { id: number; pagoUuid: string; montoPagado: number | null; source: string }[];
@@ -1474,7 +1474,7 @@ function PagoStatusBadge({ uuid, issuerRfc }: { uuid: string; issuerRfc?: string
       {showLinkModal && (
         <ManualLinkModal
           facturaUuid={uuid}
-          issuerRfc={issuerRfc}
+          clientRfc={clientRfc}
           onLink={handleManualLink}
           onClose={() => setShowLinkModal(false)}
           acting={acting}
@@ -1484,8 +1484,8 @@ function PagoStatusBadge({ uuid, issuerRfc }: { uuid: string; issuerRfc?: string
   );
 }
 
-function ManualLinkModal({ facturaUuid, issuerRfc, onLink, onClose, acting }: {
-  facturaUuid: string; issuerRfc?: string;
+function ManualLinkModal({ facturaUuid, clientRfc, onLink, onClose, acting }: {
+  facturaUuid: string; clientRfc?: string;
   onLink: (pagoUuid: string) => void; onClose: () => void; acting: boolean;
 }) {
   const [complementos, setComplementos] = useState<{ uuid: string; issuerName: string; issuedAt: string; folio: string | null }[]>([]);
@@ -1493,21 +1493,20 @@ function ManualLinkModal({ facturaUuid, issuerRfc, onLink, onClose, acting }: {
 
   useEffect(() => {
     // Fetch available complementos de pago (tipo P) that could match
-    authFetch(`${API_URL}/api/sat-descarga/metadata?efecto=P&limit=200`)
+    // Complementos are EMITTED by the doctor to the same client (receiverRfc = client RFC)
+    authFetch(`${API_URL}/api/sat-descarga/metadata?efecto=P&direction=emitted&limit=200`)
       .then(res => res.ok ? res.json() : null)
       .then(json => {
         if (Array.isArray(json?.data)) {
           const filtered = (json.data as any[])
             .filter((c: any) => {
-              // Only show complementos where the target RFC is the issuer.
-              // Cobranza: receiverRfc (customer) should be the issuer of the pago complement.
-              // CFDI detail: issuerRfc (vendor) should be the issuer of the pago complement.
-              if (issuerRfc && c.issuerRfc !== issuerRfc) return false;
+              // Filter by client RFC: complemento receiverRfc should match the factura's client RFC
+              if (clientRfc && c.receiverRfc !== clientRfc) return false;
               return true;
             })
             .map((c: any) => ({
               uuid: c.uuid,
-              issuerName: c.issuerName || c.issuerRfc,
+              issuerName: c.receiverName || c.receiverRfc,
               issuedAt: c.issuedAt,
               folio: c.folio || null,
             }));
@@ -1516,7 +1515,7 @@ function ManualLinkModal({ facturaUuid, issuerRfc, onLink, onClose, acting }: {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [issuerRfc]);
+  }, [clientRfc]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
@@ -1531,7 +1530,7 @@ function ManualLinkModal({ facturaUuid, issuerRfc, onLink, onClose, acting }: {
               <Loader2 className="w-5 h-5 animate-spin mr-2" /> Cargando complementos...
             </div>
           ) : complementos.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">No se encontraron complementos de pago disponibles{issuerRfc ? ` para RFC ${issuerRfc}` : ""}.</p>
+            <p className="text-sm text-gray-500 text-center py-8">No se encontraron complementos de pago disponibles{clientRfc ? ` para RFC ${clientRfc}` : ""}.</p>
           ) : (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 mb-3">
@@ -2374,7 +2373,7 @@ function DeduccionesTab() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// PPD / Pagos Tab — All PPD invoices + complementos + matching
+// PPD / Pagos Tab — All PPD invoices + complementos + matching (both sides)
 // ---------------------------------------------------------------------------
 
 interface PpdPago {
@@ -2393,8 +2392,8 @@ interface PpdFactura {
   uuid: string;
   folio: string | null;
   serie: string | null;
-  receiverRfc: string;
-  receiverName: string | null;
+  counterpartyRfc: string;
+  counterpartyName: string | null;
   total: number;
   issuedAt: string;
   totalPagado: number;
@@ -2407,7 +2406,7 @@ interface PpdSuggestion {
   facturaUuid: string;
   folio: string | null;
   serie: string | null;
-  receiverName: string | null;
+  counterpartyName: string | null;
   total: number;
   pendiente: number;
   confidence: 'high' | 'medium' | 'low';
@@ -2416,28 +2415,31 @@ interface PpdSuggestion {
 
 interface PpdComplemento {
   uuid: string;
-  issuerRfc: string;
-  issuerName: string | null;
+  counterpartyRfc: string;
+  counterpartyName: string | null;
   monto: number;
   issuedAt: string;
   linkedTo: string[];
   suggestions: PpdSuggestion[];
 }
 
-interface PpdData {
-  year: number;
+interface PpdSide {
   summary: { totalFacturas: number; pagadas: number; parciales: number; pendientes: number; totalPendiente: number };
   facturas: PpdFactura[];
   unmatchedComplementos: PpdComplemento[];
   matchedComplementos: PpdComplemento[];
 }
 
+interface PpdData {
+  year: number;
+  emitted: PpdSide;
+  received: PpdSide;
+}
+
 function PpdPagosTab() {
   const [data, setData] = useState<PpdData | null>(null);
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [expandedFactura, setExpandedFactura] = useState<string | null>(null);
-  const [expandedComplemento, setExpandedComplemento] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -2495,8 +2497,11 @@ function PpdPagosTab() {
     return <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${styles[c]}`}>{c === 'high' ? 'Alta' : c === 'medium' ? 'Media' : 'Baja'}</span>;
   };
 
+  const hasEmitted = data.emitted.summary.totalFacturas > 0 || data.emitted.unmatchedComplementos.length > 0;
+  const hasReceived = data.received.summary.totalFacturas > 0 || data.received.unmatchedComplementos.length > 0;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-900">Facturas PPD y Complementos de Pago</h2>
@@ -2505,33 +2510,7 @@ function PpdPagosTab() {
         </select>
       </div>
 
-      {/* Summary */}
-      {data.summary.totalFacturas > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-white border rounded-lg p-3">
-            <p className="text-xs text-gray-500">Total PPD</p>
-            <p className="text-lg font-bold text-gray-900">{data.summary.totalFacturas}</p>
-          </div>
-          <div className="bg-white border rounded-lg p-3">
-            <p className="text-xs text-gray-500">Pagadas</p>
-            <p className="text-lg font-bold text-green-600">{data.summary.pagadas}</p>
-          </div>
-          <div className="bg-white border rounded-lg p-3">
-            <p className="text-xs text-gray-500">Parciales</p>
-            <p className="text-lg font-bold text-yellow-600">{data.summary.parciales}</p>
-          </div>
-          <div className="bg-white border rounded-lg p-3">
-            <p className="text-xs text-gray-500">Pendientes</p>
-            <p className="text-lg font-bold text-red-600">{data.summary.pendientes}</p>
-          </div>
-          <div className="bg-white border rounded-lg p-3">
-            <p className="text-xs text-gray-500">Por cobrar</p>
-            <p className="text-lg font-bold text-gray-900">{fmt(data.summary.totalPendiente)}</p>
-          </div>
-        </div>
-      )}
-
-      {data.summary.totalFacturas === 0 && data.unmatchedComplementos.length === 0 ? (
+      {!hasEmitted && !hasReceived ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border">
           <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-500" />
           <p className="text-gray-600 font-medium">Sin facturas PPD en {year}</p>
@@ -2539,202 +2518,263 @@ function PpdPagosTab() {
         </div>
       ) : (
         <>
-          {/* Facturas PPD */}
-          {data.facturas.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Facturas Emitidas PPD</h3>
-              <div className="bg-white border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-xs text-gray-500 border-b bg-gray-50">
-                      <th className="text-left p-2 pl-3">Folio</th>
-                      <th className="text-left p-2">Cliente</th>
-                      <th className="text-right p-2">Total</th>
-                      <th className="text-right p-2">Pagado</th>
-                      <th className="text-right p-2">Pendiente</th>
-                      <th className="text-center p-2">Status</th>
-                      <th className="text-right p-2 pr-3">Fecha</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.facturas.map(f => (
-                      <Fragment key={f.uuid}>
-                        <tr
-                          className={`border-b hover:bg-gray-50 cursor-pointer ${expandedFactura === f.uuid ? 'bg-purple-50' : ''}`}
-                          onClick={() => setExpandedFactura(expandedFactura === f.uuid ? null : f.uuid)}
-                        >
-                          <td className="p-2 pl-3 font-mono text-xs">
-                            {f.serie && <span className="text-gray-400">{f.serie}-</span>}
-                            {f.folio || f.uuid.slice(0, 8)}
-                          </td>
-                          <td className="p-2">
-                            <div className="font-medium text-gray-900 truncate max-w-[180px]">{f.receiverName || f.receiverRfc}</div>
-                            {f.receiverName && <div className="text-xs text-gray-400">{f.receiverRfc}</div>}
-                          </td>
-                          <td className="text-right p-2 text-gray-700">{fmt(f.total)}</td>
-                          <td className="text-right p-2 text-green-600">{fmt(f.totalPagado)}</td>
-                          <td className="text-right p-2 font-medium">{fmt(f.pendiente)}</td>
-                          <td className="text-center p-2">{statusBadge(f.status)}</td>
-                          <td className="text-right p-2 pr-3 text-xs text-gray-500">{fmtDate(f.issuedAt)}</td>
-                        </tr>
-                        {expandedFactura === f.uuid && (
-                          <tr>
-                            <td colSpan={7} className="bg-purple-50/50 p-3 border-b">
-                              <div className="space-y-2">
-                                <p className="text-xs font-semibold text-gray-600">Complementos vinculados:</p>
-                                {f.pagos.filter(p => !p.unlinkedAt).length === 0 ? (
-                                  <p className="text-xs text-gray-400 italic">Sin complementos vinculados aun</p>
-                                ) : (
-                                  <div className="space-y-1">
-                                    {f.pagos.filter(p => !p.unlinkedAt).map(p => (
-                                      <div key={p.id} className="flex items-center justify-between bg-white rounded border px-3 py-2 text-xs">
-                                        <div className="flex items-center gap-3">
-                                          <span className="font-mono text-gray-500">{p.pagoUuid.slice(0, 8)}...</span>
-                                          {p.fechaPago && <span className="text-gray-500">{fmtDate(p.fechaPago)}</span>}
-                                          <span className="font-medium text-green-700">+{fmt(p.montoPagado)}</span>
-                                          {p.numParcialidad && <span className="text-gray-400">Parc. {p.numParcialidad}</span>}
-                                          {p.formaPago && <span className="text-gray-400">({p.formaPago})</span>}
-                                          <span className={`text-[10px] px-1 rounded ${p.source === 'auto' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
-                                            {p.source === 'auto' ? 'Auto' : 'Manual'}
-                                          </span>
-                                        </div>
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); handleUnlink(p.id); }}
-                                          disabled={acting}
-                                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
-                                          title="Desvincular"
-                                        >
-                                          <Unlink className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                                {f.pagos.filter(p => p.unlinkedAt).length > 0 && (
-                                  <details className="text-xs">
-                                    <summary className="text-gray-400 cursor-pointer">Desvinculados ({f.pagos.filter(p => p.unlinkedAt).length})</summary>
-                                    <div className="mt-1 space-y-1">
-                                      {f.pagos.filter(p => p.unlinkedAt).map(p => (
-                                        <div key={p.id} className="flex items-center justify-between bg-gray-50 rounded border px-3 py-1.5 opacity-60">
-                                          <span className="font-mono text-gray-400">{p.pagoUuid.slice(0, 8)}... — {fmt(p.montoPagado)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </details>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {/* EMITTED SECTION — "Me deben" */}
+          {hasEmitted && (
+            <PpdSection
+              side={data.emitted}
+              title="Me deben — Facturas PPD Emitidas"
+              subtitle="Facturas que emitiste con PPD. Cuando te paguen, emite el complemento de pago."
+              counterpartyLabel="Cliente"
+              accentColor="purple"
+              fmt={fmt}
+              fmtDate={fmtDate}
+              statusBadge={statusBadge}
+              confidenceBadge={confidenceBadge}
+              handleLink={handleLink}
+              handleUnlink={handleUnlink}
+              acting={acting}
+            />
           )}
 
-          {/* Unmatched Complementos */}
-          {data.unmatchedComplementos.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                Complementos sin vincular
-                <span className="text-xs font-normal bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{data.unmatchedComplementos.length}</span>
-              </h3>
-              <div className="space-y-2">
-                {data.unmatchedComplementos.map(c => (
-                  <div key={c.uuid} className="bg-white border rounded-lg overflow-hidden">
-                    <button
-                      className={`w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 ${expandedComplemento === c.uuid ? 'bg-blue-50' : ''}`}
-                      onClick={() => setExpandedComplemento(expandedComplemento === c.uuid ? null : c.uuid)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                        <div>
-                          <span className="text-sm font-medium text-gray-900">{c.issuerName || c.issuerRfc}</span>
-                          <span className="text-xs text-gray-400 ml-2">{c.issuerRfc}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-gray-700">{fmt(c.monto)}</span>
-                        <span className="text-xs text-gray-400">{fmtDate(c.issuedAt)}</span>
-                        {c.suggestions.length > 0 && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                            {c.suggestions.length} sugerencia{c.suggestions.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedComplemento === c.uuid ? 'rotate-180' : ''}`} />
-                      </div>
-                    </button>
-                    {expandedComplemento === c.uuid && (
-                      <div className="border-t p-3 bg-gray-50">
-                        {c.suggestions.length === 0 ? (
-                          <p className="text-xs text-gray-500 italic">No hay facturas PPD pendientes del mismo RFC ({c.issuerRfc})</p>
-                        ) : (
-                          <div className="space-y-2">
-                            <p className="text-xs text-gray-600 font-medium">Posibles facturas a vincular:</p>
-                            {c.suggestions.map(s => (
-                              <div key={s.facturaUuid} className="flex items-center justify-between bg-white rounded border px-3 py-2">
-                                <div className="flex items-center gap-3 text-xs">
-                                  {confidenceBadge(s.confidence)}
-                                  <span className="font-mono text-gray-500">
-                                    {s.serie && `${s.serie}-`}{s.folio || s.facturaUuid.slice(0, 8)}
-                                  </span>
-                                  <span className="text-gray-600">{s.receiverName}</span>
-                                  <span className="text-gray-700 font-medium">{fmt(s.total)}</span>
-                                  <span className="text-gray-400">Pend: {fmt(s.pendiente)}</span>
-                                  <span className="text-gray-400">{s.reason}</span>
-                                </div>
-                                <button
-                                  onClick={() => handleLink(c.uuid, s.facturaUuid)}
-                                  disabled={acting}
-                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded font-medium transition-colors"
-                                >
-                                  <Link2 className="w-3 h-3" />
-                                  Vincular
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Matched Complementos (for visibility) */}
-          {data.matchedComplementos.length > 0 && (
-            <details className="group">
-              <summary className="text-sm font-semibold text-gray-700 cursor-pointer flex items-center gap-2">
-                <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
-                Complementos ya vinculados
-                <span className="text-xs font-normal bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{data.matchedComplementos.length}</span>
-              </summary>
-              <div className="mt-2 bg-white border rounded-lg divide-y">
-                {data.matchedComplementos.map(c => (
-                  <div key={c.uuid} className="flex items-center justify-between p-3 text-sm">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                      <span className="text-gray-900">{c.issuerName || c.issuerRfc}</span>
-                      <span className="text-xs text-gray-400">{fmtDate(c.issuedAt)}</span>
-                    </div>
-                    <span className="font-medium text-green-600">{fmt(c.monto)}</span>
-                  </div>
-                ))}
-              </div>
-            </details>
+          {/* RECEIVED SECTION — "Yo debo" */}
+          {hasReceived && (
+            <PpdSection
+              side={data.received}
+              title="Yo debo — Facturas PPD Recibidas"
+              subtitle="Facturas que te enviaron con PPD. Cuando pagues, el proveedor emite el complemento."
+              counterpartyLabel="Proveedor"
+              accentColor="blue"
+              fmt={fmt}
+              fmtDate={fmtDate}
+              statusBadge={statusBadge}
+              confidenceBadge={confidenceBadge}
+              handleLink={handleLink}
+              handleUnlink={handleUnlink}
+              acting={acting}
+            />
           )}
         </>
       )}
 
-      <p className="text-xs text-gray-400 text-center mt-4">
+      <p className="text-xs text-gray-400 text-center">
         Las facturas PPD requieren un complemento de pago para registrar el cobro.
         El sistema vincula automaticamente cuando el XML del complemento contiene el UUID de la factura.
         Usa &quot;Vincular&quot; para asociar manualmente cuando la vinculacion automatica no funciona.
       </p>
+    </div>
+  );
+}
+
+function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt, fmtDate, statusBadge, confidenceBadge, handleLink, handleUnlink, acting }: {
+  side: PpdSide;
+  title: string;
+  subtitle: string;
+  counterpartyLabel: string;
+  accentColor: 'purple' | 'blue';
+  fmt: (n: number) => string;
+  fmtDate: (d: string) => string;
+  statusBadge: (s: PpdFactura['status']) => JSX.Element;
+  confidenceBadge: (c: PpdSuggestion['confidence']) => JSX.Element;
+  handleLink: (pagoUuid: string, facturaUuid: string) => void;
+  handleUnlink: (pagoId: number) => void;
+  acting: boolean;
+}) {
+  const [expandedFactura, setExpandedFactura] = useState<string | null>(null);
+  const [expandedComplemento, setExpandedComplemento] = useState<string | null>(null);
+
+  const borderColor = accentColor === 'purple' ? 'border-purple-200' : 'border-blue-200';
+  const bgAccent = accentColor === 'purple' ? 'bg-purple-50' : 'bg-blue-50';
+  const textAccent = accentColor === 'purple' ? 'text-purple-700' : 'text-blue-700';
+
+  return (
+    <div className={`border-l-4 ${borderColor} pl-4 space-y-4`}>
+      {/* Section header */}
+      <div>
+        <h3 className={`text-base font-bold ${textAccent}`}>{title}</h3>
+        <p className="text-xs text-gray-500">{subtitle}</p>
+      </div>
+
+      {/* Summary row */}
+      {side.summary.totalFacturas > 0 && (
+        <div className="flex gap-4 text-xs">
+          <span className="text-gray-500">{side.summary.totalFacturas} facturas</span>
+          <span className="text-green-600">{side.summary.pagadas} pagadas</span>
+          {side.summary.parciales > 0 && <span className="text-yellow-600">{side.summary.parciales} parciales</span>}
+          {side.summary.pendientes > 0 && <span className="text-red-600">{side.summary.pendientes} pendientes</span>}
+          {side.summary.totalPendiente > 0 && <span className="font-medium text-gray-700">Saldo: {fmt(side.summary.totalPendiente)}</span>}
+        </div>
+      )}
+
+      {/* Facturas table */}
+      {side.facturas.length > 0 && (
+        <div className="bg-white border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-gray-500 border-b bg-gray-50">
+                <th className="text-left p-2 pl-3">Folio</th>
+                <th className="text-left p-2">{counterpartyLabel}</th>
+                <th className="text-right p-2">Total</th>
+                <th className="text-right p-2">Pagado</th>
+                <th className="text-right p-2">Pendiente</th>
+                <th className="text-center p-2">Status</th>
+                <th className="text-right p-2 pr-3">Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {side.facturas.map(f => (
+                <Fragment key={f.uuid}>
+                  <tr
+                    className={`border-b hover:bg-gray-50 cursor-pointer ${expandedFactura === f.uuid ? bgAccent : ''}`}
+                    onClick={() => setExpandedFactura(expandedFactura === f.uuid ? null : f.uuid)}
+                  >
+                    <td className="p-2 pl-3 font-mono text-xs">
+                      {f.serie && <span className="text-gray-400">{f.serie}-</span>}
+                      {f.folio || f.uuid.slice(0, 8)}
+                    </td>
+                    <td className="p-2">
+                      <div className="font-medium text-gray-900 truncate max-w-[180px]">{f.counterpartyName || f.counterpartyRfc}</div>
+                      {f.counterpartyName && <div className="text-xs text-gray-400">{f.counterpartyRfc}</div>}
+                    </td>
+                    <td className="text-right p-2 text-gray-700">{fmt(f.total)}</td>
+                    <td className="text-right p-2 text-green-600">{fmt(f.totalPagado)}</td>
+                    <td className="text-right p-2 font-medium">{fmt(f.pendiente)}</td>
+                    <td className="text-center p-2">{statusBadge(f.status)}</td>
+                    <td className="text-right p-2 pr-3 text-xs text-gray-500">{fmtDate(f.issuedAt)}</td>
+                  </tr>
+                  {expandedFactura === f.uuid && (
+                    <tr>
+                      <td colSpan={7} className={`${bgAccent}/50 p-3 border-b`}>
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-gray-600">Complementos vinculados:</p>
+                          {f.pagos.filter(p => !p.unlinkedAt).length === 0 ? (
+                            <p className="text-xs text-gray-400 italic">Sin complementos vinculados aun</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {f.pagos.filter(p => !p.unlinkedAt).map(p => (
+                                <div key={p.id} className="flex items-center justify-between bg-white rounded border px-3 py-2 text-xs">
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-mono text-gray-500">{p.pagoUuid.slice(0, 8)}...</span>
+                                    {p.fechaPago && <span className="text-gray-500">{fmtDate(p.fechaPago)}</span>}
+                                    <span className="font-medium text-green-700">+{fmt(p.montoPagado)}</span>
+                                    {p.numParcialidad && <span className="text-gray-400">Parc. {p.numParcialidad}</span>}
+                                    {p.formaPago && <span className="text-gray-400">({p.formaPago})</span>}
+                                    <span className={`text-[10px] px-1 rounded ${p.source === 'auto' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
+                                      {p.source === 'auto' ? 'Auto' : 'Manual'}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleUnlink(p.id); }}
+                                    disabled={acting}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                                    title="Desvincular"
+                                  >
+                                    <Unlink className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Unmatched Complementos */}
+      {side.unmatchedComplementos.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-2">
+            Complementos sin vincular
+            <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-[10px]">{side.unmatchedComplementos.length}</span>
+          </p>
+          <div className="space-y-2">
+            {side.unmatchedComplementos.map(c => (
+              <div key={c.uuid} className="bg-white border rounded-lg overflow-hidden">
+                <button
+                  className={`w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 ${expandedComplemento === c.uuid ? 'bg-blue-50' : ''}`}
+                  onClick={() => setExpandedComplemento(expandedComplemento === c.uuid ? null : c.uuid)}
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <span className="text-sm font-medium text-gray-900">{c.counterpartyName || c.counterpartyRfc}</span>
+                    <span className="text-xs text-gray-400">{c.counterpartyRfc}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-gray-700">{fmt(c.monto)}</span>
+                    <span className="text-xs text-gray-400">{fmtDate(c.issuedAt)}</span>
+                    {c.suggestions.length > 0 && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                        {c.suggestions.length} sugerencia{c.suggestions.length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedComplemento === c.uuid ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+                {expandedComplemento === c.uuid && (
+                  <div className="border-t p-3 bg-gray-50">
+                    {c.suggestions.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic">No hay facturas PPD pendientes del mismo RFC ({c.counterpartyRfc})</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-600 font-medium">Posibles facturas a vincular:</p>
+                        {c.suggestions.map(s => (
+                          <div key={s.facturaUuid} className="flex items-center justify-between bg-white rounded border px-3 py-2">
+                            <div className="flex items-center gap-3 text-xs">
+                              {confidenceBadge(s.confidence)}
+                              <span className="font-mono text-gray-500">
+                                {s.serie && `${s.serie}-`}{s.folio || s.facturaUuid.slice(0, 8)}
+                              </span>
+                              <span className="text-gray-600">{s.counterpartyName}</span>
+                              <span className="text-gray-700 font-medium">{fmt(s.total)}</span>
+                              <span className="text-gray-400">Pend: {fmt(s.pendiente)}</span>
+                              <span className="text-gray-400">{s.reason}</span>
+                            </div>
+                            <button
+                              onClick={() => handleLink(c.uuid, s.facturaUuid)}
+                              disabled={acting}
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded font-medium transition-colors"
+                            >
+                              <Link2 className="w-3 h-3" />
+                              Vincular
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Matched Complementos */}
+      {side.matchedComplementos.length > 0 && (
+        <details className="group">
+          <summary className="text-xs font-semibold text-gray-600 cursor-pointer flex items-center gap-2">
+            <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
+            Complementos vinculados ({side.matchedComplementos.length})
+          </summary>
+          <div className="mt-2 bg-white border rounded-lg divide-y">
+            {side.matchedComplementos.map(c => (
+              <div key={c.uuid} className="flex items-center justify-between p-2.5 text-xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                  <span className="text-gray-900">{c.counterpartyName || c.counterpartyRfc}</span>
+                  <span className="text-gray-400">{fmtDate(c.issuedAt)}</span>
+                </div>
+                <span className="font-medium text-green-600">{fmt(c.monto)}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -3018,7 +3058,7 @@ function CobranzaTab() {
       {linkTarget && (
         <ManualLinkModal
           facturaUuid={linkTarget.uuid}
-          issuerRfc={linkTarget.rfc}
+          clientRfc={linkTarget.rfc}
           onLink={handleManualLink}
           onClose={() => setLinkTarget(null)}
           acting={acting}
