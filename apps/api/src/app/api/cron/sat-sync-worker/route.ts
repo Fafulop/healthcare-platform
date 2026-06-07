@@ -303,9 +303,7 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
 
   if (result.estado === '4' || result.estado === '5' || result.estado === '6') {
     // Terminal error from SAT
-    const errorDetail = result.mensaje
-      ? `SAT: ${result.estadoName} (${result.codEstatus}) — ${result.mensaje}`
-      : `SAT: ${result.estadoName} (${result.codEstatus})`;
+    const errorDetail = `SAT: ${result.estadoName} cod=${result.codEstatus} codSol=${result.codigoEstadoSolicitud} msg=${result.mensaje} cfdis=${result.numeroCFDIs}`;
     await prisma.satSyncJob.update({
       where: { id: job.id },
       data: {

@@ -55,6 +55,7 @@ export interface VerifyResult {
   estado: string;
   estadoName: string;
   codEstatus: string;
+  codigoEstadoSolicitud: string;
   mensaje: string;
   numeroCFDIs: number;
   packageIds: string[];
@@ -538,6 +539,7 @@ export async function verifyRequest(
 
   const estadoSolicitud = res.body.match(/EstadoSolicitud="([^"]+)"/i);
   const codEstatus = res.body.match(/CodEstatus="([^"]+)"/i);
+  const codigoEstadoSolicitud = res.body.match(/CodigoEstadoSolicitud="([^"]+)"/i);
   const numeroCFDIs = res.body.match(/NumeroCFDIs="([^"]+)"/i);
   const mensaje = res.body.match(/Mensaje="([^"]+)"/i);
   const packageIds = [...res.body.matchAll(/<IdsPaquetes>([^<]+)<\/IdsPaquetes>/gi)].map(m => m[1]);
@@ -548,14 +550,26 @@ export async function verifyRequest(
     console.error('[SAT verifyRequest] Could not parse EstadoSolicitud from response:', res.body.slice(0, 1000));
   }
 
+  // Log full response for non-success states to help diagnose SAT rejections
+  if (estado !== '1' && estado !== '2' && estado !== '3') {
+    console.error('[SAT verifyRequest] Non-success estado:', {
+      estado,
+      codEstatus: codEstatus?.[1],
+      codigoEstadoSolicitud: codigoEstadoSolicitud?.[1],
+      mensaje: mensaje?.[1],
+      numeroCFDIs: numeroCFDIs?.[1],
+      rawBody: res.body.slice(0, 1500),
+    });
+  }
+
   return {
     estado,
     estadoName: ESTADO_NAMES[estado] || 'Desconocido',
     codEstatus: codEstatus?.[1] || '',
+    codigoEstadoSolicitud: codigoEstadoSolicitud?.[1] || '',
     mensaje: mensaje?.[1] || '',
     numeroCFDIs: parseInt(numeroCFDIs?.[1] || '0', 10),
     packageIds,
-    ...(estado === 'unknown' ? { rawBody: res.body.slice(0, 500) } : {}),
   };
 }
 
