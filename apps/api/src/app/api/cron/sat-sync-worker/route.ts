@@ -43,6 +43,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // ?reset=<jobId> — reset a single failed job to pending for re-testing
+  const resetId = url.searchParams.get('reset');
+  if (resetId) {
+    const updated = await prisma.satSyncJob.updateMany({
+      where: { id: parseInt(resetId, 10), status: 'failed' },
+      data: { status: 'pending', requestId: null, packageIds: [], attempts: 0, lastError: null, startedAt: null, completedAt: null, cfdiCount: null },
+    });
+    return NextResponse.json({ reset: updated.count > 0, jobId: parseInt(resetId, 10) });
+  }
+
   const jobs = await prisma.satSyncJob.findMany({
     orderBy: { id: 'asc' },
     select: {

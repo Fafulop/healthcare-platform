@@ -55,6 +55,7 @@ export interface VerifyResult {
   estado: string;
   estadoName: string;
   codEstatus: string;
+  mensaje: string;
   numeroCFDIs: number;
   packageIds: string[];
 }
