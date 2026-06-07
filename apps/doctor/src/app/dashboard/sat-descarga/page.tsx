@@ -2413,13 +2413,21 @@ interface PpdSuggestion {
   reason: string;
 }
 
+interface PpdLinkedFactura {
+  uuid: string;
+  folio: string | null;
+  serie: string | null;
+  counterpartyName: string | null;
+  total: number | null;
+}
+
 interface PpdComplemento {
   uuid: string;
   counterpartyRfc: string;
   counterpartyName: string | null;
   monto: number;
   issuedAt: string;
-  linkedTo: string[];
+  linkedTo: PpdLinkedFactura[];
   suggestions: PpdSuggestion[];
 }
 
@@ -2689,7 +2697,7 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
       {side.unmatchedComplementos.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-2">
-            Complementos sin vincular
+            Complementos de pago sin vincular a una factura
             <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-[10px]">{side.unmatchedComplementos.length}</span>
           </p>
           <div className="space-y-2">
@@ -2759,17 +2767,29 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
         <details className="group">
           <summary className="text-xs font-semibold text-gray-600 cursor-pointer flex items-center gap-2">
             <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
-            Complementos vinculados ({side.matchedComplementos.length})
+            Complementos ya vinculados a facturas ({side.matchedComplementos.length})
           </summary>
           <div className="mt-2 bg-white border rounded-lg divide-y">
             {side.matchedComplementos.map(c => (
-              <div key={c.uuid} className="flex items-center justify-between p-2.5 text-xs">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                  <span className="text-gray-900">{c.counterpartyName || c.counterpartyRfc}</span>
-                  <span className="text-gray-400">{fmtDate(c.issuedAt)}</span>
+              <div key={c.uuid} className="p-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                    <span className="text-gray-900">{c.counterpartyName || c.counterpartyRfc}</span>
+                    <span className="text-gray-400">{fmtDate(c.issuedAt)}</span>
+                  </div>
+                  <span className="font-medium text-green-600">{fmt(c.monto)}</span>
                 </div>
-                <span className="font-medium text-green-600">{fmt(c.monto)}</span>
+                {c.linkedTo.length > 0 && (
+                  <div className="mt-1 ml-5 flex flex-wrap gap-1">
+                    {c.linkedTo.map(f => (
+                      <span key={f.uuid} className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[10px]">
+                        → {f.folio ? `${f.serie ? f.serie + '-' : ''}${f.folio}` : f.uuid.slice(0, 8)}
+                        {f.total != null && <span className="text-green-500">{fmt(f.total)}</span>}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

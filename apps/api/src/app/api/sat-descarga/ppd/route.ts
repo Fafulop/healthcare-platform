@@ -188,6 +188,7 @@ export async function GET(request: NextRequest) {
       }
 
       // 7. Build complemento list with suggestions
+      const invoiceByUuid = new Map(ppdInvoices.map((f: any) => [f.uuid.toLowerCase(), f]));
       const pendingFacturas = ppdInvoices.filter((f: any) => f.status === 'pendiente' || f.status === 'parcial');
 
       const complementoItems = complementos.map(c => {
@@ -246,13 +247,25 @@ export async function GET(request: NextRequest) {
           suggestions.sort((a: any, b: any) => confOrder[a.confidence as keyof typeof confOrder] - confOrder[b.confidence as keyof typeof confOrder]);
         }
 
+        // Enrich linkedTo with folio info from ppdInvoices
+        const linkedDetails = linked.map(fUuid => {
+          const factura = invoiceByUuid.get(fUuid.toLowerCase());
+          return {
+            uuid: fUuid,
+            folio: factura?.folio ?? null,
+            serie: factura?.serie ?? null,
+            counterpartyName: factura?.counterpartyName ?? null,
+            total: factura?.total ?? null,
+          };
+        });
+
         return {
           uuid: c.uuid,
           counterpartyRfc,
           counterpartyName,
           monto: montoNum,
           issuedAt: c.issuedAt.toISOString(),
-          linkedTo: linked,
+          linkedTo: linkedDetails,
           suggestions: suggestions.slice(0, 5),
         };
       });
