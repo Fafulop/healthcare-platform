@@ -292,7 +292,7 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
   }
 
   if (result.estado === '4' || result.estado === '5' || result.estado === '6') {
-    // Terminal error
+    // Terminal error from SAT
     await prisma.satSyncJob.update({
       where: { id: job.id },
       data: {
@@ -304,17 +304,33 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
     return `failed: ${result.estadoName}`;
   }
 
-  // Unknown estado — treat as failure after 5 attempts to avoid blocking the queue
-  if (result.estado === 'unknown' && job.attempts >= 5) {
+  // 5004 = "Información de solicitud no encontrada" — the request expired (SAT keeps
+  // them for 72h). Reset to pending so a fresh solicitud is created on the next run.
+  if (result.codEstatus === '5004') {
+    await prisma.satSyncJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'pending',
+        requestId: null,
+        packageIds: [],
+        attempts: { increment: 1 },
+        lastError: `SAT: solicitud expirada (5004), reintentando`,
+      },
+    });
+    return 'pending: solicitud expired (5004), will retry';
+  }
+
+  // Unknown/unexpected estado — fail after 5 attempts to avoid blocking the queue
+  if (result.estado !== '1' && result.estado !== '2' && job.attempts >= 5) {
     await prisma.satSyncJob.update({
       where: { id: job.id },
       data: {
         status: 'failed',
-        lastError: `SAT: estado desconocido after ${job.attempts} attempts (${result.codEstatus})`,
+        lastError: `SAT: estado=${result.estado} cod=${result.codEstatus} after ${job.attempts} attempts`,
         attempts: { increment: 1 },
       },
     });
-    return `failed: unknown estado after ${job.attempts} attempts`;
+    return `failed: unexpected estado=${result.estado} after ${job.attempts} attempts`;
   }
 
   // Still processing (estado 1 or 2) — increment attempts, stay in polling
