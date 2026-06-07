@@ -304,8 +304,8 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
     return `failed: ${result.estadoName}`;
   }
 
-  // Unknown estado — treat as failure after 10 attempts to avoid blocking the queue
-  if (result.estado === 'unknown' && job.attempts >= 10) {
+  // Unknown estado — treat as failure after 5 attempts to avoid blocking the queue
+  if (result.estado === 'unknown' && job.attempts >= 5) {
     await prisma.satSyncJob.update({
       where: { id: job.id },
       data: {
@@ -323,7 +323,8 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
     data: { attempts: { increment: 1 } },
   });
 
-  return `polling: ${result.estadoName}`;
+  const raw = (result as any).rawBody;
+  return `polling: ${result.estadoName}${raw ? ' | raw: ' + raw : ''}`;
 }
 
 // ---------------------------------------------------------------------------

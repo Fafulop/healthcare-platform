@@ -552,6 +552,7 @@ export async function verifyRequest(
     codEstatus: codEstatus?.[1] || '',
     numeroCFDIs: parseInt(numeroCFDIs?.[1] || '0', 10),
     packageIds,
+    ...(estado === 'unknown' ? { rawBody: res.body.slice(0, 500) } : {}),
   };
 }
 
