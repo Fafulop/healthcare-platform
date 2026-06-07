@@ -31,6 +31,48 @@ import {
 } from '@/lib/sat-descarga';
 import { parseCfdiXml, parsePagoComplement } from '@/lib/sat-xml-parser';
 
+/**
+ * GET /api/cron/sat-sync-worker — Diagnostic: show all job statuses
+ * Protected by CRON_SECRET (passed as ?secret= query param).
+ */
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const secret = url.searchParams.get('secret');
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || secret !== cronSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const jobs = await prisma.satSyncJob.findMany({
+    orderBy: { id: 'asc' },
+    select: {
+      id: true,
+      status: true,
+      requestType: true,
+      direction: true,
+      dateFrom: true,
+      dateTo: true,
+      cfdiCount: true,
+      attempts: true,
+      lastError: true,
+      requestId: true,
+      createdAt: true,
+      completedAt: true,
+    },
+  });
+
+  const summary = {
+    total: jobs.length,
+    completed: jobs.filter(j => j.status === 'completed').length,
+    failed: jobs.filter(j => j.status === 'failed').length,
+    polling: jobs.filter(j => j.status === 'polling').length,
+    pending: jobs.filter(j => j.status === 'pending').length,
+    other: jobs.filter(j => !['completed', 'failed', 'polling', 'pending'].includes(j.status)).length,
+  };
+
+  return NextResponse.json({ summary, jobs });
+}
+
 export async function POST(request: Request) {
   // Auth: cron secret
   const authHeader = request.headers.get('authorization');
@@ -243,6 +285,19 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
       },
     });
     return `failed: ${result.estadoName}`;
+  }
+
+  // Unknown estado — treat as failure after 10 attempts to avoid blocking the queue
+  if (result.estado === 'unknown' && job.attempts >= 10) {
+    await prisma.satSyncJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'failed',
+        lastError: `SAT: estado desconocido after ${job.attempts} attempts (${result.codEstatus})`,
+        attempts: { increment: 1 },
+      },
+    });
+    return `failed: unknown estado after ${job.attempts} attempts`;
   }
 
   // Still processing (estado 1 or 2) — increment attempts, stay in polling

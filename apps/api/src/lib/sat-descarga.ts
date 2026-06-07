@@ -542,6 +542,10 @@ export async function verifyRequest(
 
   const estado = estadoSolicitud?.[1] || 'unknown';
 
+  if (estado === 'unknown') {
+    console.error('[SAT verifyRequest] Could not parse EstadoSolicitud from response:', res.body.slice(0, 1000));
+  }
+
   return {
     estado,
     estadoName: ESTADO_NAMES[estado] || 'Desconocido',
