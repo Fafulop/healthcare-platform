@@ -432,12 +432,14 @@ export async function requestXml(
   dateFrom: Date,
   dateTo: Date,
 ): Promise<string> {
-  // IMPORTANT: Use 00:00:01 for FechaInicial to avoid SAT error 5002
+  // IMPORTANT: Offset FechaInicial to avoid SAT error 5002
   // ("Se han agotado las solicitudes de por vida"). SAT limits CFDI requests
-  // to 2 per identical date range. By offsetting 1 second from the metadata
+  // to 2 per identical date range. By offsetting seconds from the metadata
   // request (which uses 00:00:00), this counts as a different range.
+  // History: 00:00:01 used for first XML backfill, 00:00:02 for re-sync after
+  // parser bug fix (Total regex matched SubTotal). Bump this if re-syncing again.
   // No CFDIs are missed since emisión timestamps are never at exactly 00:00:00.
-  const fechaInicial = formatSatDate(dateFrom, '00:00:01');
+  const fechaInicial = formatSatDate(dateFrom, '00:00:02');
   const fechaFinal = formatSatDate(dateTo, '23:59:59');
 
   const operationName = direction === 'emitted'

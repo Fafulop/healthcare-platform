@@ -60,24 +60,30 @@ La confision era que `CodEstatus=5000` y `Mensaje="Solicitud Aceptada"` parecian
 
 ## Solucion
 
-**Cambiar `FechaInicial` de `00:00:00` a `00:00:01` para solicitudes XML.**
+**Cambiar `FechaInicial` a un offset diferente para solicitudes XML.**
 
-El SAT considera cualquier diferencia de al menos 1 segundo como un rango diferente. Al usar `00:00:01` en vez de `00:00:00`:
+El SAT considera cualquier diferencia de al menos 1 segundo como un rango diferente. Cada offset cuenta como un rango nuevo con 2 intentos frescos.
 
-1. Se evita colision con las solicitudes de metadata (que usan `00:00:00`)
+**Offset history:**
+| Offset | Used for | Date |
+|--------|----------|------|
+| `00:00:00` | Metadata requests (always) | — |
+| `00:00:01` | First XML backfill | 2026-06-06 |
+| `00:00:02` | Re-sync after parser bug fix (Total matched SubTotal) | 2026-06-08 |
+
+Reglas:
+1. Se evita colision con offsets anteriores ya quemados
 2. Se "resetea" el limite de 2 intentos ya que es un rango nuevo
-3. No se pierde ningun CFDI porque ninguna factura tiene hora de emision a las 00:00:00
+3. No se pierde ningun CFDI porque ninguna factura tiene hora de emision a las 00:00:0X
+4. **Si necesitas re-sincronizar de nuevo, incrementa el offset** (00:00:03, etc.)
 
 ### Cambios en codigo
 
 **1. Offset de FechaInicial** — `apps/api/src/lib/sat-descarga.ts` funcion `requestXml()`
 
 ```typescript
-// ANTES (colisionaba con metadata y quemaba el limite)
-const fechaInicial = formatSatDate(dateFrom, '00:00:00');
-
-// DESPUES (rango diferente, evita error 5002)
-const fechaInicial = formatSatDate(dateFrom, '00:00:01');
+// Current (2026-06-08): offset 2 for re-sync after parser bug
+const fechaInicial = formatSatDate(dateFrom, '00:00:02');
 ```
 
 **2. Captura de CodigoEstadoSolicitud** — `apps/api/src/lib/sat-descarga.ts` funcion `verifyRequest()`
