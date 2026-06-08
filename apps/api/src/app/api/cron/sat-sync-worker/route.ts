@@ -43,12 +43,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // ?reset=<jobId|all-xml> — reset failed job(s) to pending for re-processing
+  // ?reset=<jobId|all-xml|force-xml> — reset job(s) to pending for re-processing
+  // all-xml: reset failed XML jobs only
+  // force-xml: reset ALL completed XML jobs (for re-download after parser fixes)
   const resetId = url.searchParams.get('reset');
   if (resetId) {
-    const where = resetId === 'all-xml'
-      ? { status: 'failed' as const, requestType: 'xml' as const }
-      : { id: parseInt(resetId, 10), status: 'failed' as const };
+    const where = resetId === 'force-xml'
+      ? { status: 'completed' as const, requestType: 'xml' as const }
+      : resetId === 'all-xml'
+        ? { status: 'failed' as const, requestType: 'xml' as const }
+        : { id: parseInt(resetId, 10), status: 'failed' as const };
     const updated = await prisma.satSyncJob.updateMany({
       where,
       data: { status: 'pending', requestId: null, packageIds: [], attempts: 0, lastError: null, startedAt: null, completedAt: null, cfdiCount: null },
