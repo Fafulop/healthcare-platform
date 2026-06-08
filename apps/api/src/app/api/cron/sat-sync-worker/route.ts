@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       ? { status: 'completed' as const, requestType: 'xml' as const }
       : resetId === 'all-xml'
         ? { status: 'failed' as const, requestType: 'xml' as const }
-        : { id: parseInt(resetId, 10), status: 'failed' as const };
+        : { id: parseInt(resetId, 10) };
     const updated = await prisma.satSyncJob.updateMany({
       where,
       data: { status: 'pending', requestId: null, packageIds: [], attempts: 0, lastError: null, startedAt: null, completedAt: null, cfdiCount: null },
