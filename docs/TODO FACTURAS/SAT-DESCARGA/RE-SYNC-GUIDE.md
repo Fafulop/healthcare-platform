@@ -90,9 +90,11 @@ for i in $(seq 1 80); do
   curl -s -X POST "https://healthcareapi-production-fb70.up.railway.app/api/cron/sat-sync-worker" \
     -H "Authorization: Bearer CRON_SECRET" \
     | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log('Processed:',j.data?.processed,'|',j.data?.results?.map(r=>r.jobId+':'+r.status).join(', '))}catch(e){console.log('parse error')}})"
-  sleep 5
+  sleep 30
 done
 ```
+
+> **Use `sleep 30`, NOT `sleep 5`.** Each poll authenticates + verifies with SAT (2 SOAP calls per job). At 5s with 3 jobs = ~72 calls/min to SAT. This doesn't speed anything up — SAT prepares ZIPs on its own schedule. On slow SAT days, just let the Railway cron (every 2 min) handle it instead.
 
 ### What the output means
 
@@ -107,10 +109,10 @@ done
 ### How long it takes
 
 - Each job goes through: `pending → polling → downloading → completed`
-- SAT usually takes 30s-5min per batch to prepare ZIPs
+- SAT speed varies wildly: 30 seconds on fast days, 10+ minutes on slow days (up to 72h per SAT docs)
 - Worker processes 3 jobs per call
 - ~85 XML jobs / 3 per batch = ~28 batches
-- At ~2-5 min per batch = **1-2.5 hours total**
+- **Fast SAT day**: ~1-2 hours | **Slow SAT day**: 4-6+ hours | **Or just leave cron running overnight**
 
 ---
 
@@ -143,7 +145,7 @@ The offset was already used for those date ranges. Bump `00:00:XX` to the next s
 
 ### Jobs fail with max attempts
 
-The worker increments `attempts` on each state transition. After 10 attempts a job is marked `failed`. Reset it:
+The `maxAttempts=10` check **only applies to exceptions** (network errors, auth failures). Normal `estado=2` polling increments `attempts` but will **never auto-fail** — jobs stay in `polling` indefinitely until SAT finishes. If a job has 50+ attempts and is still `estado=2`, that's normal on slow SAT days. You can optionally reset it to `pending` to get a fresh `IdSolicitud`:
 
 ```bash
 curl -s "https://healthcareapi-production-fb70.up.railway.app/api/cron/sat-sync-worker?secret=CRON_SECRET&reset=<jobId>"
@@ -151,7 +153,7 @@ curl -s "https://healthcareapi-production-fb70.up.railway.app/api/cron/sat-sync-
 
 ### Alternative: Let cron handle it
 
-If you don't want to loop manually, the Railway cron calls the worker every 2 minutes automatically. It will eventually process all pending jobs — just slower (~6 hours for 85 jobs).
+If you don't want to loop manually, the Railway cron calls the worker every 2 minutes automatically. It will eventually process all pending jobs. On a slow SAT day this could take 4-6+ hours for 85 jobs, but it's fully automatic — no intervention needed.
 
 ---
 
@@ -175,9 +177,53 @@ All tabs in `/dashboard/sat-descarga` that depend on XML data will reflect the n
 
 ---
 
+## SAT Speed: What To Expect
+
+SAT processing speed varies wildly. **Do not assume it's a code bug if jobs stay in `polling` for a long time.**
+
+### How to check if it's SAT or us
+
+1. **Stop any aggressive loop** (every 5s is too fast — burns auth calls for nothing)
+2. **Make a single worker call:**
+   ```bash
+   curl -s -X POST "https://healthcareapi-production-fb70.up.railway.app/api/cron/sat-sync-worker" \
+     -H "Authorization: Bearer CRON_SECRET" \
+     | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const j=JSON.parse(d);console.log(JSON.stringify(j.data,null,2))})"
+   ```
+3. **If response says `estado=2` (En proceso)** → SAT is still preparing. Nothing wrong on our side.
+4. **Wait 2-3 minutes**, call again. If it flips to `downloading` or `completed` → working fine, SAT was just slow.
+5. **If stuck for 10+ minutes**, check job attempts:
+   ```bash
+   curl -s "https://healthcareapi-production-fb70.up.railway.app/api/cron/sat-sync-worker?secret=CRON_SECRET" \
+     | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const j=JSON.parse(d);const p=j.jobs.filter(j=>j.status==='polling');p.forEach(j=>console.log('Job',j.id,j.requestType,j.direction,j.dateFrom?.substring(0,10),'attempts:',j.attempts,'error:',j.lastError))})"
+   ```
+6. **If attempts > 50 and still `estado=2`** → reset the job to `pending` so it creates a fresh SAT request:
+   ```bash
+   curl -s "https://healthcareapi-production-fb70.up.railway.app/api/cron/sat-sync-worker?secret=CRON_SECRET&reset=<jobId>"
+   ```
+
+### Speed observations
+
+| Date | Batch | SAT Speed | Notes |
+|------|-------|-----------|-------|
+| 2026-06-06 | First backfill (offset 01) | ~30s-2min per batch | Fast day. 69 jobs completed in ~2 hours |
+| 2026-06-08 | Re-sync (offset 02) | 4-10+ min per batch | Slow day. First batch (3 jobs) took ~4 min. Subsequent batches stuck 10+ min in `estado=2` |
+
+### Why the 5-second loop is wasteful on slow days
+
+Each poll iteration calls `authenticate()` (SOAP call) + `verifyRequest()` (SOAP call) per job. With 3 polling jobs at 5s intervals = **~72 SOAP calls/min to SAT**. This doesn't speed anything up — SAT prepares ZIPs on its own schedule. On slow days, let the Railway cron (every 2 min) handle polling instead.
+
+### Recommendation
+
+- **Fast SAT day**: Loop with `sleep 30` (not 5) — enough to catch completions quickly without spamming
+- **Slow SAT day**: Let the cron handle it (every 2 min). Check back in 1-2 hours.
+- **Very slow**: SAT docs say up to 72 hours. If all jobs are `estado=2`, just wait.
+
+---
+
 ## History
 
 | Date | Reason | Offset | Jobs Reset | Result |
 |------|--------|--------|------------|--------|
-| 2026-06-06 | First XML backfill | 00:00:01 | 69 (new) | All completed after error 5002 fix |
-| 2026-06-08 | Parser bug: Total regex matched SubTotal | 00:00:02 | 85 (force-xml) | In progress |
+| 2026-06-06 | First XML backfill | 00:00:01 | 69 (new) | All completed after error 5002 fix (~2 hours, SAT was fast) |
+| 2026-06-08 | Parser bug: Total regex matched SubTotal | 00:00:02 | 85 (force-xml) | SAT slow — 6 completed, 3 failed (5002), 73 pending after 80-run loop. Left to cron. |
