@@ -80,7 +80,9 @@ export async function GET(request: NextRequest) {
         if (!ppdSet.has(uuidLower)) continue;
 
         const detail = ppdSet.get(uuidLower)!;
-        const invoiceTotal = Number(detail.total) || Number(inv.monto);
+        // Use monto from SAT metadata (always correct) over detail.total
+        // (detail.total was buggy — matched SubTotal instead of Total for CFDIs with IVA)
+        const invoiceTotal = Number(inv.monto) || Number(detail.total);
         const invPagos = pagosByFactura.get(uuidLower) || [];
         const activePagos = invPagos.filter(p => !p.unlinkedAt);
         const totalPagado = activePagos.reduce((s, p) => s + (p.montoPagado?.toNumber() ?? 0), 0);

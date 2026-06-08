@@ -36,12 +36,18 @@ export async function GET(
       return NextResponse.json({ error: 'No se encontraron detalles XML para este CFDI' }, { status: 404 });
     }
 
+    // Use metadata.monto as total (always correct from SAT CSV) when available.
+    // detail.total may be wrong for existing data (parser bug: matched SubTotal instead of Total).
+    const metadataMonto = metadata?.monto?.toNumber() ?? null;
+    const detailTotal = detail?.total?.toNumber() ?? null;
+    const correctedTotal = metadataMonto ?? detailTotal;
+
     return NextResponse.json({
       data: {
         uuid: uuidLower,
         subtotal: detail?.subtotal?.toNumber() ?? null,
         descuento: detail?.descuento?.toNumber() ?? null,
-        total: detail?.total?.toNumber() ?? null,
+        total: correctedTotal,
         ivaTrasladado: detail?.ivaTrasladado?.toNumber() ?? null,
         isrRetenido: detail?.isrRetenido?.toNumber() ?? null,
         ivaRetenido: detail?.ivaRetenido?.toNumber() ?? null,

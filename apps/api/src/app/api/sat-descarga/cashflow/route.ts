@@ -128,7 +128,8 @@ export async function GET(request: NextRequest) {
       if (!ppdSet.has(uuidLower)) continue;
 
       const detail = ppdSet.get(uuidLower)!;
-      const invoiceTotal = Number(detail.total) || Number(inv.monto);
+      // Use monto from SAT metadata (always correct) over detail.total
+      const invoiceTotal = Number(inv.monto) || Number(detail.total);
       const invPagos = pagosByFactura.get(uuidLower) || [];
       const totalPagado = invPagos.reduce((s, p) => s + (p.montoPagado?.toNumber() ?? 0), 0);
 

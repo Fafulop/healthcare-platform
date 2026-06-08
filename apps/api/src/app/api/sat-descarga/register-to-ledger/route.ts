@@ -80,7 +80,8 @@ export async function POST(request: NextRequest) {
           entryType = cfdi.efecto === 'I' ? 'ingreso' : 'egreso';
         }
 
-        const amount = detail?.total ? Number(detail.total) : Number(cfdi.monto);
+        // Use monto from SAT metadata (always correct) over detail.total
+        const amount = Number(cfdi.monto) || (detail?.total ? Number(detail.total) : 0);
         const cfdiDate = new Date(cfdi.issuedAt);
 
         // --- Match-before-create: search for existing entries to suggest linking ---

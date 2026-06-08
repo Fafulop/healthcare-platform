@@ -111,7 +111,8 @@ function extractAttrNumber(xml: string, attr: string): number | null {
   const comprobanteMatch = xml.match(/<[^>]*Comprobante[^>]*>/);
   if (!comprobanteMatch) return null;
 
-  const re = new RegExp(`${attr}="([^"]+)"`, 'i');
+  // Negative lookbehind prevents "Total" matching inside "SubTotal"
+  const re = new RegExp(`(?<![a-zA-Z])${attr}="([^"]+)"`, 'i');
   const match = comprobanteMatch[0].match(re);
   if (!match) return null;
 
@@ -126,7 +127,8 @@ function extractAttrString(xml: string, attr: string): string | null {
   const comprobanteMatch = xml.match(/<[^>]*Comprobante[^>]*>/);
   if (!comprobanteMatch) return null;
 
-  const re = new RegExp(`${attr}="([^"]+)"`, 'i');
+  // Negative lookbehind prevents partial attribute name matches
+  const re = new RegExp(`(?<![a-zA-Z])${attr}="([^"]+)"`, 'i');
   const match = comprobanteMatch[0].match(re);
   return match ? match[1] : null;
 }
