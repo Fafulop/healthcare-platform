@@ -2555,11 +2555,97 @@ function PpdPagosTab() {
         </>
       )}
 
-      <p className="text-xs text-gray-400 text-center">
-        Las facturas PPD requieren un complemento de pago para registrar el cobro.
-        El sistema vincula automaticamente cuando el XML del complemento contiene el UUID de la factura.
-        Usa &quot;Vincular&quot; para asociar manualmente cuando la vinculacion automatica no funciona.
-      </p>
+      {/* ═══════════════════════════════════════════════════════════════════
+          GUIA: Explicacion de las tablas PPD
+          ═══════════════════════════════════════════════════════════════════ */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 space-y-5 text-sm text-gray-700">
+        <h4 className="font-bold text-gray-900 text-base">¿Cómo funciona esta sección?</h4>
+
+        <div className="space-y-4">
+          {/* What is PPD */}
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">¿Qué es una factura PPD?</p>
+            <p className="text-gray-600 leading-relaxed">
+              Cuando facturas a crédito (el pago no es inmediato), la factura se emite con método de pago <strong>PPD</strong> (Pago en Parcialidades o Diferido).
+              Esto le dice al SAT: &quot;aún no me han pagado&quot;. Cuando te paguen, debes emitir un <strong>complemento de pago</strong> que comprueba cuándo y cuánto te pagaron.
+            </p>
+          </div>
+
+          {/* Me deben vs Yo debo */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">
+              <p className="font-semibold text-purple-800 mb-1">Me deben (Emitidas)</p>
+              <p className="text-purple-700 text-xs leading-relaxed">
+                Facturas que <strong>tú emitiste</strong> a tus clientes con PPD. Son ingresos pendientes de cobro.
+                Cuando el cliente te pague, tú emites el complemento de pago.
+              </p>
+              <p className="text-purple-600 text-xs mt-2 italic">
+                Ejemplo: Le facturas $6,900 a Editorial Matro a crédito. Cuando te paguen por transferencia, emites un complemento de pago por $6,900 y se vincula a esa factura.
+              </p>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+              <p className="font-semibold text-blue-800 mb-1">Yo debo (Recibidas)</p>
+              <p className="text-blue-700 text-xs leading-relaxed">
+                Facturas que <strong>tus proveedores te enviaron</strong> con PPD. Son gastos que aún no pagas.
+                Cuando pagues, el proveedor emite el complemento de pago.
+              </p>
+              <p className="text-blue-600 text-xs mt-2 italic">
+                Ejemplo: Full Graphics te factura $1,750 a crédito. Cuando les pagas, ellos emiten el complemento y aparece vinculado aquí.
+              </p>
+            </div>
+          </div>
+
+          {/* The 3 sections */}
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Las 3 tablas que ves en cada sección:</p>
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-700 text-xs font-bold flex-shrink-0">B</span>
+                <div>
+                  <p className="font-medium text-gray-800">Pendientes de pago</p>
+                  <p className="text-gray-500 text-xs">Facturas que aún no tienen complemento de pago (o tienen pago parcial). Aquí puedes expandir cada factura para ver si hay complementos disponibles para vincular.</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-100 text-yellow-700 text-xs font-bold flex-shrink-0">C</span>
+                <div>
+                  <p className="font-medium text-gray-800">Complementos sin factura</p>
+                  <p className="text-gray-500 text-xs">Complementos de pago que no pudieron vincularse automáticamente a ninguna factura pendiente. Puede ser porque la factura es de otro año o porque el RFC no coincide. Usa &quot;Buscar factura&quot; para vincularlos manualmente.</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-700 text-xs font-bold flex-shrink-0">A</span>
+                <div>
+                  <p className="font-medium text-gray-800">Ledger completo</p>
+                  <p className="text-gray-500 text-xs">Vista completa de todas las facturas PPD con sus complementos vinculados. Las facturas en verde ya están pagadas, en amarillo tienen pago parcial, y en rojo aún no tienen pago.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Status colors */}
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">¿Qué significan los colores?</p>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">Pagada — Ya tiene complemento y el saldo es $0</span>
+              <span className="inline-flex items-center gap-1.5 bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-medium">Parcial — Tiene pago pero aún queda saldo pendiente</span>
+              <span className="inline-flex items-center gap-1.5 bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-medium">Pendiente — Sin complemento de pago vinculado</span>
+            </div>
+          </div>
+
+          {/* How linking works */}
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">¿Cómo se vinculan los complementos?</p>
+            <p className="text-gray-600 text-xs leading-relaxed">
+              <strong>Automático:</strong> Cuando descargas los XMLs del SAT, el sistema lee el complemento de pago y detecta a qué factura corresponde (por UUID). Si coincide, se vincula solo.
+            </p>
+            <p className="text-gray-600 text-xs leading-relaxed mt-1">
+              <strong>Manual:</strong> Si la vinculación automática no funcionó, puedes expandir una factura pendiente, ver los complementos sugeridos (el sistema busca por RFC del cliente), y hacer clic en &quot;Vincular&quot;.
+              También puedes desvincular un complemento si se asignó incorrectamente.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -3175,27 +3261,6 @@ function CobranzaTab() {
             ))}
           </div>
 
-          {/* Recent payments */}
-          {data.recentPayments.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Pagos Recientes</h3>
-              <div className="bg-white border rounded-lg divide-y">
-                {data.recentPayments.map((p, i) => (
-                  <div key={i} className="flex items-center justify-between p-3">
-                    <div>
-                      <span className="text-sm text-gray-900">{p.receiverName || p.uuid.slice(0, 8)}</span>
-                      {p.fechaPago && (
-                        <span className="text-xs text-gray-400 ml-2">
-                          {new Date(p.fechaPago).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-sm font-medium text-green-600">+{fmt(p.montoPagado)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </>
       )}
 
