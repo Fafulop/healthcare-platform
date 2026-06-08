@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
     for (const cfdi of cfdis) {
       const detail = detailMap.get(cfdi.uuid.toLowerCase());
       const cfdiSubtotal = detail ? Number(detail.subtotal) : Number(cfdi.monto);
-      const cfdiTotal = detail ? Number(detail.total) : Number(cfdi.monto);
+      const cfdiTotal = Number(cfdi.monto) || (detail ? Number(detail.total) : 0);
 
       // Classify primary category
       let primaryCategory = 'sin_clasificar';

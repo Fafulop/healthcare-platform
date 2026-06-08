@@ -307,7 +307,7 @@ export async function GET(request: NextRequest) {
       const iva = d ? Number(d.ivaTrasladado) : 0;
       const isrR = d ? Number(d.isrRetenido) : 0;
       const ivaR = d ? Number(d.ivaRetenido) : 0;
-      const tot = d ? Number(d.total) : Number(cfdi.monto);
+      const tot = Number(cfdi.monto) || (d ? Number(d.total) : 0);
       emTotals.subtotal += sub; emTotals.iva += iva; emTotals.isrRet += isrR; emTotals.ivaRet += ivaR; emTotals.total += tot;
       emittedRows.push({
         date: formatDateMx(cfdi.issuedAt), uuid: cfdi.uuid,
@@ -330,7 +330,7 @@ export async function GET(request: NextRequest) {
       const iva = (d ? Number(d.ivaTrasladado) : 0) * sign;
       const isrR = (d ? Number(d.isrRetenido) : 0) * sign;
       const ivaR = (d ? Number(d.ivaRetenido) : 0) * sign;
-      const tot = (d ? Number(d.total) : Number(cfdi.monto)) * sign;
+      const tot = (Number(cfdi.monto) || (d ? Number(d.total) : 0)) * sign;
       recTotals.subtotal += sub; recTotals.iva += iva; recTotals.isrRet += isrR; recTotals.ivaRet += ivaR; recTotals.total += tot;
 
       let primaryCategory = 'sin_clasificar';
