@@ -119,12 +119,12 @@ export async function POST(request: Request) {
         { status: { in: ['authenticating', 'requesting', 'polling', 'downloading'] } },
         // Start new metadata jobs freely
         { status: 'pending', requestType: 'metadata' },
-        // Only start a new XML job if no XML jobs are currently active
-        ...(activeXmlCount <= 1 ? [{ status: 'pending' as const, requestType: 'xml' as const }] : []),
+        // Start new XML jobs if fewer than 6 are active (allows parallel SAT processing)
+        ...(activeXmlCount < 6 ? [{ status: 'pending' as const, requestType: 'xml' as const }] : []),
       ],
     },
     orderBy: { createdAt: 'asc' },
-    take: 3,
+    take: 6,
     include: {
       fiscalProfile: {
         select: {
