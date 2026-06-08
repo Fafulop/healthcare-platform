@@ -26,6 +26,7 @@ import {
   Calculator,
   CalendarClock,
   RefreshCw,
+  Search,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { SAT_FORMA_PAGO_LABELS, ORIGIN_LABELS } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
@@ -2576,16 +2577,36 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
   acting: boolean;
 }) {
   const [expandedFactura, setExpandedFactura] = useState<string | null>(null);
+  const [showFullLedger, setShowFullLedger] = useState(false);
+  const [searchingOrphan, setSearchingOrphan] = useState<string | null>(null);
 
   const borderColor = accentColor === 'purple' ? 'border-purple-200' : 'border-blue-200';
   const textAccent = accentColor === 'purple' ? 'text-purple-700' : 'text-blue-700';
+  const bgAccent = accentColor === 'purple' ? 'bg-purple-50' : 'bg-blue-50';
 
   const pendingFacturas = side.facturas.filter(f => f.status !== 'pagado');
-  const paidFacturas = side.facturas.filter(f => f.status === 'pagado');
+  const allFacturas = side.facturas;
 
   // For each pending factura, find unlinked complementos that could match (same counterparty RFC)
   const getMatchingComplementos = (factura: PpdFactura) =>
     side.unmatchedComplementos.filter(c => c.counterpartyRfc === factura.counterpartyRfc);
+
+  // Orphan complementos: unlinked AND no matching pending factura by RFC
+  const orphanComplementos = side.unmatchedComplementos.filter(
+    c => !pendingFacturas.some(f => f.counterpartyRfc === c.counterpartyRfc)
+  );
+
+  // Row background color based on payment status
+  const statusRowClass = (f: PpdFactura) => {
+    if (f.status === 'pagado') return 'bg-green-50/40';
+    if (f.status === 'parcial') return 'bg-yellow-50/40';
+    return '';
+  };
+  const statusBadge = (f: PpdFactura) => {
+    if (f.status === 'pagado') return <span className="inline-flex items-center bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">Pagada</span>;
+    if (f.status === 'parcial') return <span className="inline-flex items-center bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">Parcial</span>;
+    return <span className="inline-flex items-center bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">Pendiente</span>;
+  };
 
   return (
     <div className={`border-l-4 ${borderColor} pl-4 space-y-6`}>
@@ -2597,9 +2618,9 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
 
       {/* Summary row */}
       {side.summary.totalFacturas > 0 && (
-        <div className="flex gap-4 text-xs">
+        <div className="flex flex-wrap gap-4 text-xs">
           <span className="text-gray-500">{side.summary.totalFacturas} facturas</span>
-          <span className="text-green-600">{side.summary.pagadas} cobradas</span>
+          <span className="text-green-600">{side.summary.pagadas} completas</span>
           {side.summary.parciales > 0 && <span className="text-yellow-600">{side.summary.parciales} parciales</span>}
           {side.summary.pendientes > 0 && <span className="text-red-600">{side.summary.pendientes} pendientes</span>}
           {side.summary.totalPendiente > 0 && <span className="font-medium text-gray-700">Saldo pendiente: {fmt(side.summary.totalPendiente)}</span>}
@@ -2607,14 +2628,14 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════
-          TABLE 1: PENDIENTES — facturas sin cobrar
-          Cada factura se puede expandir para ver complementos sin vincular
+          SECTION B: PENDIENTES DE PAGO — facturas con saldo > 0 (actionable)
+          Shown first because this is the primary action area
           ═══════════════════════════════════════════════════════════════════ */}
       {pendingFacturas.length > 0 && (
         <div className="space-y-3">
           <h4 className="text-sm font-semibold text-red-700 flex items-center gap-2">
             <Clock className="w-4 h-4" />
-            Pendientes de cobro
+            Pendientes de pago
             <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-[10px]">{pendingFacturas.length}</span>
           </h4>
 
@@ -2633,6 +2654,7 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
               <tbody>
                 {pendingFacturas.map(f => {
                   const matchingComplementos = getMatchingComplementos(f);
+                  const activePagos = f.pagos.filter(p => !p.unlinkedAt);
                   const isExpanded = expandedFactura === f.uuid;
                   return (
                     <Fragment key={f.uuid}>
@@ -2643,6 +2665,7 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
                         <td className="p-2 pl-3 font-mono text-xs">
                           {f.serie && <span className="text-gray-400">{f.serie}-</span>}
                           {f.folio || f.uuid.slice(0, 8)}
+                          {f.status === 'parcial' && <span className="ml-1.5 inline-flex items-center bg-yellow-100 text-yellow-700 px-1 py-0.5 rounded text-[9px]">parcial</span>}
                         </td>
                         <td className="p-2">
                           <div className="font-medium text-gray-900 truncate max-w-[180px]">{f.counterpartyName || f.counterpartyRfc}</div>
@@ -2655,12 +2678,39 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
                           <span>{fmtDate(f.issuedAt)}</span>
                           {matchingComplementos.length > 0 && (
                             <span className="ml-2 inline-flex items-center bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full text-[10px]">
-                              {matchingComplementos.length} pago{matchingComplementos.length > 1 ? 's' : ''}
+                              {matchingComplementos.length} disp.
                               <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                             </span>
                           )}
                         </td>
                       </tr>
+                      {/* Existing linked pagos for partial invoices */}
+                      {activePagos.length > 0 && activePagos.map(p => (
+                        <tr key={p.id} className="group border-b bg-green-50/20">
+                          <td className="p-1.5 pl-6 font-mono text-xs text-green-700">
+                            ↳ Comp. {p.pagoUuid.slice(0, 8)}...
+                          </td>
+                          <td className="p-1.5 text-xs text-gray-500">
+                            {p.formaPago && <span>Forma: {p.formaPago}</span>}
+                            {p.numParcialidad && <span className="ml-2">Parc. #{p.numParcialidad}</span>}
+                          </td>
+                          <td colSpan={2} className="text-right p-1.5 text-xs font-medium text-green-700">
+                            {fmt(p.montoPagado)}
+                          </td>
+                          <td colSpan={2} className="text-right p-1.5 pr-3 text-xs text-gray-500 whitespace-nowrap">
+                            {p.fechaPago ? fmtDate(p.fechaPago) : '—'}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleUnlink(p.id); }}
+                              disabled={acting}
+                              className="ml-2 text-red-400 hover:text-red-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Desvincular"
+                            >
+                              <Unlink className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Expandable: available complementos to link */}
                       {isExpanded && (
                         <tr>
                           <td colSpan={6} className="bg-orange-50/30 p-3 border-b">
@@ -2696,99 +2746,182 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
               </tbody>
             </table>
           </div>
-
-          {/* Orphan complementos — no matching pending factura by RFC */}
-          {side.unmatchedComplementos.filter(c => !pendingFacturas.some(f => f.counterpartyRfc === c.counterpartyRfc)).length > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-xs text-yellow-800 font-medium mb-2">
-                Complementos sin factura pendiente del mismo RFC:
-              </p>
-              <div className="space-y-1">
-                {side.unmatchedComplementos
-                  .filter(c => !pendingFacturas.some(f => f.counterpartyRfc === c.counterpartyRfc))
-                  .map(c => (
-                    <div key={c.uuid} className="flex items-center gap-3 text-xs text-yellow-900">
-                      <FileText className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0" />
-                      <span className="font-medium">{c.counterpartyName || c.counterpartyRfc}</span>
-                      <span>{fmt(c.monto)}</span>
-                      <span className="text-yellow-600">{fmtDate(c.issuedAt)}</span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════
-          TABLE 2: COBRADAS — facturas pagadas + sus complementos de pago
+          SECTION C: COMPLEMENTOS HUERFANOS — sin factura pendiente del mismo RFC
           ═══════════════════════════════════════════════════════════════════ */}
-      {paidFacturas.length > 0 && (
+      {orphanComplementos.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-green-700 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
-            Cobradas
-            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full text-[10px]">{paidFacturas.length}</span>
+          <h4 className="text-sm font-semibold text-yellow-700 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            Complementos sin factura
+            <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full text-[10px]">{orphanComplementos.length}</span>
           </h4>
 
-          <div className="bg-white border border-green-100 rounded-lg overflow-x-auto">
+          <div className="bg-white border border-yellow-200 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs text-gray-500 border-b bg-green-50/50">
-                  <th className="text-left p-2 pl-3">Folio factura</th>
-                  <th className="text-left p-2">{counterpartyLabel}</th>
-                  <th className="text-right p-2">Total factura</th>
-                  <th className="text-right p-2 pr-3">Fecha factura</th>
+                <tr className="text-xs text-gray-500 border-b bg-yellow-50/50">
+                  <th className="text-left p-2 pl-3">RFC</th>
+                  <th className="text-left p-2">Nombre</th>
+                  <th className="text-right p-2">Monto</th>
+                  <th className="text-right p-2 pr-3">Fecha</th>
                 </tr>
               </thead>
               <tbody>
-                {paidFacturas.map(f => {
-                  const activePagos = f.pagos.filter(p => !p.unlinkedAt);
+                {orphanComplementos.map(c => {
+                  const isSearching = searchingOrphan === c.uuid;
                   return (
-                    <Fragment key={f.uuid}>
-                      <tr className="border-b bg-white">
-                        <td className="p-2 pl-3 font-mono text-xs">
-                          {f.serie && <span className="text-gray-400">{f.serie}-</span>}
-                          {f.folio || f.uuid.slice(0, 8)}
+                    <Fragment key={c.uuid}>
+                      <tr className="border-b hover:bg-yellow-50/30">
+                        <td className="p-2 pl-3 font-mono text-xs text-gray-600">{c.counterpartyRfc}</td>
+                        <td className="p-2 text-gray-900 text-sm">{c.counterpartyName || '—'}</td>
+                        <td className="text-right p-2 font-medium text-gray-700">{fmt(c.monto)}</td>
+                        <td className="text-right p-2 pr-3 text-xs text-gray-500 whitespace-nowrap">
+                          {fmtDate(c.issuedAt)}
+                          <button
+                            onClick={() => setSearchingOrphan(isSearching ? null : c.uuid)}
+                            className="ml-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-1.5 py-0.5 rounded font-medium transition-colors"
+                          >
+                            <Search className="w-3 h-3" />
+                            {isSearching ? 'Cerrar' : 'Buscar factura'}
+                          </button>
                         </td>
-                        <td className="p-2">
-                          <div className="font-medium text-gray-900 truncate max-w-[180px]">{f.counterpartyName || f.counterpartyRfc}</div>
-                        </td>
-                        <td className="text-right p-2 text-gray-700">{fmt(f.total)}</td>
-                        <td className="text-right p-2 pr-3 text-xs text-gray-500">{fmtDate(f.issuedAt)}</td>
                       </tr>
-                      {/* Complementos de pago linked to this factura */}
-                      {activePagos.length > 0 && activePagos.map(p => (
-                        <tr key={p.id} className="group border-b bg-green-50/30">
-                          <td className="p-1.5 pl-6 font-mono text-xs text-green-700">
-                            ↳ Comp. {p.pagoUuid.slice(0, 8)}...
-                          </td>
-                          <td className="p-1.5 text-xs text-gray-500">
-                            {p.formaPago && <span>Forma: {p.formaPago}</span>}
-                            {p.numParcialidad && <span className="ml-2">Parcialidad {p.numParcialidad}</span>}
-                          </td>
-                          <td className="text-right p-1.5 text-xs font-medium text-green-700">
-                            {fmt(p.montoPagado)}
-                          </td>
-                          <td className="text-right p-1.5 pr-3 text-xs text-gray-500 whitespace-nowrap">
-                            {p.fechaPago ? fmtDate(p.fechaPago) : '—'}
-                            <button
-                              onClick={() => handleUnlink(p.id)}
-                              disabled={acting}
-                              className="ml-2 text-red-400 hover:text-red-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Desvincular"
-                            >
-                              <Unlink className="w-3 h-3" />
-                            </button>
+                      {isSearching && (
+                        <tr>
+                          <td colSpan={4} className="bg-yellow-50/30 p-3 border-b">
+                            <p className="text-xs text-gray-600 font-medium mb-2">
+                              Facturas PPD pendientes — selecciona a cual vincular este complemento
+                            </p>
+                            {pendingFacturas.length === 0 ? (
+                              <p className="text-xs text-gray-400 italic">No hay facturas PPD pendientes en este periodo.</p>
+                            ) : (
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                {pendingFacturas.map(f => (
+                                  <div key={f.uuid} className="flex items-center justify-between bg-white rounded border px-3 py-2 text-xs">
+                                    <div className="flex items-center gap-3">
+                                      <FileText className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                      <span className="font-mono">{f.serie ? `${f.serie}-` : ''}{f.folio || f.uuid.slice(0, 8)}</span>
+                                      <span className="text-gray-900 font-medium truncate max-w-[140px]">{f.counterpartyName || f.counterpartyRfc}</span>
+                                      <span className="text-gray-700">{fmt(f.pendiente)}</span>
+                                      <span className="text-gray-400">{fmtDate(f.issuedAt)}</span>
+                                    </div>
+                                    <button
+                                      onClick={() => handleLink(c.uuid, f.uuid)}
+                                      disabled={acting}
+                                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded font-medium transition-colors"
+                                    >
+                                      <Link2 className="w-3 h-3" />
+                                      Vincular
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </Fragment>
                   );
                 })}
               </tbody>
             </table>
+            <div className="bg-yellow-50 px-3 py-2 text-xs text-yellow-700 border-t border-yellow-200">
+              Estos complementos no coinciden con ninguna factura PPD pendiente por RFC. Pueden corresponder a facturas de otro año.
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          SECTION A: LEDGER COMPLETO — todas las facturas PPD con complementos inline
+          Collapsible — muestra la vision completa
+          ═══════════════════════════════════════════════════════════════════ */}
+      {allFacturas.length > 0 && (
+        <div className="space-y-3">
+          <button
+            onClick={() => setShowFullLedger(!showFullLedger)}
+            className={`text-sm font-semibold ${textAccent} flex items-center gap-2 hover:opacity-80 transition-opacity`}
+          >
+            <ChevronDown className={`w-4 h-4 transition-transform ${showFullLedger ? 'rotate-180' : ''}`} />
+            Ledger completo
+            <span className={`${bgAccent} ${textAccent} px-1.5 py-0.5 rounded-full text-[10px]`}>{allFacturas.length}</span>
+            <span className="text-xs font-normal text-gray-400">— todas las facturas PPD y sus complementos</span>
+          </button>
+
+          {showFullLedger && (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-gray-500 border-b bg-gray-50">
+                    <th className="text-left p-2 pl-3">Folio</th>
+                    <th className="text-left p-2">{counterpartyLabel}</th>
+                    <th className="text-right p-2">Total</th>
+                    <th className="text-right p-2">Complementos</th>
+                    <th className="text-right p-2">Saldo</th>
+                    <th className="text-right p-2 pr-3">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allFacturas.map(f => {
+                    const activePagos = f.pagos.filter(p => !p.unlinkedAt);
+                    return (
+                      <Fragment key={f.uuid}>
+                        <tr className={`border-b ${statusRowClass(f)}`}>
+                          <td className="p-2 pl-3 font-mono text-xs">
+                            {f.serie && <span className="text-gray-400">{f.serie}-</span>}
+                            {f.folio || f.uuid.slice(0, 8)}
+                          </td>
+                          <td className="p-2">
+                            <div className="font-medium text-gray-900 truncate max-w-[180px]">{f.counterpartyName || f.counterpartyRfc}</div>
+                          </td>
+                          <td className="text-right p-2 text-gray-700">{fmt(f.total)}</td>
+                          <td className="text-right p-2 text-gray-500 text-xs">
+                            {activePagos.length > 0 ? `${activePagos.length} comp.` : '—'}
+                          </td>
+                          <td className={`text-right p-2 font-medium ${f.pendiente > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {f.pendiente > 0 ? fmt(f.pendiente) : '$0'}
+                          </td>
+                          <td className="text-right p-2 pr-3">{statusBadge(f)}</td>
+                        </tr>
+                        {/* Inline complementos as sub-rows */}
+                        {activePagos.map(p => (
+                          <tr key={p.id} className={`group border-b ${f.status === 'pagado' ? 'bg-green-50/20' : 'bg-gray-50/30'}`}>
+                            <td className="p-1.5 pl-6 font-mono text-xs text-green-700">
+                              ↳ {p.pagoUuid.slice(0, 8)}...
+                            </td>
+                            <td className="p-1.5 text-xs text-gray-500">
+                              {p.formaPago && <span>Forma: {p.formaPago}</span>}
+                              {p.numParcialidad && <span className="ml-2">Parc. #{p.numParcialidad}</span>}
+                            </td>
+                            <td colSpan={2} className="text-right p-1.5 text-xs font-medium text-green-700">
+                              {fmt(p.montoPagado)}
+                            </td>
+                            <td className="text-right p-1.5 text-xs text-gray-500">
+                              {p.fechaPago ? fmtDate(p.fechaPago) : '—'}
+                            </td>
+                            <td className="text-right p-1.5 pr-3 text-xs">
+                              <button
+                                onClick={() => handleUnlink(p.id)}
+                                disabled={acting}
+                                className="text-red-400 hover:text-red-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Desvincular"
+                              >
+                                <Unlink className="w-3 h-3" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
