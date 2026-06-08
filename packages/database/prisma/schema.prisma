@@ -2636,6 +2636,9 @@ model SatCfdiDetail {
   folio           String?   @db.VarChar(40)
   lugarExpedicion String?   @map("lugar_expedicion") @db.VarChar(5)
 
+  // Manual classification override (user-assigned deduction category)
+  manualCategory  String?   @map("manual_category") @db.VarChar(50)
+
   // Sync tracking
   syncJobId       Int?      @map("sync_job_id")
   createdAt       DateTime  @default(now()) @map("created_at")

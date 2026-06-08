@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
             ivaRetenido: true,
             formaPago: true,
             usoCfdi: true,
+            manualCategory: true,
             conceptos: {
               select: {
                 claveProdServ: true,
@@ -110,6 +111,7 @@ export async function GET(request: NextRequest) {
         subtotal: number;
         issuedAt: string;
         categoryId: string;
+        isManual: boolean;
         flags: Array<{ type: string; message: string }>;
       }>;
     };
@@ -153,9 +155,13 @@ export async function GET(request: NextRequest) {
       const cfdiIva = detail ? Number(detail.ivaTrasladado) : 0;
 
       let primaryCategory = 'sin_clasificar';
+      const isManual = !!(detail?.manualCategory);
 
-      if (detail && detail.conceptos.length > 0) {
-        // Classify by the highest-value concepto
+      if (isManual) {
+        // Manual override takes precedence
+        primaryCategory = detail!.manualCategory!;
+      } else if (detail && detail.conceptos.length > 0) {
+        // Auto-classify by the highest-value concepto
         let maxImporte = 0;
         for (const concepto of detail.conceptos) {
           const importe = Number(concepto.importe) || 0;
@@ -204,6 +210,7 @@ export async function GET(request: NextRequest) {
           subtotal: cfdiSubtotal,
           issuedAt: cfdi.issuedAt.toISOString(),
           categoryId: primaryCategory,
+          isManual,
           flags,
         });
       }
@@ -322,6 +329,7 @@ export async function GET(request: NextRequest) {
         },
         alerts,
         resicoMonitor,
+        allCategories: DEDUCTION_CATEGORIES.map(c => ({ id: c.id, name: c.name, icon: c.icon })),
       },
     });
   } catch (error: any) {
@@ -330,5 +338,52 @@ export async function GET(request: NextRequest) {
     }
     console.error('Error computing deductions:', error);
     return NextResponse.json({ error: 'Error al calcular deducciones' }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/sat-descarga/deductions — Manually classify a CFDI
+ *
+ * Body: { uuid: string, categoryId: string | null }
+ *   categoryId = null clears the override (reverts to auto-classification)
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const { doctor } = await getAuthenticatedDoctor(request);
+    const body = await request.json();
+    const { uuid, categoryId } = body;
+
+    if (!uuid || typeof uuid !== 'string') {
+      return NextResponse.json({ error: 'UUID requerido' }, { status: 400 });
+    }
+
+    // Validate categoryId if provided
+    const validIds = DEDUCTION_CATEGORIES.map(c => c.id);
+    if (categoryId !== null && categoryId !== undefined && !validIds.includes(categoryId)) {
+      return NextResponse.json({ error: 'Categoría inválida' }, { status: 400 });
+    }
+
+    // Verify ownership and update
+    const detail = await prisma.satCfdiDetail.findFirst({
+      where: { doctorId: doctor.id, uuid: uuid.toLowerCase() },
+      select: { id: true },
+    });
+
+    if (!detail) {
+      return NextResponse.json({ error: 'CFDI no encontrado' }, { status: 404 });
+    }
+
+    await prisma.satCfdiDetail.update({
+      where: { id: detail.id },
+      data: { manualCategory: categoryId || null },
+    });
+
+    return NextResponse.json({ success: true, uuid, categoryId: categoryId || null });
+  } catch (error: any) {
+    if (error.name === 'AuthError') {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error('Error updating manual category:', error);
+    return NextResponse.json({ error: 'Error al clasificar' }, { status: 500 });
   }
 }

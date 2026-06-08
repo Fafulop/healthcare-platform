@@ -2035,6 +2035,7 @@ interface DeductionCategory {
     subtotal: number;
     issuedAt: string;
     categoryId: string;
+    isManual: boolean;
     flags: Array<{ type: string; message: string }>;
   }>;
 }
@@ -2060,6 +2061,7 @@ interface DeductionsResponse {
     limit: number;
     percentage: number;
   };
+  allCategories: Array<{ id: string; name: string; icon: string }>;
 }
 
 function DeduccionesTab() {
@@ -2263,7 +2265,7 @@ function DeduccionesTab() {
                     <div className="px-4 pb-3 bg-gray-50">
                       <div className="space-y-1">
                         {cat.cfdiSamples.map((cfdi, i) => (
-                          <div key={i} className="flex items-center justify-between py-1.5 px-2 text-xs rounded hover:bg-white">
+                          <div key={i} className="flex items-center gap-2 py-1.5 px-2 text-xs rounded hover:bg-white">
                             <div className="flex-1 min-w-0">
                               <span className="text-gray-700 font-medium truncate block">
                                 {cfdi.issuerName || cfdi.issuerRfc}
@@ -2272,7 +2274,7 @@ function DeduccionesTab() {
                                 {new Date(cfdi.issuedAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
                               </span>
                             </div>
-                            <div className="text-right ml-4">
+                            <div className="text-right shrink-0">
                               <span className="text-gray-900 font-medium">{fmtMoney(cfdi.subtotal)}</span>
                               {cfdi.flags.length > 0 && (
                                 <div className="mt-0.5">
@@ -2293,6 +2295,35 @@ function DeduccionesTab() {
                                 </div>
                               )}
                             </div>
+                            {/* Category selector */}
+                            <select
+                              className={`text-[11px] border rounded px-1.5 py-1 shrink-0 w-36 ${
+                                cfdi.isManual ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500'
+                              }`}
+                              value={cfdi.categoryId}
+                              onChange={async (e) => {
+                                const newCatId = e.target.value;
+                                const isRevert = newCatId === '__auto__';
+                                try {
+                                  const res = await authFetch(`${API_URL}/api/sat-descarga/deductions`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ uuid: cfdi.uuid, categoryId: isRevert ? null : newCatId }),
+                                  });
+                                  if (res.ok) fetchDeductions();
+                                } catch (err) {
+                                  console.error('Error classifying CFDI:', err);
+                                }
+                              }}
+                            >
+                              {cfdi.isManual && (
+                                <option value="__auto__">Auto-clasificar</option>
+                              )}
+                              {data.allCategories.filter(c => c.id !== 'sin_clasificar').map(c => (
+                                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                              ))}
+                              <option value="sin_clasificar">Sin Clasificar</option>
+                            </select>
                           </div>
                         ))}
                       </div>
