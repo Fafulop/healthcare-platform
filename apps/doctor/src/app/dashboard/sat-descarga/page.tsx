@@ -104,7 +104,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "declaraciones" | "ppd" | "cobranza" | "guia" | "ayuda">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "declaraciones" | "ppd" | "guia" | "ayuda">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -141,9 +141,8 @@ export default function SatDescargaPage() {
           <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
           <TabBtn active={activeTab === "resumen"} onClick={() => setActiveTab("resumen")} label="Resumen Fiscal" />
           <TabBtn active={activeTab === "deducciones"} onClick={() => setActiveTab("deducciones")} label="Deducciones" />
-          <TabBtn active={activeTab === "declaraciones"} onClick={() => setActiveTab("declaraciones")} label="Declaraciones" />
           <TabBtn active={activeTab === "ppd"} onClick={() => setActiveTab("ppd")} label="PPD / Pagos" />
-          <TabBtn active={activeTab === "cobranza"} onClick={() => setActiveTab("cobranza")} label="Cobranza" />
+          <TabBtn active={activeTab === "declaraciones"} onClick={() => setActiveTab("declaraciones")} label="Declaraciones" />
           <TabBtn active={activeTab === "guia"} onClick={() => setActiveTab("guia")} label="Guia" />
           <TabBtn active={activeTab === "ayuda"} onClick={() => setActiveTab("ayuda")} label="Ayuda" />
         </div>
@@ -162,7 +161,6 @@ export default function SatDescargaPage() {
       {activeTab === "deducciones" && <DeduccionesTab />}
       {activeTab === "declaraciones" && <DeclaracionesTab />}
       {activeTab === "ppd" && <PpdPagosTab />}
-      {activeTab === "cobranza" && <CobranzaTab />}
       {activeTab === "guia" && <GuiaTab />}
       {activeTab === "ayuda" && <AyudaTab />}
     </div>
@@ -3089,270 +3087,6 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
 // ---------------------------------------------------------------------------
 // Cobranza Tab (Cash Flow / Aging Report)
 // ---------------------------------------------------------------------------
-
-interface CashflowInvoice {
-  uuid: string;
-  folio: string | null;
-  serie: string | null;
-  receiverRfc: string;
-  receiverName: string | null;
-  total: number;
-  totalPagado: number;
-  pendiente: number;
-  issuedAt: string;
-  daysSinceIssued: number;
-  pagosCount: number;
-  status: 'pendiente' | 'parcial' | 'pagado';
-}
-
-interface CashflowBucket {
-  label: string;
-  range: string;
-  count: number;
-  total: number;
-  invoices: CashflowInvoice[];
-}
-
-interface CashflowData {
-  year: number;
-  summary: {
-    totalPending: number;
-    totalOverdue: number;
-    invoiceCount: number;
-    overdueCount: number;
-  };
-  buckets: CashflowBucket[];
-  recentPayments: Array<{
-    uuid: string;
-    receiverName: string | null;
-    montoPagado: number;
-    fechaPago: string | null;
-  }>;
-}
-
-function CobranzaTab() {
-  const [data, setData] = useState<CashflowData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [expandedBucket, setExpandedBucket] = useState<number | null>(null);
-  const [linkTarget, setLinkTarget] = useState<{ uuid: string; rfc: string } | null>(null);
-  const [acting, setActing] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const fetchData = useCallback(() => {
-    setLoading(true);
-    authFetch(`${API_URL}/api/sat-descarga/cashflow?year=${year}`)
-      .then(res => res.ok ? res.json() : Promise.reject())
-      .then(json => setData(json.data))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [year, refreshKey]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const handleManualLink = async (pagoUuid: string) => {
-    if (!linkTarget) return;
-    setActing(true);
-    try {
-      const res = await authFetch(`${API_URL}/api/sat-descarga/pagos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pagoUuid, facturaUuid: linkTarget.uuid }),
-      });
-      if (res.ok) {
-        setLinkTarget(null);
-        setRefreshKey(k => k + 1);
-      }
-    } catch {}
-    setActing(false);
-  };
-
-  const fmt = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-        <p>Error al cargar datos de cobranza</p>
-      </div>
-    );
-  }
-
-  const bucketColors = [
-    'bg-green-50 border-green-200',
-    'bg-yellow-50 border-yellow-200',
-    'bg-orange-50 border-orange-200',
-    'bg-red-50 border-red-200',
-  ];
-  const bucketTextColors = ['text-green-700', 'text-yellow-700', 'text-orange-700', 'text-red-700'];
-
-  return (
-    <div className="space-y-6">
-      {/* Year selector */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-900">Cobranza — Facturas PPD Pendientes</h2>
-        <select
-          value={year}
-          onChange={e => setYear(Number(e.target.value))}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
-        >
-          {[2025, 2026, 2027].map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
-      </div>
-
-      {data.summary.invoiceCount === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border">
-          <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-500" />
-          <p className="text-gray-600 font-medium">Sin facturas PPD pendientes de cobro</p>
-          <p className="text-sm text-gray-400 mt-1">Todas las facturas PPD emitidas en {year} estan pagadas</p>
-        </div>
-      ) : (
-        <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white border rounded-lg p-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Por cobrar</p>
-              <p className="text-xl font-bold text-gray-900 mt-1">{fmt(data.summary.totalPending)}</p>
-              <p className="text-xs text-gray-400 mt-1">{data.summary.invoiceCount} facturas</p>
-            </div>
-            <div className="bg-white border rounded-lg p-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Vencido (&gt;30d)</p>
-              <p className={`text-xl font-bold mt-1 ${data.summary.totalOverdue > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                {fmt(data.summary.totalOverdue)}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">{data.summary.overdueCount} facturas</p>
-            </div>
-            <div className="bg-white border rounded-lg p-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Al corriente (&le;30d)</p>
-              <p className="text-xl font-bold text-green-600 mt-1">
-                {fmt(data.summary.totalPending - data.summary.totalOverdue)}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">{data.summary.invoiceCount - data.summary.overdueCount} facturas</p>
-            </div>
-            <div className="bg-white border rounded-lg p-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">% Vencido</p>
-              <p className={`text-xl font-bold mt-1 ${data.summary.totalOverdue > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                {data.summary.totalPending > 0
-                  ? Math.round((data.summary.totalOverdue / data.summary.totalPending) * 100)
-                  : 0}%
-              </p>
-            </div>
-          </div>
-
-          {/* Aging buckets */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-gray-700">Antiguedad de Saldos</h3>
-            {data.buckets.map((bucket, idx) => (
-              <div key={idx} className={`border rounded-lg overflow-hidden ${bucketColors[idx]}`}>
-                <button
-                  onClick={() => setExpandedBucket(expandedBucket === idx ? null : idx)}
-                  className="w-full flex items-center justify-between p-3 text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-semibold ${bucketTextColors[idx]}`}>{bucket.label}</span>
-                    <span className="text-xs text-gray-500">{bucket.count} facturas</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-bold ${bucketTextColors[idx]}`}>{fmt(bucket.total)}</span>
-                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedBucket === idx ? 'rotate-180' : ''}`} />
-                  </div>
-                </button>
-                {expandedBucket === idx && bucket.invoices.length > 0 && (
-                  <div className="border-t bg-white">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-xs text-gray-500 border-b">
-                          <th className="text-left p-2 pl-3">Folio</th>
-                          <th className="text-left p-2">Cliente</th>
-                          <th className="text-right p-2">Total</th>
-                          <th className="text-right p-2">Pagado</th>
-                          <th className="text-right p-2">Pendiente</th>
-                          <th className="text-right p-2">Dias</th>
-                          <th className="text-right p-2 pr-3"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bucket.invoices.map(inv => (
-                          <tr key={inv.uuid} className="border-b last:border-0 hover:bg-gray-50">
-                            <td className="p-2 pl-3">
-                              <div className="font-medium text-gray-900 text-xs font-mono">
-                                {inv.serie && <span className="text-gray-400">{inv.serie}-</span>}
-                                {inv.folio || inv.uuid.slice(0, 8)}
-                              </div>
-                            </td>
-                            <td className="p-2">
-                              <div className="font-medium text-gray-900 truncate max-w-[200px]">
-                                {inv.receiverName || inv.receiverRfc}
-                              </div>
-                              {inv.receiverName && (
-                                <div className="text-xs text-gray-400">{inv.receiverRfc}</div>
-                              )}
-                            </td>
-                            <td className="text-right p-2 text-gray-600">{fmt(inv.total)}</td>
-                            <td className="text-right p-2 text-green-600">{fmt(inv.totalPagado)}</td>
-                            <td className="text-right p-2 font-medium text-gray-900">{fmt(inv.pendiente)}</td>
-                            <td className="text-right p-2">
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                inv.daysSinceIssued > 90 ? 'bg-red-100 text-red-700' :
-                                inv.daysSinceIssued > 60 ? 'bg-orange-100 text-orange-700' :
-                                inv.daysSinceIssued > 30 ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-green-100 text-green-700'
-                              }`}>
-                                {inv.daysSinceIssued}d
-                              </span>
-                            </td>
-                            <td className="text-right p-2 pr-3">
-                              {inv.status === 'pendiente' && (
-                                <button
-                                  onClick={() => setLinkTarget({ uuid: inv.uuid, rfc: inv.receiverRfc })}
-                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
-                                  title="Vincular complemento de pago manualmente"
-                                >
-                                  <Link2 className="w-3 h-3" />
-                                  Vincular
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-        </>
-      )}
-
-      <p className="text-xs text-gray-400 text-center mt-4">
-        Solo incluye facturas emitidas con metodo de pago PPD (Pago en Parcialidades o Diferido).
-        Los montos pendientes se calculan a partir de los complementos de pago recibidos.
-      </p>
-
-      {linkTarget && (
-        <ManualLinkModal
-          facturaUuid={linkTarget.uuid}
-          clientRfc={linkTarget.rfc}
-          onLink={handleManualLink}
-          onClose={() => setLinkTarget(null)}
-          acting={acting}
-        />
-      )}
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Declaraciones Tab
