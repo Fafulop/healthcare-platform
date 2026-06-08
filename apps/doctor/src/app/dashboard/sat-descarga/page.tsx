@@ -2396,6 +2396,50 @@ function DeduccionesTab() {
           </div>
         </div>
       )}
+
+      {/* Alerts guide */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700">Guia de Alertas</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Cada CFDI puede tener una o mas alertas que afectan su deducibilidad.</p>
+        </div>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="px-4 py-2 text-left text-gray-600 font-medium w-36">Alerta</th>
+              <th className="px-4 py-2 text-left text-gray-600 font-medium">Que significa</th>
+              <th className="px-4 py-2 text-left text-gray-600 font-medium w-48">Que hacer</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            <tr>
+              <td className="px-4 py-2"><span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Efectivo &gt;$2k</span></td>
+              <td className="px-4 py-2 text-gray-700">Pago en efectivo mayor a $2,000 MXN. Art. 105 LISR prohibe deducir gastos en efectivo arriba de este monto.</td>
+              <td className="px-4 py-2 text-gray-500">No es deducible. Si fue error del proveedor, pide correccion de forma de pago.</td>
+            </tr>
+            <tr>
+              <td className="px-4 py-2"><span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded">S01</span></td>
+              <td className="px-4 py-2 text-gray-700">Uso CFDI = &quot;S01 — Sin efectos fiscales&quot;. El emisor indico que esta factura no tiene efecto fiscal.</td>
+              <td className="px-4 py-2 text-gray-500">No es deducible ni acreditable. Pide al proveedor que re-facture con uso G01/G03.</td>
+            </tr>
+            <tr>
+              <td className="px-4 py-2"><span className="bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded">Proporcional</span></td>
+              <td className="px-4 py-2 text-gray-700">Gasto de uso mixto (vehiculo, servicios basicos). Solo la proporcion de uso profesional es deducible.</td>
+              <td className="px-4 py-2 text-gray-500">Determina el % de uso profesional y aplica solo esa parte como deduccion.</td>
+            </tr>
+            <tr>
+              <td className="px-4 py-2"><span className="bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded">Sin clasificar</span></td>
+              <td className="px-4 py-2 text-gray-700">No se pudo clasificar automaticamente por clave de producto ni por descripcion.</td>
+              <td className="px-4 py-2 text-gray-500">Usa el selector de categoria en la tabla para asignar manualmente.</td>
+            </tr>
+            <tr>
+              <td className="px-4 py-2"><span className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Sin XML</span></td>
+              <td className="px-4 py-2 text-gray-700">No se descargaron los detalles XML de este CFDI. La clasificacion se basa solo en metadatos.</td>
+              <td className="px-4 py-2 text-gray-500">Espera a que termine la sincronizacion de XMLs o reclasifica manualmente.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
