@@ -135,15 +135,6 @@ export default function SatDescargaPage() {
         <AlertsBell />
       </div>
 
-      {/* Sync trigger */}
-      <SyncTrigger month={month} setMonth={setMonth} />
-
-      {/* Backfill */}
-      <BackfillSection />
-
-      {/* Fiscal Calendar */}
-      <FiscalCalendarBanner />
-
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6 mt-6">
         <div className="flex gap-6">
@@ -159,7 +150,13 @@ export default function SatDescargaPage() {
       </div>
 
       {activeTab === "cfdi" && (
-        <CfdiList direction={direction} setDirection={setDirection} month={month} />
+        <>
+          {/* Sync trigger + Backfill — only visible in CFDIs tab */}
+          <SyncTrigger month={month} setMonth={setMonth} />
+          <BackfillSection />
+          <FiscalCalendarBanner />
+          <CfdiList direction={direction} setDirection={setDirection} month={month} />
+        </>
       )}
       {activeTab === "resumen" && <ResumenFiscal />}
       {activeTab === "deducciones" && <DeduccionesTab />}
