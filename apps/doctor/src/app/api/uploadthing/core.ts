@@ -160,6 +160,17 @@ export const ourFileRouter = {
     console.log("Bank statement PDF uploaded:", file.ufsUrl);
     return { uploadedBy: "doctor" };
   }),
+
+  // ============================================================================
+  // DECLARATION RECEIPTS (acuse de recibo PDF)
+  // ============================================================================
+
+  declarationReceipts: f({
+    pdf: { maxFileSize: "8MB", maxFileCount: 1 },
+  }).middleware(authMiddleware).onUploadComplete(async ({ file }) => {
+    console.log("Declaration receipt uploaded:", file.ufsUrl);
+    return { uploadedBy: "doctor" };
+  }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

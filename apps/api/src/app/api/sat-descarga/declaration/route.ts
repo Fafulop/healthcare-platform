@@ -36,6 +36,26 @@ export async function GET(request: NextRequest) {
     });
     const regimenFiscal = fiscalProfile?.regimenFiscal || '612';
 
+    // Fetch actual payment receipts for this year
+    const receipts = await prisma.satDeclarationReceipt.findMany({
+      where: { doctorId: doctor.id, year },
+      select: {
+        month: true,
+        isrPagado: true,
+        ivaPagado: true,
+        pdfUrl: true,
+        pdfFileName: true,
+        notes: true,
+      },
+    });
+    const receiptMap = new Map(receipts.map(r => [r.month, {
+      isrPagado: r.isrPagado ? Number(r.isrPagado) : null,
+      ivaPagado: r.ivaPagado ? Number(r.ivaPagado) : null,
+      pdfUrl: r.pdfUrl,
+      pdfFileName: r.pdfFileName,
+      notes: r.notes,
+    }]));
+
     // Fetch monthly aggregates from XML details (same query pattern as summary)
     const rows = await prisma.$queryRaw<Array<{
       month: number;
@@ -134,6 +154,14 @@ export async function GET(request: NextRequest) {
         ivaRetenido: number;          // IVA retained by clients
         ivaAPagar: number;            // Net IVA to pay (negative = saldo a favor)
       };
+      // Actual payment receipt (from user input)
+      receipt: {
+        isrPagado: number | null;     // Actual ISR paid (from acuse)
+        ivaPagado: number | null;     // Actual IVA paid (from acuse)
+        pdfUrl: string | null;
+        pdfFileName: string | null;
+        notes: string | null;
+      } | null;
     }
 
     const months: MonthDeclaration[] = [];
@@ -143,6 +171,7 @@ export async function GET(request: NextRequest) {
       for (let m = 1; m <= 12; m++) {
         const raw = monthlyRaw[m];
         const hasData = raw.ingresos > 0 || raw.deducciones > 0;
+        const receipt = receiptMap.get(m) || null;
 
         const { isr: isrCausado, tasa: tasaResico } = calculateIsrResico(raw.ingresos);
 
@@ -171,6 +200,7 @@ export async function GET(request: NextRequest) {
             ivaRetenido: round2(raw.ivaRetenido),
             ivaAPagar: round2(ivaNeto),
           },
+          receipt,
         });
       }
     } else {
@@ -184,6 +214,7 @@ export async function GET(request: NextRequest) {
       for (let m = 1; m <= 12; m++) {
         const raw = monthlyRaw[m];
         const hasData = raw.ingresos > 0 || raw.deducciones > 0;
+        const receipt = receiptMap.get(m) || null;
 
         cumulativeIngresos += raw.ingresos;
         cumulativeDeducciones += raw.deducciones;
@@ -230,10 +261,12 @@ export async function GET(request: NextRequest) {
             ivaRetenido: round2(raw.ivaRetenido),
             ivaAPagar: round2(ivaNeto),
           },
+          receipt,
         });
 
-        // This month's ISR a pagar becomes next month's "pagos previos"
-        cumulativeIsrPaid += isrAPagar;
+        // Use actual ISR paid (from receipt) if available, otherwise use calculated
+        const actualIsrPaid = receipt?.isrPagado ?? isrAPagar;
+        cumulativeIsrPaid += actualIsrPaid;
       }
     }
 
@@ -263,6 +296,8 @@ export async function GET(request: NextRequest) {
         },
         // Include table reference so frontend can show bracket info
         isrTable: regimenFiscal === '626' ? 'resico' : 'art96',
+        // Annual declaration receipt (month=13)
+        annualReceipt: receiptMap.get(13) || null,
       },
     });
   } catch (error: any) {

@@ -270,6 +270,7 @@ model Doctor {
   satCfdiDetails     SatCfdiDetail[]
   satPagos           SatPago[]
   satAlerts          SatAlert[]
+  satDeclarationReceipts SatDeclarationReceipt[]
 
   // Bank Reconciliation
   bankStatements     BankStatement[]
@@ -2723,6 +2724,34 @@ model SatAlert {
 
   @@index([doctorId, read])
   @@map("sat_alerts")
+  @@schema("practice_management")
+}
+
+// Declaration receipts — actual ISR/IVA paid per month + PDF acuse de recibo
+model SatDeclarationReceipt {
+  id            Int       @id @default(autoincrement())
+  doctorId      String    @map("doctor_id")
+
+  year          Int
+  month         Int       // 1-12 = monthly, 13 = annual declaration
+
+  // Actual amounts paid (from acuse de recibo)
+  isrPagado     Decimal?  @map("isr_pagado") @db.Decimal(14, 2)
+  ivaPagado     Decimal?  @map("iva_pagado") @db.Decimal(14, 2)
+
+  // PDF attachment
+  pdfUrl        String?   @map("pdf_url")
+  pdfFileName   String?   @map("pdf_file_name") @db.VarChar(255)
+
+  notes         String?
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  doctor        Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, year, month])
+  @@map("sat_declaration_receipts")
   @@schema("practice_management")
 }
 

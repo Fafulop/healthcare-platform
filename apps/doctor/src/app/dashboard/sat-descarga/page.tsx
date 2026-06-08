@@ -27,8 +27,14 @@ import {
   CalendarClock,
   RefreshCw,
   Search,
+  Upload,
+  FileCheck,
+  Pencil,
+  Save,
+  ExternalLink,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { useUploadThing } from "@/lib/uploadthing";
 import { SAT_FORMA_PAGO_LABELS, ORIGIN_LABELS } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -3092,6 +3098,14 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
 // Declaraciones Tab
 // ---------------------------------------------------------------------------
 
+interface DeclarationReceipt {
+  isrPagado: number | null;
+  ivaPagado: number | null;
+  pdfUrl: string | null;
+  pdfFileName: string | null;
+  notes: string | null;
+}
+
 interface DeclarationMonth {
   month: number;
   hasData: boolean;
@@ -3119,6 +3133,7 @@ interface DeclarationMonth {
     ivaRetenido: number;
     ivaAPagar: number;
   };
+  receipt: DeclarationReceipt | null;
 }
 
 interface DeclarationResponse {
@@ -3133,6 +3148,7 @@ interface DeclarationResponse {
     isrRetenido: number;
   };
   isrTable: string;
+  annualReceipt: DeclarationReceipt | null;
 }
 
 function DeclaracionesTab() {
@@ -3140,6 +3156,11 @@ function DeclaracionesTab() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
+  const [editingReceipt, setEditingReceipt] = useState<number | null>(null); // month being edited
+  const [receiptForm, setReceiptForm] = useState<{ isrPagado: string; ivaPagado: string; notes: string }>({ isrPagado: '', ivaPagado: '', notes: '' });
+  const [savingReceipt, setSavingReceipt] = useState(false);
+  const [uploadingMonth, setUploadingMonth] = useState<number | null>(null);
+  const { startUpload } = useUploadThing('declarationReceipts');
 
   const fetchDeclaration = useCallback(async () => {
     setLoading(true);
@@ -3160,6 +3181,65 @@ function DeclaracionesTab() {
 
   const fmt = (n: number) => `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const fmtPct = (n: number) => `${n.toFixed(2)}%`;
+
+  const startEditReceipt = (month: number, receipt: DeclarationReceipt | null) => {
+    setEditingReceipt(month);
+    setReceiptForm({
+      isrPagado: receipt?.isrPagado != null ? String(receipt.isrPagado) : '',
+      ivaPagado: receipt?.ivaPagado != null ? String(receipt.ivaPagado) : '',
+      notes: receipt?.notes || '',
+    });
+  };
+
+  const saveReceipt = async (month: number) => {
+    setSavingReceipt(true);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/declaration/receipts`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year,
+          month,
+          isrPagado: receiptForm.isrPagado ? parseFloat(receiptForm.isrPagado) : null,
+          ivaPagado: receiptForm.ivaPagado ? parseFloat(receiptForm.ivaPagado) : null,
+          notes: receiptForm.notes || null,
+        }),
+      });
+      if (res.ok) {
+        setEditingReceipt(null);
+        await fetchDeclaration(); // refetch to recalculate cumulative ISR
+      }
+    } catch (err) {
+      console.error("Error saving receipt:", err);
+    } finally {
+      setSavingReceipt(false);
+    }
+  };
+
+  const handlePdfUpload = async (month: number, file: File) => {
+    setUploadingMonth(month);
+    try {
+      const uploaded = await startUpload([file]);
+      if (uploaded && uploaded[0]) {
+        const fileUrl = uploaded[0].ufsUrl || uploaded[0].url;
+        await authFetch(`${API_URL}/api/sat-descarga/declaration/receipts`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            year,
+            month,
+            pdfUrl: fileUrl,
+            pdfFileName: file.name,
+          }),
+        });
+        await fetchDeclaration();
+      }
+    } catch (err) {
+      console.error("Error uploading PDF:", err);
+    } finally {
+      setUploadingMonth(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -3252,6 +3332,9 @@ function DeclaracionesTab() {
                 <th className="px-3 py-2 text-right font-semibold text-orange-700">ISR a pagar</th>
                 {!isResico && <th className="px-3 py-2 text-right font-semibold text-blue-700">ISR a favor</th>}
                 <th className="px-3 py-2 text-right font-semibold text-amber-700">IVA a pagar</th>
+                <th className="px-2 py-2 text-right font-semibold text-purple-700">ISR pagado</th>
+                <th className="px-2 py-2 text-right font-semibold text-purple-700">IVA pagado</th>
+                <th className="px-2 py-2 text-center font-semibold text-gray-500">Acuse</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -3289,12 +3372,105 @@ function DeclaracionesTab() {
                     <td className={`px-3 py-2.5 text-right font-mono font-medium ${m.iva.ivaAPagar > 0 ? 'text-amber-700' : m.iva.ivaAPagar < 0 ? 'text-green-700' : 'text-gray-400'}`}>
                       {m.iva.ivaAPagar !== 0 ? `${m.iva.ivaAPagar > 0 ? '+' : ''}${fmt(m.iva.ivaAPagar)}` : '—'}
                     </td>
+                    {/* ISR pagado (actual) */}
+                    <td className="px-2 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      {editingReceipt === m.month ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="w-20 px-1 py-0.5 text-xs font-mono border border-purple-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          value={receiptForm.isrPagado}
+                          onChange={(e) => setReceiptForm(prev => ({ ...prev, isrPagado: e.target.value }))}
+                          placeholder="0.00"
+                        />
+                      ) : (
+                        <span className={`font-mono ${m.receipt?.isrPagado != null ? 'text-purple-700 font-medium' : 'text-gray-300'}`}>
+                          {m.receipt?.isrPagado != null ? fmt(m.receipt.isrPagado) : '—'}
+                        </span>
+                      )}
+                    </td>
+                    {/* IVA pagado (actual) */}
+                    <td className="px-2 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      {editingReceipt === m.month ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="w-20 px-1 py-0.5 text-xs font-mono border border-purple-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          value={receiptForm.ivaPagado}
+                          onChange={(e) => setReceiptForm(prev => ({ ...prev, ivaPagado: e.target.value }))}
+                          placeholder="0.00"
+                        />
+                      ) : (
+                        <span className={`font-mono ${m.receipt?.ivaPagado != null ? 'text-purple-700 font-medium' : 'text-gray-300'}`}>
+                          {m.receipt?.ivaPagado != null ? fmt(m.receipt.ivaPagado) : '—'}
+                        </span>
+                      )}
+                    </td>
+                    {/* Acuse PDF + edit actions */}
+                    <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-center gap-1">
+                        {editingReceipt === m.month ? (
+                          <>
+                            <button
+                              onClick={() => saveReceipt(m.month)}
+                              disabled={savingReceipt}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded"
+                              title="Guardar"
+                            >
+                              {savingReceipt ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              onClick={() => setEditingReceipt(null)}
+                              className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                              title="Cancelar"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => startEditReceipt(m.month, m.receipt)}
+                              className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
+                              title="Editar montos pagados"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            {m.receipt?.pdfUrl ? (
+                              <a
+                                href={m.receipt.pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1 text-purple-600 hover:bg-purple-50 rounded"
+                                title={m.receipt.pdfFileName || 'Ver acuse PDF'}
+                              >
+                                <FileCheck className="w-3.5 h-3.5" />
+                              </a>
+                            ) : (
+                              <label className={`p-1 rounded cursor-pointer ${uploadingMonth === m.month ? 'text-purple-400' : 'text-gray-400 hover:text-purple-600 hover:bg-purple-50'}`} title="Subir acuse PDF">
+                                {uploadingMonth === m.month ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                                <input
+                                  type="file"
+                                  accept=".pdf"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handlePdfUpload(m.month, file);
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
 
                   {/* Expanded detail for 612 */}
                   {!isResico && expandedMonth === m.month && (
                     <tr key={`${m.month}-detail`}>
-                      <td colSpan={10} className="px-4 py-3 bg-purple-50 border-t border-purple-100">
+                      <td colSpan={13} className="px-4 py-3 bg-purple-50 border-t border-purple-100">
                         <div className="grid grid-cols-2 gap-4 text-xs max-w-2xl">
                           <div>
                             <p className="font-semibold text-gray-700 mb-2">ISR Provisional (acumulado)</p>
@@ -3306,7 +3482,7 @@ function DeclaracionesTab() {
                               {/* Bracket breakdown */}
                               {m.isr.bracket && (
                                 <div className="bg-purple-100/50 rounded p-2 my-1 space-y-0.5 text-[11px]">
-                                  <p className="font-semibold text-purple-700 mb-1">Desglose tabla Art. 96 (mes {m.month}, tramos ×{m.month}):</p>
+                                  <p className="font-semibold text-purple-700 mb-1">Desglose tabla Art. 96 (mes {m.month}, tramos x{m.month}):</p>
                                   <div className="flex justify-between text-purple-600">
                                     <span>Tramo: {fmt(m.isr.bracket.limiteInferior)} – {m.isr.bracket.limiteSuperior === -1 ? 'en adelante' : fmt(m.isr.bracket.limiteSuperior)}</span>
                                     <span className="font-mono">tasa {(m.isr.bracket.tasa * 100).toFixed(0)}%</span>
@@ -3316,11 +3492,11 @@ function DeclaracionesTab() {
                                     <span className="font-mono">{fmt(m.isr.bracket.cuotaFija)}</span>
                                   </div>
                                   <div className="flex justify-between text-purple-600">
-                                    <span>Excedente ({fmt(m.isr.baseGravable)} − {fmt(m.isr.bracket.limiteInferior)})</span>
+                                    <span>Excedente ({fmt(m.isr.baseGravable)} - {fmt(m.isr.bracket.limiteInferior)})</span>
                                     <span className="font-mono">{fmt(m.isr.bracket.excedente)}</span>
                                   </div>
                                   <div className="flex justify-between text-purple-600">
-                                    <span>Impuesto excedente ({fmt(m.isr.bracket.excedente)} × {(m.isr.bracket.tasa * 100).toFixed(0)}%)</span>
+                                    <span>Impuesto excedente ({fmt(m.isr.bracket.excedente)} x {(m.isr.bracket.tasa * 100).toFixed(0)}%)</span>
                                     <span className="font-mono">{fmt(m.isr.bracket.excedente * m.isr.bracket.tasa)}</span>
                                   </div>
                                   <div className="flex justify-between font-semibold text-purple-800 border-t border-purple-200 pt-0.5 mt-0.5">
@@ -3341,6 +3517,12 @@ function DeclaracionesTab() {
                                 <span>= ISR a pagar este mes</span>
                                 <span className="font-mono">{fmt(m.isr.isrAPagar)}</span>
                               </div>
+                              {m.receipt?.isrPagado != null && m.receipt.isrPagado !== m.isr.isrAPagar && (
+                                <div className="flex justify-between text-purple-600 mt-1 bg-purple-100/50 rounded px-2 py-1">
+                                  <span>ISR realmente pagado (acuse)</span>
+                                  <span className="font-mono font-medium">{fmt(m.receipt.isrPagado)}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div>
@@ -3362,9 +3544,18 @@ function DeclaracionesTab() {
                                 <span>= IVA {m.iva.ivaAPagar >= 0 ? 'a pagar' : 'a favor'}</span>
                                 <span className="font-mono">{fmt(Math.abs(m.iva.ivaAPagar))}</span>
                               </div>
+                              {m.receipt?.ivaPagado != null && m.receipt.ivaPagado !== m.iva.ivaAPagar && (
+                                <div className="flex justify-between text-purple-600 mt-1 bg-purple-100/50 rounded px-2 py-1">
+                                  <span>IVA realmente pagado (acuse)</span>
+                                  <span className="font-mono font-medium">{fmt(m.receipt.ivaPagado)}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
+                        {m.receipt?.notes && (
+                          <p className="text-[11px] text-gray-500 mt-2 italic">Nota: {m.receipt.notes}</p>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -3383,8 +3574,6 @@ function DeclaracionesTab() {
                 <td className="px-3 py-2.5 text-right font-mono text-orange-700">{fmt(data.totals.isrAPagar)}</td>
                 {!isResico && (() => {
                   const lastMonth = data.months[data.months.length - 1];
-                  // Total paid = pagos previos (cumulative before last month) + last month's payment + retenciones
-                  // Total owed = ISR causado (cumulative through last month)
                   const saldo = lastMonth ? (lastMonth.isr.pagosPrevios + lastMonth.isr.isrAPagar + lastMonth.isr.isrRetenido) - lastMonth.isr.isrCausado : 0;
                   return (
                     <td className={`px-3 py-2.5 text-right font-mono font-semibold ${saldo > 0 ? 'text-blue-700' : 'text-gray-500'}`}>
@@ -3395,10 +3584,66 @@ function DeclaracionesTab() {
                 <td className={`px-3 py-2.5 text-right font-mono ${data.totals.ivaAPagar >= 0 ? 'text-amber-700' : 'text-green-700'}`}>
                   {fmt(data.totals.ivaAPagar)}
                 </td>
+                {/* Totals for paid columns */}
+                <td className="px-2 py-2.5 text-right font-mono text-purple-700">
+                  {(() => {
+                    const total = data.months.reduce((s, m) => s + (m.receipt?.isrPagado ?? 0), 0);
+                    return total > 0 ? fmt(total) : '—';
+                  })()}
+                </td>
+                <td className="px-2 py-2.5 text-right font-mono text-purple-700">
+                  {(() => {
+                    const total = data.months.reduce((s, m) => s + (m.receipt?.ivaPagado ?? 0), 0);
+                    return total > 0 ? fmt(total) : '—';
+                  })()}
+                </td>
+                <td className="px-2 py-2.5"></td>
               </tr>
             </tfoot>
           </table>
         </div>
+      </div>
+
+      {/* Annual declaration receipt */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-purple-600" />
+            <span className="text-sm font-semibold text-gray-700">Declaracion Anual {year}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {data.annualReceipt?.pdfUrl ? (
+              <a
+                href={data.annualReceipt.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>{data.annualReceipt.pdfFileName || 'Ver acuse'}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <label className={`flex items-center gap-1 text-xs cursor-pointer ${uploadingMonth === 13 ? 'text-purple-400' : 'text-gray-500 hover:text-purple-600'}`}>
+                {uploadingMonth === 13 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                <span>Subir acuse anual (PDF)</span>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handlePdfUpload(13, file);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        </div>
+        {data.annualReceipt?.notes && (
+          <p className="text-xs text-gray-500 mt-2 italic">{data.annualReceipt.notes}</p>
+        )}
       </div>
 
       {/* Deadline reminder */}
@@ -3418,6 +3663,7 @@ function DeclaracionesTab() {
         <p>Los ingresos considerados son subtotales de facturas emitidas vigentes tipo Ingreso. Las deducciones son subtotales de facturas recibidas vigentes tipo Ingreso.</p>
         {!isResico && <p>El calculo de ISR provisional usa la tabla mensual del Art. 96 LISR. No incluye deducciones personales ni otros ajustes que tu contador puede aplicar.</p>}
         <p>IVA: solo se consideran CFDIs con detalles XML descargados. Facturas sin XML no se incluyen en el calculo.</p>
+        <p>Columnas &quot;ISR/IVA pagado&quot;: registra los montos reales de tu acuse de pago. En regimen 612, el ISR pagado se usa para calcular los pagos provisionales previos de meses posteriores.</p>
       </div>
     </div>
   );

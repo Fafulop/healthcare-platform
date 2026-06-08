@@ -151,6 +151,19 @@ export const ourFileRouter = {
       return { uploadedBy: "doctor" };
     }),
 
+  // Declaration receipts (acuse de recibo PDF)
+  declarationReceipts: f({
+    pdf: {
+      maxFileSize: "8MB",
+      maxFileCount: 1
+    }
+  })
+    .middleware(authMiddleware)
+    .onUploadComplete(async ({ file }) => {
+      console.log("Declaration receipt uploaded:", file.url);
+      return { uploadedBy: "doctor" };
+    }),
+
   // Clinic photos uploader (clinic interior, equipment)
   clinicPhotos: f({
     image: {
