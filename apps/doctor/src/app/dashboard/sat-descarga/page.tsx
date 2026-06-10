@@ -15,7 +15,6 @@ import {
   ChevronDown,
   Info,
   BookOpen,
-  BarChart3,
   FileSpreadsheet,
   Bell,
   X,
@@ -110,7 +109,7 @@ export default function SatDescargaPage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const [activeTab, setActiveTab] = useState<"cfdi" | "resumen" | "deducciones" | "declaraciones" | "ppd" | "guia" | "ayuda">("cfdi");
+  const [activeTab, setActiveTab] = useState<"cfdi" | "deducciones" | "declaraciones" | "ppd" | "guia" | "ayuda">("cfdi");
   const [direction, setDirection] = useState<"" | "emitted" | "received">("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -145,7 +144,6 @@ export default function SatDescargaPage() {
       <div className="border-b border-gray-200 mb-6 mt-6">
         <div className="flex gap-6">
           <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
-          <TabBtn active={activeTab === "resumen"} onClick={() => setActiveTab("resumen")} label="Resumen Fiscal" />
           <TabBtn active={activeTab === "deducciones"} onClick={() => setActiveTab("deducciones")} label="Deducciones" />
           <TabBtn active={activeTab === "ppd"} onClick={() => setActiveTab("ppd")} label="PPD / Pagos" />
           <TabBtn active={activeTab === "declaraciones"} onClick={() => setActiveTab("declaraciones")} label="Declaraciones" />
@@ -161,7 +159,6 @@ export default function SatDescargaPage() {
           <CfdiList direction={direction} setDirection={setDirection} month={month} setMonth={setMonth} />
         </>
       )}
-      {activeTab === "resumen" && <ResumenFiscal />}
       {activeTab === "deducciones" && <DeduccionesTab />}
       {activeTab === "declaraciones" && <DeclaracionesTab />}
       {activeTab === "ppd" && <PpdPagosTab />}
@@ -896,21 +893,21 @@ function CfdiList({
       {/* Summary: Ingresos vs Gastos */}
       {items.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          <div className="bg-green-50 border border-gray-300 rounded-lg px-4 py-3">
-            <div className="text-xs text-green-600 font-medium">Ingresos</div>
+          <div className="bg-white border border-gray-300 shadow-sm rounded-lg px-4 py-3">
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Ingresos</div>
             <div className="text-lg font-bold text-green-700">
               ${totalIngresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </div>
           </div>
-          <div className="bg-red-50 border border-gray-300 rounded-lg px-4 py-3">
-            <div className="text-xs text-red-600 font-medium">Gastos</div>
-            <div className="text-lg font-bold text-red-700">
+          <div className="bg-white border border-gray-300 shadow-sm rounded-lg px-4 py-3">
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Gastos</div>
+            <div className="text-lg font-bold text-red-600">
               ${totalGastos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </div>
           </div>
-          <div className={`border border-gray-300 rounded-lg px-4 py-3 ${balance >= 0 ? "bg-blue-50" : "bg-orange-50"}`}>
-            <div className={`text-xs font-medium ${balance >= 0 ? "text-blue-600" : "text-orange-600"}`}>Balance</div>
-            <div className={`text-lg font-bold ${balance >= 0 ? "text-blue-700" : "text-orange-700"}`}>
+          <div className="bg-white border border-gray-300 shadow-sm rounded-lg px-4 py-3">
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Balance</div>
+            <div className={`text-lg font-bold ${balance >= 0 ? "text-green-700" : "text-red-600"}`}>
               {balance >= 0 ? "+" : "-"}${Math.abs(balance).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </div>
           </div>
@@ -1748,197 +1745,11 @@ function DetailItem({ label, value, mono }: { label: string; value: string; mono
   );
 }
 
-// ---------------------------------------------------------------------------
-// Resumen Fiscal Tab
-// ---------------------------------------------------------------------------
-
-interface MonthSummary {
-  month: number;
-  ingresos: { count: number; subtotal: number; iva: number; isrRetenido: number; ivaRetenido: number; total: number };
-  gastos: { count: number; subtotal: number; iva: number; isrRetenido: number; ivaRetenido: number; total: number };
-}
-
-interface SummaryResponse {
-  year: number;
-  months: MonthSummary[];
-  annual: {
-    ingresos: { count: number; subtotal: number; iva: number; isrRetenido: number; ivaRetenido: number; total: number };
-    gastos: { count: number; subtotal: number; iva: number; isrRetenido: number; ivaRetenido: number; total: number };
-  };
-}
-
 const MONTH_NAMES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-function ResumenFiscal() {
-  const [data, setData] = useState<SummaryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState(new Date().getFullYear());
-
-  const fetchSummary = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await authFetch(`${API_URL}/api/sat-descarga/summary?year=${year}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json.data);
-      }
-    } catch (err) {
-      console.error("Error fetching summary:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [year]);
-
-  useEffect(() => { fetchSummary(); }, [fetchSummary]);
-
-  const fmt = (n: number) => `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-      </div>
-    );
-  }
-
-  if (!data || data.months.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <BarChart3 className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-        <p>No hay datos XML descargados para {year}.</p>
-        <p className="text-xs mt-1">Sincroniza con tipo "Completa" o "Solo XML" para ver el resumen fiscal.</p>
-        <div className="mt-4">
-          <YearSelector year={year} setYear={setYear} />
-        </div>
-      </div>
-    );
-  }
-
-  const { annual, months } = data;
-  const balance = annual.ingresos.total - annual.gastos.total;
-  const ivaAPagar = annual.ingresos.iva - annual.gastos.iva;
-
-  return (
-    <div className="space-y-6">
-      {/* Year selector + export */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-purple-600" />
-          Resumen Fiscal {year}
-        </h3>
-        <div className="flex items-center gap-3">
-          <ExportButton
-            label="Exportar CSV"
-            href={`${API_URL}/api/sat-descarga/export?month=${year}-01&type=resumen`}
-          />
-          <YearSelector year={year} setYear={setYear} />
-        </div>
-      </div>
-
-      {/* Annual summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard label="Ingresos (subtotal)" value={fmt(annual.ingresos.subtotal)} sublabel={`${annual.ingresos.count} facturas`} color="green" />
-        <SummaryCard label="Gastos (subtotal)" value={fmt(annual.gastos.subtotal)} sublabel={`${annual.gastos.count} facturas`} color="red" />
-        <SummaryCard label="Balance neto" value={fmt(balance)} sublabel="Ingresos − Gastos (total)" color={balance >= 0 ? "blue" : "orange"} />
-        <SummaryCard label="IVA a pagar" value={fmt(ivaAPagar)} sublabel="IVA cobrado − IVA pagado" color={ivaAPagar >= 0 ? "amber" : "green"} />
-      </div>
-
-      {/* Tax breakdown cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-xs font-medium text-gray-500 mb-2">IVA Trasladado (cobrado)</p>
-          <p className="text-xl font-bold text-gray-900">{fmt(annual.ingresos.iva)}</p>
-          <p className="text-xs text-gray-400 mt-1">En tus facturas emitidas</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-xs font-medium text-gray-500 mb-2">IVA Acreditable (pagado)</p>
-          <p className="text-xl font-bold text-gray-900">{fmt(annual.gastos.iva)}</p>
-          <p className="text-xs text-gray-400 mt-1">En facturas que recibes</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-xs font-medium text-gray-500 mb-2">ISR Retenido + IVA Retenido</p>
-          <p className="text-xl font-bold text-gray-900">{fmt(annual.ingresos.isrRetenido + annual.ingresos.ivaRetenido)}</p>
-          <p className="text-xs text-gray-400 mt-1">Retenciones en tus emitidas (pago anticipado)</p>
-        </div>
-      </div>
-
-      {/* Monthly breakdown table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-          <h4 className="text-sm font-semibold text-gray-700">Desglose mensual</h4>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
-                <th className="px-3 py-2 text-left font-semibold">Mes</th>
-                <th className="px-3 py-2 text-right font-semibold">Ingresos (subtotal)</th>
-                <th className="px-3 py-2 text-right font-semibold">IVA cobrado</th>
-                <th className="px-3 py-2 text-right font-semibold">ISR ret.</th>
-                <th className="px-3 py-2 text-right font-semibold">Gastos (subtotal)</th>
-                <th className="px-3 py-2 text-right font-semibold">IVA pagado</th>
-                <th className="px-3 py-2 text-right font-semibold">Balance</th>
-                <th className="px-3 py-2 text-right font-semibold">IVA neto</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {months.map(m => {
-                const monthBalance = m.ingresos.total - m.gastos.total;
-                const monthIva = m.ingresos.iva - m.gastos.iva;
-                return (
-                  <tr key={m.month} className="hover:bg-gray-50">
-                    <td className="px-3 py-2.5 font-medium text-gray-900">{MONTH_NAMES[m.month - 1]}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-green-700">{fmt(m.ingresos.subtotal)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-gray-600">{fmt(m.ingresos.iva)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-gray-600">{m.ingresos.isrRetenido > 0 ? fmt(m.ingresos.isrRetenido) : "—"}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-red-700">{fmt(m.gastos.subtotal)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-gray-600">{fmt(m.gastos.iva)}</td>
-                    <td className={`px-3 py-2.5 text-right font-mono font-medium ${monthBalance >= 0 ? "text-blue-700" : "text-orange-700"}`}>
-                      {monthBalance >= 0 ? "+" : ""}{fmt(monthBalance)}
-                    </td>
-                    <td className={`px-3 py-2.5 text-right font-mono ${monthIva >= 0 ? "text-amber-700" : "text-green-700"}`}>
-                      {monthIva >= 0 ? "+" : ""}{fmt(monthIva)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-                <td className="px-3 py-2.5 text-gray-900">Total {year}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-green-700">{fmt(annual.ingresos.subtotal)}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{fmt(annual.ingresos.iva)}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{annual.ingresos.isrRetenido > 0 ? fmt(annual.ingresos.isrRetenido) : "—"}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-red-700">{fmt(annual.gastos.subtotal)}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{fmt(annual.gastos.iva)}</td>
-                <td className={`px-3 py-2.5 text-right font-mono ${balance >= 0 ? "text-blue-700" : "text-orange-700"}`}>
-                  {balance >= 0 ? "+" : ""}{fmt(balance)}
-                </td>
-                <td className={`px-3 py-2.5 text-right font-mono ${ivaAPagar >= 0 ? "text-amber-700" : "text-green-700"}`}>
-                  {ivaAPagar >= 0 ? "+" : ""}{fmt(ivaAPagar)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-xs text-gray-600 space-y-1">
-        <p><strong>Ingresos:</strong> Facturas emitidas tipo Ingreso (lo que facturaste). Subtotal = antes de impuestos.</p>
-        <p><strong>Gastos:</strong> Facturas recibidas tipo Ingreso (lo que te facturaron). Subtotal = base para deduccion.</p>
-        <p><strong>IVA cobrado:</strong> Lo que cobraste de IVA — debes enterarlo al SAT.</p>
-        <p><strong>IVA pagado:</strong> Lo que pagaste de IVA en gastos — lo restas del IVA que debes (acreditable).</p>
-        <p><strong>IVA neto:</strong> IVA cobrado − IVA pagado. Positivo = debes pagar. Negativo = saldo a favor.</p>
-        <p><strong>ISR ret.:</strong> ISR que te retuvieron (personas morales). Se resta en tu declaracion anual.</p>
-        <p className="text-gray-400 mt-2">Datos extraidos de los XMLs descargados. Solo incluye facturas vigentes tipo I y E.</p>
-      </div>
-
-      {/* Accountant report download */}
-      <AccountantReportSection year={year} />
-    </div>
-  );
-}
+// ---------------------------------------------------------------------------
+// Shared components
+// ---------------------------------------------------------------------------
 
 function AccountantReportSection({ year }: { year: number }) {
   const [reportMonth, setReportMonth] = useState(() => {
@@ -1954,7 +1765,7 @@ function AccountantReportSection({ year }: { year: number }) {
   const formatSuffix = `&format=${reportFormat}`;
 
   return (
-    <div className="bg-white rounded-lg border border-purple-200 p-4">
+    <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-4">
       <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
         <FileSpreadsheet className="w-4 h-4 text-purple-600" />
         Reporte para Contador
@@ -2008,30 +1819,6 @@ function YearSelector({ year, setYear }: { year: number; setYear: (y: number) =>
         <option key={y} value={y}>{y}</option>
       ))}
     </select>
-  );
-}
-
-function SummaryCard({ label, value, sublabel, color }: { label: string; value: string; sublabel: string; color: string }) {
-  const colorClasses: Record<string, string> = {
-    green: "bg-green-50 border-green-200",
-    red: "bg-red-50 border-red-200",
-    blue: "bg-blue-50 border-blue-200",
-    orange: "bg-orange-50 border-orange-200",
-    amber: "bg-amber-50 border-amber-200",
-  };
-  const textClasses: Record<string, string> = {
-    green: "text-green-700",
-    red: "text-red-700",
-    blue: "text-blue-700",
-    orange: "text-orange-700",
-    amber: "text-amber-700",
-  };
-  return (
-    <div className={`rounded-lg border p-4 ${colorClasses[color] || "bg-gray-50 border-gray-200"}`}>
-      <p className="text-xs font-medium text-gray-600">{label}</p>
-      <p className={`text-xl font-bold mt-1 ${textClasses[color] || "text-gray-900"}`}>{value}</p>
-      <p className="text-xs text-gray-400 mt-1">{sublabel}</p>
-    </div>
   );
 }
 
@@ -2343,17 +2130,17 @@ function DeduccionesTab() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Total Gastos</p>
           <p className="text-xl font-bold text-gray-900 mt-1">{fmtMoney(data.totals.subtotal)}</p>
           <p className="text-xs text-gray-400 mt-0.5">{data.totals.count} CFDIs</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wide">IVA Acreditable</p>
           <p className="text-xl font-bold text-green-700 mt-1">{fmtMoney(data.totals.iva)}</p>
           <p className="text-xs text-gray-400 mt-0.5">{isResico ? 'Aplica en RESICO (regla 3.13.20)' : 'Para declaración mensual'}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wide">
             {isResico ? 'Sin IVA Acreditable' : 'No Deducible'}
           </p>
@@ -2362,29 +2149,12 @@ function DeduccionesTab() {
             {isResico ? 'S01, efectivo >$2k' : 'S01, efectivo >$2k, cancelados'}
           </p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Con Alertas</p>
           <p className="text-xl font-bold text-amber-600 mt-1">{data.totals.flagged}</p>
           <p className="text-xs text-gray-400 mt-0.5">requieren revisión</p>
         </div>
       </div>
-
-      {/* Alerts */}
-      {data.alerts.length > 0 && (
-        <div className="space-y-2">
-          {data.alerts.map((alert, i) => (
-            <div key={i} className={`flex items-center gap-2 text-sm p-3 rounded-md border ${
-              alert.type === 'cash_over_2k' || alert.type === 'sin_efectos' ? 'bg-red-50 border-red-200 text-red-700' :
-              alert.type === 'sin_clasificar' ? 'bg-amber-50 border-amber-200 text-amber-700' :
-              alert.type === 'no_xml' ? 'bg-gray-50 border-gray-200 text-gray-600' :
-              'bg-amber-50 border-amber-200 text-amber-700'
-            }`}>
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              {alert.message}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Category breakdown */}
       {data.categories.length === 0 ? (
@@ -2524,6 +2294,33 @@ function DeduccionesTab() {
           </div>
         </div>
       )}
+
+      {/* Deducibility alerts */}
+      {data.alerts.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700">Alertas de Deducibilidad</h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {data.alerts.map((alert, i) => (
+              <div key={i} className={`flex items-center gap-3 px-4 py-3 text-sm ${
+                alert.type === 'cash_over_2k' || alert.type === 'sin_efectos' ? 'text-red-700' :
+                alert.type === 'sin_clasificar' ? 'text-amber-700' :
+                alert.type === 'no_xml' ? 'text-gray-600' :
+                'text-amber-700'
+              }`}>
+                <AlertCircle className={`w-4 h-4 shrink-0 ${
+                  alert.type === 'cash_over_2k' || alert.type === 'sin_efectos' ? 'text-red-500' :
+                  alert.type === 'sin_clasificar' ? 'text-amber-500' :
+                  alert.type === 'no_xml' ? 'text-gray-400' :
+                  'text-amber-500'
+                }`} />
+                <span>{alert.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
 
       {/* Monthly breakdown table */}
       {data.months.length > 0 && (
@@ -2953,14 +2750,30 @@ function PpdSection({ side, title, subtitle, counterpartyLabel, accentColor, fmt
         <p className="text-xs text-gray-500">{subtitle}</p>
       </div>
 
-      {/* Summary row */}
+      {/* Summary cards */}
       {side.summary.totalFacturas > 0 && (
-        <div className="flex flex-wrap gap-4 text-xs">
-          <span className="text-gray-500">{side.summary.totalFacturas} facturas</span>
-          <span className="text-green-600">{side.summary.pagadas} completas</span>
-          {side.summary.parciales > 0 && <span className="text-yellow-600">{side.summary.parciales} parciales</span>}
-          {side.summary.pendientes > 0 && <span className="text-red-600">{side.summary.pendientes} pendientes</span>}
-          {side.summary.totalPendiente > 0 && <span className="font-medium text-gray-700">Saldo pendiente: {fmt(side.summary.totalPendiente)}</span>}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-3">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Facturas</p>
+            <p className="text-lg font-bold text-gray-900 mt-0.5">{side.summary.totalFacturas}</p>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-3">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Completas</p>
+            <p className="text-lg font-bold text-green-700 mt-0.5">{side.summary.pagadas}</p>
+          </div>
+          {side.summary.parciales > 0 && (
+            <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-3">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Parciales</p>
+              <p className="text-lg font-bold text-yellow-600 mt-0.5">{side.summary.parciales}</p>
+            </div>
+          )}
+          <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-3">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Pendientes</p>
+            <p className="text-lg font-bold text-red-600 mt-0.5">{side.summary.pendientes}</p>
+            {side.summary.totalPendiente > 0 && (
+              <p className="text-xs text-gray-500 mt-0.5">Saldo: {fmt(side.summary.totalPendiente)}</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -3463,30 +3276,30 @@ function DeclaracionesTab() {
 
       {/* Annual summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="rounded-lg border bg-green-50 border-green-200 p-4">
-          <p className="text-xs font-medium text-green-600">Ingresos acumulados</p>
-          <p className="text-lg font-bold text-green-800 mt-1">{fmt(data.totals.ingresos)}</p>
+        <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Ingresos acumulados</p>
+          <p className="text-lg font-bold text-green-700 mt-1">{fmt(data.totals.ingresos)}</p>
         </div>
         {!isResico && (
-          <div className="rounded-lg border bg-red-50 border-red-200 p-4">
-            <p className="text-xs font-medium text-red-600">Deducciones acumuladas</p>
-            <p className="text-lg font-bold text-red-800 mt-1">{fmt(data.totals.deducciones)}</p>
+          <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-4">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Deducciones acumuladas</p>
+            <p className="text-lg font-bold text-red-600 mt-1">{fmt(data.totals.deducciones)}</p>
           </div>
         )}
-        <div className={`rounded-lg border p-4 ${data.totals.isrAPagar > 0 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
-          <p className="text-xs font-medium text-orange-600">
+        <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">
             {data.totals.isrAPagar > 0 ? 'ISR neto a pagar' : 'ISR a favor'}
           </p>
-          <p className={`text-lg font-bold mt-1 ${data.totals.isrAPagar > 0 ? 'text-orange-800' : 'text-green-800'}`}>
+          <p className={`text-lg font-bold mt-1 ${data.totals.isrAPagar > 0 ? 'text-red-600' : 'text-green-700'}`}>
             {fmt(data.totals.isrAPagar > 0 ? data.totals.isrAPagar : data.totals.isrAFavor)}
           </p>
           {data.totals.isrPagado > 0 && (
             <p className="text-xs text-gray-500 mt-0.5">Pagado: {fmt(data.totals.isrPagado)}</p>
           )}
         </div>
-        <div className={`rounded-lg border p-4 ${data.totals.ivaAPagar > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
-          <p className="text-xs font-medium text-amber-600">IVA neto del ano</p>
-          <p className={`text-lg font-bold mt-1 ${data.totals.ivaAPagar >= 0 ? 'text-amber-800' : 'text-green-800'}`}>{fmt(data.totals.ivaAPagar)}</p>
+        <div className="bg-white rounded-lg border border-gray-300 shadow-sm p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">IVA neto del ano</p>
+          <p className={`text-lg font-bold mt-1 ${data.totals.ivaAPagar >= 0 ? 'text-red-600' : 'text-green-700'}`}>{fmt(data.totals.ivaAPagar)}</p>
           <p className="text-xs text-gray-500 mt-0.5">{data.totals.ivaAPagar >= 0 ? 'A pagar' : 'A favor'}</p>
         </div>
       </div>
@@ -3845,6 +3658,9 @@ function DeclaracionesTab() {
         <p>IVA: solo se consideran CFDIs con detalles XML descargados. Facturas sin XML no se incluyen en el calculo.</p>
         <p>Columnas &quot;ISR/IVA pagado&quot;: registra los montos reales de tu acuse de pago. En regimen 612, el ISR pagado se usa para calcular los pagos provisionales previos de meses posteriores.</p>
       </div>
+
+      {/* Accountant report download */}
+      <AccountantReportSection year={year} />
     </div>
   );
 }
@@ -3934,52 +3750,10 @@ function AyudaTab() {
         </div>
       </section>
 
-      {/* 2. Resumen Fiscal */}
+      {/* 2. Deducciones */}
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">
           <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">2</span>
-          Resumen Fiscal
-        </h3>
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
-          <p>
-            <strong>Que es:</strong> Un panorama anual de tu situacion financiera — ingresos, gastos, IVA y retenciones,
-            desglosado mes por mes. Piensalo como tu <strong>estado de resultados simplificado</strong>.
-          </p>
-
-          <div>
-            <p className="font-semibold text-gray-800 mb-2">Que muestra</p>
-            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
-              <li><strong>Tarjetas resumen</strong> — Ingresos totales, Gastos totales, Balance neto, IVA a pagar</li>
-              <li><strong>Desglose de impuestos</strong> — IVA trasladado, IVA acreditable, ISR retenido, IVA retenido</li>
-              <li><strong>Tabla mensual</strong> — Mes a mes: ingresos, gastos, IVA, retenciones, balance</li>
-              <li><strong>Leyenda explicativa</strong> — Que significa cada columna y como interpretar los numeros</li>
-            </ul>
-          </div>
-
-          <div className="bg-gray-50 border border-gray-200 rounded p-3">
-            <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
-            <p className="text-xs text-gray-600">
-              Tu contador te pide el total de ingresos y gastos del trimestre para la declaracion provisional.
-              Abres Resumen Fiscal, seleccionas el ano, y en la tabla mensual sumas enero + febrero + marzo.
-              Tambien ves cuanto IVA trasladado cobraste vs cuanto IVA acreditable pagaste y cuanto IVA te retuvieron — la diferencia es lo que debes al SAT.
-            </p>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded p-3">
-            <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
-            <p className="text-xs text-blue-700">
-              Usa los mismos CFDIs de la pestana 1, pero <strong>agrupados y sumados</strong> por mes.
-              Los numeros de ingresos y gastos aqui deben coincidir con lo que ves en <strong>Declaraciones</strong> (pestana 4).
-              Si eres RESICO, el monitor de ingresos aqui se complementa con el de <strong>Deducciones</strong> (pestana 3).
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. Deducciones */}
-      <section>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">
-          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">3</span>
           Deducciones
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
@@ -4023,17 +3797,16 @@ function AyudaTab() {
             <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
             <p className="text-xs text-blue-700">
               Solo analiza facturas <strong>recibidas</strong> (gastos) de la pestana 1.
-              El total de gastos aqui debe coincidir con el total de gastos en <strong>Resumen Fiscal</strong> (pestana 2).
-              Las deducciones validas aqui son las que se usan para calcular ISR en <strong>Declaraciones</strong> (pestana 4).
+              Las deducciones validas aqui son las que se usan para calcular ISR en <strong>Declaraciones</strong> (pestana 3).
             </p>
           </div>
         </div>
       </section>
 
-      {/* 4. Declaraciones */}
+      {/* 3. Declaraciones */}
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">
-          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">4</span>
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">3</span>
           Declaraciones
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
@@ -4152,16 +3925,16 @@ function AyudaTab() {
             <p className="text-xs text-blue-700">
               Toma los ingresos de facturas emitidas y los gastos deducibles de facturas recibidas (mismos datos que pestanas 2 y 3).
               Las <strong>retenciones</strong> (ISR e IVA retenidos) vienen de las facturas emitidas a personas morales.
-              Si los montos no coinciden con <strong>Resumen Fiscal</strong>, revisa si hay facturas canceladas o notas de credito.
+              Si los montos no coinciden entre pestanas, revisa si hay facturas canceladas o notas de credito.
             </p>
           </div>
         </div>
       </section>
 
-      {/* 5. Cobranza */}
+      {/* 4. Cobranza */}
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">
-          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">5</span>
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">4</span>
           Cobranza
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
@@ -4202,10 +3975,10 @@ function AyudaTab() {
         </div>
       </section>
 
-      {/* 6. Guia */}
+      {/* 5. Guia */}
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">
-          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">6</span>
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">5</span>
           Guia
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
@@ -4293,7 +4066,7 @@ function AyudaTab() {
             <ol className="list-decimal list-inside space-y-1.5 ml-2">
               <li>Sincroniza tus CFDIs con tu e.Firma en la parte superior de la pagina</li>
               <li>Revisa el <strong>listado de CFDIs</strong> para asegurarte que todo se descargo correctamente</li>
-              <li>Consulta el <strong>Resumen Fiscal</strong> para tener el panorama general del ano/mes</li>
+              <li>Consulta <strong>Declaraciones</strong> para el panorama general del ano/mes (ISR, IVA, retenciones)</li>
               <li>Revisa <strong>Deducciones</strong> para identificar gastos problematicos (S01, efectivo, sin clasificar)</li>
               <li>Antes de declarar, abre <strong>Declaraciones</strong> para estimar ISR e IVA del mes</li>
               <li>Si emites facturas PPD, revisa <strong>Cobranza</strong> periodicamente para dar seguimiento a pagos pendientes</li>
@@ -4311,7 +4084,7 @@ function AyudaTab() {
             <p className="font-semibold text-gray-800">¿Por que no veo datos en las pestanas?</p>
             <p className="text-xs text-gray-600 mt-1">
               Necesitas sincronizar primero. Sube tu e.Firma (.key y .cer) en la parte superior, selecciona un mes,
-              y haz clic en "Descargar". La sincronizacion tipo "Completa" descarga metadata + XML (necesario para Resumen Fiscal,
+              y haz clic en "Descargar". La sincronizacion tipo "Completa" descarga metadata + XML (necesario para
               Deducciones y Declaraciones). La sincronizacion tipo "Solo metadata" es mas rapida pero solo llena el listado de CFDIs.
             </p>
           </div>
@@ -4525,7 +4298,7 @@ function GuiaTab() {
             <p className="font-semibold text-red-800 text-xs mb-1">Si estas en RESICO, vigila tu limite</p>
             <p className="text-xs text-red-700">
               Si tus ingresos anuales superan $3,500,000 MXN, el SAT te saca de RESICO automaticamente y pasas al regimen 612.
-              Esto cambia radicalmente tus obligaciones fiscales. Usa la pestana de Resumen Fiscal para monitorear tus ingresos acumulados.
+              Esto cambia radicalmente tus obligaciones fiscales. Usa la pestana de Declaraciones para monitorear tus ingresos acumulados.
             </p>
           </div>
         </div>
