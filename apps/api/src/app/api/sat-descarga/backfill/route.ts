@@ -51,12 +51,12 @@ const JOB_RESET_DATA = {
 /**
  * POST /api/sat-descarga/backfill — Create/retry sync jobs
  *
- * Body: { fromMonth?: "YYYY-MM", force?: boolean, retryFailed?: boolean }
+ * Body: { fromMonth?: "YYYY-MM", retryFailed?: boolean, resyncMissing?: boolean }
  *
  * Modes:
  * - Default: create missing jobs for months without completed jobs
  * - retryFailed=true: reset genuinely failed jobs (not orphans, auto-bumps offset for 5002)
- * - force=true: reset ALL completed XML jobs for re-download (bumps offset)
+ * - resyncMissing=true: re-sync only months with missing vigente XMLs
  */
 export async function POST(request: NextRequest) {
   try {
@@ -82,7 +82,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const fromMonth = body.fromMonth || '2025-01';
-    const force = body.force === true;
     const retryFailed = body.retryFailed === true;
 
     if (!/^\d{4}-\d{2}$/.test(fromMonth)) {
@@ -219,33 +218,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         data: { reset, months: missingMonths.length },
       });
-    }
-
-    // -----------------------------------------------------------------------
-    // Mode: force — reset all completed XML jobs for re-download
-    // -----------------------------------------------------------------------
-    if (force) {
-      // Bump offset first since all XML ranges will be re-requested
-      await prisma.doctorFiscalProfile.update({
-        where: { doctorId: doctor.id },
-        data: { xmlOffsetSeconds: { increment: 1 } },
-      });
-
-      const result = await prisma.satSyncJob.updateMany({
-        where: {
-          doctorId: doctor.id,
-          requestType: 'xml',
-          status: 'completed',
-        },
-        data: JOB_RESET_DATA,
-      });
-
-      // Also clean up orphan failures while we're at it
-      const orphans = await cleanOrphanFailures(doctor.id);
-
-      return NextResponse.json({
-        data: { reset: result.count, orphansCleaned: orphans },
-      }, { status: 200 });
     }
 
     // -----------------------------------------------------------------------

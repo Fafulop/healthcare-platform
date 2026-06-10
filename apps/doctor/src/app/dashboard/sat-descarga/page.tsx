@@ -158,7 +158,7 @@ export default function SatDescargaPage() {
         <>
           <SyncStatusPanel />
           <FiscalCalendarBanner />
-          <CfdiList direction={direction} setDirection={setDirection} month={month} />
+          <CfdiList direction={direction} setDirection={setDirection} month={month} setMonth={setMonth} />
         </>
       )}
       {activeTab === "resumen" && <ResumenFiscal />}
@@ -250,7 +250,7 @@ function FiscalCalendarBanner() {
   const iconColor = isOverdue ? 'text-red-500' : isUrgent ? 'text-amber-500' : 'text-blue-500';
 
   return (
-    <div className={`rounded-lg border p-4 mt-4 ${bannerColor}`}>
+    <div className={`rounded-lg border p-4 mt-4 mb-4 ${bannerColor}`}>
       <div className="flex items-start gap-3">
         <CalendarClock className={`w-5 h-5 mt-0.5 flex-shrink-0 ${iconColor}`} />
         <div className="flex-1 min-w-0">
@@ -432,16 +432,6 @@ function SyncStatusPanel() {
     }
   };
 
-  const handleForceResync = async () => {
-    const result = await doAction({ fromMonth: "2025-01", force: true });
-    if (result) {
-      setMessage({
-        type: "success",
-        text: `${result.reset} XMLs reiniciados para re-descarga. Se procesarán automáticamente.`,
-      });
-      fetchProgress();
-    }
-  };
 
   const handleResetTotal = async () => {
     if (resetConfirmText !== "REINICIAR") return;
@@ -557,6 +547,11 @@ function SyncStatusPanel() {
             <FileSpreadsheet className="w-3.5 h-3.5" />
             {progress.detailCount} con detalle XML
           </span>
+          {progress.metadataCount > progress.detailCount && progress.missingXmlCount === 0 && (
+            <span className="flex items-center gap-1 text-gray-400" title="Los CFDIs cancelados no tienen XML disponible en el SAT">
+              {progress.metadataCount - progress.detailCount} cancelado{progress.metadataCount - progress.detailCount !== 1 ? "s" : ""} (sin XML)
+            </span>
+          )}
           {progress.missingXmlCount > 0 && (
             <span className="flex items-center gap-1 text-amber-600">
               <AlertCircle className="w-3.5 h-3.5" />
@@ -615,17 +610,6 @@ function SyncStatusPanel() {
           </button>
         )}
 
-        {/* Re-sync ALL XMLs (nuclear option) */}
-        {isComplete && !hasFailed && !neverStarted && (
-          <button
-            onClick={handleForceResync}
-            disabled={acting}
-            className="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-md hover:bg-amber-100 border border-amber-200 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            Re-sincronizar todos los XMLs
-          </button>
-        )}
       </div>
 
       {/* Failed jobs detail table */}
@@ -720,11 +704,12 @@ function SyncStatusPanel() {
 // ---------------------------------------------------------------------------
 
 function CfdiList({
-  direction, setDirection, month
+  direction, setDirection, month, setMonth
 }: {
   direction: string;
   setDirection: (d: "" | "emitted" | "received") => void;
   month: string;
+  setMonth: (m: string) => void;
 }) {
   const [data, setData] = useState<MetadataResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -897,22 +882,33 @@ function CfdiList({
 
   return (
     <div>
+      {/* Month picker */}
+      <div className="flex items-center gap-2 mb-4">
+        <label className="text-sm text-gray-600 font-medium">Periodo:</label>
+        <input
+          type="month"
+          value={month}
+          onChange={e => { setMonth(e.target.value); setPage(1); }}
+          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+        />
+      </div>
+
       {/* Summary: Ingresos vs Gastos */}
       {items.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+          <div className="bg-green-50 border border-gray-300 rounded-lg px-4 py-3">
             <div className="text-xs text-green-600 font-medium">Ingresos</div>
             <div className="text-lg font-bold text-green-700">
               ${totalIngresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </div>
           </div>
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+          <div className="bg-red-50 border border-gray-300 rounded-lg px-4 py-3">
             <div className="text-xs text-red-600 font-medium">Gastos</div>
             <div className="text-lg font-bold text-red-700">
               ${totalGastos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </div>
           </div>
-          <div className={`border rounded-lg px-4 py-3 ${balance >= 0 ? "bg-blue-50 border-blue-200" : "bg-orange-50 border-orange-200"}`}>
+          <div className={`border border-gray-300 rounded-lg px-4 py-3 ${balance >= 0 ? "bg-blue-50" : "bg-orange-50"}`}>
             <div className={`text-xs font-medium ${balance >= 0 ? "text-blue-600" : "text-orange-600"}`}>Balance</div>
             <div className={`text-lg font-bold ${balance >= 0 ? "text-blue-700" : "text-orange-700"}`}>
               {balance >= 0 ? "+" : "-"}${Math.abs(balance).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
