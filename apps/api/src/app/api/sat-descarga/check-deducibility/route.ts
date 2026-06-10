@@ -143,6 +143,9 @@ export async function GET(request: NextRequest) {
           flags,
         });
 
+        // Count severity once per CFDI (not per flag) to avoid inflating totals
+        let hasError = false, hasWarning = false, hasInfo = false;
+
         for (const flag of flags) {
           if (!byType[flag.type]) {
             byType[flag.type] = { count: 0, severity: flag.severity, message: flag.message, cfdiUuids: [] };
@@ -152,10 +155,14 @@ export async function GET(request: NextRequest) {
             byType[flag.type].cfdiUuids.push(cfdi.uuid);
           }
 
-          if (flag.severity === 'error') errorCount++;
-          else if (flag.severity === 'warning') warningCount++;
-          else infoCount++;
+          if (flag.severity === 'error') hasError = true;
+          else if (flag.severity === 'warning') hasWarning = true;
+          else hasInfo = true;
         }
+
+        if (hasError) errorCount++;
+        else if (hasWarning) warningCount++;
+        else if (hasInfo) infoCount++;
       }
     }
 
