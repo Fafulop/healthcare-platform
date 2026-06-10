@@ -32,7 +32,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Ledger attachment uploaded:", file.url);
+      console.log("Ledger attachment uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor" };
     }),
 
@@ -45,7 +45,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("PDF factura uploaded:", file.url);
+      console.log("PDF factura uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor" };
     }),
 
@@ -62,7 +62,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("XML factura uploaded:", file.url);
+      console.log("XML factura uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor" };
     }),
 
@@ -79,7 +79,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Medical image uploaded:", file.url);
+      console.log("Medical image uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor", mediaType: "image" };
     }),
 
@@ -92,7 +92,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Medical video uploaded:", file.url);
+      console.log("Medical video uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor", mediaType: "video" };
     }),
 
@@ -105,7 +105,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Medical audio uploaded:", file.url);
+      console.log("Medical audio uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor", mediaType: "audio" };
     }),
 
@@ -118,7 +118,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Medical document uploaded:", file.url);
+      console.log("Medical document uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor", mediaType: "document" };
     }),
   // ============================================================================
@@ -134,7 +134,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Hero image uploaded:", file.url);
+      console.log("Hero image uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor" };
     }),
 
@@ -147,7 +147,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Certificate uploaded:", file.url);
+      console.log("Certificate uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor" };
     }),
 
@@ -160,7 +160,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Declaration receipt uploaded:", file.url);
+      console.log("Declaration receipt uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor" };
     }),
 
@@ -173,7 +173,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Clinic photo uploaded:", file.url);
+      console.log("Clinic photo uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor" };
     }),
 
@@ -186,7 +186,7 @@ export const ourFileRouter = {
   })
     .middleware(authMiddleware)
     .onUploadComplete(async ({ file }) => {
-      console.log("Video uploaded:", file.url);
+      console.log("Video uploaded:", file.ufsUrl);
       return { uploadedBy: "doctor" };
     }),
 } satisfies FileRouter;
