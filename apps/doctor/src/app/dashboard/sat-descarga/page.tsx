@@ -3266,6 +3266,9 @@ function DeclaracionesTab() {
         <YearSelector year={year} setYear={setYear} />
       </div>
 
+      {/* Accountant report download */}
+      <AccountantReportSection year={year} />
+
       {/* Regime badge */}
       <div className={`rounded-lg border p-3 text-sm ${isResico ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
         <strong>Regimen {data.regimenFiscal}</strong>
@@ -3313,7 +3316,7 @@ function DeclaracionesTab() {
           <p className="text-xs text-gray-500 mt-0.5">
             {isResico
               ? 'Cada mes es independiente. ISR = ingresos x tasa fija RESICO.'
-              : 'ISR provisional es acumulado: cada mes recalcula sobre la base del ano. Haz clic en un mes para ver el desglose.'}
+              : 'Haz clic en un mes para ver el calculo acumulado de ISR (base gravable, tabla Art. 96, retenciones, pagos previos).'}
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -3324,19 +3327,18 @@ function DeclaracionesTab() {
                 <th className="px-3 py-2 text-right font-semibold">Ingresos</th>
                 {!isResico && <th className="px-3 py-2 text-right font-semibold">Deducciones</th>}
                 <th className="px-3 py-2 text-right font-semibold">{isResico ? 'Tasa' : 'Tasa ef.'}</th>
-                <th className="px-3 py-2 text-right font-semibold">ISR causado</th>
-                <th className="px-3 py-2 text-right font-semibold">ISR retenido</th>
-                {!isResico && <th className="px-3 py-2 text-right font-semibold">Pagos prev.</th>}
-                <th className="px-3 py-2 text-right font-semibold text-orange-700">ISR a pagar</th>
-                {!isResico && <th className="px-3 py-2 text-right font-semibold text-blue-700">ISR a favor</th>}
-                <th className="px-3 py-2 text-right font-semibold text-amber-700">IVA a pagar</th>
+                <th className="px-3 py-2 text-right font-semibold">ISR del mes</th>
+                <th className="px-3 py-2 text-right font-semibold">IVA del mes</th>
                 <th className="px-2 py-2 text-right font-semibold text-purple-700">ISR pagado</th>
                 <th className="px-2 py-2 text-right font-semibold text-purple-700">IVA pagado</th>
                 <th className="px-2 py-2 text-center font-semibold text-gray-500">Acuse</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.months.map(m => (
+              {data.months.map(m => {
+                const saldoAFavor = !isResico ? m.isr.isrRetenido + m.isr.pagosPrevios - m.isr.isrCausado : 0;
+                const isrNet = m.isr.isrAPagar > 0 ? m.isr.isrAPagar : saldoAFavor > 0 ? -saldoAFavor : 0;
+                return (
                 <Fragment key={m.month}>
                   <tr
                     className={`hover:bg-gray-50 ${!isResico ? 'cursor-pointer' : ''} ${expandedMonth === m.month ? 'bg-purple-50' : ''}`}
@@ -3353,22 +3355,15 @@ function DeclaracionesTab() {
                     <td className="px-3 py-2.5 text-right font-mono text-gray-600">
                       {isResico ? fmtPct((m.isr.tasaResico ?? 0) * 100) : fmtPct(m.isr.tasaEfectiva)}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-gray-700">{fmt(m.isr.isrCausado)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-gray-500">{m.isr.isrRetenido > 0 ? fmt(m.isr.isrRetenido) : '—'}</td>
-                    {!isResico && <td className="px-3 py-2.5 text-right font-mono text-gray-500">{m.isr.pagosPrevios > 0 ? fmt(m.isr.pagosPrevios) : '—'}</td>}
-                    <td className={`px-3 py-2.5 text-right font-mono font-medium ${m.isr.isrAPagar > 0 ? 'text-orange-700' : 'text-gray-400'}`}>
-                      {fmt(m.isr.isrAPagar)}
+                    <td className={`px-3 py-2.5 text-right font-mono font-medium ${
+                      isrNet > 0 ? 'text-orange-700' : isrNet < 0 ? 'text-blue-700' : 'text-gray-400'
+                    }`}>
+                      {isrNet > 0 ? fmt(isrNet) : isrNet < 0 ? `A favor ${fmt(Math.abs(isrNet))}` : '—'}
                     </td>
-                    {!isResico && (() => {
-                      const saldoAFavor = m.isr.isrRetenido + m.isr.pagosPrevios - m.isr.isrCausado;
-                      return (
-                        <td className={`px-3 py-2.5 text-right font-mono font-medium ${saldoAFavor > 0 ? 'text-blue-700' : 'text-gray-400'}`}>
-                          {saldoAFavor > 0 ? fmt(saldoAFavor) : '—'}
-                        </td>
-                      );
-                    })()}
-                    <td className={`px-3 py-2.5 text-right font-mono font-medium ${m.iva.ivaAPagar > 0 ? 'text-amber-700' : m.iva.ivaAPagar < 0 ? 'text-green-700' : 'text-gray-400'}`}>
-                      {m.iva.ivaAPagar !== 0 ? `${m.iva.ivaAPagar > 0 ? '+' : ''}${fmt(m.iva.ivaAPagar)}` : '—'}
+                    <td className={`px-3 py-2.5 text-right font-mono font-medium ${
+                      m.iva.ivaAPagar > 0 ? 'text-amber-700' : m.iva.ivaAPagar < 0 ? 'text-green-700' : 'text-gray-400'
+                    }`}>
+                      {m.iva.ivaAPagar > 0 ? fmt(m.iva.ivaAPagar) : m.iva.ivaAPagar < 0 ? `A favor ${fmt(Math.abs(m.iva.ivaAPagar))}` : '—'}
                     </td>
                     {/* ISR pagado (actual) */}
                     <td className="px-2 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
@@ -3468,13 +3463,21 @@ function DeclaracionesTab() {
                   {/* Expanded detail for 612 */}
                   {!isResico && expandedMonth === m.month && (
                     <tr key={`${m.month}-detail`}>
-                      <td colSpan={13} className="px-4 py-3 bg-purple-50 border-t border-purple-100">
+                      <td colSpan={9} className="px-4 py-3 bg-purple-50 border-t border-purple-100">
                         <div className="grid grid-cols-2 gap-4 text-xs max-w-2xl">
                           <div>
-                            <p className="font-semibold text-gray-700 mb-2">ISR Provisional (acumulado)</p>
+                            <p className="font-semibold text-gray-700 mb-2">ISR Provisional (acumulado al mes {m.month})</p>
                             <div className="space-y-1 text-gray-600">
                               <div className="flex justify-between">
-                                <span>Base gravable acumulada</span>
+                                <span>Ingresos acumulados</span>
+                                <span className="font-mono">{fmt(data.months.filter(x => x.month <= m.month).reduce((s, x) => s + x.ingresos, 0))}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>(-) Deducciones acumuladas</span>
+                                <span className="font-mono">{fmt(data.months.filter(x => x.month <= m.month).reduce((s, x) => s + x.deducciones, 0))}</span>
+                              </div>
+                              <div className="flex justify-between font-medium">
+                                <span>= Base gravable acumulada</span>
                                 <span className="font-mono">{fmt(m.isr.baseGravable)}</span>
                               </div>
                               {/* Bracket breakdown */}
@@ -3511,9 +3514,11 @@ function DeclaracionesTab() {
                                 <span>(-) Pagos provisionales previos</span>
                                 <span className="font-mono">{fmt(m.isr.pagosPrevios)}</span>
                               </div>
-                              <div className="flex justify-between font-semibold text-orange-700 border-t border-purple-200 pt-1 mt-1">
-                                <span>= ISR a pagar este mes</span>
-                                <span className="font-mono">{fmt(m.isr.isrAPagar)}</span>
+                              <div className={`flex justify-between font-semibold border-t border-purple-200 pt-1 mt-1 ${
+                                m.isr.isrAPagar > 0 ? 'text-orange-700' : saldoAFavor > 0 ? 'text-blue-700' : 'text-gray-500'
+                              }`}>
+                                <span>= {m.isr.isrAPagar > 0 ? 'ISR a pagar este mes' : saldoAFavor > 0 ? 'Saldo a favor (sobrepago)' : 'ISR a pagar este mes'}</span>
+                                <span className="font-mono">{m.isr.isrAPagar > 0 ? fmt(m.isr.isrAPagar) : saldoAFavor > 0 ? fmt(saldoAFavor) : '$0.00'}</span>
                               </div>
                               {m.receipt?.isrPagado != null && m.receipt.isrPagado !== m.isr.isrAPagar && (
                                 <div className="flex justify-between text-purple-600 mt-1 bg-purple-100/50 rounded px-2 py-1">
@@ -3558,7 +3563,8 @@ function DeclaracionesTab() {
                     </tr>
                   )}
                 </Fragment>
-              ))}
+                );
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
@@ -3566,19 +3572,23 @@ function DeclaracionesTab() {
                 <td className="px-3 py-2.5 text-right font-mono text-green-700">{fmt(data.totals.ingresos)}</td>
                 {!isResico && <td className="px-3 py-2.5 text-right font-mono text-red-700">{fmt(data.totals.deducciones)}</td>}
                 <td className="px-3 py-2.5 text-right font-mono text-gray-500">—</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{fmt(data.totals.isrCausado ?? 0)}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-500">{fmt(data.totals.isrRetenido)}</td>
-                {!isResico && <td className="px-3 py-2.5 text-right font-mono text-gray-500">—</td>}
-                <td className={`px-3 py-2.5 text-right font-mono ${data.totals.isrAPagar > 0 ? 'text-orange-700' : 'text-gray-500'}`}>
-                  {data.totals.isrAPagar > 0 ? fmt(data.totals.isrAPagar) : '—'}
+                {/* ISR del mes total */}
+                <td className={`px-3 py-2.5 text-right font-mono font-semibold ${
+                  data.totals.isrAPagar > 0 ? 'text-orange-700' : data.totals.isrAFavor > 0 ? 'text-blue-700' : 'text-gray-500'
+                }`}>
+                  {data.totals.isrAPagar > 0
+                    ? fmt(data.totals.isrAPagar)
+                    : data.totals.isrAFavor > 0
+                      ? `A favor ${fmt(data.totals.isrAFavor)}`
+                      : '—'}
                 </td>
-                {!isResico && (
-                  <td className={`px-3 py-2.5 text-right font-mono font-semibold ${data.totals.isrAFavor > 0 ? 'text-blue-700' : 'text-gray-500'}`}>
-                    {data.totals.isrAFavor > 0 ? fmt(data.totals.isrAFavor) : '—'}
-                  </td>
-                )}
+                {/* IVA total */}
                 <td className={`px-3 py-2.5 text-right font-mono ${data.totals.ivaAPagar >= 0 ? 'text-amber-700' : 'text-green-700'}`}>
-                  {fmt(data.totals.ivaAPagar)}
+                  {data.totals.ivaAPagar !== 0
+                    ? data.totals.ivaAPagar < 0
+                      ? `A favor ${fmt(Math.abs(data.totals.ivaAPagar))}`
+                      : fmt(data.totals.ivaAPagar)
+                    : '—'}
                 </td>
                 {/* Totals for paid columns */}
                 <td className="px-2 py-2.5 text-right font-mono text-purple-700">
@@ -3659,8 +3669,6 @@ function DeclaracionesTab() {
         <p>Columnas &quot;ISR/IVA pagado&quot;: registra los montos reales de tu acuse de pago. En regimen 612, el ISR pagado se usa para calcular los pagos provisionales previos de meses posteriores.</p>
       </div>
 
-      {/* Accountant report download */}
-      <AccountantReportSection year={year} />
     </div>
   );
 }
