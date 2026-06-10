@@ -3318,7 +3318,10 @@ interface DeclarationResponse {
   totals: {
     ingresos: number;
     deducciones: number;
+    isrCausado: number;
     isrAPagar: number;
+    isrAFavor: number;
+    isrPagado: number;
     ivaAPagar: number;
     isrRetenido: number;
   };
@@ -3470,9 +3473,16 @@ function DeclaracionesTab() {
             <p className="text-lg font-bold text-red-800 mt-1">{fmt(data.totals.deducciones)}</p>
           </div>
         )}
-        <div className={`rounded-lg border p-4 ${data.totals.isrAPagar > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
-          <p className="text-xs font-medium text-orange-600">ISR pagado en el ano</p>
-          <p className="text-lg font-bold text-orange-800 mt-1">{fmt(data.totals.isrAPagar)}</p>
+        <div className={`rounded-lg border p-4 ${data.totals.isrAPagar > 0 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
+          <p className="text-xs font-medium text-orange-600">
+            {data.totals.isrAPagar > 0 ? 'ISR neto a pagar' : 'ISR a favor'}
+          </p>
+          <p className={`text-lg font-bold mt-1 ${data.totals.isrAPagar > 0 ? 'text-orange-800' : 'text-green-800'}`}>
+            {fmt(data.totals.isrAPagar > 0 ? data.totals.isrAPagar : data.totals.isrAFavor)}
+          </p>
+          {data.totals.isrPagado > 0 && (
+            <p className="text-xs text-gray-500 mt-0.5">Pagado: {fmt(data.totals.isrPagado)}</p>
+          )}
         </div>
         <div className={`rounded-lg border p-4 ${data.totals.ivaAPagar > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
           <p className="text-xs font-medium text-amber-600">IVA neto del ano</p>
@@ -3743,28 +3753,23 @@ function DeclaracionesTab() {
                 <td className="px-3 py-2.5 text-right font-mono text-green-700">{fmt(data.totals.ingresos)}</td>
                 {!isResico && <td className="px-3 py-2.5 text-right font-mono text-red-700">{fmt(data.totals.deducciones)}</td>}
                 <td className="px-3 py-2.5 text-right font-mono text-gray-500">—</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-500">—</td>
+                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{fmt(data.totals.isrCausado ?? 0)}</td>
                 <td className="px-3 py-2.5 text-right font-mono text-gray-500">{fmt(data.totals.isrRetenido)}</td>
                 {!isResico && <td className="px-3 py-2.5 text-right font-mono text-gray-500">—</td>}
-                <td className="px-3 py-2.5 text-right font-mono text-orange-700">{fmt(data.totals.isrAPagar)}</td>
-                {!isResico && (() => {
-                  const lastMonth = data.months[data.months.length - 1];
-                  const saldo = lastMonth ? (lastMonth.isr.pagosPrevios + lastMonth.isr.isrAPagar + lastMonth.isr.isrRetenido) - lastMonth.isr.isrCausado : 0;
-                  return (
-                    <td className={`px-3 py-2.5 text-right font-mono font-semibold ${saldo > 0 ? 'text-blue-700' : 'text-gray-500'}`}>
-                      {saldo > 0 ? fmt(saldo) : '—'}
-                    </td>
-                  );
-                })()}
+                <td className={`px-3 py-2.5 text-right font-mono ${data.totals.isrAPagar > 0 ? 'text-orange-700' : 'text-gray-500'}`}>
+                  {data.totals.isrAPagar > 0 ? fmt(data.totals.isrAPagar) : '—'}
+                </td>
+                {!isResico && (
+                  <td className={`px-3 py-2.5 text-right font-mono font-semibold ${data.totals.isrAFavor > 0 ? 'text-blue-700' : 'text-gray-500'}`}>
+                    {data.totals.isrAFavor > 0 ? fmt(data.totals.isrAFavor) : '—'}
+                  </td>
+                )}
                 <td className={`px-3 py-2.5 text-right font-mono ${data.totals.ivaAPagar >= 0 ? 'text-amber-700' : 'text-green-700'}`}>
                   {fmt(data.totals.ivaAPagar)}
                 </td>
                 {/* Totals for paid columns */}
                 <td className="px-2 py-2.5 text-right font-mono text-purple-700">
-                  {(() => {
-                    const total = data.months.reduce((s, m) => s + (m.receipt?.isrPagado ?? 0), 0);
-                    return total > 0 ? fmt(total) : '—';
-                  })()}
+                  {data.totals.isrPagado > 0 ? fmt(data.totals.isrPagado) : '—'}
                 </td>
                 <td className="px-2 py-2.5 text-right font-mono text-purple-700">
                   {(() => {

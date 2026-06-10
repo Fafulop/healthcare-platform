@@ -274,11 +274,40 @@ export async function GET(request: NextRequest) {
     const activeMonths = months.filter(m => m.hasData);
 
     // Annual totals
-    const totalIsrAPagar = activeMonths.reduce((s, m) => s + m.isr.isrAPagar, 0);
-    const totalIvaAPagar = activeMonths.reduce((s, m) => s + m.iva.ivaAPagar, 0);
     const totalIngresos = activeMonths.reduce((s, m) => s + m.ingresos, 0);
     const totalDeducciones = activeMonths.reduce((s, m) => s + m.deducciones, 0);
-    const totalIsrRetenido = activeMonths.reduce((s, m) => s + (regimenFiscal === '626' ? m.isr.isrRetenido : 0), 0);
+    const totalIvaAPagar = activeMonths.reduce((s, m) => s + m.iva.ivaAPagar, 0);
+
+    // ISR totals differ by regime:
+    // - 612 (cumulative): last month's ISR causado IS the year-to-date liability.
+    //   Summing individual months' ISR a pagar double-counts in a cumulative system.
+    // - 626 (RESICO): each month is independent, so summing IS correct.
+    const lastActive = activeMonths[activeMonths.length - 1];
+
+    const totalIsrRetenido = regimenFiscal === '612'
+      ? lastActive?.isr.isrRetenido ?? 0
+      : activeMonths.reduce((s, m) => s + m.isr.isrRetenido, 0);
+
+    const totalIsrPagado = receipts
+      .filter(r => r.month <= 12 && r.isrPagado != null)
+      .reduce((s, r) => s + Number(r.isrPagado), 0);
+
+    let totalIsrCausado: number;
+    let totalIsrAPagar: number;
+    let totalIsrAFavor: number;
+
+    if (regimenFiscal === '626') {
+      // RESICO: sum of monthly values
+      totalIsrCausado = activeMonths.reduce((s, m) => s + m.isr.isrCausado, 0);
+      totalIsrAPagar = activeMonths.reduce((s, m) => s + m.isr.isrAPagar, 0);
+      totalIsrAFavor = 0;
+    } else {
+      // 612: cumulative — last month's ISR causado is the year-to-date figure
+      totalIsrCausado = lastActive?.isr.isrCausado ?? 0;
+      const netIsr = totalIsrCausado - totalIsrRetenido - totalIsrPagado;
+      totalIsrAPagar = Math.max(0, netIsr);
+      totalIsrAFavor = Math.max(0, -netIsr);
+    }
 
     return NextResponse.json({
       data: {
@@ -288,11 +317,12 @@ export async function GET(request: NextRequest) {
         totals: {
           ingresos: round2(totalIngresos),
           deducciones: round2(totalDeducciones),
+          isrCausado: round2(totalIsrCausado),
           isrAPagar: round2(totalIsrAPagar),
+          isrAFavor: round2(totalIsrAFavor),
+          isrPagado: round2(totalIsrPagado),
           ivaAPagar: round2(totalIvaAPagar),
-          isrRetenido: round2(regimenFiscal === '612'
-            ? activeMonths[activeMonths.length - 1]?.isr.isrRetenido ?? 0
-            : totalIsrRetenido),
+          isrRetenido: round2(totalIsrRetenido),
         },
         // Include table reference so frontend can show bracket info
         isrTable: regimenFiscal === '626' ? 'resico' : 'art96',
