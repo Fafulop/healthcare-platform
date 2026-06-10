@@ -2320,7 +2320,7 @@ function DeduccionesTab() {
             ))}
           </div>
         </div>
-      )
+      )}
 
       {/* Monthly breakdown table */}
       {data.months.length > 0 && (
