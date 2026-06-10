@@ -4418,7 +4418,7 @@ function GuiaTab() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
-              <p className="font-bold text-indigo-800 mb-2">612 — Actividad Empresarial y Profesional</p>
+              <p className="font-bold text-indigo-800 mb-2">612 — Actividad Empresarial y Profesional (Honorarios)</p>
               <ul className="list-disc list-inside space-y-1.5 text-xs text-indigo-700">
                 <li><strong>Sin limite de ingresos</strong></li>
                 <li>ISR sobre ingresos <strong>menos deducciones</strong> (tasa progresiva 1.92% a 35%)</li>

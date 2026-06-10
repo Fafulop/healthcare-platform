@@ -1,4 +1,4 @@
-# Referencia Fiscal Unificada — TuSalud Platform
+ # Referencia Fiscal Unificada — TuSalud Platform
 
 > Documento canonico que consolida todas las reglas fiscales, de facturacion, y de integracion SAT
 > que aplican a la plataforma. Este archivo es la **fuente unica de verdad** — todos los demas
@@ -58,6 +58,12 @@ DEDUCIBILITY-CLASSIFICATION-SYSTEM.md cita 25% para equipo medico. Art. 34 LISR 
 
 ## Parte I — Regimenes Fiscales para Personas Fisicas
 
+> **Nota:** El SAT no tiene un codigo separado para "Servicios Profesionales" o "Honorarios".
+> Los doctores que ejercen de forma independiente cobrando honorarios usan el mismo **regimen 612**
+> (Actividades Empresariales y Profesionales). "Regimen de Honorarios" es un nombre coloquial,
+> no un regimen fiscal distinto. Los unicos regimenes aplicables a doctores independientes son
+> **612** y **626 (RESICO)**.
+
 ### 1. RESICO (Regimen 626)
 
 **Base legal:** LISR Titulo IV, Cap. II, Seccion IV — Arts. 113-E a 113-J
@@ -111,7 +117,7 @@ DEDUCIBILITY-CLASSIFICATION-SYSTEM.md cita 25% para equipo medico. Art. 34 LISR 
 
 ---
 
-### 2. Actividad Empresarial y Profesional (Regimen 612)
+### 2. Actividad Empresarial y Profesional / Servicios Profesionales — Honorarios (Regimen 612)
 
 **Base legal:** LISR Titulo IV, Cap. II, Seccion I — Arts. 100 a 110
 
@@ -670,7 +676,7 @@ TuSalud Platform (cuenta Facturama)
 - No necesitas amortizar perdidas fiscales
 - No tienes empleados
 
-### Elige Actividad Empresarial (612) cuando:
+### Elige Actividad Empresarial / Honorarios (612) cuando:
 - Ingresos > $3,500,000 (obligatorio)
 - Gastos operativos > 50% de ingresos
 - Necesitas amortizar perdidas fiscales
@@ -678,6 +684,7 @@ TuSalud Platform (cuenta Facturama)
 - Depreciacion significativa de activos
 - Necesitas deducciones personales en anual
 - Planeacion fiscal sofisticada
+- Eres doctor independiente cobrando honorarios con gastos significativos
 
 ### Punto de equilibrio
 

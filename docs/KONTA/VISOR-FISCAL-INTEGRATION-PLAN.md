@@ -105,7 +105,7 @@
 #### Cancellation Motives
 | Code | Description |
 |------|-------------|
-| 01 | Errores con relación (requires replacement UUID) |
+| 01 | Errores con relación (timbrar reemplazo PRIMERO, luego cancelar ligando UUID nuevo) |
 | 02 | Errores sin relación |
 | 03 | No se llevó a cabo |
 | 04 | Factura global |
@@ -366,19 +366,19 @@ We classify expenses using `claveProdServ` from SAT catalog + supplier RFC patte
 #### Category 3 — Equipo Médico (depreciable)
 **SAT Claves:** 42130000-42189999 (medical instruments), 42200000-42299999 (imaging/diagnostic)
 **Keywords:** equipo médico, ultrasonido, electrocardiógrafo, baumanómetro, estetoscopio
-**Deduction rule:** Depreciable. Medical equipment at **25% annual** (4-year depreciation per Art. 35 LISR).
+**Deduction rule:** Depreciable. Medical equipment at **10% annual** (general rate per Art. 34 LISR; sector-specific fractions may apply).
 **IVA:** 16% acreditable in month of purchase.
 
 #### Category 4 — Equipo de Cómputo y Software
 **SAT Claves:** 43210000-43239999 (computers), 43230000-43239999 (software)
 **Keywords:** computadora, laptop, software, licencia, sistema, impresora
-**Deduction rule:** Depreciable at **30% annual** (3.3 years per Art. 35 LISR).
+**Deduction rule:** Depreciable at **30% annual** (3.3 years per Art. 34 LISR).
 **IVA:** 16% acreditable.
 
 #### Category 5 — Mobiliario y Equipo de Oficina
 **SAT Claves:** 56100000-56129999 (furniture)
 **Keywords:** escritorio, silla, archivero, mueble, recepción
-**Deduction rule:** Depreciable at **10% annual** (10 years per Art. 35 LISR).
+**Deduction rule:** Depreciable at **10% annual** (10 years per Art. 34 LISR).
 **IVA:** 16% acreditable.
 
 #### Category 6 — Servicios Profesionales (terceros)
