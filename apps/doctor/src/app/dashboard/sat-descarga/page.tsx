@@ -3882,9 +3882,25 @@ function AyudaTab() {
           </p>
 
           <div>
-            <p className="font-semibold text-gray-800 mb-2">Que puedes hacer aqui</p>
+            <p className="font-semibold text-gray-800 mb-2">Panel de Sincronizacion</p>
+            <p className="text-xs text-gray-600 mb-2">
+              En la parte superior de esta pestana encontraras el panel de <strong>Sincronizacion historica</strong>, que controla la descarga de tus CFDIs desde el SAT:
+            </p>
             <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
-              <li><strong>Filtrar</strong> por direccion (emitidas/recibidas), tipo (Ingreso, Egreso, Pago), status (Vigente/Cancelado) y monto</li>
+              <li><strong>Iniciar descarga historica</strong> — Un clic descarga todos tus CFDIs (emitidos y recibidos) desde enero 2025 hasta el mes actual. No necesitas seleccionar mes por mes.</li>
+              <li><strong>Barra de progreso</strong> — Muestra cuantos meses se han completado (morado) y cuantos fallaron (rojo). Un worker automatico procesa las descargas cada 15 minutos.</li>
+              <li><strong>Completitud de datos</strong> — Muestra cuantos CFDIs tienen metadata vs detalle XML. Los CFDIs cancelados no tienen XML disponible en el SAT.</li>
+              <li><strong>Auto-sync ON/OFF</strong> — Activa la sincronizacion diaria automatica para mantener tus datos actualizados sin intervencion manual.</li>
+              <li><strong>Reintentar fallidos</strong> — Si hay errores (ej: limite de solicitudes del SAT, error 5002), el sistema los detecta y ajusta automaticamente. Un clic reintenta los pendientes.</li>
+              <li><strong>Descargar XMLs faltantes</strong> — Si la metadata esta completa pero faltan XMLs de CFDIs vigentes, este boton descarga solo los que hacen falta (no re-descarga todo).</li>
+              <li><strong>Reiniciar sincronizacion completa</strong> — Borra todos los datos SAT descargados y empieza de cero. Requiere escribir &quot;REINICIAR&quot; para confirmar. Usa esto solo si hay datos corruptos o inconsistentes.</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Lista de CFDIs</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>Filtrar</strong> por direccion (emitidas/recibidas), mes, tipo (Ingreso, Egreso, Pago), status (Vigente/Cancelado) y monto</li>
               <li><strong>Buscar</strong> por RFC o nombre del emisor/receptor</li>
               <li><strong>Ver detalles XML</strong> — expande cualquier factura para ver subtotal, IVA, retenciones, conceptos, forma/metodo de pago, uso CFDI</li>
               <li><strong>Registrar en contabilidad</strong> — vincula un CFDI a tu libro de ingresos/egresos con un clic</li>
@@ -3895,9 +3911,10 @@ function AyudaTab() {
           <div className="bg-gray-50 border border-gray-200 rounded p-3">
             <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
             <p className="text-xs text-gray-600">
-              Quieres verificar que todas las facturas que emitiste en enero estan vigentes.
-              Seleccionas "Emitidas", mes "2026-01", y revisas que ninguna aparezca como "Cancelado".
-              Si encuentras una cancelada, haces clic para ver los detalles y verificas si necesitas emitir una nueva.
+              Es tu primera vez: haces clic en <strong>&quot;Iniciar descarga historica&quot;</strong> y la barra de progreso avanza
+              conforme se descargan tus CFDIs. No necesitas mantener la pagina abierta — el worker procesa en segundo plano.
+              Al terminar, activas <strong>Auto-sync ON</strong> para que los nuevos meses se sincronicen solos.
+              Luego filtras por mes y direccion para revisar tus facturas, y si alguna tiene un icono de alerta la expandes para ver el detalle.
             </p>
           </div>
 
@@ -3905,7 +3922,7 @@ function AyudaTab() {
             <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
             <p className="text-xs text-blue-700">
               Esta pestana es el <strong>origen de todos los datos</strong>. Si aqui no hay CFDIs sincronizados,
-              las demas pestanas apareceran vacias. Primero sincroniza tus CFDIs (usando el boton de descarga arriba),
+              las demas pestanas apareceran vacias. Primero sincroniza tus CFDIs (usando &quot;Iniciar descarga historica&quot;),
               y luego las demas pestanas se calculan automaticamente.
             </p>
           </div>
@@ -4360,17 +4377,23 @@ function GuiaTab() {
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3 text-sm text-gray-700">
           <p>
             La sincronizacion se conecta <strong>directamente al SAT</strong> usando tu e.Firma (FIEL)
-            para descargar el listado de todos los CFDIs que has emitido o recibido en un mes determinado.
+            para descargar todos los CFDIs que has emitido o recibido. Con un solo clic en
+            <strong> &quot;Iniciar descarga historica&quot;</strong> se descargan todos los meses desde enero 2025 hasta el mes actual.
           </p>
-          <ol className="list-decimal list-inside space-y-1.5 ml-2">
-            <li><strong>Autenticacion</strong> — Se firma una solicitud con tu e.Firma para obtener un token del SAT</li>
-            <li><strong>Solicitud</strong> — Se pide al SAT que prepare el paquete de metadata (emitidos o recibidos)</li>
-            <li><strong>Espera</strong> — El SAT procesa la solicitud (normalmente 30 seg a unos minutos, maximo 72 horas)</li>
-            <li><strong>Descarga</strong> — Se descarga el paquete ZIP con la metadata de tus CFDIs</li>
-            <li><strong>Almacenamiento</strong> — Se parsea y guarda cada CFDI en la base de datos</li>
-          </ol>
-          <p className="text-xs text-gray-500 mt-3">
-            Un worker automatico revisa el progreso cada 15 minutos. No necesitas mantener la pagina abierta.
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Proceso automatico (por cada mes)</p>
+            <ol className="list-decimal list-inside space-y-1.5 ml-2">
+              <li><strong>Autenticacion</strong> — Se firma una solicitud con tu e.Firma para obtener un token del SAT</li>
+              <li><strong>Solicitud de metadata</strong> — Se pide al SAT el listado de CFDIs emitidos y recibidos del mes</li>
+              <li><strong>Espera</strong> — El SAT procesa la solicitud (normalmente 30 seg a unos minutos, maximo 72 horas)</li>
+              <li><strong>Descarga de metadata</strong> — Se descarga el paquete ZIP con el listado de tus CFDIs</li>
+              <li><strong>Descarga de XMLs</strong> — Se descargan los XMLs individuales para obtener el desglose fiscal completo</li>
+              <li><strong>Almacenamiento</strong> — Se parsea y guarda cada CFDI con sus detalles en la base de datos</li>
+            </ol>
+          </div>
+          <p className="text-xs text-gray-500">
+            Un worker automatico revisa el progreso cada 15 minutos y procesa los meses pendientes. No necesitas mantener la pagina abierta.
           </p>
 
           <div className="mt-3">
@@ -4387,7 +4410,7 @@ function GuiaTab() {
               </div>
               <div className="border border-gray-200 rounded p-3">
                 <p className="font-medium text-gray-800 text-xs mb-1">2. XML (desglose fiscal completo)</p>
-                <p className="text-xs text-gray-500 mb-1">Se descarga por separado — al hacer clic en "Ver detalles XML".</p>
+                <p className="text-xs text-gray-500 mb-1">Se descarga automaticamente junto con la metadata.</p>
                 <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-600">
                   <li>Subtotal, IVA, retenciones, descuentos</li>
                   <li>Metodo/forma de pago, Uso CFDI</li>
@@ -4397,12 +4420,55 @@ function GuiaTab() {
             </div>
           </div>
 
+          <div>
+            <p className="font-semibold text-gray-800 mb-2 mt-3">Controles del panel de sincronizacion</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border border-gray-200 rounded">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Control</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Que hace</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">Cuando usarlo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Iniciar descarga historica</td>
+                    <td className="px-3 py-2 text-gray-500">Descarga todos los CFDIs (metadata + XML) de todos los meses</td>
+                    <td className="px-3 py-2 text-gray-500">Primera vez que usas la herramienta</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Auto-sync ON/OFF</td>
+                    <td className="px-3 py-2 text-gray-500">Activa sincronizacion diaria automatica del mes actual</td>
+                    <td className="px-3 py-2 text-gray-500">Despues de la primera descarga (se recomienda dejarlo ON)</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Reintentar fallidos</td>
+                    <td className="px-3 py-2 text-gray-500">Reintenta descargas que fallaron (detecta errores SAT 5002 y ajusta automaticamente)</td>
+                    <td className="px-3 py-2 text-gray-500">Cuando la barra de progreso muestra segmentos rojos</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Descargar XMLs faltantes</td>
+                    <td className="px-3 py-2 text-gray-500">Descarga solo los XMLs que faltan en meses ya completados (no re-descarga todo)</td>
+                    <td className="px-3 py-2 text-gray-500">Cuando el panel muestra &quot;X sin XML&quot; en CFDIs vigentes</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium text-red-600">Reiniciar sincronizacion</td>
+                    <td className="px-3 py-2 text-gray-500">Borra todos los datos SAT y empieza de cero (requiere escribir &quot;REINICIAR&quot;)</td>
+                    <td className="px-3 py-2 text-gray-500">Solo si hay datos corruptos o inconsistentes</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div className="bg-amber-50 border border-amber-200 rounded p-3 mt-2">
             <p className="font-semibold text-amber-800 text-xs mb-1">Limitaciones del SAT</p>
             <ul className="list-disc list-inside space-y-0.5 text-xs text-amber-700">
               <li>Puede tardar hasta 72 horas en procesar (normalmente minutos)</li>
               <li>Maximo 1,000,000 registros por solicitud</li>
               <li>Historico disponible: hasta 5 anos fiscales + ano actual</li>
+              <li>Error 5002 (limite de solicitudes): el sistema lo detecta y ajusta el offset automaticamente al reintentar</li>
             </ul>
           </div>
         </div>
