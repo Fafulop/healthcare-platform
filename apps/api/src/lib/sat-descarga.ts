@@ -431,15 +431,18 @@ export async function requestXml(
   direction: SyncDirection,
   dateFrom: Date,
   dateTo: Date,
+  xmlOffsetSeconds: number = 0,
 ): Promise<string> {
   // IMPORTANT: Offset FechaInicial to avoid SAT error 5002
   // ("Se han agotado las solicitudes de por vida"). SAT limits CFDI requests
   // to 2 per identical date range. By offsetting seconds from the metadata
   // request (which uses 00:00:00), this counts as a different range.
-  // History: 00:00:01 used for first XML backfill, 00:00:02 for re-sync after
-  // parser bug fix (Total regex matched SubTotal). Bump this if re-syncing again.
-  // No CFDIs are missed since emisión timestamps are never at exactly 00:00:00.
-  const fechaInicial = formatSatDate(dateFrom, '00:00:02');
+  // The offset is stored per-doctor in DoctorFiscalProfile.xmlOffsetSeconds
+  // and auto-incremented when a full reset is triggered.
+  const hh = String(Math.floor(xmlOffsetSeconds / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((xmlOffsetSeconds % 3600) / 60)).padStart(2, '0');
+  const ss = String(xmlOffsetSeconds % 60).padStart(2, '0');
+  const fechaInicial = formatSatDate(dateFrom, `${hh}:${mm}:${ss}`);
   const fechaFinal = formatSatDate(dateTo, '23:59:59');
 
   const operationName = direction === 'emitted'

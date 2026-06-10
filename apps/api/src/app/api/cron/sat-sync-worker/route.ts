@@ -132,6 +132,7 @@ export async function POST(request: Request) {
           fielKeyEncrypted: true,
           fielPasswordEncrypted: true,
           rfc: true,
+          xmlOffsetSeconds: true,
         },
       },
     },
@@ -176,6 +177,7 @@ type JobWithProfile = Awaited<ReturnType<typeof prisma.satSyncJob.findMany>>[0] 
     fielKeyEncrypted: string | null;
     fielPasswordEncrypted: string | null;
     rfc: string;
+    xmlOffsetSeconds: number;
   };
 };
 
@@ -237,14 +239,9 @@ async function stepAuthenticate(job: JobWithProfile, cred: ReturnType<typeof loa
   });
 
   // Immediately proceed to request (metadata or XML depending on job type)
-  const requestFn = job.requestType === 'xml' ? requestXml : requestMetadata;
-  const idSolicitud = await requestFn(
-    token,
-    cred,
-    job.direction as SyncDirection,
-    job.dateFrom,
-    job.dateTo,
-  );
+  const idSolicitud = job.requestType === 'xml'
+    ? await requestXml(token, cred, job.direction as SyncDirection, job.dateFrom, job.dateTo, job.fiscalProfile.xmlOffsetSeconds ?? 0)
+    : await requestMetadata(token, cred, job.direction as SyncDirection, job.dateFrom, job.dateTo);
 
   await prisma.satSyncJob.update({
     where: { id: job.id },
@@ -261,14 +258,9 @@ async function stepAuthenticate(job: JobWithProfile, cred: ReturnType<typeof loa
 async function stepRequest(job: JobWithProfile, cred: ReturnType<typeof loadCredentials>): Promise<string> {
   const token = await authenticate(cred);
 
-  const requestFn = job.requestType === 'xml' ? requestXml : requestMetadata;
-  const idSolicitud = await requestFn(
-    token,
-    cred,
-    job.direction as SyncDirection,
-    job.dateFrom,
-    job.dateTo,
-  );
+  const idSolicitud = job.requestType === 'xml'
+    ? await requestXml(token, cred, job.direction as SyncDirection, job.dateFrom, job.dateTo, job.fiscalProfile.xmlOffsetSeconds ?? 0)
+    : await requestMetadata(token, cred, job.direction as SyncDirection, job.dateFrom, job.dateTo);
 
   await prisma.satSyncJob.update({
     where: { id: job.id },

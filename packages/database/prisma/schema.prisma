@@ -2452,6 +2452,10 @@ model DoctorFiscalProfile {
   // Auto-sync config
   autoSyncEnabled     Boolean   @default(true) @map("auto_sync_enabled")
 
+  // XML offset seconds — incremented each time a full re-sync is needed
+  // to avoid SAT error 5002 (2-request lifetime limit per exact date range)
+  xmlOffsetSeconds    Int       @default(0) @map("xml_offset_seconds")
+
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 

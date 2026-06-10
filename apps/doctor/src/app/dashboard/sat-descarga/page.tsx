@@ -156,9 +156,7 @@ export default function SatDescargaPage() {
 
       {activeTab === "cfdi" && (
         <>
-          {/* Sync trigger + Backfill — only visible in CFDIs tab */}
-          <SyncTrigger month={month} setMonth={setMonth} />
-          <BackfillSection />
+          <SyncStatusPanel />
           <FiscalCalendarBanner />
           <CfdiList direction={direction} setDirection={setDirection} month={month} />
         </>
@@ -316,96 +314,40 @@ function TabBtn({ active, onClick, label }: { active: boolean; onClick: () => vo
 }
 
 // ---------------------------------------------------------------------------
-// Sync Trigger
+// Sync Status Panel — unified sync controls + completeness + config
 // ---------------------------------------------------------------------------
 
-function SyncTrigger({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
-  const [syncing, setSyncing] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const triggerSync = async () => {
-    setSyncing(true);
-    setMessage(null);
-    const results: string[] = [];
-    const errors: string[] = [];
-    for (const dir of ["received", "emitted"] as const) {
-      try {
-        const res = await authFetch(`${API_URL}/api/sat-descarga/sync`, {
-          method: "POST",
-          body: JSON.stringify({ direction: dir, month, requestType: "full" }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || "Error al crear sincronización");
-        const jobId = Array.isArray(json.data) ? json.data.map((j: any) => `#${j.id}`).join(', ') : `#${json.data.id}`;
-        results.push(`${dir === "emitted" ? "Emitidos" : "Recibidos"} (Job ${jobId})`);
-      } catch (err: any) {
-        errors.push(`${dir === "emitted" ? "Emitidos" : "Recibidos"}: ${err.message}`);
-      }
-    }
-    if (results.length > 0 && errors.length === 0) {
-      setMessage({ type: "success", text: `Sincronización creada: ${results.join(" + ")}. Se procesará en unos minutos.` });
-    } else if (results.length > 0) {
-      setMessage({ type: "success", text: `Parcial: ${results.join(" + ")}. Errores: ${errors.join("; ")}` });
-    } else {
-      setMessage({ type: "error", text: errors.join("; ") });
-    }
-    setSyncing(false);
-  };
-
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Sincronizar con el SAT</h2>
-
-      <div className="flex flex-wrap items-end gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
-          <input
-            type="month"
-            value={month}
-            onChange={e => setMonth(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-          />
-        </div>
-
-        <button
-          onClick={triggerSync}
-          disabled={syncing}
-          className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
-        >
-          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          Descarga Manual Mensual
-        </button>
-      </div>
-
-      <p className="mt-2 text-xs text-gray-500">
-        Descarga metadata y XML de todos los CFDIs emitidos y recibidos del mes seleccionado.
-      </p>
-
-      {message && (
-        <div className={`mt-4 p-3 rounded-md text-sm flex items-center gap-2 ${
-          message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-        }`}>
-          {message.type === "success" ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-          {message.text}
-        </div>
-      )}
-    </div>
-  );
+interface SyncProgress {
+  totalMonths: number;
+  completedMonths: number;
+  pendingMonths: number;
+  failedMonths: number;
+  activeJobs: number;
+  failedJobs: number;
+  failedJobDetails: Array<{
+    id: number;
+    month: string;
+    direction: string;
+    requestType: string;
+    lastError: string | null;
+    is5002: boolean;
+  }>;
+  fromMonth: string;
+  toMonth: string;
+  metadataCount: number;
+  detailCount: number;
+  missingXmlCount: number;
+  autoSyncEnabled: boolean;
+  xmlOffsetSeconds: number;
 }
 
-// ---------------------------------------------------------------------------
-// Backfill Section
-// ---------------------------------------------------------------------------
-
-function BackfillSection() {
-  const [progress, setProgress] = useState<{
-    totalMonths: number; completedMonths: number; activeJobs: number;
-    failedMonths?: number; failedJobs?: number;
-    fromMonth: string; toMonth: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [backfilling, setBackfilling] = useState(false);
+function SyncStatusPanel() {
+  const [progress, setProgress] = useState<SyncProgress | null>(null);
+  const [acting, setActing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [showFailedDetails, setShowFailedDetails] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
 
   const fetchProgress = useCallback(async () => {
     try {
@@ -414,9 +356,7 @@ function BackfillSection() {
         const json = await res.json();
         setProgress(json.data);
       }
-    } catch (err) {
-      // silently fail — not critical
-    }
+    } catch (err) { /* silent */ }
   }, []);
 
   useEffect(() => { fetchProgress(); }, [fetchProgress]);
@@ -428,104 +368,318 @@ function BackfillSection() {
     return () => clearInterval(interval);
   }, [progress?.activeJobs, fetchProgress]);
 
-  const triggerBackfill = async (force = false) => {
-    setBackfilling(true);
+  const doAction = async (body: Record<string, any>, method = "POST") => {
+    setActing(true);
     setMessage(null);
     try {
       const res = await authFetch(`${API_URL}/api/sat-descarga/backfill`, {
-        method: "POST",
-        body: JSON.stringify({ fromMonth: "2025-01", force }),
+        method,
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) {
-        setMessage({ type: "error", text: json.error || "Error al crear backfill" });
+        setMessage({ type: "error", text: json.error || "Error" });
       } else {
-        const parts = [];
-        if (json.data.created > 0) parts.push(`${json.data.created} jobs nuevos`);
-        if (json.data.reset > 0) parts.push(`${json.data.reset} XMLs re-sincronizados`);
-        if (json.data.skipped > 0) parts.push(`${json.data.skipped} ya existentes`);
-        setMessage({ type: "success", text: `Backfill: ${parts.join(', ')}. Se procesarán gradualmente.` });
+        return json.data;
+      }
+    } catch (err) {
+      setMessage({ type: "error", text: "Error de red" });
+    } finally {
+      setActing(false);
+    }
+    return null;
+  };
+
+  const handleStartBackfill = async () => {
+    const result = await doAction({ fromMonth: "2025-01" });
+    if (result) {
+      setMessage({
+        type: "success",
+        text: result.created > 0
+          ? `${result.created} descargas iniciadas. Se procesarán automáticamente.`
+          : "Todo ya está sincronizado.",
+      });
+      fetchProgress();
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    const result = await doAction({ retryFailed: true });
+    if (result) {
+      const parts = [];
+      if (result.retried > 0) parts.push(`${result.retried} reiniciados`);
+      if (result.cleaned > 0) parts.push(`${result.cleaned} obsoletos eliminados`);
+      if (result.offsetBumped) parts.push("offset actualizado para evitar bloqueo SAT");
+      setMessage({
+        type: "success",
+        text: parts.length > 0 ? parts.join(", ") + ". Se procesarán automáticamente." : "No hay jobs que reintentar.",
+      });
+      setShowFailedDetails(false);
+      fetchProgress();
+    }
+  };
+
+  const handleForceResync = async () => {
+    const result = await doAction({ fromMonth: "2025-01", force: true });
+    if (result) {
+      setMessage({
+        type: "success",
+        text: `${result.reset} XMLs reiniciados para re-descarga. Se procesarán automáticamente.`,
+      });
+      fetchProgress();
+    }
+  };
+
+  const handleResetTotal = async () => {
+    if (resetConfirmText !== "REINICIAR") return;
+    setActing(true);
+    setMessage(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/backfill`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMessage({ type: "error", text: json.error || "Error" });
+      } else {
+        setMessage({
+          type: "success",
+          text: `Datos eliminados. ${json.data.jobsCreated} descargas iniciadas desde cero.`,
+        });
+        setShowResetConfirm(false);
+        setResetConfirmText("");
         fetchProgress();
       }
     } catch (err) {
-      setMessage({ type: "error", text: "Error de red al crear backfill" });
+      setMessage({ type: "error", text: "Error de red" });
     } finally {
-      setBackfilling(false);
+      setActing(false);
+    }
+  };
+
+  const toggleAutoSync = async () => {
+    if (!progress) return;
+    const result = await doAction({ autoSyncEnabled: !progress.autoSyncEnabled }, "PATCH");
+    if (result) {
+      fetchProgress();
     }
   };
 
   if (!progress) return null;
 
   const isComplete = progress.completedMonths >= progress.totalMonths;
-  const hasFailed = (progress.failedJobs || 0) > 0;
+  const hasFailed = progress.failedJobs > 0;
+  const hasActive = progress.activeJobs > 0;
   const pct = progress.totalMonths > 0 ? Math.round((progress.completedMonths / progress.totalMonths) * 100) : 0;
+  const neverStarted = progress.completedMonths === 0 && !hasFailed && !hasActive;
 
   return (
-    <div className="mt-4 bg-white rounded-lg border border-gray-200 p-4">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Historial completo</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {isComplete
-              ? `Todos los meses sincronizados (${progress.fromMonth} a ${progress.toMonth})`
-              : `${progress.completedMonths} de ${progress.totalMonths} meses completados (${progress.fromMonth} a ${progress.toMonth})`
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            {isComplete && !hasFailed ? (
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+            ) : hasActive ? (
+              <Loader2 className="w-5 h-5 text-purple-500 animate-spin" />
+            ) : hasFailed ? (
+              <AlertCircle className="w-5 h-5 text-red-500" />
+            ) : (
+              <Download className="w-5 h-5 text-gray-400" />
+            )}
+            Sincronización histórica
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            {neverStarted
+              ? `Descarga tus CFDIs del SAT desde ${progress.fromMonth} hasta ${progress.toMonth}.`
+              : isComplete && !hasFailed
+                ? `Todos los meses sincronizados (${progress.fromMonth} a ${progress.toMonth})`
+                : `${progress.completedMonths} de ${progress.totalMonths} meses completados (${progress.fromMonth} a ${progress.toMonth})`
             }
-            {progress.activeJobs > 0 && ` · ${progress.activeJobs} jobs activos`}
-            {hasFailed && ` · ${progress.failedJobs} jobs fallidos`}
+            {hasActive && ` · ${progress.activeJobs} en proceso`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {hasFailed && (
-            <button
-              onClick={() => triggerBackfill(false)}
-              disabled={backfilling}
-              className="px-3 py-1.5 bg-red-50 text-red-700 text-xs font-medium rounded-md hover:bg-red-100 border border-red-200 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Reintentar fallidos
-            </button>
-          )}
-          {!isComplete && !hasFailed && (
-            <button
-              onClick={() => triggerBackfill(false)}
-              disabled={backfilling}
-              className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-100 border border-purple-200 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              Descargar historico
-            </button>
-          )}
-          {isComplete && !hasFailed && (
-            <button
-              onClick={() => triggerBackfill(true)}
-              disabled={backfilling}
-              className="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-md hover:bg-amber-100 border border-amber-200 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Re-sincronizar XMLs
-            </button>
-          )}
-        </div>
+
+        {/* Auto-sync toggle */}
+        <button
+          onClick={toggleAutoSync}
+          disabled={acting}
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full border transition-colors ${
+            progress.autoSyncEnabled
+              ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+              : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
+          }`}
+          title={progress.autoSyncEnabled ? "Sincronización diaria activada" : "Sincronización diaria desactivada"}
+        >
+          <CalendarClock className="w-3.5 h-3.5" />
+          Auto-sync {progress.autoSyncEnabled ? "ON" : "OFF"}
+        </button>
       </div>
 
       {/* Progress bar */}
-      {!isComplete && (
-        <div className="mt-3 w-full bg-gray-200 rounded-full h-2 overflow-hidden flex">
+      {!neverStarted && !isComplete && (
+        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden flex">
           <div
             className="bg-purple-600 h-2 transition-all"
             style={{ width: `${pct}%` }}
           />
-          {hasFailed && (
+          {progress.failedMonths > 0 && (
             <div
               className="bg-red-400 h-2 transition-all"
-              style={{ width: `${Math.min(100 - pct, Math.round(((progress.failedMonths || 0) / progress.totalMonths) * 100))}%` }}
+              style={{ width: `${Math.min(100 - pct, Math.round((progress.failedMonths / progress.totalMonths) * 100))}%` }}
             />
           )}
         </div>
       )}
 
+      {/* Data completeness */}
+      {!neverStarted && (
+        <div className="flex gap-4 text-xs text-gray-500">
+          <span className="flex items-center gap-1">
+            <FileText className="w-3.5 h-3.5" />
+            {progress.metadataCount} CFDIs descargados
+          </span>
+          <span className="flex items-center gap-1">
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            {progress.detailCount} con detalle XML
+          </span>
+          {progress.missingXmlCount > 0 && (
+            <span className="flex items-center gap-1 text-amber-600">
+              <AlertCircle className="w-3.5 h-3.5" />
+              {progress.missingXmlCount} sin XML
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Start backfill (first time or incomplete) */}
+        {(neverStarted || (!isComplete && !hasFailed && !hasActive)) && (
+          <button
+            onClick={handleStartBackfill}
+            disabled={acting}
+            className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {neverStarted ? "Iniciar descarga histórica" : "Continuar descarga"}
+          </button>
+        )}
+
+        {/* Retry failed */}
+        {hasFailed && (
+          <button
+            onClick={handleRetryFailed}
+            disabled={acting}
+            className="px-3 py-1.5 bg-red-50 text-red-700 text-xs font-medium rounded-md hover:bg-red-100 border border-red-200 disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Reintentar {progress.failedJobs} fallido{progress.failedJobs !== 1 ? "s" : ""}
+          </button>
+        )}
+
+        {/* Show failed details toggle */}
+        {hasFailed && (
+          <button
+            onClick={() => setShowFailedDetails(!showFailedDetails)}
+            className="px-2 py-1.5 text-gray-500 text-xs hover:text-gray-700 flex items-center gap-1"
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showFailedDetails ? "rotate-180" : ""}`} />
+            Ver detalle
+          </button>
+        )}
+
+        {/* Re-sync XMLs (only when complete and no failures) */}
+        {isComplete && !hasFailed && !neverStarted && (
+          <button
+            onClick={handleForceResync}
+            disabled={acting}
+            className="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-md hover:bg-amber-100 border border-amber-200 disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Re-sincronizar XMLs
+          </button>
+        )}
+      </div>
+
+      {/* Failed jobs detail table */}
+      {showFailedDetails && hasFailed && (
+        <div className="bg-red-50 rounded-md border border-red-100 p-3">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-red-700">
+                <th className="text-left pb-1">Mes</th>
+                <th className="text-left pb-1">Dirección</th>
+                <th className="text-left pb-1">Tipo</th>
+                <th className="text-left pb-1">Error</th>
+              </tr>
+            </thead>
+            <tbody className="text-red-600">
+              {progress.failedJobDetails.map(fj => (
+                <tr key={fj.id} className="border-t border-red-100">
+                  <td className="py-1">{fj.month}</td>
+                  <td className="py-1">{fj.direction === "emitted" ? "Emitidos" : "Recibidos"}</td>
+                  <td className="py-1">{fj.requestType === "xml" ? "XML" : "Metadata"}</td>
+                  <td className="py-1 truncate max-w-[300px]" title={fj.lastError || ""}>
+                    {fj.is5002 ? "Límite SAT (se corrige automáticamente)" : (fj.lastError || "Error desconocido")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Danger zone: Reset total */}
+      {!neverStarted && (
+        <div className="pt-2 border-t border-gray-100">
+          {!showResetConfirm ? (
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
+            >
+              Reiniciar sincronización completa
+            </button>
+          ) : (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 space-y-2">
+              <p className="text-xs text-red-700 font-medium">
+                Esto eliminará todos los CFDIs descargados, detalles XML, pagos y alertas. Las entradas del libro mayor se desenlazarán. Los recibos de declaraciones se conservan.
+              </p>
+              <p className="text-xs text-red-600">
+                Se iniciará una descarga completa desde cero automáticamente.
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder='Escribe "REINICIAR" para confirmar'
+                  value={resetConfirmText}
+                  onChange={e => setResetConfirmText(e.target.value)}
+                  className="px-2 py-1 text-xs border border-red-300 rounded-md w-60 focus:ring-1 focus:ring-red-500"
+                />
+                <button
+                  onClick={handleResetTotal}
+                  disabled={acting || resetConfirmText !== "REINICIAR"}
+                  className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+                >
+                  {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                  Confirmar
+                </button>
+                <button
+                  onClick={() => { setShowResetConfirm(false); setResetConfirmText(""); }}
+                  className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Action message */}
       {message && (
-        <div className={`mt-3 p-2 rounded text-xs flex items-center gap-1.5 ${
+        <div className={`p-2 rounded text-xs flex items-center gap-1.5 ${
           message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
         }`}>
           {message.type === "success" ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
