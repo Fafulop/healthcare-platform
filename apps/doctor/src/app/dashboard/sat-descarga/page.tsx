@@ -419,6 +419,19 @@ function SyncStatusPanel() {
     }
   };
 
+  const handleResyncMissing = async () => {
+    const result = await doAction({ resyncMissing: true });
+    if (result) {
+      setMessage({
+        type: "success",
+        text: result.reset > 0
+          ? `${result.reset} jobs reiniciados para ${result.months} mes(es) con XMLs faltantes. Se procesarán automáticamente.`
+          : result.message || "No hay XMLs faltantes.",
+      });
+      fetchProgress();
+    }
+  };
+
   const handleForceResync = async () => {
     const result = await doAction({ fromMonth: "2025-01", force: true });
     if (result) {
@@ -590,7 +603,19 @@ function SyncStatusPanel() {
           </button>
         )}
 
-        {/* Re-sync XMLs (only when complete and no failures) */}
+        {/* Re-sync only missing XMLs (targeted) */}
+        {isComplete && !hasFailed && !neverStarted && progress.missingXmlCount > 0 && (
+          <button
+            onClick={handleResyncMissing}
+            disabled={acting}
+            className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-100 border border-purple-200 disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            Descargar {progress.missingXmlCount} XML{progress.missingXmlCount !== 1 ? "s" : ""} faltante{progress.missingXmlCount !== 1 ? "s" : ""}
+          </button>
+        )}
+
+        {/* Re-sync ALL XMLs (nuclear option) */}
         {isComplete && !hasFailed && !neverStarted && (
           <button
             onClick={handleForceResync}
@@ -598,7 +623,7 @@ function SyncStatusPanel() {
             className="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-md hover:bg-amber-100 border border-amber-200 disabled:opacity-50 flex items-center gap-1.5"
           >
             {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            Re-sincronizar XMLs
+            Re-sincronizar todos los XMLs
           </button>
         )}
       </div>

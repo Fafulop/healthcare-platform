@@ -164,6 +164,64 @@ export async function POST(request: NextRequest) {
     }
 
     // -----------------------------------------------------------------------
+    // Mode: resyncMissing — only re-sync months with missing vigente XMLs
+    // -----------------------------------------------------------------------
+    if (body.resyncMissing === true) {
+      // Find months that have vigente metadata without XML details
+      const missingMonths = await prisma.$queryRaw<Array<{ month_start: Date }>>`
+        SELECT DISTINCT date_trunc('month', m.issued_at)::date as month_start
+        FROM practice_management.sat_cfdi_metadata m
+        LEFT JOIN practice_management.sat_cfdi_details d
+          ON LOWER(m.uuid) = LOWER(d.uuid) AND m.doctor_id = d.doctor_id
+        WHERE m.doctor_id = ${doctor.id}
+          AND d.id IS NULL
+          AND m.sat_status != 'Cancelado'
+      `;
+
+      if (missingMonths.length === 0) {
+        return NextResponse.json({
+          data: { reset: 0, message: 'No hay XMLs faltantes de CFDIs vigentes.' },
+        });
+      }
+
+      // Bump offset for fresh SAT requests
+      await prisma.doctorFiscalProfile.update({
+        where: { doctorId: doctor.id },
+        data: { xmlOffsetSeconds: { increment: 1 } },
+      });
+
+      let reset = 0;
+      for (const { month_start } of missingMonths) {
+        const dateFrom = new Date(Date.UTC(month_start.getFullYear(), month_start.getMonth(), 1));
+
+        for (const direction of ['received', 'emitted'] as const) {
+          const existingJob = await prisma.satSyncJob.findFirst({
+            where: {
+              doctorId: doctor.id,
+              direction,
+              requestType: 'xml',
+              dateFrom,
+              status: 'completed',
+            },
+          });
+
+          if (existingJob) {
+            const { dateTo } = getDateRange(dateFrom.getUTCFullYear(), dateFrom.getUTCMonth(), nowMx);
+            await prisma.satSyncJob.update({
+              where: { id: existingJob.id },
+              data: { ...JOB_RESET_DATA, dateTo },
+            });
+            reset++;
+          }
+        }
+      }
+
+      return NextResponse.json({
+        data: { reset, months: missingMonths.length },
+      });
+    }
+
+    // -----------------------------------------------------------------------
     // Mode: force — reset all completed XML jobs for re-download
     // -----------------------------------------------------------------------
     if (force) {
@@ -424,11 +482,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Data completeness: metadata records vs XML details
+    // Data completeness: use proper JOIN to count missing XMLs
+    // Exclude Cancelado from "missing" — SAT won't serve XMLs for cancelled received CFDIs
     const [metadataCount, detailCount] = await Promise.all([
       prisma.satCfdiMetadata.count({ where: { doctorId: doctor.id } }),
       prisma.satCfdiDetail.count({ where: { doctorId: doctor.id } }),
     ]);
+
+    const missingXmlResult = await prisma.$queryRaw<[{ count: number }]>`
+      SELECT COUNT(*)::int as count
+      FROM practice_management.sat_cfdi_metadata m
+      LEFT JOIN practice_management.sat_cfdi_details d
+        ON LOWER(m.uuid) = LOWER(d.uuid) AND m.doctor_id = d.doctor_id
+      WHERE m.doctor_id = ${doctor.id}
+        AND d.id IS NULL
+        AND m.sat_status != 'Cancelado'
+    `;
+    const missingXmlCount = missingXmlResult[0]?.count ?? 0;
 
     // Auto-sync status
     const profile = await prisma.doctorFiscalProfile.findUnique({
@@ -450,7 +520,7 @@ export async function GET(request: NextRequest) {
         // Data completeness
         metadataCount,
         detailCount,
-        missingXmlCount: Math.max(0, metadataCount - detailCount),
+        missingXmlCount,
         // Config
         autoSyncEnabled: profile?.autoSyncEnabled ?? false,
         xmlOffsetSeconds: profile?.xmlOffsetSeconds ?? 0,
