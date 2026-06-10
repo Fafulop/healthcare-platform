@@ -2694,6 +2694,62 @@ function PpdPagosTab() {
           </div>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          IMPORTANTE: Impacto fiscal de facturas PPD
+          ═══════════════════════════════════════════════════════════════════ */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 space-y-4 text-sm text-gray-700">
+        <h4 className="font-bold text-amber-900 text-base flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-amber-600" />
+          Impacto fiscal de las facturas PPD
+        </h4>
+
+        <div className="space-y-3">
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">¿Cuándo se acumula el ingreso o se deduce el gasto?</p>
+            <p className="text-gray-600 text-xs leading-relaxed">
+              Las personas físicas (régimen 612 y RESICO 626) operan en <strong>base de flujo de efectivo</strong> (Art. 102 LISR):
+              el ingreso se acumula cuando se <strong>cobra</strong>, no cuando se factura. Igualmente, las deducciones se reconocen cuando se <strong>pagan</strong> (Art. 105 LISR).
+            </p>
+            <p className="text-gray-600 text-xs leading-relaxed mt-1">
+              Para facturas PPD, el <strong>complemento de pago</strong> es la prueba fiscal de que el cobro/pago ocurrió. Sin complemento, el SAT considera que el pago <strong>no ha sido comprobado</strong>.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-white border border-amber-100 rounded-lg p-3">
+              <p className="font-semibold text-purple-800 text-xs mb-1">Facturas PPD que emitiste (ingresos)</p>
+              <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4">
+                <li><strong>Con complemento:</strong> El ingreso se acumula en el mes del pago (fecha del complemento)</li>
+                <li><strong>Sin complemento:</strong> No se considera ingreso cobrado — no se incluye en ISR ni IVA</li>
+              </ul>
+            </div>
+            <div className="bg-white border border-amber-100 rounded-lg p-3">
+              <p className="font-semibold text-blue-800 text-xs mb-1">Facturas PPD que recibiste (gastos)</p>
+              <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4">
+                <li><strong>Con complemento:</strong> Deducible en el mes del pago. IVA acreditable.</li>
+                <li><strong>Sin complemento:</strong> <strong className="text-red-700">No deducible</strong> para ISR (Art. 27 frac. III LISR). IVA no acreditable.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-1">¿Qué hacer si pagaste pero no recibes el complemento?</p>
+            <p className="text-gray-600 text-xs leading-relaxed">
+              El complemento lo emite tu <strong>proveedor</strong>, no tú. Si no lo emite a pesar de haberle pagado:
+            </p>
+            <ol className="text-xs text-gray-600 space-y-1 list-decimal pl-4 mt-1">
+              <li><strong>Exige el complemento</strong> al proveedor — tiene obligación legal de emitirlo en máximo 5 días naturales del mes siguiente al pago.</li>
+              <li><strong>Denuncia ante el SAT</strong> — Puedes presentar queja en el portal del SAT o llamar al 55-88-52-22-22. El SAT puede multar al proveedor ($450-$670 MXN por complemento, Art. 84 CFF).</li>
+              <li><strong>Estado de cuenta bancario</strong> como prueba alternativa — Art. 29-B frac. II del CFF permite usar estados de cuenta como comprobante fiscal, siempre que muestren el RFC de ambas partes y la transacción esté en tu contabilidad. Es un recurso de <strong>última instancia</strong>.</li>
+            </ol>
+          </div>
+
+          <div className="bg-amber-100/60 rounded p-3 text-xs text-amber-800">
+            <strong>Importante:</strong> Las facturas PPD pendientes que ves arriba en rojo <strong>no se incluyen</strong> en el cálculo de ISR/IVA de la pestaña Declaraciones hasta que tengan complemento de pago vinculado. Si ya pagaste, asegúrate de que tu proveedor emita el REP para poder deducir el gasto.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

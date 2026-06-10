@@ -352,9 +352,47 @@ Todos los de RESICO (G01-G03, I01-I08, S01) **MAS:**
 - Cada pago parcial requiere su propio complemento
 - CFDI "sobre": SubTotal=0, Total=0, UsoCFDI=CP01, sin MetodoPago
 - **Aplica identicamente para ambos regimenes (626 y 612)**
+- A partir de 2025, **NO existe facilidad** para omitir el complemento (la excepcion anterior fue eliminada)
 
 **Campos obligatorios:**
 FechaPago, FormaDePagoP, MonedaP, Monto, IdDocumento (UUID original), NumParcialidad, ImpSaldoAnt, ImpPagado, ImpSaldoInsoluto, ObjetoImpDR
+
+### PPD y momento de acumulacion de ingresos/deducciones
+
+**Base legal:** Art. 102 LISR (PF acumulan ingresos cuando son **efectivamente cobrados**), Art. 105 LISR (deducciones cuando son **efectivamente pagadas**), Art. 27 frac. III LISR (deduccion requiere comprobante de pago).
+
+Las personas fisicas (tanto 612 como 626 RESICO) operan en **base de flujo de efectivo**. Esto tiene implicaciones directas para facturas PPD:
+
+#### Ingresos (facturas PPD emitidas)
+
+| Escenario | Tratamiento ISR | Tratamiento IVA |
+|---|---|---|
+| PPD emitida, **con** complemento de pago | Ingreso acumulable en el **mes del pago** (fecha del complemento) | IVA trasladado en el mes del pago |
+| PPD emitida, **sin** complemento (no cobrada) | **NO** se acumula — ingreso no comprobado como recibido | **NO** se considera IVA cobrado |
+| PUE emitida | Ingreso acumulable en el mes de emision | IVA trasladado en el mes de emision |
+
+#### Deducciones (facturas PPD recibidas)
+
+| Escenario | Tratamiento ISR (612) | Tratamiento IVA (ambos) |
+|---|---|---|
+| PPD recibida, **con** complemento de pago | Deducible en el **mes del pago** | IVA acreditable en el mes del pago |
+| PPD recibida, **sin** complemento (pagada pero sin REP) | **NO deducible** — Art. 27 frac. III LISR requiere comprobante de pago | **NO acreditable** — Art. 5 frac. II LIVA |
+| PPD recibida, sin complemento (no pagada) | No deducible (gasto no efectuado) | No acreditable |
+| PUE recibida | Deducible en el mes de emision | IVA acreditable en el mes de emision |
+
+#### Problema: pago realizado pero proveedor no emite complemento
+
+El receptor de una factura PPD **no controla** la emision del complemento — depende del proveedor. Si el proveedor no lo emite:
+
+1. **Exigir al proveedor:** Solicitar formalmente el complemento. El proveedor tiene obligacion legal de emitirlo (Art. 29-A frac. VII inciso b CFF).
+2. **Denuncia ante SAT:** Presentar queja en [sat.gob.mx/quejas](https://www.sat.gob.mx/aplicacion/50409/presenta-tu-queja-o-denuncia) o al 55-88-52-22-22. El SAT puede sancionar al proveedor con multa de $450-$670 MXN por complemento no emitido (Art. 84 frac. IV inciso D CFF).
+3. **Estado de cuenta bancario como prueba alternativa:** Art. 29-B frac. II del CFF permite usar estados de cuenta bancarios como comprobante fiscal alternativo para deducciones, siempre que:
+   - El estado muestre el RFC de ambas partes
+   - La transaccion este debidamente registrada en contabilidad
+   - Se trate de actividades gravadas dentro de los montos maximos que establezca el SAT
+4. **Limitacion:** La via del estado de cuenta bancario es un recurso de ultima instancia. Los auditores del SAT prefieren el complemento, y el acreditamiento de IVA puede no estar cubierto solo con el estado de cuenta.
+
+> **Recomendacion para la app:** Las facturas PPD recibidas sin complemento deben mostrarse como **"Pendiente de complemento — no deducible aun"**, NO excluirse silenciosamente. El doctor necesita visibilidad para exigir el REP al proveedor.
 
 ### Notas de credito (CFDI Egreso)
 
