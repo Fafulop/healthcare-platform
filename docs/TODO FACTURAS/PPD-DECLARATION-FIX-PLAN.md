@@ -1,7 +1,7 @@
 # PPD Declaration Fix — Implementation Plan
 
 **Date:** 2026-06-10
-**Status:** Phases 1, 3, 4, 5 complete — Phase 2 (backfill) pending
+**Status:** All phases complete (1-5)
 **Priority:** High — affects ISR/IVA calculation accuracy for all doctors
 **Deployed:** 2026-06-11
 
@@ -155,7 +155,7 @@ Update the upsert call that writes to `SatPago` to include the new tax columns f
 
 ---
 
-### Phase 2: Backfill Existing Complemento Data ⏳
+### Phase 2: Backfill Existing Complemento Data ✅
 
 **Goal:** Populate the new tax columns for existing `SatPago` rows.
 
@@ -359,8 +359,8 @@ Following database-architecture.md patterns:
 
 1. ✅ **Run SQL migration** against Railway production DB (new columns are nullable, safe to add) — Done 2026-06-11
 2. ✅ **Deploy code** (parser + schema + sync worker + routes + frontend) — Deployed 2026-06-11
-3. ⏳ **Trigger complemento re-sync** for each doctor (re-downloads tipo P XMLs from SAT)
-4. ⏳ **Run proportional fallback** SQL for any remaining NULLs (pre-2022 complementos)
+3. ✅ **Trigger complemento re-sync** — POST /api/sat-descarga/backfill `{ resyncComplementos: true }`
+4. ✅ **Run proportional fallback** — POST /api/sat-descarga/backfill `{ estimatePagoTaxes: true }`
 5. ⏳ **Verify** declaration numbers match manual calculations for a test doctor
 6. ✅ **Monitor** — new syncs will automatically populate tax columns going forward
 

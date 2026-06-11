@@ -51,12 +51,15 @@ const JOB_RESET_DATA = {
 /**
  * POST /api/sat-descarga/backfill — Create/retry sync jobs
  *
- * Body: { fromMonth?: "YYYY-MM", retryFailed?: boolean, resyncMissing?: boolean }
+ * Body: { fromMonth?: "YYYY-MM", retryFailed?: boolean, resyncMissing?: boolean,
+ *         resyncComplementos?: boolean, estimatePagoTaxes?: boolean }
  *
  * Modes:
  * - Default: create missing jobs for months without completed jobs
  * - retryFailed=true: reset genuinely failed jobs (not orphans, auto-bumps offset for 5002)
  * - resyncMissing=true: re-sync only months with missing vigente XMLs
+ * - resyncComplementos=true: re-download complemento XMLs to populate ImpuestosDR tax columns
+ * - estimatePagoTaxes=true: proportional fallback for remaining NULL tax columns (post re-sync)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -217,6 +220,89 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         data: { reset, months: missingMonths.length },
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // Mode: resyncComplementos — re-download complemento XMLs to populate
+    // per-payment tax columns (base_dr, iva_trasladado_dr, etc.)
+    // -----------------------------------------------------------------------
+    if (body.resyncComplementos === true) {
+      // Find months where complemento CFDIs were issued but have NULL tax columns
+      const monthsWithMissingTax = await prisma.$queryRaw<Array<{ month_start: Date; direction: string }>>`
+        SELECT DISTINCT
+          date_trunc('month', m.issued_at)::date AS month_start,
+          m.direction
+        FROM practice_management.sat_pagos p
+        JOIN practice_management.sat_cfdi_metadata m
+          ON m.doctor_id = p.doctor_id AND LOWER(m.uuid) = LOWER(p.pago_uuid)
+        WHERE p.doctor_id = ${doctor.id}
+          AND p.base_dr IS NULL
+      `;
+
+      if (monthsWithMissingTax.length === 0) {
+        return NextResponse.json({
+          data: { reset: 0, message: 'Todos los complementos ya tienen datos fiscales.' },
+        });
+      }
+
+      // Bump offset for fresh SAT requests
+      await prisma.doctorFiscalProfile.update({
+        where: { doctorId: doctor.id },
+        data: { xmlOffsetSeconds: { increment: 1 } },
+      });
+
+      let reset = 0;
+      for (const { month_start, direction } of monthsWithMissingTax) {
+        const dateFrom = new Date(Date.UTC(month_start.getFullYear(), month_start.getMonth(), 1));
+
+        const existingJob = await prisma.satSyncJob.findFirst({
+          where: {
+            doctorId: doctor.id,
+            direction,
+            requestType: 'xml',
+            dateFrom,
+            status: 'completed',
+          },
+        });
+
+        if (existingJob) {
+          const { dateTo } = getDateRange(dateFrom.getUTCFullYear(), dateFrom.getUTCMonth(), nowMx);
+          await prisma.satSyncJob.update({
+            where: { id: existingJob.id },
+            data: { ...JOB_RESET_DATA, dateTo },
+          });
+          reset++;
+        }
+      }
+
+      return NextResponse.json({
+        data: { reset, monthsAffected: monthsWithMissingTax.length },
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // Mode: estimatePagoTaxes — proportional fallback for complementos
+    // without ImpuestosDR (pre-2022 Pagos 1.0)
+    // -----------------------------------------------------------------------
+    if (body.estimatePagoTaxes === true) {
+      const result = await prisma.$executeRaw`
+        UPDATE practice_management.sat_pagos p
+        SET
+          base_dr = (p.monto_pagado / d.total) * d.subtotal,
+          iva_trasladado_dr = (p.monto_pagado / d.total) * d.iva_trasladado,
+          isr_retenido_dr = (p.monto_pagado / d.total) * d.isr_retenido,
+          iva_retenido_dr = (p.monto_pagado / d.total) * d.iva_retenido
+        FROM practice_management.sat_cfdi_details d
+        WHERE LOWER(d.uuid) = LOWER(p.factura_uuid)
+          AND d.doctor_id = p.doctor_id
+          AND p.doctor_id = ${doctor.id}
+          AND p.base_dr IS NULL
+          AND d.total > 0
+      `;
+
+      return NextResponse.json({
+        data: { updated: result },
       });
     }
 
