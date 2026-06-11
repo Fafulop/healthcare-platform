@@ -141,12 +141,12 @@ export default function SatDescargaPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6 mt-6">
-        <div className="flex gap-6">
-          <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs Descargados" />
+      <div className="border-b border-gray-200 mb-6 mt-6 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-4 sm:gap-6 min-w-max">
+          <TabBtn active={activeTab === "cfdi"} onClick={() => setActiveTab("cfdi")} label="CFDIs" labelFull="CFDIs Descargados" />
           <TabBtn active={activeTab === "deducciones"} onClick={() => setActiveTab("deducciones")} label="Deducciones" />
-          <TabBtn active={activeTab === "ppd"} onClick={() => setActiveTab("ppd")} label="PPD / Pagos" />
-          <TabBtn active={activeTab === "declaraciones"} onClick={() => setActiveTab("declaraciones")} label="Declaraciones" />
+          <TabBtn active={activeTab === "ppd"} onClick={() => setActiveTab("ppd")} label="PPD" labelFull="PPD / Pagos" />
+          <TabBtn active={activeTab === "declaraciones"} onClick={() => setActiveTab("declaraciones")} label="Declar." labelFull="Declaraciones" />
           <TabBtn active={activeTab === "guia"} onClick={() => setActiveTab("guia")} label="Guia" />
           <TabBtn active={activeTab === "ayuda"} onClick={() => setActiveTab("ayuda")} label="Ayuda" />
         </div>
@@ -275,15 +275,20 @@ function FiscalCalendarBanner() {
 
 // ---------------------------------------------------------------------------
 
-function TabBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+function TabBtn({ active, onClick, label, labelFull }: { active: boolean; onClick: () => void; label: string; labelFull?: string }) {
   return (
     <button
       onClick={onClick}
-      className={`px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+      className={`px-1 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
         active ? "border-purple-600 text-purple-600" : "border-transparent text-gray-500 hover:text-gray-700"
       }`}
     >
-      {label}
+      {labelFull ? (
+        <>
+          <span className="sm:hidden">{label}</span>
+          <span className="hidden sm:inline">{labelFull}</span>
+        </>
+      ) : label}
     </button>
   );
 }
@@ -2147,8 +2152,8 @@ function DeduccionesTab() {
                                 <>
                                   {monthCfdis.map((cfdi) => (
                                     <div key={cfdi.uuid} className="flex items-center gap-2 py-1.5 px-2 text-xs rounded hover:bg-white">
-                                      <div className="flex-1 min-w-0">
-                                        <span className="text-gray-700 font-medium truncate block">
+                                      <div className="flex-1 min-w-0 max-w-[200px] sm:max-w-[300px]">
+                                        <span className="text-gray-700 font-medium truncate block" title={cfdi.issuerName || cfdi.issuerRfc}>
                                           {cfdi.issuerName || cfdi.issuerRfc}
                                         </span>
                                         <span className="text-gray-400">
@@ -2285,8 +2290,8 @@ function DeduccionesTab() {
                       <div className="space-y-1">
                         {cat.cfdiSamples.map((cfdi, i) => (
                           <div key={i} className="flex items-center gap-2 py-1.5 px-2 text-xs rounded hover:bg-white">
-                            <div className="flex-1 min-w-0">
-                              <span className="text-gray-700 font-medium truncate block">
+                            <div className="flex-1 min-w-0 max-w-[200px] sm:max-w-[300px]">
+                              <span className="text-gray-700 font-medium truncate block" title={cfdi.issuerName || cfdi.issuerRfc}>
                                 {cfdi.issuerName || cfdi.issuerRfc}
                               </span>
                               <span className="text-gray-400">
