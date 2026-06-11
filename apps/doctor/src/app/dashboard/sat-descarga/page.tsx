@@ -2305,12 +2305,14 @@ function DeduccionesTab() {
             {data.alerts.map((alert, i) => (
               <div key={i} className={`flex items-center gap-3 px-4 py-3 text-sm ${
                 alert.type === 'cash_over_2k' || alert.type === 'sin_efectos' ? 'text-red-700' :
+                alert.type === 'ppd_sin_complemento' ? 'text-orange-700' :
                 alert.type === 'sin_clasificar' ? 'text-amber-700' :
                 alert.type === 'no_xml' ? 'text-gray-600' :
                 'text-amber-700'
               }`}>
                 <AlertCircle className={`w-4 h-4 shrink-0 ${
                   alert.type === 'cash_over_2k' || alert.type === 'sin_efectos' ? 'text-red-500' :
+                  alert.type === 'ppd_sin_complemento' ? 'text-orange-500' :
                   alert.type === 'sin_clasificar' ? 'text-amber-500' :
                   alert.type === 'no_xml' ? 'text-gray-400' :
                   'text-amber-500'
@@ -3194,6 +3196,12 @@ interface DeclarationResponse {
     ivaAPagar: number;
     isrRetenido: number;
   };
+  ppdExcluded: {
+    emitted: number;
+    emittedSubtotal: number;
+    received: number;
+    receivedSubtotal: number;
+  };
   isrTable: string;
   annualReceipt: DeclarationReceipt | null;
 }
@@ -3332,6 +3340,34 @@ function DeclaracionesTab() {
           ? ' — RESICO: ISR es tasa fija sobre ingresos brutos mensuales. No se deducen gastos para ISR.'
           : ' — Actividad Empresarial: ISR provisional acumulado con tabla progresiva Art. 96 LISR.'}
       </div>
+
+      {/* PPD exclusion banners */}
+      {(data.ppdExcluded.emitted > 0 || data.ppdExcluded.received > 0) && (
+        <div className="space-y-2">
+          {data.ppdExcluded.emitted > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+              <div>
+                <p className="font-medium">{data.ppdExcluded.emitted} factura(s) PPD emitida(s) sin complemento excluida(s) de ingresos</p>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  Subtotal excluido: {fmt(data.ppdExcluded.emittedSubtotal)} — Se incluiran cuando emitas el complemento de pago.
+                </p>
+              </div>
+            </div>
+          )}
+          {data.ppdExcluded.received > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+              <div>
+                <p className="font-medium">{data.ppdExcluded.received} factura(s) PPD recibida(s) sin complemento excluida(s) de deducciones</p>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  Subtotal excluido: {fmt(data.ppdExcluded.receivedSubtotal)} — No deducibles hasta que el proveedor emita el complemento de pago.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Annual summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
