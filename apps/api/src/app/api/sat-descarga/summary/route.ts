@@ -18,43 +18,68 @@ export async function GET(request: NextRequest) {
 
     const year = parseInt(url.searchParams.get('year') || String(new Date().getFullYear()), 10);
 
-    // Raw query: join details with metadata to get direction and issuedAt
-    // Group by month and direction, sum financial fields
-    const rows = await prisma.$queryRaw<Array<{
+    // --- Cash-basis queries: PUE at invoice date, PPD at payment date ---
+    type MonthRow = {
       month: number;
       direction: string;
       efecto: string;
       count: bigint;
       sum_subtotal: number | null;
-      sum_descuento: number | null;
       sum_total: number | null;
       sum_iva_trasladado: number | null;
       sum_isr_retenido: number | null;
       sum_iva_retenido: number | null;
-      sum_ieps: number | null;
-    }>>`
+    };
+
+    // Query 1: PUE invoices — count at invoice date
+    const pueRows = prisma.$queryRaw<MonthRow[]>`
       SELECT
         EXTRACT(MONTH FROM m.issued_at)::int AS month,
-        m.direction,
-        m.efecto,
+        m.direction, m.efecto,
         COUNT(*)::bigint AS count,
         SUM(d.subtotal)::float AS sum_subtotal,
-        SUM(d.descuento)::float AS sum_descuento,
         SUM(d.total)::float AS sum_total,
         SUM(d.iva_trasladado)::float AS sum_iva_trasladado,
         SUM(d.isr_retenido)::float AS sum_isr_retenido,
-        SUM(d.iva_retenido)::float AS sum_iva_retenido,
-        SUM(d.ieps)::float AS sum_ieps
+        SUM(d.iva_retenido)::float AS sum_iva_retenido
       FROM practice_management.sat_cfdi_details d
       JOIN practice_management.sat_cfdi_metadata m
         ON m.doctor_id = d.doctor_id AND LOWER(m.uuid) = LOWER(d.uuid)
       WHERE d.doctor_id = ${doctor.id}
         AND m.sat_status = 'Vigente'
         AND m.efecto IN ('I', 'E')
+        AND (d.metodo_pago = 'PUE' OR d.metodo_pago IS NULL)
         AND EXTRACT(YEAR FROM m.issued_at) = ${year}
       GROUP BY EXTRACT(MONTH FROM m.issued_at), m.direction, m.efecto
-      ORDER BY month, direction, efecto
     `;
+
+    // Query 2: PPD invoices WITH complemento — count at payment date
+    const ppdRows = prisma.$queryRaw<MonthRow[]>`
+      SELECT
+        EXTRACT(MONTH FROM p.fecha_pago)::int AS month,
+        m.direction, m.efecto,
+        COUNT(DISTINCT p.id)::bigint AS count,
+        SUM(COALESCE(p.base_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.subtotal))::float AS sum_subtotal,
+        SUM(p.monto_pagado)::float AS sum_total,
+        SUM(COALESCE(p.iva_trasladado_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.iva_trasladado))::float AS sum_iva_trasladado,
+        SUM(COALESCE(p.isr_retenido_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.isr_retenido))::float AS sum_isr_retenido,
+        SUM(COALESCE(p.iva_retenido_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.iva_retenido))::float AS sum_iva_retenido
+      FROM practice_management.sat_pagos p
+      JOIN practice_management.sat_cfdi_metadata m
+        ON m.doctor_id = p.doctor_id AND LOWER(m.uuid) = LOWER(p.factura_uuid)
+      JOIN practice_management.sat_cfdi_details d
+        ON d.doctor_id = p.doctor_id AND LOWER(d.uuid) = LOWER(p.factura_uuid)
+      WHERE p.doctor_id = ${doctor.id}
+        AND m.sat_status = 'Vigente'
+        AND m.efecto IN ('I', 'E')
+        AND p.unlinked_at IS NULL
+        AND p.fecha_pago IS NOT NULL
+        AND EXTRACT(YEAR FROM p.fecha_pago) = ${year}
+      GROUP BY EXTRACT(MONTH FROM p.fecha_pago), m.direction, m.efecto
+    `;
+
+    const [rows1, rows2] = await Promise.all([pueRows, ppdRows]);
+    const rows: MonthRow[] = [...rows1, ...rows2];
 
     // Transform into structured response
     const months: Record<number, {

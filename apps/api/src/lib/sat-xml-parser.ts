@@ -274,6 +274,10 @@ export interface PagoDoctoRelacionado {
   saldoAnterior: number | null;
   saldoInsoluto: number | null;
   numParcialidad: number | null;
+  baseDr: number | null;
+  ivaTrasladadoDr: number | null;
+  isrRetenidoDr: number | null;
+  ivaRetenidoDr: number | null;
 }
 
 export interface PagoComplement {
@@ -314,12 +318,43 @@ export function parsePagoComplement(xml: string): PagoComplement | null {
     monto = monto || getAttrNum(attrs, 'Monto');
 
     // Extract DoctoRelacionado nodes (may contain child elements like ImpuestosDR)
-    const docRegex = /<[^>]*:?DoctoRelacionado\s([^>]+?)(?:\/>|>[\s\S]*?<\/[^>]*:?DoctoRelacionado>)/gi;
+    const docRegex = /<[^>]*:?DoctoRelacionado\s([^>]+?)(?:\/>|>([\s\S]*?)<\/[^>]*:?DoctoRelacionado>)/gi;
     let docMatch;
     while ((docMatch = docRegex.exec(body)) !== null) {
       const docAttrs = docMatch[1];
+      const docBody = docMatch[2] || '';
       const idDocumento = getAttr(docAttrs, 'IdDocumento');
       if (!idDocumento) continue;
+
+      // Extract ImpuestosDR tax breakdown (Complemento de Pagos 2.0)
+      let baseDr: number | null = null;
+      let ivaTrasladadoDr: number | null = null;
+      let isrRetenidoDr: number | null = null;
+      let ivaRetenidoDr: number | null = null;
+
+      // TrasladoDR: IVA trasladado (Impuesto="002")
+      const trasladoRegex = /<[^>]*:?TrasladoDR\s([^>]+?)\/?\s*>/gi;
+      let tMatch;
+      while ((tMatch = trasladoRegex.exec(docBody)) !== null) {
+        const tAttrs = tMatch[1];
+        if (getAttr(tAttrs, 'ImpuestoDR') === '002') {
+          baseDr = getAttrNum(tAttrs, 'BaseDR');
+          ivaTrasladadoDr = getAttrNum(tAttrs, 'ImporteDR');
+        }
+      }
+
+      // RetencionDR: ISR retenido (Impuesto="001"), IVA retenido (Impuesto="002")
+      const retencionRegex = /<[^>]*:?RetencionDR\s([^>]+?)\/?\s*>/gi;
+      let rMatch;
+      while ((rMatch = retencionRegex.exec(docBody)) !== null) {
+        const rAttrs = rMatch[1];
+        const impuesto = getAttr(rAttrs, 'ImpuestoDR');
+        if (impuesto === '001') {
+          isrRetenidoDr = getAttrNum(rAttrs, 'ImporteDR');
+        } else if (impuesto === '002') {
+          ivaRetenidoDr = getAttrNum(rAttrs, 'ImporteDR');
+        }
+      }
 
       documentos.push({
         facturaUuid: idDocumento.toLowerCase(),
@@ -329,6 +364,10 @@ export function parsePagoComplement(xml: string): PagoComplement | null {
         saldoAnterior: getAttrNum(docAttrs, 'ImpSaldoAnt'),
         saldoInsoluto: getAttrNum(docAttrs, 'ImpSaldoInsoluto'),
         numParcialidad: getAttrNum(docAttrs, 'NumParcialidad'),
+        baseDr,
+        ivaTrasladadoDr,
+        isrRetenidoDr,
+        ivaRetenidoDr,
       });
     }
   }

@@ -292,7 +292,8 @@ export type DeductibilityFlagType =
   | 'foreign_currency'
   | 'sin_efectos'
   | 'deduccion_personal_resico'
-  | 'sin_clasificar';
+  | 'sin_clasificar'
+  | 'ppd_sin_complemento';
 
 export interface DeductibilityFlag {
   type: DeductibilityFlagType;

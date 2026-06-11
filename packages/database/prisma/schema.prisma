@@ -2699,6 +2699,10 @@ model SatPago {
   saldoAnterior   Decimal?  @map("saldo_anterior") @db.Decimal(14, 2)
   saldoInsoluto   Decimal?  @map("saldo_insoluto") @db.Decimal(14, 2)
   numParcialidad  Int?      @map("num_parcialidad")
+  baseDr          Decimal?  @map("base_dr") @db.Decimal(14, 2)
+  ivaTrasladadoDr Decimal?  @map("iva_trasladado_dr") @db.Decimal(14, 2)
+  isrRetenidoDr   Decimal?  @map("isr_retenido_dr") @db.Decimal(14, 2)
+  ivaRetenidoDr   Decimal?  @map("iva_retenido_dr") @db.Decimal(14, 2)
   source          String    @default("auto") @db.VarChar(10) // 'auto' | 'manual'
   unlinkedAt      DateTime? @map("unlinked_at")
   createdAt       DateTime  @default(now()) @map("created_at")

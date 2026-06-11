@@ -41,27 +41,93 @@ export async function GET(request: NextRequest) {
     });
     const regimenFiscal = fiscalProfile?.regimenFiscal || '612';
 
-    // Fetch all received Vigente CFDIs for the year, with details and conceptos
-    const cfdis = await prisma.satCfdiMetadata.findMany({
+    // Fetch received Vigente CFDIs: PUE/null by issuedAt, PPD by payment date
+    // This ensures cross-year PPD invoices are included when paid in the target year
+    const cfdiSelect = {
+      uuid: true,
+      issuerRfc: true,
+      issuerName: true,
+      monto: true,
+      issuedAt: true,
+      satStatus: true,
+    } as const;
+
+    // PUE + unknown: count at invoice date
+    const pueCfdis = await prisma.satCfdiMetadata.findMany({
       where: {
         doctorId: doctor.id,
         direction: 'received',
         satStatus: 'Vigente',
-        efecto: 'I', // Only Ingreso (expenses you paid for). Egresos handled separately.
+        efecto: 'I',
         issuedAt: {
           gte: new Date(`${year}-01-01T00:00:00Z`),
           lt: new Date(`${year + 1}-01-01T00:00:00Z`),
         },
       },
-      select: {
-        uuid: true,
-        issuerRfc: true,
-        issuerName: true,
-        monto: true,
-        issuedAt: true,
-        satStatus: true,
-      },
+      select: cfdiSelect,
     });
+
+    // PPD invoices that have payments in the target year (regardless of invoice date)
+    const ppdPagosInYear = await prisma.satPago.findMany({
+      where: {
+        doctorId: doctor.id,
+        unlinkedAt: null,
+        fechaPago: {
+          gte: new Date(`${year}-01-01T00:00:00Z`),
+          lt: new Date(`${year + 1}-01-01T00:00:00Z`),
+        },
+      },
+      select: { facturaUuid: true, fechaPago: true },
+    });
+    // Map factura UUID → earliest payment date in year (for monthly bucketing)
+    const ppdPaymentMonth = new Map<string, number>();
+    for (const p of ppdPagosInYear) {
+      const uuid = p.facturaUuid.toLowerCase();
+      if (p.fechaPago) {
+        const month = p.fechaPago.getMonth() + 1;
+        // Use earliest payment month for the CFDI
+        if (!ppdPaymentMonth.has(uuid) || month < ppdPaymentMonth.get(uuid)!) {
+          ppdPaymentMonth.set(uuid, month);
+        }
+      }
+    }
+    const ppdUuidsWithPayment = [...new Set(ppdPagosInYear.map(p => p.facturaUuid.toLowerCase()))];
+
+    // Fetch PPD invoice metadata (may be from previous years)
+    // SAT metadata stores UUIDs uppercase, SatPago stores lowercase — query both cases
+    const ppdCfdis = ppdUuidsWithPayment.length > 0
+      ? await prisma.satCfdiMetadata.findMany({
+          where: {
+            doctorId: doctor.id,
+            direction: 'received',
+            satStatus: 'Vigente',
+            efecto: 'I',
+            uuid: { in: [
+              ...ppdUuidsWithPayment.map(u => u.toLowerCase()),
+              ...ppdUuidsWithPayment.map(u => u.toUpperCase()),
+            ] },
+          },
+          select: cfdiSelect,
+        })
+      : [];
+
+    // Merge, dedup (a PUE-issued CFDI in this year won't overlap with PPD set)
+    const seenUuids = new Set<string>();
+    const cfdis: typeof pueCfdis = [];
+    for (const c of pueCfdis) {
+      const lower = c.uuid.toLowerCase();
+      if (!seenUuids.has(lower)) {
+        seenUuids.add(lower);
+        cfdis.push(c);
+      }
+    }
+    for (const c of ppdCfdis) {
+      const lower = c.uuid.toLowerCase();
+      if (!seenUuids.has(lower)) {
+        seenUuids.add(lower);
+        cfdis.push(c);
+      }
+    }
 
     // Batch-fetch details for all CFDIs
     // Metadata stores UUIDs as-is from SAT (uppercase), but XML parser stores them lowercase.
@@ -78,6 +144,7 @@ export async function GET(request: NextRequest) {
             isrRetenido: true,
             ivaRetenido: true,
             formaPago: true,
+            metodoPago: true,
             usoCfdi: true,
             manualCategory: true,
             conceptos: {
@@ -94,6 +161,13 @@ export async function GET(request: NextRequest) {
       : [];
 
     const detailMap = new Map(details.map(d => [d.uuid.toLowerCase(), d]));
+
+    // PPD CFDIs with complemento in this year (already fetched above)
+    const ppdWithComplemento = new Set(ppdUuidsWithPayment);
+
+    // Track PPD without complemento — excluded from deductions
+    let ppdExcludedCount = 0;
+    let ppdExcludedSubtotal = 0;
 
     // Initialize category aggregation
     type CategoryAgg = {
@@ -150,7 +224,19 @@ export async function GET(request: NextRequest) {
     // Classify each CFDI
     for (const cfdi of cfdis) {
       const detail = detailMap.get(cfdi.uuid.toLowerCase());
-      const month = cfdi.issuedAt.getMonth() + 1;
+      const cfdiUuidLower = cfdi.uuid.toLowerCase();
+
+      // Exclude PPD invoices without complemento de pago (not yet paid = not deductible)
+      if (detail?.metodoPago === 'PPD' && !ppdWithComplemento.has(cfdiUuidLower)) {
+        ppdExcludedCount++;
+        ppdExcludedSubtotal += detail ? Number(detail.subtotal) : Number(cfdi.monto);
+        continue;
+      }
+
+      // For PPD with complemento, use payment month; for PUE, use invoice month
+      const month = ppdPaymentMonth.has(cfdiUuidLower)
+        ? ppdPaymentMonth.get(cfdiUuidLower)!
+        : cfdi.issuedAt.getMonth() + 1;
       const cfdiSubtotal = detail ? Number(detail.subtotal) : Number(cfdi.monto);
       const cfdiIva = detail ? Number(detail.ivaTrasladado) : 0;
 
@@ -283,22 +369,39 @@ export async function GET(request: NextRequest) {
         count: proportionalCount,
       });
     }
+    if (ppdExcludedCount > 0) {
+      alerts.push({
+        type: 'ppd_sin_complemento',
+        message: `${ppdExcludedCount} factura(s) PPD sin complemento de pago excluidas ($${Math.round(ppdExcludedSubtotal).toLocaleString()}) — no deducible(s) hasta recibir complemento`,
+        count: ppdExcludedCount,
+      });
+    }
 
-    // RESICO monitor: YTD income vs $3.5M limit
+    // RESICO monitor: YTD income vs $3.5M limit (cash-basis)
     let resicoMonitor = undefined;
     if (regimenFiscal === '626') {
-      const incomeResult = await prisma.$queryRaw<Array<{ total_income: number | null }>>`
-        SELECT SUM(d.subtotal)::float AS total_income
-        FROM practice_management.sat_cfdi_details d
-        JOIN practice_management.sat_cfdi_metadata m
-          ON m.doctor_id = d.doctor_id AND LOWER(m.uuid) = LOWER(d.uuid)
-        WHERE d.doctor_id = ${doctor.id}
-          AND m.sat_status = 'Vigente'
-          AND m.direction = 'emitted'
-          AND m.efecto = 'I'
-          AND EXTRACT(YEAR FROM m.issued_at) = ${year}
-      `;
-      const ytdIncome = incomeResult[0]?.total_income || 0;
+      const [pueIncome, ppdIncome] = await Promise.all([
+        prisma.$queryRaw<Array<{ total_income: number | null }>>`
+          SELECT SUM(d.subtotal)::float AS total_income
+          FROM practice_management.sat_cfdi_details d
+          JOIN practice_management.sat_cfdi_metadata m
+            ON m.doctor_id = d.doctor_id AND LOWER(m.uuid) = LOWER(d.uuid)
+          WHERE d.doctor_id = ${doctor.id}
+            AND m.sat_status = 'Vigente' AND m.direction = 'emitted' AND m.efecto = 'I'
+            AND (d.metodo_pago = 'PUE' OR d.metodo_pago IS NULL)
+            AND EXTRACT(YEAR FROM m.issued_at) = ${year}
+        `,
+        prisma.$queryRaw<Array<{ total_income: number | null }>>`
+          SELECT SUM(COALESCE(p.base_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.subtotal))::float AS total_income
+          FROM practice_management.sat_pagos p
+          JOIN practice_management.sat_cfdi_metadata m ON m.doctor_id = p.doctor_id AND LOWER(m.uuid) = LOWER(p.factura_uuid)
+          JOIN practice_management.sat_cfdi_details d ON d.doctor_id = p.doctor_id AND LOWER(d.uuid) = LOWER(p.factura_uuid)
+          WHERE p.doctor_id = ${doctor.id}
+            AND m.sat_status = 'Vigente' AND m.direction = 'emitted' AND m.efecto = 'I'
+            AND p.unlinked_at IS NULL AND p.fecha_pago IS NOT NULL AND EXTRACT(YEAR FROM p.fecha_pago) = ${year}
+        `,
+      ]);
+      const ytdIncome = (pueIncome[0]?.total_income || 0) + (ppdIncome[0]?.total_income || 0);
       const limit = 3500000;
       resicoMonitor = {
         ytdIncome: Math.round(ytdIncome * 100) / 100,

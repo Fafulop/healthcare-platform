@@ -164,9 +164,9 @@ export async function GET(request: NextRequest) {
     const razonSocial = fiscalProfile?.razonSocial || 'N/A';
 
     // -----------------------------------------------------------------------
-    // 1. Monthly aggregation for ISR/IVA
+    // 1. Monthly aggregation for ISR/IVA (cash-basis: PUE + PPD split)
     // -----------------------------------------------------------------------
-    const aggRows = await prisma.$queryRaw<Array<{
+    type AggRow = {
       month: number;
       direction: string;
       efecto: string;
@@ -175,11 +175,12 @@ export async function GET(request: NextRequest) {
       sum_iva_trasladado: number | null;
       sum_isr_retenido: number | null;
       sum_iva_retenido: number | null;
-    }>>`
+    };
+
+    const pueAgg = prisma.$queryRaw<AggRow[]>`
       SELECT
         EXTRACT(MONTH FROM m.issued_at)::int AS month,
-        m.direction,
-        m.efecto,
+        m.direction, m.efecto,
         COUNT(*)::bigint AS count,
         SUM(d.subtotal)::float AS sum_subtotal,
         SUM(d.iva_trasladado)::float AS sum_iva_trasladado,
@@ -191,10 +192,36 @@ export async function GET(request: NextRequest) {
       WHERE d.doctor_id = ${doctor.id}
         AND m.sat_status = 'Vigente'
         AND m.efecto IN ('I', 'E')
+        AND (d.metodo_pago = 'PUE' OR d.metodo_pago IS NULL)
         AND EXTRACT(YEAR FROM m.issued_at) = ${year}
       GROUP BY EXTRACT(MONTH FROM m.issued_at), m.direction, m.efecto
-      ORDER BY month
     `;
+
+    const ppdAgg = prisma.$queryRaw<AggRow[]>`
+      SELECT
+        EXTRACT(MONTH FROM p.fecha_pago)::int AS month,
+        m.direction, m.efecto,
+        COUNT(DISTINCT p.id)::bigint AS count,
+        SUM(COALESCE(p.base_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.subtotal))::float AS sum_subtotal,
+        SUM(COALESCE(p.iva_trasladado_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.iva_trasladado))::float AS sum_iva_trasladado,
+        SUM(COALESCE(p.isr_retenido_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.isr_retenido))::float AS sum_isr_retenido,
+        SUM(COALESCE(p.iva_retenido_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.iva_retenido))::float AS sum_iva_retenido
+      FROM practice_management.sat_pagos p
+      JOIN practice_management.sat_cfdi_metadata m
+        ON m.doctor_id = p.doctor_id AND LOWER(m.uuid) = LOWER(p.factura_uuid)
+      JOIN practice_management.sat_cfdi_details d
+        ON d.doctor_id = p.doctor_id AND LOWER(d.uuid) = LOWER(p.factura_uuid)
+      WHERE p.doctor_id = ${doctor.id}
+        AND m.sat_status = 'Vigente'
+        AND m.efecto IN ('I', 'E')
+        AND p.unlinked_at IS NULL
+        AND p.fecha_pago IS NOT NULL
+        AND EXTRACT(YEAR FROM p.fecha_pago) = ${year}
+      GROUP BY EXTRACT(MONTH FROM p.fecha_pago), m.direction, m.efecto
+    `;
+
+    const [aggRows1, aggRows2] = await Promise.all([pueAgg, ppdAgg]);
+    const aggRows: AggRow[] = [...aggRows1, ...aggRows2];
 
     interface MonthlyRaw {
       ingresos: number; deducciones: number; ivaCobrado: number;
@@ -422,13 +449,25 @@ export async function GET(request: NextRequest) {
     // Alerts
     const alerts: string[] = [];
     if (isResico) {
-      const incomeResult = await prisma.$queryRaw<Array<{ total_income: number | null }>>`
-        SELECT SUM(d.subtotal)::float AS total_income
-        FROM practice_management.sat_cfdi_details d
-        JOIN practice_management.sat_cfdi_metadata m ON m.doctor_id = d.doctor_id AND LOWER(m.uuid) = LOWER(d.uuid)
-        WHERE d.doctor_id = ${doctor.id} AND m.sat_status = 'Vigente' AND m.direction = 'emitted' AND m.efecto = 'I' AND EXTRACT(YEAR FROM m.issued_at) = ${year}
-      `;
-      const ytdIncome = incomeResult[0]?.total_income || 0;
+      // Cash-basis YTD income: PUE at invoice date + PPD at payment date
+      const [pueIncome, ppdIncome] = await Promise.all([
+        prisma.$queryRaw<Array<{ total_income: number | null }>>`
+          SELECT SUM(d.subtotal)::float AS total_income
+          FROM practice_management.sat_cfdi_details d
+          JOIN practice_management.sat_cfdi_metadata m ON m.doctor_id = d.doctor_id AND LOWER(m.uuid) = LOWER(d.uuid)
+          WHERE d.doctor_id = ${doctor.id} AND m.sat_status = 'Vigente' AND m.direction = 'emitted' AND m.efecto = 'I'
+            AND (d.metodo_pago = 'PUE' OR d.metodo_pago IS NULL) AND EXTRACT(YEAR FROM m.issued_at) = ${year}
+        `,
+        prisma.$queryRaw<Array<{ total_income: number | null }>>`
+          SELECT SUM(COALESCE(p.base_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.subtotal))::float AS total_income
+          FROM practice_management.sat_pagos p
+          JOIN practice_management.sat_cfdi_metadata m ON m.doctor_id = p.doctor_id AND LOWER(m.uuid) = LOWER(p.factura_uuid)
+          JOIN practice_management.sat_cfdi_details d ON d.doctor_id = p.doctor_id AND LOWER(d.uuid) = LOWER(p.factura_uuid)
+          WHERE p.doctor_id = ${doctor.id} AND m.sat_status = 'Vigente' AND m.direction = 'emitted' AND m.efecto = 'I'
+            AND p.unlinked_at IS NULL AND p.fecha_pago IS NOT NULL AND EXTRACT(YEAR FROM p.fecha_pago) = ${year}
+        `,
+      ]);
+      const ytdIncome = (pueIncome[0]?.total_income || 0) + (ppdIncome[0]?.total_income || 0);
       const pct = round2((ytdIncome / 3500000) * 100);
       alerts.push(`RESICO: Ingresos acumulados ${year}: $${round2(ytdIncome).toLocaleString()} de $3,500,000 (${pct}%)`);
       if (pct > 80) alerts.push('ATENCION: Cerca del limite de $3.5M para permanecer en RESICO');

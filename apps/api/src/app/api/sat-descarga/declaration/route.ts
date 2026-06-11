@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
       notes: r.notes,
     }]));
 
-    // Fetch monthly aggregates from XML details (same query pattern as summary)
-    const rows = await prisma.$queryRaw<Array<{
+    // --- Cash-basis queries: PUE at invoice date, PPD at payment date ---
+    type MonthRow = {
       month: number;
       direction: string;
       efecto: string;
@@ -66,11 +66,13 @@ export async function GET(request: NextRequest) {
       sum_iva_trasladado: number | null;
       sum_isr_retenido: number | null;
       sum_iva_retenido: number | null;
-    }>>`
+    };
+
+    // Query 1: PUE invoices (paid at issuance) — count at invoice date
+    const pueRows = prisma.$queryRaw<MonthRow[]>`
       SELECT
         EXTRACT(MONTH FROM m.issued_at)::int AS month,
-        m.direction,
-        m.efecto,
+        m.direction, m.efecto,
         COUNT(*)::bigint AS count,
         SUM(d.subtotal)::float AS sum_subtotal,
         SUM(d.iva_trasladado)::float AS sum_iva_trasladado,
@@ -82,10 +84,77 @@ export async function GET(request: NextRequest) {
       WHERE d.doctor_id = ${doctor.id}
         AND m.sat_status = 'Vigente'
         AND m.efecto IN ('I', 'E')
+        AND (d.metodo_pago = 'PUE' OR d.metodo_pago IS NULL)
         AND EXTRACT(YEAR FROM m.issued_at) = ${year}
       GROUP BY EXTRACT(MONTH FROM m.issued_at), m.direction, m.efecto
-      ORDER BY month
     `;
+
+    // Query 2: PPD invoices WITH complemento — count at payment date
+    const ppdRows = prisma.$queryRaw<MonthRow[]>`
+      SELECT
+        EXTRACT(MONTH FROM p.fecha_pago)::int AS month,
+        m.direction, m.efecto,
+        COUNT(DISTINCT p.id)::bigint AS count,
+        SUM(COALESCE(p.base_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.subtotal))::float AS sum_subtotal,
+        SUM(COALESCE(p.iva_trasladado_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.iva_trasladado))::float AS sum_iva_trasladado,
+        SUM(COALESCE(p.isr_retenido_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.isr_retenido))::float AS sum_isr_retenido,
+        SUM(COALESCE(p.iva_retenido_dr, (p.monto_pagado / NULLIF(d.total, 0)) * d.iva_retenido))::float AS sum_iva_retenido
+      FROM practice_management.sat_pagos p
+      JOIN practice_management.sat_cfdi_metadata m
+        ON m.doctor_id = p.doctor_id AND LOWER(m.uuid) = LOWER(p.factura_uuid)
+      JOIN practice_management.sat_cfdi_details d
+        ON d.doctor_id = p.doctor_id AND LOWER(d.uuid) = LOWER(p.factura_uuid)
+      WHERE p.doctor_id = ${doctor.id}
+        AND m.sat_status = 'Vigente'
+        AND m.efecto IN ('I', 'E')
+        AND p.unlinked_at IS NULL
+        AND p.fecha_pago IS NOT NULL
+        AND EXTRACT(YEAR FROM p.fecha_pago) = ${year}
+      GROUP BY EXTRACT(MONTH FROM p.fecha_pago), m.direction, m.efecto
+    `;
+
+    // Query 3: PPD invoices WITHOUT complemento — excluded, but count for info
+    const ppdExcludedRows = prisma.$queryRaw<Array<{
+      direction: string;
+      count: bigint;
+      sum_subtotal: number | null;
+    }>>`
+      SELECT m.direction, COUNT(*)::bigint AS count,
+        SUM(d.subtotal)::float AS sum_subtotal
+      FROM practice_management.sat_cfdi_details d
+      JOIN practice_management.sat_cfdi_metadata m
+        ON m.doctor_id = d.doctor_id AND LOWER(m.uuid) = LOWER(d.uuid)
+      LEFT JOIN practice_management.sat_pagos p
+        ON p.doctor_id = d.doctor_id
+        AND LOWER(p.factura_uuid) = LOWER(d.uuid)
+        AND p.unlinked_at IS NULL
+      WHERE d.doctor_id = ${doctor.id}
+        AND m.sat_status = 'Vigente'
+        AND m.efecto = 'I'
+        AND d.metodo_pago = 'PPD'
+        AND p.id IS NULL
+        AND EXTRACT(YEAR FROM m.issued_at) = ${year}
+      GROUP BY m.direction
+    `;
+
+    // Execute all 3 queries in parallel
+    const [rows1, rows2, excludedRows] = await Promise.all([pueRows, ppdRows, ppdExcludedRows]);
+    const rows: MonthRow[] = [...rows1, ...rows2];
+
+    // Build PPD excluded summary
+    const ppdExcluded = {
+      emitted: 0, emittedSubtotal: 0,
+      received: 0, receivedSubtotal: 0,
+    };
+    for (const r of excludedRows) {
+      if (r.direction === 'emitted') {
+        ppdExcluded.emitted = Number(r.count);
+        ppdExcluded.emittedSubtotal = r.sum_subtotal ?? 0;
+      } else {
+        ppdExcluded.received = Number(r.count);
+        ppdExcluded.receivedSubtotal = r.sum_subtotal ?? 0;
+      }
+    }
 
     // Build monthly data structure
     interface MonthlyRaw {
@@ -324,6 +393,8 @@ export async function GET(request: NextRequest) {
           ivaAPagar: round2(totalIvaAPagar),
           isrRetenido: round2(totalIsrRetenido),
         },
+        // PPD invoices excluded (no complemento de pago)
+        ppdExcluded,
         // Include table reference so frontend can show bracket info
         isrTable: regimenFiscal === '626' ? 'resico' : 'art96',
         // Annual declaration receipt (month=13)

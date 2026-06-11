@@ -626,6 +626,10 @@ async function downloadAndParseXml(
               saldoAnterior: doc.saldoAnterior,
               saldoInsoluto: doc.saldoInsoluto,
               numParcialidad: doc.numParcialidad,
+              baseDr: doc.baseDr,
+              ivaTrasladadoDr: doc.ivaTrasladadoDr,
+              isrRetenidoDr: doc.isrRetenidoDr,
+              ivaRetenidoDr: doc.ivaRetenidoDr,
               source: 'auto',
             },
             update: {
@@ -635,6 +639,10 @@ async function downloadAndParseXml(
               numParcialidad: doc.numParcialidad,
               fechaPago: pago.fechaPago ? new Date(pago.fechaPago) : null,
               formaPago: pago.formaPago,
+              baseDr: doc.baseDr,
+              ivaTrasladadoDr: doc.ivaTrasladadoDr,
+              isrRetenidoDr: doc.isrRetenidoDr,
+              ivaRetenidoDr: doc.ivaRetenidoDr,
             },
           });
         }

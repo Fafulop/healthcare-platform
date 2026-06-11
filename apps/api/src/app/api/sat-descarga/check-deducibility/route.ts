@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
             subtotal: true,
             total: true,
             formaPago: true,
+            metodoPago: true,
             usoCfdi: true,
             moneda: true,
             conceptos: {
@@ -84,6 +85,19 @@ export async function GET(request: NextRequest) {
       : [];
 
     const detailMap = new Map(details.map(d => [d.uuid.toLowerCase(), d]));
+
+    // Identify PPD CFDIs and check which have complemento (SatPago records)
+    const ppdUuids = uuids.filter(uuid => {
+      const detail = detailMap.get(uuid);
+      return detail?.metodoPago === 'PPD';
+    });
+    const pagoLinks = ppdUuids.length > 0
+      ? await prisma.satPago.findMany({
+          where: { doctorId: doctor.id, facturaUuid: { in: ppdUuids }, unlinkedAt: null },
+          select: { facturaUuid: true },
+        })
+      : [];
+    const ppdWithComplemento = new Set(pagoLinks.map(p => p.facturaUuid.toLowerCase()));
 
     // Check each CFDI
     interface FlaggedCfdi {
@@ -132,6 +146,15 @@ export async function GET(request: NextRequest) {
         usoCfdi: detail?.usoCfdi || null,
         regimenFiscal,
       });
+
+      // Flag PPD invoices without complemento de pago
+      if (detail?.metodoPago === 'PPD' && !ppdWithComplemento.has(cfdi.uuid.toLowerCase())) {
+        flags.push({
+          type: 'ppd_sin_complemento',
+          severity: 'warning',
+          message: 'Factura PPD sin complemento de pago — no deducible hasta recibir complemento',
+        });
+      }
 
       if (flags.length > 0) {
         flaggedCfdis.push({
