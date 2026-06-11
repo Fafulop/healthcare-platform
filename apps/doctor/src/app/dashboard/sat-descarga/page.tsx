@@ -2107,7 +2107,10 @@ function DeduccionesTab() {
                   const isMonthExpanded = expandedMonth === m.month;
                   const monthCfdis = isMonthExpanded
                     ? data.categories
-                        .flatMap(cat => cat.cfdiSamples.filter(s => s.month === m.month))
+                        .flatMap(cat => cat.cfdiSamples.filter(s => {
+                          const sMonth = s.month != null ? s.month : (new Date(s.issuedAt).getMonth() + 1);
+                          return sMonth === m.month;
+                        }))
                         .sort((a, b) => b.subtotal - a.subtotal)
                     : [];
                   return (
