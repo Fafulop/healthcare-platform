@@ -1,8 +1,9 @@
 # PPD Declaration Fix — Implementation Plan
 
 **Date:** 2026-06-10
-**Status:** Planned
+**Status:** Phases 1, 3, 4, 5 complete — Phase 2 (backfill) pending
 **Priority:** High — affects ISR/IVA calculation accuracy for all doctors
+**Deployed:** 2026-06-11
 
 ---
 
@@ -79,7 +80,7 @@ with no `metodoPago` filter and no join to `SatPago`. Affected routes:
 
 ## Implementation Phases
 
-### Phase 1: Schema + Migration + Parser
+### Phase 1: Schema + Migration + Parser ✅
 
 **Goal:** Add tax columns to `SatPago`, extend XML parser to extract `ImpuestosDR`.
 
@@ -154,7 +155,7 @@ Update the upsert call that writes to `SatPago` to include the new tax columns f
 
 ---
 
-### Phase 2: Backfill Existing Complemento Data
+### Phase 2: Backfill Existing Complemento Data ⏳
 
 **Goal:** Populate the new tax columns for existing `SatPago` rows.
 
@@ -194,7 +195,7 @@ WHERE LOWER(d.uuid) = LOWER(p.factura_uuid)
 
 ---
 
-### Phase 3: Fix Declaration Route
+### Phase 3: Fix Declaration Route ✅
 
 **File:** `apps/api/src/app/api/sat-descarga/declaration/route.ts`
 
@@ -279,7 +280,7 @@ GROUP BY m.direction
 
 ---
 
-### Phase 4: Fix All Remaining Routes (5 routes)
+### Phase 4: Fix All Remaining Routes (5 routes) ✅
 
 #### 4a. Deductions Route
 
@@ -332,7 +333,7 @@ This is the report doctors send to their accountant — critical that numbers ar
 
 ---
 
-### Phase 5: Frontend Updates
+### Phase 5: Frontend Updates ✅
 
 **File:** `apps/doctor/src/app/dashboard/sat-descarga/page.tsx`
 
@@ -356,12 +357,12 @@ This is the report doctors send to their accountant — critical that numbers ar
 
 Following database-architecture.md patterns:
 
-1. **Run SQL migration** against Railway production DB (new columns are nullable, safe to add)
-2. **Deploy code** (parser + schema + sync worker + routes + frontend)
-3. **Trigger complemento re-sync** for each doctor (re-downloads tipo P XMLs from SAT)
-4. **Run proportional fallback** SQL for any remaining NULLs (pre-2022 complementos)
-5. **Verify** declaration numbers match manual calculations for a test doctor
-6. **Monitor** — new syncs will automatically populate tax columns going forward
+1. ✅ **Run SQL migration** against Railway production DB (new columns are nullable, safe to add) — Done 2026-06-11
+2. ✅ **Deploy code** (parser + schema + sync worker + routes + frontend) — Deployed 2026-06-11
+3. ⏳ **Trigger complemento re-sync** for each doctor (re-downloads tipo P XMLs from SAT)
+4. ⏳ **Run proportional fallback** SQL for any remaining NULLs (pre-2022 complementos)
+5. ⏳ **Verify** declaration numbers match manual calculations for a test doctor
+6. ✅ **Monitor** — new syncs will automatically populate tax columns going forward
 
 ---
 
