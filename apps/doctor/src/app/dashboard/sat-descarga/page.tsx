@@ -247,49 +247,27 @@ function FiscalCalendarBanner() {
   const iconColor = isOverdue ? 'text-red-500' : isUrgent ? 'text-amber-500' : 'text-blue-500';
 
   return (
-    <div className={`rounded-lg border p-4 mt-4 mb-4 ${bannerColor}`}>
-      <div className="flex items-start gap-3">
-        <CalendarClock className={`w-5 h-5 mt-0.5 flex-shrink-0 ${iconColor}`} />
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-900">Calendario Fiscal</h3>
-          <div className="mt-2 space-y-2">
-            {deadlines.map((d, i) => {
-              const color = d.daysLeft < 0
-                ? 'text-red-700'
-                : d.daysLeft <= 3
-                ? 'text-amber-700'
-                : 'text-gray-700';
-              const badge = d.daysLeft < 0
-                ? 'bg-red-100 text-red-700'
-                : d.daysLeft === 0
-                ? 'bg-amber-100 text-amber-700'
-                : d.daysLeft <= 3
-                ? 'bg-amber-50 text-amber-600'
-                : 'bg-gray-100 text-gray-600';
-              const label = d.daysLeft < 0
-                ? `${Math.abs(d.daysLeft)}d vencido`
-                : d.daysLeft === 0
-                ? 'Hoy'
-                : `${d.daysLeft}d`;
-              return (
-                <div key={i} className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <span className={`text-sm font-medium ${color}`}>{d.name}</span>
-                    <span className="text-xs text-gray-500 ml-2 hidden sm:inline">{d.description}</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs text-gray-500 hidden sm:inline">
-                      {d.date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                    </span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badge}`}>
-                      {label}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+    <div className={`rounded-lg border px-4 py-2 mt-2 mb-2 ${bannerColor}`}>
+      <div className="flex items-center gap-3 flex-wrap">
+        <CalendarClock className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`} />
+        {deadlines.map((d, i) => {
+          const color = d.daysLeft < 0 ? 'text-red-700' : d.daysLeft <= 3 ? 'text-amber-700' : 'text-gray-600';
+          const badge = d.daysLeft < 0 ? 'bg-red-100 text-red-700'
+            : d.daysLeft === 0 ? 'bg-amber-100 text-amber-700'
+            : d.daysLeft <= 3 ? 'bg-amber-50 text-amber-600'
+            : 'bg-gray-100 text-gray-600';
+          const label = d.daysLeft < 0 ? `${Math.abs(d.daysLeft)}d vencido` : d.daysLeft === 0 ? 'Hoy' : `${d.daysLeft}d`;
+          return (
+            <div key={i} className="flex items-center gap-1.5 text-xs">
+              <span className={`font-medium ${color}`}>{d.name}</span>
+              <span className="text-gray-400">
+                {d.date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+              </span>
+              <span className={`font-medium px-1.5 py-0.5 rounded-full text-[10px] ${badge}`}>{label}</span>
+              {i < deadlines.length - 1 && <span className="text-gray-300 ml-1">·</span>}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -474,162 +452,127 @@ function SyncStatusPanel() {
   const neverStarted = progress.completedMonths === 0 && !hasFailed && !hasActive;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-            {isComplete && !hasFailed ? (
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-            ) : hasActive ? (
-              <Loader2 className="w-5 h-5 text-purple-500 animate-spin" />
-            ) : hasFailed ? (
-              <AlertCircle className="w-5 h-5 text-red-500" />
-            ) : (
-              <Download className="w-5 h-5 text-gray-400" />
-            )}
-            Sincronización histórica
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">
+    <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 space-y-2">
+      {/* Compact header row */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          {isComplete && !hasFailed ? (
+            <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+          ) : hasActive ? (
+            <Loader2 className="w-4 h-4 text-purple-500 animate-spin shrink-0" />
+          ) : hasFailed ? (
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          ) : (
+            <Download className="w-4 h-4 text-gray-400 shrink-0" />
+          )}
+          <span className="text-xs text-gray-600">
             {neverStarted
-              ? `Descarga tus CFDIs del SAT desde ${progress.fromMonth} hasta ${progress.toMonth}.`
+              ? `Descarga pendiente (${progress.fromMonth} a ${progress.toMonth})`
               : isComplete && !hasFailed
-                ? `Todos los meses sincronizados (${progress.fromMonth} a ${progress.toMonth})`
-                : `${progress.completedMonths} de ${progress.totalMonths} meses completados (${progress.fromMonth} a ${progress.toMonth})`
+                ? `${progress.metadataCount} CFDIs · ${progress.detailCount} XML`
+                : `${progress.completedMonths}/${progress.totalMonths} meses`
             }
             {hasActive && ` · ${progress.activeJobs} en proceso`}
-          </p>
+            {progress.missingXmlCount > 0 && ` · ${progress.missingXmlCount} sin XML`}
+          </span>
         </div>
 
-        {/* Auto-sync toggle */}
-        <button
-          onClick={toggleAutoSync}
-          disabled={acting}
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full border transition-colors ${
-            progress.autoSyncEnabled
-              ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-              : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
-          }`}
-          title={progress.autoSyncEnabled ? "Sincronización diaria activada" : "Sincronización diaria desactivada"}
-        >
-          <CalendarClock className="w-3.5 h-3.5" />
-          Auto-sync {progress.autoSyncEnabled ? "ON" : "OFF"}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Auto-sync toggle */}
+          <button
+            onClick={toggleAutoSync}
+            disabled={acting}
+            className={`flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
+              progress.autoSyncEnabled
+                ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
+            }`}
+          >
+            <CalendarClock className="w-3 h-3" />
+            Auto-sync {progress.autoSyncEnabled ? "ON" : "OFF"}
+          </button>
+
+          {/* Start/continue backfill */}
+          {(neverStarted || (!isComplete && !hasFailed && !hasActive)) && (
+            <button
+              onClick={handleStartBackfill}
+              disabled={acting}
+              className="px-2.5 py-1 bg-purple-600 text-white text-[11px] font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1"
+            >
+              {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              {neverStarted ? "Iniciar descarga" : "Continuar"}
+            </button>
+          )}
+
+          {/* Retry failed */}
+          {hasFailed && (
+            <button
+              onClick={handleRetryFailed}
+              disabled={acting}
+              className="px-2 py-1 bg-red-50 text-red-700 text-[11px] font-medium rounded-md hover:bg-red-100 border border-red-200 disabled:opacity-50 flex items-center gap-1"
+            >
+              {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Reintentar {progress.failedJobs}
+            </button>
+          )}
+
+          {/* Re-sync missing XMLs */}
+          {isComplete && !hasFailed && !neverStarted && progress.missingXmlCount > 0 && (
+            <button
+              onClick={handleResyncMissing}
+              disabled={acting}
+              className="px-2 py-1 bg-purple-50 text-purple-700 text-[11px] font-medium rounded-md hover:bg-purple-100 border border-purple-200 disabled:opacity-50 flex items-center gap-1"
+            >
+              {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              {progress.missingXmlCount} XML faltantes
+            </button>
+          )}
+
+          {/* Failed details toggle */}
+          {hasFailed && (
+            <button
+              onClick={() => setShowFailedDetails(!showFailedDetails)}
+              className="text-gray-400 text-[11px] hover:text-gray-600 flex items-center gap-0.5"
+            >
+              <ChevronDown className={`w-3 h-3 transition-transform ${showFailedDetails ? "rotate-180" : ""}`} />
+              Detalle
+            </button>
+          )}
+
+          {/* Reset link */}
+          {!neverStarted && !showResetConfirm && (
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="text-[11px] text-gray-400 hover:text-red-500"
+            >
+              Reiniciar
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar (only when incomplete) */}
       {!neverStarted && !isComplete && (
-        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden flex">
-          <div
-            className="bg-purple-600 h-2 transition-all"
-            style={{ width: `${pct}%` }}
-          />
+        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden flex">
+          <div className="bg-purple-600 h-1.5 transition-all" style={{ width: `${pct}%` }} />
           {progress.failedMonths > 0 && (
-            <div
-              className="bg-red-400 h-2 transition-all"
-              style={{ width: `${Math.min(100 - pct, Math.round((progress.failedMonths / progress.totalMonths) * 100))}%` }}
-            />
+            <div className="bg-red-400 h-1.5 transition-all" style={{ width: `${Math.min(100 - pct, Math.round((progress.failedMonths / progress.totalMonths) * 100))}%` }} />
           )}
         </div>
       )}
 
-      {/* Data completeness */}
-      {!neverStarted && (
-        <div className="flex gap-4 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <FileText className="w-3.5 h-3.5" />
-            {progress.metadataCount} CFDIs descargados
-          </span>
-          <span className="flex items-center gap-1">
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            {progress.detailCount} con detalle XML
-          </span>
-          {progress.metadataCount > progress.detailCount && progress.missingXmlCount === 0 && (
-            <span className="flex items-center gap-1 text-gray-400" title="Los CFDIs cancelados no tienen XML disponible en el SAT">
-              {progress.metadataCount - progress.detailCount} cancelado{progress.metadataCount - progress.detailCount !== 1 ? "s" : ""} (sin XML)
-            </span>
-          )}
-          {progress.missingXmlCount > 0 && (
-            <span className="flex items-center gap-1 text-amber-600">
-              <AlertCircle className="w-3.5 h-3.5" />
-              {progress.missingXmlCount} sin XML
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Start backfill (first time or incomplete) */}
-        {(neverStarted || (!isComplete && !hasFailed && !hasActive)) && (
-          <button
-            onClick={handleStartBackfill}
-            disabled={acting}
-            className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {neverStarted ? "Iniciar descarga histórica" : "Continuar descarga"}
-          </button>
-        )}
-
-        {/* Retry failed */}
-        {hasFailed && (
-          <button
-            onClick={handleRetryFailed}
-            disabled={acting}
-            className="px-3 py-1.5 bg-red-50 text-red-700 text-xs font-medium rounded-md hover:bg-red-100 border border-red-200 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            Reintentar {progress.failedJobs} fallido{progress.failedJobs !== 1 ? "s" : ""}
-          </button>
-        )}
-
-        {/* Show failed details toggle */}
-        {hasFailed && (
-          <button
-            onClick={() => setShowFailedDetails(!showFailedDetails)}
-            className="px-2 py-1.5 text-gray-500 text-xs hover:text-gray-700 flex items-center gap-1"
-          >
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showFailedDetails ? "rotate-180" : ""}`} />
-            Ver detalle
-          </button>
-        )}
-
-        {/* Re-sync only missing XMLs (targeted) */}
-        {isComplete && !hasFailed && !neverStarted && progress.missingXmlCount > 0 && (
-          <button
-            onClick={handleResyncMissing}
-            disabled={acting}
-            className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-100 border border-purple-200 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            Descargar {progress.missingXmlCount} XML{progress.missingXmlCount !== 1 ? "s" : ""} faltante{progress.missingXmlCount !== 1 ? "s" : ""}
-          </button>
-        )}
-
-      </div>
-
-      {/* Failed jobs detail table */}
+      {/* Failed jobs detail (expandable) */}
       {showFailedDetails && hasFailed && (
-        <div className="bg-red-50 rounded-md border border-red-100 p-3">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-red-700">
-                <th className="text-left pb-1">Mes</th>
-                <th className="text-left pb-1">Dirección</th>
-                <th className="text-left pb-1">Tipo</th>
-                <th className="text-left pb-1">Error</th>
-              </tr>
-            </thead>
+        <div className="bg-red-50 rounded-md border border-red-100 p-2">
+          <table className="w-full text-[11px]">
+            <thead><tr className="text-red-700"><th className="text-left pb-1">Mes</th><th className="text-left pb-1">Dir</th><th className="text-left pb-1">Tipo</th><th className="text-left pb-1">Error</th></tr></thead>
             <tbody className="text-red-600">
               {progress.failedJobDetails.map(fj => (
                 <tr key={fj.id} className="border-t border-red-100">
-                  <td className="py-1">{fj.month}</td>
-                  <td className="py-1">{fj.direction === "emitted" ? "Emitidos" : "Recibidos"}</td>
-                  <td className="py-1">{fj.requestType === "xml" ? "XML" : "Metadata"}</td>
-                  <td className="py-1 truncate max-w-[300px]" title={fj.lastError || ""}>
-                    {fj.is5002 ? "Límite SAT (se corrige automáticamente)" : (fj.lastError || "Error desconocido")}
-                  </td>
+                  <td className="py-0.5">{fj.month}</td>
+                  <td className="py-0.5">{fj.direction === "emitted" ? "E" : "R"}</td>
+                  <td className="py-0.5">{fj.requestType === "xml" ? "XML" : "Meta"}</td>
+                  <td className="py-0.5 truncate max-w-[200px]" title={fj.lastError || ""}>{fj.is5002 ? "Límite SAT" : (fj.lastError || "Error")}</td>
                 </tr>
               ))}
             </tbody>
@@ -637,58 +580,34 @@ function SyncStatusPanel() {
         </div>
       )}
 
-      {/* Danger zone: Reset total */}
-      {!neverStarted && (
-        <div className="pt-2 border-t border-gray-100">
-          {!showResetConfirm ? (
-            <button
-              onClick={() => setShowResetConfirm(true)}
-              className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
-            >
-              Reiniciar sincronización completa
-            </button>
-          ) : (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3 space-y-2">
-              <p className="text-xs text-red-700 font-medium">
-                Esto eliminará todos los CFDIs descargados, detalles XML, pagos y alertas. Las entradas del libro mayor se desenlazarán. Los recibos de declaraciones se conservan.
-              </p>
-              <p className="text-xs text-red-600">
-                Se iniciará una descarga completa desde cero automáticamente.
-              </p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder='Escribe "REINICIAR" para confirmar'
-                  value={resetConfirmText}
-                  onChange={e => setResetConfirmText(e.target.value)}
-                  className="px-2 py-1 text-xs border border-red-300 rounded-md w-60 focus:ring-1 focus:ring-red-500"
-                />
-                <button
-                  onClick={handleResetTotal}
-                  disabled={acting || resetConfirmText !== "REINICIAR"}
-                  className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
-                >
-                  {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                  Confirmar
-                </button>
-                <button
-                  onClick={() => { setShowResetConfirm(false); setResetConfirmText(""); }}
-                  className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
+      {/* Reset confirmation (expandable) */}
+      {showResetConfirm && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-2 flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-red-700">Eliminar todos los datos SAT y reiniciar:</span>
+          <input
+            type="text"
+            placeholder='"REINICIAR"'
+            value={resetConfirmText}
+            onChange={e => setResetConfirmText(e.target.value)}
+            className="px-2 py-0.5 text-[11px] border border-red-300 rounded w-32 focus:ring-1 focus:ring-red-500"
+          />
+          <button
+            onClick={handleResetTotal}
+            disabled={acting || resetConfirmText !== "REINICIAR"}
+            className="px-2 py-0.5 bg-red-600 text-white text-[11px] font-medium rounded hover:bg-red-700 disabled:opacity-50"
+          >
+            {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Confirmar"}
+          </button>
+          <button onClick={() => { setShowResetConfirm(false); setResetConfirmText(""); }} className="text-[11px] text-gray-500 hover:text-gray-700">Cancelar</button>
         </div>
       )}
 
       {/* Action message */}
       {message && (
-        <div className={`p-2 rounded text-xs flex items-center gap-1.5 ${
+        <div className={`p-1.5 rounded text-[11px] flex items-center gap-1 ${
           message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
         }`}>
-          {message.type === "success" ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+          {message.type === "success" ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <AlertCircle className="w-3 h-3 shrink-0" />}
           {message.text}
         </div>
       )}
@@ -1983,6 +1902,19 @@ function ExportButton({ label, href, secondary }: { label: string; href: string;
 // Deducciones Tab — Categorized expenses (612) / Expense overview (RESICO)
 // ---------------------------------------------------------------------------
 
+interface DeductionCfdiSample {
+  uuid: string;
+  issuerName: string | null;
+  issuerRfc: string;
+  subtotal: number;
+  iva: number;
+  issuedAt: string;
+  month: number;
+  categoryId: string;
+  isManual: boolean;
+  flags: Array<{ type: string; message: string }>;
+}
+
 interface DeductionCategory {
   id: string;
   name: string;
@@ -1991,16 +1923,7 @@ interface DeductionCategory {
   subtotal: number;
   iva: number;
   flaggedCount: number;
-  cfdiSamples: Array<{
-    uuid: string;
-    issuerName: string | null;
-    issuerRfc: string;
-    subtotal: number;
-    issuedAt: string;
-    categoryId: string;
-    isManual: boolean;
-    flags: Array<{ type: string; message: string }>;
-  }>;
+  cfdiSamples: DeductionCfdiSample[];
 }
 
 interface DeductionsResponse {
@@ -2032,6 +1955,7 @@ function DeduccionesTab() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
+  const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
 
   const fetchDeductions = useCallback(async () => {
     setLoading(true);
@@ -2048,7 +1972,7 @@ function DeduccionesTab() {
     }
   }, [year]);
 
-  useEffect(() => { fetchDeductions(); }, [fetchDeductions]);
+  useEffect(() => { fetchDeductions(); setExpandedCat(null); setExpandedMonth(null); }, [fetchDeductions]);
 
   if (loading) {
     return (
@@ -2155,6 +2079,152 @@ function DeduccionesTab() {
           <p className="text-xs text-gray-400 mt-0.5">requieren revisión</p>
         </div>
       </div>
+
+      {/* Monthly breakdown table */}
+      {data.months.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700">Desglose Mensual</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Haz clic en un mes para ver las facturas y cambiar su categoria.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-left text-gray-600 font-medium">Mes</th>
+                  {data.categories.map(cat => (
+                    <th key={cat.id} className="px-3 py-2 text-right text-gray-600 font-medium whitespace-nowrap" title={cat.name}>
+                      <span className="mr-1">{cat.icon}</span>{cat.name.split(' ')[0]}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 text-right text-gray-600 font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {data.months.map(m => {
+                  const monthTotal = Object.values(m.categories).reduce((s, c) => s + c.subtotal, 0);
+                  const monthCount = Object.values(m.categories).reduce((s, c) => s + c.count, 0);
+                  const isMonthExpanded = expandedMonth === m.month;
+                  const monthCfdis = isMonthExpanded
+                    ? data.categories
+                        .flatMap(cat => cat.cfdiSamples.filter(s => s.month === m.month))
+                        .sort((a, b) => b.subtotal - a.subtotal)
+                    : [];
+                  return (
+                    <Fragment key={m.month}>
+                      <tr
+                        className={`hover:bg-gray-50 cursor-pointer ${isMonthExpanded ? 'bg-blue-50' : ''}`}
+                        onClick={() => setExpandedMonth(isMonthExpanded ? null : m.month)}
+                      >
+                        <td className="px-3 py-2 text-gray-700 font-medium">
+                          <span className="flex items-center gap-1">
+                            <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${isMonthExpanded ? 'rotate-180' : ''}`} />
+                            {MONTH_NAMES[m.month - 1]}
+                          </span>
+                        </td>
+                        {data.categories.map(cat => (
+                          <td key={cat.id} className="px-3 py-2 text-right text-gray-600">
+                            {m.categories[cat.id]
+                              ? <span title={`${m.categories[cat.id].count} CFDIs`}>{fmtMoney(m.categories[cat.id].subtotal)}</span>
+                              : '-'}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                          <div>{fmtMoney(monthTotal)}</div>
+                          <div className="text-[10px] text-gray-400 font-normal">{monthCount} CFDIs</div>
+                        </td>
+                      </tr>
+                      {isMonthExpanded && (
+                        <tr>
+                          <td colSpan={data.categories.length + 2} className="p-0">
+                            <div className="bg-gray-50 px-4 py-3 space-y-1">
+                              {monthCfdis.length === 0 ? (
+                                <p className="text-xs text-gray-400 text-center py-2">No hay detalles disponibles para este mes.</p>
+                              ) : (
+                                <>
+                                  {monthCfdis.map((cfdi) => (
+                                    <div key={cfdi.uuid} className="flex items-center gap-2 py-1.5 px-2 text-xs rounded hover:bg-white">
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-gray-700 font-medium truncate block">
+                                          {cfdi.issuerName || cfdi.issuerRfc}
+                                        </span>
+                                        <span className="text-gray-400">
+                                          {new Date(cfdi.issuedAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
+                                        </span>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <span className="text-gray-900 font-medium">{fmtMoney(cfdi.subtotal)}</span>
+                                        {cfdi.flags.length > 0 && (
+                                          <div className="mt-0.5">
+                                            {cfdi.flags.map((f, fi) => (
+                                              <span key={fi} className={`inline-block text-[10px] px-1.5 py-0.5 rounded mr-1 ${
+                                                f.type === 'cash_over_2k' || f.type === 'sin_efectos' ? 'bg-red-100 text-red-600' :
+                                                f.type === 'proportional' || f.type === 'sin_clasificar' || f.type === 'deduccion_personal_resico' ? 'bg-amber-100 text-amber-600' :
+                                                f.type === 'ppd_sin_complemento' ? 'bg-orange-100 text-orange-600' :
+                                                'bg-gray-100 text-gray-500'
+                                              }`}>
+                                                {f.type === 'cash_over_2k' ? 'Efectivo >$2k' :
+                                                 f.type === 'sin_efectos' ? 'S01' :
+                                                 f.type === 'proportional' ? 'Proporcional' :
+                                                 f.type === 'sin_clasificar' ? 'Sin clasificar' :
+                                                 f.type === 'deduccion_personal_resico' ? 'Ded. personal' :
+                                                 f.type === 'ppd_sin_complemento' ? 'PPD sin comp.' :
+                                                 f.type === 'no_xml' ? 'Sin XML' : f.type}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <select
+                                        className={`text-[11px] border rounded px-1.5 py-1 shrink-0 w-36 ${
+                                          cfdi.isManual ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500'
+                                        }`}
+                                        value={cfdi.categoryId}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChange={async (e) => {
+                                          const newCatId = e.target.value;
+                                          const isRevert = newCatId === '__auto__';
+                                          try {
+                                            const res = await authFetch(`${API_URL}/api/sat-descarga/deductions`, {
+                                              method: 'PATCH',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ uuid: cfdi.uuid, categoryId: isRevert ? null : newCatId }),
+                                            });
+                                            if (res.ok) fetchDeductions();
+                                          } catch (err) {
+                                            console.error('Error classifying CFDI:', err);
+                                          }
+                                        }}
+                                      >
+                                        {cfdi.isManual && (
+                                          <option value="__auto__">Auto-clasificar</option>
+                                        )}
+                                        {data.allCategories.filter(c => c.id !== 'sin_clasificar').map(c => (
+                                          <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                                        ))}
+                                        <option value="sin_clasificar">Sin Clasificar</option>
+                                      </select>
+                                    </div>
+                                  ))}
+                                  {monthCount > monthCfdis.length && (
+                                    <p className="text-xs text-gray-400 text-center pt-1">
+                                      Mostrando {monthCfdis.length} de {monthCount} CFDIs
+                                    </p>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Category breakdown */}
       {data.categories.length === 0 ? (
@@ -2320,54 +2390,6 @@ function DeduccionesTab() {
                 <span>{alert.message}</span>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Monthly breakdown table */}
-      {data.months.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700">Desglose Mensual</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-2 text-left text-gray-600 font-medium">Mes</th>
-                  {data.categories.map(cat => (
-                    <th key={cat.id} className="px-3 py-2 text-right text-gray-600 font-medium whitespace-nowrap" title={cat.name}>
-                      <span className="mr-1">{cat.icon}</span>{cat.name.split(' ')[0]}
-                    </th>
-                  ))}
-                  <th className="px-3 py-2 text-right text-gray-600 font-medium">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {data.months.map(m => {
-                  const monthTotal = Object.values(m.categories).reduce((s, c) => s + c.subtotal, 0);
-                  const monthCount = Object.values(m.categories).reduce((s, c) => s + c.count, 0);
-                  return (
-                    <tr key={m.month} className="hover:bg-gray-50">
-                      <td className="px-3 py-2 text-gray-700 font-medium">
-                        {MONTH_NAMES[m.month - 1]}
-                      </td>
-                      {data.categories.map(cat => (
-                        <td key={cat.id} className="px-3 py-2 text-right text-gray-600">
-                          {m.categories[cat.id]
-                            ? <span title={`${m.categories[cat.id].count} CFDIs`}>{fmtMoney(m.categories[cat.id].subtotal)}</span>
-                            : '-'}
-                        </td>
-                      ))}
-                      <td className="px-3 py-2 text-right font-semibold text-gray-900">
-                        <div>{fmtMoney(monthTotal)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{monthCount} CFDIs</div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
           </div>
         </div>
       )}

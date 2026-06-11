@@ -183,7 +183,9 @@ export async function GET(request: NextRequest) {
         issuerName: string | null;
         issuerRfc: string;
         subtotal: number;
+        iva: number;
         issuedAt: string;
+        month: number;
         categoryId: string;
         isManual: boolean;
         flags: Array<{ type: string; message: string }>;
@@ -294,7 +296,9 @@ export async function GET(request: NextRequest) {
           issuerName: cfdi.issuerName,
           issuerRfc: cfdi.issuerRfc,
           subtotal: cfdiSubtotal,
+          iva: cfdiIva,
           issuedAt: cfdi.issuedAt.toISOString(),
+          month,
           categoryId: primaryCategory,
           isManual,
           flags,
