@@ -422,9 +422,9 @@ Allow users to:
 |-------|--------|--------|-------------|--------|
 | **Phase 1:** SAT auto-creation | Medium | High — eliminates manual registration | None | ✅ Done (incl. backfill + rate limit) |
 | **Phase 2:** Bank match-first | Medium | High — prevents SAT+bank duplicates | Phase 1 | ✅ Done (2.1 PDF unification + 2.2 enrichment) |
-| **Phase 3:** Cross-source dedup rules | Low | Medium — covered by Phase 1+2 naturally | Phase 1, 2 | ⏳ Not started |
-| **Phase 4:** Enrichment model | Low | Low — mostly already correct | None | ⏳ Not started |
-| **Phase 5:** Review dashboard | Medium | Medium — user confidence & oversight | Phase 1, 2 | ✅ 5.1 done (5.2-5.3 pending) |
+| **Phase 3:** Cross-source dedup rules | Low | Medium — covered by Phase 1+2 naturally | Phase 1, 2 | ✅ Done (covered by Phases 1+2) |
+| **Phase 4:** Enrichment model | Low | Low — mostly already correct | None | ✅ Done (existing behavior documented) |
+| **Phase 5:** Review dashboard | Medium | Medium — user confidence & oversight | Phase 1, 2 | ✅ 5.1+5.2 done (5.3 pending) |
 
 ### Recommended build order:
 
@@ -541,7 +541,7 @@ All steps executed on 2026-06-12:
 | `apps/api/src/app/api/practice-management/conciliacion-bancaria/[id]/movements/[movId]/route.ts` | `link_existing` + `confirm_match` now enrich ledger entry (bankAccount, bankMovementId, paymentStatus→PAID, needsReview→false) | ✅ Done |
 | `apps/doctor/src/app/api/bank-statement-import/route.ts` | **DELETE** — replaced by unified conciliacion flow | ⏳ Cleanup |
 
-### Phase 5 (5.1 ✅, 5.2-5.3 ⏳)
+### Phase 5 (5.1-5.2 ✅, 5.3 ⏳)
 | File | Change | Status |
 |------|--------|--------|
 | `apps/doctor/.../LedgerFilters.tsx` | "Revisión" filter dropdown (Por revisar / Revisados) | ✅ Done |
@@ -552,7 +552,8 @@ All steps executed on 2026-06-12:
 | `apps/api/.../ledger/route.ts` | `?needsReview=true\|false` query param on GET | ✅ Done |
 | `apps/api/.../ledger/[id]/route.ts` | PATCH accepts `needsReview` for confirm action | ✅ Done |
 | `apps/api/.../ledger/[id]/link-cfdi/route.ts` | DELETE clears `needsReview` + `autoLinkedConfidence` | ✅ Done |
-| `apps/doctor/.../CompletenessTab.tsx` | Reconciliation summary (Phase 5.2) | ⏳ Not yet |
+| `apps/api/.../ledger/completeness/route.ts` | Added `needsReview` count query + alert | ✅ Done |
+| `apps/doctor/.../CompletenessTab.tsx` | "Por Revisar" summary card + alert from API | ✅ Done |
 
 ---
 

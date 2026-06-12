@@ -69,6 +69,7 @@ interface CompletenessData {
   evidence: EvidenceStats;
   bankReconciliation?: BankReconciliation;
   reconciliationMatrix?: ReconciliationMatrix;
+  needsReview?: number;
   byOrigin: OriginItem[];
   byEntryType: TypeItem[];
   alerts: Alert[];
@@ -170,6 +171,16 @@ export function CompletenessTab() {
             </div>
             <p className="text-2xl font-bold text-indigo-700">{data.bankReconciliation.pctReconciled}%</p>
             <p className="text-xs text-gray-400">{data.bankReconciliation.matched} de {data.bankReconciliation.reconcilable}</p>
+          </div>
+        )}
+        {(data.needsReview ?? 0) > 0 && (
+          <div className="bg-white rounded-lg shadow p-4 border-t-4 border-amber-500">
+            <div className="flex items-center gap-1.5 mb-1">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              <p className="text-xs text-gray-500">Por Revisar</p>
+            </div>
+            <p className="text-2xl font-bold text-amber-700">{data.needsReview}</p>
+            <p className="text-xs text-gray-400">vinculados automáticamente</p>
           </div>
         )}
       </div>

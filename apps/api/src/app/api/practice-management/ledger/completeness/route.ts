@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
       bankMatchedCount,
       cashCount,
       webhookCount,
+      needsReviewCount,
       // Cross-status matrix (ingresos only): CFDI x Bank
       matrixFullyReconciled,
       matrixInvoicedUnmatched,
@@ -105,6 +106,11 @@ export async function GET(request: NextRequest) {
       // Includes webhook+efectivo (e.g. OXXO) to avoid double-counting with cashCount
       prisma.ledgerEntry.count({
         where: { doctorId, origin: 'webhook_pago' },
+      }),
+
+      // Entries pending review (auto-linked with medium confidence)
+      prisma.ledgerEntry.count({
+        where: { doctorId, needsReview: true },
       }),
 
       // Cross-status matrix: hasFactura x bankMatched (ingresos only)
@@ -182,6 +188,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (needsReviewCount > 0) {
+      alerts.push({
+        type: 'needs_review',
+        severity: needsReviewCount > 10 ? 'high' : 'medium',
+        count: needsReviewCount,
+        message: `${needsReviewCount} movimiento${needsReviewCount > 1 ? 's' : ''} vinculado${needsReviewCount > 1 ? 's' : ''} automáticamente por revisar`,
+      });
+    }
+
     const withoutComprobante = total - withComprobante;
     if (withoutComprobante > 0 && pctComprobante < 50) {
       alerts.push({
@@ -228,6 +243,7 @@ export async function GET(request: NextRequest) {
           undocumented: matrixUndocumented,
           totalIngresos: matrixFullyReconciled + matrixInvoicedUnmatched + matrixMatchedNoInvoice + matrixUndocumented,
         },
+        needsReview: needsReviewCount,
         byOrigin: originBreakdown,
         byEntryType: typeBreakdown,
         alerts,
