@@ -65,6 +65,8 @@ export function useLedgerPage() {
   const [modalEntry, setModalEntry] = useState<LedgerEntry | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deletingBatch, setDeletingBatch] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [merging, setMerging] = useState(false);
 
   // Estado de Resultados date filters
   const [estadoStartDate, setEstadoStartDate] = useState('');
@@ -198,6 +200,33 @@ export function useLedgerPage() {
     fetchBalance();
 
     if (errorCount > 0) toast.error(`Se eliminaron ${successCount} movimientos. ${errorCount} fallaron.`);
+  };
+
+  const mergeEntries = entries.filter((e) => selectedIds.has(e.id));
+
+  const handleMerge = async (targetId: number, sourceId: number) => {
+    setMerging(true);
+    try {
+      const res = await authFetch(`${API_URL}/api/practice-management/ledger/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetId, sourceId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al fusionar');
+      }
+      const result = await res.json();
+      toast.success(result.message || 'Movimientos fusionados');
+      setShowMergeModal(false);
+      setSelectedIds(new Set());
+      fetchEntries();
+      fetchBalance();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al fusionar movimientos');
+    } finally {
+      setMerging(false);
+    }
   };
 
   // ─── Inline editing — area ──────────────────────────────────────────────────
@@ -603,6 +632,12 @@ export function useLedgerPage() {
     // Batch
     deletingBatch,
     handleBatchDelete,
+
+    // Merge
+    showMergeModal, setShowMergeModal,
+    merging,
+    mergeEntries,
+    handleMerge,
 
     // Delete
     handleDelete,

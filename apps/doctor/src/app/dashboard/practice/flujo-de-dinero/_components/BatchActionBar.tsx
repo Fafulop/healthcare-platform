@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Trash2, Download } from 'lucide-react';
+import { Loader2, Trash2, Download, Merge } from 'lucide-react';
 
 interface Props {
   count: number;
@@ -8,9 +8,10 @@ interface Props {
   onClear: () => void;
   onDelete: () => void;
   onExportPDF: () => void;
+  onMerge?: () => void;
 }
 
-export function BatchActionBar({ count, deletingBatch, onClear, onDelete, onExportPDF }: Props) {
+export function BatchActionBar({ count, deletingBatch, onClear, onDelete, onExportPDF, onMerge }: Props) {
   if (count === 0) return null;
 
   return (
@@ -34,6 +35,15 @@ export function BatchActionBar({ count, deletingBatch, onClear, onDelete, onExpo
           <span className="hidden sm:inline">{deletingBatch ? 'Eliminando...' : `Eliminar (${count})`}</span>
           <span className="sm:hidden">{deletingBatch ? '...' : `(${count})`}</span>
         </button>
+        {count === 2 && onMerge && (
+          <button
+            onClick={onMerge}
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors"
+          >
+            <Merge className="w-4 h-4" />
+            <span className="hidden sm:inline">Fusionar</span>
+          </button>
+        )}
         <button
           onClick={onExportPDF}
           className="flex items-center gap-1.5 bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors"

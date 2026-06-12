@@ -10,6 +10,7 @@ import { LedgerTable } from './_components/LedgerTable';
 import { EstadoDeResultados } from './_components/EstadoDeResultados';
 import { CompletenessTab } from './_components/CompletenessTab';
 import { EntryDetailModal } from './_components/EntryDetailModal';
+import { MergeModal } from './_components/MergeModal';
 
 export default function FlujoDeDineroPage() {
   const page = useLedgerPage();
@@ -96,6 +97,7 @@ export default function FlujoDeDineroPage() {
             onClear={page.clearSelection}
             onDelete={page.handleBatchDelete}
             onExportPDF={page.handleExportPDF}
+            onMerge={() => page.setShowMergeModal(true)}
           />
 
           <LedgerTable
@@ -159,6 +161,16 @@ export default function FlujoDeDineroPage() {
       {/* Entry Detail Modal */}
       {page.modalEntry && (
         <EntryDetailModal entry={page.modalEntry} onClose={() => page.setModalEntry(null)} />
+      )}
+
+      {/* Merge Modal */}
+      {page.showMergeModal && page.mergeEntries.length === 2 && (
+        <MergeModal
+          entries={page.mergeEntries}
+          merging={page.merging}
+          onMerge={page.handleMerge}
+          onClose={() => page.setShowMergeModal(false)}
+        />
       )}
     </div>
   );

@@ -424,7 +424,7 @@ Allow users to:
 | **Phase 2:** Bank match-first | Medium | High — prevents SAT+bank duplicates | Phase 1 | ✅ Done (2.1 PDF unification + 2.2 enrichment) |
 | **Phase 3:** Cross-source dedup rules | Low | Medium — covered by Phase 1+2 naturally | Phase 1, 2 | ✅ Done (covered by Phases 1+2) |
 | **Phase 4:** Enrichment model | Low | Low — mostly already correct | None | ✅ Done (existing behavior documented) |
-| **Phase 5:** Review dashboard | Medium | Medium — user confidence & oversight | Phase 1, 2 | ✅ 5.1+5.2 done (5.3 pending) |
+| **Phase 5:** Review dashboard | Medium | Medium — user confidence & oversight | Phase 1, 2 | ✅ Done (5.1+5.2+5.3) |
 
 ### Recommended build order:
 
@@ -541,7 +541,7 @@ All steps executed on 2026-06-12:
 | `apps/api/src/app/api/practice-management/conciliacion-bancaria/[id]/movements/[movId]/route.ts` | `link_existing` + `confirm_match` now enrich ledger entry (bankAccount, bankMovementId, paymentStatus→PAID, needsReview→false) | ✅ Done |
 | `apps/doctor/src/app/api/bank-statement-import/route.ts` | **DELETE** — replaced by unified conciliacion flow | ⏳ Cleanup |
 
-### Phase 5 (5.1-5.2 ✅, 5.3 ⏳)
+### Phase 5 ✅
 | File | Change | Status |
 |------|--------|--------|
 | `apps/doctor/.../LedgerFilters.tsx` | "Revisión" filter dropdown (Por revisar / Revisados) | ✅ Done |
@@ -554,6 +554,11 @@ All steps executed on 2026-06-12:
 | `apps/api/.../ledger/[id]/link-cfdi/route.ts` | DELETE clears `needsReview` + `autoLinkedConfidence` | ✅ Done |
 | `apps/api/.../ledger/completeness/route.ts` | Added `needsReview` count query + alert | ✅ Done |
 | `apps/doctor/.../CompletenessTab.tsx` | "Por Revisar" summary card + alert from API | ✅ Done |
+| `apps/api/.../ledger/merge/route.ts` | **NEW** — POST merge endpoint (transfer enrichment, re-link relations, delete source) | ✅ Done |
+| `apps/doctor/.../MergeModal.tsx` | **NEW** — Side-by-side entry comparison, user picks which to keep | ✅ Done |
+| `apps/doctor/.../BatchActionBar.tsx` | Added "Fusionar" button (shown when exactly 2 selected) | ✅ Done |
+| `apps/doctor/.../useLedgerPage.ts` | Added `handleMerge`, `showMergeModal`, `merging` state | ✅ Done |
+| `apps/doctor/.../page.tsx` | Wired MergeModal + onMerge prop to BatchActionBar | ✅ Done |
 
 ---
 
