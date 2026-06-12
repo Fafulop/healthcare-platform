@@ -162,11 +162,11 @@ This is more aggressive than the current manual flow (which requires raw >= 70 f
 
 **Both SAT and bank matching use the same `autoLinkedConfidence` field.** Bank matching already produces 0.00-1.00 scores natively (from `bank-matching.ts`), so no normalization needed for bank matches.
 
-#### 1.5 Backfill strategy for existing data ⏳ NOT YET IMPLEMENTED
+#### 1.5 Backfill strategy for existing data ✅
 
 When Phase 1 is first deployed, there may be hundreds of existing `SatCfdiMetadata` records never registered to the ledger. Options:
 
-1. **One-time API endpoint:** `POST /api/sat-descarga/backfill-ledger` — runs `autoRegisterCfdisToLedger` for all unlinked CFDIs for the doctor. Triggered manually from the SAT Descarga UI with a "Registrar todos los pendientes" button.
+1. **One-time API endpoint:** `POST /api/sat-descarga/backfill-ledger` — runs `autoRegisterCfdisToLedger` for all unlinked CFDIs for the doctor. Includes per-doctor in-memory lock (returns 429 if already running). Triggered manually from the SAT Descarga UI with a "Registrar todos los pendientes" button.
 2. **Gradual:** Only process new syncs going forward. Users can still manually register old CFDIs via the existing "Registrar" button.
 
 **Recommendation:** Option 1 (one-time endpoint). Most doctors will want their historical CFDIs registered immediately. The backfill should run in batches (e.g., 50 at a time) to avoid timeouts, and should set `needsReview=true` on ALL backfill auto-links since there's no sync-context to validate against.
@@ -368,12 +368,18 @@ Update the completeness algorithm to reflect the new model:
 
 ## Phase 5: User Review & Reconciliation Dashboard
 
-### 5.1 "Needs Review" indicator in Flujo de Dinero
+### 5.1 "Needs Review" indicator in Flujo de Dinero ✅
 
-Add a filter/badge for entries with `needsReview = true`:
-- Auto-linked with medium confidence
-- Bank matches with medium confidence
-- Let user confirm or unlink
+> **Status:** Implemented (2026-06-12).
+
+- ✅ `GET /ledger` accepts `?needsReview=true|false` query param
+- ✅ "Revisión" dropdown filter in LedgerFilters (Todos / Por revisar / Revisados)
+- ✅ Yellow "Revisar" badge with AlertTriangle icon in Evidencia column (mobile + desktop)
+- ✅ Desktop tooltip shows auto-link confidence percentage
+- ✅ Confirm button (✓) — sets `needsReview=false` via PATCH
+- ✅ Unlink button (✕) — calls `DELETE /link-cfdi`, clears satCfdiUuid + needsReview + autoLinkedConfidence
+- ✅ `PATCH /ledger/:id` accepts `needsReview` field
+- ✅ `DELETE /ledger/:id/link-cfdi` clears all auto-link metadata on unlink
 
 ### 5.2 Monthly reconciliation summary
 
@@ -414,11 +420,11 @@ Allow users to:
 
 | Phase | Effort | Impact | Dependencies | Status |
 |-------|--------|--------|-------------|--------|
-| **Phase 1:** SAT auto-creation | Medium | High — eliminates manual registration | None | ✅ Done (backfill endpoint pending) |
+| **Phase 1:** SAT auto-creation | Medium | High — eliminates manual registration | None | ✅ Done (incl. backfill + rate limit) |
 | **Phase 2:** Bank match-first | Medium | High — prevents SAT+bank duplicates | Phase 1 | ⏳ Not started |
 | **Phase 3:** Cross-source dedup rules | Low | Medium — covered by Phase 1+2 naturally | Phase 1, 2 | ⏳ Not started |
 | **Phase 4:** Enrichment model | Low | Low — mostly already correct | None | ⏳ Not started |
-| **Phase 5:** Review dashboard | Medium | Medium — user confidence & oversight | Phase 1, 2 | ⏳ Not started |
+| **Phase 5:** Review dashboard | Medium | Medium — user confidence & oversight | Phase 1, 2 | ✅ 5.1 done (5.2-5.3 pending) |
 
 ### Recommended build order:
 
@@ -522,7 +528,7 @@ All steps executed on 2026-06-12:
 | `apps/api/src/lib/sat-auto-register.ts` | **NEW** — shared scoring (`scoreCfdiMatch`, `normalizeScore`, `resolveEntryType`) + `autoRegisterCfdisToLedger()` | ✅ Done |
 | `apps/api/src/app/api/cron/sat-sync-worker/route.ts` | Hook auto-register at 2 completion points (metadata + XML) | ✅ Done |
 | `apps/api/src/app/api/sat-descarga/register-to-ledger/route.ts` | Refactored to use shared logic from `sat-auto-register.ts` + fixed payment defaults | ✅ Done |
-| `apps/api/src/app/api/sat-descarga/backfill-ledger/route.ts` | **NEW** — one-time backfill endpoint for existing unlinked CFDIs | ⏳ Not yet |
+| `apps/api/src/app/api/sat-descarga/backfill-ledger/route.ts` | **NEW** — one-time backfill endpoint with per-doctor rate limiting | ✅ Done |
 | `packages/database/prisma/schema.prisma` | Added `autoLinkedConfidence`, `needsReview`, `mergedFromId` fields + self-relation | ✅ Done |
 | `packages/database/prisma/migrations/add-ledger-auto-link-fields.sql` | **NEW** — SQL migration (applied to Railway + local) | ✅ Done |
 
@@ -534,14 +540,18 @@ All steps executed on 2026-06-12:
 | `apps/api/src/app/api/practice-management/conciliacion-bancaria/[id]/movements/[movId]/route.ts` | Ensure `link_existing` action enriches entry + sets BankMovement FK |
 | `apps/doctor/src/app/api/bank-statement-import/route.ts` | **DELETE** — replaced by unified conciliacion flow |
 
-### Phase 5
-| File | Change |
-|------|--------|
-| `apps/doctor/.../CompletenessTab.tsx` | Add reconciliation summary |
-| `apps/doctor/.../LedgerFilters.tsx` | Add "needs review" filter |
-| `apps/doctor/.../LedgerTable.tsx` | Add "needs review" badge, unlink action |
-| `apps/doctor/.../useLedgerPage.ts` | Add `needsReview` filter state, fetch param |
-| `apps/api/src/app/api/practice-management/ledger/route.ts` | Add `needsReview` query param to GET |
+### Phase 5 (5.1 ✅, 5.2-5.3 ⏳)
+| File | Change | Status |
+|------|--------|--------|
+| `apps/doctor/.../LedgerFilters.tsx` | "Revisión" filter dropdown (Por revisar / Revisados) | ✅ Done |
+| `apps/doctor/.../LedgerTable.tsx` | Review badge + confirm ✓ / unlink ✕ buttons (mobile + desktop) | ✅ Done |
+| `apps/doctor/.../useLedgerPage.ts` | `reviewFilter` state + `handleConfirmReview` / `handleUnlinkCfdi` handlers | ✅ Done |
+| `apps/doctor/.../ledger-types.ts` | Added `needsReview`, `autoLinkedConfidence` to LedgerEntry type | ✅ Done |
+| `apps/doctor/.../page.tsx` | Wired all new props to LedgerFilters + LedgerTable | ✅ Done |
+| `apps/api/.../ledger/route.ts` | `?needsReview=true\|false` query param on GET | ✅ Done |
+| `apps/api/.../ledger/[id]/route.ts` | PATCH accepts `needsReview` for confirm action | ✅ Done |
+| `apps/api/.../ledger/[id]/link-cfdi/route.ts` | DELETE clears `needsReview` + `autoLinkedConfidence` | ✅ Done |
+| `apps/doctor/.../CompletenessTab.tsx` | Reconciliation summary (Phase 5.2) | ⏳ Not yet |
 
 ---
 
