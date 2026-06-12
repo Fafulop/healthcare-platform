@@ -421,7 +421,7 @@ Allow users to:
 | Phase | Effort | Impact | Dependencies | Status |
 |-------|--------|--------|-------------|--------|
 | **Phase 1:** SAT auto-creation | Medium | High — eliminates manual registration | None | ✅ Done (incl. backfill + rate limit) |
-| **Phase 2:** Bank match-first | Medium | High — prevents SAT+bank duplicates | Phase 1 | ⏳ Not started |
+| **Phase 2:** Bank match-first | Medium | High — prevents SAT+bank duplicates | Phase 1 | 🔧 Phase 2.1 done (PDF unification) |
 | **Phase 3:** Cross-source dedup rules | Low | Medium — covered by Phase 1+2 naturally | Phase 1, 2 | ⏳ Not started |
 | **Phase 4:** Enrichment model | Low | Low — mostly already correct | None | ⏳ Not started |
 | **Phase 5:** Review dashboard | Medium | Medium — user confidence & oversight | Phase 1, 2 | ✅ 5.1 done (5.2-5.3 pending) |
@@ -532,13 +532,14 @@ All steps executed on 2026-06-12:
 | `packages/database/prisma/schema.prisma` | Added `autoLinkedConfidence`, `needsReview`, `mergedFromId` fields + self-relation | ✅ Done |
 | `packages/database/prisma/migrations/add-ledger-auto-link-fields.sql` | **NEW** — SQL migration (applied to Railway + local) | ✅ Done |
 
-### Phase 2
-| File | Change |
-|------|--------|
-| `apps/doctor/.../conciliacion-bancaria/_components/usePdfImport.ts` | After PDF parse, call `POST /api/practice-management/conciliacion-bancaria` instead of `bank-statement-import` |
-| `apps/api/src/app/api/practice-management/conciliacion-bancaria/route.ts` | Accept pre-parsed movement arrays (not just CSV) |
-| `apps/api/src/app/api/practice-management/conciliacion-bancaria/[id]/movements/[movId]/route.ts` | Ensure `link_existing` action enriches entry + sets BankMovement FK |
-| `apps/doctor/src/app/api/bank-statement-import/route.ts` | **DELETE** — replaced by unified conciliacion flow |
+### Phase 2 (2.1 ✅, 2.2 ⏳)
+| File | Change | Status |
+|------|--------|--------|
+| `apps/doctor/.../conciliacion-bancaria/_components/usePdfImport.ts` | After PDF parse, call `POST /api/practice-management/conciliacion-bancaria` instead of `bank-statement-import`. Redirects to detail page on success. | ✅ Done |
+| `apps/api/src/app/api/practice-management/conciliacion-bancaria/route.ts` | Accept pre-parsed movement arrays (not just CSV), set `fileType: 'pdf'` dynamically | ✅ Done |
+| `apps/doctor/.../conciliacion-bancaria/page.tsx` | Import `useRouter`, redirect to detail page after PDF import | ✅ Done |
+| `apps/api/src/app/api/practice-management/conciliacion-bancaria/[id]/movements/[movId]/route.ts` | Ensure `link_existing` action enriches entry + sets BankMovement FK | ⏳ Phase 2.2 |
+| `apps/doctor/src/app/api/bank-statement-import/route.ts` | **DELETE** — replaced by unified conciliacion flow | ⏳ After 2.2 verified |
 
 ### Phase 5 (5.1 ✅, 5.2-5.3 ⏳)
 | File | Change | Status |

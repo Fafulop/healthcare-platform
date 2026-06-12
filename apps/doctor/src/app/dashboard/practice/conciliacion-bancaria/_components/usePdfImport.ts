@@ -8,7 +8,7 @@ import type { PdfParsedMovement, ReviewItem } from './pdf-import-types';
 
 type Step = 'idle' | 'uploading' | 'parsing' | 'review' | 'importing';
 
-export function usePdfImport(onImportDone: () => void) {
+export function usePdfImport(onImportDone: (statementId?: string) => void) {
   const [step, setStep] = useState<Step>('idle');
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [meta, setMeta] = useState<{ pdfSizeKB: number; tokensUsed: number } | null>(null);
@@ -18,6 +18,7 @@ export function usePdfImport(onImportDone: () => void) {
     periodMonth: number;
     periodYear: number;
     fileUrl: string;
+    fileName: string;
   } | null>(null);
 
   const handlePdfUpload = useCallback(async (
@@ -33,7 +34,7 @@ export function usePdfImport(onImportDone: () => void) {
       const uploadResult = await uploadFiles('bankStatementPdf', { files: [file] });
       const fileUrl = uploadResult[0].ufsUrl || uploadResult[0].url;
 
-      setUploadContext({ bank, accountNumber, periodMonth, periodYear, fileUrl });
+      setUploadContext({ bank, accountNumber, periodMonth, periodYear, fileUrl, fileName: file.name });
       setStep('parsing');
 
       // 2. Send to AI for parsing
@@ -100,26 +101,28 @@ export function usePdfImport(onImportDone: () => void) {
       return;
     }
 
+    if (!uploadContext) return;
+
     setStep('importing');
     try {
-      const res = await authFetch('/api/bank-statement-import', {
+      const res = await authFetch('/api/practice-management/conciliacion-bancaria', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          entries: selected.map((item) => ({
+          movements: selected.map((item) => ({
             transactionDate: item.transactionDate,
             concept: item.concept,
             amount: item.amount,
-            entryType: item.entryType,
-            area: item.area,
-            subarea: item.subarea,
-            formaDePago: item.formaDePago,
+            movementType: item.movementType,
             reference: item.reference,
+            balance: item.balance,
           })),
-          bank: uploadContext?.bank,
-          periodMonth: uploadContext?.periodMonth,
-          periodYear: uploadContext?.periodYear,
-          fileUrl: uploadContext?.fileUrl,
+          fileName: uploadContext.fileName,
+          fileUrl: uploadContext.fileUrl,
+          bank: uploadContext.bank,
+          accountNumber: uploadContext.accountNumber,
+          periodMonth: uploadContext.periodMonth,
+          periodYear: uploadContext.periodYear,
         }),
       });
 
@@ -129,12 +132,13 @@ export function usePdfImport(onImportDone: () => void) {
       }
 
       const result = await res.json();
-      toast.success(`${result.data.created} movimientos importados al flujo de dinero`);
+      const { summary } = result;
+      toast.success(`${summary.totalMovements} movimientos importados: ${summary.matched} conciliados, ${summary.new} nuevos`);
       setStep('idle');
       setItems([]);
       setMeta(null);
       setUploadContext(null);
-      onImportDone();
+      onImportDone(result.data?.id);
     } catch (err: any) {
       toast.error(err.message || 'Error al importar');
       setStep('review');

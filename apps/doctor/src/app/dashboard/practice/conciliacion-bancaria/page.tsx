@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Trash2, Eye, Landmark } from 'lucide-react';
 import { useConciliacionPage } from './_components/useConciliacionPage';
 import { StatementUploadModal } from './_components/StatementUploadModal';
@@ -19,8 +20,15 @@ function bankLabel(val: string) {
 }
 
 export default function ConciliacionBancariaPage() {
+  const router = useRouter();
   const page = useConciliacionPage();
-  const pdfImport = usePdfImport(page.fetchStatements);
+  const pdfImport = usePdfImport((statementId?: string) => {
+    if (statementId) {
+      router.push(`/dashboard/practice/conciliacion-bancaria/${statementId}`);
+    } else {
+      page.fetchStatements();
+    }
+  });
 
   const handlePdfUpload = async (
     file: File,

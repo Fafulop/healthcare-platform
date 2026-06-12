@@ -30,17 +30,17 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/practice-management/conciliacion-bancaria
-// Upload and parse a bank statement CSV, then auto-match and categorize
+// Upload and process a bank statement (CSV or pre-parsed PDF movements), then auto-match and categorize
 export async function POST(request: NextRequest) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
     const body = await request.json();
 
-    const { csvContent, fileName, fileUrl, bank, accountNumber, periodMonth, periodYear } = body;
+    const { csvContent, movements: preParseMovements, fileName, fileUrl, bank, accountNumber, periodMonth, periodYear } = body;
 
-    // Validation
-    if (!csvContent || typeof csvContent !== 'string') {
-      return NextResponse.json({ error: 'Contenido CSV requerido' }, { status: 400 });
+    // Must have either CSV content or pre-parsed movements (from PDF)
+    if (!csvContent && !preParseMovements) {
+      return NextResponse.json({ error: 'Se requiere contenido CSV o movimientos pre-procesados' }, { status: 400 });
     }
     if (!fileName || !fileUrl) {
       return NextResponse.json({ error: 'Nombre y URL del archivo requeridos' }, { status: 400 });
@@ -74,12 +74,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse CSV
+    // Parse CSV or use pre-parsed movements from PDF
     let parseResult;
-    try {
-      parseResult = parseBankStatementCSV(csvContent, bank as SupportedBank);
-    } catch (err: any) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
+    if (csvContent) {
+      try {
+        parseResult = parseBankStatementCSV(csvContent, bank as SupportedBank);
+      } catch (err: any) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+    } else {
+      // Pre-parsed movements from PDF (GPT-4o)
+      const movements = (preParseMovements as any[]).map(m => ({
+        transactionDate: m.transactionDate,
+        description: m.concept || m.description || '',
+        reference: m.reference || '',
+        amount: Number(m.amount) || 0,
+        movementType: m.movementType === 'deposit' || m.entryType === 'ingreso' ? 'deposit' : 'withdrawal',
+        balance: m.balance != null ? Number(m.balance) : null,
+      }));
+      const totalDeposits = movements.filter(m => m.movementType === 'deposit').reduce((s, m) => s + m.amount, 0);
+      const totalWithdrawals = movements.filter(m => m.movementType === 'withdrawal').reduce((s, m) => s + m.amount, 0);
+      parseResult = {
+        movements,
+        totalDeposits,
+        totalWithdrawals,
+        endingBalance: null as number | null,
+      };
     }
 
     // Fetch doctor's learned categorization rules
@@ -130,7 +150,7 @@ export async function POST(request: NextRequest) {
           doctorId: doctor.id,
           fileName,
           fileUrl,
-          fileType: 'csv',
+          fileType: csvContent ? 'csv' : 'pdf',
           bankName: bank,
           accountNumber: accountNumber.trim(),
           periodMonth: parseInt(periodMonth),
