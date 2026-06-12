@@ -51,6 +51,9 @@ interface Props {
   onStartEditAmountPaid: (entry: LedgerEntry) => void;
   onSaveAmountPaid: (id: number, total: string) => void;
   onCancelEditAmountPaid: () => void;
+  // Review actions
+  onConfirmReview: (id: number) => void;
+  onUnlinkCfdi: (id: number) => void;
 }
 
 function SortIcon({ column, sortColumn, sortDirection }: { column: string; sortColumn: string | null; sortDirection: 'asc' | 'desc' }) {
@@ -67,6 +70,7 @@ export function LedgerTable({
   editingAreaId, editingAreaData, onEditAreaDataChange, updatingArea, onStartEditArea, onSaveArea, onCancelEditArea,
   editingFormaPagoId, editingFormaPagoValue, onEditFormaPagoValueChange, updatingFormaPago, onStartEditFormaPago, onSaveFormaPago, onCancelEditFormaPago,
   editingAmountPaidId, editingAmountPaidValue, onEditAmountPaidValueChange, updatingAmountPaid, onStartEditAmountPaid, onSaveAmountPaid, onCancelEditAmountPaid,
+  onConfirmReview, onUnlinkCfdi,
 }: Props) {
   const [cfdiUuid, setCfdiUuid] = useState<string | null>(null);
   const [cfdiEntryId, setCfdiEntryId] = useState<number | null>(null);
@@ -213,6 +217,12 @@ export function LedgerTable({
                     </span>
                   )}
                 </div>
+                {entry.needsReview && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <button onClick={() => onConfirmReview(entry.id)} className="text-[10px] font-medium px-2 py-0.5 rounded bg-green-100 text-green-800 hover:bg-green-200">Confirmar</button>
+                    <button onClick={() => onUnlinkCfdi(entry.id)} className="text-[10px] font-medium px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200">Desvincular</button>
+                  </div>
+                )}
               </div>
 
               {(entry.transactionType === 'VENTA' || entry.transactionType === 'COMPRA') && (
@@ -379,9 +389,13 @@ export function LedgerTable({
                         <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
                       )}
                       {entry.needsReview && (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 flex items-center gap-0.5" title={`Auto-vinculado (confianza: ${entry.autoLinkedConfidence ? (parseFloat(entry.autoLinkedConfidence) * 100).toFixed(0) + '%' : '?'})`}>
-                          <AlertTriangle className="w-2.5 h-2.5" />Revisar
-                        </span>
+                        <>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 flex items-center gap-0.5" title={`Auto-vinculado (confianza: ${entry.autoLinkedConfidence ? (parseFloat(entry.autoLinkedConfidence) * 100).toFixed(0) + '%' : '?'})`}>
+                            <AlertTriangle className="w-2.5 h-2.5" />Revisar
+                          </span>
+                          <button onClick={() => onConfirmReview(entry.id)} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-100 text-green-800 hover:bg-green-200" title="Confirmar vinculación">✓</button>
+                          <button onClick={() => onUnlinkCfdi(entry.id)} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200" title="Desvincular CFDI">✕</button>
+                        </>
                       )}
                     </div>
                   </td>

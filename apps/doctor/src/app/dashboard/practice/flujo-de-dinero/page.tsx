@@ -135,6 +135,8 @@ export default function FlujoDeDineroPage() {
             onStartEditAmountPaid={page.handleStartEditAmountPaid}
             onSaveAmountPaid={page.handleSaveAmountPaid}
             onCancelEditAmountPaid={page.handleCancelEditAmountPaid}
+            onConfirmReview={page.handleConfirmReview}
+            onUnlinkCfdi={page.handleUnlinkCfdi}
           />
         </>
       )}

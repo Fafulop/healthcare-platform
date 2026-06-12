@@ -310,6 +310,42 @@ export function useLedgerPage() {
     }
   };
 
+  // ─── Review actions (confirm/unlink auto-linked entries) ────────────────────
+
+  const handleConfirmReview = async (entryId: number) => {
+    try {
+      const res = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ needsReview: false }),
+      });
+      if (!res.ok) throw new Error('Error al confirmar');
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, needsReview: false } : e));
+    } catch (err) {
+      console.error('Error confirming review:', err);
+      toast.error('Error al confirmar vinculación');
+    }
+  };
+
+  const handleUnlinkCfdi = async (entryId: number) => {
+    if (!await practiceConfirm('¿Desvincular esta factura CFDI del movimiento?')) return;
+    try {
+      const res = await authFetch(`${API_URL}/api/practice-management/ledger/${entryId}/link-cfdi`, { method: 'DELETE' });
+      if (res.ok) {
+        setEntries(prev => prev.map(e => e.id === entryId
+          ? { ...e, satCfdiUuid: null, hasFactura: false, needsReview: false, autoLinkedConfidence: null }
+          : e));
+        fetchBalance();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Error al desvincular');
+      }
+    } catch (err) {
+      console.error('Error unlinking CFDI:', err);
+      toast.error('Error al desvincular CFDI');
+    }
+  };
+
   // ─── Selection helpers ──────────────────────────────────────────────────────
 
   const toggleSelect = (id: number) => {
@@ -610,6 +646,10 @@ export function useLedgerPage() {
     // PDF exports
     handleExportPDF,
     handleExportEstadoResultadosPDF,
+
+    // Review actions
+    handleConfirmReview,
+    handleUnlinkCfdi,
 
     // Refresh
     fetchEntries,

@@ -157,10 +157,15 @@ export async function DELETE(
         where: { ledgerEntryId: entryId, uuid: entry.satCfdiUuid! },
       });
 
-      // Unlink the CFDI from the entry
+      // Unlink the CFDI from the entry and clear auto-link metadata
       await tx.ledgerEntry.update({
         where: { id: entryId },
-        data: { satCfdiUuid: null, hasFactura: stillHasFactura },
+        data: {
+          satCfdiUuid: null,
+          hasFactura: stillHasFactura,
+          needsReview: false,
+          autoLinkedConfidence: null,
+        },
       });
     });
 

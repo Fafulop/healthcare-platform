@@ -348,7 +348,7 @@ export async function PATCH(
       );
     }
 
-    const { area, subarea, formaDePago, amountPaid, paymentStatus, serviceId, serviceName } = body;
+    const { area, subarea, formaDePago, amountPaid, paymentStatus, serviceId, serviceName, needsReview } = body;
 
     // Validation
     if (area !== undefined && (!area || typeof area !== 'string' || area.trim().length === 0)) {
@@ -402,6 +402,11 @@ export async function PATCH(
           updateData.serviceName = null;
         }
       }
+    }
+
+    // Handle needsReview (confirm/dismiss auto-link review)
+    if (needsReview !== undefined) {
+      updateData.needsReview = Boolean(needsReview);
     }
 
     // Handle amountPaid and auto-calculate paymentStatus
