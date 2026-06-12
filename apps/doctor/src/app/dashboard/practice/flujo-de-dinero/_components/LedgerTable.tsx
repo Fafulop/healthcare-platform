@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Edit2, Eye, TrendingUp, TrendingDown, DollarSign, Calendar, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Receipt, FileCheck2 } from 'lucide-react';
+import { Edit2, Eye, TrendingUp, TrendingDown, DollarSign, Calendar, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Receipt, FileCheck2, AlertTriangle } from 'lucide-react';
 import { getLocalDateString } from '@/lib/dates';
 import type { LedgerEntry, Area } from './ledger-types';
 import { FORMAS_DE_PAGO, ORIGIN_LABELS } from './ledger-types';
@@ -207,6 +207,11 @@ export function LedgerTable({
                   {!entry.hasFactura && (
                     <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
                   )}
+                  {entry.needsReview && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 flex items-center gap-0.5">
+                      <AlertTriangle className="w-2.5 h-2.5" />Revisar
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -372,6 +377,11 @@ export function LedgerTable({
                       )}
                       {!entry.hasFactura && (
                         <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
+                      )}
+                      {entry.needsReview && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 flex items-center gap-0.5" title={`Auto-vinculado (confianza: ${entry.autoLinkedConfidence ? (parseFloat(entry.autoLinkedConfidence) * 100).toFixed(0) + '%' : '?'})`}>
+                          <AlertTriangle className="w-2.5 h-2.5" />Revisar
+                        </span>
                       )}
                     </div>
                   </td>

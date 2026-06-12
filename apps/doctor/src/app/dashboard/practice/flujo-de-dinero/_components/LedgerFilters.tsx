@@ -22,6 +22,8 @@ interface Props {
   serviceFilter: string;
   onServiceChange: (v: string) => void;
   services: { id: string; serviceName: string }[];
+  reviewFilter: string;
+  onReviewChange: (v: string) => void;
 }
 
 export function LedgerFilters({
@@ -34,8 +36,9 @@ export function LedgerFilters({
   originFilter, onOriginChange,
   evidenceFilter, onEvidenceChange,
   serviceFilter, onServiceChange, services,
+  reviewFilter, onReviewChange,
 }: Props) {
-  const hasActiveFilters = searchTerm || entryTypeFilter !== 'all' || porRealizarFilter !== 'all' || startDate || endDate || originFilter !== 'all' || evidenceFilter !== 'all' || serviceFilter !== 'all';
+  const hasActiveFilters = searchTerm || entryTypeFilter !== 'all' || porRealizarFilter !== 'all' || startDate || endDate || originFilter !== 'all' || evidenceFilter !== 'all' || serviceFilter !== 'all' || reviewFilter !== 'all';
 
   return (
     <>
@@ -132,6 +135,19 @@ export function LedgerFilters({
               <option value="sin_comprobante">Sin comprobante</option>
               <option value="con_factura">Con factura</option>
               <option value="sin_factura">Sin factura</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Revisión</label>
+            <select
+              value={reviewFilter}
+              onChange={(e) => onReviewChange(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-300 focus:border-transparent"
+            >
+              <option value="all">Todos</option>
+              <option value="needs_review">Por revisar</option>
+              <option value="reviewed">Revisados</option>
             </select>
           </div>
 

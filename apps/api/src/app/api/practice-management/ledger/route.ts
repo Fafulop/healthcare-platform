@@ -71,6 +71,11 @@ export async function GET(request: NextRequest) {
     if (hasFactura === 'true') where.hasFactura = true;
     if (hasFactura === 'false') where.hasFactura = false;
 
+    // Filter by needs review (auto-linked entries pending user verification)
+    const needsReview = searchParams.get('needsReview');
+    if (needsReview === 'true') where.needsReview = true;
+    if (needsReview === 'false') where.needsReview = false;
+
     // Search across concept and internal ID
     if (search) {
       where.OR = [

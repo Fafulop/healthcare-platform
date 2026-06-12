@@ -60,6 +60,7 @@ export function useLedgerPage() {
   const [evidenceFilter, setEvidenceFilter] = useState('all');
   const [serviceFilter, setServiceFilter] = useState('all');
   const [services, setServices] = useState<{ id: string; serviceName: string }[]>([]);
+  const [reviewFilter, setReviewFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [modalEntry, setModalEntry] = useState<LedgerEntry | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -117,6 +118,8 @@ export function useLedgerPage() {
       if (evidenceFilter === 'sin_comprobante') params.append('hasComprobante', 'false');
       if (evidenceFilter === 'con_factura') params.append('hasFactura', 'true');
       if (evidenceFilter === 'sin_factura') params.append('hasFactura', 'false');
+      if (reviewFilter === 'needs_review') params.append('needsReview', 'true');
+      if (reviewFilter === 'reviewed') params.append('needsReview', 'false');
 
       const res = await authFetch(`${API_URL}/api/practice-management/ledger?${params}`);
       if (!res.ok) throw new Error('Error al cargar movimientos');
@@ -151,7 +154,7 @@ export function useLedgerPage() {
       fetchBalance();
       fetchAreas();
     }
-  }, [entryTypeFilter, porRealizarFilter, startDate, endDate, originFilter, evidenceFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [entryTypeFilter, porRealizarFilter, startDate, endDate, originFilter, evidenceFilter, reviewFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Delete handlers ────────────────────────────────────────────────────────
 
@@ -549,6 +552,7 @@ export function useLedgerPage() {
     evidenceFilter, setEvidenceFilter,
     serviceFilter, setServiceFilter,
     services,
+    reviewFilter, setReviewFilter,
 
     // Day navigator
     showAllEntries, setShowAllEntries,

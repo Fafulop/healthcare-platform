@@ -52,6 +52,8 @@ export interface LedgerEntry {
   serviceId?: string | null;
   serviceName?: string | null;
   satCfdiUuid?: string | null;
+  needsReview?: boolean;
+  autoLinkedConfidence?: string | null;
 }
 
 export const ORIGIN_LABELS: Record<string, { label: string; color: string }> = {
