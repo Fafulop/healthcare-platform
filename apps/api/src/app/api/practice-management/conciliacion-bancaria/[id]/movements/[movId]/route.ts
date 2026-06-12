@@ -194,19 +194,57 @@ async function handleConfirmMatch(movement: any, doctorId: string) {
     return NextResponse.json({ error: 'Este movimiento no tiene un match asignado' }, { status: 400 });
   }
 
+  // Fetch statement for bank account info + the linked entry
+  const [statement, entry] = await Promise.all([
+    prisma.bankStatement.findUnique({
+      where: { id: movement.bankStatementId },
+      select: { bankName: true, accountNumber: true },
+    }),
+    prisma.ledgerEntry.findUnique({
+      where: { id: movement.ledgerEntryId },
+      select: { bankAccount: true, bankMovementId: true, paymentStatus: true, amount: true },
+    }),
+  ]);
+
   const audit = buildAuditEntry('confirm_match', movement, doctorId);
-  const updated = await prisma.bankMovement.update({
-    where: { id: movement.id },
-    data: {
-      matchStatus: 'matched_confirmed',
-      matchedAt: new Date(),
-      matchedBy: doctorId,
-      matchHistory: appendHistory(movement.matchHistory, audit),
-    },
+
+  await prisma.$transaction(async (tx) => {
+    await tx.bankMovement.update({
+      where: { id: movement.id },
+      data: {
+        matchStatus: 'matched_confirmed',
+        matchedAt: new Date(),
+        matchedBy: doctorId,
+        matchHistory: appendHistory(movement.matchHistory, audit),
+      },
+    });
+
+    // Enrich ledger entry on confirm (same as link_existing)
+    if (entry) {
+      const enrichData: any = {
+        hasComprobante: true,
+        needsReview: false,
+      };
+      if (!entry.bankAccount && statement) {
+        enrichData.bankAccount = `${statement.bankName} ${statement.accountNumber}`;
+      }
+      if (!entry.bankMovementId && movement.reference) {
+        enrichData.bankMovementId = movement.reference;
+      }
+      if (entry.paymentStatus !== 'PAID') {
+        enrichData.paymentStatus = 'PAID';
+        enrichData.amountPaid = entry.amount;
+      }
+      await tx.ledgerEntry.update({
+        where: { id: movement.ledgerEntryId },
+        data: enrichData,
+      });
+    }
   });
 
   await updateStatementCounts(movement.bankStatementId);
 
+  const updated = await prisma.bankMovement.findUnique({ where: { id: movement.id } });
   return NextResponse.json({ data: updated });
 }
 
@@ -262,11 +300,17 @@ async function handleCreateEntry(
     return NextResponse.json({ error: 'entryType y area son requeridos' }, { status: 400 });
   }
 
+  // Fetch statement for bank account info
+  const stmt = await prisma.bankStatement.findUnique({
+    where: { id: statementId },
+    select: { bankName: true, accountNumber: true },
+  });
+
   const result = await prisma.$transaction(async (tx) => {
     const { generateLedgerInternalId } = await import('@/lib/practice-utils');
     const internalId = await generateLedgerInternalId(doctorId, entryType, tx);
 
-    // Create the LedgerEntry
+    // Create the LedgerEntry with bank metadata
     const entry = await tx.ledgerEntry.create({
       data: {
         doctorId,
@@ -282,7 +326,9 @@ async function handleCreateEntry(
         amountPaid: movement.amount,
         paymentStatus: 'PAID',
         origin: 'banco',
-        hasComprobante: true, // the bank statement itself is the comprobante
+        hasComprobante: true,
+        bankAccount: stmt ? `${stmt.bankName} ${stmt.accountNumber}` : null,
+        bankMovementId: movement.reference || null,
       },
     });
 
@@ -397,6 +443,12 @@ async function handleLinkExisting(
     );
   }
 
+  // Fetch statement for bank account info
+  const statement = await prisma.bankStatement.findUnique({
+    where: { id: statementId },
+    select: { bankName: true, accountNumber: true },
+  });
+
   const audit = buildAuditEntry('link_existing', movement, doctorId);
 
   const result = await prisma.$transaction(async (tx) => {
@@ -413,10 +465,31 @@ async function handleLinkExisting(
       },
     });
 
-    // Mark the ledger entry as having bank comprobante
+    // Enrich the ledger entry with bank evidence
+    const enrichData: any = {
+      hasComprobante: true,
+      needsReview: false,
+    };
+
+    // Set bank account info if not already set
+    if (!entry.bankAccount && statement) {
+      enrichData.bankAccount = `${statement.bankName} ${statement.accountNumber}`;
+    }
+
+    // Set bank reference if not already set
+    if (!entry.bankMovementId && movement.reference) {
+      enrichData.bankMovementId = movement.reference;
+    }
+
+    // Confirm payment — bank evidence proves money moved
+    if (entry.paymentStatus !== 'PAID') {
+      enrichData.paymentStatus = 'PAID';
+      enrichData.amountPaid = entry.amount;
+    }
+
     await tx.ledgerEntry.update({
       where: { id: ledgerEntryId },
-      data: { hasComprobante: true },
+      data: enrichData,
     });
 
     return updated;
