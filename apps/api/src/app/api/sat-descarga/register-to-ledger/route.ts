@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 import { generateLedgerInternalId, getDefaultArea } from '@/lib/practice-utils';
+import { scoreCfdiMatch, normalizeScore, resolveEntryType } from '@/lib/sat-auto-register';
 
 // POST /api/sat-descarga/register-to-ledger
 // Register one or more SAT CFDIs as LedgerEntries
@@ -71,14 +72,7 @@ export async function POST(request: NextRequest) {
       for (const cfdi of toRegister) {
         const detail = detailMap.get(cfdi.uuid.toLowerCase());
         const isReceived = cfdi.direction === 'received';
-
-        // Determine entry type from direction + efecto
-        let entryType: string;
-        if (isReceived) {
-          entryType = cfdi.efecto === 'E' ? 'ingreso' : 'egreso';
-        } else {
-          entryType = cfdi.efecto === 'I' ? 'ingreso' : 'egreso';
-        }
+        const entryType = resolveEntryType(cfdi.direction, cfdi.efecto);
 
         // Use monto from SAT metadata (always correct) over detail.total
         const amount = Number(cfdi.monto) || (detail?.total ? Number(detail.total) : 0);
@@ -106,45 +100,11 @@ export async function POST(request: NextRequest) {
           take: 10,
         });
 
-        // Score candidates (same logic as cfdi-suggestions but in reverse)
-        const cfdiRfc = isReceived ? cfdi.issuerRfc : cfdi.receiverRfc;
+        // Score candidates using shared scoring function
         const scoredMatches: { entry: typeof matchCandidates[0]; score: number }[] = [];
 
         for (const candidate of matchCandidates) {
-          let score = 0;
-
-          // Amount scoring (up to 40)
-          const amountDiff = Math.abs(Number(candidate.amount) - amount);
-          if (amountDiff === 0) score += 40;
-          else if (amountDiff < amount * 0.001) score += 30;
-          else score += 20;
-
-          // Date scoring (up to 30, gradual decay over 7-day window)
-          // Normalize both dates to UTC midnight to avoid time-of-day skew
-          const entryDay = new Date(new Date(candidate.transactionDate).toISOString().split('T')[0] + 'T00:00:00Z');
-          const cfdiDay = new Date(cfdiDate.toISOString().split('T')[0] + 'T00:00:00Z');
-          const daysDiff = Math.abs((entryDay.getTime() - cfdiDay.getTime()) / (1000 * 60 * 60 * 24));
-          if (daysDiff < 1) score += 30;
-          else if (daysDiff <= 2) score += 25;
-          else if (daysDiff <= 4) score += 15;
-          else score += 12;
-
-          // RFC scoring (30)
-          const entryRfc = candidate.entryType === 'ingreso'
-            ? candidate.client?.rfc
-            : candidate.supplier?.rfc;
-          if (entryRfc && cfdiRfc && entryRfc === cfdiRfc) score += 30;
-
-          // Name/concept match scoring (20) — CFDI counterpart name in entry concept
-          // Require min 4 chars to avoid false positives on "SA", "de", "OP" etc.
-          const cfdiName = (isReceived ? cfdi.issuerName : cfdi.receiverName)?.toLowerCase().trim() || '';
-          const entryConcept = (candidate.concept || '').toLowerCase().trim();
-          if (cfdiName.length >= 4 && entryConcept.length >= 4) {
-            if (entryConcept.includes(cfdiName) || cfdiName.includes(entryConcept)) {
-              score += 20;
-            }
-          }
-
+          const score = scoreCfdiMatch(candidate, cfdi);
           if (score >= 70) {
             scoredMatches.push({ entry: candidate, score });
           }
@@ -252,8 +212,8 @@ export async function POST(request: NextRequest) {
             hasFactura: true,
             satCfdiUuid: cfdi.uuid,
             transactionType: 'N/A',
-            amountPaid: amount,
-            paymentStatus: 'PAID',
+            amountPaid: isReceived ? 0 : amount,
+            paymentStatus: isReceived ? 'PENDING' : 'PAID',
             ...(supplierId ? { supplierId } : {}),
           },
         });

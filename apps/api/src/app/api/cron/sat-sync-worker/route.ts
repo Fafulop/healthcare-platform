@@ -30,6 +30,7 @@ import {
   type SyncDirection,
 } from '@/lib/sat-descarga';
 import { parseCfdiXml, parsePagoComplement } from '@/lib/sat-xml-parser';
+import { autoRegisterCfdisToLedger } from '@/lib/sat-auto-register';
 
 /**
  * GET /api/cron/sat-sync-worker — Diagnostic: show all job statuses
@@ -487,6 +488,17 @@ async function downloadAndParseMetadata(
     data: { status: 'completed', completedAt: new Date(), cfdiCount: totalRecords },
   });
 
+  // Auto-register new CFDIs to ledger (Phase 1 — Consolidated Money Model)
+  try {
+    const autoResult = await autoRegisterCfdisToLedger(job.doctorId, job.id);
+    console.log(`[sat-sync-worker] Auto-register for job ${job.id}: ` +
+      `linked=${autoResult.autoLinked}, review=${autoResult.autoLinkedNeedsReview}, ` +
+      `created=${autoResult.created}, skipped=${autoResult.skipped}`);
+  } catch (err) {
+    console.error(`[sat-sync-worker] Auto-register failed for job ${job.id}:`, err);
+    // Don't fail the sync job — auto-register is best-effort
+  }
+
   return `completed: ${totalRecords} CFDIs`;
 }
 
@@ -656,6 +668,16 @@ async function downloadAndParseXml(
     where: { id: job.id },
     data: { status: 'completed', completedAt: new Date(), cfdiCount: totalRecords },
   });
+
+  // Auto-register new CFDIs to ledger (Phase 1 — Consolidated Money Model)
+  try {
+    const autoResult = await autoRegisterCfdisToLedger(job.doctorId, job.id);
+    console.log(`[sat-sync-worker] Auto-register (XML) for job ${job.id}: ` +
+      `linked=${autoResult.autoLinked}, review=${autoResult.autoLinkedNeedsReview}, ` +
+      `created=${autoResult.created}, skipped=${autoResult.skipped}`);
+  } catch (err) {
+    console.error(`[sat-sync-worker] Auto-register (XML) failed for job ${job.id}:`, err);
+  }
 
   return `completed: ${totalRecords} XML CFDIs parsed`;
 }

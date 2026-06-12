@@ -1155,6 +1155,11 @@ model LedgerEntry {
   hasFactura      Boolean            @default(false) @map("has_factura")
   satCfdiUuid     String?            @unique @map("sat_cfdi_uuid") @db.VarChar(100)
 
+  // Auto-linking metadata (Phase 1: consolidated money model)
+  autoLinkedConfidence Decimal?      @map("auto_linked_confidence") @db.Decimal(5, 4)
+  needsReview          Boolean       @default(false) @map("needs_review")
+  mergedFromId         Int?          @map("merged_from_id")
+
   // Timestamps
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
@@ -1166,6 +1171,8 @@ model LedgerEntry {
   purchase        Purchase?          @relation("PurchaseLedgerEntries", fields: [purchaseId], references: [id], onDelete: SetNull)
   client          Client?            @relation("ClientLedgerEntries", fields: [clientId], references: [id], onDelete: SetNull)
   supplier        Proveedor?         @relation("ProveedorLedgerEntries", fields: [supplierId], references: [id], onDelete: SetNull)
+  mergedFrom      LedgerEntry?       @relation("LedgerMerge", fields: [mergedFromId], references: [id], onDelete: SetNull)
+  mergedInto      LedgerEntry[]      @relation("LedgerMerge")
   attachments     LedgerAttachment[]
   facturas        LedgerFactura[]
   facturasXml     LedgerFacturaXml[]
