@@ -54,6 +54,10 @@ interface Props {
   // Review actions
   onConfirmReview: (id: number) => void;
   onUnlinkCfdi: (id: number) => void;
+  // Pagination
+  currentPage: number;
+  onPageChange: (page: number) => void;
+  pagination: { total: number; totalPages: number; page: number; limit: number } | null;
 }
 
 function SortIcon({ column, sortColumn, sortDirection }: { column: string; sortColumn: string | null; sortDirection: 'asc' | 'desc' }) {
@@ -71,6 +75,7 @@ export function LedgerTable({
   editingFormaPagoId, editingFormaPagoValue, onEditFormaPagoValueChange, updatingFormaPago, onStartEditFormaPago, onSaveFormaPago, onCancelEditFormaPago,
   editingAmountPaidId, editingAmountPaidValue, onEditAmountPaidValueChange, updatingAmountPaid, onStartEditAmountPaid, onSaveAmountPaid, onCancelEditAmountPaid,
   onConfirmReview, onUnlinkCfdi,
+  currentPage, onPageChange, pagination,
 }: Props) {
   const [cfdiUuid, setCfdiUuid] = useState<string | null>(null);
   const [cfdiEntryId, setCfdiEntryId] = useState<number | null>(null);
@@ -571,19 +576,44 @@ export function LedgerTable({
         </table>
       </div>
 
-      {/* Summary Footer */}
-      {filteredEntries.length > 0 && (
-        <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200">
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">
-              Total: <strong>{filteredEntries.length}</strong> movimiento{filteredEntries.length !== 1 ? 's' : ''}
-            </span>
-            <button onClick={onRefresh} className="text-slate-600 hover:text-slate-700 font-medium">
+      {/* Summary Footer + Pagination */}
+      <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-sm">
+          <span className="text-gray-600">
+            {pagination ? (
+              <>Mostrando <strong>{filteredEntries.length}</strong> de <strong>{pagination.total}</strong> movimiento{pagination.total !== 1 ? 's' : ''}</>
+            ) : (
+              <>Total: <strong>{filteredEntries.length}</strong> movimiento{filteredEntries.length !== 1 ? 's' : ''}</>
+            )}
+          </span>
+          <div className="flex items-center gap-2">
+            {pagination && pagination.totalPages > 1 && (
+              <>
+                <button
+                  onClick={() => onPageChange(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs text-gray-600">
+                  Página {currentPage} de {pagination.totalPages}
+                </span>
+                <button
+                  onClick={() => onPageChange(currentPage + 1)}
+                  disabled={currentPage >= pagination.totalPages}
+                  className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
+            <button onClick={onRefresh} className="text-slate-600 hover:text-slate-700 font-medium text-xs ml-2">
               Actualizar
             </button>
           </div>
         </div>
-      )}
+      </div>
       {cfdiUuid && (
         <CfdiDetailModal
           uuid={cfdiUuid}

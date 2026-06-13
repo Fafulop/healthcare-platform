@@ -68,6 +68,11 @@ export function useLedgerPage() {
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [merging, setMerging] = useState(false);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<{ total: number; totalPages: number; page: number; limit: number } | null>(null);
+  const PAGE_SIZE = 100;
+
   // Estado de Resultados date filters
   const [estadoStartDate, setEstadoStartDate] = useState('');
   const [estadoEndDate, setEstadoEndDate] = useState('');
@@ -122,11 +127,14 @@ export function useLedgerPage() {
       if (evidenceFilter === 'sin_factura') params.append('hasFactura', 'false');
       if (reviewFilter === 'needs_review') params.append('needsReview', 'true');
       if (reviewFilter === 'reviewed') params.append('needsReview', 'false');
+      params.append('page', String(currentPage));
+      params.append('limit', String(PAGE_SIZE));
 
       const res = await authFetch(`${API_URL}/api/practice-management/ledger?${params}`);
       if (!res.ok) throw new Error('Error al cargar movimientos');
       const result = await res.json();
       setEntries(result.data || []);
+      if (result.pagination) setPagination(result.pagination);
     } catch (err) {
       console.error('Error al cargar movimientos:', err);
     } finally {
@@ -156,7 +164,12 @@ export function useLedgerPage() {
       fetchBalance();
       fetchAreas();
     }
-  }, [entryTypeFilter, porRealizarFilter, startDate, endDate, originFilter, evidenceFilter, reviewFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [entryTypeFilter, porRealizarFilter, startDate, endDate, originFilter, evidenceFilter, reviewFilter, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset to page 1 when any filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [entryTypeFilter, porRealizarFilter, startDate, endDate, originFilter, evidenceFilter, reviewFilter]);
 
   // ─── Delete handlers ────────────────────────────────────────────────────────
 
@@ -470,7 +483,36 @@ export function useLedgerPage() {
     }
   };
 
-  const estadoResultados: EstadoResultadosData = processEstadoResultados(entries, estadoStartDate, estadoEndDate);
+  // Estado de Resultados: fetch ALL entries (no pagination) for full reporting
+  const [allEntries, setAllEntries] = useState<LedgerEntry[]>([]);
+  const [allEntriesLoaded, setAllEntriesLoaded] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'estado-resultados' || !session?.user?.email) return;
+    // Fetch all entries (limit 500 max) with optional date range for Estado de Resultados
+    const fetchAll = async () => {
+      try {
+        const params = new URLSearchParams();
+        params.append('limit', '500');
+        if (estadoStartDate) params.append('startDate', estadoStartDate);
+        if (estadoEndDate) params.append('endDate', estadoEndDate);
+        const res = await authFetch(`${API_URL}/api/practice-management/ledger?${params}`);
+        if (!res.ok) throw new Error('Error');
+        const result = await res.json();
+        setAllEntries(result.data || []);
+        setAllEntriesLoaded(true);
+      } catch (err) {
+        console.error('Error fetching all entries for estado de resultados:', err);
+      }
+    };
+    fetchAll();
+  }, [activeTab, estadoStartDate, estadoEndDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const estadoResultados: EstadoResultadosData = processEstadoResultados(
+    allEntriesLoaded ? allEntries : entries,
+    allEntriesLoaded ? '' : estadoStartDate,
+    allEntriesLoaded ? '' : estadoEndDate,
+  );
 
   // ─── PDF exports ─────────────────────────────────────────────────────────────
 
@@ -685,6 +727,11 @@ export function useLedgerPage() {
     // Review actions
     handleConfirmReview,
     handleUnlinkCfdi,
+
+    // Pagination
+    currentPage,
+    setCurrentPage,
+    pagination,
 
     // Refresh
     fetchEntries,

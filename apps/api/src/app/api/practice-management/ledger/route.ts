@@ -40,13 +40,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter by date range
+    // Entries are stored at T12:00:00, so use start-of-day for gte and end-of-day for lte
     if (startDate || endDate) {
       where.transactionDate = {};
       if (startDate) {
-        where.transactionDate.gte = new Date(startDate);
+        where.transactionDate.gte = new Date(startDate + 'T00:00:00');
       }
       if (endDate) {
-        where.transactionDate.lte = new Date(endDate);
+        where.transactionDate.lte = new Date(endDate + 'T23:59:59.999');
       }
     }
 
