@@ -328,6 +328,7 @@ function SyncStatusPanel() {
   const [showFailedDetails, setShowFailedDetails] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
+  const [ledgerBackfilling, setLedgerBackfilling] = useState(false);
 
   const fetchProgress = useCallback(async () => {
     try {
@@ -412,6 +413,26 @@ function SyncStatusPanel() {
     }
   };
 
+
+  const handleLedgerBackfill = async () => {
+    setLedgerBackfilling(true);
+    setMessage(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/sat-descarga/backfill-ledger`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMessage({ type: "error", text: json.error || "Error al registrar CFDIs" });
+        return;
+      }
+      setMessage({ type: "success", text: json.message || "Backfill completado" });
+    } catch {
+      setMessage({ type: "error", text: "Error al registrar CFDIs al flujo de dinero" });
+    } finally {
+      setLedgerBackfilling(false);
+    }
+  };
 
   const handleResetTotal = async () => {
     if (resetConfirmText !== "REINICIAR") return;
@@ -530,6 +551,18 @@ function SyncStatusPanel() {
             >
               {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
               {progress.missingXmlCount} XML faltantes
+            </button>
+          )}
+
+          {/* Register all unlinked CFDIs to ledger */}
+          {!neverStarted && (
+            <button
+              onClick={handleLedgerBackfill}
+              disabled={ledgerBackfilling || acting}
+              className="px-2 py-1 bg-teal-50 text-teal-700 text-[11px] font-medium rounded-md hover:bg-teal-100 border border-teal-200 disabled:opacity-50 flex items-center gap-1"
+            >
+              {ledgerBackfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <BookmarkPlus className="w-3 h-3" />}
+              Registrar pendientes
             </button>
           )}
 
