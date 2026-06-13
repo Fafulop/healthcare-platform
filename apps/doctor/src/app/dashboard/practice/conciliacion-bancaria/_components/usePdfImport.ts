@@ -6,6 +6,10 @@ import { uploadFiles } from '@/lib/uploadthing';
 import { toast } from '@/lib/practice-toast';
 import type { PdfParsedMovement, ReviewItem } from './pdf-import-types';
 
+// conciliacion-bancaria lives in the api service; needs the absolute API URL.
+// (bank-statement-parse below is a local doctor route, so it stays relative.)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
 type Step = 'idle' | 'uploading' | 'parsing' | 'review' | 'importing';
 
 export function usePdfImport(onImportDone: (statementId?: string) => void) {
@@ -105,7 +109,7 @@ export function usePdfImport(onImportDone: (statementId?: string) => void) {
 
     setStep('importing');
     try {
-      const res = await authFetch('/api/practice-management/conciliacion-bancaria', {
+      const res = await authFetch(`${API_URL}/api/practice-management/conciliacion-bancaria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
