@@ -12,7 +12,11 @@ interface MatchCandidate {
   matchReason: string;
 }
 
-type LedgerEntryForMatch = Pick<LedgerEntry, 'id' | 'amount' | 'transactionDate' | 'entryType' | 'concept' | 'bankMovementId'>;
+type LedgerEntryForMatch = Pick<LedgerEntry, 'id' | 'amount' | 'transactionDate' | 'entryType' | 'concept' | 'bankMovementId' | 'formaDePago'>;
+
+// Card/terminal payouts land in the bank NET of the processor commission, so the deposit can be
+// a few percent below the gross amount the patient paid (and that the cita entry recorded).
+const MAX_CARD_FEE_PCT = 0.04;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -27,10 +31,33 @@ function daysDiff(a: string, b: string): number {
   return Math.abs(Math.round((da.getTime() - db.getTime()) / 86400000));
 }
 
-function amountsMatch(a: number | string | { toNumber(): number }, b: number | string | { toNumber(): number }): boolean {
-  const na = typeof a === 'object' && 'toNumber' in a ? a.toNumber() : typeof a === 'string' ? parseFloat(a) : a;
-  const nb = typeof b === 'object' && 'toNumber' in b ? b.toNumber() : typeof b === 'string' ? parseFloat(b) : b;
-  return Math.abs(na - nb) < 0.01;
+function toNum(a: number | string | { toNumber(): number }): number {
+  return typeof a === 'object' && 'toNumber' in a ? a.toNumber() : typeof a === 'string' ? parseFloat(a) : a;
+}
+
+/**
+ * How a bank movement amount relates to a ledger entry amount.
+ * - 'exact': within a cent.
+ * - 'card_fee': a card deposit that is below the gross entry by up to MAX_CARD_FEE_PCT
+ *   (processor commission withheld). Only valid for card income (deposit ↔ tarjeta ingreso).
+ * - null: no amount relationship.
+ */
+function amountMatchKind(
+  movementAmount: number,
+  movementType: string,
+  entry: LedgerEntryForMatch,
+): 'exact' | 'card_fee' | null {
+  const entryAmt = toNum(entry.amount);
+  if (Math.abs(movementAmount - entryAmt) < 0.01) return 'exact';
+  if (
+    movementType === 'deposit' &&
+    entry.formaDePago === 'tarjeta' &&
+    movementAmount < entryAmt &&
+    movementAmount >= entryAmt * (1 - MAX_CARD_FEE_PCT)
+  ) {
+    return 'card_fee';
+  }
+  return null;
 }
 
 function movementTypeMatchesEntryType(movementType: string, entryType: string): boolean {
@@ -70,38 +97,44 @@ function findBestMatch(
   for (const entry of entries) {
     if (usedEntryIds.has(entry.id)) continue;
     if (!movementTypeMatchesEntryType(movement.movementType, entry.entryType)) continue;
-    if (!amountsMatch(movement.amount, entry.amount)) continue;
+
+    const amtKind = amountMatchKind(movement.amount, movement.movementType, entry);
+    if (!amtKind) continue;
+
+    // Net-of-fee card matches are slightly less certain than an exact amount match.
+    const feePenalty = amtKind === 'card_fee' ? 0.9 : 1;
+    const feeNote = amtKind === 'card_fee' ? ' (tarjeta, neto de comisión)' : '';
 
     const entryDateStr = toDateStr(entry.transactionDate);
     const days = daysDiff(movement.transactionDate, entryDateStr);
 
     // Priority 1: reference match + same amount + date within 1 day
-    if (movement.reference && entry.bankMovementId &&
+    if (amtKind === 'exact' && movement.reference && entry.bankMovementId &&
         movement.reference.trim() === entry.bankMovementId.trim() &&
         days <= 1) {
       return { ledgerEntryId: entry.id, confidence: 0.99, matchReason: 'Referencia bancaria + monto + fecha' };
     }
 
-    // Priority 2: exact date + same amount
+    // Priority 2: exact date + amount
     if (days === 0) {
-      const candidate: MatchCandidate = { ledgerEntryId: entry.id, confidence: 0.85, matchReason: 'Monto + fecha exacta' };
+      const candidate: MatchCandidate = { ledgerEntryId: entry.id, confidence: 0.85 * feePenalty, matchReason: `Monto + fecha exacta${feeNote}` };
       if (!best || candidate.confidence > best.confidence) best = candidate;
       continue;
     }
 
-    // Priority 3: close date (+/- 2 days) + same amount
+    // Priority 3: close date (+/- 2 days) + amount
     if (days <= 2) {
-      const candidate: MatchCandidate = { ledgerEntryId: entry.id, confidence: 0.70, matchReason: `Monto + fecha cercana (${days} día${days > 1 ? 's' : ''})` };
+      const candidate: MatchCandidate = { ledgerEntryId: entry.id, confidence: 0.70 * feePenalty, matchReason: `Monto + fecha cercana (${days} día${days > 1 ? 's' : ''})${feeNote}` };
       if (!best || candidate.confidence > best.confidence) best = candidate;
       continue;
     }
 
-    // Priority 4: same amount + concept overlap (within 7 days)
+    // Priority 4: amount + concept overlap (within 7 days)
     if (days <= 7) {
       const overlap = wordOverlap(movement.description, entry.concept);
       if (overlap >= 0.3) {
-        const confidence = 0.50 + overlap * 0.15;
-        const candidate: MatchCandidate = { ledgerEntryId: entry.id, confidence: Math.min(confidence, 0.65), matchReason: 'Monto + concepto similar' };
+        const confidence = (0.50 + overlap * 0.15) * feePenalty;
+        const candidate: MatchCandidate = { ledgerEntryId: entry.id, confidence: Math.min(confidence, 0.65), matchReason: `Monto + concepto similar${feeNote}` };
         if (!best || candidate.confidence > best.confidence) best = candidate;
       }
     }

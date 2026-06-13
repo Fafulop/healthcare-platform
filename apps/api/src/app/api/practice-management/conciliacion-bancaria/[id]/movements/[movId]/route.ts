@@ -36,6 +36,9 @@ export async function GET(
     const amount = Number(movement.amount);
     const movDate = new Date(movement.transactionDate);
     const tolerance = amount * 0.02; // 2% tolerance for bank matching
+    // Card payouts arrive NET of commission, so a card (gross) entry can be a few % ABOVE the
+    // deposit. Widen the upper bound for deposits to surface those gross entries.
+    const upperPct = movement.movementType === 'deposit' ? 0.045 : 0.02;
     const dateFrom = new Date(movDate);
     dateFrom.setDate(dateFrom.getDate() - 5);
     const dateTo = new Date(movDate);
@@ -43,14 +46,16 @@ export async function GET(
 
     const entryType = movement.movementType === 'deposit' ? 'ingreso' : 'egreso';
 
-    // Find candidate entries not already linked to a bank movement
+    // Find candidate entries not already linked to a bank movement or settlement
     const candidates = await prisma.ledgerEntry.findMany({
       where: {
         doctorId: doctor.id,
         entryType,
-        amount: { gte: amount - tolerance, lte: amount + tolerance },
+        amount: { gte: amount - tolerance, lte: amount * (1 + upperPct) },
         transactionDate: { gte: dateFrom, lte: dateTo },
         bankMovement: { is: null }, // not already linked to another bank movement
+        settlementItem: { is: null }, // not already part of a settlement
+        origin: { not: 'comision' }, // settlement commission egresos are not standalone bank lines
       },
       select: {
         id: true,
@@ -72,9 +77,14 @@ export async function GET(
     const suggestions = candidates.map((c) => {
       let score = 0;
 
-      const amountDiff = Math.abs(Number(c.amount) - amount);
+      const cAmt = Number(c.amount);
+      const amountDiff = Math.abs(cAmt - amount);
+      // Card deposit landed net of commission: gross entry sits just above the deposit.
+      const cardFee = movement.movementType === 'deposit' && c.formaDePago === 'tarjeta'
+        && cAmt > amount && cAmt <= amount * 1.045;
       if (amountDiff === 0) score += 40;
       else if (amountDiff < amount * 0.005) score += 30;
+      else if (cardFee) score += 28;
       else score += 15;
 
       const daysDiff = Math.abs(
@@ -153,6 +163,12 @@ export async function PATCH(
 
       case 'link_existing':
         return handleLinkExisting(movement, doctor.id, body, statementId);
+
+      case 'link_settlement':
+        return handleLinkSettlement(movement, doctor.id, body, statementId);
+
+      case 'unlink_settlement':
+        return handleUnlinkSettlement(movement, statementId, doctor.id);
 
       case 'update_category':
         return handleUpdateCategory(movement, doctor.id, body);
@@ -249,21 +265,31 @@ async function handleConfirmMatch(movement: any, doctorId: string) {
 }
 
 async function handleUnmatch(movement: any, statementId: number, doctorId: string) {
-  if (!movement.ledgerEntryId) {
+  // A movement is matched either 1:1 (ledgerEntryId) or as a settlement (settlement items).
+  const settlementCount = await prisma.bankSettlementItem.count({
+    where: { bankMovementId: movement.id },
+  });
+
+  if (!movement.ledgerEntryId && settlementCount === 0) {
     return NextResponse.json({ error: 'Este movimiento no tiene un match' }, { status: 400 });
   }
 
   const audit = buildAuditEntry('unmatch', movement, doctorId);
-  const updated = await prisma.bankMovement.update({
-    where: { id: movement.id },
-    data: {
-      matchStatus: 'unmatched',
-      matchConfidence: null,
-      ledgerEntryId: null,
-      matchedAt: null,
-      matchedBy: null,
-      matchHistory: appendHistory(movement.matchHistory, audit),
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    if (settlementCount > 0) {
+      await tx.bankSettlementItem.deleteMany({ where: { bankMovementId: movement.id } });
+    }
+    return tx.bankMovement.update({
+      where: { id: movement.id },
+      data: {
+        matchStatus: 'unmatched',
+        matchConfidence: null,
+        ledgerEntryId: null,
+        matchedAt: null,
+        matchedBy: null,
+        matchHistory: appendHistory(movement.matchHistory, audit),
+      },
+    });
   });
 
   await updateStatementCounts(statementId);
@@ -498,6 +524,180 @@ async function handleLinkExisting(
   await updateStatementCounts(statementId);
 
   return NextResponse.json({ data: result });
+}
+
+// Sanity cap on the implied commission of a settlement (gross sum vs net deposit).
+const MAX_SETTLEMENT_FEE_PCT = 0.08;
+
+/**
+ * Settle ONE bank deposit against MANY ledger entries (e.g. a card-processor payout or a batched
+ * cash deposit). The deposit may land net of a commission, so the sum of the entries' gross
+ * amounts can exceed the deposit amount; the difference is the implied commission, which can
+ * optionally be recorded as an egreso.
+ */
+async function handleLinkSettlement(
+  movement: any,
+  doctorId: string,
+  body: any,
+  statementId: number,
+) {
+  const { ledgerEntryIds, commission } = body as {
+    ledgerEntryIds: unknown;
+    commission?: { area?: string; subarea?: string; concept?: string };
+  };
+
+  if (!Array.isArray(ledgerEntryIds) || ledgerEntryIds.length === 0
+      || !ledgerEntryIds.every((x) => typeof x === 'number')) {
+    return NextResponse.json({ error: 'ledgerEntryIds debe ser una lista de IDs' }, { status: 400 });
+  }
+  const ids = ledgerEntryIds as number[];
+
+  // Movement must be free (not 1:1-linked, not already settled)
+  if (movement.ledgerEntryId) {
+    return NextResponse.json({ error: 'Este movimiento ya está vinculado' }, { status: 409 });
+  }
+  const existingSettlement = await prisma.bankSettlementItem.count({
+    where: { bankMovementId: movement.id },
+  });
+  if (existingSettlement > 0) {
+    return NextResponse.json({ error: 'Este movimiento ya está conciliado como grupo' }, { status: 409 });
+  }
+
+  // Fetch + validate the candidate entries
+  const entries = await prisma.ledgerEntry.findMany({
+    where: { id: { in: ids }, doctorId },
+    include: {
+      bankMovement: { select: { id: true } },
+      settlementItem: { select: { id: true } },
+    },
+  });
+  if (entries.length !== ids.length) {
+    return NextResponse.json({ error: 'Algunos movimientos no se encontraron' }, { status: 404 });
+  }
+  const expectedType = movement.movementType === 'deposit' ? 'ingreso' : 'egreso';
+  for (const e of entries) {
+    if (e.entryType !== expectedType) {
+      return NextResponse.json({ error: 'Todos los movimientos deben ser del mismo tipo que el depósito' }, { status: 400 });
+    }
+    if (e.bankMovement || e.settlementItem) {
+      return NextResponse.json({ error: 'Uno de los movimientos ya está conciliado' }, { status: 409 });
+    }
+  }
+
+  const deposit = Number(movement.amount);
+  const grossSum = entries.reduce((s, e) => s + Number(e.amount), 0);
+  const commissionAmt = Math.round((grossSum - deposit) * 100) / 100;
+
+  // The deposit cannot exceed the gross it supposedly settles (beyond rounding).
+  if (deposit - grossSum > 0.01) {
+    return NextResponse.json({ error: 'La suma de los movimientos es menor al depósito' }, { status: 400 });
+  }
+  // The implied commission must be plausible.
+  if (commissionAmt > grossSum * MAX_SETTLEMENT_FEE_PCT + 0.01) {
+    return NextResponse.json({ error: 'La diferencia entre la suma y el depósito es demasiado grande' }, { status: 400 });
+  }
+
+  const statement = await prisma.bankStatement.findUnique({
+    where: { id: statementId },
+    select: { bankName: true, accountNumber: true },
+  });
+  const bankAccountLabel = statement ? `${statement.bankName} ${statement.accountNumber}` : null;
+
+  const audit = buildAuditEntry('link_settlement', movement, doctorId);
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Allocate each entry to this deposit + enrich with bank evidence
+    for (const e of entries) {
+      await tx.bankSettlementItem.create({
+        data: { bankMovementId: movement.id, ledgerEntryId: e.id, doctorId },
+      });
+      const enrich: any = { hasComprobante: true, needsReview: false };
+      if (!e.bankAccount && bankAccountLabel) enrich.bankAccount = bankAccountLabel;
+      if (e.paymentStatus !== 'PAID') {
+        enrich.paymentStatus = 'PAID';
+        enrich.amountPaid = e.amount;
+      }
+      await tx.ledgerEntry.update({ where: { id: e.id }, data: enrich });
+    }
+
+    // Optionally record the implied commission as an egreso
+    let commissionEntryId: number | null = null;
+    if (commission && commission.area && commissionAmt > 0.01) {
+      const { generateLedgerInternalId } = await import('@/lib/practice-utils');
+      const internalId = await generateLedgerInternalId(doctorId, 'egreso', tx);
+      const ce = await tx.ledgerEntry.create({
+        data: {
+          doctorId,
+          internalId,
+          entryType: 'egreso',
+          area: commission.area,
+          subarea: commission.subarea || null,
+          concept: commission.concept || 'Comisión bancaria / terminal',
+          amount: commissionAmt,
+          transactionDate: movement.transactionDate,
+          formaDePago: 'tarjeta',
+          transactionType: 'N/A',
+          amountPaid: commissionAmt,
+          paymentStatus: 'PAID',
+          // Distinct origin: this egreso is the netted commission of a deposit, not a standalone
+          // bank line. Excluded from bank-match candidate pools so it can't be falsely matched later.
+          origin: 'comision',
+          hasComprobante: true,
+          bankAccount: bankAccountLabel,
+        },
+      });
+      commissionEntryId = ce.id;
+    }
+
+    const updated = await tx.bankMovement.update({
+      where: { id: movement.id },
+      data: {
+        matchStatus: 'matched_confirmed',
+        matchConfidence: 1.0,
+        matchedAt: new Date(),
+        matchedBy: doctorId,
+        matchHistory: appendHistory(movement.matchHistory, {
+          ...audit,
+          settledCount: entries.length,
+          grossSum,
+          commission: commissionAmt,
+        }),
+      },
+    });
+
+    return { movement: updated, settledCount: entries.length, commission: commissionAmt, commissionEntryId };
+  });
+
+  await updateStatementCounts(statementId);
+
+  return NextResponse.json({ data: result }, { status: 201 });
+}
+
+/** Remove a settlement: delete all allocations and return the deposit to unmatched. */
+async function handleUnlinkSettlement(movement: any, statementId: number, doctorId: string) {
+  const count = await prisma.bankSettlementItem.count({ where: { bankMovementId: movement.id } });
+  if (count === 0) {
+    return NextResponse.json({ error: 'Este movimiento no es una conciliación grupal' }, { status: 400 });
+  }
+
+  const audit = buildAuditEntry('unlink_settlement', movement, doctorId);
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.bankSettlementItem.deleteMany({ where: { bankMovementId: movement.id } });
+    return tx.bankMovement.update({
+      where: { id: movement.id },
+      data: {
+        matchStatus: 'unmatched',
+        matchConfidence: null,
+        matchedAt: null,
+        matchedBy: null,
+        matchHistory: appendHistory(movement.matchHistory, audit),
+      },
+    });
+  });
+
+  await updateStatementCounts(statementId);
+
+  return NextResponse.json({ data: updated });
 }
 
 async function handleUpdateCategory(movement: any, doctorId: string, body: any) {

@@ -1130,6 +1130,15 @@ model LedgerEntry {
   // Link to Booking (set when ledger entry is created from completing a booking)
   bookingId       String?            @unique @map("booking_id")
 
+  // Counterparty fiscal identity (denormalized for matching + AI-agent reasoning).
+  // For `cita` entries this is the patient's fiscal data; for manual entries the user can fill it.
+  // Used by SAT matching: an exact RFC match is the strongest, date-independent signal.
+  counterpartyRfc  String?           @map("counterparty_rfc") @db.VarChar(13)
+  counterpartyName String?           @map("counterparty_name") @db.VarChar(300)
+  // Plain link back to the originating patient (no cross-schema FK on purpose).
+  // Lets an agent trace income <-> patient directly (e.g. consults missing a factura).
+  patientId        String?           @map("patient_id")
+
   // Link to Service (source of truth for income entries)
   serviceId       String?            @map("service_id")
   serviceName     String?            @map("service_name") @db.VarChar(255)
@@ -1178,6 +1187,7 @@ model LedgerEntry {
   facturasXml     LedgerFacturaXml[]
   cfdisEmitted    CfdiEmitted[]
   bankMovement    BankMovement?  @relation("BankMovementLedgerEntry")
+  settlementItem  BankSettlementItem? @relation("LedgerEntrySettlement")
 
   @@unique([doctorId, internalId])
   @@index([doctorId])
@@ -1189,6 +1199,8 @@ model LedgerEntry {
   @@index([doctorId, origin])
   @@index([serviceId])
   @@index([satCfdiUuid])
+  @@index([doctorId, patientId])
+  @@index([doctorId, counterpartyRfc])
   @@map("ledger_entries")
   @@schema("practice_management")
 }
@@ -1328,10 +1340,32 @@ model BankMovement {
 
   bankStatement     BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
   ledgerEntry       LedgerEntry?  @relation("BankMovementLedgerEntry", fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+  settlementItems   BankSettlementItem[] @relation("BankMovementSettlement")
 
   @@index([bankStatementId])
   @@index([matchStatus])
   @@map("bank_movements")
+  @@schema("practice_management")
+}
+
+/// Settlement allocation: one bank deposit (e.g. a card-processor payout, batched cash deposit)
+/// reconciles MANY ledger entries (individual appointment incomes). The deposit may land net of a
+/// processor commission, so the sum of allocated entry amounts can exceed the movement amount.
+/// An entry can belong to at most one settlement (enforced by the unique on ledgerEntryId).
+model BankSettlementItem {
+  id             Int          @id @default(autoincrement())
+  bankMovementId Int          @map("bank_movement_id")
+  ledgerEntryId  Int          @map("ledger_entry_id")
+  doctorId       String       @map("doctor_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  bankMovement   BankMovement @relation("BankMovementSettlement", fields: [bankMovementId], references: [id], onDelete: Cascade)
+  ledgerEntry    LedgerEntry  @relation("LedgerEntrySettlement", fields: [ledgerEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([ledgerEntryId])
+  @@index([bankMovementId])
+  @@index([doctorId])
+  @@map("bank_settlement_items")
   @@schema("practice_management")
 }
 

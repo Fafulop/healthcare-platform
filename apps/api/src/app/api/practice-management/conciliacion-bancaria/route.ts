@@ -120,6 +120,9 @@ export async function POST(request: NextRequest) {
       where: {
         doctorId: doctor.id,
         transactionDate: { gte: matchStart, lte: matchEnd },
+        bankMovement: { is: null },   // not already linked 1:1 to another movement
+        settlementItem: { is: null }, // not already part of a settlement
+        origin: { not: 'comision' },  // settlement commission egresos are not standalone bank lines
       },
       select: {
         id: true,
@@ -128,6 +131,7 @@ export async function POST(request: NextRequest) {
         entryType: true,
         concept: true,
         bankMovementId: true,
+        formaDePago: true,
       },
     });
 

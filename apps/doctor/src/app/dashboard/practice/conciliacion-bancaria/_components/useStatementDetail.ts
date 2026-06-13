@@ -86,6 +86,13 @@ export function useStatementDetail(statementId: number) {
   const linkExisting = (movId: number, ledgerEntryId: number) =>
     performAction(movId, { action: 'link_existing', ledgerEntryId });
 
+  const linkSettlement = (
+    movId: number,
+    ledgerEntryIds: number[],
+    commission?: { area: string; subarea?: string; concept?: string },
+  ) =>
+    performAction(movId, { action: 'link_settlement', ledgerEntryIds, commission });
+
   const filteredMovements = statement?.movements.filter((m) => {
     if (filter === 'all') return true;
     if (filter === 'unmatched') return m.matchStatus === 'unmatched';
@@ -107,6 +114,7 @@ export function useStatementDetail(statementId: number) {
     ignore,
     createEntry,
     linkExisting,
+    linkSettlement,
     fetchDetail,
   };
 }

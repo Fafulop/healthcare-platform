@@ -1,15 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, X, Plus, Loader2, Eye, Undo2, Link2 } from 'lucide-react';
+import { Check, X, Plus, Loader2, Undo2, Link2, Layers } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import type { BankMovement } from './conciliacion-types';
+import { SettlementPanel } from './SettlementPanel';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 const ORIGIN_LABELS: Record<string, string> = {
   cita: 'Cita', manual: 'Manual', venta: 'Venta', compra: 'Compra',
   sat_recibido: 'SAT Recibido', sat_emitido: 'SAT Emitido', banco: 'Banco', webhook_pago: 'Pago Online',
+  comision: 'Comisión',
 };
 
 interface MatchSuggestion {
@@ -40,6 +42,11 @@ interface Props {
     saveRule: boolean,
   ) => Promise<boolean>;
   onLinkExisting: (id: number, ledgerEntryId: number) => Promise<boolean>;
+  onLinkSettlement: (
+    id: number,
+    ledgerEntryIds: number[],
+    commission?: { area: string; subarea?: string; concept?: string },
+  ) => Promise<boolean>;
 }
 
 export function MovementActions({
@@ -51,9 +58,11 @@ export function MovementActions({
   onIgnore,
   onCreateEntry,
   onLinkExisting,
+  onLinkSettlement,
 }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSettlement, setShowSettlement] = useState(false);
   const [suggestions, setSuggestions] = useState<MatchSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [area, setArea] = useState(movement.suggestedArea || '');
@@ -151,13 +160,24 @@ export function MovementActions({
           Vincular
         </button>
         <button
-          onClick={() => { setShowCreate(!showCreate); setShowSuggestions(false); }}
+          onClick={() => { setShowCreate(!showCreate); setShowSuggestions(false); setShowSettlement(false); }}
           disabled={isLoading}
           className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-1 rounded flex items-center gap-1"
         >
           <Plus className="w-3 h-3" />
           Nuevo
         </button>
+        {movement.movementType === 'deposit' && (
+          <button
+            onClick={() => { setShowSettlement(!showSettlement); setShowCreate(false); setShowSuggestions(false); }}
+            disabled={isLoading}
+            className="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1 rounded flex items-center gap-1"
+            title="Conciliar este depósito con varios movimientos (p. ej. pagos con tarjeta agrupados)"
+          >
+            <Layers className="w-3 h-3" />
+            Varios
+          </button>
+        )}
         <button
           onClick={() => onIgnore(movement.id)}
           disabled={isLoading}
@@ -224,6 +244,16 @@ export function MovementActions({
             Cerrar
           </button>
         </div>
+      )}
+
+      {showSettlement && (
+        <SettlementPanel
+          statementId={statementId}
+          movement={movement}
+          isLoading={isLoading}
+          onLinkSettlement={onLinkSettlement}
+          onClose={() => setShowSettlement(false)}
+        />
       )}
 
       {showCreate && (

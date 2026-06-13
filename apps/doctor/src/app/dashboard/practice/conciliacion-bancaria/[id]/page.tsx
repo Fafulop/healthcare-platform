@@ -171,7 +171,18 @@ export default function StatementDetailPage() {
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-xs">
-                    {mov.ledgerEntry ? (
+                    {mov.settlementItems && mov.settlementItems.length > 0 ? (
+                      <div className="text-indigo-700">
+                        <p className="font-medium">{mov.settlementItems.length} movimientos conciliados</p>
+                        <p className="text-indigo-500/70 truncate max-w-[180px]">
+                          {mov.settlementItems
+                            .map((s) => s.ledgerEntry.counterpartyName || s.ledgerEntry.concept)
+                            .slice(0, 2)
+                            .join(', ')}
+                          {mov.settlementItems.length > 2 ? '…' : ''}
+                        </p>
+                      </div>
+                    ) : mov.ledgerEntry ? (
                       <div className="text-gray-600">
                         <p className="font-medium">{mov.ledgerEntry.area}</p>
                         <p className="text-gray-400 truncate max-w-[180px]">{mov.ledgerEntry.concept}</p>
@@ -194,6 +205,7 @@ export default function StatementDetailPage() {
                       onIgnore={detail.ignore}
                       onCreateEntry={detail.createEntry}
                       onLinkExisting={detail.linkExisting}
+                      onLinkSettlement={detail.linkSettlement}
                       statementId={id}
                     />
                   </td>
@@ -239,6 +251,9 @@ export default function StatementDetailPage() {
                   {mov.ledgerEntry && (
                     <span className="text-[10px] text-gray-600">{mov.ledgerEntry.area}: {mov.ledgerEntry.concept}</span>
                   )}
+                  {mov.settlementItems && mov.settlementItems.length > 0 && (
+                    <span className="text-[10px] text-indigo-700">{mov.settlementItems.length} movimientos conciliados</span>
+                  )}
                 </div>
                 <MovementActions
                   movement={mov}
@@ -248,6 +263,7 @@ export default function StatementDetailPage() {
                   onIgnore={detail.ignore}
                   onCreateEntry={detail.createEntry}
                   onLinkExisting={detail.linkExisting}
+                  onLinkSettlement={detail.linkSettlement}
                   statementId={id}
                 />
               </div>

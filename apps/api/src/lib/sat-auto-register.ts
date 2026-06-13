@@ -16,6 +16,21 @@ type TxClient = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
 
 const MAX_RAW_SCORE = 120; // 40 (amount) + 30 (date) + 30 (RFC) + 20 (concept)
 
+/** Lowercase, strip accents (NFD), collapse whitespace — for tolerant name matching. */
+function foldText(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Normalize an RFC for comparison (uppercase, no spaces). */
+function normalizeRfc(s: string | null | undefined): string {
+  return (s || '').toUpperCase().replace(/\s+/g, '');
+}
+
 export interface MatchCandidate {
   ledgerEntryId: number;
   rawScore: number;
@@ -38,6 +53,8 @@ export function scoreCfdiMatch(
     transactionDate: Date;
     entryType: string;
     origin: string | null;
+    counterpartyRfc?: string | null;
+    counterpartyName?: string | null;
     client?: { rfc: string | null } | null;
     supplier?: { rfc: string | null } | null;
   },
@@ -69,21 +86,27 @@ export function scoreCfdiMatch(
   else if (daysDiff <= 4) score += 15;
   else score += 12;
 
-  // RFC scoring (30)
+  // RFC scoring (30) — counterpartyRfc (e.g. patient RFC on a cita entry) takes precedence,
+  // falling back to the CRM client/supplier relation.
   const isReceived = cfdi.direction === 'received';
-  const cfdiRfc = isReceived ? cfdi.issuerRfc : cfdi.receiverRfc;
-  const entryRfc = candidate.entryType === 'ingreso'
-    ? candidate.client?.rfc
-    : candidate.supplier?.rfc;
+  const cfdiRfc = normalizeRfc(isReceived ? cfdi.issuerRfc : cfdi.receiverRfc);
+  const entryRfc = normalizeRfc(
+    candidate.counterpartyRfc
+      || (candidate.entryType === 'ingreso' ? candidate.client?.rfc : candidate.supplier?.rfc),
+  );
   if (entryRfc && cfdiRfc && entryRfc === cfdiRfc) score += 30;
 
-  // Concept/name scoring (20)
-  const cfdiName = (isReceived ? cfdi.issuerName : cfdi.receiverName)?.toLowerCase().trim() || '';
-  const entryConcept = (candidate.concept || '').toLowerCase().trim();
-  if (cfdiName.length >= 4 && entryConcept.length >= 4) {
-    if (entryConcept.includes(cfdiName) || cfdiName.includes(entryConcept)) {
-      score += 20;
-    }
+  // Concept/name scoring (20) — compare the CFDI counterpart name against the entry's
+  // counterpartyName (razón social) and concept, accent/case-insensitive.
+  const cfdiName = foldText((isReceived ? cfdi.issuerName : cfdi.receiverName) || '');
+  const entryNames = [candidate.counterpartyName, candidate.concept]
+    .filter(Boolean)
+    .map((s) => foldText(s as string));
+  if (cfdiName.length >= 4) {
+    const nameHit = entryNames.some(
+      (n) => n.length >= 4 && (n.includes(cfdiName) || cfdiName.includes(n)),
+    );
+    if (nameHit) score += 20;
   }
 
   return score;
@@ -246,6 +269,7 @@ async function processOneCfdi(
       client: { select: { rfc: true } },
       supplier: { select: { rfc: true } },
     },
+    // counterpartyRfc / counterpartyName are scalar columns and come back by default.
     take: 10,
   });
 
@@ -382,6 +406,9 @@ async function createEntryFromCfdi(
       transactionType: 'N/A',
       amountPaid,
       paymentStatus,
+      // Denormalize the CFDI counterpart so this entry can later match a bank line / be read by an agent.
+      counterpartyRfc: normalizeRfc(isReceived ? cfdi.issuerRfc : cfdi.receiverRfc) || null,
+      counterpartyName: (isReceived ? cfdi.issuerName : cfdi.receiverName)?.slice(0, 300) || null,
       ...(supplierId ? { supplierId } : {}),
     },
   });

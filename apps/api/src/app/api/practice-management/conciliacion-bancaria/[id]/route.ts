@@ -33,6 +33,21 @@ export async function GET(
                 transactionDate: true,
               },
             },
+            settlementItems: {
+              select: {
+                id: true,
+                ledgerEntry: {
+                  select: {
+                    id: true,
+                    concept: true,
+                    amount: true,
+                    entryType: true,
+                    transactionDate: true,
+                    counterpartyName: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

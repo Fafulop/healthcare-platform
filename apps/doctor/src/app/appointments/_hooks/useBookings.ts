@@ -244,6 +244,11 @@ export function useBookings(doctorId: string | undefined) {
             serviceName: serviceName || null,
             area: AREA_INGRESOS_CONSULTA,
             subarea: serviceName || "",
+            // Patient fiscal identity — lets SAT matching link the eventual CFDI by RFC
+            // (the strongest, date-independent signal) and lets an agent trace income↔patient.
+            patientId: booking?.patientId || null,
+            counterpartyRfc: booking?.patient?.rfc || null,
+            counterpartyName: booking?.patient?.razonSocial || patientName || null,
           }),
         }
       );

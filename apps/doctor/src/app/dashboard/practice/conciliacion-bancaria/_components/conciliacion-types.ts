@@ -41,6 +41,28 @@ export interface BankMovement {
     subarea: string;
     transactionDate: string;
   } | null;
+  settlementItems?: {
+    id: number;
+    ledgerEntry: {
+      id: number;
+      concept: string;
+      amount: string;
+      entryType: string;
+      transactionDate: string;
+      counterpartyName: string | null;
+    };
+  }[];
+}
+
+export interface SettlementCandidate {
+  id: number;
+  amount: number;
+  concept: string;
+  transactionDate: string;
+  origin: string | null;
+  formaDePago: string | null;
+  counterpartyName: string | null;
+  internalId: string;
 }
 
 export interface StatementDetail extends BankStatement {

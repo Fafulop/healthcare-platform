@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { scoreCfdiMatch } from '@/lib/sat-auto-register';
 
 // GET /api/practice-management/ledger/:id/cfdi-suggestions
 // Find unlinked SAT CFDIs that match this ledger entry by amount, date, and direction
@@ -81,45 +82,20 @@ export async function GET(
       take: 20,
     });
 
-    // Filter out already-linked and score
-    const entryRfc = entry.entryType === 'ingreso'
-      ? entry.client?.rfc
-      : entry.supplier?.rfc;
-
+    // Filter out already-linked and score with the shared engine (keeps manual suggestions
+    // and SAT auto-register in agreement).
     const suggestions = candidates
       .filter((c) => !linkedSet.has(c.uuid))
       .map((c) => {
-        let score = 0;
-
-        // Amount match scoring
-        const amountDiff = Math.abs(Number(c.monto) - amount);
-        if (amountDiff === 0) score += 40;
-        else if (amountDiff < amount * 0.001) score += 30;
-        else score += 20;
-
-        // Date match scoring (gradual decay over 7-day window)
-        // Normalize to UTC midnight to avoid time-of-day skew
-        const cfdiDay = new Date(new Date(c.issuedAt).toISOString().split('T')[0] + 'T00:00:00Z');
-        const entryDay = new Date(entryDate.toISOString().split('T')[0] + 'T00:00:00Z');
-        const daysDiff = Math.abs((cfdiDay.getTime() - entryDay.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysDiff < 1) score += 30;
-        else if (daysDiff <= 2) score += 25;
-        else if (daysDiff <= 4) score += 15;
-        else score += 12;
-
-        // RFC match scoring
-        const cfdiRfc = c.direction === 'received' ? c.issuerRfc : c.receiverRfc;
-        if (entryRfc && cfdiRfc === entryRfc) score += 30;
-
-        // Name/concept match scoring — counterpart name appears in entry concept
-        // Require min 4 chars to avoid false positives on "SA", "de", "OP" etc.
-        const cfdiName = (c.direction === 'received' ? c.issuerName : c.receiverName)?.toLowerCase().trim() || '';
-        const entryConcept = (entry.concept || '').toLowerCase().trim();
-        if (cfdiName.length >= 4 && entryConcept.length >= 4) {
-          if (entryConcept.includes(cfdiName) || cfdiName.includes(entryConcept)) {
-            score += 20;
-          }
-        }
+        const score = scoreCfdiMatch(entry, {
+          monto: c.monto,
+          issuedAt: c.issuedAt,
+          issuerRfc: c.issuerRfc,
+          receiverRfc: c.receiverRfc,
+          issuerName: c.issuerName,
+          receiverName: c.receiverName,
+          direction: c.direction,
+        });
 
         const confidence = score >= 80 ? 'high' : score >= 50 ? 'medium' : 'low';
 

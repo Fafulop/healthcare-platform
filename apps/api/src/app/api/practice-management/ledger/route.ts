@@ -148,6 +148,9 @@ export async function POST(request: NextRequest) {
       origin,
       serviceId,
       serviceName: serviceNameFromBody,
+      patientId,
+      counterpartyRfc,
+      counterpartyName,
     } = body;
 
     // Validation - required fields
@@ -319,6 +322,9 @@ export async function POST(request: NextRequest) {
         ...(bookingId ? { bookingId } : {}),
         ...(finalServiceId ? { serviceId: finalServiceId } : {}),
         ...(finalServiceName ? { serviceName: finalServiceName } : {}),
+        ...(patientId ? { patientId: String(patientId) } : {}),
+        ...(counterpartyRfc ? { counterpartyRfc: String(counterpartyRfc).trim().toUpperCase().slice(0, 13) } : {}),
+        ...(counterpartyName ? { counterpartyName: String(counterpartyName).trim().slice(0, 300) } : {}),
       },
       include: {
         attachments: true,
