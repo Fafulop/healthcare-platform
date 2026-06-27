@@ -1,5 +1,8 @@
 # Flujo de Dinero — Permutaciones (DESDE JUNIO)
 
+> 🔄 **Cada sesión, lee primero [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md)** (estado, decisiones y
+> próximos pasos actualizados).
+>
 > **Punto de entrada en frío.** Si eres una sesión/LLM sin contexto, lee este README primero, luego
 > [`00-modelo-consolidado.md`](00-modelo-consolidado.md), luego
 > [`01-permutaciones-de-prueba.md`](01-permutaciones-de-prueba.md). Con eso entiendes el sistema y
