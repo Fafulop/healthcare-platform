@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 import { generateLedgerInternalId, getDefaultArea } from '@/lib/practice-utils';
-import { scoreCfdiMatch, normalizeScore, resolveEntryType } from '@/lib/sat-auto-register';
+import { scoreCfdiMatch, normalizeScore, resolveEntryType, mapFormaPago } from '@/lib/sat-auto-register';
 
 // POST /api/sat-descarga/register-to-ledger
 // Register one or more SAT CFDIs as LedgerEntries
@@ -166,14 +166,8 @@ export async function POST(request: NextRequest) {
           subarea = defaultArea.subarea;
         }
 
-        // Forma de pago from XML detail
-        const formaPagoMap: Record<string, string> = {
-          '01': 'efectivo', '03': 'transferencia', '04': 'tarjeta',
-          '02': 'cheque', '28': 'tarjeta', '06': 'transferencia',
-        };
-        const formaPago = detail?.formaPago
-          ? (formaPagoMap[detail.formaPago] || 'transferencia')
-          : 'transferencia';
+        // Forma de pago from XML detail (null → "—" when unknown, instead of mislabeling as transfer)
+        const formaPago = mapFormaPago(detail?.formaPago);
 
         const internalId = await generateLedgerInternalId(doctor.id, entryType);
 

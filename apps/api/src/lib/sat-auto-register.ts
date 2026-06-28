@@ -129,10 +129,51 @@ export function resolveEntryType(direction: string, efecto: string | null): 'ing
 
 // ─── Forma de pago mapping ──────────────────────────────────────────────────
 
+// SAT c_FormaPago → canonical ledger value. Codes outside this set (notably `99`
+// "Por definir", very common on received/PPD invoices) map to null instead of being
+// silently mislabeled as a transfer.
 const FORMA_PAGO_MAP: Record<string, string> = {
-  '01': 'efectivo', '03': 'transferencia', '04': 'tarjeta',
-  '02': 'cheque', '28': 'tarjeta', '06': 'transferencia',
+  '01': 'efectivo',
+  '02': 'cheque',
+  '03': 'transferencia',
+  '04': 'tarjeta',
+  '05': 'tarjeta',        // monedero electrónico
+  '06': 'transferencia',  // dinero electrónico
+  '28': 'tarjeta',        // tarjeta de débito
+  '29': 'tarjeta',        // tarjeta de servicios
 };
+
+/** Map a SAT forma-de-pago code to the canonical ledger value, or null if unknown / «por definir». */
+export function mapFormaPago(code: string | null | undefined): string | null {
+  if (!code) return null;
+  return FORMA_PAGO_MAP[code] ?? null;
+}
+
+// ─── Concept building ─────────────────────────────────────────────────────────
+
+/** Matches the generic placeholder concept produced when a CFDI is registered before its XML. */
+const GENERIC_CONCEPT_RE = /^CFDI (recibido de|emitido a) /;
+
+/**
+ * Build a ledger concept from a CFDI: the XML line items when available, otherwise a
+ * generic "CFDI recibido de / emitido a <counterpart>" placeholder. Truncated to 500 chars.
+ */
+function buildConcept(detail: any, cfdi: SatCfdiMetadata, isReceived: boolean): string {
+  let concept = '';
+  if (detail?.conceptos && detail.conceptos.length > 0) {
+    const descriptions = detail.conceptos
+      .map((c: any) => c.descripcion)
+      .filter(Boolean)
+      .slice(0, 3);
+    concept = descriptions.join(', ');
+    if (detail.conceptos.length > 3) concept += ` (+${detail.conceptos.length - 3} más)`;
+  }
+  if (!concept) {
+    const counterpart = isReceived ? cfdi.issuerName : cfdi.receiverName;
+    concept = `CFDI ${isReceived ? 'recibido de' : 'emitido a'} ${counterpart || (isReceived ? cfdi.issuerRfc : cfdi.receiverRfc)}`;
+  }
+  return concept.substring(0, 500);
+}
 
 // ─── Auto-register results ──────────────────────────────────────────────────
 
@@ -147,6 +188,7 @@ export interface AutoRegisterSummary {
   autoLinked: number;
   autoLinkedNeedsReview: number;
   created: number;
+  enriched: number;
   skipped: number;
   results: AutoRegisterResult[];
 }
@@ -166,6 +208,7 @@ export interface AutoRegisterSummary {
 export async function autoRegisterCfdisToLedger(
   doctorId: string,
   syncJobId?: number,
+  uuids?: string[],
 ): Promise<AutoRegisterSummary> {
   // 1. Find unlinked CFDIs
   const where: any = {
@@ -176,51 +219,89 @@ export async function autoRegisterCfdisToLedger(
   if (syncJobId) {
     where.syncJobId = syncJobId;
   }
+  // Scope to a specific set of CFDIs (e.g. the UUIDs an XML job just parsed) — bounds the work
+  // and avoids re-scanning the doctor's whole history on every sync. Match case-insensitively:
+  // metadata UUIDs are stored UPPERCASE while parsed-XML UUIDs are lowercased, so include both
+  // variants (Postgres `in` is case-sensitive).
+  if (uuids) {
+    if (uuids.length === 0) {
+      return { autoLinked: 0, autoLinkedNeedsReview: 0, created: 0, enriched: 0, skipped: 0, results: [] };
+    }
+    where.uuid = { in: Array.from(new Set(uuids.flatMap((u) => [u.toUpperCase(), u.toLowerCase()]))) };
+  }
 
   const cfdis = await prisma.satCfdiMetadata.findMany({ where });
 
   if (cfdis.length === 0) {
-    return { autoLinked: 0, autoLinkedNeedsReview: 0, created: 0, skipped: 0, results: [] };
+    return { autoLinked: 0, autoLinkedNeedsReview: 0, created: 0, enriched: 0, skipped: 0, results: [] };
   }
 
-  // 2. Filter out already-registered UUIDs
+  // 2. Look up which CFDIs already have a ledger entry (pull fields we may back-enrich).
   const existingLinks = await prisma.ledgerEntry.findMany({
     where: {
       doctorId,
       satCfdiUuid: { in: cfdis.map((c) => c.uuid) },
     },
-    select: { satCfdiUuid: true },
+    select: { id: true, satCfdiUuid: true, origin: true, concept: true, formaDePago: true },
   });
-  const alreadyLinked = new Set(existingLinks.map((e) => e.satCfdiUuid));
-  const toProcess = cfdis.filter((c) => !alreadyLinked.has(c.uuid));
+  const existingByUuid = new Map(existingLinks.map((e) => [e.satCfdiUuid as string, e]));
+  const toProcess = cfdis.filter((c) => !existingByUuid.has(c.uuid));
 
-  if (toProcess.length === 0) {
-    return {
-      autoLinked: 0, autoLinkedNeedsReview: 0, created: 0,
-      skipped: cfdis.length, results: [],
-    };
-  }
-
-  // 3. Fetch XML details for richer data
+  // 3. Fetch XML details for ALL cfdis — needed both to create new entries and to back-enrich
+  //    entries that were auto-created before their XML had downloaded. (The metadata-stage
+  //    auto-register runs before the XML detail exists, so those entries are born with a generic
+  //    concept + default forma de pago; this is where we fix them up once the XML arrives.)
   const details = await prisma.satCfdiDetail.findMany({
     where: {
       doctorId,
-      uuid: { in: toProcess.map((c) => c.uuid.toLowerCase()) },
+      uuid: { in: cfdis.map((c) => c.uuid.toLowerCase()) },
     },
     include: { conceptos: true },
   });
   const detailMap = new Map(details.map((d) => [d.uuid.toLowerCase(), d]));
 
-  // 4. Process in transaction
-  const results = await prisma.$transaction(async (tx) => {
-    const entries: AutoRegisterResult[] = [];
+  // 4. Enrich + process in a single transaction.
+  const { results, enriched } = await prisma.$transaction(async (tx) => {
+    // 4a. Back-enrich already-linked CFDI-origin entries that were born without their XML.
+    //     Gated on the generic placeholder concept so we never clobber real product concepts
+    //     or user edits; only `sat_emitido`/`sat_recibido` entries are touched.
+    let enriched = 0;
+    for (const cfdi of cfdis) {
+      const existing = existingByUuid.get(cfdi.uuid);
+      if (!existing) continue;
+      if (existing.origin !== 'sat_emitido' && existing.origin !== 'sat_recibido') continue;
+      if (!GENERIC_CONCEPT_RE.test(existing.concept)) continue;
 
-    for (const cfdi of toProcess) {
-      const result = await processOneCfdi(cfdi, detailMap, doctorId, tx);
-      entries.push(result);
+      const detail = detailMap.get(cfdi.uuid.toLowerCase());
+      if (!detail) continue; // XML still not here — nothing to enrich yet
+
+      const isReceived = cfdi.direction === 'received';
+      const data: { concept?: string; formaDePago?: string | null } = {};
+
+      const newConcept = buildConcept(detail, cfdi, isReceived);
+      if (newConcept && newConcept !== existing.concept) data.concept = newConcept;
+
+      // The generic concept means this entry was born pre-XML, so its forma is just the old default.
+      // Replace it with the XML-derived value even when that's null (→ "—"), clearing a stale guess.
+      const fp = mapFormaPago(detail.formaPago);
+      if (fp !== existing.formaDePago) data.formaDePago = fp;
+
+      if (Object.keys(data).length > 0) {
+        await (tx as unknown as PrismaClient).ledgerEntry.update({
+          where: { id: existing.id },
+          data,
+        });
+        enriched++;
+      }
     }
 
-    return entries;
+    // 4b. Create or link the CFDIs that have no ledger entry yet.
+    const entries: AutoRegisterResult[] = [];
+    for (const cfdi of toProcess) {
+      entries.push(await processOneCfdi(cfdi, detailMap, doctorId, tx));
+    }
+
+    return { results: entries, enriched };
   }, { timeout: 60000 });
 
   const autoLinked = results.filter((r) => r.action === 'auto_linked').length;
@@ -231,6 +312,7 @@ export async function autoRegisterCfdisToLedger(
     autoLinked,
     autoLinkedNeedsReview,
     created,
+    enriched,
     skipped: cfdis.length - toProcess.length,
     results,
   };
@@ -339,29 +421,15 @@ async function createEntryFromCfdi(
   doctorId: string,
   tx: TxClient,
 ): Promise<AutoRegisterResult> {
-  // Build concept
-  let concept = '';
-  if (detail?.conceptos && detail.conceptos.length > 0) {
-    const descriptions = detail.conceptos
-      .map((c: any) => c.descripcion)
-      .filter(Boolean)
-      .slice(0, 3);
-    concept = descriptions.join(', ');
-    if (detail.conceptos.length > 3) concept += ` (+${detail.conceptos.length - 3} más)`;
-  }
-  if (!concept) {
-    const counterpart = isReceived ? cfdi.issuerName : cfdi.receiverName;
-    concept = `CFDI ${isReceived ? 'recibido de' : 'emitido a'} ${counterpart || (isReceived ? cfdi.issuerRfc : cfdi.receiverRfc)}`;
-  }
+  // Build concept (XML line items when present, generic placeholder otherwise)
+  const concept = buildConcept(detail, cfdi, isReceived);
 
   // Area
   const areaType = entryType === 'ingreso' ? 'INGRESO' as const : 'EGRESO' as const;
   const defaultArea = await getDefaultArea(doctorId, areaType, tx);
 
-  // Forma de pago
-  const formaPago = detail?.formaPago
-    ? (FORMA_PAGO_MAP[detail.formaPago] || 'transferencia')
-    : 'transferencia';
+  // Forma de pago — derived from XML; null (→ "—") when unknown, so it can be back-enriched later.
+  const formaPago = mapFormaPago(detail?.formaPago);
 
   const internalId = await generateLedgerInternalId(doctorId, entryType, tx);
 
@@ -393,10 +461,11 @@ async function createEntryFromCfdi(
     data: {
       doctorId,
       amount,
-      concept: concept.substring(0, 500),
+      concept,
       entryType,
       transactionDate: cfdiDate,
       internalId,
+      // Explicit null (not omitted) so an unknown forma shows "—" instead of the schema default.
       formaDePago: formaPago,
       area: defaultArea.area,
       subarea: defaultArea.subarea,

@@ -493,7 +493,7 @@ async function downloadAndParseMetadata(
     const autoResult = await autoRegisterCfdisToLedger(job.doctorId, job.id);
     console.log(`[sat-sync-worker] Auto-register for job ${job.id}: ` +
       `linked=${autoResult.autoLinked}, review=${autoResult.autoLinkedNeedsReview}, ` +
-      `created=${autoResult.created}, skipped=${autoResult.skipped}`);
+      `created=${autoResult.created}, enriched=${autoResult.enriched}, skipped=${autoResult.skipped}`);
   } catch (err) {
     console.error(`[sat-sync-worker] Auto-register failed for job ${job.id}:`, err);
     // Don't fail the sync job — auto-register is best-effort
@@ -513,6 +513,7 @@ async function downloadAndParseXml(
   packageIds: string[],
 ): Promise<string> {
   let totalRecords = 0;
+  const parsedUuids: string[] = []; // UUIDs whose XML this job parsed — scopes the back-enrich below
 
   for (const pkgId of packageIds) {
     const zipBuffer = await downloadPackage(token, cred, pkgId);
@@ -526,6 +527,7 @@ async function downloadAndParseXml(
         console.warn(`[SAT worker] Skipped XML (no UUID found): ${entry.name} in job ${job.id}`);
         continue;
       }
+      parsedUuids.push(detail.uuid);
 
       // Upsert the detail record
       const upserted = await prisma.satCfdiDetail.upsert({
@@ -669,12 +671,16 @@ async function downloadAndParseXml(
     data: { status: 'completed', completedAt: new Date(), cfdiCount: totalRecords },
   });
 
-  // Auto-register new CFDIs to ledger (Phase 1 — Consolidated Money Model)
+  // Auto-register + back-enrich (Phase 1 — Consolidated Money Model).
+  // Scope to the UUIDs whose XML this job just parsed (NOT job.id: metadata and XML are separate
+  // jobs, so the XML job's id never matches the metadata rows' syncJobId). This back-enriches the
+  // entries that were created at the metadata stage — before their XML existed, hence with a
+  // generic concept + default forma de pago — without re-scanning the doctor's whole history.
   try {
-    const autoResult = await autoRegisterCfdisToLedger(job.doctorId, job.id);
+    const autoResult = await autoRegisterCfdisToLedger(job.doctorId, undefined, parsedUuids);
     console.log(`[sat-sync-worker] Auto-register (XML) for job ${job.id}: ` +
       `linked=${autoResult.autoLinked}, review=${autoResult.autoLinkedNeedsReview}, ` +
-      `created=${autoResult.created}, skipped=${autoResult.skipped}`);
+      `created=${autoResult.created}, enriched=${autoResult.enriched}, skipped=${autoResult.skipped}`);
   } catch (err) {
     console.error(`[sat-sync-worker] Auto-register (XML) failed for job ${job.id}:`, err);
   }

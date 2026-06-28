@@ -61,6 +61,7 @@ Una sola tabla `LedgerEntry` es la verdad. Cada entry persigue **dos evidencias*
 | 3 | [`01-permutaciones-de-prueba.md`](01-permutaciones-de-prueba.md) | Checklist exhaustivo de permutaciones de ingreso/egreso para probar en la UI. |
 | 4 | [`02-registro-facturas-y-match-determinista.md`](02-registro-facturas-y-match-determinista.md) | Registro de facturas (auto vs manual), su relación con el reset de pruebas, y el **plan parqueado** del match determinista por UUID (con gaps y decisiones). **Nada construido.** |
 | 5 | [`03-arquitectura-anclas-y-reglas.md`](03-arquitectura-anclas-y-reglas.md) | **Diseño/blueprint** (sin código): modelo de anclas, reglas de UI/UX para que todo nazca enlazado, captura fiscal temprana, vista expediente, tabla actual vs. propuesto. |
+| 6 | [`STEP-BY-STEP-TESTING.md`](STEP-BY-STEP-TESTING.md) | **Base del ciclo de pruebas** (validada en vivo): cómo borrar un movimiento y regenerarlo desde SAT-descarga. "Registro" es estado **derivado** (no flag), opciones de regeneración (Registrar pendientes vs. Reiniciar), y el loop de prueba repetible. Punto de partida del testing de `01`. |
 | — | [`TOOLING-acceso-railway-db.md`](TOOLING-acceso-railway-db.md) | **Referencia de herramienta:** cómo conectarse a la BD de producción (Railway) en solo lectura para verificar datos reales (URL interna vs. pública, `railway run --service pgvector`). |
 
 ## Relación con otras carpetas (canonicidad)

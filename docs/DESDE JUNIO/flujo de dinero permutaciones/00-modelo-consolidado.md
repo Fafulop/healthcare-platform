@@ -280,6 +280,14 @@ tienen CFDI aparte).
    auto-adjunta a la línea bancaria ya cargada.
 4. **Agregación de payouts de pasarela** — depósitos en lote no concilian 1:1.
 5. **Sin agente de conciliación** (Motor 4) — los casos ambiguos de 2–4 son manuales hoy.
+6. **Registro de CFDI antes del XML → datos pobres** *(detectado jun 2026)* — el auto-registro corre
+   en la etapa de **metadata** (`sat-sync-worker:493`), **antes** de descargar el XML, así que los
+   entries `sat_emitido`/`sat_recibido` nacen con **concepto genérico** ("CFDI recibido de…"),
+   **forma de pago default** y sin `metodoPago`. Cuando el XML llega, el UUID ya está vinculado y el
+   filtro `alreadyLinked` lo **saltaba** → nunca se enriquecía. Síntoma observable: borrar y
+   **re-registrar** el mismo CFDI produce un entry **distinto** (concepto real, forma correcta),
+   porque ahí ya existe el XML. *(Fix aplicado: enrich-on-XML + mapa de forma ampliado; ver
+   [`STEP-BY-STEP-TESTING.md`](STEP-BY-STEP-TESTING.md) §5.)*
 
 **Prioridad sugerida:** #1 (PPD/PUE) por encima de las demás — es un problema de **correctitud**
 sobre ~10% de las facturas, no de conveniencia. Rompe directamente "una factura ≠ dinero movido".

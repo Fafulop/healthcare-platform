@@ -28,10 +28,11 @@ export async function POST(request: NextRequest) {
           autoLinked: result.autoLinked,
           autoLinkedNeedsReview: result.autoLinkedNeedsReview,
           created: result.created,
+          enriched: result.enriched,
           skipped: result.skipped,
           total: result.results.length,
         },
-        message: `Backfill completado: ${result.created} creados, ${result.autoLinked} vinculados, ${result.autoLinkedNeedsReview} para revisión, ${result.skipped} ya registrados`,
+        message: `Backfill completado: ${result.created} creados, ${result.autoLinked} vinculados, ${result.autoLinkedNeedsReview} para revisión, ${result.enriched} enriquecidos, ${result.skipped} ya registrados`,
       });
     } finally {
       activeBackfills.delete(doctor.id);
