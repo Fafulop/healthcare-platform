@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 import { autoRegisterCfdisToLedger } from '@/lib/sat-auto-register';
+import { reconcilePpdToLedger } from '@/lib/sat-ppd-reconcile';
 
 // In-memory lock per doctor to prevent concurrent backfill runs
 const activeBackfills = new Set<string>();
@@ -22,6 +23,8 @@ export async function POST(request: NextRequest) {
     activeBackfills.add(doctor.id);
     try {
       const result = await autoRegisterCfdisToLedger(doctor.id);
+      // Catch-up: propagate any PPD payment complements onto their ledger entries (gap #1 Part B).
+      const reconciled = await reconcilePpdToLedger(doctor.id);
 
       return NextResponse.json({
         data: {
@@ -29,10 +32,11 @@ export async function POST(request: NextRequest) {
           autoLinkedNeedsReview: result.autoLinkedNeedsReview,
           created: result.created,
           enriched: result.enriched,
+          ppdReconciled: reconciled.updated,
           skipped: result.skipped,
           total: result.results.length,
         },
-        message: `Backfill completado: ${result.created} creados, ${result.autoLinked} vinculados, ${result.autoLinkedNeedsReview} para revisión, ${result.enriched} enriquecidos, ${result.skipped} ya registrados`,
+        message: `Backfill completado: ${result.created} creados, ${result.autoLinked} vinculados, ${result.autoLinkedNeedsReview} para revisión, ${result.enriched} enriquecidos, ${reconciled.updated} PPD conciliados, ${result.skipped} ya registrados`,
       });
     } finally {
       activeBackfills.delete(doctor.id);

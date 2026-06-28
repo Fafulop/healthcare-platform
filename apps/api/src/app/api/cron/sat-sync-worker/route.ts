@@ -31,6 +31,7 @@ import {
 } from '@/lib/sat-descarga';
 import { parseCfdiXml, parsePagoComplement } from '@/lib/sat-xml-parser';
 import { autoRegisterCfdisToLedger } from '@/lib/sat-auto-register';
+import { reconcilePpdToLedger } from '@/lib/sat-ppd-reconcile';
 
 /**
  * GET /api/cron/sat-sync-worker — Diagnostic: show all job statuses
@@ -514,6 +515,7 @@ async function downloadAndParseXml(
 ): Promise<string> {
   let totalRecords = 0;
   const parsedUuids: string[] = []; // UUIDs whose XML this job parsed — scopes the back-enrich below
+  const paidFacturaUuids = new Set<string>(); // invoices paid by complements in this job — scopes PPD reconcile
 
   for (const pkgId of packageIds) {
     const zipBuffer = await downloadPackage(token, cred, pkgId);
@@ -607,6 +609,7 @@ async function downloadAndParseXml(
       }
       if (pago && pago.documentos.length > 0) {
         for (const doc of pago.documentos) {
+          paidFacturaUuids.add(doc.facturaUuid); // invoice this complement pays → reconcile to ledger below
           // Skip if this link was manually unlinked by the user
           const existing = await prisma.satPago.findUnique({
             where: {
@@ -683,6 +686,17 @@ async function downloadAndParseXml(
       `created=${autoResult.created}, enriched=${autoResult.enriched}, skipped=${autoResult.skipped}`);
   } catch (err) {
     console.error(`[sat-sync-worker] Auto-register (XML) failed for job ${job.id}:`, err);
+  }
+
+  // Reconcile PPD payment complements parsed in this job onto their ledger entries (gap #1 Part B).
+  // Runs after auto-register so the invoice's entry exists. Best-effort — never fails the sync job.
+  if (paidFacturaUuids.size > 0) {
+    try {
+      const rec = await reconcilePpdToLedger(job.doctorId, Array.from(paidFacturaUuids));
+      console.log(`[sat-sync-worker] PPD reconcile for job ${job.id}: updated=${rec.updated}`);
+    } catch (err) {
+      console.error(`[sat-sync-worker] PPD reconcile failed for job ${job.id}:`, err);
+    }
   }
 
   return `completed: ${totalRecords} XML CFDIs parsed`;

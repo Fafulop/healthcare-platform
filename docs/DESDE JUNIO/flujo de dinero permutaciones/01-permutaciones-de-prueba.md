@@ -66,8 +66,8 @@
 - [ ] **INC-D3 · Confianza media (needsReview).** Setup: cita sin RFC, mismo monto/fecha que el CFDI (raw ~70 → 0.58). → auto-link + **`needsReview=true`** (badge amarillo + botón desvincular inline). Valida: bucket 0.50–0.66.
 - [ ] **INC-D4 · Confianza alta sin review.** Setup: cita con RFC exacto + monto + mismo día (raw 120). → auto-link silencioso, **sin** badge, desvincular solo desde modal. Valida: asimetría de reversibilidad.
 - [ ] **INC-D5 · "Registrar pendientes" (manual) sugiere, no vincula.** Setup: seleccionar CFDIs en panel SAT → registrar. → si hay candidato raw≥70 devuelve **sugerencia** (usuario confirma), no auto-vincula. Valida: Motor 2 camino B.
-- [ ] **INC-D6 · ⚠️ CFDI emitido PPD (gap conocido).** Setup: emitir/llegar CFDI con metodoPago=PPD → backfill. → **Observado hoy:** entry **PAID** (incorrecto). **Correcto sería:** PENDING hasta el complemento. Valida: **gap #1** (PUE/PPD no respetado).
-- [ ] **INC-D7 · ⚠️ Complemento de pago (tipo P) de un PPD.** Setup: tener PPD + su complemento descargado. → complemento queda en `SatPago` pero **NO** actualiza `paymentStatus` del entry. Valida: complemento desconectado del ledger (gap §3).
+- [ ] **INC-D6 · CFDI emitido PPD (✅ gap #1 resuelto).** Setup: emitir/llegar CFDI con metodoPago=PPD → backfill. → entry nace **PENDING** (`resolvePaymentStatus`, Parte A), no PAID. Valida: PUE/PPD respetado.
+- [ ] **INC-D7 · Complemento de pago (tipo P) de un PPD (✅ Parte B).** Setup: tener PPD + su complemento descargado → backfill ("Registrar pendientes"). → `reconcilePpdToLedger` mueve el entry a **PARTIAL/PAID** según `saldoInsoluto` (upgrade-only; complementos cancelados excluidos). Valida: complemento conectado al ledger (§8.1).
 - [ ] **INC-D8 · CFDI emitido cancelado.** Setup: CFDI con `satStatus=Cancelado` → backfill. → **NO** se registra (solo Vigente). Valida: filtro de status.
 
 ## Bloque E — Origen `banco` (ingreso)
@@ -108,7 +108,7 @@
 - [ ] **EXP-H1 · CFDI recibido sin entry previo (standalone).** Setup: ledger vacío → backfill. → entry `origin=sat_recibido`, `egreso`, **PENDING**, **🧾✓ 🏦✗**, auto-crea `Proveedor` por RFC. Valida: nacimiento de egreso desde factura.
 - [ ] **EXP-H2 · CFDI recibido CON compra/manual previa (dedup).** Setup: crear egreso manual del proveedor primero → backfill. → **1 solo** entry con **🧾✓**. Valida: match-before-create egreso.
 - [ ] **EXP-H3 · Proveedor reutilizado.** Setup: 2 CFDIs del mismo RFC emisor. → **un solo** `Proveedor`, ambos entries lo referencian. Valida: find-or-create proveedor.
-- [ ] **EXP-H4 · ⚠️ CFDI recibido PPD.** Setup: factura de proveedor metodoPago=PPD. → entry PENDING (egresos ya nacen PENDING, así que aquí coincide), pero el complemento sigue sin actualizar el saldo. Valida: lado egreso del gap PPD.
+- [ ] **EXP-H4 · CFDI recibido PPD (✅ Parte B, lado egreso).** Setup: factura de proveedor metodoPago=PPD → al pagar, su complemento se descarga → backfill. → entry nace PENDING y `reconcilePpdToLedger` lo mueve a PARTIAL/PAID según `saldoInsoluto`. Valida: el reconcile aplica a egresos igual (match por `satCfdiUuid`).
 - [ ] **EXP-H5 · Nota de crédito recibida (efecto E).** Setup: CFDI received + efecto=E. → `resolveEntryType` lo trata como **ingreso** (reembolso a favor del doctor). Valida: mapeo dirección/efecto.
 
 ## Bloque I — Origen `manual` (egreso)
@@ -149,7 +149,7 @@
 |---|---|
 | Origen | cita, manual, venta, webhook_pago, sat_emitido, sat_recibido, banco, compra, comision |
 | Forma de pago | efectivo, transferencia, tarjeta, cheque, deposito |
-| Evidencia fiscal | sin factura, PDF, XML, CFDI vinculado (auto/manual), PUE, **PPD ⚠️** |
+| Evidencia fiscal | sin factura, PDF, XML, CFDI vinculado (auto/manual), PUE, **PPD ✅** (nace PENDING; complemento → PARTIAL/PAID) |
 | Evidencia bancaria | sin banco, 1:1 (ref/fecha/concepto), card_fee, liquidación N:1, webhook auto |
 | Confianza CFDI | alta (≥0.67), media (`needsReview`), baja (crea/standalone) |
 | Orden | operación→factura (dedup), factura→operación (duplicado) |

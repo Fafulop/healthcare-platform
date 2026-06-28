@@ -109,14 +109,30 @@ sobre todo **`99` Por definir** — caían a `'transferencia'`).
 2. **Mapa de forma ampliado + fallback honesto:** `mapFormaPago()` cubre más códigos SAT y devuelve
    **`null`** (UI muestra "—") en vez de enmascarar `99`/desconocidos como `'transferencia'`.
 
-> **Pendiente (no en este fix):** llevar `metodoPago` (PUE/PPD) al entry para manejar
-> `paymentStatus` — eso es **gap #1** y requiere columna nueva en `LedgerEntry` (migración). Ver
-> [`00`](00-modelo-consolidado.md) §3 y §8.6.
+> **Gap #1 (PUE/PPD) — CERRADO (jun 2026, A+B):**
+> - **Parte A:** `resolvePaymentStatus()` deriva el estado de `metodoPago`; un CFDI **emitido PPD**
+>   nace **PENDING** (antes PAID) y el back-enrich corrige los ya creados. Sin columna nueva (lee
+>   `SatCfdiDetail.metodoPago`).
+> - **Parte B:** `reconcilePpdToLedger()` propaga los complementos (`SatPago`) al ledger por
+>   `satCfdiUuid == facturaUuid` (case-insensitive), **upgrade-only** (PENDING→PARTIAL→PAID). Corre
+>   tras cada sync XML (acotado a las facturas pagadas en el job) y en el backfill (catch-up). Reusa
+>   `computePpdStatus()`, la misma lógica del tab PPD/Pagos de SAT-descarga.
+>
+> **Cómo verificar Part B:** un PPD emitido (nace PENDING) cuyo complemento ya se descargó → corre
+> **Registrar pendientes** → el entry pasa a **PARTIAL/PAID** según el `saldoInsoluto`. Ver
+> [`00`](00-modelo-consolidado.md) §3 y §8.1.
 
 ### Cómo verificar el fix
 1. Toma un `sat_recibido` con concepto genérico (creado pre-fix) → corre **"Registrar pendientes"**
    (backfill) → el concepto y la forma se **enriquecen in situ** (sin borrar/re-crear).
 2. Borrar + re-registrar y auto-registrar deben dar **el mismo** resultado (determinismo).
+
+### UI relacionada (tabla Flujo de Dinero)
+Las columnas **Paciente** (solo `ingreso`) y **Proveedor** (solo `egreso`) muestran ahora
+**nombre/razón social + RFC** de la contraparte: usan `client/supplier.businessName` o, en su defecto,
+`counterpartyName` denormalizado, con `counterpartyRfc` debajo. Cambio solo de frontend
+(`apps/doctor/.../flujo-de-dinero/_components/LedgerTable.tsx` + `ledger-types.ts`); el endpoint del
+ledger ya devolvía estos campos.
 
 ---
 

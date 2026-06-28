@@ -175,6 +175,23 @@ function buildConcept(detail: any, cfdi: SatCfdiMetadata, isReceived: boolean): 
   return concept.substring(0, 500);
 }
 
+// ─── Payment status ───────────────────────────────────────────────────────────
+
+/**
+ * Payment status at registration. PUE (Pago en Una Exhibición) is paid on emission; PPD
+ * (Pago en Parcialidades o Diferido) is paid later via a payment complement, so an emitted PPD
+ * starts PENDING — a factura is not proof the money moved. Received CFDIs start PENDING (we don't
+ * know payment status yet). metodoPago comes from the XML; when it's absent (metadata stage, no XML)
+ * we fall back to the common case (emitted → PAID) and let the XML back-enrich downgrade PPDs.
+ */
+export function resolvePaymentStatus(
+  isReceived: boolean,
+  metodoPago: string | null | undefined,
+): 'PENDING' | 'PAID' {
+  if (isReceived) return 'PENDING';
+  return metodoPago === 'PPD' ? 'PENDING' : 'PAID';
+}
+
 // ─── Auto-register results ──────────────────────────────────────────────────
 
 export interface AutoRegisterResult {
@@ -242,7 +259,7 @@ export async function autoRegisterCfdisToLedger(
       doctorId,
       satCfdiUuid: { in: cfdis.map((c) => c.uuid) },
     },
-    select: { id: true, satCfdiUuid: true, origin: true, concept: true, formaDePago: true },
+    select: { id: true, satCfdiUuid: true, origin: true, concept: true, formaDePago: true, paymentStatus: true },
   });
   const existingByUuid = new Map(existingLinks.map((e) => [e.satCfdiUuid as string, e]));
   const toProcess = cfdis.filter((c) => !existingByUuid.has(c.uuid));
@@ -262,29 +279,39 @@ export async function autoRegisterCfdisToLedger(
 
   // 4. Enrich + process in a single transaction.
   const { results, enriched } = await prisma.$transaction(async (tx) => {
-    // 4a. Back-enrich already-linked CFDI-origin entries that were born without their XML.
-    //     Gated on the generic placeholder concept so we never clobber real product concepts
-    //     or user edits; only `sat_emitido`/`sat_recibido` entries are touched.
+    // 4a. Back-enrich already-linked CFDI-origin entries from their now-present XML.
+    //     Only `sat_emitido`/`sat_recibido` entries are touched.
     let enriched = 0;
     for (const cfdi of cfdis) {
       const existing = existingByUuid.get(cfdi.uuid);
       if (!existing) continue;
       if (existing.origin !== 'sat_emitido' && existing.origin !== 'sat_recibido') continue;
-      if (!GENERIC_CONCEPT_RE.test(existing.concept)) continue;
 
       const detail = detailMap.get(cfdi.uuid.toLowerCase());
       if (!detail) continue; // XML still not here — nothing to enrich yet
 
       const isReceived = cfdi.direction === 'received';
-      const data: { concept?: string; formaDePago?: string | null } = {};
+      const data: { concept?: string; formaDePago?: string | null; paymentStatus?: string; amountPaid?: number } = {};
 
-      const newConcept = buildConcept(detail, cfdi, isReceived);
-      if (newConcept && newConcept !== existing.concept) data.concept = newConcept;
+      // All back-enrichment is gated on the generic placeholder concept, which marks an entry as
+      // "born pre-XML and untouched since". This is what protects user edits: once an entry has a
+      // real concept (enriched, or the user worked with it), we never overwrite its concept, forma,
+      // or payment status here. Without this gate the PPD downgrade below would revert a manually
+      // marked-PAID PPD back to PENDING on every backfill (no complement→ledger reconciliation yet).
+      if (GENERIC_CONCEPT_RE.test(existing.concept)) {
+        const newConcept = buildConcept(detail, cfdi, isReceived);
+        if (newConcept && newConcept !== existing.concept) data.concept = newConcept;
 
-      // The generic concept means this entry was born pre-XML, so its forma is just the old default.
-      // Replace it with the XML-derived value even when that's null (→ "—"), clearing a stale guess.
-      const fp = mapFormaPago(detail.formaPago);
-      if (fp !== existing.formaDePago) data.formaDePago = fp;
+        // Forma is replaced even when null (→ "—"), clearing the stale default.
+        const fp = mapFormaPago(detail.formaPago);
+        if (fp !== existing.formaDePago) data.formaDePago = fp;
+
+        // An emitted PPD invoice has no money yet → PENDING (the born default was an unconditional PAID).
+        if (existing.origin === 'sat_emitido' && detail.metodoPago === 'PPD' && existing.paymentStatus !== 'PENDING') {
+          data.paymentStatus = 'PENDING';
+          data.amountPaid = 0;
+        }
+      }
 
       if (Object.keys(data).length > 0) {
         await (tx as unknown as PrismaClient).ledgerEntry.update({
@@ -453,9 +480,9 @@ async function createEntryFromCfdi(
     }
   }
 
-  // Payment defaults: emitted → PAID, received → PENDING (per plan Phase 1.6)
-  const paymentStatus = isReceived ? 'PENDING' : 'PAID';
-  const amountPaid = isReceived ? 0 : amount;
+  // Payment status: received → PENDING; emitted → PAID for PUE, PENDING for PPD (no money yet).
+  const paymentStatus = resolvePaymentStatus(isReceived, detail?.metodoPago);
+  const amountPaid = paymentStatus === 'PAID' ? amount : 0;
 
   const entry = await (tx as unknown as PrismaClient).ledgerEntry.create({
     data: {

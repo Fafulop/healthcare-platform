@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 import { generateLedgerInternalId, getDefaultArea } from '@/lib/practice-utils';
-import { scoreCfdiMatch, normalizeScore, resolveEntryType, mapFormaPago } from '@/lib/sat-auto-register';
+import { scoreCfdiMatch, normalizeScore, resolveEntryType, mapFormaPago, resolvePaymentStatus } from '@/lib/sat-auto-register';
 
 // POST /api/sat-descarga/register-to-ledger
 // Register one or more SAT CFDIs as LedgerEntries
@@ -169,6 +169,10 @@ export async function POST(request: NextRequest) {
         // Forma de pago from XML detail (null → "—" when unknown, instead of mislabeling as transfer)
         const formaPago = mapFormaPago(detail?.formaPago);
 
+        // Payment status: received → PENDING; emitted → PAID for PUE, PENDING for PPD (no money yet).
+        const paymentStatus = resolvePaymentStatus(isReceived, detail?.metodoPago);
+        const amountPaid = paymentStatus === 'PAID' ? amount : 0;
+
         const internalId = await generateLedgerInternalId(doctor.id, entryType);
 
         // Find or create supplier for received CFDIs (egresos)
@@ -206,8 +210,8 @@ export async function POST(request: NextRequest) {
             hasFactura: true,
             satCfdiUuid: cfdi.uuid,
             transactionType: 'N/A',
-            amountPaid: isReceived ? 0 : amount,
-            paymentStatus: isReceived ? 'PENDING' : 'PAID',
+            amountPaid,
+            paymentStatus,
             ...(supplierId ? { supplierId } : {}),
           },
         });

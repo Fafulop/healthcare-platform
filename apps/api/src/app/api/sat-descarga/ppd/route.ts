@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { computePpdStatus, filterActiveByVigenteComplement } from '@/lib/sat-ppd-reconcile';
 
 /**
  * GET /api/sat-descarga/ppd — PPD invoices + complementos + matching suggestions
@@ -56,15 +57,17 @@ export async function GET(request: NextRequest) {
 
       const ppdSet = new Map(ppdDetails.map(d => [d.uuid, d]));
 
-      // 3. Get pagos for PPD invoices
+      // 3. Get pagos for PPD invoices (excluding complements whose tipo-P CFDI was cancelled, so the
+      //    invoice paid-status matches what the ledger reconcile computes).
       const ppdUuids = Array.from(ppdSet.keys());
-      const allPagos = await prisma.satPago.findMany({
+      const rawAllPagos = await prisma.satPago.findMany({
         where: {
           doctorId: doctor.id,
           facturaUuid: { in: ppdUuids },
         },
         orderBy: { numParcialidad: 'asc' },
       });
+      const allPagos = await filterActiveByVigenteComplement(doctor.id, rawAllPagos);
 
       const pagosByFactura = new Map<string, typeof allPagos>();
       for (const p of allPagos) {
@@ -84,16 +87,7 @@ export async function GET(request: NextRequest) {
         // (detail.total was buggy — matched SubTotal instead of Total for CFDIs with IVA)
         const invoiceTotal = Number(inv.monto) || Number(detail.total);
         const invPagos = pagosByFactura.get(uuidLower) || [];
-        const activePagos = invPagos.filter(p => !p.unlinkedAt);
-        const totalPagado = activePagos.reduce((s, p) => s + (p.montoPagado?.toNumber() ?? 0), 0);
-        const lastPago = activePagos.length > 0 ? activePagos[activePagos.length - 1] : null;
-        const saldoInsoluto = lastPago?.saldoInsoluto?.toNumber() ?? null;
-
-        let status: 'pagado' | 'parcial' | 'pendiente' = 'pendiente';
-        if (saldoInsoluto === 0) status = 'pagado';
-        else if (activePagos.length > 0) status = 'parcial';
-
-        const pendiente = saldoInsoluto !== null ? saldoInsoluto : (invoiceTotal - totalPagado);
+        const { status, totalPagado, pendiente } = computePpdStatus(invoiceTotal, invPagos);
 
         // counterparty: for emitted = receiver (client), for received = issuer (vendor)
         const counterpartyRfc = direction === 'emitted' ? inv.receiverRfc : inv.issuerRfc;
