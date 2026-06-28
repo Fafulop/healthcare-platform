@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 import { generateLedgerInternalId, getDefaultArea } from '@/lib/practice-utils';
-import { scoreCfdiMatch, normalizeScore, resolveEntryType, mapFormaPago, resolvePaymentStatus } from '@/lib/sat-auto-register';
+import { scoreCfdiMatch, normalizeScore, resolveEntryType, mapFormaPago, resolvePaymentStatus, counterpartyOf } from '@/lib/sat-auto-register';
 
 // POST /api/sat-descarga/register-to-ledger
 // Register one or more SAT CFDIs as LedgerEntries
@@ -212,6 +212,10 @@ export async function POST(request: NextRequest) {
             transactionType: 'N/A',
             amountPaid,
             paymentStatus,
+            // Denormalize the CFDI counterpart so it shows in the Paciente/Proveedor column and can
+            // feed bank matching — same as the auto path.
+            counterpartyRfc: counterpartyOf(cfdi, isReceived).rfc,
+            counterpartyName: counterpartyOf(cfdi, isReceived).name,
             ...(supplierId ? { supplierId } : {}),
           },
         });

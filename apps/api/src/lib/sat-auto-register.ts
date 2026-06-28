@@ -27,8 +27,22 @@ function foldText(s: string): string {
 }
 
 /** Normalize an RFC for comparison (uppercase, no spaces). */
-function normalizeRfc(s: string | null | undefined): string {
+export function normalizeRfc(s: string | null | undefined): string {
   return (s || '').toUpperCase().replace(/\s+/g, '');
+}
+
+/**
+ * The CFDI counterpart to denormalize onto a ledger entry: the receiver for an emitted CFDI
+ * (the client/patient) and the issuer for a received one (the vendor). RFC normalized, name capped.
+ */
+export function counterpartyOf(
+  cfdi: { issuerRfc: string; issuerName: string | null; receiverRfc: string; receiverName: string | null },
+  isReceived: boolean,
+): { rfc: string | null; name: string | null } {
+  return {
+    rfc: normalizeRfc(isReceived ? cfdi.issuerRfc : cfdi.receiverRfc) || null,
+    name: (isReceived ? cfdi.issuerName : cfdi.receiverName)?.slice(0, 300) || null,
+  };
 }
 
 export interface MatchCandidate {
@@ -259,7 +273,10 @@ export async function autoRegisterCfdisToLedger(
       doctorId,
       satCfdiUuid: { in: cfdis.map((c) => c.uuid) },
     },
-    select: { id: true, satCfdiUuid: true, origin: true, concept: true, formaDePago: true, paymentStatus: true },
+    select: {
+      id: true, satCfdiUuid: true, origin: true, concept: true, formaDePago: true,
+      paymentStatus: true, counterpartyRfc: true, counterpartyName: true,
+    },
   });
   const existingByUuid = new Map(existingLinks.map((e) => [e.satCfdiUuid as string, e]));
   const toProcess = cfdis.filter((c) => !existingByUuid.has(c.uuid));
@@ -287,29 +304,38 @@ export async function autoRegisterCfdisToLedger(
       if (!existing) continue;
       if (existing.origin !== 'sat_emitido' && existing.origin !== 'sat_recibido') continue;
 
-      const detail = detailMap.get(cfdi.uuid.toLowerCase());
-      if (!detail) continue; // XML still not here — nothing to enrich yet
-
       const isReceived = cfdi.direction === 'received';
-      const data: { concept?: string; formaDePago?: string | null; paymentStatus?: string; amountPaid?: number } = {};
+      const data: {
+        concept?: string; formaDePago?: string | null; paymentStatus?: string; amountPaid?: number;
+        counterpartyRfc?: string; counterpartyName?: string;
+      } = {};
 
-      // All back-enrichment is gated on the generic placeholder concept, which marks an entry as
-      // "born pre-XML and untouched since". This is what protects user edits: once an entry has a
-      // real concept (enriched, or the user worked with it), we never overwrite its concept, forma,
-      // or payment status here. Without this gate the PPD downgrade below would revert a manually
-      // marked-PAID PPD back to PENDING on every backfill (no complement→ledger reconciliation yet).
-      if (GENERIC_CONCEPT_RE.test(existing.concept)) {
-        const newConcept = buildConcept(detail, cfdi, isReceived);
-        if (newConcept && newConcept !== existing.concept) data.concept = newConcept;
+      // Counterparty backfill: comes from the CFDI metadata (not the XML), and entries created via the
+      // manual register path never set it. Fill only when missing — never overwrite an existing value.
+      const cp = counterpartyOf(cfdi, isReceived);
+      if (!existing.counterpartyRfc && cp.rfc) data.counterpartyRfc = cp.rfc;
+      if (!existing.counterpartyName && cp.name) data.counterpartyName = cp.name;
 
-        // Forma is replaced even when null (→ "—"), clearing the stale default.
-        const fp = mapFormaPago(detail.formaPago);
-        if (fp !== existing.formaDePago) data.formaDePago = fp;
+      const detail = detailMap.get(cfdi.uuid.toLowerCase());
+      if (detail) {
+        // Concept/forma/PPD-status back-enrichment is gated on the generic placeholder concept, which
+        // marks an entry as "born pre-XML and untouched since". This protects user edits: once an entry
+        // has a real concept (enriched, or the user worked with it), we never overwrite its concept,
+        // forma, or payment status here. Without this gate the PPD downgrade would revert a manually
+        // marked-PAID PPD back to PENDING on every backfill.
+        if (GENERIC_CONCEPT_RE.test(existing.concept)) {
+          const newConcept = buildConcept(detail, cfdi, isReceived);
+          if (newConcept && newConcept !== existing.concept) data.concept = newConcept;
 
-        // An emitted PPD invoice has no money yet → PENDING (the born default was an unconditional PAID).
-        if (existing.origin === 'sat_emitido' && detail.metodoPago === 'PPD' && existing.paymentStatus !== 'PENDING') {
-          data.paymentStatus = 'PENDING';
-          data.amountPaid = 0;
+          // Forma is replaced even when null (→ "—"), clearing the stale default.
+          const fp = mapFormaPago(detail.formaPago);
+          if (fp !== existing.formaDePago) data.formaDePago = fp;
+
+          // An emitted PPD invoice has no money yet → PENDING (born default was an unconditional PAID).
+          if (existing.origin === 'sat_emitido' && detail.metodoPago === 'PPD' && existing.paymentStatus !== 'PENDING') {
+            data.paymentStatus = 'PENDING';
+            data.amountPaid = 0;
+          }
         }
       }
 
@@ -503,8 +529,8 @@ async function createEntryFromCfdi(
       amountPaid,
       paymentStatus,
       // Denormalize the CFDI counterpart so this entry can later match a bank line / be read by an agent.
-      counterpartyRfc: normalizeRfc(isReceived ? cfdi.issuerRfc : cfdi.receiverRfc) || null,
-      counterpartyName: (isReceived ? cfdi.issuerName : cfdi.receiverName)?.slice(0, 300) || null,
+      counterpartyRfc: counterpartyOf(cfdi, isReceived).rfc,
+      counterpartyName: counterpartyOf(cfdi, isReceived).name,
       ...(supplierId ? { supplierId } : {}),
     },
   });
