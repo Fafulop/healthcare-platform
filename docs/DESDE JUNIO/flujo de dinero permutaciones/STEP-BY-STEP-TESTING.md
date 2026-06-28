@@ -146,6 +146,54 @@ ledger ya devolvía estos campos.
 
 ---
 
-*Estado:* base de pruebas, validada en vivo 2026-06-28. Siguiente paso: recorrer el checklist de
-[`01-permutaciones-de-prueba.md`](01-permutaciones-de-prueba.md) usando este loop para regenerar
-entre casos.
+## 7. Estado de pruebas — baseline de EGRESOS (verificado en prod, 2026-06-28)
+
+> **Método de verificación (lo que SÍ se puede automatizar).** El LLM **no** puede manejar la UI de
+> prod ni escribir a prod. **Sí** puede verificar resultados con consultas **solo lectura** a la BD de
+> Railway (ver [`TOOLING-acceso-railway-db.md`](TOOLING-acceso-railway-db.md):
+> `railway run --service pgvector node script.cjs`, `DATABASE_PUBLIC_URL`, solo `SELECT`).
+> Flujo: el usuario hace la acción en la UI → el LLM consulta prod y **asevera** el estado del entry.
+
+### Doctor de prueba
+- **`dr-prueba`** = *Dr. Gerardo Lopez Fafutis* (las facturas son a *DIEGO PABLO LOPEZ FAFUTIS*,
+  RFC `LOFD9406276F8`). **doctor_id = `cmni1bov90000mk0lyeztr3ad`**. Tiene **734 CFDIs** y
+  **653 ledger entries** (es el único con datos SAT; los demás doctores tienen 0 CFDIs).
+
+### Baseline de egresos (346 entries, todos reales)
+- **Cobertura por origen:** **100% `sat_recibido`** (Bloque H). **`manual`=0, `banco`=0, `compra`=0,
+  `comision`=0** → **Bloques I, J, K SIN cobertura**: hay que **crearlos** en la UI para probarlos.
+- **Evidencia:** los 346 están **🧾✓ 🏦✗** (facturado, sin banco). **Ningún egreso tiene evidencia
+  bancaria** → Bloque K (conciliación) nunca ejercitado; **ningún egreso llegó a Completo**.
+- **Contraparte:** **346/346** con `counterpartyRfc`+`counterpartyName` ✅ (fix de hoy; la columna
+  Proveedor muestra para todos).
+- **Dedup:** **0 `satCfdiUuid` duplicados** ✅.
+
+### EXP-H4 (PUE/PPD) — validado contra complementos reales ✅
+Comparando el `paymentStatus` de cada factura PPD recibida vs lo que dicen sus complementos
+(`computePpdStatus`, excluyendo cancelados):
+
+| esperado (complementos) | real (ledger) | n | veredicto |
+|---|---|---|---|
+| PAID | PAID | 43 | ✅ |
+| PENDING | PENDING | 6 | ✅ (sin complemento aún) |
+| PARTIAL | PARTIAL | 1 | ✅ |
+| PARTIAL | PAID | 1 | ✅ ok (marca manual; upgrade-only la respetó) |
+
+**`UNDER-RECONCILED (bug) = 0`** — ningún PPD quedó atrás de sus complementos. Además **295 PUE → todas
+PENDING** (estado de nacimiento correcto para recibidas). Parts A+B se comportan correctamente en prod.
+
+### Próximos casos a probar (los de cobertura cero)
+1. **EXP-I1** (manual efectivo sin factura) — el más simple, origen `manual`.
+2. **EXP-J1 / J4** — egreso desde banco y, sobre todo, **llegar a Completo** (factura + retiro
+   conciliado): hoy ningún egreso lo ha logrado. Requiere subir un estado de cuenta.
+3. **EXP-K1–K4** — conciliación bancaria de egresos (match 1:1, tipo cruzado, liquidación N:1,
+   exclusión de `comision`).
+
+Scripts de verificación usados (scratchpad, solo lectura): `egreso-baseline.cjs`, `ppd-validate.cjs`
+(consultan `ledger_entries`, `sat_cfdi_metadata`, `sat_cfdi_details`, `sat_pagos` por `doctor_id`).
+
+---
+
+*Estado:* base de pruebas + baseline de egresos, verificado en prod 2026-06-28. Siguiente paso:
+ejercitar Bloques I/J/K de egresos (cobertura cero) — empezar por EXP-I1, y EXP-J4 para llegar a
+Completo. Ver [`01-permutaciones-de-prueba.md`](01-permutaciones-de-prueba.md).
