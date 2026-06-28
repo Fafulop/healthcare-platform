@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Loader2, Plus, FolderTree } from 'lucide-react';
 import { useLedgerPage } from './_components/useLedgerPage';
 import { BalanceSummaryCards } from './_components/BalanceSummaryCards';
+import { MonthNavigator } from './_components/MonthNavigator';
 import { LedgerFilters } from './_components/LedgerFilters';
 import { BatchActionBar } from './_components/BatchActionBar';
 import { LedgerTable } from './_components/LedgerTable';
@@ -76,6 +77,14 @@ export default function FlujoDeDineroPage() {
       {/* Movimientos */}
       {page.activeTab === 'movimientos' && (
         <>
+          <MonthNavigator
+            selectedMonth={page.selectedMonth}
+            startDate={page.startDate}
+            endDate={page.endDate}
+            onMonthChange={page.setMonth}
+            onShiftMonth={page.shiftMonth}
+          />
+
           <BalanceSummaryCards balance={page.balance} />
 
           <LedgerFilters

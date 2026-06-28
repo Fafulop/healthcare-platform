@@ -8,12 +8,25 @@ export async function GET(request: NextRequest) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
 
+    // Optional date range — same convention as the ledger list (entries stored at T12:00:00).
+    const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+    let transactionDate: { gte?: Date; lte?: Date } | undefined;
+    if (startDate || endDate) {
+      transactionDate = {};
+      if (startDate) transactionDate.gte = new Date(startDate + 'T00:00:00');
+      if (endDate) transactionDate.lte = new Date(endDate + 'T23:59:59.999');
+    }
+    const dateWhere = transactionDate ? { transactionDate } : {};
+
     // Realized transactions only (porRealizar: false)
     const ingresos = await prisma.ledgerEntry.aggregate({
       where: {
         doctorId: doctor.id,
         entryType: 'ingreso',
-        porRealizar: false
+        porRealizar: false,
+        ...dateWhere,
       },
       _sum: {
         amount: true
@@ -24,7 +37,8 @@ export async function GET(request: NextRequest) {
       where: {
         doctorId: doctor.id,
         entryType: 'egreso',
-        porRealizar: false
+        porRealizar: false,
+        ...dateWhere,
       },
       _sum: {
         amount: true
@@ -36,7 +50,8 @@ export async function GET(request: NextRequest) {
       where: {
         doctorId: doctor.id,
         entryType: 'ingreso',
-        porRealizar: true
+        porRealizar: true,
+        ...dateWhere,
       },
       _sum: {
         amount: true
@@ -47,7 +62,8 @@ export async function GET(request: NextRequest) {
       where: {
         doctorId: doctor.id,
         entryType: 'egreso',
-        porRealizar: true
+        porRealizar: true,
+        ...dateWhere,
       },
       _sum: {
         amount: true

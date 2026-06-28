@@ -18,6 +18,19 @@ import { practiceConfirm } from '@/lib/practice-confirm';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
+/** First/last day (YYYY-MM-DD) of a YYYY-MM month. */
+function monthBounds(ym: string): { start: string; end: string } {
+  const [y, m] = ym.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return { start: `${ym}-01`, end: `${ym}-${String(last).padStart(2, '0')}` };
+}
+
+/** Current month as YYYY-MM. */
+function currentMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export function useLedgerPage() {
   const { data: session, status } = useSession({ required: true });
 
@@ -33,8 +46,9 @@ export function useLedgerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [entryTypeFilter, setEntryTypeFilter] = useState('all');
   const [porRealizarFilter, setPorRealizarFilter] = useState<string>('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // Default the period to the current month (drives both the table and the summary cards).
+  const [startDate, setStartDate] = useState(() => monthBounds(currentMonth()).start);
+  const [endDate, setEndDate] = useState(() => monthBounds(currentMonth()).end);
   const [showAllEntries, setShowAllEntries] = useState(true);
   const [ledgerDate, setLedgerDate] = useState(() => {
     const d = new Date();
@@ -83,6 +97,30 @@ export function useLedgerPage() {
 
   const todayStr = getLocalDateString(new Date());
 
+  // ─── Month period control (drives table + cards) ────────────────────────────
+  // Only a range that equals an exact full month shows as that month; a partial intra-month range
+  // (e.g. set via the advanced filter) is a custom range, shown as "" (Personalizado).
+  const selectedMonth = (() => {
+    if (!startDate || !endDate) return '';
+    const ym = startDate.slice(0, 7);
+    const { start, end } = monthBounds(ym);
+    return start === startDate && end === endDate ? ym : '';
+  })();
+
+  const setMonth = (ym: string) => {
+    if (!ym) { setStartDate(''); setEndDate(''); return; } // "" → all time
+    const { start, end } = monthBounds(ym);
+    setStartDate(start);
+    setEndDate(end);
+  };
+
+  const shiftMonth = (delta: number) => {
+    const ym = selectedMonth || currentMonth();
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  };
+
   // ─── Fetch helpers ──────────────────────────────────────────────────────────
 
   const fetchDoctorProfile = async (doctorId: string) => {
@@ -101,7 +139,11 @@ export function useLedgerPage() {
   const fetchBalance = async () => {
     if (!session?.user?.email) return;
     try {
-      const res = await authFetch(`${API_URL}/api/practice-management/ledger/balance`);
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      const qs = params.toString();
+      const res = await authFetch(`${API_URL}/api/practice-management/ledger/balance${qs ? `?${qs}` : ''}`);
       if (!res.ok) throw new Error('Error al cargar balance');
       const result = await res.json();
       setBalance(result.data);
@@ -654,6 +696,7 @@ export function useLedgerPage() {
     porRealizarFilter, setPorRealizarFilter,
     startDate, setStartDate,
     endDate, setEndDate,
+    selectedMonth, setMonth, shiftMonth,
     showFilters, setShowFilters,
     originFilter, setOriginFilter,
     evidenceFilter, setEvidenceFilter,
