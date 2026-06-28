@@ -561,13 +561,31 @@ export function LedgerTable({
                       return bal > 0 ? <span className="font-semibold text-rose-600">{formatCurrency(bal.toString())}</span> : <span className="text-xs text-gray-400">-</span>;
                     })() : <span className="text-xs text-gray-400">-</span>}
                   </td>
-                  {/* Paciente */}
+                  {/* Paciente (ingresos): nombre/razón social + RFC de la contraparte */}
                   <td className="px-6 py-4 text-sm text-gray-900">
-                    {entry.client ? <div className="max-w-xs truncate" title={entry.client.businessName}>{entry.client.businessName}</div> : <span className="text-xs text-gray-400">-</span>}
+                    {(() => {
+                      const name = entry.entryType === 'ingreso' ? (entry.client?.businessName || entry.counterpartyName) : null;
+                      if (!name) return <span className="text-xs text-gray-400">-</span>;
+                      return (
+                        <div className="max-w-xs">
+                          <div className="truncate" title={name}>{name}</div>
+                          {entry.counterpartyRfc && <div className="text-xs text-gray-500 font-mono">{entry.counterpartyRfc}</div>}
+                        </div>
+                      );
+                    })()}
                   </td>
-                  {/* Proveedor */}
+                  {/* Proveedor (egresos): nombre/razón social + RFC de la contraparte */}
                   <td className="px-6 py-4 text-sm text-gray-900">
-                    {entry.supplier ? <div className="max-w-xs truncate" title={entry.supplier.businessName}>{entry.supplier.businessName}</div> : <span className="text-xs text-gray-400">-</span>}
+                    {(() => {
+                      const name = entry.entryType === 'egreso' ? (entry.supplier?.businessName || entry.counterpartyName) : null;
+                      if (!name) return <span className="text-xs text-gray-400">-</span>;
+                      return (
+                        <div className="max-w-xs">
+                          <div className="truncate" title={name}>{name}</div>
+                          {entry.counterpartyRfc && <div className="text-xs text-gray-500 font-mono">{entry.counterpartyRfc}</div>}
+                        </div>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))

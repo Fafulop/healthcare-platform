@@ -40,6 +40,8 @@ export interface LedgerEntry {
   transactionType?: string;
   clientId?: number;
   supplierId?: number;
+  counterpartyRfc?: string | null;
+  counterpartyName?: string | null;
   paymentStatus?: string;
   amountPaid?: string;
   client?: { id: number; businessName: string; contactName: string | null };
