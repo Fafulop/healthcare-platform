@@ -14,9 +14,13 @@
 Ambos toman una **factura descargada del SAT** y la convierten en (o la vinculan a) un `LedgerEntry`.
 La diferencia es **quién dispara** y **qué tan agresivo** es:
 
-| | **Auto** | **Manual ("Registrar pendientes")** |
+> ⚠️ **Nombres de botón (verificado en código):** el botón **"Registrar pendientes"** dispara el
+> camino **Auto** (`POST /backfill-ledger` → `autoRegisterCfdisToLedger`), **no** el manual. El camino
+> **Manual** es el botón **"Registrar"** por fila (`POST /register-to-ledger`).
+
+| | **Auto** (botón "Registrar pendientes" + cron) | **Manual** (botón "Registrar" por fila) |
 |---|---|---|
-| Quién dispara | El sistema — corre tras cada sync del SAT (cron) + botón **"Backfill"** | El doctor — selecciona CFDIs en el panel SAT y los registra |
+| Quién dispara | El sistema — corre tras cada sync del SAT (cron) + botón **"Registrar pendientes"** (`backfill-ledger`) | El doctor — botón **"Registrar"** por fila en el panel SAT |
 | Alcance | **Todas** las facturas Vigentes sin vincular, de una | **Solo las que el doctor elige** |
 | Comportamiento | **Auto-vincula** si confía (≥0.67), vincula+marca revisión (0.50–0.66), o crea | **Nunca auto-vincula** — si hay candidato fuerte muestra **sugerencia** a confirmar; si no, crea |
 | Código | `autoRegisterCfdisToLedger` (`sat-auto-register.ts`), `backfill-ledger` | `register-to-ledger` |
@@ -29,8 +33,9 @@ El manual sobrevive para: (a) **revisar antes de vincular** en vez de confiar en
 (b) **elegir** facturas específicas, (c) manejar a propósito los casos inciertos. Para el caso común,
 el auto lo vuelve **mayormente redundante** → candidato a **simplificar** más adelante (no urgente).
 
-### ⚠️ No confundir dos "manuales" distintos
-- **"Registrar pendientes" (manual)** = registrar una **factura** del SAT al ledger (este doc).
+### ⚠️ No confundir dos cosas distintas
+- **"Registrar pendientes" / "Registrar" (panel SAT)** = registrar una **factura** del SAT al ledger
+  (este doc; "Registrar pendientes"=Auto/bulk, "Registrar" por fila=Manual).
 - **"Nuevo Movimiento" (manual)** = capturar un ingreso/egreso **a mano, sin factura**
   (`origin=manual`: efectivo, renta, etc.). **Esencial**, no redundante. Es otra cosa.
 
@@ -43,8 +48,8 @@ Estos dos caminos de registro **son la superficie de prueba** para rehacer las e
 
 1. Wipe del ledger (UI o SQL) — las facturas (`CfdiEmitted`, `SatCfdiMetadata`) sobreviven.
 2. Recrear citas/operación.
-3. **Probar AUTO** → botón Backfill (o esperar el cron) → procesa todas las facturas.
-4. **Probar MANUAL** → "Registrar pendientes" sobre CFDIs seleccionados.
+3. **Probar AUTO** → botón **"Registrar pendientes"** (o esperar el cron) → procesa todas las facturas.
+4. **Probar MANUAL** → botón **"Registrar"** por fila sobre CFDIs seleccionados.
 5. Verificar el estado final de cada entry (🧾/🏦, dedup, sin duplicados).
 
 > Esto es justo lo que se quiere validar: que ambos caminos reconstruyan correctamente y **sin
@@ -191,13 +196,14 @@ certeza, sin código nuevo.
 
 ## 6. Checklist a VERIFICAR durante la prueba (antes de construir encima)
 
-- [ ] Confirmar que el botón **Backfill** = `autoRegisterCfdisToLedger` (auto) y "Registrar pendientes"
-      = `register-to-ledger` (manual).
+- [x] ✅ **Verificado (jun 2026):** el botón **"Registrar pendientes"** = `backfill-ledger` →
+      `autoRegisterCfdisToLedger` (auto/bulk); el botón **"Registrar"** por fila = `register-to-ledger`
+      (manual). (El nombre "Registrar pendientes" **no** es el camino manual.)
 - [ ] Tras wipe, confirmar que `CfdiEmitted` sobrevive y que su `ledgerEntryId` quedó **null**.
 - [ ] Auto sobre ledger vacío: ¿las 6 facturas se vuelven `sat_emitido` standalone? (esperado).
 - [ ] Ciclo fresco (cita → emitir → descargar): ¿el back-link queda seteado al emitir? ¿el match
       determinista (cuando se construya) dispararía?
-- [ ] Manual "Registrar pendientes": ¿sugiere en vez de auto-vincular? ¿respeta `skipMatchUuids`?
+- [ ] Manual (botón **"Registrar"** por fila): ¿sugiere en vez de auto-vincular? ¿respeta `skipMatchUuids`?
 - [x] ✅ **Confirmado (prod, jun 2026):** `cfdis_emitted.uuid` = **minúsculas**; `sat_cfdi_metadata.uuid`
       = **MAYÚSCULAS** → match **case-insensitive obligatorio**. (6 emitidas vs 734 en metadata.)
 - [ ] ⚠️ **Observación (prod):** las 6 facturas emitidas por el sistema **NO** aparecen aún en
