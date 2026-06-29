@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { revertEntryEffects } from '@/lib/bank-reversibility';
 
 // GET /api/practice-management/conciliacion-bancaria/[id]
 // Get statement detail with all movements
@@ -96,8 +97,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    // Cascade delete handles movements via FK constraint
-    await prisma.bankStatement.delete({ where: { id: statementId } });
+    // Reverse each movement's ledger effects BEFORE the cascade, so entries aren't stranded with
+    // stale evidence and bank-born entries aren't orphaned (§7/EXP-F13). The cascade then removes the
+    // movements + settlement items; reverting the ledger entries is what this transaction adds.
+    // Only `matched_confirmed` movements ever touched a ledger entry (enriched / created / settled) —
+    // upload auto-matches, unmatched and ignored rows are no-ops, so we skip them to keep this
+    // transaction small on large statements.
+    await prisma.$transaction(async (tx) => {
+      const movements = await tx.bankMovement.findMany({
+        where: { bankStatementId: statementId, matchStatus: 'matched_confirmed' },
+        select: { id: true, ledgerEntryId: true, matchHistory: true },
+      });
+      for (const m of movements) {
+        await revertEntryEffects(tx, m, statement.doctorId);
+      }
+      await tx.bankStatement.delete({ where: { id: statementId } });
+    }, { timeout: 60000 });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
