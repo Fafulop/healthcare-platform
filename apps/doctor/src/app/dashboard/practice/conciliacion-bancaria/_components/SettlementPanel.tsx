@@ -26,6 +26,9 @@ interface Props {
 
 export function SettlementPanel({ statementId, movement, isLoading, onLinkSettlement, onClose }: Props) {
   const deposit = Number(movement.amount);
+  const isDeposit = movement.movementType === 'deposit';
+  const movWord = isDeposit ? 'depósito' : 'retiro'; // the bank line
+  const partsWord = isDeposit ? 'ingresos' : 'egresos'; // the ledger entries it settles
   const [candidates, setCandidates] = useState<SettlementCandidate[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -63,19 +66,22 @@ export function SettlementPanel({ statementId, movement, isLoading, onLinkSettle
     () => candidates.filter((c) => selected.has(c.id)).reduce((s, c) => s + c.amount, 0),
     [candidates, selected],
   );
-  const commission = Math.round((grossSum - deposit) * 100) / 100;
-  const diff = Math.round((grossSum - deposit) * 100) / 100;
+  const diff = Math.round((grossSum - deposit) * 100) / 100; // + = selected sum exceeds the bank line
+  // A commission (an egreso) only makes sense for a deposit: a payout netted of a processor fee.
+  // For a withdrawal there is no commission — the selected egresos must sum exactly to what left the
+  // bank, otherwise we'd double-count expense (mark invoices PAID in full AND add a commission egreso).
+  const commission = isDeposit ? diff : 0;
 
-  // Valid: at least one entry, sum covers the deposit, and the implied commission is plausible.
-  const tooShort = deposit - grossSum > 0.01;
-  const feeTooBig = commission > grossSum * MAX_FEE_PCT + 0.01;
-  const canConfirm = selected.size > 0 && !tooShort && !feeTooBig && !isLoading;
+  const tooShort = deposit - grossSum > 0.01;          // sum doesn't cover the bank line (both)
+  const overShoot = !isDeposit && diff > 0.01;         // egreso settlement must balance exactly
+  const feeTooBig = isDeposit && commission > grossSum * MAX_FEE_PCT + 0.01;
+  const canConfirm = selected.size > 0 && !tooShort && !overShoot && !feeTooBig && !isLoading;
 
   return (
     <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-200 space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-indigo-800 flex items-center gap-1">
-          <Layers className="w-3.5 h-3.5" /> Conciliar varios movimientos con este depósito
+          <Layers className="w-3.5 h-3.5" /> Conciliar varios {partsWord} con este {movWord}
         </p>
         <span className="text-xs text-indigo-700 font-semibold">{money(deposit)}</span>
       </div>
@@ -119,25 +125,30 @@ export function SettlementPanel({ statementId, movement, isLoading, onLinkSettle
           <span className="font-medium">{money(grossSum)}</span>
         </div>
         <div className="flex justify-between text-gray-600">
-          <span>Depósito</span>
+          <span className="capitalize">{movWord}</span>
           <span className="font-medium">{money(deposit)}</span>
         </div>
         <div className={`flex justify-between font-medium ${
-          tooShort ? 'text-red-600' : feeTooBig ? 'text-red-600' : 'text-indigo-700'
+          tooShort || overShoot || feeTooBig ? 'text-red-600' : 'text-indigo-700'
         }`}>
-          <span>{diff >= 0 ? 'Comisión implícita' : 'Faltante'}</span>
+          <span>{isDeposit
+            ? (diff >= 0 ? 'Comisión implícita' : 'Faltante')
+            : (diff > 0.01 ? 'Sobrante' : diff < -0.01 ? 'Faltante' : 'Cuadra')}</span>
           <span>{money(Math.abs(diff))}</span>
         </div>
         {tooShort && (
-          <p className="text-[10px] text-red-600">La suma seleccionada aún no cubre el depósito.</p>
+          <p className="text-[10px] text-red-600">La suma seleccionada aún no cubre el {movWord}.</p>
+        )}
+        {overShoot && (
+          <p className="text-[10px] text-red-600">Para un retiro, la suma debe coincidir exactamente con el monto (no hay comisión que absorba la diferencia).</p>
         )}
         {feeTooBig && !tooShort && (
           <p className="text-[10px] text-red-600">La diferencia es demasiado grande para ser una comisión.</p>
         )}
       </div>
 
-      {/* Commission egreso option */}
-      {commission > 0.01 && !tooShort && !feeTooBig && (
+      {/* Commission egreso option — deposits only (a payout netted of a processor fee) */}
+      {isDeposit && commission > 0.01 && !tooShort && !feeTooBig && (
         <div className="space-y-1.5 border-t border-indigo-200 pt-2">
           <label className="flex items-center gap-2 text-xs text-gray-700">
             <input

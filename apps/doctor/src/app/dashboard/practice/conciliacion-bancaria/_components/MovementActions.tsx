@@ -167,17 +167,17 @@ export function MovementActions({
           <Plus className="w-3 h-3" />
           Nuevo
         </button>
-        {movement.movementType === 'deposit' && (
-          <button
-            onClick={() => { setShowSettlement(!showSettlement); setShowCreate(false); setShowSuggestions(false); }}
-            disabled={isLoading}
-            className="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1 rounded flex items-center gap-1"
-            title="Conciliar este depósito con varios movimientos (p. ej. pagos con tarjeta agrupados)"
-          >
-            <Layers className="w-3 h-3" />
-            Varios
-          </button>
-        )}
+        <button
+          onClick={() => { setShowSettlement(!showSettlement); setShowCreate(false); setShowSuggestions(false); }}
+          disabled={isLoading}
+          className="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1 rounded flex items-center gap-1"
+          title={movement.movementType === 'deposit'
+            ? 'Conciliar este depósito con varios ingresos (p. ej. pagos con tarjeta agrupados)'
+            : 'Conciliar este retiro con varios egresos (p. ej. un pago que cubre varias facturas)'}
+        >
+          <Layers className="w-3 h-3" />
+          Varios
+        </button>
         <button
           onClick={() => onIgnore(movement.id)}
           disabled={isLoading}
