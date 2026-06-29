@@ -79,7 +79,7 @@ export function LedgerTable({
 }: Props) {
   const [cfdiUuid, setCfdiUuid] = useState<string | null>(null);
   const [cfdiEntryId, setCfdiEntryId] = useState<number | null>(null);
-  const [comprobanteAttachments, setComprobanteAttachments] = useState<LedgerEntry['attachments'] | null>(null);
+  const [comprobanteEntry, setComprobanteEntry] = useState<LedgerEntry | null>(null);
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -200,7 +200,7 @@ export function LedgerTable({
                     </span>
                   )}
                   {entry.hasComprobante ? (
-                    <button onClick={() => setComprobanteAttachments(entry.attachments)} title="Ver comprobantes">
+                    <button onClick={() => setComprobanteEntry(entry)} title="Ver comprobantes">
                       <Receipt className="w-3 h-3 text-green-600 hover:text-green-800 cursor-pointer" />
                     </button>
                   ) : (
@@ -373,7 +373,7 @@ export function LedgerTable({
                         </span>
                       )}
                       {entry.hasComprobante ? (
-                        <button onClick={() => setComprobanteAttachments(entry.attachments)} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver comprobantes">
+                        <button onClick={() => setComprobanteEntry(entry)} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver comprobantes">
                           <Receipt className="w-3.5 h-3.5 text-green-600 hover:text-green-800" />
                         </button>
                       ) : (
@@ -640,7 +640,7 @@ export function LedgerTable({
           onUnlinked={() => { setCfdiUuid(null); setCfdiEntryId(null); onRefresh(); }}
         />
       )}
-      {comprobanteAttachments && <ComprobanteModal attachments={comprobanteAttachments} onClose={() => setComprobanteAttachments(null)} />}
+      {comprobanteEntry && <ComprobanteModal entry={comprobanteEntry} onClose={() => setComprobanteEntry(null)} />}
     </div>
   );
 }

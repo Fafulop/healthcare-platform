@@ -21,6 +21,22 @@ export interface Area {
   subareas: Subarea[];
 }
 
+/** A bank statement line that reconciled an entry (direct 1:1 or via a settlement). */
+export interface BankMovementEvidence {
+  id: number;
+  transactionDate: string;
+  description: string | null;
+  reference: string | null;
+  amount: string;
+  movementType: string; // 'deposit' | 'withdrawal'
+  bankStatement: {
+    bankName: string;
+    accountNumber: string;
+    periodMonth: number;
+    periodYear: number;
+  } | null;
+}
+
 export interface LedgerEntry {
   id: number;
   amount: string;

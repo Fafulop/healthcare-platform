@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
           supplier: { select: { id: true, businessName: true, contactName: true } },
           sale: { select: { id: true, saleNumber: true, total: true } },
           purchase: { select: { id: true, purchaseNumber: true, total: true } },
+          // Bank evidence (bankMovement / settlementItem) is NOT loaded here — it's only needed by the
+          // evidence modal, fetched lazily via GET /ledger/[id]/evidence to keep the list query light.
         },
         orderBy: { transactionDate: 'desc' },
         skip: pagination.skip,
