@@ -182,6 +182,22 @@ Comparando el `paymentStatus` de cada factura PPD recibida vs lo que dicen sus c
 **`UNDER-RECONCILED (bug) = 0`** — ningún PPD quedó atrás de sus complementos. Además **295 PUE → todas
 PENDING** (estado de nacimiento correcto para recibidas). Parts A+B se comportan correctamente en prod.
 
+### Resultados de pruebas de egresos (2026-06-28/29)
+- **EXP-I1 ✅** — gasto manual efectivo (`EGR-2026-348`, $700): `origin=manual`, PAID, 🧾✗ 🏦✗, forma=efectivo.
+  (Contraparte queda null si no se captura — esperado para manual.)
+- **EXP-J4 ✅** — factura recibida (`EGR-2026-001`, GANADEROS $1,039.68) → subir CSV BBVA con el retiro
+  → **confirmar** el auto-match (0.85) → entry pasa a **🧾✓ 🏦✓ PAID = Completo** (primer egreso en
+  Completo). ⚠️ **Sutileza:** el upload deja el match en `matched_auto` (sugerencia); la enrichment
+  (PAID/comprobante) **solo** ocurre al **Confirmar** (`confirm_match`/`link_existing`), no en el upload.
+- **EXP-F13 ⚠️→✅ (reproducido y CORREGIDO)** — al **`unmatch`** un match confirmado, el movimiento
+  volvía a `unmatched` pero el entry **conservaba** PAID + `hasComprobante` (la asimetría de §7). Se
+  observó en vivo (confirmar mov 51 → enriquece 881 → unmatch → 881 sigue PAID sin línea bancaria).
+  **Fix (snapshot-restore):** al enriquecer (`confirm_match`/`link_existing`/`link_settlement`) se
+  guarda el estado previo del entry en `bankMovement.matchHistory`; al `unmatch`/`unlink_settlement`
+  se **restaura** ese estado. Sin adivinar (no pisa marca manual, complemento PPD ni comprobante
+  manual). Edge: un complemento PPD que llegó entre confirmar y deshacer se re-afirma en el siguiente
+  reconcile (upgrade-only). *Verificar en vivo tras el redeploy de `apps/api`.*
+
 ### Próximos casos a probar (los de cobertura cero)
 1. **EXP-I1** (manual efectivo sin factura) — el más simple, origen `manual`.
 2. **EXP-J1 / J4** — egreso desde banco y, sobre todo, **llegar a Completo** (factura + retiro

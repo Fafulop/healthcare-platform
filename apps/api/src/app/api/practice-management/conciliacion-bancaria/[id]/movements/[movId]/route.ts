@@ -203,6 +203,68 @@ function appendHistory(existing: any, entry: any): any[] {
   return [...history, entry];
 }
 
+// ─── Evidence snapshot/restore (reversible matching) ─────────────────────────
+// Matching enriches the ledger entry (hasComprobante / paymentStatus / amountPaid / bank refs).
+// To make `unmatch` truly reversible, we snapshot the entry's pre-enrich state into the movement's
+// matchHistory at match time and restore it on unmatch — instead of guessing what to clear (which
+// would wipe a manual mark, a PPD complement, or a manually-uploaded comprobante). See gap §7/EXP-F13.
+
+interface EvidenceSnapshot {
+  hasComprobante: boolean;
+  needsReview: boolean;
+  bankAccount: string | null;
+  bankMovementId: string | null;
+  paymentStatus: string | null;
+  amountPaid: number | null;
+}
+
+/** Fields to select when fetching an entry we're about to enrich (so the snapshot is complete). */
+const EVIDENCE_SELECT = {
+  hasComprobante: true, needsReview: true, bankAccount: true,
+  bankMovementId: true, paymentStatus: true, amountPaid: true,
+} as const;
+
+function snapshotEvidence(e: any): EvidenceSnapshot {
+  return {
+    hasComprobante: !!e.hasComprobante,
+    needsReview: !!e.needsReview,
+    bankAccount: e.bankAccount ?? null,
+    bankMovementId: e.bankMovementId ?? null,
+    paymentStatus: e.paymentStatus ?? null,
+    amountPaid: e.amountPaid != null ? Number(e.amountPaid) : null,
+  };
+}
+
+/** Prisma update data that restores an entry to a snapshot. */
+function restoreData(snap: EvidenceSnapshot) {
+  return {
+    hasComprobante: snap.hasComprobante,
+    needsReview: snap.needsReview,
+    bankAccount: snap.bankAccount,
+    bankMovementId: snap.bankMovementId,
+    paymentStatus: snap.paymentStatus,
+    amountPaid: snap.amountPaid ?? 0,
+  };
+}
+
+/** Most recent 1:1 snapshot recorded in a movement's history (the enrich we'd be undoing). */
+function findLastSnapshot(history: any): EvidenceSnapshot | null {
+  if (!Array.isArray(history)) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.prevLedger) return history[i].prevLedger as EvidenceSnapshot;
+  }
+  return null;
+}
+
+/** Most recent settlement (N:1) snapshot map { entryId: snapshot } recorded in a movement's history. */
+function findLastSnapshotMap(history: any): Record<string, EvidenceSnapshot> | null {
+  if (!Array.isArray(history)) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.prevLedgerById) return history[i].prevLedgerById as Record<string, EvidenceSnapshot>;
+  }
+  return null;
+}
+
 // ─── Action Handlers ─────────────────────────────────────────────────────────
 
 async function handleConfirmMatch(movement: any, doctorId: string) {
@@ -218,11 +280,12 @@ async function handleConfirmMatch(movement: any, doctorId: string) {
     }),
     prisma.ledgerEntry.findUnique({
       where: { id: movement.ledgerEntryId },
-      select: { bankAccount: true, bankMovementId: true, paymentStatus: true, amount: true },
+      select: { ...EVIDENCE_SELECT, amount: true },
     }),
   ]);
 
-  const audit = buildAuditEntry('confirm_match', movement, doctorId);
+  const audit: any = buildAuditEntry('confirm_match', movement, doctorId);
+  if (entry) audit.prevLedger = snapshotEvidence(entry); // for reversible unmatch
 
   await prisma.$transaction(async (tx) => {
     await tx.bankMovement.update({
@@ -275,9 +338,20 @@ async function handleUnmatch(movement: any, statementId: number, doctorId: strin
   }
 
   const audit = buildAuditEntry('unmatch', movement, doctorId);
+  // Restore the entry to its pre-enrich state so unmatch is truly reversible (§7/EXP-F13).
+  // Edge: if a PPD complement upgraded paymentStatus between confirm and unmatch, restoring the
+  // (older) snapshot may briefly under-state it — the next PPD reconcile (upgrade-only) re-asserts it.
+  const snap = findLastSnapshot(movement.matchHistory);
   const updated = await prisma.$transaction(async (tx) => {
     if (settlementCount > 0) {
       await tx.bankSettlementItem.deleteMany({ where: { bankMovementId: movement.id } });
+    }
+    if (movement.ledgerEntryId && snap) {
+      // updateMany (not update) so a since-deleted entry doesn't throw and abort the unmatch.
+      await tx.ledgerEntry.updateMany({
+        where: { id: movement.ledgerEntryId, doctorId },
+        data: restoreData(snap),
+      });
     }
     return tx.bankMovement.update({
       where: { id: movement.id },
@@ -475,7 +549,8 @@ async function handleLinkExisting(
     select: { bankName: true, accountNumber: true },
   });
 
-  const audit = buildAuditEntry('link_existing', movement, doctorId);
+  const audit: any = buildAuditEntry('link_existing', movement, doctorId);
+  audit.prevLedger = snapshotEvidence(entry); // for reversible unmatch
 
   const result = await prisma.$transaction(async (tx) => {
     // Link bank movement to existing entry
@@ -661,6 +736,8 @@ async function handleLinkSettlement(
           settledCount: entries.length,
           grossSum,
           commission: commissionAmt,
+          // Per-entry pre-enrich snapshots for reversible unlink (§7/EXP-F13).
+          prevLedgerById: Object.fromEntries(entries.map((e) => [e.id, snapshotEvidence(e)])),
         }),
       },
     });
@@ -681,8 +758,18 @@ async function handleUnlinkSettlement(movement: any, statementId: number, doctor
   }
 
   const audit = buildAuditEntry('unlink_settlement', movement, doctorId);
+  // Restore each settled entry to its pre-enrich state so unlink is reversible (§7/EXP-F13).
+  const snapMap = findLastSnapshotMap(movement.matchHistory);
   const updated = await prisma.$transaction(async (tx) => {
     await tx.bankSettlementItem.deleteMany({ where: { bankMovementId: movement.id } });
+    if (snapMap) {
+      for (const [idStr, snap] of Object.entries(snapMap)) {
+        await tx.ledgerEntry.updateMany({
+          where: { id: Number(idStr), doctorId },
+          data: restoreData(snap),
+        });
+      }
+    }
     return tx.bankMovement.update({
       where: { id: movement.id },
       data: {

@@ -258,10 +258,13 @@ tienen CFDI aparte).
 | Deshacer | Qué limpia | Asimetría |
 |---|---|---|
 | **Desvincular CFDI** (`DELETE .../link-cfdi`) | `satCfdiUuid`, `needsReview`, `autoLinkedConfidence`; `hasFactura→false` salvo que haya PDFs subidos. | ✓ Sí resetea evidencia fiscal. |
-| **`unmatch` / `unlink_settlement`** banco | Devuelve el `BankMovement` a `unmatched`; borra `BankSettlementItem`. | ⚠️ **NO** revierte `hasComprobante` ni `paymentStatus=PAID` del entry. |
+| **`unmatch` / `unlink_settlement`** banco | Devuelve el `BankMovement` a `unmatched`; borra `BankSettlementItem`; **restaura el estado previo del entry** (`hasComprobante`/`paymentStatus`/`amountPaid`/refs bancarias). | ✅ **Sí resetea** (fix snapshot-restore, jun 2026). |
 
-> ⚠️ **Gotcha:** un entry puede quedar marcado como cobrado/con-comprobante aunque ya no tenga línea
-> bancaria asociada. Candidato a unificar con el comportamiento del CFDI a futuro.
+> ✅ **Resuelto (jun 2026):** al enriquecer (`confirm_match`/`link_existing`/`link_settlement`) se
+> guarda un **snapshot** del estado previo del entry en `bankMovement.matchHistory`; al deshacer se
+> **restaura**. No adivina qué limpiar → no pisa una marca manual, un complemento PPD ni un comprobante
+> subido a mano. Edge: un complemento PPD que llegó entre confirmar y deshacer se re-afirma en el
+> siguiente reconcile (upgrade-only). Reproducido y validado como **EXP-F13** (ver `STEP-BY-STEP §7`).
 
 ---
 

@@ -90,7 +90,7 @@
 - [ ] **INC-F10 · Confirmar sugerencia.** Setup: movimiento con match sugerido → confirmar. → `matched_confirmed`, entry enriquecido. Valida: `confirm_match`.
 - [ ] **INC-F11 · Vincular a entry elegido (1:1).** Setup: movimiento → "vincular existente". → 1:1 `matched_confirmed`. Valida: `link_existing`.
 - [ ] **INC-F12 · Ignorar movimiento.** Setup: transferencia interna → ignorar. → `ignored`. Valida: `ignore`.
-- [ ] **INC-F13 · ⚠️ Deshacer match no revierte evidencia.** Setup: F10 → `unmatch`. → movimiento vuelve a `unmatched` PERO el entry **conserva** `hasComprobante` y PAID. Valida: **asimetría §7**.
+- [x] **INC-F13 · ✅ Deshacer match SÍ revierte evidencia (fix jun 2026).** Setup: F10 → `unmatch`. → movimiento vuelve a `unmatched` **y** el entry se **restaura** a su estado previo (`hasComprobante`/PAID/`amountPaid`/refs) vía snapshot-restore. Valida: **§7 (resuelto)**. *(Antes: conservaba PAID — asimetría.)*
 - [ ] **INC-F14 · Doble vínculo rechazado.** Setup: intentar vincular un movimiento ya vinculado, o un entry ya conciliado. → **409**. Valida: cardinalidad 1:1.
 
 ## Bloque G — Orden y duplicados (cross-cutting)
