@@ -247,22 +247,62 @@ function restoreData(snap: EvidenceSnapshot) {
   };
 }
 
-/** Most recent 1:1 snapshot recorded in a movement's history (the enrich we'd be undoing). */
-function findLastSnapshot(history: any): EvidenceSnapshot | null {
+/**
+ * The most recent 1:1 link action recorded in a movement's history — the one `unmatch` undoes.
+ * Either the movement ENRICHED an existing entry (`prevLedger` snapshot → restore it) or it CREATED
+ * a born entry (`createdLedgerEntry` id → delete it). We return whichever is more recent so a stale
+ * marker from an earlier, already-undone cycle can't fire. (Settlements use findLastSnapshotMap.)
+ */
+function findLastLinkAction(
+  history: any,
+): { prevLedger?: EvidenceSnapshot; createdLedgerEntry?: number } | null {
   if (!Array.isArray(history)) return null;
   for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i]?.prevLedger) return history[i].prevLedger as EvidenceSnapshot;
+    const h = history[i];
+    if (h?.createdLedgerEntry != null) return { createdLedgerEntry: Number(h.createdLedgerEntry) };
+    if (h?.prevLedger) return { prevLedger: h.prevLedger as EvidenceSnapshot };
   }
   return null;
 }
 
-/** Most recent settlement (N:1) snapshot map { entryId: snapshot } recorded in a movement's history. */
-function findLastSnapshotMap(history: any): Record<string, EvidenceSnapshot> | null {
+/** Most recent settlement (N:1) action: per-entry snapshots to restore + the commission egreso it spawned. */
+function findLastSettlement(
+  history: any,
+): { prevLedgerById: Record<string, EvidenceSnapshot>; commissionEntryId?: number } | null {
   if (!Array.isArray(history)) return null;
   for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i]?.prevLedgerById) return history[i].prevLedgerById as Record<string, EvidenceSnapshot>;
+    const h = history[i];
+    if (h?.prevLedgerById) {
+      return {
+        prevLedgerById: h.prevLedgerById as Record<string, EvidenceSnapshot>,
+        commissionEntryId: h.commissionEntryId != null ? Number(h.commissionEntryId) : undefined,
+      };
+    }
   }
   return null;
+}
+
+/**
+ * A bank-born entry (create_entry's `origin=banco`, or a settlement's `origin=comision`) is safe to
+ * delete when undoing the match only if the user hasn't built on it: still the expected origin, no
+ * factura/CFDI/attachment, and not referenced by any other bank movement or settlement.
+ */
+async function bornEntryIsPristine(
+  tx: any, entryId: number, doctorId: string, expectedOrigin: string, excludeMovementId?: number,
+): Promise<boolean> {
+  const e = await tx.ledgerEntry.findFirst({
+    where: { id: entryId, doctorId },
+    select: { origin: true, hasFactura: true, satCfdiUuid: true },
+  });
+  if (!e || e.origin !== expectedOrigin || e.hasFactura || e.satCfdiUuid) return false;
+  const [otherMovements, settledRefs, attachments, emittedCfdis] = await Promise.all([
+    tx.bankMovement.count({ where: { ledgerEntryId: entryId, ...(excludeMovementId ? { id: { not: excludeMovementId } } : {}) } }),
+    tx.bankSettlementItem.count({ where: { ledgerEntryId: entryId } }),
+    tx.ledgerAttachment.count({ where: { ledgerEntryId: entryId } }),
+    // System-emitted CFDI linked to this entry — don't depend on the hasFactura side-effect to catch it.
+    tx.cfdiEmitted.count({ where: { ledgerEntryId: entryId } }),
+  ]);
+  return otherMovements === 0 && settledRefs === 0 && attachments === 0 && emittedCfdis === 0;
 }
 
 // ─── Action Handlers ─────────────────────────────────────────────────────────
@@ -338,19 +378,28 @@ async function handleUnmatch(movement: any, statementId: number, doctorId: strin
   }
 
   const audit = buildAuditEntry('unmatch', movement, doctorId);
-  // Restore the entry to its pre-enrich state so unmatch is truly reversible (§7/EXP-F13).
-  // Edge: if a PPD complement upgraded paymentStatus between confirm and unmatch, restoring the
-  // (older) snapshot may briefly under-state it — the next PPD reconcile (upgrade-only) re-asserts it.
-  const snap = findLastSnapshot(movement.matchHistory);
+  // Make unmatch truly reversible (§7/EXP-F13): undo whatever the match did to the entry.
+  // - enrich (confirm/link): restore the pre-enrich snapshot. Edge: a PPD complement that upgraded
+  //   paymentStatus between confirm and unmatch is re-asserted by the next (upgrade-only) reconcile;
+  //   a manual edit to a snapshotted field after confirm would be reverted (rare).
+  // - create_entry: delete the born entry (it only existed because of this bank line), but only if
+  //   still pristine — never destroy one the user has since built on (factura/CFDI/attachment/other link).
+  const action = findLastLinkAction(movement.matchHistory);
   const updated = await prisma.$transaction(async (tx) => {
     if (settlementCount > 0) {
       await tx.bankSettlementItem.deleteMany({ where: { bankMovementId: movement.id } });
     }
-    if (movement.ledgerEntryId && snap) {
+    if (movement.ledgerEntryId && action?.createdLedgerEntry === movement.ledgerEntryId) {
+      // bank_movements.ledger_entry_id is onDelete:SetNull, so deleting the entry is FK-safe.
+      if (await bornEntryIsPristine(tx, movement.ledgerEntryId, doctorId, 'banco', movement.id)) {
+        await tx.ledgerEntry.delete({ where: { id: movement.ledgerEntryId } });
+      }
+      // else: leave the entry intact; only the movement unlinks below.
+    } else if (movement.ledgerEntryId && action?.prevLedger) {
       // updateMany (not update) so a since-deleted entry doesn't throw and abort the unmatch.
       await tx.ledgerEntry.updateMany({
         where: { id: movement.ledgerEntryId, doctorId },
-        data: restoreData(snap),
+        data: restoreData(action.prevLedger),
       });
     }
     return tx.bankMovement.update({
@@ -433,7 +482,8 @@ async function handleCreateEntry(
     });
 
     // Link movement to new entry
-    const audit = buildAuditEntry('create_entry', movement, doctorId);
+    const audit: any = buildAuditEntry('create_entry', movement, doctorId);
+    audit.createdLedgerEntry = entry.id; // so unmatch can delete this born entry (reversible)
     const updated = await tx.bankMovement.update({
       where: { id: movement.id },
       data: {
@@ -736,8 +786,9 @@ async function handleLinkSettlement(
           settledCount: entries.length,
           grossSum,
           commission: commissionAmt,
-          // Per-entry pre-enrich snapshots for reversible unlink (§7/EXP-F13).
+          // Per-entry pre-enrich snapshots + the spawned commission egreso, for reversible unlink (§7/EXP-F13).
           prevLedgerById: Object.fromEntries(entries.map((e) => [e.id, snapshotEvidence(e)])),
+          ...(commissionEntryId != null ? { commissionEntryId } : {}),
         }),
       },
     });
@@ -758,16 +809,21 @@ async function handleUnlinkSettlement(movement: any, statementId: number, doctor
   }
 
   const audit = buildAuditEntry('unlink_settlement', movement, doctorId);
-  // Restore each settled entry to its pre-enrich state so unlink is reversible (§7/EXP-F13).
-  const snapMap = findLastSnapshotMap(movement.matchHistory);
+  // Restore each settled entry to its pre-enrich state, and delete the spawned commission egreso if
+  // still pristine, so unlink is reversible (§7/EXP-F13).
+  const settlement = findLastSettlement(movement.matchHistory);
   const updated = await prisma.$transaction(async (tx) => {
     await tx.bankSettlementItem.deleteMany({ where: { bankMovementId: movement.id } });
-    if (snapMap) {
-      for (const [idStr, snap] of Object.entries(snapMap)) {
+    if (settlement) {
+      for (const [idStr, snap] of Object.entries(settlement.prevLedgerById)) {
         await tx.ledgerEntry.updateMany({
           where: { id: Number(idStr), doctorId },
           data: restoreData(snap),
         });
+      }
+      if (settlement.commissionEntryId != null
+          && await bornEntryIsPristine(tx, settlement.commissionEntryId, doctorId, 'comision')) {
+        await tx.ledgerEntry.delete({ where: { id: settlement.commissionEntryId } });
       }
     }
     return tx.bankMovement.update({

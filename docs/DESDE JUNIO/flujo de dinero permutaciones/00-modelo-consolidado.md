@@ -263,8 +263,14 @@ tienen CFDI aparte).
 > ✅ **Resuelto (jun 2026):** al enriquecer (`confirm_match`/`link_existing`/`link_settlement`) se
 > guarda un **snapshot** del estado previo del entry en `bankMovement.matchHistory`; al deshacer se
 > **restaura**. No adivina qué limpiar → no pisa una marca manual, un complemento PPD ni un comprobante
-> subido a mano. Edge: un complemento PPD que llegó entre confirmar y deshacer se re-afirma en el
-> siguiente reconcile (upgrade-only). Reproducido y validado como **EXP-F13** (ver `STEP-BY-STEP §7`).
+> subido a mano. **Entries nacidos del banco también son reversibles** (`bornEntryIsPristine`): al
+> `unmatch`, `create_entry` **borra el entry `origin=banco`**; al `unlink_settlement` se **borra el
+> egreso de comisión** `origin=comision` que creó `link_settlement`. En ambos solo si sigue **prístino**
+> (sin factura/CFDI/adjunto, sin otro movimiento ni liquidación que lo referencie); si el usuario ya
+> construyó sobre él, se conserva (solo se desvincula).
+> *Edges (menores):* un complemento PPD que llegó entre confirmar y deshacer se re-afirma en el
+> siguiente reconcile (upgrade-only); una edición manual a un campo snapshot **después** de confirmar
+> se revertiría al deshacer (secuencia rara). Reproducido y validado como **EXP-F13** (ver `STEP-BY-STEP §7`).
 
 ---
 
