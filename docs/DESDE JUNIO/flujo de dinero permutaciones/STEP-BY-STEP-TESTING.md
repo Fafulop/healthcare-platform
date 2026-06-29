@@ -189,27 +189,41 @@ PENDING** (estado de nacimiento correcto para recibidas). Parts A+B se comportan
   → **confirmar** el auto-match (0.85) → entry pasa a **🧾✓ 🏦✓ PAID = Completo** (primer egreso en
   Completo). ⚠️ **Sutileza:** el upload deja el match en `matched_auto` (sugerencia); la enrichment
   (PAID/comprobante) **solo** ocurre al **Confirmar** (`confirm_match`/`link_existing`), no en el upload.
-- **EXP-F13 ⚠️→✅ (reproducido y CORREGIDO)** — al **`unmatch`** un match confirmado, el movimiento
-  volvía a `unmatched` pero el entry **conservaba** PAID + `hasComprobante` (la asimetría de §7). Se
-  observó en vivo (confirmar mov 51 → enriquece 881 → unmatch → 881 sigue PAID sin línea bancaria).
-  **Fix (snapshot-restore):** al enriquecer (`confirm_match`/`link_existing`/`link_settlement`) se
-  guarda el estado previo del entry en `bankMovement.matchHistory`; al `unmatch`/`unlink_settlement`
-  se **restaura** ese estado. Sin adivinar (no pisa marca manual, complemento PPD ni comprobante
-  manual). Edge: un complemento PPD que llegó entre confirmar y deshacer se re-afirma en el siguiente
-  reconcile (upgrade-only). *Verificar en vivo tras el redeploy de `apps/api`.*
+- **EXP-J1 ✅** — "Crear nueva" desde un retiro sin match → nace entry `origin=banco` (egreso, PAID,
+  🏦✓ 🧾✗). En la misma corrida, el **`unmatch`** lo **borró** (entry prístino) → confirma la
+  reversibilidad de `create_entry`. Validado en vivo (entry 1554 creado y luego eliminado).
+- **EXP-F13 ✅ VALIDADO EN VIVO (post-deploy)** — ciclo limpio sobre un entry prístino
+  (`EGR-2026-350`, PENDING): subir CSV → **confirmar** → entry **PENDING→PAID, 🏦✓** y el snapshot
+  (`prevLedger`) quedó en `matchHistory`; **unmatch** → entry **PAID→PENDING, 🏦✗, bankAccount
+  limpiado**, factura (🧾) conservada. El snapshot-restore funciona en prod.
+  - Fix completo (`lib/bank-reversibility.ts`, `revertEntryEffects`): cubre `unmatch`,
+    `unlink_settlement` **y borrar el estado de cuenta** (revierte cada movimiento `matched_confirmed`
+    antes del cascade). Entries nacidos del banco (`origin=banco`/`comision`) se **borran si prístinos**.
+- **EXP-K3 (settlement de egresos)** — el backend ya lo soportaba pero la UI **ocultaba** "Varios"
+  para retiros (gate `movementType === 'deposit'`). **Fix shipped:** botón "Varios" ahora aparece en
+  retiros; la comisión es **solo depósitos** (en egresos la suma debe **cuadrar exacto**, si no se
+  doble-contaría gasto); panel convertido a **modal** acotado al viewport. El click-through manual
+  (settle + unlink) quedó pendiente — la lógica es la misma ya validada por F13. Ver `04` §H.
 
-### Próximos casos a probar (los de cobertura cero)
-1. **EXP-I1** (manual efectivo sin factura) — el más simple, origen `manual`.
-2. **EXP-J1 / J4** — egreso desde banco y, sobre todo, **llegar a Completo** (factura + retiro
-   conciliado): hoy ningún egreso lo ha logrado. Requiere subir un estado de cuenta.
-3. **EXP-K1–K4** — conciliación bancaria de egresos (match 1:1, tipo cruzado, liquidación N:1,
-   exclusión de `comision`).
+### UI relacionada — modal de Evidencia (jun 2026)
+Click en el icono de comprobante (🧾 Receipt) abría un modal **en blanco** para entries conciliados
+por banco (solo mostraba adjuntos, que no tienen). Ahora el modal **"Evidencia"** muestra de qué
+**estado de cuenta** vino (banco · cuenta · periodo · movimiento · referencia, con nota "Varios" para
+settlements) **+** los adjuntos. Endpoint **lazy** `GET /ledger/[id]/evidence` (fuera del query de la
+lista). Ver `04` §J.
 
-Scripts de verificación usados (scratchpad, solo lectura): `egreso-baseline.cjs`, `ppd-validate.cjs`
-(consultan `ledger_entries`, `sat_cfdi_metadata`, `sat_cfdi_details`, `sat_pagos` por `doctor_id`).
+### Próximos casos a probar (cobertura pendiente)
+1. **EXP-K3 click-through** — settle "Varios" de egresos (suma exacta) + unlink → verificar borrado de
+   la comisión (la reversibilidad de settlement, en vivo).
+2. **EXP-K2** (tipo cruzado rechazado), **EXP-K4** (`comision` excluida del pool).
+3. **EXP-I2/I3/I4** (manual + PDF / Por Pagar / vincular CFDI), **EXP-H2** (dedup), **EXP-H5** (NC efecto E).
+
+Scripts de verificación usados (scratchpad, solo lectura): `egreso-baseline.cjs`, `ppd-validate.cjs`,
+`verify-f13-*.cjs`, `verify-j1.cjs` (consultan `ledger_entries`, `bank_movements`, `bank_statements`,
+`sat_*` por `doctor_id`). Para generar estados de cuenta de prueba: CSV BBVA `Fecha,Concepto,Cargo,Abono,Saldo`.
 
 ---
 
-*Estado:* base de pruebas + baseline de egresos, verificado en prod 2026-06-28. Siguiente paso:
-ejercitar Bloques I/J/K de egresos (cobertura cero) — empezar por EXP-I1, y EXP-J4 para llegar a
-Completo. Ver [`01-permutaciones-de-prueba.md`](01-permutaciones-de-prueba.md).
+*Estado:* base de pruebas + resultados de egresos, verificado en prod 2026-06-29. Siguiente paso:
+ejercitar el resto de Bloques I/J/K de egresos — empezar por el click-through de EXP-K3, luego K2/K4.
+Ver [`01-permutaciones-de-prueba.md`](01-permutaciones-de-prueba.md) y [`04`](04-permutaciones-por-flujo-ui.md).

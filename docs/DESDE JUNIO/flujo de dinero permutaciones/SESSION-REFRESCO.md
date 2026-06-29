@@ -2,7 +2,7 @@
 
 > Snapshot del estado, decisiones y próximos pasos del trabajo en **Flujo de Dinero**. Para una
 > sesión/LLM en frío: lee **este** archivo, luego el [`README.md`](README.md) (índice) y de ahí los
-> numerados. Última actualización: **2026-06-28**.
+> numerados. Última actualización: **2026-06-29**.
 
 ---
 
@@ -35,22 +35,27 @@ hecho económico, y lo proyecta al expediente del paciente.
   de facturas; liquidación N:1; auditoría de matches.
 - **El match probabilístico CFDI YA EXISTE y funciona** (Motor 2).
 
-**✅ SHIPPED esta sesión (2026-06-28, todo en `main`, ver commits abajo):**
+**✅ SHIPPED esta sesión (2026-06-28/29, todo en `main`, ver commits abajo):**
 1. **Enrich-on-XML** — los entries `sat_*` que nacían con concepto genérico + forma default (porque
    el auto-registro corre en la etapa de metadata, antes del XML) ahora se **re-enriquecen** con el
-   concepto real + forma cuando llega el XML. `mapFormaPago()` ampliado (códigos `99` etc. → `null`/"—",
-   ya no se enmascaran como "transferencia").
-2. **Gap #1 (PUE/PPD) — CERRADO (Parts A+B):** `resolvePaymentStatus()` → emitido PPD nace **PENDING**
-   (no PAID); `reconcilePpdToLedger()` propaga complementos (`SatPago`) al `paymentStatus` por
-   `satCfdiUuid==facturaUuid` (case-insensitive), **upgrade-only**, excluyendo complementos cancelados.
-   Reusa `computePpdStatus()` (misma lógica que el tab PPD/Pagos). Corre tras sync XML (acotado) y en
-   backfill. **Validado en prod: 0 under-reconciled.**
-3. **Contraparte** — el camino manual (`register-to-ledger`) ya **denormaliza** `counterpartyRfc/Name`
-   (antes no), y el enrich los **rellena** en entries viejos que les faltaban. Helper `counterpartyOf()`.
-4. **UI tabla Flujo de Dinero:** columnas **Paciente** (ingresos) / **Proveedor** (egresos) muestran
-   **nombre + RFC** de la contraparte. **Filtro de mes**: la pestaña Movimientos abre en el **mes
-   actual** (tabla + cards Balance/Ingresos/Egresos reflejan el período); `MonthNavigator` (◄ ► +
-   month picker + "Todos"); endpoint `ledger/balance` acepta `startDate/endDate`.
+   concepto real + forma cuando llega el XML. `mapFormaPago()` ampliado (códigos `99` etc. → `null`/"—").
+2. **Gap #1 (PUE/PPD) — CERRADO (Parts A+B):** `resolvePaymentStatus()` → emitido PPD nace **PENDING**;
+   `reconcilePpdToLedger()` propaga complementos (`SatPago`) por `satCfdiUuid==facturaUuid`
+   (case-insensitive), **upgrade-only**, excluye cancelados. **Validado en prod: 0 under-reconciled.**
+3. **Contraparte** — `register-to-ledger` y el enrich denormalizan `counterpartyRfc/Name`. Helper
+   `counterpartyOf()`. Columnas **Paciente/Proveedor** muestran nombre + RFC.
+4. **Filtro de mes** en Movimientos (tabla + cards reflejan el período); `ledger/balance` con fechas.
+5. **Gap §7/EXP-F13 — CERRADO (reversibilidad bancaria):** `lib/bank-reversibility.ts`
+   (`revertEntryEffects`) — al deshacer un match se **restaura el estado previo** del entry (snapshot
+   en `matchHistory`), y los entries **nacidos del banco** (`origin=banco`/`comision`) se **borran si
+   prístinos**. Cubre `unmatch`, `unlink_settlement` **y borrar el estado de cuenta** (revierte cada
+   movimiento `matched_confirmed` antes del cascade). **Validado en vivo** (confirm→PAID→unmatch→PENDING).
+6. **Settlement de egresos ("Varios" en retiros):** la UI ocultaba el botón en retiros (gate deposit);
+   ahora aparece → un retiro paga **varias facturas**. Comisión solo en depósitos; en retiros la suma
+   **cuadra exacto**. Panel = modal acotado al viewport.
+7. **Modal de Evidencia:** click en el icono de comprobante ya **no sale en blanco** para conciliados
+   por banco — muestra de qué **estado de cuenta** vino (banco/cuenta/periodo/movimiento) + adjuntos.
+   Endpoint **lazy** `GET /ledger/[id]/evidence`.
 
 **Gaps que QUEDAN (prioridad):**
 1. Matcher bancario (Motor 3) **ignora** `counterpartyName/Rfc` → mismo monto + mismo nombre, días
@@ -95,7 +100,10 @@ UUID debe ser case-insensitive** (ya aplicado en autoRegister, reconcile, filter
 - Contraparte **346/346** poblada ✅. Dedup: **0 UUID duplicados** ✅.
 - **EXP-H4 PUE/PPD validado contra complementos:** 295 PUE→todas PENDING; PPD: 43 PAID, 6 PENDING,
   1 PARTIAL (todos matchean sus complementos) + 1 PARTIAL→PAID por marca manual (ok). **UNDER-RECONCILED
-  (bug) = 0** → Parts A+B correctos en prod. Detalle en [`STEP-BY-STEP-TESTING.md`](STEP-BY-STEP-TESTING.md) §7.
+  (bug) = 0** → Parts A+B correctos en prod.
+- **Probados en vivo (2026-06-29):** EXP-I1 (manual efectivo), EXP-J1 (nace de banco + unmatch borra),
+  EXP-J4 (primer egreso en Completo vía Confirmar), EXP-F13 (confirm→PAID→unmatch→PENDING). Detalle en
+  [`STEP-BY-STEP-TESTING.md`](STEP-BY-STEP-TESTING.md) §7.
 
 > Cómo se accedió a prod: ver [`TOOLING-acceso-railway-db.md`](TOOLING-acceso-railway-db.md)
 > (`railway run --service pgvector node script.cjs`, usando `DATABASE_PUBLIC_URL`, solo `SELECT`).
@@ -138,18 +146,18 @@ Scripts read-only ya escritos (scratchpad): `egreso-baseline.cjs`, `ppd-validate
 ## Próximo paso sugerido (RETOMAR AQUÍ)
 
 Estamos **probando las permutaciones de egreso de `01` (PARTE 2)** contra prod, doctor `dr-prueba`.
-Baseline ya tomado (arriba / `STEP-BY-STEP-TESTING.md` §7): **solo Bloque H (`sat_recibido`) tiene
-cobertura**; Bloques **I (manual), J (banco/compra), K (conciliación bancaria) están en CERO**.
+**Ya probados en vivo:** EXP-I1 ✅, EXP-J1 ✅, EXP-J4 ✅ (primer egreso en Completo), EXP-F13 ✅
+(reversibilidad confirm→unmatch). Detalle en `STEP-BY-STEP-TESTING.md` §7.
 
-**Siguiente acción concreta:** el usuario crea en la UI los egresos que faltan y el LLM verifica:
-1. **EXP-I1** — gasto manual efectivo sin factura (el más simple, origen `manual`).
-2. **EXP-J4 / K1** — factura recibida + subir estado de cuenta + conciliar el retiro → llegar a
-   **Completo (🧾✓ 🏦✓)**: hoy **ningún** egreso lo ha logrado (es el path de mayor valor sin probar).
-3. **EXP-K2/K3/K4** — tipo cruzado, liquidación N:1, exclusión de `comision`.
+**Siguiente acción concreta:** el usuario hace la acción en la UI y el LLM verifica:
+1. **EXP-K3 click-through** — "Varios" de egresos (suma exacta) + unlink → verificar borrado de la
+   comisión / restauración de los entries (la reversibilidad de settlement, en vivo). *(El botón ya
+   está habilitado en retiros; falta el recorrido manual.)*
+2. **EXP-K2** (tipo cruzado rechazado), **EXP-K4** (`comision` excluida del pool).
+3. **EXP-I2/I3/I4** (manual + PDF / Por Pagar / vincular CFDI), **EXP-H2** (dedup), **EXP-H5** (NC efecto E).
 
-Opcional pendiente: empaquetar un **harness de verificación de egresos** reutilizable (un comando por
-caso). Y un follow-up de UI: el cambio de mes dispara el loader de página completa (el `MonthNavigator`
-parpadea) — acotar el loader a la tabla.
+Follow-ups menores pendientes: el cambio de mes dispara el loader de página completa (acotar a la
+tabla); harness de verificación de egresos reutilizable.
 
 ---
 
@@ -161,12 +169,20 @@ parpadea) — acotar el loader a la tabla.
 - `620e7b9d` contraparte en register-to-ledger + enrich backfill (`counterpartyOf`).
 - `76a2afb7` docs: corrección "Registrar pendientes" = Auto en `02`.
 - `5f971b33` UI: filtro de mes (tabla + cards) + `MonthNavigator` + `balance` con fechas.
-- *(este)* docs: baseline de egresos + refresco de sesión.
+- `de6d0cc1` F13: `unmatch` reversible (snapshot-restore).
+- `5efb228c` F13: `create_entry` + comisión de settlement reversibles (borrado-si-prístino).
+- `75552ee6` F13: borrar estado de cuenta reversible + `lib/bank-reversibility.ts` compartido.
+- `9443e284` docs: catálogo por flujo de UI (`04`).
+- `fbe4b62a` settlement de egresos ("Varios" en retiros) + comisión solo-depósito + suma-exacta.
+- `ac561c52` UI: panel de settlement como modal acotado al viewport.
+- `d1dc2c82` modal de Evidencia (referencia de estado de cuenta + adjuntos) + endpoint lazy `/evidence`.
+- *(este)* docs: resultados de pruebas de egresos + refresco de sesión.
 
-Archivos nuevos clave: `apps/api/src/lib/sat-ppd-reconcile.ts`,
-`apps/doctor/.../flujo-de-dinero/_components/MonthNavigator.tsx`.
-Helpers en `sat-auto-register.ts`: `resolvePaymentStatus`, `mapFormaPago`, `counterpartyOf`,
-`normalizeRfc` (exportados). Deploy: solo `apps/api` + `apps/doctor`.
+Archivos nuevos clave: `apps/api/src/lib/sat-ppd-reconcile.ts`, `apps/api/src/lib/bank-reversibility.ts`,
+`apps/api/.../ledger/[id]/evidence/route.ts`, `apps/doctor/.../MonthNavigator.tsx`.
+Helpers reusables: `sat-auto-register.ts` (`resolvePaymentStatus`, `mapFormaPago`, `counterpartyOf`,
+`normalizeRfc`), `bank-reversibility.ts` (`revertEntryEffects`, `bornEntryIsPristine`, snapshot/restore).
+Deploy: solo `apps/api` + `apps/doctor`.
 
 ---
 

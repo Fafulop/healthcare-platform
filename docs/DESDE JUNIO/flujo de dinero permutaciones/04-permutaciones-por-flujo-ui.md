@@ -154,7 +154,7 @@ fiscal/legal, va a prod sin pruebas; ver `SESSION-REFRESCO`).
 |---|---|---|---|
 | **`confirm_match`** | confirma la sugerencia auto | movimiento `matched_confirmed`; entry → 🏦✓, **PAID** si no lo estaba (no pisa marca manual ni PPD) | ✅ `unmatch` restaura |
 | **`link_existing`** (Vincular a existente) | enlaza 1:1 a un entry que tú eliges | igual que confirm | ✅ |
-| **`link_settlement`** (Varios) | N:1 — varios entries contra un depósito | cada entry → 🏦✓ PAID; opcional **egreso `comision`** por la diferencia (≤8%) | ✅ `unlink_settlement` |
+| **`link_settlement`** (Varios) | N:1 — varios entries contra **un depósito o un retiro** | cada entry → 🏦✓ PAID. **Depósito:** la diferencia es comisión → opcional **egreso `comision`** (≤8%). **Retiro:** la suma debe **cuadrar exacto** (sin comisión; si no, se doble-contaría gasto). | ✅ `unlink_settlement` |
 | **`create_entry`** (Crear nueva) | el movimiento **nace** como entry | `origin=banco`, PAID, 🏦✓ 🧾✗ | ✅ `unmatch` **borra** el entry si prístino |
 | **`ignore`** | marca el movimiento como ignorado | `ignored`, sin tocar ledger | — |
 | **`update_category`** | cambia categoría sugerida | solo metadata del movimiento | — |
@@ -168,7 +168,7 @@ fiscal/legal, va a prod sin pruebas; ver `SESSION-REFRESCO`).
 | H-neg1 | vincular un movimiento ya vinculado, o un entry ya conciliado → **409** |
 | H-neg2 | conciliar depósito↔egreso (tipo cruzado) → no empareja (`movementTypeMatchesEntryType`) |
 | H-neg3 | liquidación con comisión >8% → **rechazo** |
-| H-neg4 | liquidación con depósito > suma → **rechazo** |
+| H-neg4 | liquidación: **depósito** > suma → rechazo; **retiro** ≠ suma exacta (sobrante) → rechazo |
 | H-neg5 | `comision` egreso → **excluido** del pool de match (no es candidato) |
 
 ### ⚠️ Reversibilidad (snapshot-restore) — el detalle importante
@@ -184,7 +184,14 @@ Al **enriquecer** (confirm/link/settlement) se guarda un **snapshot** del estado
 - Un entry **nacido del banco** (`create_entry`/`comision`) → se **borra** al deshacer, salvo que ya
   le hayas puesto factura/CFDI/adjunto (entonces se conserva, solo se desvincula).
 
-Mapea a INC-F1..F14, EXP-K1..K4. **EXP-F13** = este comportamiento de reversibilidad.
+Mapea a INC-F1..F14, EXP-K1..K4. **EXP-F13** = este comportamiento de reversibilidad (✅ validado en
+vivo jun 2026: confirm→PAID/🏦, unmatch→PENDING/🏦✗, factura conservada).
+
+> **"Varios" en retiros (egresos) — habilitado jun 2026.** El backend siempre soportó settlement de
+> egresos, pero la UI ocultaba el botón "Varios" salvo en depósitos (gate `movementType==='deposit'`).
+> Ya aparece en retiros: paga **varias facturas de proveedor con un solo retiro**. Regla: en retiros
+> la suma seleccionada debe **cuadrar exacto** (no hay comisión que absorba diferencia). El panel es
+> un **modal** acotado al viewport.
 
 ---
 
@@ -221,6 +228,7 @@ Mapea a INC-F1..F14, EXP-K1..K4. **EXP-F13** = este comportamiento de reversibil
 | **Subir comprobante** (adjunto) | sube archivo | `LedgerAttachment`; **fuerza `hasComprobante=true`** (⚠️ evidencia ≠ conciliación bancaria) |
 | **Subir factura PDF** | sube PDF | `LedgerFactura`, 🧾✓ (sin XML) |
 | **Subir factura XML** | sube XML | `LedgerFacturaXml` parseado, 🧾✓ |
+| **Ver Evidencia** (icono 🧾 Receipt verde) | abre el modal "Evidencia" | muestra **de qué estado de cuenta** vino la conciliación (banco · cuenta · periodo · movimiento · referencia; nota "Varios" para settlements) **+** los adjuntos. Carga **lazy** vía `GET /ledger/[id]/evidence`. Antes salía **en blanco** para conciliados por banco. Empty state amable para webhook/manual |
 | **Filtro de mes** (`MonthNavigator`) | acota tabla **y** cards | default = mes actual; ◄ ► / month picker / "Todos"; las cards Balance/Ingresos/Egresos reflejan el período |
 
 ---

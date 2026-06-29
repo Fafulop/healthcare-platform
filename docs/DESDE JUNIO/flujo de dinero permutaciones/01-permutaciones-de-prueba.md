@@ -113,23 +113,23 @@
 
 ## Bloque I — Origen `manual` (egreso)
 
-- [ ] **EXP-I1 · Gasto en efectivo sin factura.** Setup: manual egreso, efectivo (renta informal). → **🧾✗ 🏦✗**. Techo = documentado. Valida: egreso sin evidencia fiscal/bancaria.
+- [x] **EXP-I1 · ✅ Gasto en efectivo sin factura.** Setup: manual egreso, efectivo (renta informal). → **🧾✗ 🏦✗**. Techo = documentado. **Validado en vivo** (`EGR-2026-348`, $700, `origin=manual` PAID).
 - [ ] **EXP-I2 · Gasto manual + factura PDF.** Setup: I1 → subir PDF de factura. → `LedgerFactura` adjunto, **🧾✓** (por PDF). Valida: factura por upload (sin XML).
 - [ ] **EXP-I3 · Gasto manual Por Pagar.** Setup: Estado=Por Pagar. → **PENDING**. Valida: cuenta por pagar.
 - [ ] **EXP-I4 · Egreso manual + vincular CFDI recibido.** Setup: I1 → popover CFDI (dirección received) → vincular. → **🧾✓**. Valida: Motor 2 camino C para egresos.
 
 ## Bloque J — Origen `banco` y `compra` (egreso)
 
-- [ ] **EXP-J1 · Retiro sin entry → crear entrada.** Setup: estado de cuenta, retiro sin match → "Crear entrada". → `origin=banco`, `egreso`, PAID, **🏦✓ 🧾✗**. Valida: egreso nacido en banco.
+- [x] **EXP-J1 · ✅ Retiro sin entry → crear entrada.** Setup: estado de cuenta, retiro sin match → "Crear entrada". → `origin=banco`, `egreso`, PAID, **🏦✓ 🧾✗**. **Validado en vivo** (entry 1554 creado; `unmatch` lo borró → reversibilidad de `create_entry`).
 - [ ] **EXP-J2 · Comisión bancaria (sin factura).** Setup: J1 sobre una comisión bancaria. → queda **🧾✗** permanentemente (no hay CFDI). Valida: egreso que nunca tendrá factura.
 - [ ] **EXP-J3 · Compra desde módulo.** Setup: crear compra. → `origin=compra`, `transactionType=COMPRA`, `purchaseId`. Valida: integración Compras.
-- [ ] **EXP-J4 · Retiro = factura recibida (conciliar).** Setup: EXP-H1 (egreso con factura, PENDING) → subir estado de cuenta con el retiro mismo monto → conciliar. → **🧾✓ 🏦✓ PAID**. Valida: egreso completo de punta a punta.
+- [x] **EXP-J4 · ✅ Retiro = factura recibida (conciliar).** Setup: EXP-H1 (egreso con factura, PENDING) → subir estado de cuenta con el retiro mismo monto → **Confirmar** el match → **🧾✓ 🏦✓ PAID**. **Validado en vivo** (primer egreso en Completo). ⚠️ La enrichment ocurre al **Confirmar**, no en el upload (queda `matched_auto`).
 
 ## Bloque K — Conciliación bancaria de egresos (Motor 3)
 
 - [ ] **EXP-K1 · Retiro match 1:1.** Setup: egreso con factura → retiro mismo monto/fecha. → `withdrawal↔egreso`, match. Valida: dirección de tipo.
 - [ ] **EXP-K2 · Tipo cruzado rechazado.** Setup: intentar conciliar un depósito contra un egreso (o viceversa). → no empareja. Valida: `movementTypeMatchesEntryType`.
-- [ ] **EXP-K3 · Liquidación de egresos N:1.** Setup: varios egresos pagados con un solo retiro agrupado. → settlement N:1 (mismo tipo). Valida: "Varios" para egresos.
+- [ ] **EXP-K3 · Liquidación de egresos N:1.** Setup: varios egresos pagados con un solo retiro agrupado → **"Varios"** (botón ahora visible en retiros, fix jun 2026). En retiros la suma debe **cuadrar exacto** (sin comisión). Unlink → restaura los entries. Valida: "Varios" para egresos + reversibilidad. *(UI habilitada; click-through manual pendiente.)*
 - [ ] **EXP-K4 · `comision` excluida del pool.** Setup: tras INC-F7 (que creó un egreso `origin=comision`) subir un retiro. → el egreso `comision` **NO** aparece como candidato. Valida: exclusión de pools de match.
 
 ## Bloque L — Edge cases (ambos)
