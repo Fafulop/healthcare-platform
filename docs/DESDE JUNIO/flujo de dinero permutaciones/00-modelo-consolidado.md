@@ -259,6 +259,7 @@ tienen CFDI aparte).
 |---|---|---|
 | **Desvincular CFDI** (`DELETE .../link-cfdi`) | `satCfdiUuid`, `needsReview`, `autoLinkedConfidence`; `hasFactura→false` salvo que haya PDFs subidos. | ✓ Sí resetea evidencia fiscal. |
 | **`unmatch` / `unlink_settlement`** banco | Devuelve el `BankMovement` a `unmatched`; borra `BankSettlementItem`; **restaura el estado previo del entry** (`hasComprobante`/`paymentStatus`/`amountPaid`/refs bancarias). | ✅ **Sí resetea** (fix snapshot-restore, jun 2026). |
+| **Borrar estado de cuenta** (`DELETE .../conciliacion-bancaria/[id]`) | Antes: cascade crudo → movimientos borrados pero entries **quedaban stale/huérfanos**. Ahora: **revierte cada movimiento** (`revertEntryEffects`) antes del cascade. | ✅ **Sí resetea** (jun 2026): mismo efecto que hacer `unmatch` a todos. |
 
 > ✅ **Resuelto (jun 2026):** al enriquecer (`confirm_match`/`link_existing`/`link_settlement`) se
 > guarda un **snapshot** del estado previo del entry en `bankMovement.matchHistory`; al deshacer se
@@ -267,7 +268,8 @@ tienen CFDI aparte).
 > `unmatch`, `create_entry` **borra el entry `origin=banco`**; al `unlink_settlement` se **borra el
 > egreso de comisión** `origin=comision` que creó `link_settlement`. En ambos solo si sigue **prístino**
 > (sin factura/CFDI/adjunto, sin otro movimiento ni liquidación que lo referencie); si el usuario ya
-> construyó sobre él, se conserva (solo se desvincula).
+> construyó sobre él, se conserva (solo se desvincula). **Borrar el estado de cuenta completo** aplica
+> exactamente la misma reversión a todos sus movimientos (lógica compartida en `lib/bank-reversibility.ts`).
 > *Edges (menores):* un complemento PPD que llegó entre confirmar y deshacer se re-afirma en el
 > siguiente reconcile (upgrade-only); una edición manual a un campo snapshot **después** de confirmar
 > se revertiría al deshacer (secuencia rara). Reproducido y validado como **EXP-F13** (ver `STEP-BY-STEP §7`).
