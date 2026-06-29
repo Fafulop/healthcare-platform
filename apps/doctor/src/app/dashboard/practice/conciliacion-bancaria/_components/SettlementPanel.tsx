@@ -78,7 +78,15 @@ export function SettlementPanel({ statementId, movement, isLoading, onLinkSettle
   const canConfirm = selected.size > 0 && !tooShort && !overShoot && !feeTooBig && !isLoading;
 
   return (
-    <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-200 space-y-2">
+    // Centered modal capped to the viewport so the candidate list never stretches the page.
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md max-h-[85vh] overflow-y-auto p-3 bg-indigo-50 rounded-lg border border-indigo-200 space-y-2 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-indigo-800 flex items-center gap-1">
           <Layers className="w-3.5 h-3.5" /> Conciliar varios {partsWord} con este {movWord}
@@ -197,6 +205,7 @@ export function SettlementPanel({ statementId, movement, isLoading, onLinkSettle
         <button onClick={onClose} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">
           Cancelar
         </button>
+      </div>
       </div>
     </div>
   );
