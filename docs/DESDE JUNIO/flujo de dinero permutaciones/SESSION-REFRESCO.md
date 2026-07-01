@@ -2,7 +2,7 @@
 
 > Snapshot del estado, decisiones y próximos pasos del trabajo en **Flujo de Dinero**. Para una
 > sesión/LLM en frío: lee **este** archivo, luego el [`README.md`](README.md) (índice) y de ahí los
-> numerados. Última actualización: **2026-06-29**.
+> numerados. Última actualización: **2026-07-01**.
 
 ---
 
@@ -56,6 +56,35 @@ hecho económico, y lo proyecta al expediente del paciente.
 7. **Modal de Evidencia:** click en el icono de comprobante ya **no sale en blanco** para conciliados
    por banco — muestra de qué **estado de cuenta** vino (banco/cuenta/periodo/movimiento) + adjuntos.
    Endpoint **lazy** `GET /ledger/[id]/evidence`.
+
+**✅ SHIPPED 2026-07-01 (esta sesión — íconos de evidencia + fixes de vinculación de factura):**
+1. **Bug de gate `hasFactura` (CFDI-link):** el popover para **vincular CFDI** estaba gated en
+   `!hasFactura`, así que un entry con **PDF de factura** ya no podía vincular su CFDI. Ahora en
+   `!satCfdiUuid`. (commit `4dc3ca1b`)
+2. **Ícono de factura = TODA la evidencia fiscal:** FileCheck2 abre el modal "Factura" con el **CFDI
+   vinculado** (si hay) **+** links "Abrir" de las **facturas subidas** (PDF `LedgerFactura` / XML
+   subido). Antes era CFDI-o-PDF **excluyente** → un entry con **CFDI y PDF** perdía acceso al PDF al
+   vincular. `CfdiDetailModal` ahora recibe el `entry` completo (no solo `uuid`), omite el fetch a SAT
+   sin CFDI, y **Desvincular** solo aparece si hay CFDI. (commit `71acbe34`)
+3. **MergeModal** badge "CFDI" vs "Factura" según `satCfdiUuid`; **"Facturar"** (detalle de ingreso)
+   pide confirmación si ya hay CFDI vinculado (evita doble emisión; **no** toca el endpoint de emisión).
+   (commit `71acbe34`)
+4. **Regla de íconos de evidencia (documentada en `04` §J):** **Receipt** = 🏦 banco/comprobante
+   (`LedgerAttachment` + referencia de estado de cuenta); **FileCheck2** = 🧾 fiscal (CFDI + PDF/XML);
+   pill ámbar **"CFDI"** = única acción (vincular CFDI).
+
+**Permutaciones de EGRESO probadas EN VIVO esta sesión (2026-07-01):**
+- **EXP-K3 ✅** settlement de egresos "Varios" (mov #57 $3,845.97 → 3 facturas a PAID/Completo) + unlink
+  (restauró PENDING/🏦✗, factura conservada). **Primer settlement de egresos completo.**
+- **EXP-K2 ✅** cruce imposible por UI (un retiro solo ofrece **egresos** como candidatos a vincular).
+- **EXP-I2/I3/I4 ✅** manual + PDF (`EGR-2026-352`) / Por Pagar→PENDING / vincular CFDI recibido
+  (`EGR-2026-353`; se **borró** `EGR-2026-276` para liberar el CFDI `954E28FD` de CRESCENCIO).
+- **EXP-L5 ✅** desvincular CFDI con PDF presente → `sat_cfdi_uuid` null pero `hasFactura` sigue true
+  (el PDF sobrevive). *(En `EGR-2026-353`; fue el caso que expuso el bug de gate #1.)*
+
+> **Datos de prueba nuevos (dr-prueba):** `EGR-2026-352` (manual $500 + PDF), `EGR-2026-353` (manual
+> $400 + CFDI 954E + PDF). `EGR-2026-276` (CRESCENCIO $400) fue **borrado** para liberar su CFDI →
+> re-registrable desde el panel SAT si se quiere restaurar el baseline original.
 
 **Gaps que QUEDAN (prioridad):**
 1. Matcher bancario (Motor 3) **ignora** `counterpartyName/Rfc` → mismo monto + mismo nombre, días
@@ -145,24 +174,39 @@ Scripts read-only ya escritos (scratchpad): `egreso-baseline.cjs`, `ppd-validate
 
 ## Próximo paso sugerido (RETOMAR AQUÍ)
 
-Estamos **probando las permutaciones de egreso de `01` (PARTE 2)** contra prod, doctor `dr-prueba`.
-**Ya probados en vivo:** EXP-I1 ✅, EXP-J1 ✅, EXP-J4 ✅ (primer egreso en Completo), EXP-F13 ✅
-(reversibilidad confirm→unmatch). Detalle en `STEP-BY-STEP-TESTING.md` §7.
+Seguimos **probando las permutaciones de EGRESO de `01` (PARTE 2)** contra prod, doctor `dr-prueba`,
+método: el usuario hace la acción en la UI → el LLM verifica en la BD (read-only, ver `TOOLING`).
 
-**Siguiente acción concreta:** el usuario hace la acción en la UI y el LLM verifica:
-1. **EXP-K3 click-through** — "Varios" de egresos (suma exacta) + unlink → verificar borrado de la
-   comisión / restauración de los entries (la reversibilidad de settlement, en vivo). *(El botón ya
-   está habilitado en retiros; falta el recorrido manual.)*
-2. **EXP-K2** (tipo cruzado rechazado), **EXP-K4** (`comision` excluida del pool).
-3. **EXP-I2/I3/I4** (manual + PDF / Por Pagar / vincular CFDI), **EXP-H2** (dedup), **EXP-H5** (NC efecto E).
+**Ya en vivo (✅):** EXP-I1, EXP-I2, EXP-I3, EXP-I4, EXP-J1, EXP-J4, EXP-K2, EXP-K3, EXP-L5,
+EXP-H4, EXP-F13. **Por código/baseline (🟩):** EXP-H1, EXP-K1. Tablero completo en `05-test-log.md`.
 
-Follow-ups menores pendientes: el cambio de mes dispara el loader de página completa (acotar a la
-tabla); harness de verificación de egresos reutilizable.
+**Egresos que FALTAN por probar (⬜):**
+1. **EXP-H2** — CFDI recibido con manual/compra previa → **dedup** (1 solo entry). *(sin banco)*
+2. **EXP-H3** — proveedor reutilizado: 2 CFDIs del mismo RFC emisor → un solo `Proveedor`. *(sin banco)*
+3. **EXP-H5** — nota de crédito recibida (efecto **E**) → `resolveEntryType` la trata como **ingreso**. *(sin banco)*
+4. **EXP-J2** — comisión bancaria sin factura → egreso `origin=banco` que queda 🧾✗ permanente.
+5. **EXP-J3** — compra desde el módulo Compras → `origin=compra`, `transactionType=COMPRA`, `purchaseId`.
+6. **EXP-K4** — `comision` excluida del pool de match. **Requiere primero** un settlement de **depósito**
+   (INC-F7) que cree un egreso `origin=comision`; luego subir un retiro y ver que **no** aparece como candidato.
+7. **EXP-L2** — re-subir el mismo estado de cuenta → 409. **EXP-L3** — rangos traslapados → 2 `BankMovement`.
+   **EXP-L4** — CFDI ya vinculado a otro entry → 409. **EXP-L6** — parser PDF de estado de cuenta (GPT-4o).
+
+**Sugerencia:** empezar por H2/H3/H5 (no necesitan subir estado de cuenta), luego J2/J3, y dejar K4 para
+cuando toque el lado ingresos (necesita el settlement de depósito). PARTE 1 (INGRESOS) sigue casi toda ⬜.
+
+Follow-up menor pendiente: el cambio de mes dispara el loader de página completa (acotar a la tabla).
 
 ---
 
-## Commits de esta sesión (en `main`)
+## Commits (en `main`)
 
+**Sesión 2026-07-01 (íconos de evidencia + fixes de factura + pruebas de egreso):**
+- `4dc3ca1b` fix: vincular CFDI a entries con PDF (gate `!satCfdiUuid`) + ver PDF subido desde la tabla.
+- `71acbe34` feat: unificar evidencia fiscal bajo el ícono de factura (CFDI + PDF/XML) + MergeModal badge + confirm "Facturar".
+- `70fd9adf` docs: mapeo de íconos de evidencia (`04` §J) + resultados de egreso K3/K2/I2-I4 (`05`).
+- *(este)* docs: refresco de sesión + `05` con EXP-L5.
+
+**Sesión 2026-06-28/29 (enrich-on-XML, gap #1, reversibilidad, settlement de egresos):**
 - `38aa5898` enrich-on-XML (concepto + forma de pago desde el XML).
 - `d9c97d49` UI: columnas Paciente/Proveedor con nombre + RFC.
 - `76b0aa5c` gap #1 PUE/PPD (Parts A+B): `resolvePaymentStatus` + `sat-ppd-reconcile.ts`.

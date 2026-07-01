@@ -15,7 +15,7 @@
 
 ## Resumen (2026-07-01)
 
-- **✅ LIVE:** EXP-I1, EXP-J1, EXP-J4, INC-F13/EXP-F13, EXP-H4, INC-D6, **EXP-K3** (settle + unlink de egresos), **EXP-K2** (cruce imposible en UI), **EXP-I2/I3/I4** (manual + PDF / Por Pagar / vincular CFDI) — en vivo 2026-07-01.
+- **✅ LIVE:** EXP-I1, EXP-J1, EXP-J4, INC-F13/EXP-F13, EXP-H4, INC-D6, **EXP-K3** (settle + unlink de egresos), **EXP-K2** (cruce imposible en UI), **EXP-I2/I3/I4** (manual + PDF / Por Pagar / vincular CFDI), **EXP-L5** (desvincular CFDI con PDF → `hasFactura` sigue) — en vivo 2026-07-01.
 - **🟩 CÓDIGO:** EXP-H1, EXP-K1, INC-D7, INC-F10 (cubiertos por baseline / por J4).
 - El resto **⬜ PENDIENTE** (toda la PARTE 1 ingresos salvo D6/D7/F10/F13; varios egresos).
 
@@ -101,7 +101,7 @@
 | EXP-L2 | re-subir mismo estado de cuenta → 409 | ⬜ | (observado indirecto: se evitó usando otra cuenta) |
 | EXP-L3 | rangos traslapados → 2 BankMovements | ⬜ | |
 | EXP-L4 | CFDI ya vinculado a otro entry → 409 | ⬜ | |
-| EXP-L5 | desvincular CFDI con PDF → `hasFactura` sigue | ⬜ | |
+| EXP-L5 | desvincular CFDI con PDF → `hasFactura` sigue | ✅ LIVE | `EGR-2026-353`: unlink del CFDI 954E con PDF presente → `sat_cfdi_uuid` null pero `has_factura` sigue true (`ledger_facturas` id=2 sobrevive) (2026-07-01) |
 | EXP-L6 | PDF de estado de cuenta (parser GPT-4o) | ⬜ | |
 
 ---
