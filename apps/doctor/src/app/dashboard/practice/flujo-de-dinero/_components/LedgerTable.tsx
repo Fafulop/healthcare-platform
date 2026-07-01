@@ -6,7 +6,7 @@ import { Edit2, Eye, TrendingUp, TrendingDown, DollarSign, Calendar, ChevronLeft
 import { getLocalDateString } from '@/lib/dates';
 import type { LedgerEntry, Area } from './ledger-types';
 import { FORMAS_DE_PAGO, ORIGIN_LABELS } from './ledger-types';
-import { formatCurrency, formatDate, cleanConcept, getAvailableAreasForEntry } from './ledger-utils';
+import { formatCurrency, formatDate, cleanConcept, getAvailableAreasForEntry, getFacturaFileUrl } from './ledger-utils';
 import { CfdiSuggestionPopover } from './CfdiSuggestionPopover';
 import { CfdiDetailModal } from './CfdiDetailModal';
 import { ComprobanteModal } from './ComprobanteModal';
@@ -206,14 +206,18 @@ export function LedgerTable({
                   ) : (
                     <Receipt className="w-3 h-3 text-gray-300" />
                   )}
-                  {entry.hasFactura && entry.satCfdiUuid ? (
+                  {entry.satCfdiUuid ? (
                     <button onClick={() => { setCfdiUuid(entry.satCfdiUuid!); setCfdiEntryId(entry.id); }} title="Ver factura CFDI">
                       <FileCheck2 className="w-3 h-3 text-green-600 hover:text-green-800 cursor-pointer" />
                     </button>
+                  ) : getFacturaFileUrl(entry) ? (
+                    <a href={getFacturaFileUrl(entry)!} target="_blank" rel="noopener noreferrer" title="Ver factura (PDF)">
+                      <FileCheck2 className="w-3 h-3 text-green-600 hover:text-green-800 cursor-pointer" />
+                    </a>
                   ) : (
                     <FileCheck2 className={`w-3 h-3 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
                   )}
-                  {!entry.hasFactura && (
+                  {!entry.satCfdiUuid && (
                     <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
                   )}
                   {entry.needsReview && (
@@ -381,16 +385,20 @@ export function LedgerTable({
                           <Receipt className="w-3.5 h-3.5 text-gray-300" />
                         </span>
                       )}
-                      {entry.hasFactura && entry.satCfdiUuid ? (
+                      {entry.satCfdiUuid ? (
                         <button onClick={() => { setCfdiUuid(entry.satCfdiUuid!); setCfdiEntryId(entry.id); }} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver factura CFDI">
                           <FileCheck2 className="w-3.5 h-3.5 text-green-600 hover:text-green-800" />
                         </button>
+                      ) : getFacturaFileUrl(entry) ? (
+                        <a href={getFacturaFileUrl(entry)!} target="_blank" rel="noopener noreferrer" className="hover:bg-green-50 rounded p-0.5 transition-colors inline-flex" title="Ver factura (PDF)">
+                          <FileCheck2 className="w-3.5 h-3.5 text-green-600 hover:text-green-800" />
+                        </a>
                       ) : (
-                        <span title={entry.hasFactura ? 'Factura CFDI' : 'Sin factura'}>
+                        <span title={entry.hasFactura ? 'Factura' : 'Sin factura'}>
                           <FileCheck2 className={`w-3.5 h-3.5 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
                         </span>
                       )}
-                      {!entry.hasFactura && (
+                      {!entry.satCfdiUuid && (
                         <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
                       )}
                       {entry.needsReview && (
