@@ -228,8 +228,31 @@ vivo jun 2026: confirm→PAID/🏦, unmatch→PENDING/🏦✗, factura conservad
 | **Subir comprobante** (adjunto) | sube archivo | `LedgerAttachment`; **fuerza `hasComprobante=true`** (⚠️ evidencia ≠ conciliación bancaria) |
 | **Subir factura PDF** | sube PDF | `LedgerFactura`, 🧾✓ (sin XML) |
 | **Subir factura XML** | sube XML | `LedgerFacturaXml` parseado, 🧾✓ |
-| **Ver Evidencia** (icono 🧾 Receipt verde) | abre el modal "Evidencia" | muestra **de qué estado de cuenta** vino la conciliación (banco · cuenta · periodo · movimiento · referencia; nota "Varios" para settlements) **+** los adjuntos. Carga **lazy** vía `GET /ledger/[id]/evidence`. Antes salía **en blanco** para conciliados por banco. Empty state amable para webhook/manual |
+| **Ver evidencia bancaria** (icono **Receipt**, 🏦) | abre el modal "Evidencia" | muestra **de qué estado de cuenta** vino la conciliación (banco · cuenta · periodo · movimiento · referencia; nota "Varios" para settlements) **+** los adjuntos `LedgerAttachment`. Carga **lazy** vía `GET /ledger/[id]/evidence`. Empty state amable para webhook/manual |
+| **Ver factura** (icono **FileCheck2**, 🧾) | abre el modal "Factura" | muestra **toda la evidencia fiscal en un solo lugar**: detalle del **CFDI** vinculado (si hay) + **Desvincular**, **y** links "Abrir" de las **facturas subidas** (`LedgerFactura` PDF, `LedgerFacturaXml` subido). Ver §"Íconos de evidencia" abajo |
 | **Filtro de mes** (`MonthNavigator`) | acota tabla **y** cards | default = mes actual; ◄ ► / month picker / "Todos"; las cards Balance/Ingresos/Egresos reflejan el período |
+
+### Íconos de evidencia en la fila — qué abre cada uno (jul 2026)
+
+Tres íconos, dos ejes de evidencia + una acción. **Regla:** lo **fiscal** (🧾) va en el ícono de
+factura; lo del **dinero/pago** (🏦) va en el ícono Receipt; el pill ámbar es la única **acción**.
+
+| Ícono | Eje | Abre | Assets que muestra / adjunta | Visible cuando |
+|---|---|---|---|---|
+| **Receipt** (parece recibo) | 🏦 banco / comprobante | modal "Evidencia" | referencia del **estado de cuenta** conciliado (banco · cuenta · periodo · movimiento · referencia; "Varios" en settlements) **+** comprobantes `LedgerAttachment` | `hasComprobante` |
+| **FileCheck2** (factura) | 🧾 fiscal | modal "Factura" | **CFDI** SAT vinculado (metadata · desglose · conceptos · Desvincular) **+** facturas subidas: PDF (`LedgerFactura`) y XML subido (`LedgerFacturaXml`), con "Abrir" | `hasFactura` |
+| **"CFDI"** (pill ámbar) | 🧾 (acción) | popover de sugerencias | **vincula** un CFDI del SAT al entry (no es visor) | sin CFDI (`!satCfdiUuid`) |
+
+**Entradas de subida** (detalle del movimiento, `LedgerAttachmentsSection`): "Subir Archivo" →
+`LedgerAttachment` (🏦, Receipt); "Factura PDF" → `LedgerFactura` (🧾, factura); "Factura XML" →
+`LedgerFacturaXml` (🧾, factura).
+
+> **Fix jul 2026 (`71acbe34`):** el ícono de factura antes era **CFDI-o-PDF (excluyente)** → un entry con
+> **CFDI y PDF** perdía acceso al PDF al vincular el CFDI. Ahora el modal "Factura" muestra **ambos**.
+> El botón **Desvincular** solo aparece si hay CFDI vinculado (un entry solo-PDF no puede disparar
+> `DELETE link-cfdi`). El XML **derivado** de vincular un CFDI (URL vacía) **no** se lista como archivo
+> subido — su contenido ya se ve como detalle del CFDI. `CfdiDetailModal` recibe el `entry` completo
+> (no solo el `uuid`) y omite el fetch a SAT cuando no hay CFDI.
 
 ---
 

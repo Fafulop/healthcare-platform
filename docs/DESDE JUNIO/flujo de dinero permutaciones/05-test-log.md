@@ -13,11 +13,10 @@
 - **⬜ PENDIENTE** — sin probar.
 - **⚠️ GAP** — documenta el comportamiento *actual* (gap conocido), no el ideal.
 
-## Resumen (2026-06-29)
+## Resumen (2026-07-01)
 
-- **✅ LIVE:** EXP-I1, EXP-J1, EXP-J4, INC-F13/EXP-F13, EXP-H4, INC-D6.
+- **✅ LIVE:** EXP-I1, EXP-J1, EXP-J4, INC-F13/EXP-F13, EXP-H4, INC-D6, **EXP-K3** (settle + unlink de egresos), **EXP-K2** (cruce imposible en UI), **EXP-I2/I3/I4** (manual + PDF / Por Pagar / vincular CFDI) — en vivo 2026-07-01.
 - **🟩 CÓDIGO:** EXP-H1, EXP-K1, INC-D7, INC-F10 (cubiertos por baseline / por J4).
-- **🟦 UI-LISTA:** EXP-K3 (settlement de egresos).
 - El resto **⬜ PENDIENTE** (toda la PARTE 1 ingresos salvo D6/D7/F10/F13; varios egresos).
 
 ---
@@ -87,16 +86,16 @@
 | EXP-H4 | CFDI recibido PPD + complemento | ✅ LIVE | 295 PUE PENDING; PPD vs complementos: 0 under-reconciled |
 | EXP-H5 | nota de crédito (efecto E) → ingreso | ⬜ | |
 | EXP-I1 | gasto efectivo sin factura | ✅ LIVE | `EGR-2026-348` $700, origin=manual PAID, 🧾✗🏦✗ |
-| EXP-I2 | gasto manual + factura PDF → 🧾 | ⬜ | |
-| EXP-I3 | gasto manual Por Pagar → PENDING | ⬜ | |
-| EXP-I4 | egreso manual + vincular CFDI recibido | ⬜ | |
+| EXP-I2 | gasto manual + factura PDF → 🧾 | ✅ LIVE | `EGR-2026-352`: subió `reporte-contador-2026-05.pdf` → `ledger_facturas` id=1 (uuid null), has_factura=true, sat_cfdi_uuid null (2026-07-01) |
+| EXP-I3 | gasto manual Por Pagar → PENDING | ✅ LIVE | `EGR-2026-352` $500 origin=manual PENDING amount_paid=0 🧾✗🏦✗ (2026-07-01) |
+| EXP-I4 | egreso manual + vincular CFDI recibido | ✅ LIVE | `EGR-2026-353` $400: borré `EGR-2026-276` para liberar CFDI 954E28FD (CRESCENCIO), popover High → Vincular → sat_cfdi_uuid set, has_factura=true, sin duplicado, sigue PENDING (vincular ≠ pago) (2026-07-01) |
 | EXP-J1 | retiro sin entry → "Crear entrada" (`origin=banco`) | ✅ LIVE | entry 1554 creado; `unmatch` lo borró (reversibilidad create_entry) |
 | EXP-J2 | comisión bancaria sin factura (🧾✗ permanente) | ⬜ | |
 | EXP-J3 | compra desde módulo (`origin=compra`) | ⬜ | |
 | EXP-J4 | retiro = factura recibida → conciliar → Completo | ✅ LIVE | `EGR-2026-001` primer egreso 🧾✓🏦✓ PAID (vía Confirmar) |
 | EXP-K1 | retiro match 1:1 (dirección de tipo) | 🟩 CÓDIGO | cubierto por EXP-J4 (withdrawal↔egreso) |
-| EXP-K2 | tipo cruzado rechazado (depósito vs egreso) | ⬜ | |
-| EXP-K3 | liquidación de egresos N:1 ("Varios") | 🟦 UI-LISTA | botón habilitado en retiros (jun 2026); suma exacta; click-through pendiente |
+| EXP-K2 | tipo cruzado rechazado (depósito vs egreso) | ✅ LIVE | UI: un retiro (mov #57) solo ofrece **egresos** como candidatos a vincular/Varios → cruce imposible por construcción, no solo rechazo backend (2026-07-01) |
+| EXP-K3 | liquidación de egresos N:1 ("Varios") | ✅ LIVE | mov #57 $3,845.97 → 3 items (EGR-342/343/347) → los 3 PAID 🧾✓🏦✓, sin `comision`; unlink → los 3 PENDING 🏦✗, items=0, mov unmatched, factura conservada (2026-07-01) |
 | EXP-K4 | `comision` excluida del pool de match | ⬜ | |
 | EXP-L1 | ⚠️ pago parcial vs match (compara `amount`) | ⚠️ GAP | gap conocido |
 | EXP-L2 | re-subir mismo estado de cuenta → 409 | ⬜ | (observado indirecto: se evitó usando otra cuenta) |
