@@ -6,7 +6,7 @@ import { Edit2, Eye, TrendingUp, TrendingDown, DollarSign, Calendar, ChevronLeft
 import { getLocalDateString } from '@/lib/dates';
 import type { LedgerEntry, Area } from './ledger-types';
 import { FORMAS_DE_PAGO, ORIGIN_LABELS } from './ledger-types';
-import { formatCurrency, formatDate, cleanConcept, getAvailableAreasForEntry, getFacturaFileUrl } from './ledger-utils';
+import { formatCurrency, formatDate, cleanConcept, getAvailableAreasForEntry } from './ledger-utils';
 import { CfdiSuggestionPopover } from './CfdiSuggestionPopover';
 import { CfdiDetailModal } from './CfdiDetailModal';
 import { ComprobanteModal } from './ComprobanteModal';
@@ -77,8 +77,7 @@ export function LedgerTable({
   onConfirmReview, onUnlinkCfdi,
   currentPage, onPageChange, pagination,
 }: Props) {
-  const [cfdiUuid, setCfdiUuid] = useState<string | null>(null);
-  const [cfdiEntryId, setCfdiEntryId] = useState<number | null>(null);
+  const [facturaEntry, setFacturaEntry] = useState<LedgerEntry | null>(null);
   const [comprobanteEntry, setComprobanteEntry] = useState<LedgerEntry | null>(null);
 
   return (
@@ -206,16 +205,12 @@ export function LedgerTable({
                   ) : (
                     <Receipt className="w-3 h-3 text-gray-300" />
                   )}
-                  {entry.satCfdiUuid ? (
-                    <button onClick={() => { setCfdiUuid(entry.satCfdiUuid!); setCfdiEntryId(entry.id); }} title="Ver factura CFDI">
+                  {entry.hasFactura ? (
+                    <button onClick={() => setFacturaEntry(entry)} title="Ver factura">
                       <FileCheck2 className="w-3 h-3 text-green-600 hover:text-green-800 cursor-pointer" />
                     </button>
-                  ) : getFacturaFileUrl(entry) ? (
-                    <a href={getFacturaFileUrl(entry)!} target="_blank" rel="noopener noreferrer" title="Ver factura (PDF)">
-                      <FileCheck2 className="w-3 h-3 text-green-600 hover:text-green-800 cursor-pointer" />
-                    </a>
                   ) : (
-                    <FileCheck2 className={`w-3 h-3 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
+                    <FileCheck2 className="w-3 h-3 text-gray-300" />
                   )}
                   {!entry.satCfdiUuid && (
                     <CfdiSuggestionPopover entryId={entry.id} onLinked={onRefresh} />
@@ -385,17 +380,13 @@ export function LedgerTable({
                           <Receipt className="w-3.5 h-3.5 text-gray-300" />
                         </span>
                       )}
-                      {entry.satCfdiUuid ? (
-                        <button onClick={() => { setCfdiUuid(entry.satCfdiUuid!); setCfdiEntryId(entry.id); }} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver factura CFDI">
+                      {entry.hasFactura ? (
+                        <button onClick={() => setFacturaEntry(entry)} className="hover:bg-green-50 rounded p-0.5 transition-colors" title="Ver factura">
                           <FileCheck2 className="w-3.5 h-3.5 text-green-600 hover:text-green-800" />
                         </button>
-                      ) : getFacturaFileUrl(entry) ? (
-                        <a href={getFacturaFileUrl(entry)!} target="_blank" rel="noopener noreferrer" className="hover:bg-green-50 rounded p-0.5 transition-colors inline-flex" title="Ver factura (PDF)">
-                          <FileCheck2 className="w-3.5 h-3.5 text-green-600 hover:text-green-800" />
-                        </a>
                       ) : (
-                        <span title={entry.hasFactura ? 'Factura' : 'Sin factura'}>
-                          <FileCheck2 className={`w-3.5 h-3.5 ${entry.hasFactura ? 'text-green-600' : 'text-gray-300'}`} />
+                        <span title="Sin factura">
+                          <FileCheck2 className="w-3.5 h-3.5 text-gray-300" />
                         </span>
                       )}
                       {!entry.satCfdiUuid && (
@@ -640,12 +631,11 @@ export function LedgerTable({
           </div>
         </div>
       </div>
-      {cfdiUuid && (
+      {facturaEntry && (
         <CfdiDetailModal
-          uuid={cfdiUuid}
-          entryId={cfdiEntryId ?? undefined}
-          onClose={() => { setCfdiUuid(null); setCfdiEntryId(null); }}
-          onUnlinked={() => { setCfdiUuid(null); setCfdiEntryId(null); onRefresh(); }}
+          entry={facturaEntry}
+          onClose={() => setFacturaEntry(null)}
+          onUnlinked={() => { setFacturaEntry(null); onRefresh(); }}
         />
       )}
       {comprobanteEntry && <ComprobanteModal entry={comprobanteEntry} onClose={() => setComprobanteEntry(null)} />}

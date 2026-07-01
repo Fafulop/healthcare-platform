@@ -53,7 +53,9 @@ function EntryCard({
       </div>
       <div className="flex gap-1.5 mt-2 flex-wrap">
         {entry.hasFactura && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">CFDI</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
+            {entry.satCfdiUuid ? 'CFDI' : 'Factura'}
+          </span>
         )}
         {entry.hasComprobante && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 font-medium">Comprobante</span>

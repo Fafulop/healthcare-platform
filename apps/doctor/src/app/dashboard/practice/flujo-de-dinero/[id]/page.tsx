@@ -71,6 +71,11 @@ export default function FlujoDeDineroDetailPage() {
               {entry.entryType === "ingreso" && (
                 <Link
                   href={`/dashboard/facturacion?from=ledger&ledgerId=${entry.id}&amount=${entry.amount}&concept=${encodeURIComponent(entry.concept)}&clientName=${encodeURIComponent(entry.client?.businessName || "")}&formaDePago=${encodeURIComponent(entry.formaDePago || '')}`}
+                  onClick={(e) => {
+                    if (entry.satCfdiUuid && !confirm('Este movimiento ya tiene una factura CFDI vinculada. ¿Emitir otra de todas formas?')) {
+                      e.preventDefault();
+                    }
+                  }}
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
                 >
                   <Receipt className="w-4 h-4" />

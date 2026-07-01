@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { X, Loader2, FileCheck2, Unlink } from 'lucide-react';
+import { X, Loader2, FileCheck2, Unlink, ExternalLink } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { SAT_FORMA_PAGO_LABELS, SAT_EFECTO_LABELS } from './ledger-types';
+import type { LedgerEntry } from './ledger-types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -49,8 +50,7 @@ interface CfdiDetail {
 }
 
 interface Props {
-  uuid: string;
-  entryId?: number;
+  entry: Pick<LedgerEntry, 'id' | 'satCfdiUuid' | 'facturas' | 'facturasXml'>;
   onClose: () => void;
   onUnlinked?: () => void;
 }
@@ -67,9 +67,15 @@ function Item({ label, value, mono }: { label: string; value: string; mono?: boo
   );
 }
 
-export function CfdiDetailModal({ uuid, entryId, onClose, onUnlinked }: Props) {
+export function CfdiDetailModal({ entry, onClose, onUnlinked }: Props) {
+  const uuid = entry.satCfdiUuid ?? null;
+  const entryId = entry.id;
+  const uploadedFiles = [
+    ...(entry.facturas || []).filter((f: any) => f?.fileUrl).map((f: any) => ({ key: `pdf-${f.id}`, name: f.fileName as string, url: f.fileUrl as string, kind: 'PDF' })),
+    ...(entry.facturasXml || []).filter((f: any) => f?.fileUrl).map((f: any) => ({ key: `xml-${f.id}`, name: f.fileName as string, url: f.fileUrl as string, kind: 'XML' })),
+  ];
   const [data, setData] = useState<CfdiDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!uuid);
   const [error, setError] = useState<string | null>(null);
   const [unlinking, setUnlinking] = useState(false);
 
@@ -82,6 +88,7 @@ export function CfdiDetailModal({ uuid, entryId, onClose, onUnlinked }: Props) {
   }, [handleClose]);
 
   useEffect(() => {
+    if (!uuid) { setData(null); setError(null); setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -116,7 +123,7 @@ export function CfdiDetailModal({ uuid, entryId, onClose, onUnlinked }: Props) {
         <div className="flex items-center justify-between px-5 pt-2 sm:pt-5 pb-3 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <FileCheck2 className="w-5 h-5 text-green-600" />
-            <h3 className="text-lg font-bold text-gray-900">Factura CFDI</h3>
+            <h3 className="text-lg font-bold text-gray-900">{uuid ? 'Factura CFDI' : 'Factura'}</h3>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 -mr-1">
             <X className="w-5 h-5" />
@@ -230,11 +237,37 @@ export function CfdiDetailModal({ uuid, entryId, onClose, onUnlinked }: Props) {
               )}
             </>
           )}
+
+          {/* Uploaded factura files (PDF / XML) — always available, even without a linked CFDI */}
+          {uploadedFiles.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Archivos de factura subidos</h4>
+              <div className="space-y-2">
+                {uploadedFiles.map(f => (
+                  <div key={f.key} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{f.name}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">{f.kind}</p>
+                    </div>
+                    <a href={f.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 shrink-0 ml-3">
+                      <ExternalLink className="w-4 h-4" />
+                      Abrir
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!loading && !uuid && uploadedFiles.length === 0 && (
+            <div className="text-center py-8 text-sm text-gray-500">Sin factura vinculada.</div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-gray-200 flex gap-2">
-          {entryId && onUnlinked && (
+          {uuid && entryId && onUnlinked && (
             <button
               onClick={async () => {
                 if (!confirm('¿Desvincular esta factura CFDI del movimiento?')) return;

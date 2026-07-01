@@ -30,15 +30,6 @@ export function getAvailableAreasForEntry(entry: LedgerEntry, areas: Area[]): Ar
   );
 }
 
-// First openable factura file for an entry (uploaded PDF, or an uploaded XML that has a real URL).
-// Used to view a factura that has no linked SAT CFDI. Returns null when there's nothing to open.
-export function getFacturaFileUrl(entry: LedgerEntry): string | null {
-  const fromPdf = (entry.facturas || []).find((f: any) => f?.fileUrl)?.fileUrl;
-  if (fromPdf) return fromPdf;
-  const fromXml = (entry.facturasXml || []).find((f: any) => f?.fileUrl)?.fileUrl;
-  return fromXml || null;
-}
-
 export interface MonthlyRow {
   key: string;       // YYYY-MM
   label: string;     // "Ene 2026"
