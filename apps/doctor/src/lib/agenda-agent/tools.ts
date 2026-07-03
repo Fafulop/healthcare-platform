@@ -8,7 +8,7 @@
 
 import { prisma } from '@healthcare/database';
 import type { AnthropicTool } from './anthropic';
-import { dateKeyToUtcDate, utcDateToKey, isVencida } from './dates';
+import { dateKeyToUtcDate, utcDateToKey, isVencida, mxTodayKey } from './dates';
 
 // Server-side fetch needs an absolute URL — same fallback as the other
 // server→server callers in apps/doctor (medical-records/tasks, calendar).
@@ -39,10 +39,14 @@ export const AGENT_TOOLS: AnthropicTool[] = [
   {
     name: 'get_bookings',
     description:
-      'Lista citas del doctor con filtros. Incluye el flag "vencida" (cita PENDIENTE/AGENDADA cuya hora ya pasó sin resolverse). Úsala para buscar citas por estado, rango de fechas o nombre de paciente.',
+      'Lista citas del doctor con filtros. Una cita VENCIDA es una PENDIENTE **o AGENDADA (CONFIRMED)** cuya hora ya pasó sin resolverse — para buscarlas usa `vencidas: true` (el servidor aplica la definición completa; NO intentes reconstruirla filtrando por status tú mismo).',
     input_schema: {
       type: 'object',
       properties: {
+        vencidas: {
+          type: 'boolean',
+          description: 'true = solo citas vencidas (PENDING/CONFIRMED con hora ya pasada). Ignora "status".',
+        },
         status: {
           type: 'string',
           enum: ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'],
@@ -194,8 +198,38 @@ async function getDaySchedule(ctx: ToolContext, input: { date: string }) {
 
 async function getBookings(
   ctx: ToolContext,
-  input: { status?: string; startDate?: string; endDate?: string; patientName?: string }
+  input: {
+    vencidas?: boolean;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    patientName?: string;
+  }
 ) {
+  // Vencidas mode: the full definition lives HERE (status PENDING **or** CONFIRMED
+  // with end time in the past), so the model can't get it wrong by guessing filters.
+  // The time comparison needs MX-local "now" vs string times, so we fetch candidates
+  // (active bookings up to today) and filter in JS with isVencida.
+  if (input.vencidas) {
+    const today = dateKeyToUtcDate(mxTodayKey());
+    const candidates = await prisma.booking.findMany({
+      where: {
+        doctorId: ctx.doctorId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        ...(input.patientName
+          ? { patientName: { contains: input.patientName, mode: 'insensitive' } }
+          : {}),
+        OR: [{ slotId: null, date: { lte: today } }, { slot: { date: { lte: today } } }],
+      },
+      select: BOOKING_SELECT,
+      orderBy: { date: 'desc' },
+      take: 200,
+    });
+
+    const vencidas = candidates.map(mapBooking).filter((c) => c.vencida).slice(0, 50);
+    return { total: vencidas.length, truncadoA50: vencidas.length === 50, citas: vencidas };
+  }
+
   const dateFilter =
     input.startDate || input.endDate
       ? {
