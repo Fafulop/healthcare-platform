@@ -9,6 +9,7 @@ import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken, calcEndTime } from '@/lib/appointments-utils';
+import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
@@ -128,6 +129,9 @@ export async function POST(request: Request) {
     let booking: any;
     try {
       [slot, booking] = await prisma.$transaction(async (tx) => {
+        // Serialize concurrent booking writes for this doctor+date (see booking-overlap.ts)
+        await lockBookingDay(tx, doctorId, bookingDate.toISOString().split('T')[0]);
+
         // Overlap check: reject if any existing slot on this doctor+date overlaps the requested time range.
         // String comparison works for zero-padded "HH:MM" times (lexicographic = chronological).
         const overlapping = await tx.appointmentSlot.findFirst({
@@ -142,6 +146,22 @@ export async function POST(request: Request) {
           throw Object.assign(
             new Error('TIME_OVERLAP'),
             { bookingError: true, overlap: overlapping }
+          );
+        }
+
+        // Freeform (range-based) bookings don't create slots, so the slot check above
+        // can't see them — check them explicitly or the two booking families double-book.
+        const freeformConflict = await findBookingOverlap(tx, {
+          doctorId,
+          date: bookingDate,
+          startTime: normalizedStartTime,
+          endTime,
+          freeformOnly: true,
+        });
+        if (freeformConflict) {
+          throw Object.assign(
+            new Error('TIME_OVERLAP'),
+            { bookingError: true, overlap: { startTime: freeformConflict.startTime, endTime: freeformConflict.blockEndTime } }
           );
         }
 
@@ -200,6 +220,14 @@ export async function POST(request: Request) {
         return NextResponse.json(
           { success: false, error: 'Ya existe un horario en este tiempo. Usa el horario existente o elige otro momento.' },
           { status: 409 }
+        );
+      }
+      // P2028 = transaction timeout — advisory-lock waits under a booking burst count
+      // toward it. Retriable, so return 503 instead of a generic 500.
+      if (txErr?.code === 'P2028') {
+        return NextResponse.json(
+          { success: false, error: 'Hay muchas reservas en proceso en este momento. Intenta de nuevo en unos segundos.' },
+          { status: 503 }
         );
       }
       throw txErr;

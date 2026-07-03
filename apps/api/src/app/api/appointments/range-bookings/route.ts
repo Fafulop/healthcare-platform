@@ -16,14 +16,17 @@ import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
+import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 
 export async function POST(request: Request) {
   try {
     // Optional auth — doctors/admins get auto-confirmed, public gets PENDING
     let callerRole: string | null = null;
+    let callerDoctorId: string | null = null;
     try {
       const auth = await validateAuthToken(request);
       callerRole = auth.role;
+      callerDoctorId = auth.doctorId ?? null;
     } catch {}
 
     const body = await request.json();
@@ -48,6 +51,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Faltan campos requeridos: doctorId, date, startTime, serviceId, patientName' },
         { status: 400 }
+      );
+    }
+
+    // Doctors can only create bookings on their own agenda (admins can book for anyone;
+    // unauthenticated/public callers get PENDING and are allowed for any doctor).
+    if (callerRole === 'DOCTOR' && callerDoctorId !== doctorId) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado — solo puedes crear citas en tu propia agenda' },
+        { status: 403 }
       );
     }
 
@@ -141,10 +153,15 @@ export async function POST(request: Request) {
     const confirmationCode = generateConfirmationCode();
     const reviewToken = generateReviewToken();
 
+    const bufferMinutes = doctor.appointmentBufferMinutes ?? 0;
+
     // Atomic transaction: verify range exists, check overlap, create booking
     let booking: any;
     try {
       booking = await prisma.$transaction(async (tx) => {
+        // Serialize concurrent booking writes for this doctor+date (see booking-overlap.ts)
+        await lockBookingDay(tx, doctorId, dateKey);
+
         // 1. Verify the requested time falls within an availability range for this doctor+date
         const matchingRange = await tx.availabilityRange.findFirst({
           where: {
@@ -180,51 +197,22 @@ export async function POST(request: Request) {
           }
         }
 
-        // 3. Overlap check: no active bookings can overlap the requested time window.
-        // Must consider extendedBlockMinutes — a booking may block time beyond its endTime.
-        // Check both range-based (freeform) and legacy slot-based bookings.
-
-        // 3a. Fetch all active bookings for this doctor+date
-        const activeBookings = await tx.booking.findMany({
-          where: {
-            doctorId,
-            status: { in: ['PENDING', 'CONFIRMED'] },
-            OR: [
-              { slotId: null, date: bookingDate },
-              { slot: { date: bookingDate } },
-            ],
-          },
-          select: {
-            startTime: true,
-            endTime: true,
-            extendedBlockMinutes: true,
-            slot: { select: { startTime: true, endTime: true } },
-          },
+        // 3. Overlap check: no active booking (freeform or legacy slot-based) may overlap
+        // the requested window, including extendedBlockMinutes and the doctor's buffer —
+        // the same blocked window calculateAvailability uses (see booking-overlap.ts).
+        const conflict = await findBookingOverlap(tx, {
+          doctorId,
+          date: bookingDate,
+          startTime: normalizedStartTime,
+          endTime,
+          bufferMinutes,
         });
 
-        // 3b. Check each booking for overlap (considering extendedBlockMinutes)
-        const newStartMin = timeToMinutes(normalizedStartTime);
-        const newEndMin = timeToMinutes(endTime);
-
-        for (const ab of activeBookings) {
-          const abStart = ab.startTime ?? ab.slot?.startTime;
-          const abEnd = ab.endTime ?? ab.slot?.endTime;
-          if (!abStart || !abEnd) continue;
-
-          const abStartMin = timeToMinutes(abStart);
-          const abEndMin = timeToMinutes(abEnd);
-          // Effective block end: max of endTime and startTime + extendedBlockMinutes
-          const extendedEnd = ab.extendedBlockMinutes != null
-            ? Math.max(abEndMin, abStartMin + ab.extendedBlockMinutes)
-            : abEndMin;
-
-          // Overlap: newStart < existingBlockEnd AND newEnd > existingStart
-          if (newStartMin < extendedEnd && newEndMin > abStartMin) {
-            throw Object.assign(
-              new Error('TIME_OVERLAP'),
-              { bookingError: true, overlapStart: abStart, overlapEnd: minutesToTime(extendedEnd) }
-            );
-          }
+        if (conflict) {
+          throw Object.assign(
+            new Error('TIME_OVERLAP'),
+            { bookingError: true, overlapStart: conflict.startTime, overlapEnd: conflict.blockEndTime }
+          );
         }
 
         // 3c. Check blocked times — the requested slot must not overlap any BlockedTime
@@ -291,6 +279,14 @@ export async function POST(request: Request) {
             : 'Este horario no está disponible';
         const statusCode = txErr.message === 'NO_RANGE' ? 400 : txErr.message === 'TIME_OVERLAP' || txErr.message === 'TIME_BLOCKED' ? 409 : 400;
         return NextResponse.json({ success: false, error: msg }, { status: statusCode });
+      }
+      // P2028 = transaction timeout — advisory-lock waits under a booking burst count
+      // toward it. Retriable, so return 503 instead of a generic 500.
+      if (txErr?.code === 'P2028') {
+        return NextResponse.json(
+          { success: false, error: 'Hay muchas reservas en proceso en este momento. Intenta de nuevo en unos segundos.' },
+          { status: 503 }
+        );
       }
       throw txErr;
     }

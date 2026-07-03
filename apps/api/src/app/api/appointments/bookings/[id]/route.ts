@@ -14,6 +14,8 @@ import {
 } from '@/lib/activity-logger';
 import { createSlotEvent, updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
 import { getCalendarTokens } from '@/lib/appointments-utils';
+import { findBookingOverlap } from '@/lib/booking-overlap';
+import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { sendAppointmentCancellationEmail } from '@/lib/gmail';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
@@ -170,6 +172,35 @@ export async function PATCH(
       const value = raw === 0 ? null : raw;
       if (value !== null && (isNaN(value) || value < 0)) {
         return NextResponse.json({ success: false, error: 'Valor de bloqueo inválido' }, { status: 400 });
+      }
+
+      // The extended block must not swallow an adjacent active booking — the booking
+      // creation routes treat extendedBlockMinutes as a hard conflict window, so an
+      // overlapping extension would manufacture the state they exist to prevent.
+      if (value !== null) {
+        const bStart = booking.slot?.startTime ?? booking.startTime;
+        const bEnd = booking.slot?.endTime ?? booking.endTime;
+        const bDate = booking.slot?.date ?? booking.date;
+        if (bStart && bEnd && bDate) {
+          const startMin = timeToMinutes(bStart);
+          const blockEndMin = Math.max(timeToMinutes(bEnd), startMin + value);
+          const conflict = await findBookingOverlap(prisma, {
+            doctorId: booking.doctorId,
+            date: bDate,
+            startTime: bStart,
+            endTime: minutesToTime(Math.min(blockEndMin, 24 * 60 - 1)),
+            excludeBookingId: booking.id,
+          });
+          if (conflict) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `El bloqueo extendido se traslapa con otra cita (${conflict.startTime}–${conflict.endTime}). Reduce el bloqueo o mueve la otra cita.`,
+              },
+              { status: 409 }
+            );
+          }
+        }
       }
 
       const updated = await prisma.booking.update({

@@ -13,6 +13,7 @@ import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
+import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
 // In-memory rate limiter for booking creation (per IP).
@@ -208,6 +209,20 @@ export async function POST(request: Request) {
         if (!freshSlot.isPublic) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
         if (!freshSlot.isOpen) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
 
+        // Serialize concurrent booking writes for this doctor+date (see booking-overlap.ts)
+        await lockBookingDay(tx, freshSlot.doctorId, freshSlot.date.toISOString().split('T')[0]);
+
+        // Freeform (range-based) bookings don't create slots, so the slot's own state
+        // can't reflect them — reject if one occupies this slot's time window.
+        const freeformConflict = await findBookingOverlap(tx, {
+          doctorId: freshSlot.doctorId,
+          date: freshSlot.date,
+          startTime: freshSlot.startTime,
+          endTime: freshSlot.endTime,
+          freeformOnly: true,
+        });
+        if (freeformConflict) throw Object.assign(new Error('SLOT_CLOSED'), { bookingError: true });
+
         // For public bookings (not doctor/admin), reject slots that have already passed or
         // start within 1 hour of the current time in America/Mexico_City.
         if (!autoConfirm) {
@@ -266,6 +281,14 @@ export async function POST(request: Request) {
       // DB unique index violation = slot already has an active booking
       if ((txErr as any)?.code === 'P2002') {
         return NextResponse.json({ success: false, error: 'This slot is fully booked' }, { status: 400 });
+      }
+      // P2028 = transaction timeout — advisory-lock waits under a booking burst count
+      // toward it. Retriable, so return 503 instead of a generic 500.
+      if ((txErr as any)?.code === 'P2028') {
+        return NextResponse.json(
+          { success: false, error: 'Hay muchas reservas en proceso en este momento. Intenta de nuevo en unos segundos.' },
+          { status: 503 }
+        );
       }
       throw txErr;
     }
