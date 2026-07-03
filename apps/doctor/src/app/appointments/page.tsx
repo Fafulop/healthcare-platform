@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Trash2, Ban, Star, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList } from "lucide-react";
+import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Trash2, Ban, Star, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
@@ -23,6 +23,7 @@ import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
 import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
 import { StandaloneFormularioModal } from "./_components/StandaloneFormularioModal";
 import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsModal";
+import { AgendaAgentPanel } from "./_components/AgendaAgentPanel";
 import type { Booking } from "./_hooks/useBookings";
 import type { ClinicLocation } from "./_hooks/useSlots";
 
@@ -70,6 +71,7 @@ export default function AppointmentsPage() {
   const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
   const [standaloneFormModalOpen, setStandaloneFormModalOpen] = useState(false);
   const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
+  const [agentPanelOpen, setAgentPanelOpen] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderOffset, setReminderOffset] = useState(120);
   const [togglingReminder, setTogglingReminder] = useState(false);
@@ -235,6 +237,14 @@ export default function AppointmentsPage() {
             <span className="hidden sm:inline">Campos de Cita</span>
             <span className="sm:hidden">Campos</span>
           </button>
+          <button
+            onClick={() => setAgentPanelOpen(true)}
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+          >
+            <Sparkles className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Asistente</span>
+            <span className="sm:hidden">IA</span>
+          </button>
           <Link
             href="/dashboard/ayuda?tab=citas"
             title="Ver guía de Citas"
@@ -245,6 +255,8 @@ export default function AppointmentsPage() {
           </Link>
         </div>
       </div>
+
+      <AgendaAgentPanel isOpen={agentPanelOpen} onClose={() => setAgentPanelOpen(false)} />
 
       {/* Reminder email toggle */}
       <div className="bg-white rounded-lg shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">
