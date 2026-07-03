@@ -15,6 +15,7 @@
 |---|---|
 | [`00-RESEARCH-estado-actual.md`](00-RESEARCH-estado-actual.md) | **Investigación del código** (verificada 2026-07-03): qué existe en producción de agenda (modelos, endpoints, UI) y qué IA ya hay (appointments-chat, RAG). Punto de partida del diseño. |
 | [`01-AUDIT-agenda-rangos.md`](01-AUDIT-agenda-rangos.md) | **Auditoría del código de rangos** (2026-07-03): 4 hallazgos (cross-tenant en range-bookings, carrera de doble-booking, buffer no aplicado al crear, startTime sin retícula) + lo que sí está sólido. F1/F2 arreglar ANTES del agente. |
+| [`02-DISENO-tools-y-arquitectura.md`](02-DISENO-tools-y-arquitectura.md) | **Diseño del agente:** decisiones de arquitectura (tool-calling nativo, Claude, propone→doctor confirma), catálogo de tools de lectura/acción con tiers, reglas duras, y plan de build en 4 PRs. |
 | [`TOOLING-acceso-railway-db-agenda.md`](TOOLING-acceso-railway-db-agenda.md) | **Herramienta de verificación:** consultar la BD de prod (Railway, solo lectura) para verificar datos de agenda durante las pruebas — el equivalente al TOOLING de flujo de dinero. |
 
 ## Relación con otras carpetas
