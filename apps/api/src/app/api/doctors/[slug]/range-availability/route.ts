@@ -25,6 +25,10 @@ export async function GET(
     const month = searchParams.get('month'); // YYYY-MM
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    // skipCutoff=1: omit the 1-hour lead-time filter meant for public patients.
+    // Used by doctor-context callers (agenda agent) — doctors can book inside the
+    // hour themselves; the booking POST still enforces the cutoff for public.
+    const skipCutoff = searchParams.get('skipCutoff') === '1';
 
     // Find doctor by slug
     const doctor = await prisma.doctor.findUnique({
@@ -249,8 +253,11 @@ export async function GET(
         bufferMinutes: doctor.appointmentBufferMinutes,
       });
 
-      // Apply 1-hour cutoff for today (Mexico City TZ)
-      slots = applyCutoff(slots, dateKey);
+      // Apply 1-hour cutoff for today (Mexico City TZ) — unless the caller is
+      // doctor-context and asked to skip it
+      if (!skipCutoff) {
+        slots = applyCutoff(slots, dateKey);
+      }
 
       if (slots.length > 0) {
         availableDates.push(dateKey);

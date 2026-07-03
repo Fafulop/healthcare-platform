@@ -10,7 +10,9 @@ import { prisma } from '@healthcare/database';
 import type { AnthropicTool } from './anthropic';
 import { dateKeyToUtcDate, utcDateToKey, isVencida } from './dates';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// Server-side fetch needs an absolute URL — same fallback as the other
+// server→server callers in apps/doctor (medical-records/tasks, calendar).
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
 export interface ToolContext {
   doctorId: string;
@@ -227,8 +229,9 @@ async function getAvailability(
   input: { startDate: string; endDate?: string; serviceId?: string }
 ) {
   // Reuse the SAME calculator the public page uses, via the public endpoint —
-  // the agent must never derive availability on its own.
-  const params = new URLSearchParams({ startDate: input.startDate });
+  // the agent must never derive availability on its own. skipCutoff: the 1-hour
+  // lead-time filter is for public patients; the doctor can book inside the hour.
+  const params = new URLSearchParams({ startDate: input.startDate, skipCutoff: '1' });
   if (input.endDate) params.set('endDate', input.endDate);
   if (input.serviceId) params.set('serviceId', input.serviceId);
 

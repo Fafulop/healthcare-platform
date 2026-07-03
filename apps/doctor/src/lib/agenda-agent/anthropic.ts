@@ -57,6 +57,10 @@ export interface CallClaudeParams {
   messages: AnthropicMessage[];
   tools: AnthropicTool[];
   maxTokens?: number;
+  /** 'none' forces a text answer (used for the final synthesis call). */
+  toolChoice?: 'auto' | 'none';
+  /** Per-call timeout in ms (default 60s) — a hung upstream must not pin the request. */
+  timeoutMs?: number;
 }
 
 export function isAnthropicConfigured(): boolean {
@@ -82,7 +86,9 @@ export async function callClaude(params: CallClaudeParams): Promise<AnthropicRes
       system: params.system,
       messages: params.messages,
       tools: params.tools,
+      ...(params.toolChoice ? { tool_choice: { type: params.toolChoice } } : {}),
     }),
+    signal: AbortSignal.timeout(params.timeoutMs ?? 60_000),
   });
 
   if (!res.ok) {

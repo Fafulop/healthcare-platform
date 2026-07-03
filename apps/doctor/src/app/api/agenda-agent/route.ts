@@ -30,8 +30,29 @@ import { mxNowString, mxTodayKey } from '@/lib/agenda-agent/dates';
 
 const MODEL = process.env.AGENDA_AGENT_MODEL || 'claude-sonnet-5';
 const MAX_ITERATIONS = 8;
-const MAX_TOKENS_PER_CALL = 2048;
+const MAX_TOKENS_PER_CALL = 4096;
 const DAILY_TOKEN_CAP = Number(process.env.AGENDA_AGENT_DAILY_TOKEN_CAP || 500_000);
+// Tool results are re-sent as input tokens on EVERY subsequent iteration — cap
+// each serialized payload so one busy day doesn't grow the loop cost superlinearly.
+const MAX_TOOL_RESULT_CHARS = 8_000;
+
+function serializeToolResult(result: unknown): string {
+  const json = JSON.stringify(result);
+  if (json.length <= MAX_TOOL_RESULT_CHARS) return json;
+  return JSON.stringify({
+    truncado: true,
+    aviso: 'Resultado truncado por tamaño — pide un filtro más específico (fecha o paciente).',
+    parcial: json.slice(0, MAX_TOOL_RESULT_CHARS),
+  });
+}
+
+function extractText(content: { type: string }[]): string {
+  return content
+    .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n')
+    .trim();
+}
 
 function buildSystemPrompt(): string {
   const now = mxNowString();
@@ -62,8 +83,9 @@ y ofrécele la información para que lo haga él en la interfaz.
 }
 
 async function getTokensUsedToday(doctorId: string): Promise<number> {
-  const startOfDay = new Date();
-  startOfDay.setUTCHours(0, 0, 0, 0);
+  // Day boundary in Mexico City (UTC-6 year-round since 2022), consistent with
+  // the agent's notion of "today" — not UTC midnight (~18:00 local).
+  const startOfDay = new Date(mxTodayKey() + 'T00:00:00-06:00');
   const agg = await prisma.llmTokenUsage.aggregate({
     where: { doctorId, endpoint: 'agenda-agent', createdAt: { gte: startOfDay } },
     _sum: { totalTokens: true },
@@ -95,19 +117,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Daily budget (gap G6)
-    const usedToday = await getTokensUsedToday(doctorId);
+    // Daily budget (gap G6) + doctor slug — independent queries, run in parallel
+    const [usedToday, doctor] = await Promise.all([
+      getTokensUsedToday(doctorId),
+      prisma.doctor.findUnique({
+        where: { id: doctorId },
+        select: { slug: true },
+      }),
+    ]);
+
     if (usedToday >= DAILY_TOKEN_CAP) {
       return NextResponse.json(
         { success: false, error: { code: 'BUDGET_EXCEEDED', message: 'Se alcanzó el límite diario del asistente. Intenta mañana.' } },
         { status: 429 }
       );
     }
-
-    const doctor = await prisma.doctor.findUnique({
-      where: { id: doctorId },
-      select: { slug: true },
-    });
     if (!doctor) {
       return NextResponse.json(
         { success: false, error: { code: 'NOT_FOUND', message: 'Doctor no encontrado' } },
@@ -131,6 +155,8 @@ export async function POST(request: NextRequest) {
     let totalOutput = 0;
     let reply = '';
 
+    let exhausted = true;
+
     for (let i = 0; i < MAX_ITERATIONS; i++) {
       const response = await callClaude({
         model: MODEL,
@@ -146,11 +172,15 @@ export async function POST(request: NextRequest) {
       const toolUses = response.content.filter((b): b is ToolUseBlock => b.type === 'tool_use');
 
       if (response.stop_reason !== 'tool_use' || toolUses.length === 0) {
-        reply = response.content
-          .filter((b) => b.type === 'text')
-          .map((b) => (b as { text: string }).text)
-          .join('\n')
-          .trim();
+        reply = extractText(response.content);
+        // Truncated mid-answer at the token cap: say so instead of returning
+        // an empty "Sin respuesta".
+        if (response.stop_reason === 'max_tokens') {
+          reply = reply
+            ? reply + '\n\n_(Respuesta truncada — pregunta algo más específico para el detalle completo.)_'
+            : 'La respuesta fue demasiado larga. Intenta una pregunta más específica (por ejemplo, un día o paciente concreto).';
+        }
+        exhausted = false;
         break;
       }
 
@@ -162,7 +192,7 @@ export async function POST(request: NextRequest) {
           toolsUsed.push(tu.name);
           try {
             const result = await executeTool(ctx, tu.name, tu.input);
-            return { type: 'tool_result' as const, tool_use_id: tu.id, content: JSON.stringify(result) };
+            return { type: 'tool_result' as const, tool_use_id: tu.id, content: serializeToolResult(result) };
           } catch (err: any) {
             console.error(`[agenda-agent] tool ${tu.name} failed:`, err);
             return {
@@ -176,10 +206,25 @@ export async function POST(request: NextRequest) {
       );
 
       messages.push({ role: 'user', content: results });
+    }
 
-      if (i === MAX_ITERATIONS - 1) {
-        reply = 'Necesité demasiados pasos para responder. Intenta una pregunta más específica.';
-      }
+    // Loop exhausted while the model still wanted tools: the last round of tool
+    // results is already in `messages` — one final text-only call synthesizes an
+    // answer from what was gathered instead of discarding it.
+    if (exhausted) {
+      const final = await callClaude({
+        model: MODEL,
+        system,
+        messages,
+        tools: AGENT_TOOLS,
+        toolChoice: 'none',
+        maxTokens: MAX_TOKENS_PER_CALL,
+      });
+      totalInput += final.usage.input_tokens;
+      totalOutput += final.usage.output_tokens;
+      reply =
+        extractText(final.content) ||
+        'Necesité demasiados pasos para responder. Intenta una pregunta más específica.';
     }
 
     logTokenUsage({
