@@ -41,12 +41,14 @@ y COMMITEADO** — falta la `ANTHROPIC_API_KEY` en Railway y el push para que vi
   type-check limpio en ambas apps, code-review de 3 ángulos con 7/8 hallazgos aplicados
   (diferido: paquete compartido de fechas).
 
-## Bloqueadores para que viva
+## ✅ EN VIVO (2026-07-03)
 
-1. ⬜ **`ANTHROPIC_API_KEY` en el servicio `@healthcare/doctor` de Railway** (verificado: NO está).
-   Opcional: `AGENDA_AGENT_MODEL` (default `claude-sonnet-5`), `AGENDA_AGENT_DAILY_TOKEN_CAP`
-   (default 500k).
-2. ⬜ **Push** de los commits `fef2a3d0`, `b13a0049` (y el docs `ec75f366`).
+1. ✅ `ANTHROPIC_API_KEY` agregada al servicio `@healthcare/doctor` (opcionales disponibles:
+   `AGENDA_AGENT_MODEL` default `claude-sonnet-5`, `AGENDA_AGENT_DAILY_TOKEN_CAP` default 500k).
+2. ✅ Push + deploy (`21aa4d59..ca1c30dc`).
+3. ✅ **Validado en prod:** 3 conversaciones del agente registradas en `llm_token_usage`
+   (`endpoint='agenda-agent'`, dr-prueba, claude-sonnet-5, ~2.7–5k tokens por pregunta — perfil
+   normal del loop multi-tool). El botón "Asistente" vive en `/appointments`.
 
 ## Decisiones (no re-litigar)
 
@@ -60,9 +62,8 @@ y COMMITEADO** — falta la `ANTHROPIC_API_KEY` en Railway y el push para que vi
 
 ## Próximos pasos
 
-1. Usuario agrega la API key → push → **probar en vivo**: "¿cómo está mi agenda mañana?" debe
-   reportar las citas de prueba **g** (07:00) y **gg** (09:00) del 2026-07-04, doctor `dr-prueba`.
-   Verificación por BD: [`TOOLING-acceso-railway-db-agenda.md`](TOOLING-acceso-railway-db-agenda.md).
+1. Seguir probando el agente en vivo (calidad de respuestas: vencidas, disponibilidad,
+   find_patient) y anotar fallos aquí antes de dar más capacidades.
 2. **PR 2** — propuestas internas (create_range / block_time / delete_range) con cards de
    confirmación. El patrón preview→confirm ya existe en `ranges/block` (`dryRun`).
 3. **PR 3** — propuestas de citas (create/cancel/reschedule/complete). Requisitos previos del
