@@ -61,13 +61,16 @@ export const AGENT_TOOLS: AnthropicTool[] = [
   {
     name: 'get_availability',
     description:
-      'Horarios DISPONIBLES para agendar, calculados por el mismo motor que usa la página pública (rangos menos citas, bloqueos y buffer). Con serviceId devuelve horarios exactos; sin serviceId solo fechas con disponibilidad. SIEMPRE usa esta tool para responder "¿cuándo tengo espacio?" — nunca lo calcules tú.',
+      'Horarios DISPONIBLES para agendar, calculados por el mismo motor que usa la página pública (rangos menos citas, bloqueos y buffer). SIEMPRE usa esta tool para responder "¿cuándo tengo espacio?" — nunca lo calcules tú. Si no pasas serviceId, el servidor calcula con el servicio activo más corto del doctor (y lo indica en "nota").',
     input_schema: {
       type: 'object',
       properties: {
         startDate: { type: 'string', description: 'Desde "YYYY-MM-DD"' },
         endDate: { type: 'string', description: 'Hasta "YYYY-MM-DD" (opcional, default +30 días)' },
-        serviceId: { type: 'string', description: 'ID del servicio (de get_services). Opcional.' },
+        serviceId: {
+          type: 'string',
+          description: 'ID del servicio (de get_services). Opcional — sin él se usa el servicio más corto como referencia.',
+        },
       },
       required: ['startDate'],
     },
@@ -118,6 +121,7 @@ const BOOKING_SELECT = {
   serviceName: true,
   isFirstTime: true,
   appointmentMode: true,
+  finalPrice: true,
   date: true,
   startTime: true,
   endTime: true,
@@ -131,6 +135,7 @@ function mapBooking(b: {
   serviceName: string | null;
   isFirstTime: boolean | null;
   appointmentMode: string | null;
+  finalPrice: unknown;
   date: Date | null;
   startTime: string | null;
   endTime: string | null;
@@ -148,10 +153,22 @@ function mapBooking(b: {
     inicio: startTime,
     fin: endTime,
     servicio: b.serviceName ?? null,
+    precio: Number(b.finalPrice),
     primeraVez: b.isFirstTime ?? false,
     modalidad: b.appointmentMode ?? null,
     vencida: fecha && endTime ? isVencida(fecha, endTime, b.status) : false,
   };
+}
+
+/** Chronological sort on the RESOLVED date/time (slot-based bookings have date null on the row). */
+function sortByFecha<T extends { fecha: string | null; inicio: string | null }>(
+  citas: T[],
+  direction: 'asc' | 'desc'
+): T[] {
+  const key = (c: T) => `${c.fecha ?? '0000-00-00'} ${c.inicio ?? '00:00'}`;
+  return [...citas].sort((a, b) =>
+    direction === 'asc' ? key(a).localeCompare(key(b)) : key(b).localeCompare(key(a))
+  );
 }
 
 async function getDaySchedule(ctx: ToolContext, input: { date: string }) {
@@ -226,8 +243,11 @@ async function getBookings(
       take: 200,
     });
 
-    const vencidas = candidates.map(mapBooking).filter((c) => c.vencida).slice(0, 50);
-    return { total: vencidas.length, truncadoA50: vencidas.length === 50, citas: vencidas };
+    const vencidas = sortByFecha(
+      candidates.map(mapBooking).filter((c) => c.vencida),
+      'desc'
+    ).slice(0, 50);
+    return { totalEncontradas: vencidas.length, mostradas: vencidas.length, citas: vencidas };
   }
 
   const dateFilter =
@@ -238,36 +258,64 @@ async function getBookings(
         }
       : undefined;
 
-  const bookings = await prisma.booking.findMany({
-    where: {
-      doctorId: ctx.doctorId,
-      ...(input.status ? { status: input.status as any } : {}),
-      ...(input.patientName
-        ? { patientName: { contains: input.patientName, mode: 'insensitive' } }
-        : {}),
-      ...(dateFilter
-        ? { OR: [{ slotId: null, date: dateFilter }, { slot: { date: dateFilter } }] }
-        : {}),
-    },
-    select: BOOKING_SELECT,
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-  });
+  const where = {
+    doctorId: ctx.doctorId,
+    ...(input.status ? { status: input.status as any } : {}),
+    ...(input.patientName
+      ? { patientName: { contains: input.patientName, mode: 'insensitive' as const } }
+      : {}),
+    ...(dateFilter
+      ? { OR: [{ slotId: null, date: dateFilter }, { slot: { date: dateFilter } }] }
+      : {}),
+  };
 
-  const citas = bookings.map(mapBooking);
-  return { total: citas.length, truncadoA50: bookings.length === 50, citas };
+  // Real total via count (the list is capped) so "¿cuántas...?" answers are exact.
+  const [bookings, totalEncontradas] = await Promise.all([
+    prisma.booking.findMany({
+      where,
+      select: BOOKING_SELECT,
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    }),
+    prisma.booking.count({ where }),
+  ]);
+
+  // Chronological order on the resolved date (SQL can't: legacy bookings carry
+  // date on the slot). Future-looking queries read best ascending (next first).
+  const direction = input.startDate && input.startDate >= mxTodayKey() ? 'asc' : 'desc';
+  const citas = sortByFecha(bookings.map(mapBooking), direction).slice(0, 50);
+
+  return { totalEncontradas, mostradas: citas.length, citas };
 }
 
 async function getAvailability(
   ctx: ToolContext,
   input: { startDate: string; endDate?: string; serviceId?: string }
 ) {
+  // Without a serviceId the upstream endpoint only returns "dates that have
+  // ranges" — NOT real availability (bookings/blocks aren't subtracted). To keep
+  // the answer honest, default to the doctor's SHORTEST active service: if the
+  // shortest service fits nowhere, nothing fits.
+  let serviceId = input.serviceId;
+  let nota: string | null = null;
+  if (!serviceId) {
+    const shortest = await prisma.service.findFirst({
+      where: { doctorId: ctx.doctorId, isBookingActive: true },
+      orderBy: { durationMinutes: 'asc' },
+      select: { id: true, serviceName: true, durationMinutes: true },
+    });
+    if (shortest) {
+      serviceId = shortest.id;
+      nota = `Sin servicio especificado: calculado con el más corto (${shortest.serviceName}, ${shortest.durationMinutes} min). Para servicios más largos puede haber menos espacios.`;
+    }
+  }
+
   // Reuse the SAME calculator the public page uses, via the public endpoint —
   // the agent must never derive availability on its own. skipCutoff: the 1-hour
   // lead-time filter is for public patients; the doctor can book inside the hour.
   const params = new URLSearchParams({ startDate: input.startDate, skipCutoff: '1' });
   if (input.endDate) params.set('endDate', input.endDate);
-  if (input.serviceId) params.set('serviceId', input.serviceId);
+  if (serviceId) params.set('serviceId', serviceId);
 
   const res = await fetch(
     `${API_URL}/api/doctors/${ctx.doctorSlug}/range-availability?${params.toString()}`,
@@ -278,6 +326,7 @@ async function getAvailability(
   }
   const data = await res.json();
   return {
+    nota,
     bufferMinutos: data.bufferMinutes ?? 0,
     servicio: data.service ?? null,
     fechasDisponibles: data.availableDates ?? [],
@@ -350,18 +399,21 @@ async function getBookingDetail(ctx: ToolContext, input: { bookingId: string }) 
   };
 }
 
+/** Fold accents + case: "José" → "jose". Postgres `contains` is case- but NOT accent-insensitive. */
+function fold(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 async function findPatient(ctx: ToolContext, input: { query: string }) {
-  const q = input.query.trim();
-  const [patients, pastBookings] = await Promise.all([
+  const q = fold(input.query.trim());
+
+  // Accent-insensitive search requires JS folding: fetch the doctor's patients
+  // (bounded) and recent booking names, then match on folded text — "Jose"
+  // finds "José" and vice versa.
+  const [patients, recentBookings] = await Promise.all([
     prisma.patient.findMany({
-      where: {
-        doctorId: ctx.doctorId,
-        OR: [
-          { firstName: { contains: q, mode: 'insensitive' } },
-          { lastName: { contains: q, mode: 'insensitive' } },
-        ],
-      },
-      take: 5,
+      where: { doctorId: ctx.doctorId },
+      take: 300,
       select: {
         id: true,
         firstName: true,
@@ -372,25 +424,29 @@ async function findPatient(ctx: ToolContext, input: { query: string }) {
       },
     }),
     prisma.booking.findMany({
-      where: {
-        doctorId: ctx.doctorId,
-        patientName: { contains: q, mode: 'insensitive' },
-      },
+      where: { doctorId: ctx.doctorId },
       orderBy: { createdAt: 'desc' },
-      take: 5,
+      take: 300,
       select: BOOKING_SELECT,
     }),
   ]);
 
+  const matchedPatients = patients
+    .filter((p) => fold(`${p.firstName} ${p.lastName}`).includes(q))
+    .slice(0, 10);
+  const matchedBookings = recentBookings
+    .filter((b) => fold(b.patientName).includes(q))
+    .slice(0, 10);
+
   return {
-    expedientes: patients.map((p) => ({
+    expedientes: matchedPatients.map((p) => ({
       patientId: p.id,
       nombre: `${p.firstName} ${p.lastName}`,
       email: p.email ?? null,
       telefono: p.phone ?? null,
       ultimaVisita: p.lastVisitDate ? utcDateToKey(p.lastVisitDate) : null,
     })),
-    citasPrevias: pastBookings.map(mapBooking),
+    citasPrevias: sortByFecha(matchedBookings.map(mapBooking), 'desc'),
   };
 }
 
