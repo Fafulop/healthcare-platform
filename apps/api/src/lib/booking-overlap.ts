@@ -24,7 +24,9 @@ export async function lockBookingDay(
   doctorId: string,
   dateKey: string
 ): Promise<void> {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${doctorId + ':' + dateKey}))`;
+  // $executeRaw, NOT $queryRaw: pg_advisory_xact_lock returns void, which Prisma's
+  // $queryRaw cannot deserialize (it throws, breaking every booking creation).
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${doctorId + ':' + dateKey}))`;
 }
 
 export interface BookingOverlapConflict {
