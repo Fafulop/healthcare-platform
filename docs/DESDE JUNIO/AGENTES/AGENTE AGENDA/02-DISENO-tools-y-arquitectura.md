@@ -48,6 +48,12 @@
 | `resend_confirmation` | `POST bookings/[id]/send-email` | 🔴 confirmar (email al paciente) |
 
 **Reglas duras (en código, no en prompt):**
+0. **Las definiciones de negocio viven en el tool, no en el modelo.** Todo concepto con definición
+   precisa (*vencida*, *disponible*, *completo*) es un **parámetro que el servidor resuelve** —
+   nunca algo que el modelo reconstruya filtrando por su cuenta. *Validado en vivo:* el primer
+   fallo del agente fue exactamente esto — reportó 1 de 13 vencidas porque filtró `status=PENDING`
+   a mano; fix = `get_bookings({vencidas: true})` server-side (ver bitácora en
+   [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md), commit `1be4ac90`).
 1. `startTime` de `create_booking` **debe venir de un `get_availability` previo del mismo turno** (el server valida contra la calculadora antes de aceptar la propuesta) — neutraliza F4 y alucinaciones de horario.
 2. IDs (bookingId, rangeId) se validan server-side como del doctor de la sesión.
 3. Tope de N acciones propuestas por turno; todo va a `logTokenUsage`.

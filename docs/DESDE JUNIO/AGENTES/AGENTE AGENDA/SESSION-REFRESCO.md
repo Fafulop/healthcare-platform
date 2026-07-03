@@ -60,6 +60,17 @@ y COMMITEADO** — falta la `ANTHROPIC_API_KEY` en Railway y el push para que vi
 - Regla dura post-outage: **todo SQL crudo / query shape nuevo se smoke-testea contra prod
   (read-only, `railway run`) ANTES de push** — no hay staging.
 
+## Bitácora de pruebas en vivo (fallos → fixes → evals futuros)
+
+| # | Pregunta | Fallo observado | Causa raíz | Fix | Commit |
+|---|---|---|---|---|---|
+| 1 | "¿Tengo citas vencidas?" | Reportó **1 de 13** vencidas (solo la PENDING; ignoró las 12 CONFIRMED expiradas) | El modelo **reconstruyó** la definición de "vencida" filtrando `status=PENDING` por su cuenta | `get_bookings` ahora acepta **`vencidas: true`** — la definición completa (PENDING **o** CONFIRMED + hora pasada, TZ MX) vive **server-side**; prompt + descripción del tool obligan a usar el flag. Verificado contra prod: encuentra exactamente las 13 de la UI | `1be4ac90` |
+
+> **Lección de diseño (aplica a PR 2/3):** todo concepto con definición de negocio precisa
+> (*vencida*, *disponible*, *completo*) debe ser un **parámetro del tool que el servidor resuelve**,
+> nunca algo que el modelo infiera de una descripción. Cada fallo de esta bitácora se convierte en
+> un caso del set de evals (gap G11) antes de dar capacidades de escritura.
+
 ## Próximos pasos
 
 1. Seguir probando el agente en vivo (calidad de respuestas: vencidas, disponibilidad,
