@@ -147,12 +147,17 @@ function mapBooking(b: {
   const startTime = b.slot?.startTime ?? b.startTime;
   const endTime = b.slot?.endTime ?? b.endTime;
   const fecha = date ? utcDateToKey(date) : null;
-  // Extended block: the room stays occupied past the nominal end. Compute the
+  // Extended block: extendedBlockMinutes counts from the START of the cita
+  // (availability-calculator: blocked end = max(end, start + ext)). Compute the
   // real occupied end server-side (regla 0) so the model never does time math.
   // Only PENDING/CONFIRMED actually occupy — same filter as the availability
   // engine (range-availability); a cancelled/no-show extension blocks nothing.
   const ext =
     b.status === 'PENDING' || b.status === 'CONFIRMED' ? (b.extendedBlockMinutes ?? 0) : 0;
+  const ocupadoHasta =
+    ext > 0 && startTime && endTime
+      ? [endTime, addMinutesToTime(startTime, ext)].sort().pop()!
+      : null;
   return {
     id: b.id,
     paciente: b.patientName,
@@ -160,8 +165,8 @@ function mapBooking(b: {
     fecha,
     inicio: startTime,
     fin: endTime,
-    ...(ext > 0 && endTime
-      ? { bloqueExtendidoMinutos: ext, ocupadoHasta: addMinutesToTime(endTime, ext) }
+    ...(ocupadoHasta && ocupadoHasta > endTime!
+      ? { bloqueExtendidoMinutos: ext, ocupadoHasta }
       : {}),
     servicio: b.serviceName ?? null,
     precio: Number(b.finalPrice),
