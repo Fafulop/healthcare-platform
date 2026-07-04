@@ -75,6 +75,34 @@ Las propuestas siguen el **patrón** del executor del chat v1 (`useAppointmentsC
 confirmar → ejecutar secuencial → refresh), pero los action types son **nuevos** (los del v1 son de
 slots); el re-mapeo a rangos es código nuevo, no reuso directo (gap G8 §5).
 
+### 3.1 Multi-acción: las propuestas son un PLAN ORDENADO (decisión 2026-07-04, pre-PR 2)
+
+Un solo mensaje puede pedir varias cosas que se bloquean entre sí ("créame el rango del martes y
+agéndame ahí a X"). Reglas:
+
+1. **Orden de ejecución explícito**: las propuestas se emiten en el orden en que deben ejecutarse
+   (crear rango ANTES que lo que vive dentro de él; borrar ANTES que crear al reemplazar — el
+   orden inverso da 409, validado en ORD-6/RSC-2 de `04`).
+2. **Ejecución estrictamente secuencial con corte en fallo**: si el paso N falla, los pasos N+1…
+   se marcan "no ejecutada porque falló el paso N" — nunca se ejecutan contra un estado que ya no
+   corresponde al preview. Rechazar/deseleccionar una card salta también sus dependientes.
+3. **El executor manda, no el modelo**: la secuencialidad y el corte viven en el código del
+   executor (regla 0 aplicada al orden); el prompt solo enseña a ordenar bien.
+
+### 3.2 Turnos con el doctor: clarificar → proponer → ejecutar → verificar (no one-shot)
+
+Las peticiones complejas NO se resuelven en un turno. Protocolo por turno visible:
+
+- **Clarificar**: si falta un dato ejecutable (día, horas, cuál rango), el agente PREGUNTA en vez
+  de adivinar — solo propone cuando el plan es ejecutable tal cual.
+- **Proponer**: cards ordenadas con preview server-side (dryRun/conflictos).
+- **Ejecutar**: el doctor confirma; el cliente ejecuta secuencial.
+- **Verificar/replanear**: los resultados de la ejecución se re-inyectan a la conversación como
+  mensaje, para que el siguiente turno el agente VEA qué pasó y re-planee lo que falló.
+
+Sin número fijo de iteraciones: el loop interno de lecturas sigue capado (8), las propuestas por
+turno capadas, y un trabajo largo simplemente ocupa varios turnos.
+
 ## 4. Plan de build (incremental)
 
 1. **PR 1 — read-only:** endpoint `agenda-agent` con loop + tools de lectura + panel UI básico.

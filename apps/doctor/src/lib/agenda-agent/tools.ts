@@ -195,6 +195,7 @@ async function getDaySchedule(ctx: ToolContext, input: { date: string }) {
       where: { doctorId: ctx.doctorId, date },
       orderBy: { startTime: 'asc' },
       select: {
+        id: true,
         startTime: true,
         endTime: true,
         intervalMinutes: true,
@@ -204,7 +205,7 @@ async function getDaySchedule(ctx: ToolContext, input: { date: string }) {
     prisma.blockedTime.findMany({
       where: { doctorId: ctx.doctorId, date },
       orderBy: { startTime: 'asc' },
-      select: { startTime: true, endTime: true, reason: true },
+      select: { id: true, startTime: true, endTime: true, reason: true },
     }),
     prisma.booking.findMany({
       where: {
@@ -219,12 +220,13 @@ async function getDaySchedule(ctx: ToolContext, input: { date: string }) {
   return {
     fecha: input.date,
     rangosDisponibilidad: ranges.map((r) => ({
+      id: r.id,
       inicio: r.startTime,
       fin: r.endTime,
       intervaloMinutos: r.intervalMinutes,
       consultorio: r.location?.name ?? null,
     })),
-    bloqueos: blocked.map((b) => ({ inicio: b.startTime, fin: b.endTime, motivo: b.reason ?? null })),
+    bloqueos: blocked.map((b) => ({ id: b.id, inicio: b.startTime, fin: b.endTime, motivo: b.reason ?? null })),
     citas: bookings.map(mapBooking).sort((a, b) => (a.inicio ?? '').localeCompare(b.inicio ?? '')),
   };
 }

@@ -256,7 +256,14 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      <AgendaAgentPanel isOpen={agentPanelOpen} onClose={() => setAgentPanelOpen(false)} />
+      <AgendaAgentPanel
+        isOpen={agentPanelOpen}
+        onClose={() => setAgentPanelOpen(false)}
+        onAgendaChanged={() => {
+          rangesHook.fetchRanges();
+          blockedTimesHook.fetchBlockedTimes();
+        }}
+      />
 
       {/* Reminder email toggle */}
       <div className="bg-white rounded-lg shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">

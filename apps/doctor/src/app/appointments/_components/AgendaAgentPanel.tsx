@@ -1,14 +1,21 @@
 "use client";
 
 /**
- * AgendaAgentPanel — chat panel for the read-only agenda agent (PR 1).
- * Side panel on desktop, bottom sheet on mobile (same layout conventions as
- * AppointmentChatPanel, without the action-confirmation UI — no writes yet).
+ * AgendaAgentPanel — chat panel for the agenda agent (PR 1 reads + PR 2
+ * internal-action proposals). Side panel on desktop, bottom sheet on mobile.
+ *
+ * Proposals arrive as ordered cards under the assistant message; the doctor
+ * confirms ("Ejecutar plan") or rejects each card. Execution is strictly
+ * sequential — a failed step stops the chain and later steps show "omitida".
  */
 
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
-import { Bot, User, Send, X, Trash2, Loader2, Sparkles } from 'lucide-react';
-import { useAgendaAgent, type AgentMessage } from '@/hooks/useAgendaAgent';
+import {
+  Bot, User, Send, X, Trash2, Loader2, Sparkles,
+  CalendarPlus, Lock, Unlock, CalendarX, AlertTriangle,
+  CheckCircle2, XCircle, CircleSlash, Play,
+} from 'lucide-react';
+import { useAgendaAgent, type AgentMessage, type AgendaProposal } from '@/hooks/useAgendaAgent';
 
 function renderInline(text: string) {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
@@ -37,6 +44,105 @@ function renderContent(content: string) {
         }
         return <div key={i}>{renderInline(line)}</div>;
       })}
+    </div>
+  );
+}
+
+const PROPOSAL_ICONS = {
+  create_range: CalendarPlus,
+  block_time: Lock,
+  unblock_time: Unlock,
+  delete_range: CalendarX,
+} as const;
+
+function ProposalCard({
+  proposal,
+  onReject,
+}: {
+  proposal: AgendaProposal;
+  onReject: () => void;
+}) {
+  const Icon = PROPOSAL_ICONS[proposal.type] ?? CalendarPlus;
+  const status = proposal.status ?? 'pendiente';
+  const border =
+    status === 'exito' ? 'border-emerald-300 bg-emerald-50'
+    : status === 'error' ? 'border-red-300 bg-red-50'
+    : status === 'rechazada' || status === 'omitida' ? 'border-gray-200 bg-gray-50 opacity-70'
+    : 'border-amber-300 bg-amber-50';
+
+  return (
+    <div className={`rounded-xl border px-3 py-2 text-xs space-y-1 ${border}`}>
+      <div className="flex items-center gap-1.5 font-semibold text-gray-800">
+        <span className="text-gray-400">#{proposal.orden}</span>
+        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+        <span className="flex-1">{proposal.titulo}</span>
+        {status === 'ejecutando' && <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />}
+        {status === 'exito' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
+        {status === 'error' && <XCircle className="w-3.5 h-3.5 text-red-600" />}
+        {(status === 'rechazada' || status === 'omitida') && <CircleSlash className="w-3.5 h-3.5 text-gray-400" />}
+        {status === 'pendiente' && (
+          <button
+            onClick={onReject}
+            className="text-[10px] text-gray-400 hover:text-red-500 underline"
+            title="Rechazar este paso"
+          >
+            rechazar
+          </button>
+        )}
+      </div>
+      {proposal.detalle.map((d, i) => (
+        <div key={i} className="text-gray-600 pl-5">{d}</div>
+      ))}
+      {proposal.advertencias.map((a, i) => (
+        <div key={i} className="flex gap-1 pl-5 text-amber-700">
+          <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+          <span>{a}</span>
+        </div>
+      ))}
+      {proposal.resultado && (
+        <div className={`pl-5 font-medium ${status === 'exito' ? 'text-emerald-700' : status === 'error' ? 'text-red-700' : 'text-gray-500'}`}>
+          {proposal.resultado}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProposalPlan({
+  proposals,
+  executing,
+  stale,
+  onExecute,
+  onReject,
+}: {
+  proposals: AgendaProposal[];
+  executing: boolean;
+  /** Not the latest message: the preview may no longer match reality. */
+  stale: boolean;
+  onExecute: () => void;
+  onReject: (proposalId: string) => void;
+}) {
+  const pending = proposals.filter((p) => (p.status ?? 'pendiente') === 'pendiente');
+  return (
+    <div className="w-full space-y-1.5 mt-1.5">
+      {proposals.map((p) => (
+        <ProposalCard key={p.id} proposal={p} onReject={() => onReject(p.id)} />
+      ))}
+      {pending.length > 0 && !stale && (
+        <button
+          onClick={onExecute}
+          disabled={executing}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {executing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+          {executing ? 'Ejecutando…' : `Ejecutar ${pending.length > 1 ? `plan (${pending.length} pasos, en orden)` : 'este paso'}`}
+        </button>
+      )}
+      {pending.length > 0 && stale && (
+        <div className="text-[10px] text-gray-400 text-center px-2">
+          Plan anterior — la agenda pudo cambiar; pídele al asistente que lo vuelva a proponer.
+        </div>
+      )}
     </div>
   );
 }
@@ -75,16 +181,19 @@ function MessageBubble({ message }: { message: AgentMessage }) {
 const SUGGESTIONS = [
   '¿Cómo está mi agenda hoy?',
   '¿Tengo citas vencidas?',
-  '¿Cuándo tengo espacio esta semana?',
+  'Bloquea mi horario del viernes por la tarde',
 ];
 
 interface AgendaAgentPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Called after the executor changed agenda data (refresh the page's views). */
+  onAgendaChanged?: () => void;
 }
 
-export function AgendaAgentPanel({ isOpen, onClose }: AgendaAgentPanelProps) {
-  const { messages, loading, sendMessage, clearChat } = useAgendaAgent();
+export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAgentPanelProps) {
+  const { messages, loading, executing, sendMessage, clearChat, executeProposals, rejectProposal } =
+    useAgendaAgent(onAgendaChanged);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
@@ -124,7 +233,7 @@ export function AgendaAgentPanel({ isOpen, onClose }: AgendaAgentPanelProps) {
           <Sparkles className="w-4 h-4 text-emerald-600" />
           <span className="text-sm font-semibold text-gray-800">Asistente de Agenda</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
-            beta · solo consulta
+            beta · propone, tú confirmas
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -169,7 +278,20 @@ export function AgendaAgentPanel({ isOpen, onClose }: AgendaAgentPanelProps) {
           </div>
         )}
         {messages.map((m, i) => (
-          <MessageBubble key={i} message={m} />
+          <div key={i}>
+            <MessageBubble message={m} />
+            {m.role === 'assistant' && (m.proposals?.length ?? 0) > 0 && (
+              <div className="pl-8 pr-2">
+                <ProposalPlan
+                  proposals={m.proposals!}
+                  executing={executing}
+                  stale={i !== messages.length - 1}
+                  onExecute={() => executeProposals(i)}
+                  onReject={(pid) => rejectProposal(i, pid)}
+                />
+              </div>
+            )}
+          </div>
         ))}
         {loading && (
           <div className="flex items-center gap-2 text-gray-400 text-sm px-8">

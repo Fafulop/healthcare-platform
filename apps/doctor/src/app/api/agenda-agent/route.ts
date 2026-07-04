@@ -1,17 +1,23 @@
 /**
  * POST /api/agenda-agent
  *
- * Agenda agent (PR 1: read-only). Native tool-calling loop:
- * doctor message → Claude plans → executes read tools server-side → grounded reply.
+ * Agenda agent (PR 1 reads + PR 2 internal-action proposals). Native
+ * tool-calling loop: doctor message → Claude plans → executes read tools
+ * server-side; propose_* tools register ORDERED proposals (pre-checked
+ * server-side) that the doctor confirms in cards — the CLIENT executes the
+ * real endpoints, which re-validate everything.
  *
  * Security invariants (see docs/DESDE JUNIO/AGENTES/AGENTE AGENDA/02-DISENO):
  * - doctorId comes from the session and is injected into every tool — never from
  *   model output.
- * - Tools are an allowlist of read-only queries. No writes exist in this version.
- * - Per-request iteration cap + per-doctor daily token cap (gap G6).
+ * - Tools are an allowlist. This route never mutates agenda data (proposals are
+ *   plain JSON; execution happens client-side behind the doctor's confirmation
+ *   with their own auth token).
+ * - Per-request iteration cap + per-doctor daily token cap (gap G6) + per-turn
+ *   proposal cap.
  *
  * Request:  { message: string, conversationHistory: { role, content }[] }
- * Response: { success, data: { reply: string, toolsUsed: string[] } }
+ * Response: { success, data: { reply, toolsUsed, proposals: AgendaProposal[] } }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -26,6 +32,13 @@ import {
   type ToolUseBlock,
 } from '@/lib/agenda-agent/anthropic';
 import { AGENT_TOOLS, executeTool, type ToolContext } from '@/lib/agenda-agent/tools';
+import {
+  PROPOSAL_TOOLS,
+  ProposalCollector,
+  executeProposalTool,
+  isProposalTool,
+  type AgendaProposal,
+} from '@/lib/agenda-agent/proposals';
 import { mxNowString, mxTodayKey, mxTodayWeekday } from '@/lib/agenda-agent/dates';
 
 const MODEL = process.env.AGENDA_AGENT_MODEL || 'claude-sonnet-5';
@@ -63,11 +76,29 @@ function buildSystemPrompt(): string {
 Ahora mismo es ${now} (America/Mexico_City). Hoy es ${weekday} ${today} — calcula los demás días
 de la semana a partir de este dato, no lo deduzcas tú.
 
-## Qué puedes hacer (por ahora SOLO LECTURA)
-Consultar la agenda con tus tools: horarios del día, citas (con filtros), disponibilidad real,
-servicios, consultorios, detalle de una cita y búsqueda de pacientes. AÚN NO puedes crear,
-modificar ni cancelar nada — si el doctor lo pide, dile amablemente que esa capacidad llega pronto
-y ofrécele la información para que lo haga él en la interfaz.
+## Qué puedes hacer
+1. **Consultar** (autónomo): horarios del día, citas, disponibilidad real, servicios,
+   consultorios, detalle de cita, búsqueda de pacientes.
+2. **Proponer acciones internas** (el doctor CONFIRMA antes de ejecutarse): crear rangos de
+   disponibilidad, bloquear/desbloquear horarios, eliminar rangos — con las tools propose_*.
+   Las propuestas aparecen como tarjetas que el doctor confirma o rechaza; NADA se ejecuta solo.
+3. **AÚN NO puedes tocar citas** (crear/cancelar/reagendar/completar) ni nada que notifique a un
+   paciente — si el doctor lo pide, dile que esa capacidad llega pronto y dale la información
+   para hacerlo él en la interfaz.
+
+## Cómo proponer (importante)
+- **Clarifica antes de proponer**: si falta un dato ejecutable (qué día, qué horas, cuál rango),
+  PREGUNTA — no adivines. Propón solo cuando el plan sea ejecutable tal cual.
+- **Orden de ejecución**: llama las tools propose_* EN EL ORDEN en que deben ejecutarse (crear un
+  rango ANTES que lo que dependa de él; al reemplazar un rango, eliminar ANTES de crear — el orden
+  inverso choca). Las propuestas se ejecutan secuencialmente y si una falla, las siguientes NO se
+  ejecutan.
+- **Consulta antes de proponer**: los ids de rangos/bloqueos salen de get_day_schedule de ESTE
+  turno. Verifica el estado actual (get_day_schedule / get_availability) antes de proponer sobre él.
+- **Transmite las advertencias**: si la tool te devuelve conflictos (citas vivas dentro de un
+  bloqueo, rangos protegidos por citas, días duplicados), DILO claramente junto a la propuesta.
+- Tras la ejecución recibirás un mensaje con los resultados — verifica y, si algo falló, explica
+  por qué y propone el siguiente paso.
 
 ## Reglas
 1. NUNCA inventes citas, horarios, pacientes ni datos — todo sale de tus tools. Si una tool no
@@ -168,6 +199,8 @@ export async function POST(request: NextRequest) {
     }
 
     const ctx: ToolContext = { doctorId, doctorSlug: doctor.slug };
+    const collector = new ProposalCollector();
+    const proposalCtx = { doctorId, collector };
 
     const messages: AnthropicMessage[] = [
       ...conversationHistory
@@ -190,7 +223,7 @@ export async function POST(request: NextRequest) {
         model: MODEL,
         system,
         messages,
-        tools: AGENT_TOOLS,
+        tools: [...AGENT_TOOLS, ...PROPOSAL_TOOLS],
         maxTokens: MAX_TOKENS_PER_CALL,
       });
 
@@ -219,7 +252,9 @@ export async function POST(request: NextRequest) {
         toolUses.map(async (tu) => {
           toolsUsed.push(tu.name);
           try {
-            const result = await executeTool(ctx, tu.name, tu.input);
+            const result = isProposalTool(tu.name)
+              ? await executeProposalTool(proposalCtx, tu.name, tu.input)
+              : await executeTool(ctx, tu.name, tu.input);
             return { type: 'tool_result' as const, tool_use_id: tu.id, content: serializeToolResult(result) };
           } catch (err: any) {
             console.error(`[agenda-agent] tool ${tu.name} failed:`, err);
@@ -244,7 +279,7 @@ export async function POST(request: NextRequest) {
         model: MODEL,
         system,
         messages,
-        tools: AGENT_TOOLS,
+        tools: [...AGENT_TOOLS, ...PROPOSAL_TOOLS],
         toolChoice: 'none',
         maxTokens: MAX_TOKENS_PER_CALL,
       });
@@ -271,9 +306,11 @@ export async function POST(request: NextRequest) {
       `[agenda-agent] doctor=${doctorId} tools=[${toolsUsed.join(',')}] tokens=${totalInput + totalOutput}`
     );
 
+    const proposals: AgendaProposal[] = collector.proposals;
+
     return NextResponse.json({
       success: true,
-      data: { reply: reply || 'Sin respuesta', toolsUsed },
+      data: { reply: reply || 'Sin respuesta', toolsUsed, proposals },
     });
   } catch (error: any) {
     console.error('[agenda-agent] error:', error);
