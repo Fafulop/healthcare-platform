@@ -9,10 +9,11 @@
 ## En una frase
 
 Agente de IA conversacional para la agenda (`/appointments`), construido **desde cero con
-tool-calling nativo** (Claude, loop multi-paso server-side). **PR 1 (solo lectura) VIVE en prod y
-pasó la campaña de validación en vivo** (permutaciones `04`, 2026-07-04) — bloques BLK y EDT
-completos, RNG casi completo, 3 bugs del agente encontrados y arreglados en el camino. **Listo
-para arrancar PR 2** con los requisitos de `04 §7`.
+tool-calling nativo** (Claude, loop multi-paso server-side). **PR 1 (lecturas) y PR 2 (propuestas
+de rangos/bloqueos con cards de confirmación) VIVEN en prod, ambos validados en vivo**
+(2026-07-04, bitácora filas 1–18; referencia del sistema en
+[`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md)). **Siguiente: PR 3**
+(propuestas de citas) — prerequisitos: buffer>0 en dr-prueba + bloque CIT de `04` + evals G11.
 
 ## Estado: qué está hecho
 
@@ -27,7 +28,7 @@ para arrancar PR 2** con los requisitos de `04 §7`.
 - Diseño (`02`) + revisión con 11 gaps (G1: el LedgerEntry al completar cita se crea desde el
   FRONTEND — el executor de PR 3 debe usar el hook, no el PATCH crudo).
 
-**✅ PR 1 — agente read-only (commits `fef2a3d0` + fixes de review `b13a0049`, SIN push aún):**
+**✅ PR 1 — agente read-only (desplegado 2026-07-03, validado en vivo 2026-07-04):**
 - `apps/doctor/src/lib/agenda-agent/` — cliente Anthropic raw-fetch (tool use, timeout 60s,
   `tool_choice`), helpers de fecha MX, y **7 tools de lectura**: `get_day_schedule`,
   `get_bookings` (con flag *vencida*), `get_availability` (vía el endpoint real con
@@ -55,8 +56,10 @@ para arrancar PR 2** con los requisitos de `04 §7`.
 ## Decisiones (no re-litigar)
 
 - Construir **desde cero** con tool-calling; el chat v1 y el RAG son antecedente, no base.
-- **v1 escribe NADA**: lecturas autónomas; las escrituras llegan como propuestas→confirmación
-  (PR 2 interno, PR 3 citas). Todo lo que notifica a un paciente = confirmación SIEMPRE.
+- **El endpoint del agente NUNCA escribe**: lecturas autónomas; escrituras = propuesta→card→el
+  CLIENTE ejecuta el endpoint real tras confirmación del doctor (PR 2 ya vivo para
+  rangos/bloqueos; PR 3 citas). Todo lo que notifica a un paciente = confirmación SIEMPRE.
+- `delete_range` del agente usa SOLO el camino individual protegido, nunca el bulk (RNG-11/12).
 - `get_availability` usa el **endpoint real** (nunca deducir huecos de la lista de citas).
 - El modelo NUNCA aporta `doctorId` ni IDs sin validar contra la sesión.
 - Regla dura post-outage: **todo SQL crudo / query shape nuevo se smoke-testea contra prod
@@ -128,10 +131,18 @@ re-inyectados a la conversación (turno de verificación). Referencia completa d
 capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda validado en producción.
 
 ## Próximos pasos
+
+1. **Prerequisitos de PR 3** (en orden): (a) poner `appointmentBufferMinutes > 0` en dr-prueba y
+   correr el bloque CIT de [`04`](04-PERMUTACIONES-agenda.md); (b) construir el **set de evals
+   (G11)** seedeado con los golden cases de la bitácora (filas 1, 10, 15–17: vencidas, re-consulta,
+   plan 3 pasos, probes de resiliencia); (c) decidir limpieza de datos de prueba restantes (citas
+   `test 7`/`vvvvvv`/`cita1`/`cita2` — solo UI; jul 25 / lunes de agosto / bloqueo ago 3 — el
+   agente puede).
 2. **PR 3** — propuestas de citas (create/cancel/reschedule/complete). Requisitos previos del
    gap review: executor vía `completeBooking()` del hook (G1), re-validación al proponer (G3),
-   orden cancelar→crear en reschedule (G4), evals (~15 prompts) antes de mergear (G11). Antes:
-   poner buffer > 0 en dr-prueba y correr el bloque CIT de `04`.
+   orden cancelar→crear en reschedule (G4), evals G11 antes de mergear. Recordatorio: tier 🔴
+   (SMS/email/GCal al paciente) = confirmación SIEMPRE; dependencias reales entre pasos del plan
+   (hoy advisorias) convendría resolverlas aquí.
 3. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
 
 ## Commits (en `main`, todos desplegados)
@@ -145,6 +156,10 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
 - `2eb6cc72` fix: regla 10 (re-consultar cada turno)
 - `3406c940` fix: E7 v2 (extensión cuenta desde el INICIO — max(fin, inicio+ext))
 - `35ec0532` feat: formato de respuestas (viñetas •, plantilla de día) + bullets reales en el panel
+- `1b90b3fd` **feat: PR 2** — propuestas internas con cards (4 tools propose_*, executor secuencial, 5 fixes del review)
+- `b6acbbf5` fix: orden secuencial de tools + pre-checks plan-aware + resiliencia a input no estructurado
+- `43625b07` feat: `get_ranges` (ids multi-día en 1 llamada — el loop se moría de hambre) + totales primero
+- `a850ac66` / `c5d9e4af` docs: resultados de campaña, bitácora 12–18
 
 ---
 

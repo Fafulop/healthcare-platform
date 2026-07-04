@@ -34,5 +34,5 @@
 - `../../flujo de dinero permutaciones/TOOLING-acceso-railway-db.md` — el método base de acceso a
   la BD (mismo mecanismo, distintas tablas).
 
-*Estado:* carpeta creada 2026-07-03. PR 1 en prod y validado en vivo (2026-07-04); siguiente: PR 2
-con los requisitos de `04 §7`.
+*Estado:* carpeta creada 2026-07-03. **PR 1 y PR 2 en prod, validados en vivo** (2026-07-04);
+siguiente: PR 3 (propuestas de citas) — prerequisitos en `SESSION-REFRESCO` → Próximos pasos.
