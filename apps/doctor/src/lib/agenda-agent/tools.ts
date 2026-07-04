@@ -76,6 +76,19 @@ export const AGENT_TOOLS: AnthropicTool[] = [
     },
   },
   {
+    name: 'get_ranges',
+    description:
+      'Lista rangos de disponibilidad y bloqueos (con sus ids) en un periodo de fechas — úsala para operaciones sobre VARIOS días (ej. "elimina los rangos de octubre") en vez de consultar día por día con get_day_schedule. Máx ~120 días por llamada.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        startDate: { type: 'string', description: 'Desde "YYYY-MM-DD"' },
+        endDate: { type: 'string', description: 'Hasta "YYYY-MM-DD"' },
+      },
+      required: ['startDate', 'endDate'],
+    },
+  },
+  {
     name: 'get_services',
     description: 'Catálogo de servicios del doctor (id, nombre, duración en minutos, precio, activo para agenda).',
     input_schema: { type: 'object', properties: {} },
@@ -352,6 +365,53 @@ async function getAvailability(
   };
 }
 
+async function getRanges(ctx: ToolContext, input: { startDate: string; endDate: string }) {
+  if (!input.startDate || !input.endDate || input.endDate < input.startDate) {
+    return { error: 'Se requieren startDate y endDate válidos (endDate >= startDate).' };
+  }
+  const start = dateKeyToUtcDate(input.startDate);
+  const end = dateKeyToUtcDate(input.endDate);
+  // Bound the span (~120 days) so one call can't dump a year of rows
+  if (end.getTime() - start.getTime() > 120 * 24 * 3600 * 1000) {
+    return { error: 'Periodo demasiado largo (máx ~120 días) — divide la consulta.' };
+  }
+
+  const dateFilter = { gte: start, lte: end };
+  const [ranges, blocked] = await Promise.all([
+    prisma.availabilityRange.findMany({
+      where: { doctorId: ctx.doctorId, date: dateFilter },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+      select: { id: true, date: true, startTime: true, endTime: true, intervalMinutes: true },
+    }),
+    prisma.blockedTime.findMany({
+      where: { doctorId: ctx.doctorId, date: dateFilter },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+      select: { id: true, date: true, startTime: true, endTime: true, reason: true },
+    }),
+  ]);
+
+  // Totals FIRST: if the 8KB tool-result truncation cuts the arrays, the model
+  // still sees the real counts and can detect the list is incomplete (E2 pattern).
+  return {
+    totalRangos: ranges.length,
+    totalBloqueos: blocked.length,
+    rangos: ranges.map((r) => ({
+      id: r.id,
+      fecha: utcDateToKey(r.date),
+      inicio: r.startTime,
+      fin: r.endTime,
+      intervaloMinutos: r.intervalMinutes,
+    })),
+    bloqueos: blocked.map((b) => ({
+      id: b.id,
+      fecha: utcDateToKey(b.date),
+      inicio: b.startTime,
+      fin: b.endTime,
+      motivo: b.reason ?? null,
+    })),
+  };
+}
+
 async function getServices(ctx: ToolContext) {
   const services = await prisma.service.findMany({
     where: { doctorId: ctx.doctorId },
@@ -484,6 +544,8 @@ export async function executeTool(
       return getBookings(ctx, input as any);
     case 'get_availability':
       return getAvailability(ctx, input as any);
+    case 'get_ranges':
+      return getRanges(ctx, input as any);
     case 'get_services':
       return getServices(ctx);
     case 'get_locations':

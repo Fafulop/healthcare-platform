@@ -123,7 +123,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_unblock_time',
     description:
-      'PROPONE eliminar bloqueo(s) existentes (100% reversible). Los ids salen de get_day_schedule de ESTE turno — nunca los inventes.',
+      'PROPONE eliminar bloqueo(s) existentes (100% reversible). Los ids salen de get_day_schedule o get_ranges de ESTE turno — nunca los inventes.',
     input_schema: {
       type: 'object',
       properties: {
@@ -139,7 +139,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_delete_range',
     description:
-      'PROPONE eliminar rango(s) de disponibilidad por id (los ids salen de get_day_schedule de ESTE turno). El servidor te avisa qué rangos tienen citas activas dentro: esos serán RECHAZADOS al ejecutar — propone primero resolver las citas (el doctor lo hace en la interfaz; tú aún no puedes cancelar citas).',
+      'PROPONE eliminar rango(s) de disponibilidad por id (los ids salen de get_day_schedule o get_ranges de ESTE turno — para varios días usa get_ranges, UNA llamada). El servidor te avisa qué rangos tienen citas activas dentro: esos serán RECHAZADOS al ejecutar — propone primero resolver las citas (el doctor lo hace en la interfaz; tú aún no puedes cancelar citas).',
     input_schema: {
       type: 'object',
       properties: {

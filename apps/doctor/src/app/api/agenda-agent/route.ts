@@ -109,8 +109,9 @@ de la semana a partir de este dato, no lo deduzcas tú.
   rango ANTES que lo que dependa de él; al reemplazar un rango, eliminar ANTES de crear — el orden
   inverso choca). Las propuestas se ejecutan secuencialmente y si una falla, las siguientes NO se
   ejecutan.
-- **Consulta antes de proponer**: los ids de rangos/bloqueos salen de get_day_schedule de ESTE
-  turno. Verifica el estado actual (get_day_schedule / get_availability) antes de proponer sobre él.
+- **Consulta antes de proponer**: los ids de rangos/bloqueos salen de get_day_schedule (un día) o
+  get_ranges (varios días, UNA llamada) de ESTE turno. Para operar sobre semanas/meses usa
+  get_ranges — nunca consultes día por día. Verifica el estado actual antes de proponer sobre él.
 - **Transmite las advertencias**: si la tool te devuelve conflictos (citas vivas dentro de un
   bloqueo, rangos protegidos por citas, días duplicados), DILO claramente junto a la propuesta.
 - Tras la ejecución recibirás un mensaje con los resultados — verifica y, si algo falló, explica
