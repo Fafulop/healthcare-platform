@@ -94,15 +94,17 @@ Fuente: `VALID_TRANSITIONS` en `bookings/[id]/route.ts` (enforced server-side, i
 
 ### Bloque R — Rangos (`POST/DELETE appointments/ranges`, PR 2)
 
-- [ ] **RNG-1 · Crear rango único.** Setup: día sin rangos, 09:00–14:00 int. 30. → fila en `availability_ranges`, 📅 evento GCal (`googleEventId`). Valida: alta básica.
+- [x] **RNG-1 · Crear rango único.** Setup: día sin rangos, 09:00–14:00 int. 30. → fila en `availability_ranges`, 📅 evento GCal (`googleEventId`). Valida: alta básica. ✅ *Validado en vivo 2026-07-04 (rangos oct/nov creados y verificados en BD).*
 - [ ] **RNG-2 · Crear rango duplicado exacto.** Mismo doctor+date+startTime. → rechazo por `@@unique([doctorId, date, startTime])`. Valida: unicidad.
-- [ ] **RNG-3 · Crear rango que traslapa otro rango.** 09:00–14:00 existe, crear 12:00–16:00. → **409 con lista de conflictos**. Valida: overlap de rangos.
+- [x] **RNG-3 · Crear rango que traslapa otro rango.** 09:00–14:00 existe, crear 12:00–16:00. → **409 con lista de conflictos**. Valida: overlap de rangos. ✅ *Validado en vivo 2026-07-04: bulk de 14 rangos 09:00–14:00 sobre días con rango 07:00–14:00 → preview reportó "14 conflicto(s)" y la BD quedó sin ningún día con rangos traslapados (verificado: 1 rango por día en todo julio). ⚠️ UX: el botón "Crear" sigue habilitado con conflictos y al clickearlo NO pasa nada visible (el server rechaza en silencio) — backlog de UI; la card de `create_range` del agente debe hacerlo mejor: mostrar el 409 con su lista de conflictos (§7.1).*
 - [ ] **RNG-4 · Crear rango fuera de frontera de 15 min.** startTime 09:07. → rechazo (fronteras de 15 min). Valida: retícula de rangos.
-- [ ] **RNG-5 · Bulk/recurrente.** "Todos los lunes de julio 09:00–14:00". → N filas, duplicados saltados. Valida: `ranges/bulk`.
+- [x] **RNG-5 · Bulk/recurrente.** "Todos los lunes de julio 09:00–14:00". → N filas, duplicados saltados. Valida: `ranges/bulk`. ✅ *Validado en vivo 2026-07-04: ~23 rangos recurrentes (patrón de días hábiles, oct–nov) creados en una operación, verificados en BD.*
 - [ ] **RNG-6 · Borrar rango SIN citas.** → fila borrada, 📅 evento GCal removido. Valida: delete limpio.
-- [ ] **RNG-7 · Borrar rango CON cita activa (PENDING/CONFIRMED) dentro.** → **rechazo** con lista de citas. Valida: la protección que la card del agente debe mostrar ("no puedo: hay 2 citas").
-- [ ] **RNG-8 · Borrar rango cuyas citas están todas CANCELLED/COMPLETED.** → permitido (solo citas *activas* bloquean). Las citas quedan (freeform, no dependen del rango). Valida: definición de "activa".
-- [ ] **RNG-9 · Borrar rango con cita activa → cancelar la cita → reintentar borrado.** → segundo intento OK. Valida: el flujo de dos pasos que el agente propondrá.
+- [ ] **RNG-7 · Borrar rango individual (`ranges/[id]`) CON cita activa dentro.** → **rechazo** con lista de citas (auditoría `01`). ⚠️ OJO: esta protección es SOLO del camino individual — ver RNG-11. Pendiente de probar en vivo.
+- [ ] **RNG-8 · Borrar rango cuyas citas están todas CANCELLED/COMPLETED.** → permitido (solo citas *activas* bloquean en el camino individual). Las citas quedan (freeform, no dependen del rango). Valida: definición de "activa".
+- [ ] **RNG-9 · Borrar rango con cita activa → cancelar la cita → reintentar borrado.** → segundo intento OK. Valida: el flujo de dos pasos que el agente propondrá (camino individual).
+- [x] **RNG-11 · Borrado BULK por fechas (`ranges/bulk` DELETE) — política DISTINTA al individual.** → **procede aunque haya citas activas**: dryRun lista los rangos con citas ("protectedRanges" — nombre engañoso: se REPORTAN, no se protegen; el código lo dice: "Still delete — bookings are independent records"), los rangos se borran y las citas sobreviven como freeform huérfanas (siguen válidas y vigentes, solo desaparece la ventana para reservas nuevas). ✅ *Validado en vivo 2026-07-04: borrado jul 4–15 (12 rangos, 3 con citas) → vvvvvv/cita1/cita2 siguen CONFIRMED en BD, bloque extendido intacto.*
+- [x] **RNG-12 · Cascada de bloqueos en el borrado bulk.** → si un día queda con CERO rangos tras el bulk delete, **sus `blocked_times` se borran también** (`ranges/bulk/route.ts` líneas ~135-145). ✅ *Validado en vivo 2026-07-04: los bloqueos de lun 6 (00:00–23:30) y mar 7 (10:00–12:00) desaparecieron solos al borrar los rangos de esos días.* **Implicación PR 2:** la card de `delete_range` (bulk) debe avisar las DOS cosas: "quedan N citas vivas sin ventana" y "se borrarán los bloqueos de los días que queden sin rangos".
 - [ ] **RNG-10 · Rango en fecha pasada.** La **UI bloquea fechas pasadas**, pero el endpoint **NO** (verificado en código 2026-07-04: `ranges` POST valida retícula, endTime>startTime y overlaps — ninguna comparación contra hoy). Un caller directo lo crearía (inofensivo para pacientes: el cutoff lo oculta, pero ensucia datos). → **Requisito PR 2:** el tool `create_range` valida `date >= hoy (TZ MX)` server-side antes de proponer. Valida: paridad UI↔endpoint que el tool debe restaurar.
 
 ### Bloque B — Bloqueos (`POST appointments/ranges/block`, overlay; PR 2)
@@ -110,12 +112,12 @@ Fuente: `VALID_TRANSITIONS` en `bookings/[id]/route.ts` (enforced server-side, i
 El patrón **dryRun (default `true`) → confirmar** es el molde de las cards del agente.
 
 - [x] **BLK-1 · Bloquear día completo sin citas.** dryRun → preview (N días, 0 conflictos) → ejecutar. → filas en `blocked_times`; disponibilidad = 0. Valida: camino feliz. ✅ *Validado en vivo 2026-07-04 (bloqueo "ir por mi bici" dom 5 jul; el agente lo reportó con motivo).*
-- [ ] **BLK-2 · Bloquear rango de fechas multi-día.** "Vacaciones 15–22 jul". → un blocked_time por día **que tenga rangos**; `skippedNoRanges` cuenta los días sin agenda. Valida: expansión por fechas.
+- [x] **BLK-2 · Bloquear rango de fechas multi-día.** "Vacaciones 15–22 jul". → un blocked_time por día **que tenga rangos**; `skippedNoRanges` cuenta los días sin agenda. Valida: expansión por fechas. ✅ *Validado incidentalmente 2026-07-04: un bloqueo 09:00–18:00 creó filas en jul 5 Y jul 6 (mismo created_at en BD). Pendiente menor: `skippedNoRanges` con días sin agenda.*
 - [x] **BLK-3 · Bloquear sobre cita existente.** dryRun → `conflictDetails` lista la cita. → el bloqueo se crea IGUAL (overlay, no cancela nada) pero avisa. Valida: **el bloqueo no cancela citas** — la card del agente debe decir "hay 1 cita en ese horario, sigue viva". ✅ *Validado en vivo 2026-07-04 (lun 6 jul: bloqueo 07:00–18:00 + cita "vvvvvv" 09:00 CONFIRMED dentro; BD y agente coinciden, y el agente señaló la anomalía solo).*
-- [ ] **BLK-4 · Bloqueo duplicado (mismo día+horario).** → `skippedDuplicates`. Valida: idempotencia.
-- [ ] **BLK-5 · Bloqueo parcial (12:00–14:00 de un rango 09:00–18:00).** → disponibilidad muestra solo 09:00–12:00 y 14:00–18:00. Valida: overlay parcial.
+- [x] **BLK-4 · Bloqueo duplicado (mismo día+horario).** → `skippedDuplicates`. Valida: idempotencia. ✅ *Validado 2026-07-04: la UI directamente no deja crearlo; el endpoint (verificado en código, `ranges/block/route.ts`) lo salta con `skipDuplicates: true` y lo reporta en `skippedDuplicates` — un caller directo (tool del agente) no truena, recibe el conteo.*
+- [x] **BLK-5 · Bloqueo parcial (12:00–14:00 de un rango 09:00–18:00).** → disponibilidad muestra solo 09:00–12:00 y 14:00–18:00. Valida: overlay parcial. ✅ *Validado en vivo 2026-07-04 (mar 7 jul: bloqueo 10:00–12:00 sobre rango 07:00–14:00 → 14 huecos pasaron a exactamente los 10 correctos; el agente detectó el cambio entre turnos por sí solo).*
 - [x] **BLK-6 · Desbloquear.** Borrar la fila de `blocked_times`. → disponibilidad restaurada. Valida: reversibilidad total (única acción de agenda 100% reversible). ✅ *Validado en vivo 2026-07-04 (segunda ronda): todas las filas de dom 5 y lun 6 borradas en BD tras desbloquear en la UI. ⚠️ El primer intento ("undo") no borró nada — no reproducido; si vuelve a pasar, anotar qué control de la UI se usó.*
-- [ ] **BLK-7 · Bloquear → paciente intenta reservar ese hueco.** → el horario ya no aparece en availability; POST directo al horario → 409/rechazo. Valida: el overlay se respeta al crear.
+- [x] **BLK-7 · Bloquear → paciente intenta reservar ese hueco.** → el horario ya no aparece en availability; POST directo al horario → 409/rechazo. Valida: el overlay se respeta al crear. ✅ *Validado en vivo 2026-07-04: la página pública no ofrece 10:00–12:00 el martes (bloqueado) — el POST directo queda pendiente de probar cuando exista el tool de PR 3.*
 
 ### Bloque C — Crear cita (`POST range-bookings` / `instant`; PR 3)
 
@@ -135,8 +137,8 @@ El patrón **dryRun (default `true`) → confirmar** es el molde de las cards de
 
 ### Bloque E — Editar cita (PATCH datos, no status; PR 3)
 
-- [ ] **EDT-1 · Extender `extendedBlockMinutes` sin vecino.** → aceptado. Valida: edición simple.
-- [ ] **EDT-2 · Extender hasta traslapar la siguiente cita.** → **409** con detalle (fix ronda 2, se excluye a sí misma). Valida: overlap en edición.
+- [x] **EDT-1 · Extender `extendedBlockMinutes` sin vecino.** → aceptado. Valida: edición simple. ✅ *Validado en vivo 2026-07-04 (cita "vvvvvv" +347 min, visible en agente y UI).*
+- [x] **EDT-2 · Extender hasta traslapar la siguiente cita.** → **409** con detalle (fix ronda 2, se excluye a sí misma). Valida: overlap en edición. ✅ *Validado en vivo 2026-07-04 (rechazo al extender sobre la siguiente cita).*
 - [ ] **EDT-3 · Re-enviar confirmación (`send-email`).** → 📧⚠️. Tier 🔴 del agente. Valida: acción de notificación pura.
 - [ ] **EDT-4 · Form link / fiscal form link.** → link generado para el paciente. Valida: acciones auxiliares (post-v1 del agente).
 
@@ -154,7 +156,7 @@ El patrón **dryRun (default `true`) → confirmar** es el molde de las cards de
 | # | Orden A→B | Resultado | vs. orden inverso B→A |
 |---|---|---|---|
 | ORD-1 | Cita → bloquear encima | Bloqueo se crea + conflicto avisado; **cita sigue viva** (BLK-3) | Bloqueo → intentar cita: **cita rechazada** (BLK-7). *Asimetría clave: el bloqueo no expulsa, solo previene.* |
-| ORD-2 | Cita → borrar el rango | **Rechazado** si activa (RNG-7) | Borrar rango → cita: rechazo `NO_RANGE` (CIT-7). *El rango protege en ambas direcciones.* |
+| ORD-2 | Cita → borrar el rango | Individual: **rechazado** (RNG-7). Bulk: **procede**, cita queda huérfana pero viva (RNG-11) | Borrar rango → cita nueva: rechazo `NO_RANGE` (CIT-7). *La protección solo existe en el camino individual y solo hacia adelante.* |
 | ORD-3 | Cancelar cita → borrar rango | OK (RNG-9) | — flujo de 2 pasos que el agente debe saber proponer |
 | ORD-4 | Cita A → cita B pegada | B rechazada por buffer (CIT-5) | B → A: simétrico. *Pero por `instant` cualquiera de las dos entra (CIT-6).* |
 | ORD-5 | Confirmar → completar | OK, 💰 | Completar PENDING directo: **400** (TRX-10) — el agente propone 2 pasos |
@@ -199,8 +201,11 @@ El patrón **dryRun (default `true`) → confirmar** es el molde de las cards de
 2. **La card de `block_time` muestra SIEMPRE `conflictDetails`** (BLK-3): "bloqueo creado, PERO hay
    2 citas vivas en ese horario — ¿quieres que proponga cancelarlas?" (la cancelación es PR 3 → en
    PR 2 solo avisar).
-3. **La card de `delete_range` anticipa RNG-7**: el tool corre el check de citas activas ANTES de
-   proponer, y si hay, propone el flujo ORD-3 (cancelar primero) como texto, no como acción.
+3. **La card de `delete_range` anticipa RNG-7/RNG-11/RNG-12**: el tool corre el check de citas
+   activas ANTES de proponer. Camino individual: si hay citas, el endpoint rechaza — proponer el
+   flujo ORD-3 (cancelar primero) como texto. Camino bulk: el endpoint NO protege — la card debe
+   avisar explícitamente "quedan N citas vivas sin ventana" Y "los bloqueos de los días que queden
+   sin rangos se borran en cascada" (validado en vivo, 2026-07-04).
 4. **Regla 0 aplicada**: *activa*, *conflicto*, *duplicado*, *día sin rangos* se resuelven
    server-side (el dryRun del endpoint ya lo hace — el tool lo expone tal cual).
 4b. **`create_range` valida `date >= hoy` (TZ MX)** — la UI lo bloquea pero el endpoint no
@@ -212,8 +217,11 @@ El patrón **dryRun (default `true`) → confirmar** es el molde de las cards de
 
 ---
 
-*Estado:* catálogo creado 2026-07-04, verificado contra código (transiciones, block dryRun,
-auth). Pendiente: validar en vivo los checkboxes (método TOOLING) y confirmar RNG-10 (rango en
-pasado) contra el código. Relacionado: [`01-AUDIT`](01-AUDIT-agenda-rangos.md) (los fixes que
-estas permutaciones asumen), [`02-DISENO`](02-DISENO-tools-y-arquitectura.md) (tools y tiers),
-[`03-EDGE-CASES`](03-EDGE-CASES-lectura.md) (fase lectura).
+*Estado:* catálogo creado y validado en vivo el 2026-07-04 (método TOOLING). BLK-1..7 ✅ ·
+EDT-1/2 ✅ · RNG-1/3/5/11/12 ✅ · fase lectura ✅ (vencidas/E6/E7). Pendiente: RNG-2/7/8/9
+(camino individual, auditado en código), TRX en vivo (la UI no ofrece transiciones inválidas),
+bloque CIT (requiere buffer>0 en dr-prueba — PR 3). La campaña encontró y arregló 3 bugs del
+agente (E6 fantasma, E7 v1/v2) + regla 10; hallazgo mayor: doble política de borrado de rangos
+(RNG-11/12). Relacionado: [`01-AUDIT`](01-AUDIT-agenda-rangos.md),
+[`02-DISENO`](02-DISENO-tools-y-arquitectura.md), [`03-EDGE-CASES`](03-EDGE-CASES-lectura.md),
+resumen ejecutivo en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).

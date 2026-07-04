@@ -2,15 +2,17 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última actualización: **2026-07-03**.
+> Última actualización: **2026-07-04**.
 
 ---
 
 ## En una frase
 
 Agente de IA conversacional para la agenda (`/appointments`), construido **desde cero con
-tool-calling nativo** (Claude, loop multi-paso server-side). **PR 1 (solo lectura) está CONSTRUIDO
-y COMMITEADO** — falta la `ANTHROPIC_API_KEY` en Railway y el push para que viva.
+tool-calling nativo** (Claude, loop multi-paso server-side). **PR 1 (solo lectura) VIVE en prod y
+pasó la campaña de validación en vivo** (permutaciones `04`, 2026-07-04) — bloques BLK y EDT
+completos, RNG casi completo, 3 bugs del agente encontrados y arreglados en el camino. **Listo
+para arrancar PR 2** con los requisitos de `04 §7`.
 
 ## Estado: qué está hecho
 
@@ -82,29 +84,52 @@ martes 7 de julio correcto (E6), y los 9 weekdays de la lista de vencidas salier
 > nunca algo que el modelo infiera de una descripción. Cada fallo de esta bitácora se convierte en
 > un caso del set de evals (gap G11) antes de dar capacidades de escritura.
 
+## ✅ Campaña de validación de permutaciones (2026-07-04) — RESUMEN
+
+Catálogo exhaustivo en [`04-PERMUTACIONES-agenda.md`](04-PERMUTACIONES-agenda.md) (actor×acción,
+matriz completa de transiciones, orden, efectos secundarios) + validación en vivo con el método
+TOOLING (usuario actúa en la UI de prod → LLM verifica read-only en BD):
+
+- **Validado ✅:** fase lectura (vencidas=16 exactas, E6 weekday, E7 ocupadoHasta), BLK-1..7
+  completo, RNG-1/3/5/11/12, EDT-1/2. **Regla 10** (re-consultar cada turno) validada.
+- **Fixes del agente que salieron de la campaña** (todos en prod): E6 fantasma (weekday nunca
+  llegó al prompt en `412f599e`), E7 v1 (campo invisible) y **E7 v2** (semántica: la extensión
+  cuenta desde el INICIO — el doctor lo cazó comparando contra la UI, 15:32 vs 14:47), regla 10
+  anti-respuestas-viejas, formato de respuestas (viñetas •, plantilla de día, horas HH:MM–HH:MM).
+- **Descubrimiento clave (RNG-11/12):** hay DOS políticas de borrado de rangos — individual
+  rechaza si hay citas activas; **bulk procede** (citas quedan huérfanas pero vivas) y **borra en
+  cascada los bloqueos** de los días que quedan sin rangos. La card de `delete_range` de PR 2
+  debe avisar ambas cosas.
+- **Pendiente menor:** RNG-2/7/8/9 (camino individual, auditado en código, no observado en vivo);
+  CIT-* requiere `buffer > 0` en settings de dr-prueba (hoy 0) — es territorio PR 3.
+- **Backlog UI** (no bloquea): botón "Crear N rangos" habilitado con conflictos y sin feedback al
+  fallar; el "undo" de bloqueo que no borró (1 vez, no reproducido).
+- **Estado de datos de prueba:** jul 4–15 sin rangos con 3 citas huérfanas CONFIRMED (vvvvvv,
+  cita1, cita2); rangos de prueba oct–nov 2026 vivos (decidir limpieza).
+
 ## Próximos pasos
 
-1. Seguir probando el agente en vivo (calidad de respuestas: vencidas, disponibilidad,
-   find_patient) y anotar fallos aquí antes de dar más capacidades.
-2. **Pre-PR 2 (2026-07-04):** catálogo exhaustivo de permutaciones creado en
-   [`04-PERMUTACIONES-agenda.md`](04-PERMUTACIONES-agenda.md) (actor×acción, matriz de
-   transiciones, orden, efectos secundarios, requisitos §7 para PR 2). Los checkboxes se validan
-   en vivo con el método TOOLING; cada caso alimenta el set de evals (G11).
-3. **PR 2** — propuestas internas (create_range / block_time / delete_range) con cards de
-   confirmación. El patrón preview→confirm ya existe en `ranges/block` (`dryRun`). Requisitos
-   derivados de las permutaciones: ver `04` §7.
-4. **PR 3** — propuestas de citas (create/cancel/reschedule/complete). Requisitos previos del
+1. **PR 2** — propuestas internas (create_range / block_time / delete_range) con cards de
+   confirmación. El patrón preview→confirm ya existe en `ranges/block` (`dryRun`). **Requisitos
+   concretos derivados de la campaña: [`04 §7`](04-PERMUTACIONES-agenda.md)** (incl. validar
+   `date >= hoy` en create_range — el endpoint no lo hace — y los avisos dobles del delete bulk).
+2. **PR 3** — propuestas de citas (create/cancel/reschedule/complete). Requisitos previos del
    gap review: executor vía `completeBooking()` del hook (G1), re-validación al proponer (G3),
-   orden cancelar→crear en reschedule (G4), evals (~15 prompts) antes de mergear (G11).
-5. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
+   orden cancelar→crear en reschedule (G4), evals (~15 prompts) antes de mergear (G11). Antes:
+   poner buffer > 0 en dr-prueba y correr el bloque CIT de `04`.
+3. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
 
-## Commits (en `main`)
+## Commits (en `main`, todos desplegados)
 
-- `4a100ab6` fix(appointments): locks + overlap cross-family + buffer (auditoría ronda 2) — **desplegado**
-- `21aa4d59` fix: `$executeRaw` para el advisory lock (hotfix del outage) — **desplegado**
+- `4a100ab6` fix(appointments): locks + overlap cross-family + buffer (auditoría ronda 2)
+- `21aa4d59` fix: `$executeRaw` para el advisory lock (hotfix del outage)
 - `e8a02eb0` / `ec75f366` docs: research, auditoría, diseño, gap review
-- `fef2a3d0` feat(agenda-agent): PR 1 read-only — **sin push**
-- `b13a0049` fix(agenda-agent): 7 hallazgos del code-review — **sin push**
+- `fef2a3d0` + `b13a0049` feat(agenda-agent): PR 1 read-only + fixes del code-review
+- `1be4ac90` fix: vencidas server-side · `412f599e` fix: edge cases E1–E6
+- `bc7e2610` fix: E6 real (weekday) + E7 (ocupadoHasta) + doc `04-PERMUTACIONES`
+- `2eb6cc72` fix: regla 10 (re-consultar cada turno)
+- `3406c940` fix: E7 v2 (extensión cuenta desde el INICIO — max(fin, inicio+ext))
+- `35ec0532` feat: formato de respuestas (viñetas •, plantilla de día) + bullets reales en el panel
 
 ---
 

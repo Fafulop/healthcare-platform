@@ -21,7 +21,7 @@
 | [`01-AUDIT-agenda-rangos.md`](01-AUDIT-agenda-rangos.md) | **Auditoría del código de rangos** (2026-07-03): 4 hallazgos (cross-tenant en range-bookings, carrera de doble-booking, buffer no aplicado al crear, startTime sin retícula) + lo que sí está sólido. F1/F2 arreglar ANTES del agente. |
 | [`02-DISENO-tools-y-arquitectura.md`](02-DISENO-tools-y-arquitectura.md) | **Diseño del agente:** decisiones de arquitectura (tool-calling nativo, Claude, propone→doctor confirma), catálogo de tools de lectura/acción con tiers, reglas duras, y plan de build en 4 PRs. |
 | [`03-EDGE-CASES-lectura.md`](03-EDGE-CASES-lectura.md) | **Catálogo de edge cases** (fase lectura): 6 arreglados (E1–E6, disponibilidad sin servicio, conteos, próxima cita, acentos, precio, weekday) + límites reales que el agente debe admitir (L1–L5). |
-| [`04-PERMUTACIONES-agenda.md`](04-PERMUTACIONES-agenda.md) | **Catálogo exhaustivo de permutaciones** (pre-PR 2): matriz actor×acción, matriz completa de transiciones de estado, checklist por acción (rangos/bloqueos/citas/reagendar), permutaciones de orden, efectos secundarios por acción, y su traducción a requisitos de PR 2. |
+| [`04-PERMUTACIONES-agenda.md`](04-PERMUTACIONES-agenda.md) | **Catálogo exhaustivo de permutaciones + resultados de la validación en vivo** (2026-07-04): matriz actor×acción, matriz completa de transiciones, checklist por acción (BLK/EDT completos ✅, RNG casi ✅, CIT pendiente de buffer>0), permutaciones de orden, efectos secundarios, y requisitos §7 para PR 2 (incl. las dos políticas de borrado de rangos RNG-11/12). |
 | [`TOOLING-acceso-railway-db-agenda.md`](TOOLING-acceso-railway-db-agenda.md) | **Herramienta de verificación:** consultar la BD de prod (Railway, solo lectura) para verificar datos de agenda durante las pruebas — el equivalente al TOOLING de flujo de dinero. |
 
 ## Relación con otras carpetas
@@ -33,4 +33,5 @@
 - `../../flujo de dinero permutaciones/TOOLING-acceso-railway-db.md` — el método base de acceso a
   la BD (mismo mecanismo, distintas tablas).
 
-*Estado:* carpeta creada 2026-07-03.
+*Estado:* carpeta creada 2026-07-03. PR 1 en prod y validado en vivo (2026-07-04); siguiente: PR 2
+con los requisitos de `04 §7`.
