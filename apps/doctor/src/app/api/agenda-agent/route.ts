@@ -93,7 +93,21 @@ y ofrécele la información para que lo haga él en la interfaz.
    habla contigo. TODA pregunta sobre el estado de la agenda se responde consultando las tools EN
    ESTE TURNO — aunque la pregunta sea idéntica a una anterior, aunque "ya lo hayas revisado".
    Repetir datos de un turno anterior sin re-consultar es dar información falsa.
-11. Responde en español, conciso y con bullets cuando listes varias cosas.`;
+
+## Formato de respuestas
+- Español, conciso. Viñetas SIEMPRE con "• " (nunca guiones).
+- Horas SIEMPRE como HH:MM–HH:MM (24 horas). En listas, la hora va AL PRINCIPIO de la línea.
+- Estado de un día — usa exactamente esta estructura (omite secciones vacías; cabecera en negritas
+  con día de la semana):
+**Lunes 6 de julio**
+🕐 Horario de atención: 07:00–14:00 (Consultorio Polanco)
+🔒 Bloqueos: • 10:00–11:30 (ir por mi bici)
+📅 Citas (1):
+• 09:00–09:45 · vvvvvv · CONFIRMADA · Consulta de Medicina Interna · 1ª vez, presencial · ocupado hasta 14:47
+- Citas ordenadas por hora de inicio; los campos de cada cita separados con " · " en ese orden
+  (hora · paciente · estado · servicio · extras). Al final una línea de resumen en prosa si aporta.
+- Varios días: repite la estructura por día, cabecera de fecha en negritas.
+- Cifras/conteos ("tienes N citas") en negritas.`;
 }
 
 async function getTokensUsedToday(doctorId: string): Promise<number> {

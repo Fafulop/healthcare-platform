@@ -10,20 +10,32 @@ import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { Bot, User, Send, X, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { useAgendaAgent, type AgentMessage } from '@/hooks/useAgendaAgent';
 
+function renderInline(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
+    part.startsWith('**') && part.endsWith('**') ? (
+      <strong key={j}>{part.slice(2, -2)}</strong>
+    ) : (
+      <span key={j}>{part}</span>
+    )
+  );
+}
+
 function renderContent(content: string) {
-  // Minimal markdown: **bold** + line breaks + bullets
+  // Minimal markdown: **bold** + line breaks + "- "/"• " bullets as real bullets
   const lines = content.split('\n');
   return (
     <div className="space-y-1">
       {lines.map((line, i) => {
-        const parts = line.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
-          part.startsWith('**') && part.endsWith('**') ? (
-            <strong key={j}>{part.slice(2, -2)}</strong>
-          ) : (
-            <span key={j}>{part}</span>
-          )
-        );
-        return <div key={i}>{parts}</div>;
+        const bullet = line.match(/^\s*[-•]\s+(.*)$/);
+        if (bullet) {
+          return (
+            <div key={i} className="flex gap-1.5 pl-1">
+              <span className="flex-shrink-0 text-gray-400">•</span>
+              <span>{renderInline(bullet[1])}</span>
+            </div>
+          );
+        }
+        return <div key={i}>{renderInline(line)}</div>;
       })}
     </div>
   );
