@@ -109,12 +109,12 @@ Fuente: `VALID_TRANSITIONS` en `bookings/[id]/route.ts` (enforced server-side, i
 
 El patrón **dryRun (default `true`) → confirmar** es el molde de las cards del agente.
 
-- [ ] **BLK-1 · Bloquear día completo sin citas.** dryRun → preview (N días, 0 conflictos) → ejecutar. → filas en `blocked_times`; disponibilidad = 0. Valida: camino feliz.
+- [x] **BLK-1 · Bloquear día completo sin citas.** dryRun → preview (N días, 0 conflictos) → ejecutar. → filas en `blocked_times`; disponibilidad = 0. Valida: camino feliz. ✅ *Validado en vivo 2026-07-04 (bloqueo "ir por mi bici" dom 5 jul; el agente lo reportó con motivo).*
 - [ ] **BLK-2 · Bloquear rango de fechas multi-día.** "Vacaciones 15–22 jul". → un blocked_time por día **que tenga rangos**; `skippedNoRanges` cuenta los días sin agenda. Valida: expansión por fechas.
-- [ ] **BLK-3 · Bloquear sobre cita existente.** dryRun → `conflictDetails` lista la cita. → el bloqueo se crea IGUAL (overlay, no cancela nada) pero avisa. Valida: **el bloqueo no cancela citas** — la card del agente debe decir "hay 1 cita en ese horario, sigue viva".
+- [x] **BLK-3 · Bloquear sobre cita existente.** dryRun → `conflictDetails` lista la cita. → el bloqueo se crea IGUAL (overlay, no cancela nada) pero avisa. Valida: **el bloqueo no cancela citas** — la card del agente debe decir "hay 1 cita en ese horario, sigue viva". ✅ *Validado en vivo 2026-07-04 (lun 6 jul: bloqueo 07:00–18:00 + cita "vvvvvv" 09:00 CONFIRMED dentro; BD y agente coinciden, y el agente señaló la anomalía solo).*
 - [ ] **BLK-4 · Bloqueo duplicado (mismo día+horario).** → `skippedDuplicates`. Valida: idempotencia.
 - [ ] **BLK-5 · Bloqueo parcial (12:00–14:00 de un rango 09:00–18:00).** → disponibilidad muestra solo 09:00–12:00 y 14:00–18:00. Valida: overlay parcial.
-- [ ] **BLK-6 · Desbloquear.** Borrar la fila de `blocked_times`. → disponibilidad restaurada. Valida: reversibilidad total (única acción de agenda 100% reversible).
+- [ ] **BLK-6 · Desbloquear.** Borrar la fila de `blocked_times`. → disponibilidad restaurada. Valida: reversibilidad total (única acción de agenda 100% reversible). ⚠️ *Primer intento en vivo (2026-07-04) FALLÓ: el "undo" de un bloqueo multi-día 09:00–18:00 no borró las filas (siguen en BD para jul 5 Y jul 6) — investigar si el undo de la UI solo cubre un día o falla en silencio.*
 - [ ] **BLK-7 · Bloquear → paciente intenta reservar ese hueco.** → el horario ya no aparece en availability; POST directo al horario → 409/rechazo. Valida: el overlay se respeta al crear.
 
 ### Bloque C — Crear cita (`POST range-bookings` / `instant`; PR 3)

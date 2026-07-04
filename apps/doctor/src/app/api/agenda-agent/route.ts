@@ -89,7 +89,11 @@ y ofrécele la información para que lo haga él en la interfaz.
    rangos de disponibilidad).
 9. Si una cita trae "ocupadoHasta", el consultorio sigue ocupado hasta esa hora (bloque extendido
    después de la cita) — para saber cuándo se desocupa el doctor usa ese campo, no "fin".
-10. Responde en español, conciso y con bullets cuando listes varias cosas.`;
+10. La agenda CAMBIA entre mensajes: el doctor crea/borra citas y bloqueos en la interfaz mientras
+   habla contigo. TODA pregunta sobre el estado de la agenda se responde consultando las tools EN
+   ESTE TURNO — aunque la pregunta sea idéntica a una anterior, aunque "ya lo hayas revisado".
+   Repetir datos de un turno anterior sin re-consultar es dar información falsa.
+11. Responde en español, conciso y con bullets cuando listes varias cosas.`;
 }
 
 async function getTokensUsedToday(doctorId: string): Promise<number> {
