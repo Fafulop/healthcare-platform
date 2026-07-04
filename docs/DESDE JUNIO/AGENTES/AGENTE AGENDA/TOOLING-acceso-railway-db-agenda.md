@@ -80,10 +80,16 @@ WHERE doctor_id = '<DOCTOR_ID>' AND date = '<YYYY-MM-DD>' AND slot_id IS NULL
 ORDER BY start_time;
 
 -- 3. Citas vencidas (PENDING/CONFIRMED cuya hora ya pasó) — el indicador que el chat v1 vigilaba
-SELECT id, patient_name, status, to_char(date,'YYYY-MM-DD') AS fecha, end_time
-FROM public.bookings
-WHERE doctor_id = '<DOCTOR_ID>' AND status IN ('PENDING','CONFIRMED')
-  AND (date + end_time::time) < (now() AT TIME ZONE 'America/Mexico_City');
+-- ⚠️ Las citas legacy (slot_id NOT NULL) tienen date/end_time NULL en la fila: la fecha vive en
+-- el slot. Sin el JOIN la cuenta sale corta (detectado 2026-07-04: 6 vs 16 reales).
+SELECT b.id, b.patient_name, b.status,
+       to_char(coalesce(s.date, b.date),'YYYY-MM-DD') AS fecha,
+       coalesce(s.end_time, b.end_time) AS fin
+FROM public.bookings b
+LEFT JOIN public.appointment_slots s ON s.id = b.slot_id
+WHERE b.doctor_id = '<DOCTOR_ID>' AND b.status IN ('PENDING','CONFIRMED')
+  AND (coalesce(s.date, b.date) + coalesce(s.end_time, b.end_time)::time)
+      < (now() AT TIME ZONE 'America/Mexico_City');
 
 -- 4. Puente a Flujo de Dinero: la cita completada ¿creó su LedgerEntry?
 SELECT b.id AS booking, b.status, le.id AS ledger_entry, le.payment_status, le.amount

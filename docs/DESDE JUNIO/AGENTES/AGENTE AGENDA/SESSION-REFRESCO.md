@@ -68,6 +68,13 @@ y COMMITEADO** — falta la `ANTHROPIC_API_KEY` en Railway y el push para que vi
 | 2–7 | *(proactivo, sin fallo en vivo)* Caza sistemática de edge cases | 6 encontrados por análisis: disponibilidad sin servicio miente (E1), conteos >50 mal (E2), "próxima cita" ordenada por creación (E3), acentos en búsqueda (E4), precio ausente (E5), weekday mal calculado (E6) | Cada uno era lógica/definición dejada al modelo o dato faltante en el tool | Los 6 arreglados server-side + 2 reglas de honestidad en el prompt (contar con `totalEncontradas`; las citas no registran consultorio). Catálogo completo + límites L1–L5 en [`03-EDGE-CASES-lectura.md`](03-EDGE-CASES-lectura.md). ⚠️ **E6 en realidad NO quedó en ese commit** (el mensaje lo decía, el diff no) — ver fila 8 | `412f599e` |
 | 8–9 | *(análisis de alineación vs `04-PERMUTACIONES`, 2026-07-04)* | **E6 fantasma:** el weekday nunca llegó al prompt aunque commit y docs lo daban por hecho. **E7 nuevo:** `extendedBlockMinutes` invisible al agente → "¿a qué hora me desocupo?" respondía con el fin nominal (prod tiene extensiones de 60–705 min) | Commit message ≠ diff (E6); campo faltante en `BOOKING_SELECT` (E7) | E6: `mxTodayWeekday()` en el prompt. E7: `bloqueExtendidoMinutos` + `ocupadoHasta` (fin real server-side) en toda cita con extensión + regla 9 del prompt. Smoke-tested contra prod (510 min → 18:30 ✓). **Lección:** verificar que el diff cumpla lo que el mensaje del commit promete | *(este commit)* |
 
+**✅ Validación en vivo post-deploy `bc7e2610` (2026-07-04):** las 3 preguntas del plan de
+lectura pasaron: (1) *vencidas* = **16 exactas**, verificadas 1:1 contra la BD — de paso se
+detectó que la query #3 del TOOLING contaba 6 porque ignoraba las citas legacy por slot (fecha en
+el slot, no en la fila) → query corregida en el TOOLING; (2) *"¿qué tengo el martes?"* resolvió
+martes 7 de julio correcto (E6), y los 9 weekdays de la lista de vencidas salieron todos bien;
+(3) *"¿a qué hora me desocupo?"* usó `ocupadoHasta` (E7) y razonó bien el día sin extensiones.
+
 > **Lección de diseño (aplica a PR 2/3):** todo concepto con definición de negocio precisa
 > (*vencida*, *disponible*, *completo*) debe ser un **parámetro del tool que el servidor resuelve**,
 > nunca algo que el modelo infiera de una descripción. Cada fallo de esta bitácora se convierte en
