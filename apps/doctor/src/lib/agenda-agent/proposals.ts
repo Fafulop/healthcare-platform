@@ -54,6 +54,19 @@ export class ProposalCollector {
     this.proposals.push(proposal);
     return proposal;
   }
+
+  /** Range ids already proposed for deletion earlier in THIS plan. Later
+   * pre-checks treat them as gone (the executor deletes them first — plan-aware
+   * previews, the delete→create replacement pattern of 02-DISENO §3.1). */
+  pendingDeletedRangeIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const p of this.proposals) {
+      if (p.type === 'delete_range') {
+        for (const id of (p.params.rangeIds as string[]) ?? []) ids.add(id);
+      }
+    }
+    return ids;
+  }
 }
 
 export interface ProposalContext {
@@ -69,7 +82,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_create_range',
     description:
-      'PROPONE crear rango(s) de disponibilidad (el doctor confirma antes de ejecutar). Único: pasa "date". Recurrente: pasa "startDate"+"endDate"+"daysOfWeek" (0=domingo…6=sábado). El servidor pre-valida: fechas pasadas, retícula de 15 min, traslapes y duplicados con rangos existentes. Llama las propose_* EN EL ORDEN en que deben ejecutarse.',
+      'PROPONE crear rango(s) de disponibilidad (el doctor confirma antes de ejecutar). Único: pasa "date". Recurrente: pasa "startDate"+"endDate"+"daysOfWeek" (0=domingo…6=sábado). El servidor pre-valida: fechas pasadas, retícula de 15 min, traslapes y duplicados con rangos existentes. Llama las propose_* EN EL ORDEN en que deben ejecutarse. Para REEMPLAZAR un rango: propone primero delete_range y luego create_range en el MISMO plan — los rangos que un paso anterior elimina ya no cuentan como traslape.',
     input_schema: {
       type: 'object',
       properties: {
@@ -259,13 +272,22 @@ async function proposeCreateRange(
     return { error: 'Fecha demasiado lejana (máx 1 año).' };
   }
 
-  // Preview: overlaps/duplicates against existing ranges on those dates
+  // Preview: overlaps/duplicates against existing ranges on those dates —
+  // EXCLUDING ranges an earlier step of this plan deletes (plan-aware: the
+  // executor runs delete before create, so they won't exist at execution).
+  const pendingDeleted = ctx.collector.pendingDeletedRangeIds();
   const existing = await prisma.availabilityRange.findMany({
     where: { doctorId: ctx.doctorId, date: { in: dateKeys.map(dateKeyToUtcDate) } },
-    select: { date: true, startTime: true, endTime: true },
+    select: { id: true, date: true, startTime: true, endTime: true },
   });
   const byDate = new Map<string, { startTime: string; endTime: string }[]>();
+  let excludedByPlan = 0;
   for (const r of existing) {
+    if (pendingDeleted.has(r.id)) {
+      // Only a real dependency if this range would actually have conflicted
+      if (overlaps(input.startTime, input.endTime, r.startTime, r.endTime)) excludedByPlan++;
+      continue;
+    }
     const key = utcDateToKey(r.date);
     if (!byDate.has(key)) byDate.set(key, []);
     byDate.get(key)!.push({ startTime: r.startTime, endTime: r.endTime });
@@ -290,6 +312,11 @@ async function proposeCreateRange(
     };
   }
   const advertencias: string[] = [];
+  if (excludedByPlan > 0) {
+    advertencias.push(
+      `Depende de pasos anteriores del plan: ${excludedByPlan} rango(s) que traslapan serán eliminados antes por este mismo plan — si esa eliminación falla o se rechaza, este paso fallará con conflicto.`
+    );
+  }
 
   // The endpoint's daysOfWeek convention is Monday=0…Sunday=6 (ranges/route.ts
   // adjustedDay); the tool schema and expandDates use JS getUTCDay (Sunday=0).

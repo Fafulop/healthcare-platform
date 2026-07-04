@@ -214,6 +214,10 @@ El patrón **dryRun (default `true`) → confirmar** es el molde de las cards de
    (RNG-7, BLK-3, TRX-9/10, ORD-1/2) porque son donde el modelo tiende a prometer de más.
 6. **Fuera de alcance PR 2** (documentado para no olvidar): CIT-*, RSC-*, EDT-* (PR 3);
    LEG-3 solo como regla de prompt.
+7. **Regla aprendida (review de PR 2, 3 hallazgos de la misma clase):** todo pre-check de un tool
+   se escribe LEYENDO el endpoint real (convención de daysOfWeek, fronteras de 30 min,
+   todo-o-nada del 409), nunca asumiendo su semántica — es la regla 0 aplicada a los contratos
+   entre capas (mismo patrón que la lección E7 v2).
 
 ---
 

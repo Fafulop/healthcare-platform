@@ -86,6 +86,22 @@ de la semana a partir de este dato, no lo deduzcas tú.
    paciente — si el doctor lo pide, dile que esa capacidad llega pronto y dale la información
    para hacerlo él en la interfaz.
 
+## Peticiones ambiguas, enredadas o fuera de alcance
+- **Ambigüedad en datos clave** (¿cuál martes? ¿qué horario? ¿cuál de las dos citas de Juan?):
+  haz UNA pregunta concreta ofreciendo las opciones que ya conoces por tus tools — no adivines ni
+  pidas "más detalles" en genérico. Ej.: "¿Te refiero al martes 8 o al martes 15?".
+- **Petición multi-parte o enredada**: descompónla y PARAFRASEA tu plan en una lista numerada
+  ANTES de proponer ("Entiendo que quieres: 1)… 2)… ¿correcto?"). Si una parte es imposible o
+  ambigua, dilo por parte — nunca ignores partes de la petición en silencio.
+- **Fuera de tu alcance** (facturas, expediente, pagos, configuración): dilo directo y nombra lo
+  que SÍ haces: consultar agenda/citas/disponibilidad/pacientes y proponer rangos y bloqueos.
+- **Imposible por reglas del sistema**: una cita COMPLETADA/CANCELADA/NO ASISTIÓ no puede volver
+  a estado activo (son estados finales) — el camino es crear una cita nueva. No prometas
+  capacidades futuras para lo que el sistema no permite.
+- **Si de verdad no entiendes el mensaje**, dilo y muestra 2–3 ejemplos de lo que puedes hacer.
+- Nunca inventes una interpretación para "cumplir": una propuesta equivocada confirmada por error
+  es peor que una pregunta de más.
+
 ## Cómo proponer (importante)
 - **Clarifica antes de proponer**: si falta un dato ejecutable (qué día, qué horas, cuál rango),
   PREGUNTA — no adivines. Propón solo cuando el plan sea ejecutable tal cual.
@@ -175,6 +191,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    // Resilience against pasted walls of text / garbage: bound what enters the
+    // loop (every char is re-sent as input tokens on each iteration).
+    if (message.length > 4_000) {
+      return NextResponse.json(
+        { success: false, error: { code: 'MESSAGE_TOO_LONG', message: 'El mensaje es demasiado largo. Resume tu petición (máx ~4,000 caracteres).' } },
+        { status: 400 }
+      );
+    }
 
     // Daily budget (gap G6) + doctor slug — independent queries, run in parallel
     const [usedToday, doctor] = await Promise.all([
@@ -245,28 +269,30 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      // Execute requested tools server-side (doctorId injected via ctx)
+      // Execute requested tools server-side (doctorId injected via ctx).
+      // SEQUENTIAL on purpose: proposal registration order = the model's call
+      // order = execution order of the plan. Promise.all raced the collector
+      // (whichever query finished first got orden 1) and shuffled the cards.
       messages.push({ role: 'assistant', content: response.content });
 
-      const results = await Promise.all(
-        toolUses.map(async (tu) => {
-          toolsUsed.push(tu.name);
-          try {
-            const result = isProposalTool(tu.name)
-              ? await executeProposalTool(proposalCtx, tu.name, tu.input)
-              : await executeTool(ctx, tu.name, tu.input);
-            return { type: 'tool_result' as const, tool_use_id: tu.id, content: serializeToolResult(result) };
-          } catch (err: any) {
-            console.error(`[agenda-agent] tool ${tu.name} failed:`, err);
-            return {
-              type: 'tool_result' as const,
-              tool_use_id: tu.id,
-              content: JSON.stringify({ error: 'La consulta falló, intenta reformular.' }),
-              is_error: true,
-            };
-          }
-        })
-      );
+      const results = [];
+      for (const tu of toolUses) {
+        toolsUsed.push(tu.name);
+        try {
+          const result = isProposalTool(tu.name)
+            ? await executeProposalTool(proposalCtx, tu.name, tu.input)
+            : await executeTool(ctx, tu.name, tu.input);
+          results.push({ type: 'tool_result' as const, tool_use_id: tu.id, content: serializeToolResult(result) });
+        } catch (err: any) {
+          console.error(`[agenda-agent] tool ${tu.name} failed:`, err);
+          results.push({
+            type: 'tool_result' as const,
+            tool_use_id: tu.id,
+            content: JSON.stringify({ error: 'La consulta falló, intenta reformular.' }),
+            is_error: true,
+          });
+        }
+      }
 
       messages.push({ role: 'user', content: results });
     }

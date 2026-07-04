@@ -70,6 +70,10 @@ Doctor escribe → POST /api/agenda-agent { message, conversationHistory (≤12 
        Claude (system prompt + historial + tools) →
          tool_use de lectura   → executor Prisma / endpoint de availability → resultado (≤8KB)
          tool_use propose_*    → pre-checks server-side → registra propuesta ordenada → preview
+       (los tool_use de una respuesta se ejecutan SECUENCIALMENTE: orden de registro = orden de
+        llamada del modelo = orden del plan — Promise.all los barajaba, bitácora fila 14)
+       (pre-checks PLAN-AWARE: create_range excluye del overlap los rangos que un paso anterior
+        del MISMO plan elimina → el patrón reemplazo eliminar→crear cabe en un solo plan)
        … hasta respuesta de texto (o síntesis forzada con tool_choice:none si se agota)
   4. logTokenUsage → respuesta { reply, toolsUsed, proposals[] }
 
@@ -156,6 +160,11 @@ lo re-valida contra el token de todas formas).
 1. **Contexto temporal**: fecha-hora MX + **weekday** server-side (E6) + "deriva los demás días
    de aquí".
 2. **Capacidades**: consultas autónomas · propuestas con confirmación · citas AÚN NO.
+2b. **Resiliencia a peticiones raras**: ambigüedad → UNA pregunta concreta con opciones de los
+   tools; multi-parte → parafrasear el plan numerado antes de proponer y responder por parte;
+   fuera de alcance → decirlo y nombrar capacidades; imposible por reglas (estados terminales) →
+   explicar el camino real; sin interpretar a ciegas ("propuesta equivocada confirmada > pregunta
+   de más"). Estructural: mensajes >4,000 chars → 400 amable (no entran al loop).
 3. **Cómo proponer**: clarificar antes de proponer; propose_* EN ORDEN de ejecución (crear antes
    que lo dependiente, borrar antes de crear al reemplazar); ids solo de `get_day_schedule` del
    turno; transmitir advertencias; verificar resultados post-ejecución.
@@ -186,6 +195,7 @@ lo re-valida contra el token de todas formas).
 | L3 | Corte de presupuesto en UTC-6 fijo | Tijuana/DST desfasa solo el reset del cap, no datos |
 | L4 | Historial ≤12 turnos, sin persistencia | G10 — se re-evalúa post-PR 2 |
 | L5 | Caps de fetch (300 pacientes / 200 citas / 120 días) | `totalEncontradas` delata truncados |
+| — | Dependencias entre pasos del plan son ADVISORIAS | El executor corta la cadena solo ante fallo total de un paso; un delete parcialmente exitoso o una card rechazada deja correr al paso dependiente, que falla **seguro y visible** en el endpoint (409). Aristas de dependencia reales = post-v1 |
 | — | Sin streaming/estado progresivo (G9) | El panel muestra spinner; mejorar si la latencia molesta |
 | — | Estados terminales | COMPLETED/NO_SHOW/CANCELLED no se revierten jamás — el camino es cita nueva |
 
