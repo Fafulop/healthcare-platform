@@ -18,6 +18,24 @@ export function mxTodayKey(): string {
   return mxNowString().split(' ')[0];
 }
 
+/** Spanish weekday name of today in Mexico City ("viernes"). LLMs miscompute
+ * day-of-week from a bare date, so the prompt states it explicitly (E6). */
+export function mxTodayWeekday(): string {
+  return new Date().toLocaleDateString('es-MX', {
+    weekday: 'long',
+    timeZone: 'America/Mexico_City',
+  });
+}
+
+/** "HH:MM" plus N minutes, clamped to 23:59 (same clamp as booking-overlap). */
+export function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number);
+  const total = Math.min(h * 60 + m + minutes, 23 * 60 + 59);
+  const hh = String(Math.floor(total / 60)).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
 /** Normalize a "YYYY-MM-DD" key to the midnight-UTC Date the DB stores. */
 export function dateKeyToUtcDate(dateKey: string): Date {
   const d = new Date(dateKey + 'T12:00:00Z');

@@ -65,7 +65,8 @@ y COMMITEADO** — falta la `ANTHROPIC_API_KEY` en Railway y el push para que vi
 | # | Pregunta | Fallo observado | Causa raíz | Fix | Commit |
 |---|---|---|---|---|---|
 | 1 | "¿Tengo citas vencidas?" | Reportó **1 de 13** vencidas (solo la PENDING; ignoró las 12 CONFIRMED expiradas) | El modelo **reconstruyó** la definición de "vencida" filtrando `status=PENDING` por su cuenta | `get_bookings` ahora acepta **`vencidas: true`** — la definición completa (PENDING **o** CONFIRMED + hora pasada, TZ MX) vive **server-side**; prompt + descripción del tool obligan a usar el flag. Verificado contra prod: encuentra exactamente las 13 de la UI | `1be4ac90` |
-| 2–7 | *(proactivo, sin fallo en vivo)* Caza sistemática de edge cases | 6 encontrados por análisis: disponibilidad sin servicio miente (E1), conteos >50 mal (E2), "próxima cita" ordenada por creación (E3), acentos en búsqueda (E4), precio ausente (E5), weekday mal calculado (E6) | Cada uno era lógica/definición dejada al modelo o dato faltante en el tool | Los 6 arreglados server-side + 2 reglas de honestidad en el prompt (contar con `totalEncontradas`; las citas no registran consultorio). Catálogo completo + límites L1–L5 en [`03-EDGE-CASES-lectura.md`](03-EDGE-CASES-lectura.md) | `412f599e` |
+| 2–7 | *(proactivo, sin fallo en vivo)* Caza sistemática de edge cases | 6 encontrados por análisis: disponibilidad sin servicio miente (E1), conteos >50 mal (E2), "próxima cita" ordenada por creación (E3), acentos en búsqueda (E4), precio ausente (E5), weekday mal calculado (E6) | Cada uno era lógica/definición dejada al modelo o dato faltante en el tool | Los 6 arreglados server-side + 2 reglas de honestidad en el prompt (contar con `totalEncontradas`; las citas no registran consultorio). Catálogo completo + límites L1–L5 en [`03-EDGE-CASES-lectura.md`](03-EDGE-CASES-lectura.md). ⚠️ **E6 en realidad NO quedó en ese commit** (el mensaje lo decía, el diff no) — ver fila 8 | `412f599e` |
+| 8–9 | *(análisis de alineación vs `04-PERMUTACIONES`, 2026-07-04)* | **E6 fantasma:** el weekday nunca llegó al prompt aunque commit y docs lo daban por hecho. **E7 nuevo:** `extendedBlockMinutes` invisible al agente → "¿a qué hora me desocupo?" respondía con el fin nominal (prod tiene extensiones de 60–705 min) | Commit message ≠ diff (E6); campo faltante en `BOOKING_SELECT` (E7) | E6: `mxTodayWeekday()` en el prompt. E7: `bloqueExtendidoMinutos` + `ocupadoHasta` (fin real server-side) en toda cita con extensión + regla 9 del prompt. Smoke-tested contra prod (510 min → 18:30 ✓). **Lección:** verificar que el diff cumpla lo que el mensaje del commit promete | *(este commit)* |
 
 > **Lección de diseño (aplica a PR 2/3):** todo concepto con definición de negocio precisa
 > (*vencida*, *disponible*, *completo*) debe ser un **parámetro del tool que el servidor resuelve**,
@@ -76,12 +77,17 @@ y COMMITEADO** — falta la `ANTHROPIC_API_KEY` en Railway y el push para que vi
 
 1. Seguir probando el agente en vivo (calidad de respuestas: vencidas, disponibilidad,
    find_patient) y anotar fallos aquí antes de dar más capacidades.
-2. **PR 2** — propuestas internas (create_range / block_time / delete_range) con cards de
-   confirmación. El patrón preview→confirm ya existe en `ranges/block` (`dryRun`).
-3. **PR 3** — propuestas de citas (create/cancel/reschedule/complete). Requisitos previos del
+2. **Pre-PR 2 (2026-07-04):** catálogo exhaustivo de permutaciones creado en
+   [`04-PERMUTACIONES-agenda.md`](04-PERMUTACIONES-agenda.md) (actor×acción, matriz de
+   transiciones, orden, efectos secundarios, requisitos §7 para PR 2). Los checkboxes se validan
+   en vivo con el método TOOLING; cada caso alimenta el set de evals (G11).
+3. **PR 2** — propuestas internas (create_range / block_time / delete_range) con cards de
+   confirmación. El patrón preview→confirm ya existe en `ranges/block` (`dryRun`). Requisitos
+   derivados de las permutaciones: ver `04` §7.
+4. **PR 3** — propuestas de citas (create/cancel/reschedule/complete). Requisitos previos del
    gap review: executor vía `completeBooking()` del hook (G1), re-validación al proponer (G3),
    orden cancelar→crear en reschedule (G4), evals (~15 prompts) antes de mergear (G11).
-4. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
+5. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
 
 ## Commits (en `main`)
 

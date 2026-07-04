@@ -26,7 +26,7 @@ import {
   type ToolUseBlock,
 } from '@/lib/agenda-agent/anthropic';
 import { AGENT_TOOLS, executeTool, type ToolContext } from '@/lib/agenda-agent/tools';
-import { mxNowString, mxTodayKey } from '@/lib/agenda-agent/dates';
+import { mxNowString, mxTodayKey, mxTodayWeekday } from '@/lib/agenda-agent/dates';
 
 const MODEL = process.env.AGENDA_AGENT_MODEL || 'claude-sonnet-5';
 const MAX_ITERATIONS = 8;
@@ -57,9 +57,11 @@ function extractText(content: { type: string }[]): string {
 function buildSystemPrompt(): string {
   const now = mxNowString();
   const today = mxTodayKey();
+  const weekday = mxTodayWeekday();
   return `Eres el asistente de agenda de un consultorio médico en México.
 
-Ahora mismo es ${now} (America/Mexico_City). Hoy es ${today}.
+Ahora mismo es ${now} (America/Mexico_City). Hoy es ${weekday} ${today} — calcula los demás días
+de la semana a partir de este dato, no lo deduzcas tú.
 
 ## Qué puedes hacer (por ahora SOLO LECTURA)
 Consultar la agenda con tus tools: horarios del día, citas (con filtros), disponibilidad real,
@@ -85,7 +87,9 @@ y ofrécele la información para que lo haga él en la interfaz.
 8. Las citas NO registran en qué consultorio fueron: si preguntan por citas de un consultorio
    específico, explica honestamente que ese filtro no existe (los consultorios solo aplican a los
    rangos de disponibilidad).
-9. Responde en español, conciso y con bullets cuando listes varias cosas.`;
+9. Si una cita trae "ocupadoHasta", el consultorio sigue ocupado hasta esa hora (bloque extendido
+   después de la cita) — para saber cuándo se desocupa el doctor usa ese campo, no "fin".
+10. Responde en español, conciso y con bullets cuando listes varias cosas.`;
 }
 
 async function getTokensUsedToday(doctorId: string): Promise<number> {

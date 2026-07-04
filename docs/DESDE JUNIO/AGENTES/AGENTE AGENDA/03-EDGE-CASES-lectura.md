@@ -20,7 +20,8 @@ reales mexicanos los garantizan), 4 servicios activos.
 | E3 | "¿Cuál es mi próxima cita?" | Orden por **fecha de creación**, no de la cita; SQL no puede ordenar por fecha resuelta (las legacy la traen en el slot) | Sort cronológico en JS post-resolución; ascendente para consultas a futuro |
 | E4 | "Busca a Jose" (paciente guardado "José") | `contains` de Postgres es case- pero **no accent-insensitive** → 0 resultados | `find_patient` trae los pacientes del doctor + 300 citas recientes y matchea con **fold de acentos** en JS (José↔Jose, Muñoz↔Munoz ✓ testeado) |
 | E5 | "¿Cuánto facturé esta semana en citas?" | `precio` no venía en la lista de citas | `precio` (finalPrice) incluido en toda cita mapeada |
-| E6 | "¿Qué tengo el martes?" | El prompt daba la fecha pero no el **día de la semana** → los LLM se equivocan calculando weekdays | El prompt ahora dice "Hoy es jueves 3 de julio…" (día calculado server-side, TZ MX) |
+| E6 | "¿Qué tengo el martes?" | El prompt daba la fecha pero no el **día de la semana** → los LLM se equivocan calculando weekdays | ⚠️ El commit `412f599e` lo DECÍA arreglado pero el diff no lo incluía (detectado 2026-07-04 en el análisis de alineación) — arreglado de verdad: `mxTodayWeekday()` (es-MX, TZ MX) en el prompt + instrucción de derivar los demás días de ahí |
+| E7 | "¿A qué hora me desocupo hoy?" (cita con bloque extendido) | `extendedBlockMinutes` no venía en el mapping → una cita 10:00–10:30 +180 min se reportaba libre desde las 10:30 (en prod hay extensiones de 60–705 min) | `BOOKING_SELECT` incluye `extendedBlockMinutes`; toda cita con extensión trae `bloqueExtendidoMinutos` + **`ocupadoHasta`** (fin real calculado server-side, clamp 23:59) + prompt regla 9: usar `ocupadoHasta`, no `fin` |
 
 ## 📋 Límites reales documentados (el agente debe ADMITIRLOS, no adivinar)
 

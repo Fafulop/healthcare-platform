@@ -8,7 +8,7 @@
 
 import { prisma } from '@healthcare/database';
 import type { AnthropicTool } from './anthropic';
-import { dateKeyToUtcDate, utcDateToKey, isVencida, mxTodayKey } from './dates';
+import { dateKeyToUtcDate, utcDateToKey, isVencida, mxTodayKey, addMinutesToTime } from './dates';
 
 // Server-side fetch needs an absolute URL — same fallback as the other
 // server→server callers in apps/doctor (medical-records/tasks, calendar).
@@ -122,6 +122,7 @@ const BOOKING_SELECT = {
   isFirstTime: true,
   appointmentMode: true,
   finalPrice: true,
+  extendedBlockMinutes: true,
   date: true,
   startTime: true,
   endTime: true,
@@ -136,6 +137,7 @@ function mapBooking(b: {
   isFirstTime: boolean | null;
   appointmentMode: string | null;
   finalPrice: unknown;
+  extendedBlockMinutes: number | null;
   date: Date | null;
   startTime: string | null;
   endTime: string | null;
@@ -145,6 +147,12 @@ function mapBooking(b: {
   const startTime = b.slot?.startTime ?? b.startTime;
   const endTime = b.slot?.endTime ?? b.endTime;
   const fecha = date ? utcDateToKey(date) : null;
+  // Extended block: the room stays occupied past the nominal end. Compute the
+  // real occupied end server-side (regla 0) so the model never does time math.
+  // Only PENDING/CONFIRMED actually occupy — same filter as the availability
+  // engine (range-availability); a cancelled/no-show extension blocks nothing.
+  const ext =
+    b.status === 'PENDING' || b.status === 'CONFIRMED' ? (b.extendedBlockMinutes ?? 0) : 0;
   return {
     id: b.id,
     paciente: b.patientName,
@@ -152,6 +160,9 @@ function mapBooking(b: {
     fecha,
     inicio: startTime,
     fin: endTime,
+    ...(ext > 0 && endTime
+      ? { bloqueExtendidoMinutos: ext, ocupadoHasta: addMinutesToTime(endTime, ext) }
+      : {}),
     servicio: b.serviceName ?? null,
     precio: Number(b.finalPrice),
     primeraVez: b.isFirstTime ?? false,
