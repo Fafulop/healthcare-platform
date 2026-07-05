@@ -121,19 +121,22 @@ El patrón **dryRun (default `true`) → confirmar** es el molde de las cards de
 
 ### Bloque C — Crear cita (`POST range-bookings` / `instant`; PR 3)
 
-- [ ] **CIT-1 · Público, horario válido.** → PENDING, 📱📧🤖📅, `confirmationCode` único. Valida: nacimiento público.
-- [ ] **CIT-2 · Doctor (mismo endpoint).** → nace **CONFIRMED** directo. Valida: rama por rol.
-- [ ] **CIT-3 · Doctor con `doctorId` de OTRO doctor.** → **403** (fix F1). Valida: cross-tenant cerrado.
-- [ ] **CIT-4 · Horario ocupado (overlap exacto).** → 409 con detalle. Valida: overlap básico.
-- [ ] **CIT-5 · Horario pegado a otra cita, dentro del buffer.** Buffer=15, cita existente termina 10:00, intentar 10:00. → **409** (fix F3: `blockEnd = extendedEnd + buffer`). Valida: buffer al crear.
-- [ ] **CIT-6 · Mismo caso vía `instant`.** → **aceptado** (decisión: instant es el override deliberado del doctor, sin buffer ni rango). Valida: la diferencia de rutas que el agente debe conocer — *proponer instant solo cuando el doctor pide explícitamente fuera de horario*.
-- [ ] **CIT-7 · Horario fuera de todo rango (ruta normal).** → rechazo `NO_RANGE`. Valida: cita requiere ventana.
-- [ ] **CIT-8 · Horario fuera de retícula (09:07 dentro del rango).** → **aceptado hoy** (F4 abierto). Neutralización: el tool del agente solo propone `startTime` que salga de `get_availability`. Valida: el hueco conocido que el diseño del tool tapa.
-- [ ] **CIT-9 · Dos requests simultáneos al mismo hueco.** → uno crea, el otro **409** (advisory lock F2; `$executeRaw` — lección del outage). Bajo ráfaga extrema: **503** retriable (P2028). Valida: anti doble-booking.
-- [ ] **CIT-10 · Campos requeridos por canal.** Doctor con `bookingPublicEmailRequired=true`: POST público sin email → 400; el mismo doctor por `bookingHorarios` puede tener otra config. Valida: requisitos por canal — el tool `create_booking` del agente debe pedir los datos que la config exija.
-- [ ] **CIT-11 · Cutoff de 1h (público).** Hueco a 30 min de ahora: no aparece al paciente; el doctor/agente con `skipCutoff=1` sí lo ve. Valida: la asimetría doctor/paciente de PR 1.
-- [ ] **CIT-12 · Cita con `extendedBlockMinutes`.** Cita 10:00–10:30 +30 ext. → siguiente hueco disponible 11:00 (+buffer). Valida: bloque extendido en disponibilidad y overlap.
-- [ ] **CIT-13 · Con `patientId` (expediente) vs walk-in.** → link al expediente vs datos sueltos. Valida: los dos modos que `find_patient` alimenta.
+> **Campaña CIT corrida el 2026-07-05** (sin buffer — ver decisión en CIT-5). Método: UI/portal
+> público + 2 probes de POST directo (los rechazos no crean filas — verificado `PROBE-% = 0`).
+
+- [x] **CIT-1 · Público, horario válido.** → PENDING, 📱📧🤖📅, `confirmationCode` único. Valida: nacimiento público. ✅ *2026-07-05: "CIT1" PENDING, código `FA0ILVCR`, GCal ✓ (sin email — no se capturó dirección; los settings no lo exigen).*
+- [x] **CIT-2 · Doctor (mismo endpoint).** → nace **CONFIRMED** directo. Valida: rama por rol. ✅ *2026-07-05: "CIT2" CONFIRMED en BD.*
+- [ ] **CIT-3 · Doctor con `doctorId` de OTRO doctor.** → **403** (fix F1). Valida: cross-tenant cerrado. *Requiere token de un segundo doctor — queda auditado en código.*
+- [x] **CIT-4 · Horario ocupado (overlap exacto).** → 409 con detalle. Valida: overlap básico. ✅ *2026-07-05: POST directo al horario de CIT2 → **409**, 0 filas creadas (la UI ni siquiera ofrece el hueco — el probe valida la capa que usará el agente).*
+- [~] **CIT-5 · Buffer al crear.** ⏭️ **SKIPPED por decisión (2026-07-05):** el buffer agrega complejidad innecesaria — la feature está DORMIDA en prod (los 11 doctores tienen 0 y **no existe UI ni endpoint que lo escriba**; solo se lee en calculator/overlap). Con buffer=0 el código es inerte. Si algún día se activa, correr este caso primero.
+- [ ] **CIT-6 · Fuera de horario vía `instant`.** → aceptado (override deliberado del doctor). **Hallazgo 2026-07-05: la UI ya NO puede producirlo** — el picker de "Agendar paciente" solo ofrece horarios de availability; el override existe SOLO a nivel endpoint (`range-bookings/instant`). → **Decisión explícita para PR 3:** si `create_booking` usa instant, el agente tendría una capacidad que la UI no tiene.
+- [x] **CIT-7 · Horario fuera de todo rango (ruta normal).** → rechazo `NO_RANGE`. Valida: cita requiere ventana. ✅ *2026-07-05: POST directo a martes sin rangos → **400**, 0 filas creadas.*
+- [ ] **CIT-8 · Horario fuera de retícula (09:07 dentro del rango).** → **aceptado hoy** (F4 abierto). No se probó en vivo a propósito (si acepta, CREA la cita). Neutralización vigente: el tool del agente solo propone `startTime` que salga de `get_availability`.
+- [ ] **CIT-9 · Dos requests simultáneos al mismo hueco.** → uno crea, el otro **409** (advisory lock F2; `$executeRaw` — lección del outage). Bajo ráfaga extrema: **503** retriable (P2028). *Requiere script de concurrencia — diferido.*
+- [ ] **CIT-10 · Campos requeridos por canal.** *Requiere togglear settings del doctor (hoy todos false) — diferido.*
+- [ ] **CIT-11 · Cutoff de 1h (público).** *Requiere un rango dentro de la próxima hora real — probar cualquier día con agenda.*
+- [x] **CIT-12 · Cita con `extendedBlockMinutes`.** Valida: bloque extendido en disponibilidad y overlap. ✅ *2026-07-05: CIT2 +165 min (09:00–09:45 → ocupado hasta 11:45); el agente respondió "te desocupas a las 11:45" correcto (E7 en vivo con datos frescos).*
+- [x] **CIT-13 · Con `patientId` (expediente) vs walk-in.** → link al expediente vs datos sueltos. Valida: los dos modos que `find_patient` alimenta. ✅ *2026-07-05: walk-in ("CIT13", patient_id NULL) + vinculación post-hoc vía "Buscar paciente" del card ("cti13", patient_id escrito en BD). Nota: NO existe flujo "crear cita desde el expediente" — idea de feature a futuro (botón en el expediente → cita pre-vinculada); PR 3 da la versión conversacional gratis (find_patient → create_booking con patientId).*
 
 ### Bloque E — Editar cita (PATCH datos, no status; PR 3)
 
@@ -222,9 +225,11 @@ El patrón **dryRun (default `true`) → confirmar** es el molde de las cards de
 ---
 
 *Estado:* catálogo creado y validado en vivo el 2026-07-04 (método TOOLING). BLK-1..7 ✅ ·
-EDT-1/2 ✅ · RNG-1/3/5/11/12 ✅ · fase lectura ✅ (vencidas/E6/E7). Pendiente: RNG-2/7/8/9
-(camino individual, auditado en código), TRX en vivo (la UI no ofrece transiciones inválidas),
-bloque CIT (requiere buffer>0 en dr-prueba — PR 3). La campaña encontró y arregló 3 bugs del
+EDT-1/2 ✅ · RNG-1/3/5/11/12 ✅ · fase lectura ✅ (vencidas/E6/E7) · **CIT-1/2/4/7/12/13 ✅
+(campaña 2026-07-05; CIT-5 skipped — buffer dormido por decisión; CIT-6 solo-endpoint → decisión
+PR 3)**. Pendiente: RNG-2/7/8/9 (camino individual, auditado en código), TRX en vivo (la UI no
+ofrece transiciones inválidas; TRX-6/ledger es el eval crítico de PR 3), CIT-9/10/11 (diferidos
+con razón anotada). La campaña encontró y arregló 3 bugs del
 agente (E6 fantasma, E7 v1/v2) + regla 10; hallazgo mayor: doble política de borrado de rangos
 (RNG-11/12). Relacionado: [`01-AUDIT`](01-AUDIT-agenda-rangos.md),
 [`02-DISENO`](02-DISENO-tools-y-arquitectura.md), [`03-EDGE-CASES`](03-EDGE-CASES-lectura.md),

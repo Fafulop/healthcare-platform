@@ -64,6 +64,9 @@ de rangos/bloqueos con cards de confirmación) VIVEN en prod, ambos validados en
 - El modelo NUNCA aporta `doctorId` ni IDs sin validar contra la sesión.
 - Regla dura post-outage: **todo SQL crudo / query shape nuevo se smoke-testea contra prod
   (read-only, `railway run`) ANTES de push** — no hay staging.
+- **Buffer: NO se activa (2026-07-05).** Agrega complejidad innecesaria; la feature está dormida
+  en prod (11/11 doctores en 0, no existe UI ni endpoint que la escriba — solo se lee). CIT-5
+  queda fuera de alcance; con buffer=0 ese código es inerte.
 
 ## Bitácora de pruebas en vivo (fallos → fixes → evals futuros)
 
@@ -111,12 +114,21 @@ TOOLING (usuario actúa en la UI de prod → LLM verifica read-only en BD):
   rechaza si hay citas activas; **bulk procede** (citas quedan huérfanas pero vivas) y **borra en
   cascada los bloqueos** de los días que quedan sin rangos. La card de `delete_range` de PR 2
   debe avisar ambas cosas.
-- **Pendiente menor:** RNG-2/7/8/9 (camino individual, auditado en código, no observado en vivo);
-  CIT-* requiere `buffer > 0` en settings de dr-prueba (hoy 0) — es territorio PR 3.
+- **Pendiente menor:** RNG-2/7/8/9 (camino individual, auditado en código, no observado en vivo).
+- **✅ Campaña CIT (2026-07-05, sin buffer):** CIT-1/2/4/7/12/13 validados en vivo (4 y 7 con
+  POSTs directos al endpoint público → 409/400, cero filas creadas — la capa que usará el agente
+  en PR 3); CIT-12 cerró el loop con el agente ("te desocupas a las 11:45" ✓ contra BD). CIT-5
+  skipped (decisión buffer). **Hallazgo CIT-6:** el override fuera-de-horario ya NO es alcanzable
+  desde la UI (el picker solo ofrece availability) — existe solo a nivel endpoint → decisión
+  explícita en PR 3 sobre si el agente lo usa. Detalle por caso en el Bloque C de `04`.
 - **Backlog UI** (no bloquea): botón "Crear N rangos" habilitado con conflictos y sin feedback al
   fallar. ✅ El "undo" de bloqueo que no borró — RESUELTO 2026-07-05: el modal "Gestionar
   Bloqueos" era ciego a otros meses (lista month-scoped); fix `4ddab2ff`. Hallazgo del método
   INVERSO: el agente (correcto contra BD) contradijo a la UI — el agente cazó un bug de la UI.
+- **Ideas de feature (backlog):** (a) crear cita desde el expediente del paciente, pre-vinculada
+  (`patientId`) — hoy no existe ese flujo; la vinculación es post-hoc vía "Buscar paciente" en el
+  card (validado que SÍ escribe `patient_id`). PR 3 da la versión conversacional gratis. (b) UI
+  de settings para el buffer — solo si algún día se decide activarlo.
 - **Estado de datos de prueba:** jul 4–15 sin rangos con 3 citas huérfanas CONFIRMED (vvvvvv,
   cita1, cita2); rangos de prueba oct–nov 2026 vivos (decidir limpieza).
 
@@ -135,12 +147,12 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
 
 ## Próximos pasos
 
-1. **Prerequisitos de PR 3** (en orden): (a) poner `appointmentBufferMinutes > 0` en dr-prueba y
-   correr el bloque CIT de [`04`](04-PERMUTACIONES-agenda.md); (b) construir el **set de evals
-   (G11)** seedeado con los golden cases de la bitácora (filas 1, 10, 15–17: vencidas, re-consulta,
-   plan 3 pasos, probes de resiliencia); (c) decidir limpieza de datos de prueba restantes (citas
-   `test 7`/`vvvvvv`/`cita1`/`cita2` — solo UI; jul 25 / lunes de agosto / bloqueo ago 3 — el
-   agente puede).
+1. **Prerequisitos de PR 3** (en orden): (a) ✅ bloque CIT corrido 2026-07-05 (sin buffer — ver
+   Decisiones); (b) construir el **set de evals (G11)** seedeado con los golden cases de la
+   bitácora (filas 1, 10, 15–19: vencidas, re-consulta, plan 3 pasos, probes de resiliencia,
+   invariantes rango↔cita/GCal) + las preguntas de invariantes del 2026-07-05; (c) decidir
+   limpieza de datos de prueba restantes (citas de prueba — solo UI; rangos/bloqueos — el agente
+   puede; ahora también CIT1/CIT2/CIT13/cti13/cita13 del 2026-07-05).
 2. **PR 3** — propuestas de citas (create/cancel/reschedule/complete). Requisitos previos del
    gap review: executor vía `completeBooking()` del hook (G1), re-validación al proponer (G3),
    orden cancelar→crear en reschedule (G4), evals G11 antes de mergear. Recordatorio: tier 🔴
