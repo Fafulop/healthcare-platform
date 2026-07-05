@@ -134,7 +134,7 @@ Railway ([`TOOLING`](TOOLING-acceso-railway-db-agenda.md)).
 | **G8** 🟡 | El doc decía que el executor client-side "ya existe casi completo" — **overstated**: los action types del v1 son de slots; el re-mapeo a rangos es código nuevo. | Corregido en §3. El *patrón* se reusa; el código es nuevo. |
 | **G9** 🟡 | **Latencia/UX:** loop multi-paso = varios round-trips LLM+DB por mensaje; sin feedback el panel se siente colgado. | v1: estado progresivo en el panel ("consultando disponibilidad…") emitido por tool ejecutado; streaming después si hace falta. |
 | **G10** ⚪ | Persistencia de conversación sin definir. | v1: historial client-side por sesión (como los chats actuales). Las tablas `llm_assistant` (memoria) quedan disponibles para después. |
-| **G11** ⚪ | Calidad no medible antes de dar más autonomía. | Antes del PR 3: **set de evals** (~15 prompts en español con tool-calls/propuestas esperadas) corrido contra el endpoint en cada cambio de prompt. |
+| **G11** ⚪ | Calidad no medible antes de dar más autonomía. | ✅ **CERRADO (2026-07-05):** `apps/doctor/scripts/agenda-agent-evals.ts` — 12 golden cases de la bitácora, 12/12 PASS. Corre el loop del **working tree** (extraído a `lib/agenda-agent/run-turn.ts`, compartido con la ruta) contra prod read-only — NO el endpoint desplegado, para cazar regresiones ANTES del push. |
 
 **Impacto en el plan de PRs:** PR 1 suma G2 (dependencia/key) + G7 (helpers de fecha) + G6 (caps).
 PR 3 suma G1 (executor vía hook), G3 (re-validación server-side al proponer), G4 (orden reschedule),

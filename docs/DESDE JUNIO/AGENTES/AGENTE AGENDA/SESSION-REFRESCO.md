@@ -148,11 +148,19 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
 ## Próximos pasos
 
 1. **Prerequisitos de PR 3** (en orden): (a) ✅ bloque CIT corrido 2026-07-05 (sin buffer — ver
-   Decisiones); (b) construir el **set de evals (G11)** seedeado con los golden cases de la
-   bitácora (filas 1, 10, 15–19: vencidas, re-consulta, plan 3 pasos, probes de resiliencia,
-   invariantes rango↔cita/GCal) + las preguntas de invariantes del 2026-07-05; (c) decidir
-   limpieza de datos de prueba restantes (citas de prueba — solo UI; rangos/bloqueos — el agente
-   puede; ahora también CIT1/CIT2/CIT13/cti13/cita13 del 2026-07-05).
+   Decisiones); (b) ✅ **set de evals G11 CONSTRUIDO y en verde (2026-07-05)**:
+   `apps/doctor/scripts/agenda-agent-evals.ts` — 12 golden cases de la bitácora (vencidas,
+   regla 10, E6, E7, 4 probes de resiliencia, invariantes rango↔cita y GCal, plan
+   eliminar→crear, bloqueo simple, L1), 12/12 PASS contra prod read-only. El loop del agente se
+   extrajo a `src/lib/agenda-agent/run-turn.ts` (la ruta y los evals corren EL MISMO código; la
+   ruta solo agrega auth/presupuesto/logging). Correr ANTES de cada push que toque
+   prompt/tools: instrucciones en la cabecera del script (railway run + tsx; ~150k tokens la
+   corrida completa; `EVALS_ONLY=id1,id2` para re-runs baratos). Lección del primer run: 2
+   "fallos" eran del EVAL, no del agente (regex que mateaba la frase correcta; caso que pedía un
+   reemplazo idéntico y el agente detectó el no-op y preguntó — comportamiento deseable);
+   (c) decidir limpieza de datos de prueba restantes (citas de prueba — solo UI;
+   rangos/bloqueos — el agente puede; ahora también CIT1/CIT2/CIT13/cti13/cita13 del
+   2026-07-05).
 2. **PR 3** — propuestas de citas (create/cancel/reschedule/complete). Requisitos previos del
    gap review: executor vía `completeBooking()` del hook (G1), re-validación al proponer (G3),
    orden cancelar→crear en reschedule (G4), evals G11 antes de mergear. Recordatorio: tier 🔴
