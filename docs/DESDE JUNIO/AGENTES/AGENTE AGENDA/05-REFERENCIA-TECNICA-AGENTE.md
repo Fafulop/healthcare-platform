@@ -45,16 +45,20 @@ server-side); el chat v1 (context-stuffing, slots) y el RAG de docs son antecede
 
 ```
 apps/doctor/src/
-├── app/api/agenda-agent/route.ts        ← endpoint del agente (loop de tools, caps, prompt)
+├── app/api/agenda-agent/route.ts        ← wrapper delgado: auth, validación, presupuesto, logging
 ├── lib/agenda-agent/
+│   ├── run-turn.ts                      ← EL LOOP (tools, prompt, caps) — compartido ruta ↔ evals
 │   ├── anthropic.ts                     ← cliente raw-fetch del Messages API (tool use, timeout 60s)
 │   ├── dates.ts                         ← helpers de fecha/hora (TZ MX, weekday, addMinutes)
-│   ├── tools.ts                         ← 7 tools de LECTURA (definición + executor Prisma)
+│   ├── tools.ts                         ← 8 tools de LECTURA (definición + executor Prisma)
 │   └── proposals.ts                     ← 4 tools de PROPUESTA (pre-checks + collector)  [PR 2]
 ├── hooks/useAgendaAgent.ts              ← estado del chat + EXECUTOR secuencial de propuestas
-└── app/appointments/
-    ├── page.tsx                         ← monta el panel; refresca rangos/bloqueos tras ejecutar
-    └── _components/AgendaAgentPanel.tsx ← UI: chat + cards de propuestas
+├── app/appointments/
+│   ├── page.tsx                         ← monta el panel; refresca rangos/bloqueos tras ejecutar
+│   └── _components/AgendaAgentPanel.tsx ← UI: chat + cards de propuestas
+└── (apps/doctor/scripts/)
+    └── agenda-agent-evals.ts            ← evals G11: 12 golden cases, corre run-turn contra prod
+                                            read-only ANTES de cada push (instrucciones en cabecera)
 ```
 
 Infra compartida que usa: `requireDoctorAuth` (sesión), `logTokenUsage`/`LlmTokenUsage`
@@ -184,7 +188,11 @@ lo re-valida contra el token de todas formas).
 - **Regla dura post-outage**: todo SQL crudo / query shape nuevo de Prisma se **smoke-testea
   read-only contra prod ANTES de push** (`railway run`) — no hay staging; main despliega a prod.
 - **Bitácora**: cada fallo en vivo → fila en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) (fallo →
-  causa raíz → fix → commit) → futuro caso del set de evals (G11, requerido antes de PR 3).
+  causa raíz → fix → commit) → caso del set de evals.
+- **Evals G11** (construidos 2026-07-05): `apps/doctor/scripts/agenda-agent-evals.ts` — 12 golden
+  cases seedeados de la bitácora; corren `run-turn.ts` del **working tree** contra prod read-only
+  (no el endpoint desplegado) → se corren ANTES de cada push que toque prompt/tools. Casos
+  data-dependent son `soft` (WARN, no bloquean).
 
 ## 11. Límites conocidos (el agente los admite, no los esquiva)
 

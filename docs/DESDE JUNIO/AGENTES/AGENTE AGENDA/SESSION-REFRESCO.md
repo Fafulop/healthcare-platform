@@ -11,9 +11,11 @@
 Agente de IA conversacional para la agenda (`/appointments`), construido **desde cero con
 tool-calling nativo** (Claude, loop multi-paso server-side). **PR 1 (lecturas) y PR 2 (propuestas
 de rangos/bloqueos con cards de confirmación) VIVEN en prod, ambos validados en vivo**
-(2026-07-04, bitácora filas 1–18; referencia del sistema en
-[`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md)). **Siguiente: PR 3**
-(propuestas de citas) — prerequisitos: buffer>0 en dr-prueba + bloque CIT de `04` + evals G11.
+(bitácora filas 1–19; referencia del sistema en
+[`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md)). **Los prerequisitos de
+PR 3 quedaron CERRADOS el 2026-07-05:** campaña CIT ✅ (sin buffer — decisión), evals G11 ✅
+(12/12 en verde, corren el working tree contra prod read-only), invariantes en el prompt ✅.
+**Siguiente: PR 3** (propuestas de citas) — empezar por las decisiones de diseño en Próximos pasos.
 
 ## Estado: qué está hecho
 
@@ -145,27 +147,38 @@ re-inyectados a la conversación (turno de verificación). Referencia completa d
 #5 weekday integrity (5 lunes de agosto = Monday en BD) · #7 advertencia de citas vivas (todas las
 capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda validado en producción.
 
+## ✅ Evals G11 + refactor run-turn (2026-07-05, `cb759082` + fix `d8bca1cd`)
+
+- El loop del agente vive ahora en **`apps/doctor/src/lib/agenda-agent/run-turn.ts`** — la ruta
+  (`app/api/agenda-agent/route.ts`) quedó como wrapper delgado (auth, validación, presupuesto,
+  logging). La ruta y los evals corren EL MISMO código; extracción verificada por review (copia
+  fiel, byte a byte) + 15 turnos en vivo.
+- **`apps/doctor/scripts/agenda-agent-evals.ts`**: 12 golden cases (bitácora + invariantes),
+  **12/12 PASS**. Corre el working tree contra prod read-only ANTES de cada push que toque
+  prompt/tools — instrucciones en la cabecera del script; `EVALS_ONLY=id1,id2` para re-runs
+  baratos (~10–20k tokens por caso). Casos data-dependent son `soft` (WARN, no bloquean deploy).
+- ⚠️ **Incidente de deploy (resuelto):** declarar `tsx` en devDeps de apps/doctor SIN regenerar
+  `pnpm-lock.yaml` tumbó el build (`cb759082` FAILED — frozen lockfile; sin outage, el deploy
+  anterior siguió sirviendo). Fix: revert (`d8bca1cd`, SUCCESS) — tsx resuelve desde el ROOT del
+  workspace. **Regla: ningún cambio de dependencia sin regenerar el lockfile en el mismo commit.**
+
 ## Próximos pasos
 
-1. **Prerequisitos de PR 3** (en orden): (a) ✅ bloque CIT corrido 2026-07-05 (sin buffer — ver
-   Decisiones); (b) ✅ **set de evals G11 CONSTRUIDO y en verde (2026-07-05)**:
-   `apps/doctor/scripts/agenda-agent-evals.ts` — 12 golden cases de la bitácora (vencidas,
-   regla 10, E6, E7, 4 probes de resiliencia, invariantes rango↔cita y GCal, plan
-   eliminar→crear, bloqueo simple, L1), 12/12 PASS contra prod read-only. El loop del agente se
-   extrajo a `src/lib/agenda-agent/run-turn.ts` (la ruta y los evals corren EL MISMO código; la
-   ruta solo agrega auth/presupuesto/logging). Correr ANTES de cada push que toque
-   prompt/tools: instrucciones en la cabecera del script (railway run + tsx; ~150k tokens la
-   corrida completa; `EVALS_ONLY=id1,id2` para re-runs baratos). Lección del primer run: 2
-   "fallos" eran del EVAL, no del agente (regex que mateaba la frase correcta; caso que pedía un
-   reemplazo idéntico y el agente detectó el no-op y preguntó — comportamiento deseable);
-   (c) decidir limpieza de datos de prueba restantes (citas de prueba — solo UI;
-   rangos/bloqueos — el agente puede; ahora también CIT1/CIT2/CIT13/cti13/cita13 del
-   2026-07-05).
-2. **PR 3** — propuestas de citas (create/cancel/reschedule/complete). Requisitos previos del
-   gap review: executor vía `completeBooking()` del hook (G1), re-validación al proponer (G3),
-   orden cancelar→crear en reschedule (G4), evals G11 antes de mergear. Recordatorio: tier 🔴
-   (SMS/email/GCal al paciente) = confirmación SIEMPRE; dependencias reales entre pasos del plan
-   (hoy advisorias) convendría resolverlas aquí.
+1. **PR 3 — propuestas de citas (create/cancel/reschedule/complete/no-show).** Prerequisitos ✅
+   (CIT + G11 + invariantes, 2026-07-05). **Decisiones de diseño para arrancar:**
+   - **CIT-6 / instant:** ¿el `create_booking` del agente usa `range-bookings/instant` (puede
+     agendar FUERA de horario — capacidad que la UI ya no tiene) o la ruta normal (solo huecos de
+     availability)? Recomendación pendiente de discutir; el hallazgo está en el Bloque C de `04`.
+   - **G1:** el executor de `complete_booking` DEBE ir vía `completeBooking()` del hook (el PATCH
+     crudo NO crea el LedgerEntry — TRX-6 es el eval crítico).
+   - **G3:** re-validar contra `calculateAvailability` al EMITIR la propuesta; **G4:** reschedule
+     = cancelar→crear con mensajería explícita si la creación falla (RSC-3).
+   - Tier 🔴 (todo lo que notifica al paciente) = confirmación SIEMPRE; dependencias reales entre
+     pasos del plan (hoy advisorias) convendría resolverlas aquí.
+   - **Correr los evals G11 antes de cada push de PR 3** (y sembrar casos nuevos: TRX-6, tier 🔴).
+2. **Limpieza de datos de prueba** (cuando estorben): citas de prueba (`test 7`, `vvvvvv`,
+   `cita1/2`, CIT1/CIT2/CIT13/cti13/cita13) — solo UI hasta PR 3; rangos/bloqueos de prueba — el
+   agente puede proponerlo.
 3. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
 
 ## Commits (en `main`, todos desplegados)
@@ -187,6 +200,11 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
   alucinaban un sync GCal de rangos que no existe; corregido en prompt y docs)
 - `4ddab2ff` fix(appointments): modal "Gestionar Bloqueos" ciego a otros meses — explica el
   "undo fantasma" de BLK-6; encontrado comparando el agente vs la UI
+- `c66c5bb7` docs: campaña CIT (6 validados, buffer skipped, CIT-6 solo-endpoint)
+- `cb759082` **feat: evals G11** (12 golden cases) + loop extraído a `run-turn.ts` — ⚠️ build
+  FAILED por `tsx` en devDeps sin regenerar el lockfile
+- `d8bca1cd` fix: revert del tsx (frozen lockfile) — deploy SUCCESS; regla: dependencia nueva =
+  lockfile regenerado en el mismo commit
 
 ---
 
