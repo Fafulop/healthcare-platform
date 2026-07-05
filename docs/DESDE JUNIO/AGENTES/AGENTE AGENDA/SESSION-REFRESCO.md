@@ -114,7 +114,9 @@ TOOLING (usuario actúa en la UI de prod → LLM verifica read-only en BD):
 - **Pendiente menor:** RNG-2/7/8/9 (camino individual, auditado en código, no observado en vivo);
   CIT-* requiere `buffer > 0` en settings de dr-prueba (hoy 0) — es territorio PR 3.
 - **Backlog UI** (no bloquea): botón "Crear N rangos" habilitado con conflictos y sin feedback al
-  fallar; el "undo" de bloqueo que no borró (1 vez, no reproducido).
+  fallar. ✅ El "undo" de bloqueo que no borró — RESUELTO 2026-07-05: el modal "Gestionar
+  Bloqueos" era ciego a otros meses (lista month-scoped); fix `4ddab2ff`. Hallazgo del método
+  INVERSO: el agente (correcto contra BD) contradijo a la UI — el agente cazó un bug de la UI.
 - **Estado de datos de prueba:** jul 4–15 sin rangos con 3 citas huérfanas CONFIRMED (vvvvvv,
   cita1, cita2); rangos de prueba oct–nov 2026 vivos (decidir limpieza).
 
@@ -161,6 +163,10 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
 - `b6acbbf5` fix: orden secuencial de tools + pre-checks plan-aware + resiliencia a input no estructurado
 - `43625b07` feat: `get_ranges` (ids multi-día en 1 llamada — el loop se moría de hambre) + totales primero
 - `a850ac66` / `c5d9e4af` docs: resultados de campaña, bitácora 12–18
+- `94a3fe7d` fix: modelo rango↔cita + sección de invariantes en el prompt (bitácora 19 — los docs
+  alucinaban un sync GCal de rangos que no existe; corregido en prompt y docs)
+- `4ddab2ff` fix(appointments): modal "Gestionar Bloqueos" ciego a otros meses — explica el
+  "undo fantasma" de BLK-6; encontrado comparando el agente vs la UI
 
 ---
 
