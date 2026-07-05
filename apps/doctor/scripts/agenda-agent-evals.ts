@@ -7,7 +7,9 @@
  * No escribe nada: tools de lectura + propuestas (JSON en memoria); tampoco
  * registra llm_token_usage (eso lo hace solo la ruta de prod).
  *
- * Cómo correrlo (PowerShell, desde apps/doctor):
+ * Cómo correrlo (PowerShell, desde apps/doctor; tsx viene del devDependencies
+ * del ROOT del workspace — no agregarlo aquí sin regenerar pnpm-lock.yaml, el
+ * lockfile desalineado rompe el deploy con frozen-lockfile):
  *   $env:ANTHROPIC_API_KEY = (railway variables --service "@healthcare/doctor" --json |
  *     ConvertFrom-Json).ANTHROPIC_API_KEY
  *   railway run --service pgvector -- npx tsx scripts/agenda-agent-evals.ts
