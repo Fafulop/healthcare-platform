@@ -412,8 +412,7 @@ export default function AppointmentsV2RangePage() {
         onClose={() => setShowBlockTimeModal(false)}
         blockTime={blockedTimesHook.blockTime}
         unblockTimes={blockedTimesHook.unblockTimes}
-        blockedTimes={blockedTimesHook.blockedTimes}
-        onSuccess={blockedTimesHook.fetchBlockedTimes}
+        doctorId={doctorId}
       />
 
       <BookPatientModal

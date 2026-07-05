@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { X, Ban, Loader2, Search, ShieldCheck, Trash2, ChevronLeft, ChevronRight, Calendar, Unlock, CheckSquare, Square } from "lucide-react";
 import { toast } from "@/lib/practice-toast";
 import { practiceConfirm } from "@/lib/practice-confirm";
 import { getLocalDateString } from "@/lib/dates";
-import type { BlockedTime } from "../_hooks/useBlockedTimes";
+import { fetchAllBlockedTimes, type BlockedTime } from "../_hooks/useBlockedTimes";
 
 const TIME_OPTIONS_30 = Array.from({ length: 48 }, (_, i) => {
   const h = String(Math.floor(i / 2)).padStart(2, "0");
@@ -38,8 +38,7 @@ interface Props {
     reason?: string,
   ) => Promise<any>;
   unblockTimes: (ids: string[]) => Promise<any>;
-  blockedTimes: BlockedTime[];
-  onSuccess: () => void;
+  doctorId: string | undefined;
 }
 
 type BlockMode = "all_day" | "time_range";
@@ -52,7 +51,7 @@ function formatBlockLabel(bt: BlockedTime): string {
   return bt.reason ? `${time} (${bt.reason})` : time;
 }
 
-export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, blockedTimes, onSuccess }: Props) {
+export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, doctorId }: Props) {
   // Tab
   const [tab, setTab] = useState<ModalTab>("block");
 
@@ -71,6 +70,34 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
   const [selectedUnblockIds, setSelectedUnblockIds] = useState<Set<string>>(new Set());
   const [isUnblocking, setIsUnblocking] = useState(false);
 
+  // ALL current+future blocks, fetched by the modal itself. The page-level
+  // blockedTimes list is scoped to the selected month — using it here hid
+  // blocks from other months (day highlights and the Desbloquear list).
+  const [allBlocks, setAllBlocks] = useState<BlockedTime[]>([]);
+  const [blocksLoading, setBlocksLoading] = useState(false);
+  const [blocksError, setBlocksError] = useState(false);
+  // Guards against out-of-order responses: only the latest request applies.
+  const fetchSeqRef = useRef(0);
+  const fetchAllBlocks = useCallback(async () => {
+    if (!doctorId) return;
+    const seq = ++fetchSeqRef.current;
+    setBlocksLoading(true);
+    try {
+      const rows = await fetchAllBlockedTimes(doctorId);
+      if (seq !== fetchSeqRef.current) return;
+      setAllBlocks(rows);
+      setBlocksError(false);
+    } catch {
+      if (seq !== fetchSeqRef.current) return;
+      setBlocksError(true);
+    } finally {
+      if (seq === fetchSeqRef.current) setBlocksLoading(false);
+    }
+  }, [doctorId]);
+  useEffect(() => {
+    if (isOpen) fetchAllBlocks();
+  }, [isOpen, fetchAllBlocks]);
+
   const today = getLocalDateString(new Date());
 
   // Calendar computation
@@ -87,20 +114,20 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
   }, [startDayOfWeek, daysInMonth]);
 
   const blockedDateSet = useMemo(
-    () => new Set(blockedTimes.map((bt) => bt.date.split("T")[0])),
-    [blockedTimes],
+    () => new Set(allBlocks.map((bt) => bt.date.split("T")[0])),
+    [allBlocks],
   );
 
   // Group blocked times by date
   const blockedByDate = useMemo(() => {
     const map = new Map<string, BlockedTime[]>();
-    for (const bt of blockedTimes) {
+    for (const bt of allBlocks) {
       const dateKey = bt.date.split("T")[0];
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(bt);
     }
     return map;
-  }, [blockedTimes]);
+  }, [allBlocks]);
   const sortedBlockedDates = useMemo(() => [...blockedByDate.keys()].sort(), [blockedByDate]);
 
   const handleClose = () => {
@@ -112,6 +139,8 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
     setReason("");
     setPreview(null);
     setSelectedUnblockIds(new Set());
+    setAllBlocks([]);
+    setBlocksError(false);
     onClose();
   };
 
@@ -199,7 +228,7 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
       if (totalSkippedNoRanges > 0) parts.push(`${totalSkippedNoRanges} sin rangos`);
       if (totalConflicts > 0) parts.push(`${totalConflicts} con conflictos`);
       toast.success(parts.join(". ") || "Operación completada");
-      onSuccess();
+      fetchAllBlocks();
       handleClose();
     } catch {
       toast.error("Error de conexión");
@@ -220,10 +249,10 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
   };
 
   const toggleAllUnblock = () => {
-    if (selectedUnblockIds.size === blockedTimes.length) {
+    if (selectedUnblockIds.size === allBlocks.length) {
       setSelectedUnblockIds(new Set());
     } else {
-      setSelectedUnblockIds(new Set(blockedTimes.map((bt) => bt.id)));
+      setSelectedUnblockIds(new Set(allBlocks.map((bt) => bt.id)));
     }
   };
 
@@ -235,7 +264,7 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
     try {
       await unblockTimes([...selectedUnblockIds]);
       setSelectedUnblockIds(new Set());
-      onSuccess();
+      fetchAllBlocks();
     } catch {
       toast.error("Error al desbloquear");
     } finally {
@@ -284,11 +313,11 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
           >
             <Unlock className="w-3.5 h-3.5" />
             Desbloquear
-            {blockedTimes.length > 0 && (
+            {allBlocks.length > 0 && (
               <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                 tab === "unblock" ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"
               }`}>
-                {blockedTimes.length}
+                {allBlocks.length}
               </span>
             )}
           </button>
@@ -584,7 +613,23 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
           {/* ===================== UNBLOCK TAB ===================== */}
           {tab === "unblock" && (
             <>
-              {blockedTimes.length === 0 ? (
+              {blocksError ? (
+                <div className="text-center py-8">
+                  <Ban className="w-8 h-8 text-red-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">No se pudieron cargar los bloqueos</p>
+                  <button
+                    type="button"
+                    onClick={fetchAllBlocks}
+                    className="mt-3 px-4 py-2 text-sm font-medium text-orange-700 border border-orange-200 hover:bg-orange-50 rounded-lg transition-colors"
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              ) : blocksLoading && allBlocks.length === 0 ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-6 h-6 text-gray-300 mx-auto animate-spin" />
+                </div>
+              ) : allBlocks.length === 0 ? (
                 <div className="text-center py-8">
                   <Unlock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">No hay bloqueos activos</p>
@@ -599,11 +644,11 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, block
                       onClick={toggleAllUnblock}
                       className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
                     >
-                      {selectedUnblockIds.size === blockedTimes.length
+                      {selectedUnblockIds.size === allBlocks.length
                         ? <CheckSquare className="w-4 h-4 text-green-600" />
                         : <Square className="w-4 h-4" />
                       }
-                      {selectedUnblockIds.size === blockedTimes.length
+                      {selectedUnblockIds.size === allBlocks.length
                         ? "Deseleccionar todos"
                         : "Seleccionar todos"
                       }

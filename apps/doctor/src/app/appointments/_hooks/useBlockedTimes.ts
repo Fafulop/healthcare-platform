@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
+import { getLocalDateString } from "@/lib/dates";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -10,6 +11,21 @@ export interface BlockedTime {
   startTime: string;
   endTime: string;
   reason: string | null;
+}
+
+/**
+ * ALL blocks from today forward (no month window). Used by BlockTimeModal,
+ * which manages blocks globally — the hook's own list is scoped to the
+ * selected month and would hide blocks from other months.
+ */
+export async function fetchAllBlockedTimes(doctorId: string): Promise<BlockedTime[]> {
+  const startDate = new Date(getLocalDateString(new Date()) + "T00:00:00Z").toISOString();
+  const response = await authFetch(
+    `${API_URL}/api/appointments/ranges/block?doctorId=${doctorId}&startDate=${startDate}`
+  );
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || "Error al cargar bloqueos");
+  return data.data;
 }
 
 export function useBlockedTimes(doctorId: string | undefined, selectedDate: Date) {
@@ -88,8 +104,6 @@ export function useBlockedTimes(doctorId: string | undefined, selectedDate: Date
   const blockedTimesForSelectedDate = blockedTimes.filter(
     (bt) => bt.date.split("T")[0] === selectedDateStr
   );
-  const datesWithBlocks = new Set(blockedTimes.map((bt) => bt.date.split("T")[0]));
-
   return {
     blockedTimes,
     loading,
@@ -97,6 +111,5 @@ export function useBlockedTimes(doctorId: string | undefined, selectedDate: Date
     blockTime,
     unblockTimes,
     blockedTimesForSelectedDate,
-    datesWithBlocks,
   };
 }
