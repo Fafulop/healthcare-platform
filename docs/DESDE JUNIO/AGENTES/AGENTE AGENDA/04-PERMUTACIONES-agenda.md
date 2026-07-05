@@ -94,12 +94,12 @@ Fuente: `VALID_TRANSITIONS` en `bookings/[id]/route.ts` (enforced server-side, i
 
 ### Bloque R — Rangos (`POST/DELETE appointments/ranges`, PR 2)
 
-- [x] **RNG-1 · Crear rango único.** Setup: día sin rangos, 09:00–14:00 int. 30. → fila en `availability_ranges`, 📅 evento GCal (`googleEventId`). Valida: alta básica. ✅ *Validado en vivo 2026-07-04 (rangos oct/nov creados y verificados en BD).*
+- [x] **RNG-1 · Crear rango único.** Setup: día sin rangos, 09:00–14:00 int. 30. → fila en `availability_ranges`. ~~📅 evento GCal~~ **corregido 2026-07-05: los rangos NO sincronizan con GCal** (el campo `googleEventId` existe pero nada lo escribe; solo citas sincronizan). Valida: alta básica. ✅ *Validado en vivo 2026-07-04 (rangos oct/nov creados y verificados en BD).*
 - [ ] **RNG-2 · Crear rango duplicado exacto.** Mismo doctor+date+startTime. → rechazo por `@@unique([doctorId, date, startTime])`. Valida: unicidad.
 - [x] **RNG-3 · Crear rango que traslapa otro rango.** 09:00–14:00 existe, crear 12:00–16:00. → **409 con lista de conflictos**. Valida: overlap de rangos. ✅ *Validado en vivo 2026-07-04: bulk de 14 rangos 09:00–14:00 sobre días con rango 07:00–14:00 → preview reportó "14 conflicto(s)" y la BD quedó sin ningún día con rangos traslapados (verificado: 1 rango por día en todo julio). ⚠️ UX: el botón "Crear" sigue habilitado con conflictos y al clickearlo NO pasa nada visible (el server rechaza en silencio) — backlog de UI; la card de `create_range` del agente debe hacerlo mejor: mostrar el 409 con su lista de conflictos (§7.1).*
 - [ ] **RNG-4 · Crear rango fuera de frontera de 15 min.** startTime 09:07. → rechazo (fronteras de 15 min). Valida: retícula de rangos.
 - [x] **RNG-5 · Bulk/recurrente.** "Todos los lunes de julio 09:00–14:00". → N filas, duplicados saltados. Valida: `ranges/bulk`. ✅ *Validado en vivo 2026-07-04: ~23 rangos recurrentes (patrón de días hábiles, oct–nov) creados en una operación, verificados en BD.*
-- [ ] **RNG-6 · Borrar rango SIN citas.** → fila borrada, 📅 evento GCal removido. Valida: delete limpio.
+- [ ] **RNG-6 · Borrar rango SIN citas.** → fila borrada (sin efectos GCal — los rangos no sincronizan). Valida: delete limpio.
 - [ ] **RNG-7 · Borrar rango individual (`ranges/[id]`) CON cita activa dentro.** → **rechazo** con lista de citas (auditoría `01`). ⚠️ OJO: esta protección es SOLO del camino individual — ver RNG-11. Pendiente de probar en vivo.
 - [ ] **RNG-8 · Borrar rango cuyas citas están todas CANCELLED/COMPLETED.** → permitido (solo citas *activas* bloquean en el camino individual). Las citas quedan (freeform, no dependen del rango). Valida: definición de "activa".
 - [ ] **RNG-9 · Borrar rango con cita activa → cancelar la cita → reintentar borrado.** → segundo intento OK. Valida: el flujo de dos pasos que el agente propondrá (camino individual).
@@ -176,7 +176,7 @@ El patrón **dryRun (default `true`) → confirmar** es el molde de las cards de
 | Cancelar | — | sí (si hay email) | — | **borra evento** | — | terminal ⚠️ |
 | Completar | — | — | — | actualiza | **crea** (frontend, G1) | terminal; ledger queda |
 | No-show | — | — | — | actualiza | — | terminal |
-| Crear/borrar rango | — | — | — | crea/borra | — | recreable (sin notificar a nadie) |
+| Crear/borrar rango | — | — | — | — (no sincroniza) | — | recreable (sin notificar a nadie) |
 | Bloquear/desbloquear | — | — | — | — | — | **100% reversible** ✅ |
 | Re-enviar confirmación | — | sí ⚠️ | — | — | — | no (email enviado) |
 

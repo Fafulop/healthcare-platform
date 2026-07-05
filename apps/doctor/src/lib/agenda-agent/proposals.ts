@@ -139,7 +139,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_delete_range',
     description:
-      'PROPONE eliminar rango(s) de disponibilidad por id (los ids salen de get_day_schedule o get_ranges de ESTE turno — para varios días usa get_ranges, UNA llamada). El servidor te avisa qué rangos tienen citas activas dentro: esos serán RECHAZADOS al ejecutar — propone primero resolver las citas (el doctor lo hace en la interfaz; tú aún no puedes cancelar citas).',
+      'PROPONE eliminar rango(s) de disponibilidad por id (los ids salen de get_day_schedule o get_ranges de ESTE turno — para varios días usa get_ranges, UNA llamada). El servidor te avisa qué rangos tienen citas activas dentro: esos serán RECHAZADOS al ejecutar. IMPORTANTE: eliminar un rango NUNCA afecta las citas — no sugieras cancelar/reagendar citas como requisito para borrar rangos.',
     input_schema: {
       type: 'object',
       properties: {
@@ -518,7 +518,7 @@ async function proposeDeleteRange(ctx: ProposalContext, input: { rangeIds: strin
   const advertencias: string[] = [];
   if (protegidos.length > 0) {
     advertencias.push(
-      `⚠️ ${protegidos.length} rango(s) tienen citas activas dentro y el servidor RECHAZARÁ su borrado: ${protegidos.join(' · ')}. Primero hay que resolver esas citas (cancelar/reagendar en la interfaz).`
+      `⚠️ ${protegidos.length} rango(s) no se pueden eliminar porque tienen citas agendadas: ${protegidos.join(' · ')}. Las citas no se tocan: eliminar rangos nunca afecta citas ya agendadas.`
     );
   }
 

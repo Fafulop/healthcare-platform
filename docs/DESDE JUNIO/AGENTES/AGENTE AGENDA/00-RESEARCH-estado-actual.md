@@ -65,7 +65,7 @@ Config del doctor que afecta agenda: `appointmentBufferMinutes`, requisitos de c
 | Crear booking (rango) | `POST appointments/range-bookings` | Auth opcional: público→PENDING, doctor/admin→CONFIRMED. Dispara **SMS** paciente/doctor, **Telegram**, **email de confirmación**, **evento en Google Calendar**, activity log. Valida buffer + requisitos de campos. |
 | Booking instantáneo | `POST .../range-bookings/instant` y `bookings/instant` | alta rápida del doctor |
 | Modificar/cancelar/completar booking | `PATCH/DELETE appointments/bookings/[id]` | completar → **crea el LedgerEntry** (puente a Flujo de Dinero, `useBookings.ts`); cancelar/reagendar notifica |
-| Crear/borrar rangos | `POST/DELETE appointments/ranges` (+`bulk`, `block`) | sync Google Calendar (`googleEventId`) |
+| Crear/borrar rangos | `POST/DELETE appointments/ranges` (+`bulk`, `block`) | **ninguno hacia GCal** — el campo `googleEventId` de rangos existe en el schema pero NADA lo escribe (verificado 2026-07-05: cero llamadas a Google Calendar en las rutas de rangos; solo las citas sincronizan) |
 | Bloquear tiempo | (blocked_times vía UI) | overlay, reversible borrando |
 | Slots legacy | `appointments/slots*` | solo v1 |
 | Re-enviar confirmación | `bookings/[id]/send-email` | email |
