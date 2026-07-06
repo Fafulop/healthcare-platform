@@ -69,6 +69,10 @@ PR 3 quedaron CERRADOS el 2026-07-05:** campaña CIT ✅ (sin buffer — decisi�
 - **Buffer: NO se activa (2026-07-05).** Agrega complejidad innecesaria; la feature está dormida
   en prod (11/11 doctores en 0, no existe UI ni endpoint que la escriba — solo se lee). CIT-5
   queda fuera de alcance; con buffer=0 ese código es inerte.
+- **CIT-6 resuelto (2026-07-06): `create_booking` usa la RUTA NORMAL (`range-bookings`), nunca
+  `instant`.** El agente no tiene capacidades que la UI no tiene; la ruta normal valida rango,
+  buffer, bloqueos y lock. Fuera de horario → el agente lo admite y ofrece crear el rango primero
+  (mismo plan). Diseño completo de PR 3 en [`06-PR3-DISENO-citas.md`](06-PR3-DISENO-citas.md).
 
 ## Bitácora de pruebas en vivo (fallos → fixes → evals futuros)
 
@@ -164,18 +168,17 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
 
 ## Próximos pasos
 
-1. **PR 3 — propuestas de citas (create/cancel/reschedule/complete/no-show).** Prerequisitos ✅
-   (CIT + G11 + invariantes, 2026-07-05). **Decisiones de diseño para arrancar:**
-   - **CIT-6 / instant:** ¿el `create_booking` del agente usa `range-bookings/instant` (puede
-     agendar FUERA de horario — capacidad que la UI ya no tiene) o la ruta normal (solo huecos de
-     availability)? Recomendación pendiente de discutir; el hallazgo está en el Bloque C de `04`.
-   - **G1:** el executor de `complete_booking` DEBE ir vía `completeBooking()` del hook (el PATCH
-     crudo NO crea el LedgerEntry — TRX-6 es el eval crítico).
-   - **G3:** re-validar contra `calculateAvailability` al EMITIR la propuesta; **G4:** reschedule
-     = cancelar→crear con mensajería explícita si la creación falla (RSC-3).
-   - Tier 🔴 (todo lo que notifica al paciente) = confirmación SIEMPRE; dependencias reales entre
-     pasos del plan (hoy advisorias) convendría resolverlas aquí.
-   - **Correr los evals G11 antes de cada push de PR 3** (y sembrar casos nuevos: TRX-6, tier 🔴).
+1. **PR 3 — propuestas de citas: DISEÑO CERRADO (2026-07-06), implementar.** Diseño completo con
+   contratos verificados contra código en [`06-PR3-DISENO-citas.md`](06-PR3-DISENO-citas.md):
+   - **D1 (CIT-6):** ruta normal, nunca `instant`. **D2:** 6 tools (create/confirm/cancel/
+     reschedule/complete/no_show); extended_block y resend_confirmation diferidos.
+   - **D3 (G4):** reschedule = UNA card, executor cancela→crea, RSC-3 con mensajería explícita.
+   - **D4 (G1):** complete = doble-call (PATCH + POST ledger) con ambos payloads construidos
+     server-side al proponer — TRX-6 es la validación crítica en vivo.
+   - **D5:** tier 🔴 = advertencia fija en card + regla de prompt (solo a petición explícita).
+   - **D6:** complete exige `formaDePago` (el agente lo pregunta); precio default `finalPrice`.
+   - Orden de implementación y evals nuevos en §2/§4 del doc. **Correr evals G11 antes de cada
+     push** (sembrar: TRX-6, tier-rojo-espontáneo, pending-directo, reschedule-noop).
 2. **Limpieza de datos de prueba** (cuando estorben): citas de prueba (`test 7`, `vvvvvv`,
    `cita1/2`, CIT1/CIT2/CIT13/cti13/cita13) — solo UI hasta PR 3; rangos/bloqueos de prueba — el
    agente puede proponerlo.
