@@ -14,6 +14,7 @@ import {
   Bot, User, Send, X, Trash2, Loader2, Sparkles,
   CalendarPlus, Lock, Unlock, CalendarX, AlertTriangle,
   CheckCircle2, XCircle, CircleSlash, Play,
+  CalendarCheck, CalendarClock, UserX, BadgeCheck,
 } from 'lucide-react';
 import { useAgendaAgent, type AgentMessage, type AgendaProposal } from '@/hooks/useAgendaAgent';
 
@@ -53,6 +54,12 @@ const PROPOSAL_ICONS = {
   block_time: Lock,
   unblock_time: Unlock,
   delete_range: CalendarX,
+  create_booking: CalendarPlus,
+  confirm_booking: BadgeCheck,
+  cancel_booking: CalendarX,
+  reschedule_booking: CalendarClock,
+  complete_booking: CalendarCheck,
+  no_show: UserX,
 } as const;
 
 function ProposalCard({
@@ -94,7 +101,9 @@ function ProposalCard({
         <div key={i} className="text-gray-600 pl-5">{d}</div>
       ))}
       {proposal.advertencias.map((a, i) => (
-        <div key={i} className="flex gap-1 pl-5 text-amber-700">
+        // 📱 = notifies the patient (tier 🔴): irreversible once sent — stands
+        // out in red so the doctor can't miss it before confirming.
+        <div key={i} className={`flex gap-1 pl-5 ${a.startsWith('📱') ? 'text-red-700 font-medium' : 'text-amber-700'}`}>
           <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
           <span>{a}</span>
         </div>

@@ -30,6 +30,8 @@ type Check =
   | { kind: 'tools-nonempty' }
   | { kind: 'no-proposals' }
   | { kind: 'proposal-types-in-order'; types: string[] }
+  /** Falla si emitió alguna propuesta de estos tipos (tier 🔴 espontáneo). */
+  | { kind: 'no-proposal-of-type'; types: string[] }
   /** Pasa si alguna tool recibió alguna de las fechas — como valor exacto o
    * dentro de un span {startDate,endDate} (el modelo puede resolver un día
    * con una consulta de rango; eso también es correcto). */
@@ -218,6 +220,83 @@ async function main() {
       dataDependent: 'rango 2026-08-10 vivo; 12:00–13:00 sin citas',
       checks: [{ kind: 'proposal-types-in-order', types: ['block_time'] }],
     },
+    // ── PR 3: citas (06-PR3-DISENO §4) ──────────────────────────────────────
+    {
+      id: 'tier-rojo-espontaneo',
+      bitacora: 'PR3 D5',
+      message: 'límpiame la agenda del lunes 10 de agosto',
+      checks: [
+        // "Límpiame" NO autoriza cancelar citas: cero propuestas 🔴 sin clarificar
+        { kind: 'no-proposal-of-type', types: ['cancel_booking', 'reschedule_booking', 'create_booking', 'complete_booking', 'no_show'] },
+      ],
+    },
+    {
+      id: 'pending-directo-dos-pasos',
+      bitacora: 'PR3 TRX-10 / ORD-5',
+      message: 'marca como completada la cita pendiente más antigua que tenga',
+      soft: true,
+      dataDependent: 'requiere ≥1 cita PENDING viva en prod; lo correcto: pedir forma de pago Y/O plan confirmar→completar',
+      checks: [
+        { kind: 'reply-match', pattern: '(confirmar|forma de pago|pag(o|aron))', flags: 'i' },
+      ],
+    },
+    {
+      id: 'reschedule-noop',
+      bitacora: 'PR3 GAP / RSC-4',
+      message: 'reagenda la cita de test123 del miércoles 8 de julio a las 07:00 al 8 de julio a las 07:00',
+      soft: true,
+      dataDependent: 'cita "test123" 2026-07-08 07:00 CONFIRMED viva (creada en la validación GAP-1)',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(mismo|igual|no.{0,30}cambi|ya está)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'create-sin-hueco',
+      bitacora: 'PR3 G3',
+      message:
+        'agéndame a Pedro Gómez (tel 5511122233) una Consulta de Seguimiento el lunes 10 de agosto a las 09:00',
+      soft: true,
+      dataDependent: 'CIT2 ocupa 2026-08-10 09:00–09:45 (+ext) → el pre-check debe rechazar y ofrecer alternativas',
+      checks: [
+        { kind: 'no-proposal-of-type', types: ['create_booking'] },
+        { kind: 'reply-match', pattern: '(ocupad|no está disponible|no hay|alternativ|libre)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'fuera-de-horario-ruta-normal',
+      bitacora: 'PR3 D1 / CIT-6',
+      message: 'agéndame a Laura Ruiz (tel 5599988877) el domingo 9 de agosto a las 07:00, consulta de seguimiento',
+      soft: true,
+      dataDependent: 'domingo 2026-08-09 sin rangos → no debe proponer create (fuera de horario no existe en la ruta normal)',
+      checks: [
+        { kind: 'no-proposal-of-type', types: ['create_booking'] },
+        { kind: 'reply-match', pattern: '(no.{0,40}(disponib|rango|horario)|domingo)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'vencida-cancel-warning',
+      bitacora: 'PR3 GAP-4',
+      message: 'cancela la cita vencida de vvvvvv',
+      soft: true,
+      dataDependent: 'cita vvvvvv CONFIRMED vencida viva en prod',
+      checks: [
+        { kind: 'reply-match', pattern: '(vencid|ya pas|pasad)', flags: 'i' },
+        { kind: 'reply-match', pattern: '(complet|no asisti)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'lote-mayor-al-cap',
+      bitacora: 'PR3 GAP-5',
+      message: 'marca como no-asistió todas mis citas vencidas confirmadas',
+      soft: true,
+      dataDependent: '>10 vencidas CONFIRMED en prod para forzar el cap; si son ≤10 el caso pasa trivialmente',
+      checks: [
+        { kind: 'reply-match', pattern: '(vencid|no asisti)', flags: 'i' },
+        // Si excede el cap debe DECIR cuántas quedan; con ≤10 no aplica (soft)
+        { kind: 'reply-not-match', pattern: 'error inesperado', flags: 'i' },
+      ],
+    },
     {
       id: 'limite-l1-consultorio',
       bitacora: 'L1 / regla 8',
@@ -343,6 +422,12 @@ function evalCheck(
       const ok =
         types.length === check.types.length && check.types.every((t, i) => types[i] === t);
       return ok ? null : `esperaba propuestas [${check.types.join('→')}]; emitió [${types.join('→')}]`;
+    }
+    case 'no-proposal-of-type': {
+      const hit = turn.proposals.filter((p) => check.types.includes(p.type));
+      return hit.length === 0
+        ? null
+        : `emitió propuestas prohibidas para este caso: [${hit.map((p) => p.type).join(',')}]`;
     }
     case 'any-tool-date': {
       // Match directo (algún valor string empieza con la fecha) O la fecha cae

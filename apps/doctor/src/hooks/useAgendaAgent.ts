@@ -16,7 +16,17 @@ import { authFetch } from '@/lib/auth-fetch';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-export type ProposalType = 'create_range' | 'block_time' | 'unblock_time' | 'delete_range';
+export type ProposalType =
+  | 'create_range'
+  | 'block_time'
+  | 'unblock_time'
+  | 'delete_range'
+  | 'create_booking'
+  | 'confirm_booking'
+  | 'cancel_booking'
+  | 'reschedule_booking'
+  | 'complete_booking'
+  | 'no_show';
 export type ProposalStatus = 'pendiente' | 'ejecutando' | 'exito' | 'error' | 'rechazada' | 'omitida';
 
 export interface AgendaProposal {
@@ -108,6 +118,115 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
         ok: true,
         resumen: `${deleted.length} rango(s) eliminados${failed.length ? ` — ${failed.length} rechazado(s): ${failed.slice(0, 2).join(' · ')}` : ''}`,
       };
+    }
+
+    // --- PR 3: citas (todo lo que notifica al paciente llegó con card 🔴) ---
+
+    if (p.type === 'create_booking') {
+      const res = await authFetch(`${API_URL}/api/appointments/range-bookings`, {
+        method: 'POST',
+        body: JSON.stringify(p.params),
+      });
+      // .catch on every parse in the cita branches: a non-JSON body after a
+      // SUCCESSFUL mutation must not throw to the outer catch — the generic
+      // "Error de conexión" would mask what already happened (review finding).
+      const data = await res.json().catch(() => ({ success: false, error: `respuesta inválida del servidor (HTTP ${res.status})` }));
+      if (!data.success) return { ok: false, resumen: data.error || 'Error al crear la cita' };
+      return { ok: true, resumen: 'Cita creada (CONFIRMADA) — notificaciones enviadas según los datos de contacto' };
+    }
+
+    if (p.type === 'confirm_booking' || p.type === 'cancel_booking' || p.type === 'no_show') {
+      const res = await authFetch(`${API_URL}/api/appointments/bookings/${p.params.bookingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: p.params.status }),
+      });
+      const data = await res.json().catch(() => ({ success: false, error: `respuesta inválida del servidor (HTTP ${res.status})` }));
+      if (!data.success) return { ok: false, resumen: data.error || 'Error al actualizar la cita' };
+      const labels: Record<string, string> = {
+        confirm_booking: 'Cita CONFIRMADA — notificaciones enviadas según los datos de contacto',
+        cancel_booking: 'Cita CANCELADA — aviso enviado si tenía email; evento de calendario eliminado',
+        no_show: 'Cita marcada NO ASISTIÓ',
+      };
+      return { ok: true, resumen: labels[p.type] };
+    }
+
+    if (p.type === 'complete_booking') {
+      // Two calls, mirroring useBookings.completeBooking (G1): the PATCH does
+      // NOT create the LedgerEntry — the ledger POST (payload built server-side
+      // at proposal time) is what registers the income in Flujo de Dinero.
+      const patchRes = await authFetch(`${API_URL}/api/appointments/bookings/${p.params.bookingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'COMPLETED' }),
+      });
+      const patchData = await patchRes.json().catch(() => ({ success: false, error: `respuesta inválida del servidor (HTTP ${patchRes.status}) — verifica el estado de la cita` }));
+      if (!patchData.success) {
+        return { ok: false, resumen: patchData.error || 'Error al completar la cita' };
+      }
+      try {
+        const ledgerRes = await authFetch(`${API_URL}/api/practice-management/ledger`, {
+          method: 'POST',
+          body: JSON.stringify(p.params.ledger),
+        });
+        const ledgerData = await ledgerRes.json();
+        if (!ledgerData.data) {
+          return {
+            ok: true,
+            resumen:
+              '⚠️ Cita COMPLETADA, pero el ingreso NO se registró en Flujo de Dinero — regístralo manualmente',
+          };
+        }
+      } catch {
+        return {
+          ok: true,
+          resumen:
+            '⚠️ Cita COMPLETADA, pero el ingreso NO se registró en Flujo de Dinero — regístralo manualmente',
+        };
+      }
+      const monto = (p.params.ledger as { amount?: number })?.amount;
+      return { ok: true, resumen: `Cita COMPLETADA · ingreso registrado en Flujo de Dinero${monto ? ` ($${monto})` : ''}` };
+    }
+
+    if (p.type === 'reschedule_booking') {
+      // Cancel-then-create (G4/RSC). If the create fails, the original is
+      // already CANCELLED and the patient notified — say it EXPLICITLY (RSC-3)
+      // so the verification turn re-plans immediately.
+      const cancelRes = await authFetch(`${API_URL}/api/appointments/bookings/${p.params.bookingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      });
+      const cancelData = await cancelRes.json().catch(() => ({ success: false, error: `respuesta inválida del servidor (HTTP ${cancelRes.status}) — verifica el estado de la cita` }));
+      if (!cancelData.success) {
+        return { ok: false, resumen: `No se pudo cancelar la cita original: ${cancelData.error || 'error'} (nada cambió)` };
+      }
+      const createRes = await authFetch(`${API_URL}/api/appointments/range-bookings`, {
+        method: 'POST',
+        body: JSON.stringify(p.params.create),
+      });
+      const createData = await createRes.json().catch(() => ({ success: false, error: `respuesta inválida del servidor (HTTP ${createRes.status})` }));
+      if (!createData.success) {
+        return {
+          ok: false,
+          resumen: `⚠️ La cita original quedó CANCELADA (paciente avisado) pero NO se pudo crear la nueva: ${createData.error || 'error'} — hay que reagendar al paciente YA`,
+        };
+      }
+      // Restore a manually-adjusted price (the create endpoint recomputes it
+      // from the service — review finding). Non-fatal: the reschedule stands.
+      let priceNote = '';
+      const restorePrice = p.params.restorePrice as number | undefined;
+      const newBookingId = createData.data?.id as string | undefined;
+      if (restorePrice && newBookingId) {
+        const priceOk = await authFetch(`${API_URL}/api/appointments/bookings/${newBookingId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ finalPrice: restorePrice }),
+        })
+          .then((r) => r.json())
+          .then((d) => Boolean(d.success))
+          .catch(() => false);
+        priceNote = priceOk
+          ? ` · precio ajustado re-aplicado ($${restorePrice})`
+          : ` · ⚠️ NO se pudo re-aplicar el precio ajustado ($${restorePrice}) — ajústalo manualmente`;
+      }
+      return { ok: true, resumen: `Cita reagendada — original cancelada, nueva CONFIRMADA (paciente notificado de ambas)${priceNote}` };
     }
 
     return { ok: false, resumen: `Tipo de propuesta desconocido: ${p.type}` };

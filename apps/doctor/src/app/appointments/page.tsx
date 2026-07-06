@@ -262,6 +262,7 @@ export default function AppointmentsPage() {
         onAgendaChanged={() => {
           rangesHook.fetchRanges();
           blockedTimesHook.fetchBlockedTimes();
+          bookingsHook.fetchBookings();
         }}
       />
 
