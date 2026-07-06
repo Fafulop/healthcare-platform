@@ -35,7 +35,7 @@
 - `../../flujo de dinero permutaciones/TOOLING-acceso-railway-db.md` — el método base de acceso a
   la BD (mismo mecanismo, distintas tablas).
 
-*Estado:* carpeta creada 2026-07-03. **PR 1 y PR 2 en prod, validados en vivo; prerequisitos de
-PR 3 cerrados el 2026-07-05** (campaña CIT ✅, evals G11 12/12 ✅ en
-`apps/doctor/scripts/agenda-agent-evals.ts`, invariantes en el prompt ✅). Siguiente: **PR 3**
-(propuestas de citas) — decisiones de arranque en `SESSION-REFRESCO` → Próximos pasos.
+*Estado:* carpeta creada 2026-07-03. **PR 1 y PR 2 en prod, validados en vivo. PR 3 (citas)
+construido y revisado el 2026-07-06** (diseño en `06-PR3-DISENO-citas.md`; fix de sustrato GAP-1
+desplegado; code-review 7 fixes; evals G11 18/19 + smoke 5/5). Siguiente: **push de PR 3 +
+validación en vivo** (TRX-6/ledger crítica) — `SESSION-REFRESCO` → Próximos pasos.

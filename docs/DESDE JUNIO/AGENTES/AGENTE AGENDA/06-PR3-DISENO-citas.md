@@ -99,7 +99,7 @@ lado agente (create feliz + 409 + NO_RANGE), y de paso limpiar las citas de prue
 
 | # | Gap | Resolución |
 |---|---|---|
-| **GAP-1** 🔴 | **Las CUATRO rutas de creación guardaban `patientId` SIN validar pertenencia** (`range-bookings`, `range-bookings/instant`, `bookings`, `bookings/instant` — verificado en código) — solo el camino PATCH de vinculación validaba (misma clase que F1). Un id alucinado/stale vincularía la cita al expediente de un paciente de OTRO doctor. | ✅ **APLICADO 2026-07-06 (working tree, pendiente de commit):** helper compartido `apps/api/src/lib/patient-link.ts` (`validatePatientLink` — una definición, patrón booking-overlap) llamado en las 4 rutas: 404 si el paciente no existe, 403 si es de otro doctor. Misma query que ya usa el PATCH en prod (no es shape nuevo). Type-check ✅. El pre-check del tool del agente lo validará también. |
+| **GAP-1** 🔴 | **Las CUATRO rutas de creación guardaban `patientId` SIN validar pertenencia** (`range-bookings`, `range-bookings/instant`, `bookings`, `bookings/instant` — verificado en código) — solo el camino PATCH de vinculación validaba (misma clase que F1). Un id alucinado/stale vincularía la cita al expediente de un paciente de OTRO doctor. | ✅ **DESPLEGADO Y VALIDADO EN VIVO 2026-07-06 (`b2b8d482`):** helper compartido `apps/api/src/lib/patient-link.ts` (`validatePatientLink` — una definición; las 4 rutas de creación + el PATCH migrado). 3 probes contra prod (rechazos pre-transacción, 0 filas): patientId inexistente → **404 uniforme** ✓ · patientId no-string → **400** ✓ (antes: 500 anónimo) · sin patientId → NO_RANGE normal ✓ · **camino feliz en UI** ✓ (cita "test123" 2026-07-08 con expediente vinculado, nació CONFIRMED). El pre-check del tool del agente lo validará también. |
 | **GAP-2** 🔴 | El pre-check G3 del reschedule chocaría **contra la propia cita que se mueve** ("muévela de 9:00 a 9:30" → availability muestra 9:30 ocupado por ELLA) — misma clase que bitácora fila 14 (pre-checks no plan-aware). | El pre-check tolera conflictos causados SOLO por la cita en movimiento: availability + `findBookingOverlap` con `excludeBookingId` (patrón canónico ya existente en `booking-overlap.ts`). |
 | **GAP-3** 🟠 | Plan "cancela X y agenda a Y en su lugar": el pre-check del create vería a X viva ocupando el hueco → rechazo de un plan válido. | Collector: `pendingCancelledBookingIds()` (espejo de `pendingDeletedRangeIds`); create/reschedule excluyen esas citas del conflicto + advertencia de dependencia en la card (patrón fila 14 ya validado en vivo). |
 | **GAP-4** 🟠 | Cancelar una **vencida** manda email de cancelación de una cita YA PASADA (el PATCH no mira la fecha); y una PENDING vencida no tiene salida sin notificar (NO_SHOW solo desde CONFIRMED; confirmarla manda SMS+email). El primer uso real de PR 3 es limpiar 16 vencidas — este es el caso #1, no un edge. | Advertencia específica en la card (pre-check detecta vencida + email en archivo) + regla de prompt 7 (COMPLETED/NO_SHOW como cierres honestos; PENDING vencida: explicar y que el doctor decida). |
@@ -107,6 +107,20 @@ lado agente (create feliz + 409 + NO_RANGE), y de paso limpiar las citas de prue
 
 Menores: reschedule de PENDING nace CONFIRMED (dicho en card) · el agente no emite CFDI al
 completar (regla de prompt 9; el flujo auto-CFDI del modal queda en la UI).
+
+**Code-review de la implementación PR 3 (2026-07-06, 8 hallazgos, todos aplicados salvo uno diferido):**
+aplicados — (1) el pre-check de reschedule ahora valida los requisitos de contacto sobre los
+datos de la cita original (evitaba fabricar el desastre RSC-3: cancelar y luego 400 en el
+create); (2) todos los `res.json()` nuevos del executor con `.catch` (un body no-JSON tras una
+mutación exitosa enmascaraba el mensaje RSC-3 con "error de conexión"); (3) reschedule preserva
+el precio ajustado manualmente (advertencia + re-PATCH del precio tras crear); (4) 📱 en la
+advertencia de cancelar sin email (el evento de GCal del paciente SÍ se borra); (5) guards de
+formato HH:MM y de tipo en ids del modelo; (6) max de ventana ocupada por MINUTOS, no
+lexicográfico (endTime "00:00" legacy); (7) `FORMAS_DE_PAGO` derivado de ledger-types (una
+fuente); (8) prompt: "pagos" calificado (registrar ingreso al completar SÍ es del agente).
+**Diferido (altitud, post-v1):** el fallback plan-aware de `checkSlot` es la TERCERA copia de la
+fórmula de ventana ocupada — el fix de fondo es un param `excludeBookingIds` en el endpoint
+`range-availability` para que el pre-check use SIEMPRE el motor canónico.
 
 **Code-review del fix GAP-1 (2026-07-06, 6 hallazgos):** aplicados — type guard de `patientId`
 no-string (400, no 500 anónimo), respuesta uniforme 404 para callers públicos (sin oráculo de
@@ -133,8 +147,9 @@ tiene una tercera copia inline de la regla — migrar su rama de pertenencia al 
 
 ---
 
-*Estado:* diseño 2026-07-06, contratos verificados contra código. Siguiente: implementar en el
-orden §2, correr evals G11 (viejos + §4) antes del push, validar en vivo con TOOLING.
+*Estado:* diseño E implementación 2026-07-06 (working tree): 6 tools + executor + prompt + panel
++ 7 evals nuevos; code-review con 7 fixes aplicados (§5); evals 18/19 + smoke 5/5 post-fixes.
+Siguiente: push, deploy y validación en vivo con TOOLING (§4 — TRX-6 crítica).
 Relacionado: [`02-DISENO`](02-DISENO-tools-y-arquitectura.md) §5 (gaps G1/G3/G4/G5),
 [`04-PERMUTACIONES`](04-PERMUTACIONES-agenda.md) (matriz TRX, bloques C/E/G),
 [`05-REFERENCIA-TECNICA`](05-REFERENCIA-TECNICA-AGENTE.md).

@@ -4,7 +4,7 @@
 > qué tools tiene y contra qué endpoints/tablas opera cada una, cómo fluye una petición de punta a
 > punta, y las reglas de seguridad que NO se negocian. Para entender el *estado del proyecto* lee
 > [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md); este doc describe el *sistema*.
-> Refleja el código a 2026-07-04 (PR 1 desplegado + PR 2 construido).
+> Refleja el código a 2026-07-06 (PR 1+2 desplegados · PR 3 citas construido y revisado).
 
 ---
 
@@ -32,7 +32,8 @@ server-side); el chat v1 (context-stuffing, slots) y el RAG de docs son antecede
    ids que el modelo referencia (rangos, bloqueos, citas) se validan como del doctor de la sesión.
 4. **Lecturas autónomas, escrituras escalonadas por riesgo.** PR 1: solo lectura. PR 2: acciones
    internas sin efectos hacia pacientes (rangos/bloqueos — los bloqueos son lo único 100%
-   reversible). PR 3: citas (SMS/email/GCal = confirmación SIEMPRE). PR 4: voz.
+   reversible). PR 3 (construido 2026-07-06): citas — todo lo que notifica lleva advertencia fija
+   📱 (roja en la card) y regla de prompt "solo a petición explícita". PR 4: voz.
 5. **La agenda cambia entre mensajes.** Toda pregunta de estado se re-consulta en el turno (regla
    10 del prompt) — repetir datos viejos es dar información falsa.
 6. **Nunca deducir disponibilidad**: `get_availability` usa el mismo motor que la página pública.
@@ -123,6 +124,23 @@ borra aunque haya citas (las deja huérfanas) y **borra en cascada los bloqueos*
 quedan sin rangos (RNG-11/12, validado en vivo). El camino individual rechaza rangos con citas
 activas → el agente v1 no puede dejar citas sin ventana ni disparar la cascada.
 
+### Tools de PROPUESTA de CITAS (PR 3 — tier 🔴, notifican al paciente)
+
+Diseño completo y decisiones D1–D6 en [`06-PR3-DISENO-citas.md`](06-PR3-DISENO-citas.md).
+
+| Tool | Pre-checks server-side | Endpoint(s) que ejecuta el CLIENTE |
+|---|---|---|
+| `propose_create_booking` | disponibilidad re-validada contra el motor REAL (`range-availability?skipCutoff=1`) con fallback plan-aware (GAP-2/3: descuenta citas que este plan cancela); requisitos de contacto (`bookingHorarios*Required`); `patientId` del doctor; HH:MM estricto; fecha ≥ hoy | `POST range-bookings` (**ruta normal, NUNCA `instant`** — decisión D1/CIT-6; nace CONFIRMED) |
+| `propose_confirm_booking` | cita del doctor, status PENDING | `PATCH bookings/[id] {CONFIRMED}` |
+| `propose_cancel_booking` | status activo; detección de **vencida** (GAP-4: advertencia de email de cita pasada + alternativas COMPLETADA/NO ASISTIÓ) | `PATCH bookings/[id] {CANCELLED}` |
+| `propose_reschedule_booking` | UNA card (D3); no-op guard (RSC-4); disponibilidad excluyendo la PROPIA cita (GAP-2); requisitos de contacto sobre los datos originales (review 2026-07-06 — evita el desastre RSC-3); preserva precio ajustado (`restorePrice`) | executor secuencial: `PATCH {CANCELLED}` → `POST range-bookings` (`isRescheduled:true`) → `PATCH {finalPrice}` si aplica |
+| `propose_complete_booking` | status CONFIRMED (PENDING solo si un paso anterior del plan la confirma); `formaDePago` obligatoria (lista de ledger-types); **payload de ledger completo construido AQUÍ** (D4/G1) | `PATCH {COMPLETED}` → `POST practice-management/ledger` (soft-fail explícito si el ledger falla) |
+| `propose_no_show` | status CONFIRMED (o plan-aware con confirm previo) | `PATCH bookings/[id] {NO_SHOW}` |
+
+Plan-awareness del collector: `pendingCancelledBookingIds()` (los checks de slot descuentan citas
+que el plan cancela) y `pendingConfirmedBookingIds()` (confirmar→completar en UN plan). Cap de 10
+propuestas/turno con narración obligatoria del resto (GAP-5).
+
 ### Ciclo de vida de una propuesta
 
 ```
@@ -163,7 +181,10 @@ lo re-valida contra el token de todas formas).
 
 1. **Contexto temporal**: fecha-hora MX + **weekday** server-side (E6) + "deriva los demás días
    de aquí".
-2. **Capacidades**: consultas autónomas · propuestas con confirmación · citas AÚN NO.
+2. **Capacidades**: consultas autónomas · propuestas con confirmación (rangos/bloqueos Y citas).
+2c. **Citas — reglas especiales**: solo a petición explícita; horario de get_availability de ESTE
+   turno; PENDIENTE→completar en 2 pasos; reagendar = UNA acción; vencidas → COMPLETADA/NO
+   ASISTIÓ como cierres honestos; formaDePago obligatoria al completar; cap 10 con narración.
 2b. **Resiliencia a peticiones raras**: ambigüedad → UNA pregunta concreta con opciones de los
    tools; multi-parte → parafrasear el plan numerado antes de proponer y responder por parte;
    fuera de alcance → decirlo y nombrar capacidades; imposible por reglas (estados terminales) →

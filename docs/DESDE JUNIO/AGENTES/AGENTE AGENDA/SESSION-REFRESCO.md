@@ -10,12 +10,12 @@
 
 Agente de IA conversacional para la agenda (`/appointments`), construido **desde cero con
 tool-calling nativo** (Claude, loop multi-paso server-side). **PR 1 (lecturas) y PR 2 (propuestas
-de rangos/bloqueos con cards de confirmación) VIVEN en prod, ambos validados en vivo**
-(bitácora filas 1–19; referencia del sistema en
-[`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md)). **Los prerequisitos de
-PR 3 quedaron CERRADOS el 2026-07-05:** campaña CIT ✅ (sin buffer — decisión), evals G11 ✅
-(12/12 en verde, corren el working tree contra prod read-only), invariantes en el prompt ✅.
-**Siguiente: PR 3** (propuestas de citas) — empezar por las decisiones de diseño en Próximos pasos.
+de rangos/bloqueos) VIVEN en prod, validados en vivo** (bitácora filas 1–19; referencia del
+sistema en [`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md)). **PR 3
+(propuestas de citas) quedó CONSTRUIDO Y REVISADO el 2026-07-06** (diseño D1–D6 + GAP-1..5 en
+[`06-PR3-DISENO-citas.md`](06-PR3-DISENO-citas.md); GAP-1 ya desplegado `b2b8d482`; code-review
+con 7 fixes aplicados; evals G11 18/19 + smoke 5/5). **Siguiente: push de PR 3 + validación en
+vivo** (TRX-6/ledger es LA crítica) — detalle en Próximos pasos.
 
 ## Estado: qué está hecho
 
@@ -168,17 +168,18 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
 
 ## Próximos pasos
 
-1. **PR 3 — propuestas de citas: DISEÑO CERRADO (2026-07-06), implementar.** Diseño completo con
-   contratos verificados contra código en [`06-PR3-DISENO-citas.md`](06-PR3-DISENO-citas.md):
-   - **D1 (CIT-6):** ruta normal, nunca `instant`. **D2:** 6 tools (create/confirm/cancel/
-     reschedule/complete/no_show); extended_block y resend_confirmation diferidos.
-   - **D3 (G4):** reschedule = UNA card, executor cancela→crea, RSC-3 con mensajería explícita.
-   - **D4 (G1):** complete = doble-call (PATCH + POST ledger) con ambos payloads construidos
-     server-side al proponer — TRX-6 es la validación crítica en vivo.
-   - **D5:** tier 🔴 = advertencia fija en card + regla de prompt (solo a petición explícita).
-   - **D6:** complete exige `formaDePago` (el agente lo pregunta); precio default `finalPrice`.
-   - Orden de implementación y evals nuevos en §2/§4 del doc. **Correr evals G11 antes de cada
-     push** (sembrar: TRX-6, tier-rojo-espontáneo, pending-directo, reschedule-noop).
+1. **PR 3 — CONSTRUIDO, evals 18/19 verdes (2026-07-06), pendiente: push + validación en vivo.**
+   Diseño (D1–D6 + GAP-1..5) en [`06-PR3-DISENO-citas.md`](06-PR3-DISENO-citas.md); GAP-1
+   (patientId) ya desplegado y validado aparte (`b2b8d482`). Implementado en el working tree:
+   - 6 tools `propose_*` de citas en `proposals.ts` (G3 re-validación de slot vía el motor real
+     con fallback plan-aware GAP-2/3; confirmar→completar en UN plan; advertencia vencida GAP-4;
+     narración del cap GAP-5; payload de ledger construido server-side D4).
+   - Executor en `useAgendaAgent` (reschedule = cancel→create con mensajería RSC-3; complete =
+     PATCH + POST ledger con soft-fail explícito), prompt con sección "Citas — reglas especiales",
+     panel (iconos + 📱 en rojo) y refresh de bookings.
+   - **Evals G11: 19 casos (12 viejos + 7 PR 3), 18 PASS · 1 WARN (soft pre-existente) · 0 FAIL.**
+   - **Al desplegar: validación en vivo con TOOLING** — TRX-6 (ledger al completar, query #4) es
+     LA crítica; RSC-1/3/4, create feliz/409, y limpiar los datos de prueba con el propio agente.
 2. **Limpieza de datos de prueba** (cuando estorben): citas de prueba (`test 7`, `vvvvvv`,
    `cita1/2`, CIT1/CIT2/CIT13/cti13/cita13) — solo UI hasta PR 3; rangos/bloqueos de prueba — el
    agente puede proponerlo.
@@ -208,6 +209,10 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
   FAILED por `tsx` en devDeps sin regenerar el lockfile
 - `d8bca1cd` fix: revert del tsx (frozen lockfile) — deploy SUCCESS; regla: dependencia nueva =
   lockfile regenerado en el mismo commit
+- `b2b8d482` fix(api): GAP-1 — `validatePatientLink` en las 4 rutas de creación + PATCH (validado
+  en vivo con 3 probes + camino feliz UI)
+- `d6630def` **feat: PR 3** — 6 tools propose_* de citas + executor + prompt + panel + 7 evals
+  (code-review: 7 fixes aplicados; evals 18/19 + smoke 5/5)
 
 ---
 
