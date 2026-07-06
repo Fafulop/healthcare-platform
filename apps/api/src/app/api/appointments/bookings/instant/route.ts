@@ -10,6 +10,7 @@ import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken, calcEndTime } from '@/lib/appointments-utils';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
+import { validatePatientLink } from '@/lib/patient-link';
 import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
@@ -84,6 +85,15 @@ export async function POST(request: Request) {
       }
     } else if (role !== 'ADMIN') {
       return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 403 });
+    }
+
+    // A provided patientId must reference a patient of this same doctor
+    const patientLinkError = await validatePatientLink(patientId, doctorId);
+    if (patientLinkError) {
+      return NextResponse.json(
+        { success: false, error: patientLinkError.error },
+        { status: patientLinkError.status }
+      );
     }
 
     // Normalize startTime to HH:MM (strip seconds if browser sends HH:MM:SS)

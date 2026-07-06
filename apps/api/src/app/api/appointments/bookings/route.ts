@@ -15,6 +15,7 @@ import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
+import { validatePatientLink } from '@/lib/patient-link';
 
 // In-memory rate limiter for booking creation (per IP).
 // Prevents SMS/email bombing via rapid booking requests.
@@ -186,6 +187,16 @@ export async function POST(request: Request) {
       }
       serviceName = service.serviceName;
       servicePrice = Number(service.price) || 0;
+    }
+
+    // A provided patientId must reference a patient of the slot's doctor
+    // (public callers get a uniform 404 — no existence/ownership oracle)
+    const patientLinkError = await validatePatientLink(patientId, slotForValidation.doctorId, !!callerRole);
+    if (patientLinkError) {
+      return NextResponse.json(
+        { success: false, error: patientLinkError.error },
+        { status: patientLinkError.status }
+      );
     }
 
     // Generate confirmation code and review token

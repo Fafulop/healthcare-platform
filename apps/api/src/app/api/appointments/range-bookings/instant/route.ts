@@ -13,6 +13,7 @@ import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
+import { validatePatientLink } from '@/lib/patient-link';
 
 export async function POST(request: Request) {
   try {
@@ -100,6 +101,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'El servicio seleccionado no es válido' },
         { status: 400 }
+      );
+    }
+
+    // A provided patientId must reference a patient of this same doctor
+    const patientLinkError = await validatePatientLink(patientId, doctorId);
+    if (patientLinkError) {
+      return NextResponse.json(
+        { success: false, error: patientLinkError.error },
+        { status: patientLinkError.status }
       );
     }
 

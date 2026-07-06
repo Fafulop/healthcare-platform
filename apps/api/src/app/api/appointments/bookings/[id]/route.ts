@@ -18,6 +18,7 @@ import { findBookingOverlap } from '@/lib/booking-overlap';
 import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { sendAppointmentCancellationEmail } from '@/lib/gmail';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
+import { validatePatientLink } from '@/lib/patient-link';
 
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -119,14 +120,12 @@ export async function PATCH(
       }
 
       // If linking (not unlinking), verify patient belongs to this doctor
-      if (patientId !== null) {
-        const patient = await prisma.patient.findUnique({ where: { id: patientId }, select: { doctorId: true } });
-        if (!patient) {
-          return NextResponse.json({ success: false, error: 'Patient not found' }, { status: 404 });
-        }
-        if (patient.doctorId !== booking.doctorId) {
-          return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-        }
+      const patientLinkError = await validatePatientLink(patientId, booking.doctorId);
+      if (patientLinkError) {
+        return NextResponse.json(
+          { success: false, error: patientLinkError.error },
+          { status: patientLinkError.status }
+        );
       }
 
       const updated = await prisma.booking.update({

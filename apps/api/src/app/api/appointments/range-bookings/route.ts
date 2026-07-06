@@ -17,6 +17,7 @@ import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
+import { validatePatientLink } from '@/lib/patient-link';
 
 export async function POST(request: Request) {
   try {
@@ -129,6 +130,16 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'El servicio seleccionado no es válido o no está activo' },
         { status: 400 }
+      );
+    }
+
+    // A provided patientId must reference a patient of this same doctor
+    // (public callers get a uniform 404 — no existence/ownership oracle)
+    const patientLinkError = await validatePatientLink(patientId, doctorId, !!callerRole);
+    if (patientLinkError) {
+      return NextResponse.json(
+        { success: false, error: patientLinkError.error },
+        { status: patientLinkError.status }
       );
     }
 
