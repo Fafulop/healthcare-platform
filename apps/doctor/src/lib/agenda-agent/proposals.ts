@@ -999,8 +999,11 @@ async function proposeCreateBooking(
       startTime: input.startTime,
       serviceId: input.serviceId,
       patientName: input.patientName.trim(),
-      ...(input.patientEmail ? { patientEmail: input.patientEmail } : {}),
-      ...(input.patientPhone ? { patientPhone: input.patientPhone } : {}),
+      // patientEmail/patientPhone are NON-NULLABLE columns (schema) — the UI
+      // always sends at least "". Omitting them makes booking.create throw a
+      // 500 (bitácora fila 21, cazado en vivo en el primer reschedule real).
+      patientEmail: input.patientEmail ?? '',
+      patientPhone: input.patientPhone ?? '',
       ...(input.patientWhatsapp ? { patientWhatsapp: input.patientWhatsapp } : {}),
       ...(input.notes ? { notes: input.notes } : {}),
       ...(input.appointmentMode ? { appointmentMode: input.appointmentMode } : {}),
@@ -1187,8 +1190,9 @@ async function proposeRescheduleBooking(
         startTime: input.newStartTime,
         serviceId,
         patientName: b.patientName,
-        ...(contact.email ? { patientEmail: contact.email } : {}),
-        ...(contact.phone ? { patientPhone: contact.phone } : {}),
+        // Non-nullable columns: always send strings (bitácora fila 21)
+        patientEmail: contact.email ?? '',
+        patientPhone: contact.phone ?? '',
         ...(contact.whatsapp ? { patientWhatsapp: contact.whatsapp } : {}),
         ...(b.notes ? { notes: b.notes } : {}),
         ...(b.appointmentMode ? { appointmentMode: b.appointmentMode } : {}),

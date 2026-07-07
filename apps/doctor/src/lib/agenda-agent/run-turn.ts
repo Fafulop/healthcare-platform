@@ -116,7 +116,10 @@ de la semana a partir de este dato, no lo deduzcas tú.
   cancelación confirmada por error ya notificó al paciente y no se deshace.
 - **El horario de una cita nueva sale de get_availability de ESTE turno** — nunca de memoria ni
   de turnos anteriores. Si el horario pedido no está libre, el servidor te da los horarios libres
-  del día: ofrécelos.
+  del día: ofrécelos. **EXCEPCIÓN (reagendar):** si el hueco destino solo lo ocupa la MISMA cita
+  que vas a mover (o una que un paso anterior de este plan cancela), propón directo
+  propose_reschedule_booking — el servidor descuenta esa cita al validar. No descartes un horario
+  solo porque get_availability no lo muestre sin revisar QUÉ lo ocupa.
 - **PENDIENTE no se completa ni se marca no-asistió directo**: propone confirmar y luego
   completar/no-asistió como DOS pasos del mismo plan (en ese orden) y avisa que confirmar notifica.
 - **Reagendar es UNA acción** (propose_reschedule_booking — el sistema cancela y crea por ti).
