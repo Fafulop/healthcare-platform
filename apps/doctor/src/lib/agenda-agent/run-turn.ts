@@ -18,6 +18,7 @@
 import {
   callClaude,
   type AnthropicMessage,
+  type SystemBlock,
   type ToolUseBlock,
 } from './anthropic';
 import { AGENT_TOOLS, executeTool, type ToolContext } from './tools';
@@ -31,6 +32,9 @@ import {
 import { mxNowString, mxTodayKey, mxTodayWeekday } from './dates';
 
 export const MODEL = process.env.AGENDA_AGENT_MODEL || 'claude-sonnet-5';
+// One definition for BOTH callsites (loop + synthesis): a divergent toolset
+// between them would go unnoticed and also split the tools-prefix cache.
+const ALL_TOOLS = [...AGENT_TOOLS, ...PROPOSAL_TOOLS];
 const MAX_ITERATIONS = 8;
 const MAX_TOKENS_PER_CALL = 4096;
 // Tool results are re-sent as input tokens on EVERY subsequent iteration — cap
@@ -55,14 +59,16 @@ function extractText(content: { type: string }[]): string {
     .trim();
 }
 
-function buildSystemPrompt(): string {
-  const now = mxNowString();
-  const today = mxTodayKey();
-  const weekday = mxTodayWeekday();
-  return `Eres el asistente de agenda de un consultorio médico en México.
+// PROMPT CACHING (05 §8): the system prompt + tools are ~10k stable tokens
+// re-sent on EVERY iteration of EVERY turn. The prompt is split into a STABLE
+// block (module constant — byte-identical across turns, carries the cache
+// breakpoint; the breakpoint also covers `tools`, which render before system)
+// and a small VOLATILE temporal block after it. Anything interpolated per-turn
+// (date, time, weekday) must live in the volatile block or the cache never hits.
+const STABLE_SYSTEM_PROMPT = `Eres el asistente de agenda de un consultorio médico en México.
 
-Ahora mismo es ${now} (America/Mexico_City). Hoy es ${weekday} ${today} — calcula los demás días
-de la semana a partir de este dato, no lo deduzcas tú.
+La fecha y hora actuales vienen en el bloque "Contexto temporal" AL FINAL de estas
+instrucciones — todos los cálculos de fechas parten de ahí.
 
 ## Qué puedes hacer
 1. **Consultar** (autónomo): horarios del día, citas, disponibilidad real, servicios,
@@ -162,7 +168,7 @@ de la semana a partir de este dato, no lo deduzcas tú.
    devuelve lo que necesitas, dilo.
 2. Para disponibilidad usa SIEMPRE get_availability (es el mismo motor que la página pública).
    Nunca deduzcas huecos tú mismo a partir de la lista de citas.
-3. Fechas relativas ("mañana", "el martes") se calculan desde hoy (${today}).
+3. Fechas relativas ("mañana", "el martes") se calculan desde el HOY del Contexto temporal.
 4. Al mencionar una cita incluye: paciente, fecha y hora, estado, servicio (o "Sin servicio"),
    y si aplica primera vez / modalidad. Formato de fecha amable: "Viernes 4 de julio, 09:00–10:00".
 5. Las citas VENCIDAS (pendientes O agendadas cuya hora ya pasó) son un pendiente importante —
@@ -196,6 +202,43 @@ de la semana a partir de este dato, no lo deduzcas tú.
   (hora · paciente · estado · servicio · extras). Al final una línea de resumen en prosa si aporta.
 - Varios días: repite la estructura por día, cabecera de fecha en negritas.
 - Cifras/conteos ("tienes N citas") en negritas.`;
+
+/** Stable (cached) prefix + volatile temporal block. The breakpoint on the
+ * stable block also caches `tools` (rendered before system). */
+function buildSystem(): SystemBlock[] {
+  return [
+    { type: 'text', text: STABLE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+    {
+      type: 'text',
+      text: `## Contexto temporal
+Ahora mismo es ${mxNowString()} (America/Mexico_City). Hoy es ${mxTodayWeekday()} ${mxTodayKey()} —
+calcula los demás días de la semana a partir de este dato, no lo deduzcas tú.`,
+    },
+  ];
+}
+
+/** Move the message-side cache breakpoints to the tail of the conversation:
+ * each loop iteration then reads the previous iteration's prefix (history +
+ * earlier tool results) from cache instead of re-paying it at full input price.
+ * TWO markers (last block of the last TWO messages) so the gap between
+ * consecutive cache entries is bounded by ONE message's blocks — a busy
+ * iteration (10 tool_use + 10 tool_result blocks) would otherwise exceed the
+ * API's 20-block cache lookback and silently miss (review finding 2026-07-07).
+ * Old markers are stripped first (max 4 breakpoints/request; we use ≤3: stable
+ * system + these two). String contents become a text block to carry the marker. */
+function setMessageCacheBreakpoints(messages: AnthropicMessage[]): void {
+  for (const m of messages) {
+    if (Array.isArray(m.content)) {
+      for (const b of m.content) delete (b as { cache_control?: unknown }).cache_control;
+    }
+  }
+  for (const m of messages.slice(-2)) {
+    if (typeof m.content === 'string') {
+      m.content = [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }];
+    } else if (m.content.length > 0) {
+      m.content[m.content.length - 1].cache_control = { type: 'ephemeral' };
+    }
+  }
 }
 
 export interface AgendaTurnInput {
@@ -211,7 +254,15 @@ export interface AgendaTurnResult {
   /** Every tool invocation with its input, in call order (eval assertions). */
   toolCalls: { name: string; input: Record<string, unknown> }[];
   proposals: AgendaProposal[];
-  usage: { inputTokens: number; outputTokens: number };
+  /** inputTokens = FULL context volume (uncached + cache writes + cache reads)
+   * so the daily cap keeps measuring what it always measured; the cache fields
+   * expose how much of it was billed at ~0.1× (reads) / ~1.25× (writes). */
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+  };
 }
 
 export async function runAgendaAgentTurn({
@@ -232,26 +283,48 @@ export async function runAgendaAgentTurn({
     { role: 'user' as const, content: message },
   ];
 
-  const system = buildSystemPrompt();
+  const system: SystemBlock[] = buildSystem();
   const toolsUsed: string[] = [];
   const toolCalls: { name: string; input: Record<string, unknown> }[] = [];
   let totalInput = 0;
   let totalOutput = 0;
+  let cacheRead = 0;
+  let cacheWrite = 0;
   let reply = '';
 
-  let exhausted = true;
+  const addUsage = (u: {
+    input_tokens: number;
+    output_tokens: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  }) => {
+    // input_tokens is only the UNCACHED remainder — total context is the sum.
+    totalInput += u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+    totalOutput += u.output_tokens;
+    cacheRead += u.cache_read_input_tokens ?? 0;
+    cacheWrite += u.cache_creation_input_tokens ?? 0;
+  };
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
+  // Single choke point for model calls: the cache breakpoints are applied HERE
+  // so no future callsite can forget them (review finding 2026-07-07).
+  const callModel = async (toolChoice?: 'auto' | 'none') => {
+    setMessageCacheBreakpoints(messages);
     const response = await callClaude({
       model: MODEL,
       system,
       messages,
-      tools: [...AGENT_TOOLS, ...PROPOSAL_TOOLS],
+      tools: ALL_TOOLS,
       maxTokens: MAX_TOKENS_PER_CALL,
+      ...(toolChoice ? { toolChoice } : {}),
     });
+    addUsage(response.usage);
+    return response;
+  };
 
-    totalInput += response.usage.input_tokens;
-    totalOutput += response.usage.output_tokens;
+  let exhausted = true;
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const response = await callModel();
 
     const toolUses = response.content.filter((b): b is ToolUseBlock => b.type === 'tool_use');
 
@@ -301,16 +374,12 @@ export async function runAgendaAgentTurn({
   // results is already in `messages` — one final text-only call synthesizes an
   // answer from what was gathered instead of discarding it.
   if (exhausted) {
-    const final = await callClaude({
-      model: MODEL,
-      system,
-      messages,
-      tools: [...AGENT_TOOLS, ...PROPOSAL_TOOLS],
-      toolChoice: 'none',
-      maxTokens: MAX_TOKENS_PER_CALL,
-    });
-    totalInput += final.usage.input_tokens;
-    totalOutput += final.usage.output_tokens;
+    // Known cache cost (accepted): switching tool_choice ('auto'→'none')
+    // invalidates the MESSAGES cache tier, so this call — which fires when the
+    // history is largest — re-bills it at full price. Inherent to forcing a
+    // text-only synthesis; rare path (loop exhaustion only). Tools+system
+    // cache still hits (review finding 2026-07-07).
+    const final = await callModel('none');
     reply =
       extractText(final.content) ||
       'Necesité demasiados pasos para responder. Intenta una pregunta más específica.';
@@ -321,6 +390,11 @@ export async function runAgendaAgentTurn({
     toolsUsed,
     toolCalls,
     proposals: collector.proposals,
-    usage: { inputTokens: totalInput, outputTokens: totalOutput },
+    usage: {
+      inputTokens: totalInput,
+      outputTokens: totalOutput,
+      cacheReadTokens: cacheRead,
+      cacheWriteTokens: cacheWrite,
+    },
   };
 }

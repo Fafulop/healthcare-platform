@@ -181,11 +181,14 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
 2. **Limpieza de datos de prueba** (cuando estorben): citas de prueba (`test 7`, `vvvvvv`,
    `cita1/2`, CIT1/CIT2/CIT13/cti13/cita13) — la primera misión real de PR 3 (cerrar vencidas
    como NO ASISTIÓ, nunca COMPLETADA: crearía ingresos falsos en Flujo de Dinero).
-3. **Prompt caching en el cliente del agente** (con PR 4 o antes): la validación de PR 3 agotó
-   el cap de 500k en 17 turnos (~$1.60 USD — 98% input; cada iteración re-envía system prompt +
-   historial + tools). `anthropic.ts` no usa `cache_control`; un breakpoint tras el system
-   prompt (moviendo la fecha/hora MX fuera del prefijo) bajaría el costo de input a ~mitad o
-   menos. Cap subido a 2M en Railway (2026-07-06) mientras tanto — detalle en `05` §8.
+3. ✅ **Prompt caching — IMPLEMENTADO Y REVISADO (2026-07-07).** Prompt partido en bloque
+   estable (con breakpoint, cubre tools) + contexto temporal al final; breakpoints móviles en
+   los últimos DOS mensajes (el doble marcador vino del code-review: una iteración con 10
+   propuestas excedería el lookback de 20 bloques) aplicados en un choke point único
+   (`callModel()`). **Suite completa 18/19 (idéntica al baseline pre-caching) con 96–98% del
+   input cacheado** → costo de input ~15% del original. Detalle en `05` §8. (Contexto: la
+   validación de PR 3 había agotado el cap de 500k en 17 turnos ≈ $1.60; cap en 2M desde
+   2026-07-06.)
 4. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
 
 ## Commits (en `main`, todos desplegados)

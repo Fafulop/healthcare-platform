@@ -176,12 +176,21 @@ lo re-valida contra el token de todas formas).
   INPUT (497,744 in vs 9,965 out) — cada iteración del loop re-envía system prompt (~6k) +
   historial + resultados de tools, y un turno puede correr hasta 8 iteraciones. El cap cuenta
   tokens crudos, no costo: 500k de Sonnet mayormente-input ≈ $1.50/día/doctor en el peor caso.
-- **⚠️ Optimización pendiente (prioridad para PR 4): prompt caching.** El cliente raw-fetch
-  (`anthropic.ts`) NO usa `cache_control`. El system prompt + tools (estables, se re-envían en
-  CADA iteración de CADA turno) son cacheables: cache reads cuestan ~0.1× — un breakpoint al
-  final del system prompt reduciría el costo efectivo de input en sesiones multi-turno a
-  aproximadamente la mitad o menos. Requisito: mantener el prefijo estable (la fecha/hora MX que
-  hoy va AL INICIO del prompt invalidaría el cache — moverla al final o a un mensaje).
+- **✅ Prompt caching (implementado 2026-07-07, code-review con 3 fixes).** Hasta 3 breakpoints
+  `cache_control` por request: (1) el system prompt se partió en un bloque ESTABLE (constante de
+  módulo, con el breakpoint — cubre también `tools`, que renderizan antes) + un bloque volátil
+  "Contexto temporal" al FINAL (la fecha/hora MX vivía al inicio del prompt e invalidaba todo);
+  (2+3) breakpoints móviles en los últimos DOS mensajes — cada iteración del loop lee del cache
+  el prefijo de la anterior, y el doble marcador acota el gap a UN mensaje (una iteración con 10
+  propuestas excedería el lookback de 20 bloques del API y fallaría en silencio — hallazgo del
+  review). Los breakpoints se aplican en un solo choke point (`callModel()`), imposible de
+  olvidar en callsites futuros. **Medido en evals (suite completa 18/19, igual al baseline):
+  96–98% del input cacheado en turnos calientes** (~0.1× precio) → costo de input ~15% del
+  original. Costos aceptados y comentados en código: el `tool_choice:'none'` de la síntesis
+  invalida el cache de mensajes (path raro), y los turnos de una sola iteración pagan un write
+  ~1.25× sin lectura. El cap diario sigue contando el contexto COMPLETO (uncached + writes +
+  reads) — mismo significado que antes; `cacheReadTokens`/`cacheWriteTokens` en el usage exponen
+  el ahorro (log de la ruta y evals los imprimen). TTL: 5 min — sesiones activas lo mantienen solas.
 - **Por request**: máx 8 iteraciones de loop; síntesis forzada al agotarse; resultados de tool
   capados a 8KB; `max_tokens` 4096/llamada con mensaje honesto de truncado; timeout 60s/llamada.
 - **Historial**: client-side por sesión, últimos 12 turnos (G10 — sin persistencia aún).

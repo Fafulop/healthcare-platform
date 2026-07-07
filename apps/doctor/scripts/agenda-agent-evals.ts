@@ -356,8 +356,11 @@ async function main() {
 
     const secs = ((Date.now() - t0) / 1000).toFixed(1);
     const tokens = turn.usage.inputTokens + turn.usage.outputTokens;
+    const cachePct = turn.usage.inputTokens > 0
+      ? Math.round((turn.usage.cacheReadTokens / turn.usage.inputTokens) * 100)
+      : 0;
     if (failures.length === 0) {
-      console.log(`✓ ${c.id} (${secs}s, ${tokens} tok, tools=[${turn.toolsUsed.join(',')}])`);
+      console.log(`✓ ${c.id} (${secs}s, ${tokens} tok, ${cachePct}% cached, tools=[${turn.toolsUsed.join(',')}])`);
     } else if (c.soft) {
       warns++;
       console.log(`⚠ ${c.id} — WARN (soft): ${failures.join(' · ')}`);

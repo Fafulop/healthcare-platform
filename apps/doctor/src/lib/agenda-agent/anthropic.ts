@@ -9,6 +9,11 @@
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
+/** Prompt-cache breakpoint marker (prefix caching, 5-min TTL). */
+export interface CacheControl {
+  type: 'ephemeral';
+}
+
 export interface AnthropicTool {
   name: string;
   description: string;
@@ -22,6 +27,7 @@ export interface AnthropicTool {
 export interface TextBlock {
   type: 'text';
   text: string;
+  cache_control?: CacheControl;
 }
 
 export interface ToolUseBlock {
@@ -29,6 +35,7 @@ export interface ToolUseBlock {
   id: string;
   name: string;
   input: Record<string, unknown>;
+  cache_control?: CacheControl;
 }
 
 export type ContentBlock = TextBlock | ToolUseBlock;
@@ -38,6 +45,7 @@ export interface ToolResultBlock {
   tool_use_id: string;
   content: string;
   is_error?: boolean;
+  cache_control?: CacheControl;
 }
 
 export interface AnthropicMessage {
@@ -45,15 +53,27 @@ export interface AnthropicMessage {
   content: string | (ContentBlock | ToolResultBlock)[];
 }
 
+/** System prompt as blocks so a cache breakpoint can sit after the STABLE part
+ * (the volatile temporal block goes after it — see run-turn buildSystem).
+ * Same shape as TextBlock — aliased so the two can never drift. */
+export type SystemBlock = TextBlock;
+
 export interface AnthropicResponse {
   content: ContentBlock[];
   stop_reason: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence';
-  usage: { input_tokens: number; output_tokens: number };
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    /** Tokens written to cache this call (~1.25× input price). */
+    cache_creation_input_tokens?: number;
+    /** Tokens served from cache (~0.1× input price). */
+    cache_read_input_tokens?: number;
+  };
 }
 
 export interface CallClaudeParams {
   model: string;
-  system: string;
+  system: string | SystemBlock[];
   messages: AnthropicMessage[];
   tools: AnthropicTool[];
   maxTokens?: number;
