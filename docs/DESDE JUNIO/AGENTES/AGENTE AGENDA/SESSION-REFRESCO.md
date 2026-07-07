@@ -191,6 +191,15 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
    el 2026-07-07 y el panel ganó una barra "Uso de hoy" — GET del budget + campo `budget` en
    cada respuesta.)
 4. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
+5. **Hardening diferido de los code-reviews** (detalle en `06-PR3-DISENO` §5 — ninguno urgente,
+   todos con mitigación vigente): (a) FK compuesta `Booking(patientId, doctorId) →
+   Patient(id, doctorId)` para que la BD imponga la pertenencia en TODO write path (hoy solo el
+   helper en app code); (b) mapear P2003 en los catch de las transacciones de creación (carrera
+   paciente-borrado → hoy 500 genérico, falla cerrado); (c) `form-links` tiene la tercera copia
+   inline de la regla de pertenencia — migrar al helper `validatePatientLink`; (d) param
+   `excludeBookingIds` en `range-availability` para que el pre-check de reschedule use SIEMPRE
+   el motor canónico (hoy el fallback de `checkSlot` es la tercera copia de la fórmula de
+   ventana ocupada).
 
 ## Commits (en `main`, todos desplegados)
 
