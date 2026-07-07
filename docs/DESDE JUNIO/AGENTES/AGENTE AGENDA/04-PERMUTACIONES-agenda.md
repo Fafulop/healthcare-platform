@@ -81,9 +81,9 @@ Fuente: `VALID_TRANSITIONS` en `bookings/[id]/route.ts` (enforced server-side, i
 - [ ] **TRX-3** PENDING→CANCELLED (paciente con `confirmationCode` correcto, sin auth). → 200.
 - [ ] **TRX-4** PENDING→CANCELLED con código incorrecto/ausente. → **401**.
 - [ ] **TRX-5** Paciente intenta CONFIRMED con código (self-confirm). → **401** (solo CANCELLED sin auth).
-- [ ] **TRX-6** CONFIRMED→COMPLETED. → 💰 LedgerEntry creado (verificar query #4 del TOOLING). ⚠️ Solo si se completa **desde la UI** (hook); un PATCH crudo NO crea el ledger (gap G1) — este caso es el eval crítico del executor de PR 3.
-- [ ] **TRX-7** CONFIRMED→NO_SHOW. → sin ledger, GCal actualizado.
-- [ ] **TRX-8** CONFIRMED→CANCELLED. → ⚠️ email + evento GCal **borrado** + `googleEventId` limpiado.
+- [x] **TRX-6** CONFIRMED→COMPLETED. → 💰 LedgerEntry creado (verificar query #4 del TOOLING). ⚠️ Solo si se completa **desde la UI** (hook) o **vía el agente PR 3** (doble-call D4); un PATCH crudo NO crea el ledger (gap G1). ✅ *Validado en vivo 2026-07-06 VÍA EL AGENTE: cita test123 completada por card → BD: COMPLETED + ledger #1570 ($900 efectivo, area "Ingresos Consulta", concepto/RFC idénticos al flujo UI). El eval crítico de PR 3 pasó.*
+- [x] **TRX-7** CONFIRMED→NO_SHOW. → sin ledger, GCal actualizado. ✅ *Validado en vivo 2026-07-06/07 ×16 (limpieza de vencidas vía agente, 2 tandas): 16 NO_SHOW en BD, CERO ledger entries creados.*
+- [x] **TRX-8** CONFIRMED→CANCELLED. → ⚠️ email + evento GCal **borrado** + `googleEventId` limpiado. ✅ *Validado en vivo 2026-07-06 vía agente (cita de Gerardo Lopez, viernes 10 jul): CANCELLED en BD tras confirmación explícita del doctor; email real de cancelación.*
 - [ ] **TRX-9** Cualquier transición desde terminal (p.ej. COMPLETED→CANCELLED). → **400** con mensaje en español.
 - [ ] **TRX-10** PENDING→COMPLETED directo. → **400**.
 - [ ] **TRX-11** Status inválido en el body (p.ej. "DONE"). → **400** lista de válidos.
@@ -149,8 +149,8 @@ El patrón **dryRun (default `true`) → confirmar** es el molde de las cards de
 
 - [ ] **RSC-1 · Camino feliz.** Cancelar vieja (⚠️📧) → crear nueva CONFIRMED (📱📧📅). → 2 operaciones, `isRescheduled=true` en la nueva. Valida: orden cancelar→crear.
 - [ ] **RSC-2 · ¿Por qué NO crear→cancelar?** Nueva cita cercana a la vieja → **409** contra la vieja aún viva. Valida: la razón del orden (G4). *Negativo esperado.*
-- [ ] **RSC-3 · La creación falla después de cancelar.** Cancelar OK → crear falla (hueco tomado en medio). → estado final: **cita cancelada, paciente notificado, sin cita nueva**. El agente/UI debe decirlo explícitamente y ofrecer horarios alternos. Valida: el modo de fallo conocido hasta que exista endpoint atómico.
-- [ ] **RSC-4 · Reagendar al MISMO horario (no-op).** → detectar y no hacer nada (no cancelar por gusto). Valida: guard de no-op que el tool debe tener.
+- [x] **RSC-3 · La creación falla después de cancelar.** Cancelar OK → crear falla (hueco tomado en medio). → estado final: **cita cancelada, paciente notificado, sin cita nueva**. El agente/UI debe decirlo explícitamente y ofrecer horarios alternos. ✅ *Ocurrió DE VERDAD en vivo 2026-07-06 (bitácora 21: el create falló por payload sin contactos, bug arreglado en `e682850f`) — y el manejo funcionó EXACTO al diseño: mensaje explícito "la original quedó CANCELADA (paciente avisado)… hay que reagendar YA" + re-plan inmediato del agente.*
+- [ ] **RSC-4 · Reagendar al MISMO horario (no-op).** → detectar y no hacer nada (no cancelar por gusto). Valida: guard de no-op que el tool debe tener. *(Guard implementado en PR 3 + eval soft; no observado en vivo aún.)*
 
 ---
 

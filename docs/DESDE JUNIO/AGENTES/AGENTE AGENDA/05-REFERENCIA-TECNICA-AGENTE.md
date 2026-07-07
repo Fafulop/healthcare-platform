@@ -168,8 +168,20 @@ lo re-valida contra el token de todas formas).
 
 ## 8. Presupuesto, límites y telemetría
 
-- **Cap diario por doctor**: `AGENDA_AGENT_DAILY_TOKEN_CAP` (default 500k tokens), corte a
+- **Cap diario por doctor**: `AGENDA_AGENT_DAILY_TOKEN_CAP` (default 500k tokens; **en prod está
+  en 2M desde 2026-07-06** — la sesión de validación de PR 3 agotó los 500k en 17 turnos), corte a
   medianoche MX (UTC-6 fijo — L3), medido en `llm_token_usage` (`endpoint='agenda-agent'`) → 429.
+- **Economía real (medida 2026-07-06):** 507,709 tokens en 17 turnos = **~$1.60 USD** con
+  claude-sonnet-5 ($3/M input · $15/M output; intro $2/$10 hasta 2026-08). La clave: 98% fue
+  INPUT (497,744 in vs 9,965 out) — cada iteración del loop re-envía system prompt (~6k) +
+  historial + resultados de tools, y un turno puede correr hasta 8 iteraciones. El cap cuenta
+  tokens crudos, no costo: 500k de Sonnet mayormente-input ≈ $1.50/día/doctor en el peor caso.
+- **⚠️ Optimización pendiente (prioridad para PR 4): prompt caching.** El cliente raw-fetch
+  (`anthropic.ts`) NO usa `cache_control`. El system prompt + tools (estables, se re-envían en
+  CADA iteración de CADA turno) son cacheables: cache reads cuestan ~0.1× — un breakpoint al
+  final del system prompt reduciría el costo efectivo de input en sesiones multi-turno a
+  aproximadamente la mitad o menos. Requisito: mantener el prefijo estable (la fecha/hora MX que
+  hoy va AL INICIO del prompt invalidaría el cache — moverla al final o a un mensaje).
 - **Por request**: máx 8 iteraciones de loop; síntesis forzada al agotarse; resultados de tool
   capados a 8KB; `max_tokens` 4096/llamada con mensaje honesto de truncado; timeout 60s/llamada.
 - **Historial**: client-side por sesión, últimos 12 turnos (G10 — sin persistencia aún).
