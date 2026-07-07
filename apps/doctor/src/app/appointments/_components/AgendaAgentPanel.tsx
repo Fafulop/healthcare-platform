@@ -16,7 +16,30 @@ import {
   CheckCircle2, XCircle, CircleSlash, Play,
   CalendarCheck, CalendarClock, UserX, BadgeCheck,
 } from 'lucide-react';
-import { useAgendaAgent, type AgentMessage, type AgendaProposal } from '@/hooks/useAgendaAgent';
+import { useAgendaAgent, type AgentMessage, type AgendaProposal, type AgentBudget } from '@/hooks/useAgendaAgent';
+
+/** Daily-usage widget: slim bar + percentage. Green → amber (≥70%) → red (≥90%).
+ * "Uso de hoy" because the cap resets at midnight (MX), not per conversation. */
+function BudgetBar({ budget }: { budget: AgentBudget }) {
+  if (!(budget.cap > 0)) return null; // misconfigured cap → no widget, not "NaN%"
+  const pct = Math.min(100, Math.round((budget.used / budget.cap) * 100));
+  const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+  const textColor = pct >= 90 ? 'text-red-600' : pct >= 70 ? 'text-amber-600' : 'text-gray-400';
+  return (
+    <div
+      className="px-4 py-1.5 border-b border-gray-100 flex items-center gap-2"
+      title="El asistente tiene un límite diario de uso que se reinicia a medianoche."
+    >
+      <span className="text-[10px] text-gray-400 flex-shrink-0">Uso de hoy</span>
+      <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className={`text-[10px] font-medium flex-shrink-0 ${textColor}`}>
+        {pct >= 100 ? 'límite alcanzado' : `${pct}%`}
+      </span>
+    </div>
+  );
+}
 
 function renderInline(text: string) {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
@@ -201,11 +224,18 @@ interface AgendaAgentPanelProps {
 }
 
 export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAgentPanelProps) {
-  const { messages, loading, executing, sendMessage, clearChat, executeProposals, rejectProposal } =
-    useAgendaAgent(onAgendaChanged);
+  const {
+    messages, loading, executing, budget, refreshBudget,
+    sendMessage, clearChat, executeProposals, rejectProposal,
+  } = useAgendaAgent(onAgendaChanged);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
+
+  // Budget is fetched when the panel opens (and updated by every turn's response)
+  useEffect(() => {
+    if (isOpen) refreshBudget();
+  }, [isOpen, refreshBudget]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -264,6 +294,8 @@ export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAge
           </button>
         </div>
       </div>
+
+      {budget && <BudgetBar budget={budget} />}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">

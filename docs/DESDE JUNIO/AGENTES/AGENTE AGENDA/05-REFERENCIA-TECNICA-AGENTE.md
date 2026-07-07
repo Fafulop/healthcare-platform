@@ -47,6 +47,7 @@ server-side); el chat v1 (context-stuffing, slots) y el RAG de docs son antecede
 ```
 apps/doctor/src/
 ├── app/api/agenda-agent/route.ts        ← wrapper delgado: auth, validación, presupuesto, logging
+│                                           (+ GET del budget diario para el widget del panel)
 ├── lib/agenda-agent/
 │   ├── run-turn.ts                      ← EL LOOP (tools, prompt, caps) — compartido ruta ↔ evals
 │   ├── anthropic.ts                     ← cliente raw-fetch del Messages API (tool use, timeout 60s)
@@ -56,7 +57,7 @@ apps/doctor/src/
 ├── hooks/useAgendaAgent.ts              ← estado del chat + EXECUTOR secuencial de propuestas
 ├── app/appointments/
 │   ├── page.tsx                         ← monta el panel; refresca rangos/bloqueos tras ejecutar
-│   └── _components/AgendaAgentPanel.tsx ← UI: chat + cards de propuestas
+│   └── _components/AgendaAgentPanel.tsx ← UI: chat + cards de propuestas + barra "Uso de hoy"
 └── (apps/doctor/scripts/)
     └── agenda-agent-evals.ts            ← evals G11: 12 golden cases, corre run-turn contra prod
                                             read-only ANTES de cada push (instrucciones en cabecera)
@@ -168,9 +169,11 @@ lo re-valida contra el token de todas formas).
 
 ## 8. Presupuesto, límites y telemetría
 
-- **Cap diario por doctor**: `AGENDA_AGENT_DAILY_TOKEN_CAP` (default 500k tokens; **en prod está
-  en 2M desde 2026-07-06** — la sesión de validación de PR 3 agotó los 500k en 17 turnos), corte a
+- **Cap diario por doctor**: `AGENDA_AGENT_DAILY_TOKEN_CAP` (500k tokens — se subió a 2M para la
+  validación de PR 3 y **volvió a 500k el 2026-07-07** tras implementar prompt caching), corte a
   medianoche MX (UTC-6 fijo — L3), medido en `llm_token_usage` (`endpoint='agenda-agent'`) → 429.
+  **Widget de uso**: el panel muestra una barra "Uso de hoy" (verde→ámbar ≥70%→rojo ≥90%) — la
+  alimenta `GET /api/agenda-agent` al abrir el panel y el campo `budget` de cada respuesta POST.
 - **Economía real (medida 2026-07-06):** 507,709 tokens en 17 turnos = **~$1.60 USD** con
   claude-sonnet-5 ($3/M input · $15/M output; intro $2/$10 hasta 2026-08). La clave: 98% fue
   INPUT (497,744 in vs 9,965 out) — cada iteración del loop re-envía system prompt (~6k) +

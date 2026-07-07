@@ -187,8 +187,9 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
    propuestas excedería el lookback de 20 bloques) aplicados en un choke point único
    (`callModel()`). **Suite completa 18/19 (idéntica al baseline pre-caching) con 96–98% del
    input cacheado** → costo de input ~15% del original. Detalle en `05` §8. (Contexto: la
-   validación de PR 3 había agotado el cap de 500k en 17 turnos ≈ $1.60; cap en 2M desde
-   2026-07-06.)
+   validación de PR 3 había agotado el cap de 500k en 17 turnos ≈ $1.60; el cap volvió a 500k
+   el 2026-07-07 y el panel ganó una barra "Uso de hoy" — GET del budget + campo `budget` en
+   cada respuesta.)
 4. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
 
 ## Commits (en `main`, todos desplegados)

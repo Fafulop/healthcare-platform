@@ -41,6 +41,20 @@ async function getTokensUsedToday(doctorId: string): Promise<number> {
   return agg._sum.totalTokens ?? 0;
 }
 
+/** GET — today's assistant budget for the session doctor (panel widget). */
+export async function GET(request: NextRequest) {
+  try {
+    const { doctorId } = await requireDoctorAuth(request);
+    const usedToday = await getTokensUsedToday(doctorId);
+    return NextResponse.json({
+      success: true,
+      data: { used: usedToday, cap: DAILY_TOKEN_CAP },
+    });
+  } catch (error) {
+    return handleApiError(error, 'GET /api/agenda-agent');
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { doctorId } = await requireDoctorAuth(request);
@@ -120,7 +134,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { reply: turn.reply, toolsUsed: turn.toolsUsed, proposals: turn.proposals },
+      data: {
+        reply: turn.reply,
+        toolsUsed: turn.toolsUsed,
+        proposals: turn.proposals,
+        // usedToday was read BEFORE the turn — add this turn's spend so the
+        // widget updates without an extra query.
+        budget: {
+          used: usedToday + turn.usage.inputTokens + turn.usage.outputTokens,
+          cap: DAILY_TOKEN_CAP,
+        },
+      },
     });
   } catch (error: any) {
     console.error('[agenda-agent] error:', error);

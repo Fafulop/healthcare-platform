@@ -50,9 +50,20 @@ export interface AgentMessage {
   proposals?: AgendaProposal[];
 }
 
+/** Daily assistant budget (resets at midnight MX) — drives the panel widget. */
+export interface AgentBudget {
+  used: number;
+  cap: number;
+}
+
 interface AgentResponse {
   success: boolean;
-  data?: { reply: string; toolsUsed: string[]; proposals?: AgendaProposal[] };
+  data?: {
+    reply: string;
+    toolsUsed: string[];
+    proposals?: AgendaProposal[];
+    budget?: AgentBudget;
+  };
   error?: { code: string; message: string };
 }
 
@@ -239,7 +250,19 @@ export function useAgendaAgent(onAgendaChanged?: () => void) {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const [budget, setBudget] = useState<AgentBudget | null>(null);
   const executingRef = useRef(false);
+
+  /** Fetch today's budget (panel calls this when it opens). */
+  const refreshBudget = useCallback(async () => {
+    try {
+      const res = await fetch('/api/agenda-agent');
+      const data = await res.json().catch(() => null);
+      if (data?.success && data.data) setBudget(data.data as AgentBudget);
+    } catch {
+      // Non-critical widget data — leave the previous value.
+    }
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -268,6 +291,7 @@ export function useAgendaAgent(onAgendaChanged?: () => void) {
               proposals: (data.data!.proposals ?? []).map((p) => ({ ...p, status: 'pendiente' as const })),
             },
           ]);
+          if (data.data.budget) setBudget(data.data.budget);
         } else {
           setMessages((prev) => [
             ...prev,
@@ -356,5 +380,15 @@ export function useAgendaAgent(onAgendaChanged?: () => void) {
 
   const clearChat = useCallback(() => setMessages([]), []);
 
-  return { messages, loading, executing, sendMessage, clearChat, executeProposals, rejectProposal };
+  return {
+    messages,
+    loading,
+    executing,
+    budget,
+    refreshBudget,
+    sendMessage,
+    clearChat,
+    executeProposals,
+    rejectProposal,
+  };
 }
