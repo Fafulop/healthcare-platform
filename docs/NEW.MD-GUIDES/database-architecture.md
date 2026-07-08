@@ -331,6 +331,55 @@ Push schema changes to Railway when:
 
 ---
 
+### Read-only queries against prod (no psql needed)
+
+`psql` is not installed on the dev machine, and `railway run` injects the **internal**
+DB hostname (unreachable locally) — so neither works for ad-hoc prod queries. The working
+pattern (used for every pre-push smoke test, migration pre-flight, and post-deploy
+verification): a **throwaway tsx script in `packages/database/`** that reads the public
+URL from `.env` and queries through Prisma. Delete it after use — never commit it.
+
+```typescript
+// packages/database/tmp-my-check.ts  — TEMP, delete after use.
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { PrismaClient } from '@prisma/client';
+
+const env = readFileSync(join(__dirname, '.env'), 'utf8');
+const url = env.match(/^LLM_DATABASE_URL="?([^"\r\n]+)"?/m)?.[1];
+if (!url) throw new Error('LLM_DATABASE_URL not found in packages/database/.env');
+const prisma = new PrismaClient({ datasourceUrl: url });
+
+async function main() {
+  // Prisma queries or $queryRawUnsafe — READ-ONLY unless you know what you're doing
+  const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT COUNT(*) FROM public.bookings`);
+  console.log(rows);
+}
+
+main()
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());
+```
+
+Run it:
+```powershell
+cd packages/database
+pnpm exec tsx tmp-my-check.ts     # tsx resolves from the workspace ROOT devDeps
+Remove-Item tmp-my-check.ts       # always clean up
+```
+
+Notes:
+- `LLM_DATABASE_URL` in `packages/database/.env` IS the Railway public URL (same DB).
+- `pnpm exec tsx` — plain `tsx` is not on PATH, and do NOT add tsx as a local devDep
+  (frozen-lockfile deploys break unless the lockfile is regenerated; incident 2026-07-05).
+- This pattern satisfies the standing rule: **every raw SQL / new Prisma query shape is
+  smoke-tested read-only against prod BEFORE pushing** (there is no staging).
+- For write probes (e.g. testing a constraint), wrap in `prisma.$transaction` and throw
+  at the end so it always rolls back — see the composite-FK validation (2026-07-08) that
+  confirmed cross-doctor links are rejected without ever committing a row.
+
+---
+
 ### Adding LLM Tables (Advanced)
 
 For LLM tables in the `llm_assistant` schema (with vector types):
