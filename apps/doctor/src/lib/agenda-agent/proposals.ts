@@ -742,11 +742,6 @@ async function fetchBookingForProposal(doctorId: string, bookingId: unknown) {
  * would poison every lexicographic time comparison in the slot checks. */
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-function timeToMin(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
 /** Resolved calendar data (legacy slot bookings carry it on the slot). */
 function bookingTiming(b: BookingForProposal) {
   const date = b.slot?.date ?? b.date;
@@ -797,9 +792,9 @@ const UNKNOWN_BOOKING_ERROR =
  * same endpoint get_availability uses). Plan-aware (GAP-2/3): conflicts caused
  * SOLELY by bookings in `excludeBookingIds` (the booking being rescheduled, or
  * bookings an earlier step of this plan cancels) don't count — those are gone
- * by the time the executor reaches this step. In that fallback the window is
- * still validated manually against ranges, blocked times and OTHER bookings
- * with the canonical occupied-window formula (max(fin, inicio+ext) + buffer).
+ * by the time the executor reaches this step. Both checks ask the SAME engine:
+ * the plan-aware pass sends `excludeBookingIds` to range-availability instead
+ * of re-deriving the occupied-window formula here.
  */
 async function checkSlot(
   ctx: ProposalContext,
@@ -825,85 +820,53 @@ async function checkSlot(
     precio: Number(service.price),
   };
 
-  // 1) The real engine (never derive availability — decisión D1: ruta normal).
-  const params = new URLSearchParams({
-    startDate: input.dateKey,
-    endDate: input.dateKey,
-    serviceId: input.serviceId,
-    skipCutoff: '1',
-  });
-  let data: { timeSlots?: Record<string, { startTime: string }[]> };
-  try {
-    const res = await fetch(
-      `${API_URL}/api/doctors/${ctx.doctorSlug}/range-availability?${params.toString()}`,
-      { cache: 'no-store' }
-    );
-    if (!res.ok) {
-      return { ok: false, error: `No se pudo verificar disponibilidad (HTTP ${res.status}) — reintenta.`, horariosDisponibles: [] };
+  // The real engine (never derive availability — decisión D1: ruta normal).
+  const fetchDaySlots = async (
+    excludeIds?: Set<string>
+  ): Promise<{ slots: { startTime: string }[] } | { error: string }> => {
+    const params = new URLSearchParams({
+      startDate: input.dateKey,
+      endDate: input.dateKey,
+      serviceId: input.serviceId,
+      skipCutoff: '1',
+    });
+    if (excludeIds && excludeIds.size > 0) {
+      params.set('excludeBookingIds', [...excludeIds].join(','));
     }
-    data = await res.json();
-  } catch {
-    return { ok: false, error: 'No se pudo verificar disponibilidad (error de red) — reintenta en un momento.', horariosDisponibles: [] };
+    try {
+      const res = await fetch(
+        `${API_URL}/api/doctors/${ctx.doctorSlug}/range-availability?${params.toString()}`,
+        { cache: 'no-store' }
+      );
+      if (!res.ok) {
+        return { error: `No se pudo verificar disponibilidad (HTTP ${res.status}) — reintenta.` };
+      }
+      const data: { timeSlots?: Record<string, { startTime: string }[]> } = await res.json();
+      return { slots: data.timeSlots?.[input.dateKey] ?? [] };
+    } catch {
+      return { error: 'No se pudo verificar disponibilidad (error de red) — reintenta en un momento.' };
+    }
+  };
+
+  // 1) Current state: free means free, no dependency on the plan.
+  const current = await fetchDaySlots();
+  if ('error' in current) {
+    return { ok: false, error: current.error, horariosDisponibles: [] };
   }
-  const daySlots: { startTime: string }[] = data.timeSlots?.[input.dateKey] ?? [];
-  if (daySlots.some((s) => s.startTime === input.startTime)) {
+  if (current.slots.some((s) => s.startTime === input.startTime)) {
     return { ok: true, dependencia: null, servicio };
   }
 
-  // 2) Plan-aware fallback: does the slot become free once the plan's earlier
-  //    cancellations (or the booking being moved) are gone?
-  const horariosDisponibles = daySlots.map((s) => s.startTime);
+  // 2) Plan-aware pass: does the slot become free once the plan's earlier
+  //    cancellations (or the booking being moved) are gone? Same engine, with
+  //    those bookings excluded server-side.
+  const horariosDisponibles = current.slots.map((s) => s.startTime);
   if (input.excludeBookingIds.size > 0) {
-    const endTime = addMinutesToTime(input.startTime, service.durationMinutes);
-    const date = dateKeyToUtcDate(input.dateKey);
-    const [range, blocked, dayBookings, doctor] = await Promise.all([
-      prisma.availabilityRange.findFirst({
-        where: {
-          doctorId: ctx.doctorId,
-          date,
-          startTime: { lte: input.startTime },
-          endTime: { gte: endTime },
-        },
-        select: { id: true },
-      }),
-      prisma.blockedTime.findFirst({
-        where: { doctorId: ctx.doctorId, date, startTime: { lt: endTime }, endTime: { gt: input.startTime } },
-        select: { id: true },
-      }),
-      prisma.booking.findMany({
-        where: {
-          doctorId: ctx.doctorId,
-          status: { in: ['PENDING', 'CONFIRMED'] },
-          OR: [{ slotId: null, date }, { slot: { date } }],
-        },
-        select: {
-          id: true,
-          startTime: true,
-          endTime: true,
-          extendedBlockMinutes: true,
-          slot: { select: { startTime: true, endTime: true } },
-        },
-      }),
-      prisma.doctor.findUnique({
-        where: { id: ctx.doctorId },
-        select: { appointmentBufferMinutes: true },
-      }),
-    ]);
-    const buffer = doctor?.appointmentBufferMinutes ?? 0;
-    const realConflicts = dayBookings.filter((b) => {
-      if (input.excludeBookingIds.has(b.id)) return false;
-      const bStart = b.slot?.startTime ?? b.startTime;
-      const bEnd = b.slot?.endTime ?? b.endTime;
-      if (!bStart || !bEnd) return false;
-      // Canonical occupied window: max(fin, inicio+ext) + buffer (E7 v2 lesson).
-      // Compare in MINUTES, not lexicographically: an end time of "00:00"
-      // (midnight, legacy data) string-sorts below its own start time.
-      const extCand = addMinutesToTime(bStart, b.extendedBlockMinutes ?? 0);
-      const extEnd = timeToMin(extCand) > timeToMin(bEnd) ? extCand : bEnd;
-      const blockedEnd = buffer > 0 ? addMinutesToTime(extEnd, buffer) : extEnd;
-      return overlaps(input.startTime, endTime, bStart, blockedEnd);
-    });
-    if (range && !blocked && realConflicts.length === 0) {
+    const planAware = await fetchDaySlots(input.excludeBookingIds);
+    if ('error' in planAware) {
+      return { ok: false, error: planAware.error, horariosDisponibles: [] };
+    }
+    if (planAware.slots.some((s) => s.startTime === input.startTime)) {
       return {
         ok: true,
         dependencia:

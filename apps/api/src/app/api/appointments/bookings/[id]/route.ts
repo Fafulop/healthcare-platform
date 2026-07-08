@@ -18,7 +18,7 @@ import { findBookingOverlap } from '@/lib/booking-overlap';
 import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { sendAppointmentCancellationEmail } from '@/lib/gmail';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
-import { validatePatientLink } from '@/lib/patient-link';
+import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
 
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -128,11 +128,19 @@ export async function PATCH(
         );
       }
 
-      const updated = await prisma.booking.update({
-        where: { id },
-        data: { patientId: patientId ?? null },
-        select: { id: true, patientId: true },
-      });
+      let updated;
+      try {
+        updated = await prisma.booking.update({
+          where: { id },
+          data: { patientId: patientId ?? null },
+          select: { id: true, patientId: true },
+        });
+      } catch (err) {
+        // GAP-1 race: patient deleted between the pre-check and the update
+        const patientGone = patientLinkGoneResponse(err);
+        if (patientGone) return patientGone;
+        throw err;
+      }
 
       // Propagate patientId to any existing formLink for this booking (fire-and-forget)
       prisma.appointmentFormLink.updateMany({

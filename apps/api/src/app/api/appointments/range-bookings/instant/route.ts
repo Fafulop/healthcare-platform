@@ -13,7 +13,7 @@ import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
-import { validatePatientLink } from '@/lib/patient-link';
+import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
 
 export async function POST(request: Request) {
   try {
@@ -222,6 +222,9 @@ export async function POST(request: Request) {
           { status: 503 }
         );
       }
+      // GAP-1 race: patient deleted between the pre-check and the create
+      const patientGone = patientLinkGoneResponse(txErr);
+      if (patientGone) return patientGone;
       throw txErr;
     }
 

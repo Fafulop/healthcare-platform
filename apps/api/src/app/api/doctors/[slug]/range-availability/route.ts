@@ -29,6 +29,23 @@ export async function GET(
     // Used by doctor-context callers (agenda agent) — doctors can book inside the
     // hour themselves; the booking POST still enforces the cutoff for public.
     const skipCutoff = searchParams.get('skipCutoff') === '1';
+    // excludeBookingIds=id1,id2: compute availability AS IF these bookings didn't
+    // exist. Used by reschedule/plan-aware pre-checks (agenda agent GAP-2/3) so
+    // they always ask THIS canonical engine instead of re-deriving the occupied
+    // window. Only ever removes occupied windows, and the bookings query below is
+    // already scoped to this doctor, so foreign/unknown ids are a no-op.
+    const excludeBookingIds = (searchParams.get('excludeBookingIds') ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    // Reject rather than silently truncate — a dropped id would count a
+    // plan-cancelled booking as still occupying and produce false conflicts.
+    if (excludeBookingIds.length > 50) {
+      return NextResponse.json(
+        { success: false, error: 'excludeBookingIds accepts at most 50 ids' },
+        { status: 400 }
+      );
+    }
 
     // Find doctor by slug
     const doctor = await prisma.doctor.findUnique({
@@ -125,6 +142,7 @@ export async function GET(
       where: {
         doctorId: doctor.id,
         status: { in: ['PENDING', 'CONFIRMED'] },
+        ...(excludeBookingIds.length > 0 && { id: { notIn: excludeBookingIds } }),
         OR: [
           // Range-based bookings (freeform: slotId is null, date/startTime/endTime set)
           {

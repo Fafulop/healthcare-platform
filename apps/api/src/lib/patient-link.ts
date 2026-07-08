@@ -9,6 +9,7 @@
 // UNIFORM 404 for both "doesn't exist" and "wrong doctor" — distinct responses
 // would give anonymous callers an existence/ownership oracle for patient ids.
 
+import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 
 /** Returns null when the link is valid (or absent); otherwise the HTTP error to return. */
@@ -35,4 +36,27 @@ export async function validatePatientLink(
       : { status: 403, error: 'No autorizado — el expediente no pertenece a este doctor' };
   }
   return null;
+}
+
+/**
+ * Maps a Prisma P2003 (FK violation) on the booking→patient link to a clear
+ * 409 — the patient was deleted (or, under the composite FK, stopped matching)
+ * between the validatePatientLink pre-check and the write. One definition for
+ * the five booking write paths.
+ *
+ * Returns null when the error is not a patient-link P2003 — booking inserts
+ * also carry service/doctor/slot FKs, and blaming the patient for those would
+ * send the caller to fix the wrong record. In that case the caller rethrows
+ * (generic 500, fail closed and honest).
+ */
+export function patientLinkGoneResponse(err: unknown): NextResponse | null {
+  const e = err as { code?: string; meta?: { field_name?: unknown } } | null;
+  if (e?.code !== 'P2003') return null;
+  // Postgres puts the violated constraint/column in meta.field_name
+  // (e.g. "bookings_patient_id_doctor_id_fkey (index)" or "patient_id").
+  if (!String(e.meta?.field_name ?? '').includes('patient')) return null;
+  return NextResponse.json(
+    { success: false, error: 'El expediente vinculado ya no existe. Verifica el paciente e intenta de nuevo.' },
+    { status: 409 }
+  );
 }

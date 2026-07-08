@@ -2,7 +2,7 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última actualización: **2026-07-05**.
+> Última actualización: **2026-07-07**.
 
 ---
 
@@ -191,15 +191,29 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
    el 2026-07-07 y el panel ganó una barra "Uso de hoy" — GET del budget + campo `budget` en
    cada respuesta.)
 4. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
-5. **Hardening diferido de los code-reviews** (detalle en `06-PR3-DISENO` §5 — ninguno urgente,
-   todos con mitigación vigente): (a) FK compuesta `Booking(patientId, doctorId) →
-   Patient(id, doctorId)` para que la BD imponga la pertenencia en TODO write path (hoy solo el
-   helper en app code); (b) mapear P2003 en los catch de las transacciones de creación (carrera
-   paciente-borrado → hoy 500 genérico, falla cerrado); (c) `form-links` tiene la tercera copia
-   inline de la regla de pertenencia — migrar al helper `validatePatientLink`; (d) param
-   `excludeBookingIds` en `range-availability` para que el pre-check de reschedule use SIEMPRE
-   el motor canónico (hoy el fallback de `checkSlot` es la tercera copia de la fórmula de
-   ventana ocupada).
+5. ✅ **Hardening diferido de los code-reviews — LOS 4 HECHOS (2026-07-07).** Detalle en
+   `06-PR3-DISENO` §5: (a) **FK compuesta** `bookings(patient_id, doctor_id) →
+   patients(id, doctor_id)` con `ON DELETE SET NULL (patient_id)` (PG 15+) — **APLICADA EN PROD**
+   (pre-flight: 0 violaciones en 42 bookings vinculados; probada en local: cross-doctor rechaza
+   P2003, delete de paciente solo nulea patient_id). ⚠️ Prisma NO puede expresarla → **`prisma
+   db push` la REVIERTE en silencio**; documentado en la migración
+   (`add-booking-patient-composite-fk.sql`) y en `database-architecture.md` §6 (re-aplicar tras
+   todo db push). (b) **P2003→409** en los 5 write paths vía helper único
+   `patientLinkGoneResponse()` en `patient-link.ts` — solo culpa al paciente si
+   `meta.field_name` referencia el FK del paciente (un P2003 de service/slot/doctor NO se
+   atribuye mal). (c) **form-links** migrado a `validatePatientLink` (cambio: wrong-doctor ahora
+   403, antes 404). (d) **`excludeBookingIds`** en `range-availability` (>50 ids = 400, nunca
+   truncado silencioso) — `checkSlot` hace 2ª llamada al MISMO motor con exclusiones; la tercera
+   copia de la fórmula de ventana ocupada (~60 líneas) ELIMINADA. Verificación: code-review de
+   8 ángulos (8 hallazgos, 3 aplicados) + evals 18/19 (= baseline; el 1 FAIL es regex de
+   redacción, no conducta). **Follow-ups que dejó el review (backlog, ninguno urgente):**
+   (i) `excludeBookingIds` vive en endpoint público — oráculo de existencia de bookings,
+   mitigado por cuids inadivinables; decidir si se gatea; (ii) bug PRE-EXISTENTE del motor:
+   booking legacy con `endTime="00:00"` produce ventana invertida que `subtractBlocked` ignora —
+   fix de 1 línea en `availability-calculator.ts` (`Math.max(startMin, endMin, extendedEnd)`),
+   tocarlo = smoke-test (afecta widget público); (iii) `appointment_form_links` tiene el mismo
+   par patient_id+doctor_id SIN FK compuesta (misma migración, otra tabla); (iv) form-links hace
+   2 queries secuenciales al mismo paciente (helper + refetch de nombre/email) — menor.
 
 ## Commits (en `main`, todos desplegados)
 

@@ -10,7 +10,7 @@ import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken, calcEndTime } from '@/lib/appointments-utils';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
-import { validatePatientLink } from '@/lib/patient-link';
+import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
 import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
@@ -240,6 +240,9 @@ export async function POST(request: Request) {
           { status: 503 }
         );
       }
+      // GAP-1 race: patient deleted between the pre-check and the create
+      const patientGone = patientLinkGoneResponse(txErr);
+      if (patientGone) return patientGone;
       throw txErr;
     }
 

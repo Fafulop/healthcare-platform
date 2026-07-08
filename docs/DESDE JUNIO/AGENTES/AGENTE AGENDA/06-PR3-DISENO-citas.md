@@ -121,6 +121,9 @@ fuente); (8) prompt: "pagos" calificado (registrar ingreso al completar SÍ es d
 **Diferido (altitud, post-v1):** el fallback plan-aware de `checkSlot` es la TERCERA copia de la
 fórmula de ventana ocupada — el fix de fondo es un param `excludeBookingIds` en el endpoint
 `range-availability` para que el pre-check use SIEMPRE el motor canónico.
+✅ **HECHO 2026-07-07:** param `excludeBookingIds` agregado (cap 50 con 400 explícito, ids
+ajenos son no-op por el scope de doctor); `checkSlot` hace una 2ª llamada al mismo motor con
+exclusiones y la copia manual de la fórmula quedó eliminada. Evals 18/19 (= baseline).
 
 **Code-review del fix GAP-1 (2026-07-06, 6 hallazgos):** aplicados — type guard de `patientId`
 no-string (400, no 500 anónimo), respuesta uniforme 404 para callers públicos (sin oráculo de
@@ -130,6 +133,15 @@ definición de la regla). **Diferidos a post-v1 (hardening):** (a) FK compuesta
 TODO write path (hoy solo la impone el helper en app code); (b) mapear P2003 en los catch de las
 transacciones (carrera paciente-borrado → hoy 500 genérico, falla cerrado); (c) `form-links`
 tiene una tercera copia inline de la regla — migrar su rama de pertenencia al helper.
+✅ **LOS 3 HECHOS 2026-07-07:** (a) FK compuesta aplicada en prod
+(`add-booking-patient-composite-fk.sql`, ON DELETE SET NULL (patient_id), PG 15+) — ⚠️ `prisma
+db push` la revierte (Prisma no puede expresarla); ver la migración y
+`database-architecture.md` §6; (b) P2003→409 vía `patientLinkGoneResponse()` en
+`patient-link.ts` (chequea `meta.field_name` para no culpar al paciente por un P2003 de
+service/slot/doctor); (c) form-links migrado al helper (wrong-doctor: 403, antes 404).
+Follow-up nuevo del review: `appointment_form_links` tiene el mismo par patient_id+doctor_id
+sin FK compuesta — misma migración, otra tabla, pendiente. Resumen ejecutivo y follow-ups
+completos en `SESSION-REFRESCO.md` (Próximos pasos #5).
 
 ## 6. Riesgos conocidos y mitigación
 

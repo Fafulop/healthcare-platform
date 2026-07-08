@@ -288,6 +288,25 @@ Your database is now in sync with your Prisma schema. Done in 6.10s
 
 The Prisma Client will also be regenerated automatically.
 
+#### 6. ⚠️ Re-apply DB-only constraints that `db push` reverts
+
+Some constraints exist ONLY at the DB level because Prisma cannot express them in
+`schema.prisma`. `db push` makes the DB match the schema, so it **silently drops them**.
+After every `db push` against Railway, re-run:
+
+```powershell
+npx prisma db execute --file prisma/migrations/add-booking-patient-composite-fk.sql --url "RAILWAY_PUBLIC_URL"
+```
+
+Currently affected:
+- `add-booking-patient-composite-fk.sql` — composite FK `bookings(patient_id, doctor_id) →
+  medical_records.patients(id, doctor_id)` (booking→patient tenancy enforcement, 2026-07-07).
+  Prisma can't model it (shared `doctorId` scalar + column-list `SET NULL`), so `db push`
+  reverts it to the old single-column FK without any warning.
+
+(CHECK constraints and partial indexes from other `.sql` migrations are NOT dropped —
+Prisma ignores constructs it doesn't model. Plain FKs it DOES model, hence this list.)
+
 **Get the Railway public URL from:**
 - `packages/database/.env` → `LLM_DATABASE_URL`
 - Or Railway Dashboard → pgvector service → Variables → `DATABASE_PUBLIC_URL`

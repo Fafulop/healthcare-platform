@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { randomBytes } from 'crypto';
 import { getAuthenticatedDoctor } from '@/lib/auth';
+import { validatePatientLink } from '@/lib/patient-link';
 
 export async function GET(request: Request) {
   try {
@@ -96,13 +97,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify patient belongs to this doctor
+    // Ownership rule lives in the shared helper (one definition for all routes)
+    const linkError = await validatePatientLink(patientId, doctor.id);
+    if (linkError) {
+      return NextResponse.json(
+        { success: false, error: linkError.error },
+        { status: linkError.status }
+      );
+    }
+
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
-      select: { id: true, doctorId: true, firstName: true, lastName: true, email: true },
+      select: { firstName: true, lastName: true, email: true },
     });
 
-    if (!patient || patient.doctorId !== doctor.id) {
+    if (!patient) {
       return NextResponse.json(
         { success: false, error: 'Paciente no encontrado' },
         { status: 404 }

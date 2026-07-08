@@ -15,7 +15,7 @@ import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
-import { validatePatientLink } from '@/lib/patient-link';
+import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
 
 // In-memory rate limiter for booking creation (per IP).
 // Prevents SMS/email bombing via rapid booking requests.
@@ -301,6 +301,9 @@ export async function POST(request: Request) {
           { status: 503 }
         );
       }
+      // GAP-1 race: patient deleted between the pre-check and the create
+      const patientGone = patientLinkGoneResponse(txErr);
+      if (patientGone) return patientGone;
       throw txErr;
     }
 
