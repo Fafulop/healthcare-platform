@@ -221,6 +221,20 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
    tocarlo = smoke-test (afecta widget público); (iii) `appointment_form_links` tiene el mismo
    par patient_id+doctor_id SIN FK compuesta (misma migración, otra tabla); (iv) form-links hace
    2 queries secuenciales al mismo paciente (helper + refetch de nombre/email) — menor.
+6. ✅ **Auditoría de tenancy PR 2 (2026-07-08).** Code-read de TODOS los endpoints que toca el
+   executor de PR 2 (ranges CRUD, bulk, block/unblock, PATCH de bookings en sus 4 ramas, DELETE,
+   send-email): **todos verifican pertenencia contra la sesión** (403 en mismatch; unblock
+   rechaza el lote completo si UN id es ajeno; self-cancel sin auth exige confirmationCode).
+   Nota estructural: rangos/bloqueos llevan doctor_id en la propia fila — no existe el riesgo
+   clase-patientId (link cross-tabla); la muralla es el WHERE por endpoint, y está en todos.
+   **1 hallazgo (corregido):** el POST /bookings LEGACY (modelo slots) capturaba solo el role,
+   sin doctorId — un token de doctor sobre el slot de OTRO doctor obtenía autoConfirm
+   (CONFIRMED + salta el cutoff de 1h) en agenda ajena. El Fase 0 solo blindó range-bookings.
+   Guard idéntico al del sibling agregado; público (sin token) sigue PENDING-para-cualquiera.
+   Contexto: modelo slots dormido (última cita por slot 2026-04-23, 0 slots futuros) pero es el
+   fallback DISEÑADO (`doctor.hasRanges ? RangeWidget : SlotWidget` en el perfil público +
+   "existing slot mode" del BookPatientModal) — retirarlo completo va con la limpieza /v1 /v2
+   de PR 4, no por pedazos.
 
 ## Commits (en `main`, todos desplegados)
 

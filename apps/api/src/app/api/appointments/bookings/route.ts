@@ -51,9 +51,11 @@ export async function POST(request: Request) {
 
     // Optional auth — doctors/admins get auto-confirmed bookings, public gets PENDING.
     let callerRole: string | null = null;
+    let callerDoctorId: string | null = null;
     try {
       const auth = await validateAuthToken(request);
       callerRole = auth.role;
+      callerDoctorId = auth.doctorId ?? null;
     } catch {}
 
     // Only rate-limit unauthenticated (public) requests
@@ -121,6 +123,18 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Appointment slot not found' },
         { status: 404 }
+      );
+    }
+
+    // Doctors can only book on their own agenda (same guard as range-bookings —
+    // this legacy route lacked it: PR 2 tenancy audit 2026-07-08). Without it, a
+    // doctor token targeting a foreign slot got autoConfirm (CONFIRMED + cutoff
+    // skip) on another doctor's agenda. Public (no token) stays PENDING-for-anyone.
+    // Full slots-model retirement is planned with PR 4's /v1 /v2 cleanup.
+    if (callerRole === 'DOCTOR' && callerDoctorId !== slotForValidation.doctorId) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado — solo puedes crear citas en tu propia agenda' },
+        { status: 403 }
       );
     }
 
