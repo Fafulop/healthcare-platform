@@ -12,6 +12,8 @@ interface LogTokenUsageParams {
   model: string;          // e.g. "gpt-4o", "whisper-1"
   provider: string;       // e.g. "openai", "anthropic"
   usage: TokenUsage;
+  /** Cost-weighted tokens (cache-aware endpoints only — feeds the daily cap). */
+  budgetTokens?: number;
   durationSeconds?: number; // for Whisper calls (no token data)
 }
 
@@ -26,6 +28,7 @@ export function logTokenUsage(params: LogTokenUsageParams): void {
         promptTokens: params.usage.promptTokens,
         completionTokens: params.usage.completionTokens,
         totalTokens: params.usage.totalTokens,
+        budgetTokens: params.budgetTokens ?? null,
         durationSeconds: params.durationSeconds ?? null,
       },
     })

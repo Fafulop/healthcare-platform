@@ -254,14 +254,24 @@ export interface AgendaTurnResult {
   /** Every tool invocation with its input, in call order (eval assertions). */
   toolCalls: { name: string; input: Record<string, unknown> }[];
   proposals: AgendaProposal[];
-  /** inputTokens = FULL context volume (uncached + cache writes + cache reads)
-   * so the daily cap keeps measuring what it always measured; the cache fields
-   * expose how much of it was billed at ~0.1× (reads) / ~1.25× (writes). */
+  /** inputTokens = FULL context volume (uncached + cache writes + cache reads);
+   * the cache fields expose how much of it was billed at ~0.1× (reads) /
+   * ~1.25× (writes).
+   *
+   * budgetTokens = COST-WEIGHTED tokens (base-input-token equivalents) — what
+   * the daily cap counts since 2026-07-08. History: the cap originally counted
+   * raw volume, which equaled cost until prompt caching (2026-07-07) made a
+   * cached token ~10× cheaper than an uncached one; a 3-turn session then
+   * showed 16% of the cap while costing ~5% in dollars (the bar over-reported
+   * spend 3–7×). Weights = price ratio to base input ($3/M): uncached ×1,
+   * cache reads ×0.1, cache writes ×1.25, output ×5 ($15/M). This keeps the
+   * 500k cap's original meaning (~$1.50/day worst case) exact. */
   usage: {
     inputTokens: number;
     outputTokens: number;
     cacheReadTokens: number;
     cacheWriteTokens: number;
+    budgetTokens: number;
   };
 }
 
@@ -385,6 +395,12 @@ export async function runAgendaAgentTurn({
       'Necesité demasiados pasos para responder. Intenta una pregunta más específica.';
   }
 
+  // Cost weights relative to base input price — see the budgetTokens doc above.
+  const uncachedInput = totalInput - cacheRead - cacheWrite;
+  const budgetTokens = Math.round(
+    uncachedInput + cacheRead * 0.1 + cacheWrite * 1.25 + totalOutput * 5
+  );
+
   return {
     reply: reply || 'Sin respuesta',
     toolsUsed,
@@ -395,6 +411,7 @@ export async function runAgendaAgentTurn({
       outputTokens: totalOutput,
       cacheReadTokens: cacheRead,
       cacheWriteTokens: cacheWrite,
+      budgetTokens,
     },
   };
 }

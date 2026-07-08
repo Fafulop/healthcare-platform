@@ -31,14 +31,18 @@ import { mxTodayKey } from '@/lib/agenda-agent/dates';
 const DAILY_TOKEN_CAP = Number(process.env.AGENDA_AGENT_DAILY_TOKEN_CAP || 500_000);
 
 async function getTokensUsedToday(doctorId: string): Promise<number> {
+  // The cap counts COST-WEIGHTED tokens (budget_tokens, since 2026-07-08) —
+  // caching broke the volume≈cost equivalence the 500k cap was sized with.
+  // Rows without the column (pre-change) don't count; only matters on the
+  // transition day, the window resets at midnight.
   // Day boundary in Mexico City (UTC-6 year-round since 2022), consistent with
   // the agent's notion of "today" — not UTC midnight (~18:00 local).
   const startOfDay = new Date(mxTodayKey() + 'T00:00:00-06:00');
   const agg = await prisma.llmTokenUsage.aggregate({
     where: { doctorId, endpoint: 'agenda-agent', createdAt: { gte: startOfDay } },
-    _sum: { totalTokens: true },
+    _sum: { budgetTokens: true },
   });
-  return agg._sum.totalTokens ?? 0;
+  return agg._sum.budgetTokens ?? 0;
 }
 
 /** GET — today's assistant budget for the session doctor (panel widget). */
@@ -116,6 +120,10 @@ export async function POST(request: NextRequest) {
       conversationHistory,
     });
 
+    // totalTokens stays RAW volume (three analytics endpoints aggregate it
+    // across all endpoints and need uniform units); the daily cap reads the
+    // dedicated cost-weighted budgetTokens column instead. See the
+    // budgetTokens doc in run-turn.ts.
     logTokenUsage({
       doctorId,
       endpoint: 'agenda-agent',
@@ -126,10 +134,11 @@ export async function POST(request: NextRequest) {
         completionTokens: turn.usage.outputTokens,
         totalTokens: turn.usage.inputTokens + turn.usage.outputTokens,
       },
+      budgetTokens: turn.usage.budgetTokens,
     });
 
     console.log(
-      `[agenda-agent] doctor=${doctorId} tools=[${turn.toolsUsed.join(',')}] tokens=${turn.usage.inputTokens + turn.usage.outputTokens} cacheRead=${turn.usage.cacheReadTokens} cacheWrite=${turn.usage.cacheWriteTokens}`
+      `[agenda-agent] doctor=${doctorId} tools=[${turn.toolsUsed.join(',')}] tokens=${turn.usage.inputTokens + turn.usage.outputTokens} budget=${turn.usage.budgetTokens} cacheRead=${turn.usage.cacheReadTokens} cacheWrite=${turn.usage.cacheWriteTokens}`
     );
 
     return NextResponse.json({
@@ -138,10 +147,10 @@ export async function POST(request: NextRequest) {
         reply: turn.reply,
         toolsUsed: turn.toolsUsed,
         proposals: turn.proposals,
-        // usedToday was read BEFORE the turn — add this turn's spend so the
-        // widget updates without an extra query.
+        // usedToday was read BEFORE the turn — add this turn's cost-weighted
+        // spend so the widget updates without an extra query.
         budget: {
-          used: usedToday + turn.usage.inputTokens + turn.usage.outputTokens,
+          used: usedToday + turn.usage.budgetTokens,
           cap: DAILY_TOKEN_CAP,
         },
       },

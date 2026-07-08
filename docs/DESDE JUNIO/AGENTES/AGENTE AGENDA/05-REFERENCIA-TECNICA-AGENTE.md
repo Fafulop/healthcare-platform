@@ -174,6 +174,25 @@ lo re-valida contra el token de todas formas).
   medianoche MX (UTC-6 fijo — L3), medido en `llm_token_usage` (`endpoint='agenda-agent'`) → 429.
   **Widget de uso**: el panel muestra una barra "Uso de hoy" (verde→ámbar ≥70%→rojo ≥90%) — la
   alimenta `GET /api/agenda-agent` al abrir el panel y el campo `budget` de cada respuesta POST.
+- **⚖️ Cap ponderado por COSTO (desde 2026-07-08).** Historia y porqué: el cap nació contando
+  **volumen crudo** de tokens, que era ≈ proporcional al costo… hasta que el prompt caching
+  (2026-07-07) rompió esa equivalencia — un token leído de cache cuesta ~0.1× uno normal, pero
+  la barra lo contaba a 1×. Caso real que motivó el cambio: una sesión de 3 turnos (pregunta de
+  agenda + reagendado + verificación) marcó **16.2% del cap (80,948 tokens)** cuando su costo
+  real era **~5%** — 94–98% de ese input venía del cache (medido en los logs: turno 2 = 47,570
+  in / 44,580 cache read / 2,982 write / ~8 sin cachear). La barra exageraba el gasto 3–7×,
+  que es exactamente lo que NO debe hacer un widget cuyo propósito es "cuánto del dinero de hoy
+  llevo". Solución: `budgetTokens` en `run-turn.ts` — tokens **equivalentes a input base**,
+  ponderados por su precio relativo a $3/M: uncached ×1 · cache read ×0.1 · cache write ×1.25 ·
+  output ×5 ($15/M). Así el cap de 500k conserva EXACTO su significado original (~$1.50/día
+  peor caso). Mecánica: columna NUEVA `llm_token_usage.budget_tokens` (nullable, migración
+  `add-llm-usage-budget-tokens.sql`) — el presupuesto agrega ESA columna;
+  `total_tokens`/`prompt_tokens`/`completion_tokens` siguen siendo volumen crudo. NO se
+  sobrecargó `total_tokens` a propósito: el mini-review del cambio cazó que 3 endpoints de
+  analytics (`llm-usage`, `llm-usage/my`, `analytics/feature-usage`) agregan `total_tokens` a
+  través de TODOS los endpoints y habrían quedado con unidades mezcladas. Filas sin la columna
+  (historia, y endpoints sin cache split) simplemente no cuentan para el presupuesto; solo el
+  día de transición queda parcialmente contado (la ventana se resetea a medianoche).
 - **Economía real (medida 2026-07-06):** 507,709 tokens en 17 turnos = **~$1.60 USD** con
   claude-sonnet-5 ($3/M input · $15/M output; intro $2/$10 hasta 2026-08). La clave: 98% fue
   INPUT (497,744 in vs 9,965 out) — cada iteración del loop re-envía system prompt (~6k) +
@@ -191,9 +210,10 @@ lo re-valida contra el token de todas formas).
   96–98% del input cacheado en turnos calientes** (~0.1× precio) → costo de input ~15% del
   original. Costos aceptados y comentados en código: el `tool_choice:'none'` de la síntesis
   invalida el cache de mensajes (path raro), y los turnos de una sola iteración pagan un write
-  ~1.25× sin lectura. El cap diario sigue contando el contexto COMPLETO (uncached + writes +
-  reads) — mismo significado que antes; `cacheReadTokens`/`cacheWriteTokens` en el usage exponen
-  el ahorro (log de la ruta y evals los imprimen). TTL: 5 min — sesiones activas lo mantienen solas.
+  ~1.25× sin lectura. ~~El cap diario sigue contando el contexto COMPLETO~~ → **superado el
+  2026-07-08: el cap ahora cuenta tokens ponderados por costo** (ver el bullet ⚖️ arriba);
+  `cacheReadTokens`/`cacheWriteTokens` en el usage exponen el detalle (log de la ruta y evals los
+  imprimen). TTL: 5 min — sesiones activas lo mantienen solas.
 - **Por request**: máx 8 iteraciones de loop; síntesis forzada al agotarse; resultados de tool
   capados a 8KB; `max_tokens` 4096/llamada con mensaje honesto de truncado; timeout 60s/llamada.
 - **Historial**: client-side por sesión, últimos 12 turnos (G10 — sin persistencia aún).

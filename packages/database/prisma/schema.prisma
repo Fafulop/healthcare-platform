@@ -2450,6 +2450,10 @@ model LlmTokenUsage {
   promptTokens     Int      @map("prompt_tokens")
   completionTokens Int      @map("completion_tokens")
   totalTokens      Int      @map("total_tokens")
+  // Cost-weighted tokens (agenda-agent daily cap): uncached ×1 · cache read
+  // ×0.1 · cache write ×1.25 · output ×5. Null for endpoints without a cache
+  // split — those rows don't participate in the budget aggregate.
+  budgetTokens     Int?     @map("budget_tokens")
   durationSeconds  Float?   @map("duration_seconds") // For Whisper (no token counts)
   createdAt        DateTime @default(now()) @map("created_at")
 
