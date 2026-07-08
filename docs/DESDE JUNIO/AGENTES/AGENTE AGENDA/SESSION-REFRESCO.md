@@ -2,7 +2,7 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última actualización: **2026-07-07**.
+> Última actualización: **2026-07-08**.
 
 ---
 
@@ -213,7 +213,14 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
    truncado silencioso) — `checkSlot` hace 2ª llamada al MISMO motor con exclusiones; la tercera
    copia de la fórmula de ventana ocupada (~60 líneas) ELIMINADA. Verificación: code-review de
    8 ángulos (8 hallazgos, 3 aplicados) + evals 18/19 (= baseline; el 1 FAIL es regex de
-   redacción, no conducta). **Follow-ups que dejó el review (backlog, ninguno urgente):**
+   redacción, no conducta). **VALIDADO EN PROD post-deploy (2026-07-08, 5/5):** (1) probe
+   read-only de `excludeBookingIds` (slot ocupado aparece solo al excluir; 51 ids → 400);
+   (2) self-move EN VIVO por el doctor ("mueve test234 30 min antes" — la card salió con la
+   nota de dependencia vía el motor canónico, BD verificada: original CANCELLED + nueva
+   CONFIRMED a 565ms); (3) probe de FK con transacción-rollback: link cross-doctor RECHAZADO
+   por `bookings_patient_id_doctor_id_fkey`, mismo-doctor pasa, nada escrito; (4) P2003→409
+   estructural (carrera no reproducible a demanda); (5) form-links camino feliz en UI ✓.
+   **Follow-ups que dejó el review (backlog, ninguno urgente):**
    (i) `excludeBookingIds` vive en endpoint público — oráculo de existencia de bookings,
    mitigado por cuids inadivinables; decidir si se gatea; (ii) bug PRE-EXISTENTE del motor:
    booking legacy con `endTime="00:00"` produce ventana invertida que `subtractBlocked` ignora —
@@ -264,6 +271,13 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
   en vivo con 3 probes + camino feliz UI)
 - `d6630def` **feat: PR 3** — 6 tools propose_* de citas + executor + prompt + panel + 7 evals
   (code-review: 7 fixes aplicados; evals 18/19 + smoke 5/5)
+- `27f68607` **feat: hardening post-PR3** — los 4 diferidos (FK compuesta EN PROD, P2003→409,
+  form-links al helper, excludeBookingIds) — validado en prod 5/5
+- `b2242ca7` feat: cap diario ponderado por costo (columna `budget_tokens`; el caching rompió
+  volumen≈costo — sesión real: 16.2% de barra a ~5% de costo)
+- `52e8b7b6` docs(db): patrón de queries read-only a prod vía script tsx temporal
+- `0c2da6ea` fix: guard cross-tenant en POST /bookings legacy (auditoría tenancy PR 2 — un
+  hallazgo, el resto de endpoints ya verificaban pertenencia)
 
 ---
 
