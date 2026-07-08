@@ -186,7 +186,10 @@ async function main() {
       message: 'si elimino un rango que tiene citas agendadas dentro, ¿qué les pasa a esas citas?',
       checks: [
         { kind: 'no-proposals' },
-        { kind: 'reply-match', pattern: '(no se tocan|no (las |se )?afecta|siguen (agendadas|vivas|igual|en pie)|no les pasa nada)', flags: 'i' },
+        // "(absolutamente )?": 2026-07-07 el agente respondió correcto ("no les
+        // pasa absolutamente nada") y el regex lo marcó FAIL — el único fallo
+        // del baseline 18/19 era redacción, no conducta.
+        { kind: 'reply-match', pattern: '(no se tocan|no (las |se )?afecta|siguen (agendadas|vivas|igual|en pie)|no les pasa (absolutamente )?nada)', flags: 'i' },
       ],
     },
     {

@@ -213,7 +213,9 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
    truncado silencioso) — `checkSlot` hace 2ª llamada al MISMO motor con exclusiones; la tercera
    copia de la fórmula de ventana ocupada (~60 líneas) ELIMINADA. Verificación: code-review de
    8 ángulos (8 hallazgos, 3 aplicados) + evals 18/19 (= baseline; el 1 FAIL es regex de
-   redacción, no conducta). **VALIDADO EN PROD post-deploy (2026-07-08, 5/5):** (1) probe
+   redacción, no conducta — regex corregido 2026-07-08: `no les pasa (absolutamente )?nada`
+   en `invariante-rango-no-toca-citas`; el baseline vuelve a ser 19/19 esperado).
+   **VALIDADO EN PROD post-deploy (2026-07-08, 5/5):** (1) probe
    read-only de `excludeBookingIds` (slot ocupado aparece solo al excluir; 51 ids → 400);
    (2) self-move EN VIVO por el doctor ("mueve test234 30 min antes" — la card salió con la
    nota de dependencia vía el motor canónico, BD verificada: original CANCELLED + nueva
