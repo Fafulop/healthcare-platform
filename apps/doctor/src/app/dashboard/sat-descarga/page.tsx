@@ -414,6 +414,43 @@ function SyncStatusPanel() {
   };
 
 
+  // Manual on-demand sync of the current month (both directions, metadata + XML).
+  // Auto-sync only runs in the 6 AM window; when SAT is flaky this lets the doctor
+  // retry the current month without waiting a day. 409 = already active, not an error.
+  const handleSyncCurrentMonth = async () => {
+    setActing(true);
+    setMessage(null);
+    try {
+      const nowMx = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" }));
+      const month = `${nowMx.getFullYear()}-${String(nowMx.getMonth() + 1).padStart(2, "0")}`;
+      let created = 0;
+      for (const direction of ["received", "emitted"] as const) {
+        const res = await authFetch(`${API_URL}/api/sat-descarga/sync`, {
+          method: "POST",
+          body: JSON.stringify({ direction, month, requestType: "full" }),
+        });
+        if (res.status === 409) continue;
+        const json = await res.json();
+        if (!res.ok) {
+          setMessage({ type: "error", text: json.error || "Error al iniciar sincronización" });
+          return;
+        }
+        created += Array.isArray(json.data) ? json.data.length : 1;
+      }
+      setMessage({
+        type: "success",
+        text: created > 0
+          ? `${created} descargas del mes actual iniciadas. Se procesarán automáticamente.`
+          : "Ya hay sincronizaciones activas para el mes actual.",
+      });
+      fetchProgress();
+    } catch {
+      setMessage({ type: "error", text: "Error de red" });
+    } finally {
+      setActing(false);
+    }
+  };
+
   const handleLedgerBackfill = async () => {
     setLedgerBackfilling(true);
     setMessage(null);
@@ -517,6 +554,18 @@ function SyncStatusPanel() {
             <CalendarClock className="w-3 h-3" />
             Auto-sync {progress.autoSyncEnabled ? "ON" : "OFF"}
           </button>
+
+          {/* Manual sync of current month (always available — auto-sync only runs at 6 AM) */}
+          {!neverStarted && (
+            <button
+              onClick={handleSyncCurrentMonth}
+              disabled={acting}
+              className="px-2 py-1 bg-blue-50 text-blue-700 text-[11px] font-medium rounded-md hover:bg-blue-100 border border-blue-200 disabled:opacity-50 flex items-center gap-1"
+            >
+              {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Sync mes actual
+            </button>
+          )}
 
           {/* Start/continue backfill */}
           {(neverStarted || (!isComplete && !hasFailed && !hasActive)) && (

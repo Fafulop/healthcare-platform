@@ -40,6 +40,17 @@ export interface CfdiDetail {
   folio: string | null;
   lugarExpedicion: string | null;
 
+  // Comprobante header + timbre (used as metadata fallback when SAT's
+  // metadata endpoint fails but the XML download succeeds)
+  fecha: string | null;
+  tipoDeComprobante: string | null;
+  rfcEmisor: string | null;
+  nombreEmisor: string | null;
+  rfcReceptor: string | null;
+  nombreReceptor: string | null;
+  fechaTimbrado: string | null;
+  rfcProvCertif: string | null;
+
   // Line items
   conceptos: CfdiConcepto[];
 }
@@ -69,6 +80,10 @@ export function parseCfdiXml(xml: string): CfdiDetail | null {
   const uuid = extractUuid(xml);
   if (!uuid) return null;
 
+  const emisor = extractParty(xml, 'Emisor');
+  const receptor = extractParty(xml, 'Receptor');
+  const timbre = extractTimbre(xml);
+
   return {
     uuid: uuid.toLowerCase(),
     subtotal: extractAttrNumber(xml, 'SubTotal'),
@@ -86,6 +101,14 @@ export function parseCfdiXml(xml: string): CfdiDetail | null {
     serie: extractAttrString(xml, 'Serie'),
     folio: extractAttrString(xml, 'Folio'),
     lugarExpedicion: extractAttrString(xml, 'LugarExpedicion'),
+    fecha: extractAttrString(xml, 'Fecha'),
+    tipoDeComprobante: extractAttrString(xml, 'TipoDeComprobante'),
+    rfcEmisor: emisor.rfc,
+    nombreEmisor: emisor.nombre,
+    rfcReceptor: receptor.rfc,
+    nombreReceptor: receptor.nombre,
+    fechaTimbrado: timbre.fechaTimbrado,
+    rfcProvCertif: timbre.rfcProvCertif,
     conceptos: extractConceptos(xml),
   };
 }
@@ -131,6 +154,36 @@ function extractAttrString(xml: string, attr: string): string | null {
   const re = new RegExp(`(?<![a-zA-Z])${attr}="([^"]+)"`, 'i');
   const match = comprobanteMatch[0].match(re);
   return match ? match[1] : null;
+}
+
+/**
+ * Extract Rfc + Nombre from the Emisor or Receptor node.
+ * Negative lookbehind keeps Rfc from matching inside longer attribute names.
+ */
+function extractParty(xml: string, node: 'Emisor' | 'Receptor'): { rfc: string | null; nombre: string | null } {
+  const nodeMatch = xml.match(new RegExp(`<[a-zA-Z0-9]*:?${node}\\s([^>]*?)/?>`, 'i'));
+  if (!nodeMatch) return { rfc: null, nombre: null };
+  const attrs = nodeMatch[1];
+  const rfc = attrs.match(/(?<![a-zA-Z])Rfc="([^"]*)"/i);
+  const nombre = attrs.match(/(?<![a-zA-Z])Nombre="([^"]*)"/i);
+  return {
+    rfc: rfc ? rfc[1] : null,
+    nombre: nombre ? decodeXmlEntities(nombre[1]) : null,
+  };
+}
+
+/**
+ * Extract FechaTimbrado + RfcProvCertif from the TimbreFiscalDigital complement.
+ */
+function extractTimbre(xml: string): { fechaTimbrado: string | null; rfcProvCertif: string | null } {
+  const nodeMatch = xml.match(/<[a-zA-Z0-9]*:?TimbreFiscalDigital\s[^>]*>/i);
+  if (!nodeMatch) return { fechaTimbrado: null, rfcProvCertif: null };
+  const fecha = nodeMatch[0].match(/FechaTimbrado="([^"]*)"/i);
+  const pac = nodeMatch[0].match(/RfcProvCertif="([^"]*)"/i);
+  return {
+    fechaTimbrado: fecha ? fecha[1] : null,
+    rfcProvCertif: pac ? pac[1] : null,
+  };
 }
 
 /**

@@ -303,6 +303,36 @@ async function stepVerify(job: JobWithProfile, cred: ReturnType<typeof loadCrede
     return 'downloading';
   }
 
+  // Benign empty period: SAT reports estado=5 (Rechazada) with
+  // CodigoEstadoSolicitud=5004 ("información no encontrada") and 0 CFDIs when
+  // the range simply has no comprobantes — typical for the current month.
+  // Not an error: complete the job with 0 results instead of failing it
+  // (failing here caused daily retry storms from auto-sync).
+  // ONLY for the current month: a past month reported empty could be a
+  // transient SAT error, and a completed-empty past month is never revisited
+  // (backfill skips covered months) — let those fail so they stay retryable.
+  if (result.estado === '5' && result.codigoEstadoSolicitud === '5004' && !result.numeroCFDIs) {
+    const nowMx = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+    const isCurrentMonth =
+      job.dateFrom.getUTCFullYear() === nowMx.getFullYear() &&
+      job.dateFrom.getUTCMonth() === nowMx.getMonth();
+
+    if (isCurrentMonth) {
+      await prisma.satSyncJob.update({
+        where: { id: job.id },
+        data: {
+          status: 'completed',
+          completedAt: new Date(),
+          cfdiCount: 0,
+          lastError: null,
+          attempts: { increment: 1 },
+        },
+      });
+      return 'completed: empty period (5004, 0 CFDIs)';
+    }
+    // Past month: fall through to the terminal-failure branch below.
+  }
+
   if (result.estado === '4' || result.estado === '5' || result.estado === '6') {
     // Terminal error from SAT
     const errorDetail = `SAT: ${result.estadoName} cod=${result.codEstatus} codSol=${result.codigoEstadoSolicitud} msg=${result.mensaje} cfdis=${result.numeroCFDIs}`;
@@ -516,6 +546,7 @@ async function downloadAndParseXml(
   let totalRecords = 0;
   const parsedUuids: string[] = []; // UUIDs whose XML this job parsed — scopes the back-enrich below
   const paidFacturaUuids = new Set<string>(); // invoices paid by complements in this job — scopes PPD reconcile
+  const fallbackAlerts: Array<{ type: string; uuid: string; direction: string; issuerName: string | null; monto: number; message: string }> = [];
 
   for (const pkgId of packageIds) {
     const zipBuffer = await downloadPackage(token, cred, pkgId);
@@ -602,6 +633,57 @@ async function downloadAndParseXml(
         });
       }
 
+      // Metadata fallback: the XML is the authoritative CFDI. If SAT's metadata
+      // endpoint hasn't registered this UUID yet (it fails far more often than
+      // the XML one), create the metadata row from the parsed XML so the
+      // dashboard shows the CFDI. Metadata TXT stores UUIDs in UPPERCASE —
+      // normalize so a later real metadata sync upserts this same row instead
+      // of creating a case-variant duplicate; that sync stays the owner of
+      // status/cancellation updates. Emit the new_cfdi alert here because the
+      // metadata sync skips it once the row exists.
+      const issuedAt = detail.fecha ? new Date(detail.fecha) : null;
+      const certifiedAt = detail.fechaTimbrado ? new Date(detail.fechaTimbrado) : null;
+      if (detail.rfcEmisor && detail.rfcReceptor && issuedAt && !isNaN(issuedAt.getTime())) {
+        const uuidUpper = detail.uuid.toUpperCase();
+        const existingMeta = await prisma.satCfdiMetadata.findUnique({
+          where: { doctorId_uuid: { doctorId: job.doctorId, uuid: uuidUpper } },
+          select: { id: true },
+        });
+
+        if (!existingMeta) {
+          await prisma.satCfdiMetadata.create({
+            data: {
+              doctorId: job.doctorId,
+              syncJobId: job.id,
+              uuid: uuidUpper,
+              direction: job.direction,
+              issuerRfc: detail.rfcEmisor,
+              issuerName: detail.nombreEmisor,
+              receiverRfc: detail.rfcReceptor,
+              receiverName: detail.nombreReceptor,
+              pacRfc: detail.rfcProvCertif,
+              monto: detail.total ?? 0,
+              efecto: detail.tipoDeComprobante,
+              // XML downloads for recibidos only include vigentes; emitidos may
+              // include cancelados we can't detect from the XML — a later
+              // metadata sync corrects satStatus either way.
+              satStatus: 'Vigente',
+              issuedAt,
+              certifiedAt: certifiedAt && !isNaN(certifiedAt.getTime()) ? certifiedAt : null,
+            },
+          });
+
+          fallbackAlerts.push({
+            type: 'new_cfdi',
+            uuid: uuidUpper,
+            direction: job.direction,
+            issuerName: detail.nombreEmisor,
+            monto: detail.total ?? 0,
+            message: `Nuevo CFDI ${job.direction === 'received' ? 'recibido' : 'emitido'} de ${detail.nombreEmisor || detail.rfcEmisor} por $${detail.total ?? 0}`,
+          });
+        }
+      }
+
       // Parse payment complement (tipo P) and store pago records
       const pago = parsePagoComplement(entry.data);
       if (detail.usoCfdi === 'CP01' && (!pago || pago.documentos.length === 0)) {
@@ -667,6 +749,22 @@ async function downloadAndParseXml(
 
       totalRecords++;
     }
+  }
+
+  // Batch create alerts for fallback-created metadata rows (skip if too many —
+  // likely a first-time/backfill sync, same flood guard as the metadata path)
+  if (fallbackAlerts.length > 0 && fallbackAlerts.length <= 50) {
+    await prisma.satAlert.createMany({
+      data: fallbackAlerts.map(a => ({
+        doctorId: job.doctorId,
+        type: a.type,
+        uuid: a.uuid,
+        direction: a.direction,
+        issuerName: a.issuerName,
+        monto: a.monto,
+        message: a.message,
+      })),
+    });
   }
 
   await prisma.satSyncJob.update({

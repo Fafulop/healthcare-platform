@@ -33,6 +33,35 @@ function getDateRange(year: number, month: number, nowMx: Date) {
   return { dateFrom, dateTo };
 }
 
+/**
+ * A completed sibling only makes a failed job an orphan if it COVERS the
+ * period: its dateTo reaches the period's expected end (end of month, or
+ * Mexico-City today for the current month). A job completed days ago with a
+ * capped dateTo does not cover CFDIs issued since, so a failed sibling for
+ * the same combo is a real failure that must be retried, not deleted.
+ */
+async function hasCoveringCompletedSibling(
+  doctorId: string,
+  dateFrom: Date,
+  direction: string,
+  requestType: string,
+  nowMx: Date,
+): Promise<boolean> {
+  const { dateTo } = getDateRange(dateFrom.getUTCFullYear(), dateFrom.getUTCMonth(), nowMx);
+  const sibling = await prisma.satSyncJob.findFirst({
+    where: {
+      doctorId,
+      dateFrom,
+      direction,
+      requestType,
+      status: 'completed',
+      dateTo: { gte: dateTo },
+    },
+    select: { id: true },
+  });
+  return sibling !== null;
+}
+
 const JOB_RESET_DATA = {
   status: 'pending' as const,
   requestId: null,
@@ -108,19 +137,11 @@ export async function POST(request: NextRequest) {
       let needsOffsetBump = false;
 
       for (const fj of failedJobs) {
-        // Check if a completed sibling exists — if so, this is an orphan
-        const completedSibling = await prisma.satSyncJob.findFirst({
-          where: {
-            doctorId: doctor.id,
-            dateFrom: fj.dateFrom,
-            direction: fj.direction,
-            requestType: fj.requestType,
-            status: 'completed',
-          },
-          select: { id: true },
-        });
+        const covered = await hasCoveringCompletedSibling(
+          doctor.id, fj.dateFrom, fj.direction, fj.requestType, nowMx,
+        );
 
-        if (completedSibling) {
+        if (covered) {
           // Orphan — delete it
           await prisma.satSyncJob.delete({ where: { id: fj.id } });
           cleaned++;
@@ -318,18 +339,31 @@ export async function POST(request: NextRequest) {
 
       for (const direction of ['received', 'emitted'] as const) {
         for (const requestType of ['metadata', 'xml'] as const) {
-          // Check for completed or active jobs
-          const existingJob = await prisma.satSyncJob.findFirst({
+          // An active job will fetch through today, so nothing to create.
+          const activeJob = await prisma.satSyncJob.findFirst({
             where: {
               doctorId: doctor.id,
               direction,
               requestType,
               dateFrom,
-              status: { in: ['completed', 'pending', 'authenticating', 'requesting', 'polling', 'downloading'] },
+              status: { in: ['pending', 'authenticating', 'requesting', 'polling', 'downloading'] },
             },
+            select: { id: true },
           });
 
-          if (existingJob) {
+          if (activeJob) {
+            skipped++;
+            continue;
+          }
+
+          // A completed job only settles the combo if it covers the period
+          // through its expected end; a stale current-month completion must
+          // not delete failed retries nor block re-syncing the tail.
+          const covered = await hasCoveringCompletedSibling(
+            doctor.id, dateFrom, direction, requestType, nowMx,
+          );
+
+          if (covered) {
             // Clean up any orphan failures for this combo
             const deleted = await prisma.satSyncJob.deleteMany({
               where: {
@@ -399,37 +433,6 @@ export async function POST(request: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: clean orphan failures (failed jobs that have a completed sibling)
-// ---------------------------------------------------------------------------
-
-async function cleanOrphanFailures(doctorId: string): Promise<number> {
-  const failedJobs = await prisma.satSyncJob.findMany({
-    where: { doctorId, status: 'failed' },
-    select: { id: true, dateFrom: true, direction: true, requestType: true },
-  });
-
-  let cleaned = 0;
-  for (const fj of failedJobs) {
-    const completedSibling = await prisma.satSyncJob.findFirst({
-      where: {
-        doctorId,
-        dateFrom: fj.dateFrom,
-        direction: fj.direction,
-        requestType: fj.requestType,
-        status: 'completed',
-      },
-      select: { id: true },
-    });
-
-    if (completedSibling) {
-      await prisma.satSyncJob.delete({ where: { id: fj.id } });
-      cleaned++;
-    }
-  }
-  return cleaned;
-}
-
-// ---------------------------------------------------------------------------
 // GET /api/sat-descarga/backfill — Get backfill progress + completeness
 // ---------------------------------------------------------------------------
 
@@ -476,7 +479,7 @@ export async function GET(request: NextRequest) {
         completedMonths++;
       } else if (failedJobs > 0) {
         // Check if some failures are orphans
-        const realFailures = await countRealFailures(doctor.id, dateFrom);
+        const realFailures = await countRealFailures(doctor.id, dateFrom, nowMx);
         if (realFailures > 0) {
           failedMonths++;
         } else if (completedJobs > 0) {
@@ -515,18 +518,11 @@ export async function GET(request: NextRequest) {
     }> = [];
 
     for (const fj of allFailedJobs) {
-      const completedSibling = await prisma.satSyncJob.findFirst({
-        where: {
-          doctorId: doctor.id,
-          dateFrom: fj.dateFrom,
-          direction: fj.direction,
-          requestType: fj.requestType,
-          status: 'completed',
-        },
-        select: { id: true },
-      });
+      const covered = await hasCoveringCompletedSibling(
+        doctor.id, fj.dateFrom, fj.direction, fj.requestType, nowMx,
+      );
 
-      if (!completedSibling) {
+      if (!covered) {
         realFailedJobs++;
         const d = fj.dateFrom;
         failedJobDetails.push({
@@ -593,7 +589,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function countRealFailures(doctorId: string, dateFrom: Date): Promise<number> {
+async function countRealFailures(doctorId: string, dateFrom: Date, nowMx: Date): Promise<number> {
   const failedJobs = await prisma.satSyncJob.findMany({
     where: { doctorId, dateFrom, status: 'failed' },
     select: { id: true, direction: true, requestType: true },
@@ -601,17 +597,10 @@ async function countRealFailures(doctorId: string, dateFrom: Date): Promise<numb
 
   let real = 0;
   for (const fj of failedJobs) {
-    const completedSibling = await prisma.satSyncJob.findFirst({
-      where: {
-        doctorId,
-        dateFrom,
-        direction: fj.direction,
-        requestType: fj.requestType,
-        status: 'completed',
-      },
-      select: { id: true },
-    });
-    if (!completedSibling) real++;
+    const covered = await hasCoveringCompletedSibling(
+      doctorId, dateFrom, fj.direction, fj.requestType, nowMx,
+    );
+    if (!covered) real++;
   }
   return real;
 }
