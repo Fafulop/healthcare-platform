@@ -100,14 +100,18 @@ cazados: G03 mal atribuido, umbral de $2,000 en efectivo).
 
 ## 4. Qué sigue
 
-1. **"F1 everywhere" (en curso):** ✅ fiscal (F1.5, 2026-07-11 — falta validación en vivo);
+1. **Panel copilot persistente** — DISEÑADO 2026-07-11, pendiente de implementar: plan
+   completo en [`01-PLAN-panel-copilot-persistente.md`](01-PLAN-panel-copilot-persistente.md)
+   (side-by-side a nivel app shell, conversación sobrevive navegación; estado en root layout,
+   UI en DashboardLayout; 6 pasos, ~6 archivos, sin cambios de servidor/prompt/evals).
+2. **"F1 everywhere" (en curso):** ✅ fiscal (F1.5, 2026-07-11, VALIDADO EN VIVO 4/4);
    quedan flujo de dinero → expediente (metadatos), con el playbook de §2. Lectura primero en
    todos los dominios porque es el orden óptimo de riesgo: los errores de lectura son texto;
    los de propuesta ejecutan.
-2. **Después: PR F2 de facturas** (propose_create_cfdi + formulario fiscal + builder de
+3. **Después: PR F2 de facturas** (propose_create_cfdi + formulario fiscal + builder de
    impuestos server-side — leer primero qué taxes arma `useBookings.emitCfdi`), y las
    propuestas que cada dominio pida (propose_payment_link, propose_create_patient).
-3. **PR 4 voz** — independiente, no bloquea ni es bloqueado.
+4. **PR 4 voz** — independiente, no bloquea ni es bloqueado.
 
 **Regla de review consolidada (2026-07-11, evidencia de 3 reviews el mismo día):** lógica
 REPLICADA de otra fuente de verdad (SQL/fórmulas copiadas de un endpoint) y contenido que
