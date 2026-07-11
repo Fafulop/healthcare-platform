@@ -121,14 +121,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate service (must belong to doctor and be active)
+    // Validate service: must belong to the doctor. isBookingActive only gates
+    // the PUBLIC flow (it means "visible en la página pública", not "usable") —
+    // doctors/admins can book any of their services, same as range-bookings/instant.
     const service = await prisma.service.findFirst({
-      where: { id: serviceId, doctorId, isBookingActive: true },
+      where: { id: serviceId, doctorId, ...(isDoctor ? {} : { isBookingActive: true }) },
     });
 
     if (!service) {
       return NextResponse.json(
-        { success: false, error: 'El servicio seleccionado no es válido o no está activo' },
+        // "no está disponible" only applies to the public branch (visibility
+        // filter); for doctors the only possible cause is a wrong/foreign id.
+        {
+          success: false,
+          error: isDoctor
+            ? 'El servicio seleccionado no es válido'
+            : 'El servicio seleccionado no es válido o no está disponible',
+        },
         { status: 400 }
       );
     }

@@ -193,8 +193,10 @@ async function main() {
         { kind: 'no-proposals' },
         // "(absolutamente )?": 2026-07-07 el agente respondió correcto ("no les
         // pasa absolutamente nada") y el regex lo marcó FAIL — el único fallo
-        // del baseline 18/19 era redacción, no conducta.
-        { kind: 'reply-match', pattern: '(no se tocan|no (las |se )?afecta|siguen (agendadas|vivas|igual|en pie)|no les pasa (absolutamente )?nada)', flags: 'i' },
+        // del baseline 18/19 era redacción, no conducta. 2026-07-11: otra
+        // variante correcta ("Nada les pasa — quedan completamente intactas")
+        // tampoco matcheaba → se agregan la forma invertida e "intactas".
+        { kind: 'reply-match', pattern: '(no se tocan|no (las |se )?afecta|siguen (agendadas|vivas|igual|en pie)|no les pasa (absolutamente )?nada|nada les pasa|(quedan|permanecen) (completamente )?intactas)', flags: 'i' },
       ],
     },
     {

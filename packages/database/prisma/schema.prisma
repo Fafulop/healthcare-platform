@@ -339,6 +339,10 @@ model Service {
   shortDescription   String   @map("short_description")
   durationMinutes    Int      @map("duration_minutes")
   price              Float?
+  /// Public-page visibility ONLY ("mostrar en la página pública de agendado").
+  /// false does NOT make the service unusable: the doctor books it internally
+  /// (BookPatientModal y el asistente por igual). Never gate internal flows on
+  /// this flag — only the PUBLIC booking path filters by it.
   isBookingActive    Boolean  @default(true) @map("is_booking_active")
 
   doctor             Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)

@@ -61,7 +61,7 @@ export const AGENT_TOOLS: AnthropicTool[] = [
   {
     name: 'get_availability',
     description:
-      'Horarios DISPONIBLES para agendar, calculados por el mismo motor que usa la página pública (rangos menos citas, bloqueos y buffer). SIEMPRE usa esta tool para responder "¿cuándo tengo espacio?" — nunca lo calcules tú. Si no pasas serviceId, el servidor calcula con el servicio activo más corto del doctor (y lo indica en "nota").',
+      'Horarios DISPONIBLES para agendar, calculados por el mismo motor que usa la página pública (rangos menos citas, bloqueos y buffer). SIEMPRE usa esta tool para responder "¿cuándo tengo espacio?" — nunca lo calcules tú. Si no pasas serviceId, el servidor calcula con el servicio más corto del doctor (y lo indica en "nota").',
     input_schema: {
       type: 'object',
       properties: {
@@ -90,7 +90,7 @@ export const AGENT_TOOLS: AnthropicTool[] = [
   },
   {
     name: 'get_services',
-    description: 'Catálogo de servicios del doctor (id, nombre, duración en minutos, precio, activo para agenda).',
+    description: 'Catálogo de servicios del doctor (id, nombre, duración en minutos, precio). TODOS son agendables por el doctor; "visibleEnPaginaPublica" solo indica si el servicio se muestra a pacientes en la página pública de agendado.',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -325,13 +325,14 @@ async function getAvailability(
 ) {
   // Without a serviceId the upstream endpoint only returns "dates that have
   // ranges" — NOT real availability (bookings/blocks aren't subtracted). To keep
-  // the answer honest, default to the doctor's SHORTEST active service: if the
-  // shortest service fits nowhere, nothing fits.
+  // the answer honest, default to the doctor's SHORTEST service: if the shortest
+  // service fits nowhere, nothing fits. No isBookingActive filter — the flag is
+  // public-page visibility, and internally every service is bookable.
   let serviceId = input.serviceId;
   let nota: string | null = null;
   if (!serviceId) {
     const shortest = await prisma.service.findFirst({
-      where: { doctorId: ctx.doctorId, isBookingActive: true },
+      where: { doctorId: ctx.doctorId },
       orderBy: { durationMinutes: 'asc' },
       select: { id: true, serviceName: true, durationMinutes: true },
     });
@@ -425,12 +426,14 @@ async function getServices(ctx: ToolContext) {
     orderBy: { serviceName: 'asc' },
   });
   return {
+    // isBookingActive = visibility on the PUBLIC booking page only; every
+    // service is bookable internally (doctor UI and agent alike).
     servicios: services.map((s) => ({
       id: s.id,
       nombre: s.serviceName,
       duracionMinutos: s.durationMinutes,
       precio: Number(s.price),
-      activoParaAgenda: s.isBookingActive,
+      visibleEnPaginaPublica: s.isBookingActive,
     })),
   };
 }

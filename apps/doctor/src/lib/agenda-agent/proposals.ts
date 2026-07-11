@@ -803,14 +803,17 @@ async function checkSlot(
   | { ok: true; dependencia: string | null; servicio: { nombre: string; duracionMinutos: number; precio: number } }
   | { ok: false; error: string; horariosDisponibles: string[] }
 > {
+  // No isBookingActive filter: the flag only hides the service from the PUBLIC
+  // page — the doctor (and therefore the agent acting for him) can book any of
+  // his services, matching the internal booking modal and the endpoint.
   const service = await prisma.service.findFirst({
-    where: { id: input.serviceId, doctorId: ctx.doctorId, isBookingActive: true },
+    where: { id: input.serviceId, doctorId: ctx.doctorId },
     select: { serviceName: true, durationMinutes: true, price: true },
   });
   if (!service) {
     return {
       ok: false,
-      error: 'El servicio no existe o no está activo para agenda — usa un id de get_services.',
+      error: 'El servicio no existe — usa un id de get_services.',
       horariosDisponibles: [],
     };
   }
