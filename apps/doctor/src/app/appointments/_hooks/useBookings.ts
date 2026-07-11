@@ -70,6 +70,22 @@ export interface Booking {
     status: 'PENDING' | 'SUBMITTED';
     createdAt: string;
   } | null;
+  paymentLink?: {
+    id: string;
+    stripePaymentLinkUrl: string;
+    status: string;
+    isActive: boolean;
+    paidAt: string | null;
+    amount: string | number;
+  } | null;
+  mpPaymentPreference?: {
+    id: string;
+    mpInitPoint: string;
+    status: string;
+    isActive: boolean;
+    paidAt: string | null;
+    amount: string | number;
+  } | null;
 }
 
 export function useBookings(doctorId: string | undefined) {

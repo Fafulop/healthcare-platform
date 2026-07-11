@@ -115,17 +115,31 @@ export async function createPaymentLedgerEntry(
 
   const internalId = await generateLedgerInternalId(doctorId, 'ingreso');
 
-  // Resolve service from linked booking if available
+  // Resolve service + patient identity from linked booking if available.
+  // Patient fiscal identity is denormalized (same as completeBooking) so SAT matching can
+  // link the eventual CFDI by RFC and patient-scoped income queries see this entry.
   let serviceId: string | null = null;
   let serviceName: string | null = null;
+  let patientId: string | null = null;
+  let counterpartyRfc: string | null = null;
+  let counterpartyName: string | null = null;
   if (bookingId) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      select: { serviceId: true, serviceName: true },
+      select: {
+        serviceId: true,
+        serviceName: true,
+        patientId: true,
+        patientName: true,
+        patient: { select: { rfc: true, razonSocial: true } },
+      },
     });
     if (booking) {
       serviceId = booking.serviceId;
       serviceName = booking.serviceName;
+      patientId = booking.patientId;
+      counterpartyRfc = booking.patient?.rfc?.trim().toUpperCase().slice(0, 13) || null;
+      counterpartyName = booking.patient?.razonSocial || booking.patientName || null;
     }
   }
 
@@ -150,6 +164,9 @@ export async function createPaymentLedgerEntry(
       ...(bookingId ? { bookingId } : {}),
       ...(serviceId ? { serviceId } : {}),
       ...(serviceName ? { serviceName } : {}),
+      ...(patientId ? { patientId } : {}),
+      ...(counterpartyRfc ? { counterpartyRfc } : {}),
+      ...(counterpartyName ? { counterpartyName } : {}),
     },
     select: { id: true, internalId: true },
   });

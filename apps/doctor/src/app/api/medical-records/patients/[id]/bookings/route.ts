@@ -46,6 +46,12 @@ export async function GET(
         formLink: {
           select: { id: true, status: true },
         },
+        paymentLink: {
+          select: { stripePaymentLinkUrl: true, status: true, isActive: true, paidAt: true, amount: true },
+        },
+        mpPaymentPreference: {
+          select: { mpInitPoint: true, status: true, isActive: true, paidAt: true, amount: true },
+        },
         // Financial data via LedgerEntry → CfdiEmitted
         ledgerEntry: {
           select: {
@@ -96,6 +102,21 @@ export async function GET(
         ledgerEntryId: le?.id ?? null,
         amount: le ? Number(le.amount) : null,
         formaDePago: le?.formaDePago ?? null,
+        // Payment links (linked cobro)
+        stripeLink: b.paymentLink ? {
+          url: b.paymentLink.stripePaymentLinkUrl,
+          status: b.paymentLink.status,
+          isActive: b.paymentLink.isActive,
+          paidAt: b.paymentLink.paidAt?.toISOString() ?? null,
+          amount: Number(b.paymentLink.amount),
+        } : null,
+        mpLink: b.mpPaymentPreference ? {
+          url: b.mpPaymentPreference.mpInitPoint,
+          status: b.mpPaymentPreference.status,
+          isActive: b.mpPaymentPreference.isActive,
+          paidAt: b.mpPaymentPreference.paidAt?.toISOString() ?? null,
+          amount: Number(b.mpPaymentPreference.amount),
+        } : null,
         // CFDI
         cfdi: cfdi ? {
           id: cfdi.id,

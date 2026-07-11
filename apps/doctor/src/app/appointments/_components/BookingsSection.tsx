@@ -5,6 +5,7 @@ import { InlinePatientSearch } from "./InlinePatientSearch";
 import { CreatePatientFromBookingModal } from "./CreatePatientFromBookingModal";
 import { FormularioStatusButton } from "./FormularioStatusButton";
 import { FiscalFormButton } from "./FiscalFormButton";
+import { PaymentLinkButton } from "@/components/payments/PaymentLinkButton";
 import { CompleteBookingModal } from "./CompleteBookingModal";
 import { formatLocalDate, getLocalDateString } from "@/lib/dates";
 import { BookingStatusBadge } from "./BookingStatusBadge";
@@ -643,6 +644,14 @@ function StatusActions({
   const showCommsGroup = booking.status === "CONFIRMED";
   const showDocsGroup = booking.status === "CONFIRMED";
   const showScheduleGroup = booking.status === "CONFIRMED";
+  // Cobro: citas activas siempre; terminales solo con link PAGADO o ACTIVO (un link viejo
+  // desactivado y no pagado NO debe reabrir el botón de crear sobre una cita terminal)
+  const hasRelevantPaymentLink =
+    booking.paymentLink?.status === "PAID" ||
+    booking.mpPaymentPreference?.status === "PAID" ||
+    booking.paymentLink?.isActive ||
+    booking.mpPaymentPreference?.isActive;
+  const showCobroGroup = !isTerminal || !!hasRelevantPaymentLink;
 
   return (
     <>
@@ -766,7 +775,37 @@ function StatusActions({
         </div>
       )}
 
-      {/* Group 3: Documentos */}
+      {/* Group 3: Cobro */}
+      {showCobroGroup && (
+        <div className="border-t border-gray-100 pt-2">
+          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Cobro</span>
+          <PaymentLinkButton
+            bookingId={booking.id}
+            patientName={booking.patientName}
+            patientPhone={booking.patientPhone}
+            patientWhatsapp={booking.patientWhatsapp}
+            patientEmail={booking.patientEmail || undefined}
+            defaultAmount={booking.finalPrice}
+            defaultDescription={booking.serviceName ? `${booking.serviceName} - ${booking.patientName}` : `Consulta - ${booking.patientName}`}
+            stripeLink={booking.paymentLink ? {
+              status: booking.paymentLink.status,
+              isActive: booking.paymentLink.isActive,
+              url: booking.paymentLink.stripePaymentLinkUrl,
+              paidAt: booking.paymentLink.paidAt,
+              amount: booking.paymentLink.amount,
+            } : null}
+            mpLink={booking.mpPaymentPreference ? {
+              status: booking.mpPaymentPreference.status,
+              isActive: booking.mpPaymentPreference.isActive,
+              url: booking.mpPaymentPreference.mpInitPoint,
+              paidAt: booking.mpPaymentPreference.paidAt,
+              amount: booking.mpPaymentPreference.amount,
+            } : null}
+          />
+        </div>
+      )}
+
+      {/* Group 4: Documentos */}
       {showDocsGroup && (
         <div className="border-t border-gray-100 pt-2">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Documentos</span>
@@ -781,7 +820,7 @@ function StatusActions({
         </div>
       )}
 
-      {/* Group 4: Horario */}
+      {/* Group 5: Horario */}
       {showScheduleGroup && (
         <div className="border-t border-gray-100 pt-2">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Horario</span>
@@ -789,7 +828,7 @@ function StatusActions({
         </div>
       )}
 
-      {/* Group 5: Eliminar */}
+      {/* Group 6: Eliminar */}
       {isTerminal && (
         <div>
           <button

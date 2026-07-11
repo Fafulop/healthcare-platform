@@ -560,6 +560,26 @@ export async function GET(request: Request) {
             codigoPostalFiscal: true,
           },
         },
+        paymentLink: {
+          select: {
+            id: true,
+            stripePaymentLinkUrl: true,
+            status: true,
+            isActive: true,
+            paidAt: true,
+            amount: true,
+          },
+        },
+        mpPaymentPreference: {
+          select: {
+            id: true,
+            mpInitPoint: true,
+            status: true,
+            isActive: true,
+            paidAt: true,
+            amount: true,
+          },
+        },
       },
       orderBy: [{ createdAt: 'desc' }],
     });

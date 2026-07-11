@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { PatientSummaryModal } from '@/components/medical-records/PatientSummaryModal';
 import { usePatientProfile } from '../_components/usePatientProfile';
+import { PaymentLinkButton } from '@/components/payments/PaymentLinkButton';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
 
@@ -37,6 +38,14 @@ interface BookingCfdi {
   issuedAt: string;
 }
 
+interface BookingPaymentLink {
+  url: string;
+  status: string;
+  isActive: boolean;
+  paidAt: string | null;
+  amount: number;
+}
+
 interface PatientBooking {
   id: string;
   date: string | null;
@@ -52,6 +61,9 @@ interface PatientBooking {
   amount: number | null;
   formaDePago: string | null;
   cfdi: BookingCfdi | null;
+  // Payment links (linked cobro)
+  stripeLink?: BookingPaymentLink | null;
+  mpLink?: BookingPaymentLink | null;
 }
 
 interface PatientSummaryData {
@@ -421,6 +433,26 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                     <BookingStatusPill status={b.status} />
                   </div>
                 </div>
+
+                {/* Cobro row: active citas can get a payment link; terminal citas only show
+                    paid/active link status (a stale inactive link must not reopen create) */}
+                {(['PENDING', 'CONFIRMED'].includes(b.status) ||
+                  b.stripeLink?.status === 'PAID' || b.mpLink?.status === 'PAID' ||
+                  b.stripeLink?.isActive || b.mpLink?.isActive) && (
+                  <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-2">
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cobro</span>
+                    <PaymentLinkButton
+                      bookingId={b.id}
+                      patientName={`${patient.firstName} ${patient.lastName}`.trim()}
+                      patientPhone={patient.phone || null}
+                      patientEmail={patient.email || null}
+                      defaultAmount={b.finalPrice}
+                      defaultDescription={b.serviceName ? `${b.serviceName} - ${patient.firstName} ${patient.lastName}` : undefined}
+                      stripeLink={b.stripeLink || null}
+                      mpLink={b.mpLink || null}
+                    />
+                  </div>
+                )}
 
                 {/* Financial row: only for completed bookings with ledger data */}
                 {isCompleted && b.amount != null && (

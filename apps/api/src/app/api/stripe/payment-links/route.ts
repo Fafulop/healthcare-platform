@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctorStripe, AuthError } from '@/lib/auth';
 import { stripe, isStripeError } from '@/lib/stripe';
+import { checkBookingLinkSlot } from '@/lib/payment-link-guard';
 
 /**
  * POST /api/stripe/payment-links
@@ -59,29 +60,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // Validate bookingId belongs to this doctor
+    // Validate bookingId belongs to this doctor + no paid/active link on either provider
+    let staleStripeLinkId: string | null = null;
     if (bookingId) {
-      const booking = await prisma.booking.findFirst({
-        where: { id: bookingId, doctorId: doctor.id },
-        select: { id: true },
-      });
-      if (!booking) {
-        return NextResponse.json(
-          { error: 'Cita no encontrada' },
-          { status: 400 }
-        );
+      const slot = await checkBookingLinkSlot(doctor.id, bookingId);
+      if (!slot.ok) {
+        return NextResponse.json({ error: slot.error }, { status: 400 });
       }
-      // Check no active payment link already exists for this booking
-      const existingLink = await prisma.paymentLink.findUnique({
-        where: { bookingId },
-        select: { id: true, isActive: true },
-      });
-      if (existingLink?.isActive) {
-        return NextResponse.json(
-          { error: 'Ya existe un link de pago activo para esta cita' },
-          { status: 400 }
-        );
-      }
+      staleStripeLinkId = slot.staleStripeLinkId;
     }
 
     // Create product and price on the connected account
@@ -117,19 +103,54 @@ export async function POST(request: Request) {
       { stripeAccount: fullDoctor.stripeAccountId }
     );
 
-    // Save to database
-    const dbPaymentLink = await prisma.paymentLink.create({
-      data: {
-        doctorId: doctor.id,
-        stripePaymentLinkId: paymentLink.id,
-        stripePaymentLinkUrl: paymentLink.url,
-        description: productName,
-        amount,
-        currency: 'MXN',
-        serviceId: serviceId || undefined,
-        bookingId: bookingId || undefined,
-      },
-    });
+    // Save to database. Freeing the stale link's @unique bookingId slot happens HERE, in the
+    // same transaction as the create — never before the Stripe calls, so a failed create can't
+    // orphan the old booking↔link association.
+    let dbPaymentLink;
+    try {
+      const create = prisma.paymentLink.create({
+        data: {
+          doctorId: doctor.id,
+          stripePaymentLinkId: paymentLink.id,
+          stripePaymentLinkUrl: paymentLink.url,
+          description: productName,
+          amount,
+          currency: 'MXN',
+          serviceId: serviceId || undefined,
+          bookingId: bookingId || undefined,
+        },
+      });
+      if (staleStripeLinkId) {
+        [, dbPaymentLink] = await prisma.$transaction([
+          prisma.paymentLink.update({
+            where: { id: staleStripeLinkId },
+            data: { bookingId: null },
+          }),
+          create,
+        ]);
+      } else {
+        dbPaymentLink = await create;
+      }
+    } catch (dbError: any) {
+      if (dbError?.code === 'P2002') {
+        // Race loser: a concurrent request took the bookingId slot between guard and create.
+        // Deactivate the Stripe link we just created so an unrecorded live link can't be paid.
+        try {
+          await stripe.paymentLinks.update(
+            paymentLink.id,
+            { active: false },
+            { stripeAccount: fullDoctor.stripeAccountId }
+          );
+        } catch {
+          console.error('[stripe] Could not deactivate orphaned payment link', paymentLink.id);
+        }
+        return NextResponse.json(
+          { error: 'Ya existe un link de pago activo para esta cita' },
+          { status: 400 }
+        );
+      }
+      throw dbError;
+    }
 
     return NextResponse.json({
       id: dbPaymentLink.id,

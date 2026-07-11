@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctorStripe, AuthError } from '@/lib/auth';
 import { decrypt, mpFetch } from '@/lib/mercadopago';
+import { checkBookingLinkSlot } from '@/lib/payment-link-guard';
 
 export async function POST(request: Request) {
   try {
@@ -37,9 +38,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const { amount, description: rawDescription, patientEmail: rawEmail } = await request.json();
+    const { amount, description: rawDescription, patientEmail: rawEmail, bookingId: rawBookingId } = await request.json();
     const description = typeof rawDescription === 'string' ? rawDescription.trim() : '';
     const patientEmail = typeof rawEmail === 'string' ? rawEmail.trim() : '';
+    const bookingId = typeof rawBookingId === 'string' && rawBookingId ? rawBookingId : null;
 
     // Validate email format if provided
     if (patientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientEmail)) {
@@ -56,6 +58,16 @@ export async function POST(request: Request) {
         { error: 'El monto debe ser entre $10 y $100,000 MXN' },
         { status: 400 }
       );
+    }
+
+    // Validate bookingId belongs to this doctor + no paid/active link on either provider
+    let staleMpPreferenceId: string | null = null;
+    if (bookingId) {
+      const slot = await checkBookingLinkSlot(doctor.id, bookingId);
+      if (!slot.ok) {
+        return NextResponse.json({ error: slot.error }, { status: 400 });
+      }
+      staleMpPreferenceId = slot.staleMpPreferenceId;
     }
 
     const accessToken = decrypt(doctorData.mpAccessToken);
@@ -98,17 +110,43 @@ export async function POST(request: Request) {
 
     const preference = await response.json();
 
-    // Save to database
-    const saved = await prisma.mpPaymentPreference.create({
-      data: {
-        doctorId: doctor.id,
-        mpPreferenceId: preference.id,
-        mpInitPoint: preference.init_point,
-        description: description || null,
-        amount: parsedAmount,
-        externalReference,
-      },
-    });
+    // Save to database. Freeing the stale link's @unique bookingId slot happens HERE, in the
+    // same transaction as the create — never before the MP call, so a failed create can't
+    // orphan the old booking↔link association.
+    let saved;
+    try {
+      const create = prisma.mpPaymentPreference.create({
+        data: {
+          doctorId: doctor.id,
+          mpPreferenceId: preference.id,
+          mpInitPoint: preference.init_point,
+          description: description || null,
+          amount: parsedAmount,
+          externalReference,
+          bookingId: bookingId || undefined,
+        },
+      });
+      if (staleMpPreferenceId) {
+        [, saved] = await prisma.$transaction([
+          prisma.mpPaymentPreference.update({
+            where: { id: staleMpPreferenceId },
+            data: { bookingId: null },
+          }),
+          create,
+        ]);
+      } else {
+        saved = await create;
+      }
+    } catch (dbError: any) {
+      if (dbError?.code === 'P2002') {
+        // Race loser: a concurrent request took the bookingId slot between guard and create.
+        return NextResponse.json(
+          { error: 'Ya existe un link de pago activo para esta cita' },
+          { status: 400 }
+        );
+      }
+      throw dbError;
+    }
 
     return NextResponse.json({
       id: saved.id,
