@@ -198,6 +198,14 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
    sobrecargarlo mezclaba unidades). El cap de 500k recupera su significado de ~$1.50/día.
    Detalle completo en `05` §8 (bullet ⚖️).
 4. **PR 4** — voz + retirar el chat v1 + evaluar limpieza de `/v1` y `/v2`.
+4b. ✅ **Refactor de módulos (2026-07-11, track facturas):** el agente quedó estructurado por
+   MÓDULOS de dominio — `lib/agenda-agent/modules/` (types/registry/agenda) + `prompt.ts`
+   (secciones compartidas + composición). run-turn.ts ya no contiene prompt ni tools: solo el
+   loop. Verificado **byte-idéntico** (sha256 de prompt y tools) + evals 19/19 con el dispatch
+   nuevo. El prompt del agente ahora se edita en `prompt.ts` (secciones compartidas) o
+   `modules/agenda.ts` (invariantes de agenda + reglas de citas) — NO en run-turn.ts.
+   Estructura completa en `05` §3; contexto del refactor en
+   `../AGENTE FACTURAS/00-FACTIBILIDAD` §1.
 5. ✅ **Hardening diferido de los code-reviews — LOS 4 HECHOS (2026-07-07).** Detalle en
    `06-PR3-DISENO` §5: (a) **FK compuesta** `bookings(patient_id, doctor_id) →
    patients(id, doctor_id)` con `ON DELETE SET NULL (patient_id)` (PG 15+) — **APLICADA EN PROD**

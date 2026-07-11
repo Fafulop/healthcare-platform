@@ -35,11 +35,14 @@ adelantar el *merge* como arquitectura: el "agente de agenda" se convierte en **
 con módulos de dominio (agenda / facturas / luego flujo y expediente), mismo panel, mismo
 endpoint, mismo presupuesto.
 
-**Refactor necesario (ligero):** `tools.ts` (525 líneas) y `proposals.ts` registran tools en
-constantes planas (`ALL_TOOLS`) y el prompt se arma en `buildSystem()` como bloque único. El
-refactor es: registry de tools por módulo + secciones de prompt por módulo, concatenadas en el
-MISMO bloque estable cacheado (el prompt crece ~2-3k tokens con facturas; sigue siendo un solo
-breakpoint de cache — el costo warm apenas se mueve). Ningún cambio al loop ni al executor.
+**✅ Refactor HECHO (2026-07-11):** registry de módulos en
+`apps/doctor/src/lib/agenda-agent/modules/` (types/registry/agenda) + `prompt.ts` (secciones
+compartidas + composición por módulo). Verificado **byte-idéntico** (sha256 del prompt y del
+array de tools antes/después) + type-check + evals 19/19 con el dispatch nuevo ejercitado.
+Agregar el módulo facturas = un archivo en `modules/` + una entrada en `AGENT_MODULES`; el
+prompt crece ~2-3k tokens pero sigue siendo UN bloque estable con UN breakpoint de cache.
+Ningún cambio al loop ni al executor. (TODOs anotados en `prompt.ts`: el INTRO y el "fuera de
+tu alcance" nombran agenda en específico — se ajustan cuando este módulo llegue.)
 
 ---
 
@@ -175,9 +178,8 @@ Pasos 1-2 ya existen en prod. Lo nuevo son 4 tools de lectura + 2-3 de propuesta
    de prueba no tiene CSD real — verificar qué ambiente usa dr-prueba).
 5. **PR F3 — entrega** (`propose_email_cfdi`) y lo que la validación en vivo pida.
 
-**Prerrequisito organizativo:** el refactor de módulos (tools registry + prompt por secciones)
-va ANTES de PR F1, como PR propio pequeño — riesgo cero funcional (evals 19/19 deben quedar
-idénticos: misma concatenación, mismo cache).
+**Prerrequisito organizativo:** ✅ HECHO 2026-07-11 — el refactor de módulos (ver §1) quedó
+byte-idéntico y con evals 19/19. PR F1 puede empezar directo sobre `modules/`.
 
 ## 8. Preguntas abiertas (decidir antes de PR F1)
 

@@ -49,19 +49,33 @@ apps/doctor/src/
 ├── app/api/agenda-agent/route.ts        ← wrapper delgado: auth, validación, presupuesto, logging
 │                                           (+ GET del budget diario para el widget del panel)
 ├── lib/agenda-agent/
-│   ├── run-turn.ts                      ← EL LOOP (tools, prompt, caps) — compartido ruta ↔ evals
+│   ├── run-turn.ts                      ← EL LOOP (caps, caching, síntesis) — compartido ruta ↔ evals;
+│   │                                       NO cambia al agregar un módulo de dominio
+│   ├── prompt.ts                        ← secciones compartidas del prompt + composición con las
+│   │                                       secciones de cada módulo (UN solo bloque estable cacheado)
+│   ├── modules/                         ← registry de MÓDULOS por dominio (refactor 2026-07-11,
+│   │   │                                   byte-idéntico verificado por sha256; prerequisito PR F1)
+│   │   ├── types.ts                     ← contrato AgentModule (tools + executors + secciones)
+│   │   ├── registry.ts                  ← AGENT_MODULES, ALL_TOOLS, dispatch — EL punto de enchufe
+│   │   └── agenda.ts                    ← módulo agenda: wirea tools/proposals + sus 2 secciones
 │   ├── anthropic.ts                     ← cliente raw-fetch del Messages API (tool use, timeout 60s)
 │   ├── dates.ts                         ← helpers de fecha/hora (TZ MX, weekday, addMinutes)
 │   ├── tools.ts                         ← 8 tools de LECTURA (definición + executor Prisma)
-│   └── proposals.ts                     ← 4 tools de PROPUESTA (pre-checks + collector)  [PR 2]
+│   └── proposals.ts                     ← 10 tools de PROPUESTA (pre-checks + collector)  [PR 2/3]
 ├── hooks/useAgendaAgent.ts              ← estado del chat + EXECUTOR secuencial de propuestas
 ├── app/appointments/
 │   ├── page.tsx                         ← monta el panel; refresca rangos/bloqueos tras ejecutar
 │   └── _components/AgendaAgentPanel.tsx ← UI: chat + cards de propuestas + barra "Uso de hoy"
 └── (apps/doctor/scripts/)
-    └── agenda-agent-evals.ts            ← evals G11: 12 golden cases, corre run-turn contra prod
+    └── agenda-agent-evals.ts            ← evals G11: 19 golden cases, corre run-turn contra prod
                                             read-only ANTES de cada push (instrucciones en cabecera)
 ```
+
+**Agregar un dominio nuevo (facturas/pagos/expediente)** = un archivo en `modules/` + una
+entrada en `AGENT_MODULES` (registry.ts). El prompt crece con las secciones del módulo pero
+sigue siendo UN bloque estable con UN breakpoint de cache; el loop no se toca. TODOs anotados
+en `prompt.ts` para cuando llegue facturas: la lista de capacidades del INTRO y el "fuera de
+tu alcance" del bloque de resiliencia hoy nombran agenda en específico.
 
 Infra compartida que usa: `requireDoctorAuth` (sesión), `logTokenUsage`/`LlmTokenUsage`
 (telemetría y presupuesto), `authFetch` (ejecución client-side), Prisma de `@healthcare/database`.

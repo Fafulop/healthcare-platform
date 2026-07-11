@@ -94,9 +94,10 @@ renombrado `stripeLink/mpLink`) — unificar al shape canónico.
 ## 5. Lo que sigue
 
 - ~~H2 / H7 / H8~~ → **HECHOS** (§6).
-- Refactor de módulos (tools registry + secciones de prompt; evals deben quedar 19/19) →
-  PR F1 (tools de lectura, incl. `get_billing_status`) → `propose_payment_link` en fase 2
-  usando exactamente estos endpoints.
+- ~~Refactor de módulos~~ → **HECHO 2026-07-11** (registry en `lib/agenda-agent/modules/`,
+  byte-idéntico por sha256, evals 19/19 — detalle en `00-FACTIBILIDAD` §1).
+- **Siguiente: PR F1** (tools de lectura, incl. `get_billing_status`) → `propose_payment_link`
+  en fase 2 usando exactamente estos endpoints.
 
 ## 6. Segunda tanda (2026-07-10/11) — expediente obligatorio, celda Paciente, H2, H7, H8
 
