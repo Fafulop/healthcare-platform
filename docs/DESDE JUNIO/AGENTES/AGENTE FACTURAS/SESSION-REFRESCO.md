@@ -63,17 +63,24 @@ Playbook heredado: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/S
 - El expediente es vista PARCIAL para dinero/facturas — los tools leen el GRAFO, no replican la
   query de la página (`03` §6).
 
-## ⬜ Validación en vivo pendiente (dr-prueba) — hacer ANTES o durante PR F1
+## ✅ Validación en vivo (dr-prueba) — HECHA 2026-07-11 (secuencia test-7 + panel PR F1)
 
-Ya hecho: link MP creado sobre la cita "test 7" (3 ago, walk-in) y verificado en BD
-(`mp_payment_preferences.booking_id` correcto — el PRIMER link ligado de la plataforma).
-Falta la secuencia (valida H2+H7+cadena completa en un solo flujo):
-1. Vincular/crear expediente a "test 7" (la celda Paciente ya lo permite).
-2. Pagar el link de $10 → verificar: `status→PAID`, `isActive→false`, ledger `webhook_pago` con
-   `bookingId+patientId` (RFC solo si el expediente lo tiene), chip "Pagado" en agenda y expediente.
-3. Intentar 2º link sobre la cita pagada → "Esta cita ya fue pagada con un link de pago".
-4. Completar la cita → camino H2: "el ingreso ya estaba registrado", sin duplicar.
-5. Marcar los checkboxes de `03` (PERM-A4/A5, ORD-1/2) con la evidencia.
+**Secuencia test-7 completada y verificada read-only contra prod:**
+1. ✅ Link MP ligado a la cita "test 7" pagado ($10) → `status→PAID`, `isActive→false`, ledger
+   `webhook_pago` con `bookingId`. (El entry nació SIN `patientId` porque el expediente se
+   vinculó 14 min ANTES del deploy de H7 — artefacto de timing, no bug.)
+2. ✅ Completar la cita → camino H2 EN VIVO: un solo ingreso, sin duplicar, sin 409 engañoso.
+3. ✅ H7 EN VIVO: re-vincular el expediente a la cita → backfill reescribió el entry 1577
+   (`patient_id` del expediente, `counterparty_rfc` null correcto — el expediente no tiene RFC,
+   `counterparty_name` fallback al nombre de la cita).
+4. ⬜ No probado aún: 2º link sobre la cita pagada ("ya fue pagada") — pendiente menor.
+5. Checkboxes de `03` marcados (PERM-A4 variante E3, C3, ORD-1).
+
+**Nota de diseño confirmada en esta validación:** `final_price` (precio de la cita) es
+informativo — NUNCA genera movimiento; el ledger solo registra dinero real (monto del link o lo
+que el doctor teclea al completar). Un pago PARCIAL por link deja el ingreso en ese monto y
+completar no agrega el resto (sin reconciliación contra precio) — trade-off conocido, radar del
+money model.
 
 ## Próximos pasos
 
@@ -82,9 +89,17 @@ Falta la secuencia (valida H2+H7+cadena completa en un solo flujo):
    agosto). El FAIL de `ambigua-pregunta-concreta` era el EVAL podrido, no el modelo: el mensaje
    "¿el miércoles?" perdió su ambigüedad con el calendario (un solo miércoles razonable →
    resolverlo directo es correcto); reemplazado por un referente ausente ("muévela media hora
-   más tarde") que es ambiguo para siempre → PASS. **Siguiente trabajo: validación en vivo de
-   PR F1 en prod** (probar los 6 tools desde el panel con dr-prueba; la secuencia test-7 de
-   arriba valida get_billing_status de paso) → luego PR F2.
+   más tarde") que es ambiguo para siempre → PASS. Siguiente: PR F2.
+   **✅ VALIDACIÓN EN VIVO HECHA (2026-07-11, panel en prod con dr-prueba): 10/10 correctas
+   contra la BD** — los 6 tools ejercitados (fiscal profile, billing status test-7 con el flag
+   del precio $1M vs $10 cobrado, total SAT $4,016,023.44/300 vigentes con frescura y "Sync mes
+   actual", 6 CFDIs plataforma con cruce de fuentes, 15 links con huérfanos señalados,
+   expedientes DUPLICADOS de Gerardo detectados con counts exactos 3/0 y 5/1, búsqueda por
+   nombre vs expediente bien distinguida, negativos: rechazó contenido clínico y emitir CFDI).
+   Side-validations: fix de timezone MX confirmado (las fechas del agente eran las correctas,
+   el SQL crudo de verificación estaba corrido un día), H2 y H7 validados en vivo (ver sección
+   de validación). Único defecto: cosmético — un conteo en prosa mal ("4 links"/corrijo:
+   5, suma $47 vs $58 real) en la respuesta de links; datos correctos. Vigilar, no actuar.
    Módulo `modules/facturas.ts` (registrado en `AGENT_MODULES`) con los 6 tools de lectura:
    `get_billing_status` (la estrella — matriz de 6 preguntas de `02` §3; modo cita o paciente,
    10 citas máx, TODO batcheado), `get_patient_profile` (completitud fiscal server-side +

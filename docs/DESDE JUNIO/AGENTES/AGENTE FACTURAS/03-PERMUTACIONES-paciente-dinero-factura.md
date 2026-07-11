@@ -68,7 +68,10 @@
   como A2. **Pista para el asistente:** `requiereFactura=false` + sin RFC ≠ "no quiere factura"
   — puede ser "aún no capturado"; la señal fuerte es el flag + la conversación.
 
-- [ ] **PERM-A4 · Nuevo + link Stripe/MP + sin factura** (E2·M2/M3·F0).
+- [x] **PERM-A4 · Nuevo + link Stripe/MP + sin factura** (E2·M2/M3·F0). ✅ **VALIDADA EN VIVO
+  2026-07-11** (variante E3: cita "test 7", link MP ligado, pagado $10 → ledger `webhook_pago`
+  con `bookingId`; expediente vinculado post-hoc → ver C3/H7; completar → ver ORD-1/H2). Los
+  fixes de `04` eliminaron los huecos que esta permutación activaba.
   ⚠️ **H10 primero:** hoy la UI solo crea links SUELTOS — este flujo "como debería ser" (link
   ligado a la cita) no es alcanzable desde la UI. Como debería funcionar: cita vinculada →
   link con `bookingId` → paciente paga → webhook: `PaymentLinkStatus:PAID` + ledger
@@ -112,7 +115,11 @@
   (a) crear el expediente primero (hoy: manual; fase 2: `propose_create_patient`) → vincular →
   A3; (b) **Público en General** (PERM-D1) si el paciente no quiere factura nominativa.
 
-- [ ] **PERM-C3 · Walk-in vinculado POST-HOC después de completar/pagar** (E3).
+- [x] **PERM-C3 · Walk-in vinculado POST-HOC después de completar/pagar** (E3). ✅ **VALIDADA
+  EN VIVO 2026-07-11**: re-vincular el expediente a "test 7" disparó el backfill H7 — entry
+  1577 reescrito con `patient_id`, `counterparty_rfc` null (el expediente no tiene RFC) y
+  `counterparty_name` fallback al nombre de la cita. (El primer intento NO backfilleó porque
+  la vinculación ocurrió 14 min antes del deploy de `cf42c67b` — timing, no bug.)
   Cita completada (ledger con `patientId:null`) → luego "Buscar paciente" escribe
   `bookings.patient_id`. ⚠️ **H7 (nuevo)**: el ledger entry NO se backfillea — queda sin
   patientId/RFC para siempre (el PATCH de vinculación no toca ledger; verificado).
@@ -146,8 +153,12 @@
 
 ## 5. Bloque O — permutaciones de ORDEN del dinero
 
-- [ ] **ORD-1 · Link pagado ANTES de completar** → webhook crea el entry → completar → 409
+- [x] **ORD-1 · Link pagado ANTES de completar** → webhook crea el entry → completar → 409
   (H2). *El caso más probable en la práctica real (el paciente paga al agendar).*
+  ✅ **VALIDADA EN VIVO 2026-07-11** con el fix H2: completar "test 7" tras el pago del link =
+  éxito, UN solo ingreso ($10 del link), sin duplicado ni 409 engañoso. Confirmado también:
+  `final_price` ($1,000,000 de prueba) NO genera movimiento — el ledger solo registra dinero
+  real (diseño correcto).
 - [ ] **ORD-2 · Completar ANTES, link pagado DESPUÉS** → el entry `origin:'cita'` ya existe →
   el webhook es idempotente por bookingId y NO duplica ✓ (verificado,
   `practice-utils.ts:108-114`). Matiz: `formaDePago` del entry queda como dijo el doctor al

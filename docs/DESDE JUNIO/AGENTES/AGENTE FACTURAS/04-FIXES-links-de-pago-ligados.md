@@ -5,7 +5,8 @@
 > pago ligados a la cita (H10) + H1, los fixes de sus dos code-reviews, y la segunda tanda
 > (expediente obligatorio, celda Paciente, H2, H7, H8 — ver **§6**). Escrito 2026-07-10,
 > actualizado 2026-07-11. **Estado: TODO desplegado en prod** (commits `7e7d031d`, `bd811606`,
-> `5e123efb`, `7d9964ab`, `cf42c67b`); validación en vivo del flujo completo pendiente (§4).
+> `5e123efb`, `7d9964ab`, `cf42c67b`) **y validado en vivo 2026-07-11** (§4 — H2 y H7
+> ejercitados en prod con la secuencia test-7).
 >
 > **La propiedad que esta pasada compró:** el grafo `Booking ← LedgerEntry → CfdiEmitted`
 > **converge a la verdad sin importar el orden** de las acciones (pagar ↔ vincular expediente ↔
@@ -81,15 +82,17 @@ renombrado `stripeLink/mpLink`) — unificar al shape canónico.
   `Promise.all` del guard, el select ampliado de booking+patient del helper H1.
 - ✅ Cero migraciones: las columnas `booking_id` ya existían en prod (verificado por
   `information_schema`).
-- 🟡 **Validación en vivo (dr-prueba) — EN CURSO:** ✅ link MP creado desde la cita "test 7"
-  (2026-07-11) y verificado en prod: `booking_id` correcto en `mp_payment_preferences`, monto
-  $10, PENDING — el primer link ligado a cita en la historia de la plataforma (todos los
-  anteriores tienen `booking_id NULL`, confirmando H10 en los datos). Pendiente: vincular
-  expediente a test 7 (ejercita 6.2 y, tras el pago, H7) → pagar el link → verificar ledger
-  (`bookingId + patientId`; RFC solo si el expediente lo tiene) + chip "Pagado" → segundo link
-  sobre la cita pagada → "ya fue pagada" → completar la cita → camino H2 ("el ingreso ya
-  estaba registrado", sin duplicar).
-- ⬜ Marcar PERM-A4/A4b/A5 y ORD-1/2 del catálogo `03` cuando la validación en vivo pase.
+- ✅ **Validación en vivo (dr-prueba) — COMPLETADA 2026-07-11:** link MP ligado a "test 7"
+  (el primer link ligado a cita de la plataforma) → pagado $10 → `status→PAID`,
+  `isActive→false`, ledger `webhook_pago` con `bookingId` ✓. Completar la cita → **camino H2
+  en vivo**: un solo ingreso, sin duplicar, sin 409 engañoso ✓. Re-vincular el expediente →
+  **backfill H7 en vivo**: entry 1577 reescrito (`patient_id` ✓, `counterparty_rfc` null
+  correcto — el expediente no tiene RFC, `counterparty_name` fallback) ✓.
+  Gotcha de timing documentado: la PRIMERA vinculación (02:01 UTC) ocurrió 14 min antes del
+  commit de H7 (02:15 UTC) → el entry quedó huérfano hasta el re-link; no fue bug.
+  Pendiente menor: probar el 2º link sobre cita pagada ("ya fue pagada").
+- ✅ PERM-A4 (variante E3), C3 y ORD-1 marcadas en `03` con la evidencia. A4b/A5 y ORD-2
+  siguen sin validar en vivo.
 
 ## 5. Lo que sigue
 
