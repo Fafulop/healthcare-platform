@@ -23,6 +23,8 @@ export interface BookingPaymentLinkInfo {
 
 interface Props {
   bookingId: string;
+  /** Linked expediente id — creating a link REQUIRES one (server enforces it too) */
+  patientId?: string | null;
   patientName: string;
   patientPhone?: string | null;
   patientWhatsapp?: string | null;
@@ -38,6 +40,7 @@ type Provider = 'stripe' | 'mercadopago';
 
 export function PaymentLinkButton({
   bookingId,
+  patientId,
   patientName,
   patientPhone,
   patientWhatsapp,
@@ -121,7 +124,19 @@ export function PaymentLinkButton({
     );
   }
 
-  // No link yet
+  // No link yet — creating one requires a linked expediente (the income must be traceable
+  // to a patient record; the server guard enforces the same rule)
+  if (!patientId) {
+    return (
+      <span
+        className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200 flex items-center gap-1"
+        title="Para generar un link de pago, primero crea o vincula el expediente del paciente (columna Paciente)"
+      >
+        <CreditCard className="w-3 h-3" /> Requiere expediente
+      </span>
+    );
+  }
+
   return (
     <>
       <button

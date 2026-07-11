@@ -564,38 +564,39 @@ function ExpedienteCell({
     );
   }
 
-  if (booking.isFirstTime === true) {
-    return (
-      <>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 whitespace-nowrap"
-        >
-          + Crear expediente
-        </button>
-        {showCreateModal && (
-          <CreatePatientFromBookingModal
-            booking={booking}
-            onClose={() => setShowCreateModal(false)}
-            onLinked={(patient) => {
-              onUpdatePatientLink(booking.id, patient.id, patient);
-              setShowCreateModal(false);
-            }}
-          />
-        )}
-      </>
-    );
-  }
-
-  if (booking.isFirstTime === false) {
-    return (
-      <InlinePatientSearch
-        onSelect={(patient) => onUpdatePatientLink(booking.id, patient.id, patient)}
-      />
-    );
-  }
-
-  return <span className="text-xs text-gray-400">—</span>;
+  // No expediente linked — ALWAYS offer both search-existing and create-new. isFirstTime is
+  // only a hint for ordering: it used to gate which option appeared, and citas created by the
+  // agent (isFirstTime null) rendered a dead "—" with no way to link or create.
+  const searchFirst = booking.isFirstTime === false;
+  const searchEl = (
+    <InlinePatientSearch
+      onSelect={(patient) => onUpdatePatientLink(booking.id, patient.id, patient)}
+    />
+  );
+  const createEl = (
+    <button
+      onClick={() => setShowCreateModal(true)}
+      className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 whitespace-nowrap"
+    >
+      + Crear expediente
+    </button>
+  );
+  return (
+    <div className="flex flex-col items-start gap-1">
+      {searchFirst ? searchEl : createEl}
+      {searchFirst ? createEl : searchEl}
+      {showCreateModal && (
+        <CreatePatientFromBookingModal
+          booking={booking}
+          onClose={() => setShowCreateModal(false)}
+          onLinked={(patient) => {
+            onUpdatePatientLink(booking.id, patient.id, patient);
+            setShowCreateModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
 function StatusActions({
@@ -781,6 +782,7 @@ function StatusActions({
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Cobro</span>
           <PaymentLinkButton
             bookingId={booking.id}
+            patientId={booking.patientId}
             patientName={booking.patientName}
             patientPhone={booking.patientPhone}
             patientWhatsapp={booking.patientWhatsapp}

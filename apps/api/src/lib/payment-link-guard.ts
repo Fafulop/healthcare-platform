@@ -9,6 +9,8 @@
 //     provider call succeeds, so a failed create can't orphan the association).
 // Note: `isActive` alone is NOT a paid-check — the MP webhook sets isActive:false when a
 // preference is PAID, which is exactly why this guard tests status too.
+// The booking must also have a LINKED EXPEDIENTE (patientId): a cobro without a patient record
+// produces income that can't be traced, invoiced, or shown in the patient's history.
 
 import { prisma } from '@healthcare/database';
 
@@ -23,7 +25,7 @@ export async function checkBookingLinkSlot(
   const [booking, stripeLink, mpPreference] = await Promise.all([
     prisma.booking.findFirst({
       where: { id: bookingId, doctorId },
-      select: { id: true },
+      select: { id: true, patientId: true },
     }),
     prisma.paymentLink.findUnique({
       where: { bookingId },
@@ -38,11 +40,19 @@ export async function checkBookingLinkSlot(
   if (!booking) {
     return { ok: false, error: 'Cita no encontrada' };
   }
+  // PAID/active first: on a paid cita without expediente, "ya fue pagada" is the truthful
+  // blocker, not the missing expediente.
   if (stripeLink?.status === 'PAID' || mpPreference?.status === 'PAID') {
     return { ok: false, error: 'Esta cita ya fue pagada con un link de pago' };
   }
   if (stripeLink?.isActive || mpPreference?.isActive) {
     return { ok: false, error: 'Ya existe un link de pago activo para esta cita' };
+  }
+  if (!booking.patientId) {
+    return {
+      ok: false,
+      error: 'La cita no tiene expediente vinculado. Crea o vincula el expediente del paciente antes de generar un link de pago.',
+    };
   }
 
   return {

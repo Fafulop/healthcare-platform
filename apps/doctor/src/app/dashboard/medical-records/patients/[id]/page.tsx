@@ -443,6 +443,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cobro</span>
                     <PaymentLinkButton
                       bookingId={b.id}
+                      patientId={patient.id}
                       patientName={`${patient.firstName} ${patient.lastName}`.trim()}
                       patientPhone={patient.phone || null}
                       patientEmail={patient.email || null}
