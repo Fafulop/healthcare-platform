@@ -119,16 +119,17 @@ cross-dominio ("¿cuánto me deben?" — ¿agenda, ledger o links?).
 por: secciones de prompt por módulo (no un monolito), suite de evals que corre completa antes
 de cada push, y las secciones compartidas (INTRO/RESILIENCE) como único punto de contacto.
 
-### 5.2 Gaps de gobernanza detectados en esta pasada (arreglar al agregar el 3er módulo)
+### 5.2 Gaps de gobernanza detectados en esta pasada
 
-1. **El registry no detecta colisión de nombres de tools**: `readOwner.set()` sobreescribe en
-   silencio — un módulo nuevo con un tool homónimo haría shadowing sin error. Fix trivial:
-   throw en el registry si el nombre ya existe (falla en build/eval, no en prod).
+1. ✅ **HECHO (`290094c3`)** — El registry ahora TRUENA en carga si un tool name se duplica
+   (antes `Map.set` hacía shadowing silencioso); una colisión muere en build/evals, no en prod.
 2. **INTRO y RESILIENCE se editan A MANO por módulo** (capacidades enumeradas, "fuera de tu
    alcance"): es el punto de drift — checklist del playbook: todo módulo nuevo toca esas dos
    secciones y corre la suite completa.
-3. **Los evals no tienen casos cross-dominio** — agregar 2-3 por módulo nuevo ("¿cuánto me
-   deben?" debe elegir bien entre dominios, o preguntar).
+3. ✅ **HECHO (`290094c3`)** — 2 evals cross-dominio sembrados (`xdom-cuanto-me-deben`,
+   `xdom-cita-a-factura`); regla: +2-3 por módulo nuevo. **El primero encontró un bug latente
+   de prod EN SU PRIMERA CORRIDA** (mp_payment_preferences.status TEXT vs enum → filtros
+   tronaban; migración aplicada) — evidencia directa de que esta clase de eval paga.
 4. **Métrica de vigilancia sin alerta**: `llm_token_usage.budget_tokens` existe; falta mirar
    p50/turno y tools/turno tras cada módulo nuevo (a mano basta por ahora — si el p50 sube
    >20% tras un módulo, sus descripciones necesitan poda).

@@ -3,7 +3,9 @@
 > Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
-> Última actualización: **2026-07-11**.
+> Última actualización: **2026-07-11** (2ª pasada: post-validación en vivo + gobernanza).
+> El mapa de arriba de todos los agentes vive en
+> [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
 
 ---
 
@@ -84,7 +86,11 @@ money model.
 
 ## Próximos pasos
 
-1. **PR F1 — HECHO Y DESPLEGADO (2026-07-11).** Suite final: 24 casos — 22 PASS + 2 WARN soft
+1. **PR F1 — HECHO Y DESPLEGADO (2026-07-11).** (Nota posterior: la suite creció a **26 casos**
+   con 2 evals cross-dominio — commit `290094c3` — y el primero de ellos encontró un bug latente:
+   `mp_payment_preferences.status` era TEXT en prod vs enum del schema → el filtro por status de
+   `get_payment_links` tronaba; migración aplicada a prod, el filtro ya funciona.)
+   Suite del PR F1: 24 casos — 22 PASS + 2 WARN soft
    (data-dependent: datos de prueba que ESTA sesión cambió — vvvvvv limpiado, availability de
    agosto). El FAIL de `ambigua-pregunta-concreta` era el EVAL podrido, no el modelo: el mensaje
    "¿el miércoles?" perdió su ambigüedad con el calendario (un solo miércoles razonable →

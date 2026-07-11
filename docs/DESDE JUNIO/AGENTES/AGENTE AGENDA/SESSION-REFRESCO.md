@@ -288,6 +288,23 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
 - `52e8b7b6` docs(db): patrón de queries read-only a prod vía script tsx temporal
 - `0c2da6ea` fix: guard cross-tenant en POST /bookings legacy (auditoría tenancy PR 2 — un
   hallazgo, el resto de endpoints ya verificaban pertenencia)
+- `271cdbd7` **fix: isBookingActive = visibilidad pública, no usabilidad** (2026-07-11, reporte
+  del usuario): el toggle de mi-perfil solo oculta el servicio de la página pública, pero el
+  endpoint range-bookings, checkSlot y get_services lo trataban como "no agendable" — el agente
+  rechazaba agendar/reagendar servicios ocultos que la UI interna sí permite. Ahora: filtro solo
+  para callers públicos; get_services renombra el campo a `visibleEnPaginaPublica`; el fallback
+  de get_availability tampoco filtra (review: con TODOS los servicios ocultos degradaba a
+  dates-only deshonesto). `///` doc en schema.prisma. Validado en vivo (servicio oculto agendado
+  vía agente). Conocido NO incluido: el POST /bookings legacy no filtra ocultos para público
+  (0 slots futuros — moot; va con el retiro del modelo slots).
+- `290094c3` **fix: guard de colisión de tool names en registry + 2 evals cross-dominio +
+  migración enum MP** (2026-07-11, gobernanza del blueprint `../GENERAL AGENTES/`): duplicar un
+  tool name ahora truena en carga (antes shadowing silencioso). El eval nuevo
+  `xdom-cuanto-me-deben` encontró EN SU PRIMERA CORRIDA un bug latente de prod:
+  `mp_payment_preferences.status` era TEXT vs enum del schema → todo WHERE por status tronaba
+  (42883); migración `fix-mp-preference-status-enum.sql` APLICADA A PROD y verificada.
+  **La suite ahora es de 26 casos** (22 PASS + 4 WARN soft esperables, 0 FAIL); el baseline
+  "19/19" de las notas de arriba es histórico.
 
 ---
 

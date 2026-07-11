@@ -2,7 +2,19 @@
 
 > Snapshot del estado, decisiones y próximos pasos del trabajo en **Flujo de Dinero**. Para una
 > sesión/LLM en frío: lee **este** archivo, luego el [`README.md`](README.md) (índice) y de ahí los
-> numerados. Última actualización: **2026-07-01**.
+> numerados. Última actualización: **2026-07-11**.
+>
+> **Novedades 2026-07-11 (sesión de agentes, commits `25cdb2a4` + `290094c3`):**
+> (a) **Evidencia de pago en línea en el modal de comprobantes** — para entries `webhook_pago`,
+> `GET /ledger/[id]/evidence` resuelve el pago Stripe/MP que los creó (link duro por
+> bookingId+doctorId; huérfanos legacy por heurística monto+createdAt±15min, solo-huérfanos y
+> solo-match-único; link reembolsado se muestra con badge, no se oculta). Follow-ups anotados:
+> el POST de ledger NO valida pertenencia del bookingId (el endpoint de evidencia ya se
+> defiende solo), y la página de DETALLE no consulta /evidence (vista inconsistente vs modal).
+> (b) **Migración `fix-mp-preference-status-enum.sql` APLICADA A PROD**:
+> `mp_payment_preferences.status` era TEXT vs enum del schema — todo WHERE por status tronaba
+> (42883, invisible hasta ahora porque nada filtraba por status). Encontrado por el primer eval
+> cross-dominio del asistente.
 
 ---
 
