@@ -279,7 +279,7 @@ export function BookingsSection({
                           onClick={() => onSort("patient")}
                           className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                         >
-                          PACIENTE <SortIcon column="patient" sortColumn={sortColumn} sortDirection={sortDirection} />
+                          PACIENTE · SERVICIO <SortIcon column="patient" sortColumn={sortColumn} sortDirection={sortDirection} />
                         </button>
                       </th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">
@@ -290,7 +290,6 @@ export function BookingsSection({
                           FECHA Y HORA <SortIcon column="date" sortColumn={sortColumn} sortDirection={sortDirection} />
                         </button>
                       </th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">SERVICIO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">EXPEDIENTE</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">CONTACTO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">PRECIO</th>
@@ -303,6 +302,7 @@ export function BookingsSection({
                         </button>
                       </th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">ACCIONES</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">COMUNICACIÓN · COBRO</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -315,6 +315,9 @@ export function BookingsSection({
                         <tr key={booking.id} className="hover:bg-gray-50">
                           <td className="py-3 px-3">
                             <p className="font-medium text-gray-900">{booking.patientName}</p>
+                            {booking.serviceName && (
+                              <p className="text-xs text-gray-600 mt-0.5">{booking.serviceName}</p>
+                            )}
                             {booking.isFirstTime === true && (
                               <span className="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">Primera vez</span>
                             )}
@@ -325,12 +328,6 @@ export function BookingsSection({
                           <td className="py-3 px-3 text-gray-600">
                             <p>{formatLocalDate(bookingDate, { month: "short", day: "numeric", year: "numeric" })}</p>
                             <p className="text-xs">{booking.slot?.startTime ?? booking.startTime ?? ""}</p>
-                          </td>
-                          <td className="py-3 px-3">
-                            {booking.serviceName
-                              ? <span className="text-sm text-gray-800">{booking.serviceName}</span>
-                              : <span className="text-xs text-gray-400">—</span>
-                            }
                           </td>
                           <td className="py-3 px-3">
                             <ExpedienteCell booking={booking} onUpdatePatientLink={onUpdatePatientLink} />
@@ -354,20 +351,19 @@ export function BookingsSection({
                               slotDate={bookingDate}
                             />
                           </td>
-                          <td className="py-3 px-3">
-                            <StatusActions
-                              booking={booking}
-                              onUpdateStatus={onUpdateStatus}
-                              onUpdateExtendedBlock={onUpdateExtendedBlock}
-                              onDeleteBooking={onDeleteBooking}
-                              onOpenFormLinkModal={onOpenFormLinkModal}
-                              onDeleteFormLink={onDeleteFormLink}
-                              onSendEmail={onSendEmail}
-                              onReschedule={onReschedule}
-                              onCompleteBooking={onCompleteBooking}
-                              onEmitCfdi={onEmitCfdi}
-                            />
-                          </td>
+                          <StatusActions
+                            booking={booking}
+                            layout="table"
+                            onUpdateStatus={onUpdateStatus}
+                            onUpdateExtendedBlock={onUpdateExtendedBlock}
+                            onDeleteBooking={onDeleteBooking}
+                            onOpenFormLinkModal={onOpenFormLinkModal}
+                            onDeleteFormLink={onDeleteFormLink}
+                            onSendEmail={onSendEmail}
+                            onReschedule={onReschedule}
+                            onCompleteBooking={onCompleteBooking}
+                            onEmitCfdi={onEmitCfdi}
+                          />
                         </tr>
                       );
                     })}
@@ -610,8 +606,11 @@ function StatusActions({
   onReschedule,
   onCompleteBooking,
   onEmitCfdi,
+  layout = "card",
 }: {
   booking: Booking;
+  /** "table" renders TWO <td> cells (gestión · comunicación/cobro); "card" one stacked div */
+  layout?: "card" | "table";
   onUpdateStatus: (id: string, status: string) => void;
   onUpdateExtendedBlock: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
   onDeleteBooking: (id: string, patientName: string) => void;
@@ -654,23 +653,20 @@ function StatusActions({
     booking.mpPaymentPreference?.isActive;
   const showCobroGroup = !isTerminal || !!hasRelevantPaymentLink;
 
-  return (
-    <>
-      {completeModalOpen && (
-        <CompleteBookingModal
-          booking={booking}
-          onClose={() => setCompleteModalOpen(false)}
-          onConfirm={async (price, formaDePago) => {
-            const result = await onCompleteBooking(booking.id, price, formaDePago);
-            return result || {};
-          }}
-          onEmitCfdi={onEmitCfdi}
-        />
-      )}
-    <div className="flex flex-col gap-2">
-      {/* Group 1: Estado */}
-      {showStatusGroup && (
-        <div>
+  const modal = completeModalOpen && (
+    <CompleteBookingModal
+      booking={booking}
+      onClose={() => setCompleteModalOpen(false)}
+      onConfirm={async (price, formaDePago) => {
+        const result = await onCompleteBooking(booking.id, price, formaDePago);
+        return result || {};
+      }}
+      onEmitCfdi={onEmitCfdi}
+    />
+  );
+
+  const estadoGroup = showStatusGroup && (
+        <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Estado</span>
           <div className="flex gap-1 flex-wrap">
             {booking.status === "PENDING" && (
@@ -710,11 +706,10 @@ function StatusActions({
             )}
           </div>
         </div>
-      )}
+      );
 
-      {/* Group 2: Comunicación */}
-      {showCommsGroup && (
-        <div className="border-t border-gray-100 pt-2">
+  const comunicacionGroup = showCommsGroup && (
+        <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Comunicación</span>
           <div className="flex gap-1 flex-wrap">
             {booking.appointmentMode === "TELEMEDICINA" ? (
@@ -774,11 +769,10 @@ function StatusActions({
             )}
           </div>
         </div>
-      )}
+      );
 
-      {/* Group 3: Cobro */}
-      {showCobroGroup && (
-        <div className="border-t border-gray-100 pt-2">
+  const cobroGroup = showCobroGroup && (
+        <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Cobro</span>
           <PaymentLinkButton
             bookingId={booking.id}
@@ -805,11 +799,10 @@ function StatusActions({
             } : null}
           />
         </div>
-      )}
+      );
 
-      {/* Group 4: Documentos */}
-      {showDocsGroup && (
-        <div className="border-t border-gray-100 pt-2">
+  const documentosGroup = showDocsGroup && (
+        <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Documentos</span>
           <div className="flex gap-1 flex-wrap">
             <FormularioStatusButton
@@ -820,19 +813,17 @@ function StatusActions({
             <FiscalFormButton booking={booking} />
           </div>
         </div>
-      )}
+      );
 
-      {/* Group 5: Horario */}
-      {showScheduleGroup && (
-        <div className="border-t border-gray-100 pt-2">
+  const horarioGroup = showScheduleGroup && (
+        <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Horario</span>
           <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
         </div>
-      )}
+      );
 
-      {/* Group 6: Eliminar */}
-      {isTerminal && (
-        <div>
+  const eliminarGroup = isTerminal && (
+        <div className="pt-2 first:pt-0">
           <button
             onClick={() => onDeleteBooking(booking.id, booking.patientName)}
             className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -840,8 +831,44 @@ function StatusActions({
             Eliminar
           </button>
         </div>
-      )}
-    </div>
+      );
+
+  // Table layout: two cells — gestión (Estado/Documentos/Horario/Eliminar) and
+  // contacto-cobro (Comunicación/Cobro) — so the row stays short.
+  if (layout === "table") {
+    return (
+      <>
+        <td className="py-3 px-3 align-top">
+          {modal}
+          <div className="flex flex-col gap-2 divide-y divide-gray-100">
+            {estadoGroup}
+            {documentosGroup}
+            {horarioGroup}
+            {eliminarGroup}
+          </div>
+        </td>
+        <td className="py-3 px-3 align-top">
+          <div className="flex flex-col gap-2 divide-y divide-gray-100">
+            {comunicacionGroup}
+            {cobroGroup}
+          </div>
+        </td>
+      </>
+    );
+  }
+
+  // Card layout (mobile): all groups stacked
+  return (
+    <>
+      {modal}
+      <div className="flex flex-col gap-2 divide-y divide-gray-100">
+        {estadoGroup}
+        {comunicacionGroup}
+        {cobroGroup}
+        {documentosGroup}
+        {horarioGroup}
+        {eliminarGroup}
+      </div>
     </>
   );
 }
