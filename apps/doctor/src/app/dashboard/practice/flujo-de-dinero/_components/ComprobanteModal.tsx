@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useCallback, useState } from 'react';
-import { X, Receipt, Download, File, Landmark, Loader2 } from 'lucide-react';
+import { X, Receipt, Download, File, Landmark, Loader2, CreditCard } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { formatFileSize } from './useLedgerDetail';
-import type { LedgerEntry, BankMovementEvidence } from './ledger-types';
+import type { LedgerEntry, BankMovementEvidence, OnlinePaymentEvidence } from './ledger-types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -32,9 +32,10 @@ export function ComprobanteModal({ entry, onClose }: Props) {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [handleClose]);
 
-  // Bank evidence is fetched lazily (it's off the list query) when the modal opens.
+  // Bank + online-payment evidence is fetched lazily (off the list query) when the modal opens.
   const [bankMov, setBankMov] = useState<BankMovementEvidence | null>(null);
   const [isSettlement, setIsSettlement] = useState(false);
+  const [onlinePayment, setOnlinePayment] = useState<OnlinePaymentEvidence | null>(null);
   const [loadingEvidence, setLoadingEvidence] = useState(true);
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export function ComprobanteModal({ entry, onClose }: Props) {
             const mov: BankMovementEvidence | null = data?.bankMovement || data?.settlementItem?.bankMovement || null;
             setBankMov(mov);
             setIsSettlement(!data?.bankMovement && !!data?.settlementItem?.bankMovement);
+            setOnlinePayment(data?.onlinePayment || null);
           }
         }
       } catch { /* silent — falls back to denormalized bankAccount / attachments */ }
@@ -60,7 +62,7 @@ export function ComprobanteModal({ entry, onClose }: Props) {
   const attachments = entry.attachments || [];
   const st = bankMov?.bankStatement || null;
   const hasBank = !!bankMov || !!entry.bankAccount;
-  const hasAny = hasBank || attachments.length > 0;
+  const hasAny = hasBank || attachments.length > 0 || !!onlinePayment;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
@@ -133,6 +135,61 @@ export function ComprobanteModal({ entry, onClose }: Props) {
             </div>
           ) : null}
 
+          {/* Online payment (Stripe / Mercado Pago) behind a webhook_pago entry */}
+          {!loadingEvidence && onlinePayment && (
+            <div className="border border-blue-200 bg-blue-50/60 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <CreditCard className="w-4 h-4 text-blue-700" />
+                <p className="text-sm font-semibold text-blue-800">
+                  Pago en línea · {onlinePayment.proveedor}
+                </p>
+                {onlinePayment.estado !== 'PAID' && (
+                  <span className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">
+                    {onlinePayment.estado === 'CANCELLED' ? 'CANCELADO / REEMBOLSADO' : onlinePayment.estado}
+                  </span>
+                )}
+              </div>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <dt className="text-gray-500">Monto</dt>
+                <dd className="text-gray-900 font-medium">
+                  {onlinePayment.monto.toLocaleString('es-MX', { style: 'currency', currency: onlinePayment.moneda || 'MXN' })}
+                  {onlinePayment.moneda && onlinePayment.moneda !== 'MXN' ? ` ${onlinePayment.moneda}` : ''}
+                </dd>
+                {onlinePayment.pagadoEl && (
+                  <>
+                    <dt className="text-gray-500">Pagado</dt>
+                    <dd className="text-gray-900 font-medium">
+                      {new Date(onlinePayment.pagadoEl).toLocaleString('es-MX', {
+                        dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Mexico_City',
+                      })}
+                    </dd>
+                  </>
+                )}
+                {onlinePayment.metodo && (
+                  <>
+                    <dt className="text-gray-500">Método</dt>
+                    <dd className="text-gray-900 capitalize">{onlinePayment.metodo.replace(/_/g, ' ')}</dd>
+                  </>
+                )}
+                {onlinePayment.descripcion && (
+                  <>
+                    <dt className="text-gray-500">Descripción</dt>
+                    <dd className="text-gray-700 truncate" title={onlinePayment.descripcion}>{onlinePayment.descripcion}</dd>
+                  </>
+                )}
+                <dt className="text-gray-500">Referencia</dt>
+                <dd className="text-gray-700 truncate font-mono text-[11px]" title={onlinePayment.referencia}>
+                  {onlinePayment.referencia}
+                </dd>
+              </dl>
+              {onlinePayment.matchHeuristico && (
+                <p className="text-[11px] text-blue-700/80 mt-2">
+                  Identificado por monto y hora del pago (el link no estaba ligado a una cita).
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Uploaded comprobantes (images / PDFs) */}
           {attachments.length > 0 && (
             <div className="space-y-3">
@@ -171,8 +228,9 @@ export function ComprobanteModal({ entry, onClose }: Props) {
             <div className="text-center py-8">
               <Receipt className="w-10 h-10 text-gray-200 mx-auto mb-2" />
               <p className="text-sm text-gray-500">Este movimiento está marcado con comprobante pero no hay un
-                estado de cuenta vinculado ni archivos adjuntos.</p>
-              <p className="text-xs text-gray-400 mt-1">Puede provenir de un pago en línea o haberse marcado manualmente.</p>
+                estado de cuenta vinculado, pago en línea identificable ni archivos adjuntos.</p>
+              <p className="text-xs text-gray-400 mt-1">Puede haberse marcado manualmente, o el pago en línea que lo
+                originó no se pudo identificar con certeza.</p>
             </div>
           )}
         </div>

@@ -21,6 +21,21 @@ export interface Area {
   subareas: Subarea[];
 }
 
+/** The Stripe/Mercado Pago payment behind a webhook_pago entry (evidence modal). */
+export interface OnlinePaymentEvidence {
+  proveedor: 'Stripe' | 'Mercado Pago';
+  monto: number;
+  moneda: string;
+  descripcion: string | null;
+  pagadoEl: string | null;
+  metodo: string | null;
+  referencia: string;
+  /** Link status at read time (PAID, or CANCELLED/etc. after a refund/chargeback). */
+  estado: string;
+  /** true = identified by amount+time proximity (orphan link), not a hard bookingId link. */
+  matchHeuristico: boolean;
+}
+
 /** A bank statement line that reconciled an entry (direct 1:1 or via a settlement). */
 export interface BankMovementEvidence {
   id: number;
