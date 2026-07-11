@@ -1,10 +1,15 @@
-# Fixes de sustrato: links de pago LIGADOS a la cita (H10 + H1) — qué se hizo y por qué
+# Fixes de sustrato: el grafo del ingreso dice la verdad (H1/H2/H7/H8/H10) — qué se hizo y por qué
 
-> **Qué es esto.** Registro de la primera pasada de fixes de sustrato que salió del catálogo de
+> **Qué es esto.** Registro de la pasada COMPLETA de fixes de sustrato que salió del catálogo de
 > permutaciones ([`03-PERMUTACIONES`](03-PERMUTACIONES-paciente-dinero-factura.md) §7): links de
-> pago ligados a la cita (H10), denormalización de paciente en los webhooks (H1), y los 5 fixes
-> del code-review de esa implementación. Escrito 2026-07-10. **Estado: working tree, verificado
-> (type-check + smoke read-only contra prod), pendiente de commit/deploy y validación en vivo.**
+> pago ligados a la cita (H10) + H1, los fixes de sus dos code-reviews, y la segunda tanda
+> (expediente obligatorio, celda Paciente, H2, H7, H8 — ver **§6**). Escrito 2026-07-10,
+> actualizado 2026-07-11. **Estado: TODO desplegado en prod** (commits `7e7d031d`, `bd811606`,
+> `5e123efb`, `7d9964ab`, `cf42c67b`); validación en vivo del flujo completo pendiente (§4).
+>
+> **La propiedad que esta pasada compró:** el grafo `Booking ← LedgerEntry → CfdiEmitted`
+> **converge a la verdad sin importar el orden** de las acciones (pagar ↔ vincular expediente ↔
+> completar ↔ cancelar/reemitir CFDI) — la base sobre la que `get_billing_status` puede leer.
 
 ---
 
@@ -76,22 +81,96 @@ renombrado `stripeLink/mpLink`) — unificar al shape canónico.
   `Promise.all` del guard, el select ampliado de booking+patient del helper H1.
 - ✅ Cero migraciones: las columnas `booking_id` ya existían en prod (verificado por
   `information_schema`).
-- ⬜ **Validación en vivo post-deploy (dr-prueba):** crear link MP desde una cita → verificar
-  `booking_id` en `mp_payment_preferences` → pagar (o simular webhook) → verificar ledger con
-  `bookingId + patientId + counterpartyRfc` → intentar segundo link sobre la cita pagada → debe
-  rechazar con "ya fue pagada" → completar la cita → observar el 409 de H2.
+- 🟡 **Validación en vivo (dr-prueba) — EN CURSO:** ✅ link MP creado desde la cita "test 7"
+  (2026-07-11) y verificado en prod: `booking_id` correcto en `mp_payment_preferences`, monto
+  $10, PENDING — el primer link ligado a cita en la historia de la plataforma (todos los
+  anteriores tienen `booking_id NULL`, confirmando H10 en los datos). Pendiente: vincular
+  expediente a test 7 (ejercita 6.2 y, tras el pago, H7) → pagar el link → verificar ledger
+  (`bookingId + patientId`; RFC solo si el expediente lo tiene) + chip "Pagado" → segundo link
+  sobre la cita pagada → "ya fue pagada" → completar la cita → camino H2 ("el ingreso ya
+  estaba registrado", sin duplicar).
 - ⬜ Marcar PERM-A4/A4b/A5 y ORD-1/2 del catálogo `03` cuando la validación en vivo pase.
 
-## 5. Lo que sigue (de §7 del catálogo)
+## 5. Lo que sigue
 
-- **H2** (siguiente fix): completar una cita que ya tiene ledger del webhook → 409 engañoso;
-  el pre-check de `propose_complete_booking` tampoco lo detecta. Fix: detectar entry existente
-  por `bookingId` y completar SIN doble-call (+ mensaje 409 específico en el endpoint).
-- **H7** (misma pasada candidata): vincular paciente post-hoc no backfillea el ledger.
-- **H8**: cancelar CFDI no revierte `hasFactura` → la definición de "facturada" para los tools
-  es compuesta (`hasFactura ∧ (cfdi activo ∨ satCfdiUuid)`).
-- Luego: refactor de módulos → PR F1 (tools de lectura, incl. `get_billing_status`) →
-  `propose_payment_link` en fase 2 usando exactamente estos endpoints.
+- ~~H2 / H7 / H8~~ → **HECHOS** (§6).
+- Refactor de módulos (tools registry + secciones de prompt; evals deben quedar 19/19) →
+  PR F1 (tools de lectura, incl. `get_billing_status`) → `propose_payment_link` en fase 2
+  usando exactamente estos endpoints.
+
+## 6. Segunda tanda (2026-07-10/11) — expediente obligatorio, celda Paciente, H2, H7, H8
+
+### 6.1 Link de pago REQUIERE expediente (`bd811606`)
+
+Detectado por el usuario en la primera prueba en vivo: el primer link se creó sobre "test 7",
+una cita **sin expediente** — un cobro imposible de rastrear/facturar. Regla nueva en el guard
+compartido (`payment-link-guard.ts`): sin `booking.patientId` no hay link ("La cita no tiene
+expediente vinculado…"); los checks PAGADO/activo corren PRIMERO para que el mensaje refleje el
+bloqueador real. UI: chip gris "Requiere expediente" en vez del botón de crear; los links
+pagados/activos existentes (grandfathered, como el de test 7) siguen mostrando su estado.
+
+### 6.2 Celda Paciente sin estado muerto (`bd811606`)
+
+Mismo hallazgo del usuario, causa distinta: `ExpedienteCell` ramificaba por `isFirstTime`
+(true → solo "+ Crear expediente"; false → solo buscador; **null → "—" muerto**). Las citas
+creadas por el AGENTE llevan `isFirstTime` null salvo que el doctor lo mencione → sin camino
+para vincular ni crear. Fix: toda cita sin expediente ofrece SIEMPRE ambas opciones;
+`isFirstTime` queda como hint de orden. (De paso habilita el flujo 6.1 para cualquier cita.)
+
+### 6.3 H2 — completar una cita ya pagada por link (`7d9964ab`, 4 capas)
+
+El link pagado crea el ingreso vía webhook ANTES de completar; el POST ledger del completar
+chocaba con `@unique(booking_id)` → 409 genérico "El ID interno ya existe" + toast de error.
+
+| Capa | Fix |
+|---|---|
+| Endpoint ledger | pre-check por `bookingId` → **409 distintivo** `code: BOOKING_LEDGER_EXISTS` + `existingEntry`; el catch P2002 distingue `booking_id` (carrera) de `internal_id`; cross-tenant → 404 sin filtrar el entry |
+| `useBookings.completeBooking` | ese 409 = **éxito** ("el ingreso ya estaba registrado") y devuelve el `ledgerEntryId` existente (el auto-CFDI sigue ligando) |
+| `propose_complete_booking` | pre-check detecta el entry existente → card "el ingreso YA está registrado, no se crea otro", `ledger: null`, y **formaDePago deja de exigirse** cuando el ingreso ya existe (schema relajado; el pre-check la pide solo si hace falta — regla 0). Prompt 2c actualizado |
+| Executor del agente | salta el POST con `ledger: null`; el 409 de carrera también es éxito, no "regístralo manualmente" |
+
+**Evals 19/19 PASS** contra prod con el prompt+schema modificados (93–98% cache).
+
+### 6.4 H7 — vincular paciente post-hoc backfillea el ingreso (`cf42c67b`)
+
+La vinculación tardía ("Buscar paciente" / crear expediente desde la cita) dejaba el ledger
+entry huérfano para siempre (sin patientId/RFC). Ahora, en el PATCH de vinculación:
+
+- **(Re)vincular = REESCRITURA completa de identidad** en el entry: `patientId` +
+  `counterpartyRfc` (del expediente, o null) + `counterpartyName` (razonSocial → fallback al
+  nombre de la cita). **Nunca merge parcial** — el review propio cazó que un merge dejaría el
+  RFC del paciente ANTERIOR pegado al ingreso del nuevo (el matcher SAT ligaría los CFDIs de A
+  al ingreso de B).
+- **Desvincular** = solo se desprende `patientId` (el counterparty era verdad al momento del
+  ingreso).
+- Solo entries nacidos de cita (`origin: cita | webhook_pago`) — jamás toca SAT/manual.
+  Fire-and-forget no fatal (patrón formLink).
+- Trade-off deliberado: un `counterpartyRfc` editado a mano en Flujo de Dinero se sobreescribe
+  al re-vincular — **el expediente vinculado es la autoridad de identidad**.
+
+### 6.5 H8 — cancelar CFDI resetea `hasFactura` (`cf42c67b`)
+
+Cancelar no revertía el flag → la killer query "consultas sin factura" se perdía las
+canceladas-sin-reemitir y el asistente diría "ya está facturada". Ahora, en cancelación
+**definitiva** (no `cancellation_pending` — el receptor puede rechazar): reset de `hasFactura`
+salvo que quede OTRA señal de factura (otro CFDI activo del mismo entry, o `satCfdiUuid` que no
+sea este mismo CFDI — comparación case-insensitive, SAT MAYÚSCULAS vs plataforma minúsculas).
+Motivo 01 con reemplazo ya ligado → no resetea (hay otro activo). Re-emitir tras cancelar
+vuelve a poner el flag (el POST /cfdi ya lo hacía) — el flag hace round-trip.
+
+**Limitaciones honestas (pre-existentes, ahora documentadas):** (a) `cancellation_pending`
+no se finaliza en NINGÚN lado — si el receptor acepta después, nuestra BD se queda en pending
+y `hasFactura` en true (futuro: job de status-refresh); (b) un CFDI cancelado FUERA de la
+plataforma sigue sin resetear nada (la clase H5/satStatus, trabajo futuro). Por esto la
+definición de *facturada* para los tools del asistente sigue siendo **compuesta**:
+`hasFactura ∧ (cfdi activo ∨ satCfdiUuid vigente)`.
+
+### 6.6 Bonus UI de la misma sesión (`5e123efb`)
+
+Tabla de citas compactada (las filas eran demasiado altas por los 5 grupos apilados de
+ACCIONES): PACIENTE·SERVICIO fusionados; ACCIONES dividida en dos columnas (gestión ·
+comunicación/cobro); `StatusActions` gana prop `layout` ("table" = dos `<td>`, "card" = móvil
+sin cambios). Afecta también /v1 y /v2 (comparten el componente).
 
 ---
 

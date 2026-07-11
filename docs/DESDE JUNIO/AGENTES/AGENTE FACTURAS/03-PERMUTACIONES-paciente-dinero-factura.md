@@ -195,14 +195,17 @@ replicar la vista del expediente — y puede DECIR qué le falta a la vista del 
 | **H9** | el expediente no muestra links de pago ni su status | A4, A5, ORD-3 | baja — feature de UI; el tool del asistente sí lo leerá |
 | **H10** | no hay UI para crear un link de pago LIGADO a cita/paciente (Stripe: endpoint-only; MP: el endpoint ni acepta bookingId) → todo ingreso `webhook_pago` real es huérfano y completar la cita lo DUPLICA | A4b — hoy TODOS los links | **alta** — invalida en la práctica el camino M2/M3; sin esto, H1/H2 son teóricos |
 
-**Fixes de sustrato recomendados ANTES de PR F1** (patrón F1/F2 de agenda): **H10 primero**
-(aceptar `bookingId` en MP + botón "Cobrar con link" en la cita/expediente que lo pase — con
-eso los webhooks empiezan a producir ingresos LIGADOS), luego H1 y H2 (pequeños, completan el
-camino). H7 y H8 en la misma pasada (los cuatro son "el grafo dice la verdad"). H6/H9 son UI
-y pueden esperar (el asistente compensa leyendo el grafo). Nota: `propose_payment_link` se
-vuelve un tool natural de la fase 2 del asistente una vez que H10 exista — "mándale un link
-de pago a García por su consulta" es exactamente la clase de flujo que este asistente debe
-orquestar.
+**✅ SUSTRATO CERRADO (2026-07-10/11):** H10, H1, H2, H7 y H8 **HECHOS Y DESPLEGADOS** —
+registro completo con commits en [`04-FIXES`](04-FIXES-links-de-pago-ligados.md) (incluye
+además: link de pago requiere expediente, celda Paciente sin estado muerto — el hueco de las
+citas creadas por el agente con `isFirstTime` null). El grafo del ingreso converge a la verdad
+sin importar el orden. H9 quedó parcialmente cubierto (el estado del link de pago SÍ se ve ya
+en la fila de la cita del expediente). Quedan abiertos: **H3** (crear expediente desde el
+asistente — fase 2 `propose_create_patient`), **H4** (opción A transitiva decidida para v1),
+**H5** (frescura del sync SAT — el tool la expone), **H6** (expediente ciego a facturas
+externas — el tool compensa leyendo el grafo). Nota: `propose_payment_link` se vuelve un tool
+natural de la fase 2 — "mándale un link de pago a García por su consulta" es exactamente la
+clase de flujo que este asistente debe orquestar.
 
 ## 8. Implicación directa para los tools de lectura (PR F1)
 
