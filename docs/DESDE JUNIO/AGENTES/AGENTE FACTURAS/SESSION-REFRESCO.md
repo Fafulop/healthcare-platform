@@ -150,9 +150,18 @@ money model.
    - Evals: +6 casos (routing canónico ×3, ISR-no-calcula, no-consejo-fiscal, guía) →
      **suite de 32: 30 PASS + 2 WARN soft + 0 FAIL**. Shapes smoke-tested contra prod ×2.
      Agente: 24 → **29 tools, 3 módulos**; prefijo +~2.1k tokens (dentro del presupuesto del
-     blueprint). ⬜ Validación en vivo en prod pendiente (preguntas sugeridas: "¿cuánto
-     ingresé en enero?" ≈ $229,870 subtotal emitido · "¿quién me debe PPD?" ≈ 15 pendientes
-     ~$226,815 — verificado read-only al construir).
+     blueprint). **✅ VALIDADO EN VIVO en prod (2026-07-11, panel con dr-prueba, 4/4):**
+     (1) "¿cuánto ingresé en enero?" → $229,870.17 EXACTO + IVA $444.83 ✓; deducciones
+     $66,695.39 (MÁS completo que el smoke-test preliminar: incluye PPD por fecha de pago —
+     el tool superó a la verificación); aclaró facturado-vs-ingresado sin pedirlo (la regla
+     de desempate del review funcionando) y reportó "enero sin declaración registrada" ✓.
+     (2) "¿quién me debe PPD?" → 18 facturas / 3 pagadas / 15 pendientes / $226,815.00
+     EXACTO, top-10 por saldo + "faltan 5", contrapartes correctas, 0 falsos "sin ligar" ✓.
+     (3) "¿cuánto ISR pago?" → dio los HECHOS de julio (incl. deducciones NEGATIVAS −$32,172
+     por nota de crédito recibida — el sign-flip de paridad funcionando, y lo flaggeó honesto)
+     y DECLINÓ estimar ISR dirigiendo a Declaraciones — frontera E7 sostenida ✓.
+     (4) "¿cómo funciona la descarga del SAT?" → get_guia fiel al resumen curado (incluido el
+     umbral $2,000 CORREGIDO por el review) + pointer a la pestaña ✓.
 3. **PR F2** — `propose_create_cfdi` + `propose_send_fiscal_form` (+ builder de impuestos
    server-side). **Fase 2 también:** `propose_payment_link` (los endpoints ya validan todo) y
    `propose_create_patient` (H3 — walk-in que pide factura).
