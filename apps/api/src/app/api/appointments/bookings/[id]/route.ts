@@ -148,6 +148,41 @@ export async function PATCH(
         data: { patientId: patientId ?? null },
       }).catch((err) => console.error('[formLink] patientId propagation failed:', err));
 
+      // H7: keep the booking's income traceable — backfill the ledger entry's patient
+      // identity on (re)link so patient-scoped queries and SAT RFC-matching see it.
+      // On unlink only detach patientId (counterparty stays: it was true at income time).
+      // Only booking-born entries (origin cita/webhook_pago) are touched — never SAT/manual.
+      (async () => {
+        const entry = await prisma.ledgerEntry.findUnique({
+          where: { bookingId: id },
+          select: { id: true, origin: true },
+        });
+        if (!entry || (entry.origin !== 'cita' && entry.origin !== 'webhook_pago')) return;
+        if (patientId) {
+          const patient = await prisma.patient.findUnique({
+            where: { id: String(patientId) },
+            select: { rfc: true, razonSocial: true },
+          });
+          // Full identity REWRITE (mirror of completeBooking), never a partial merge:
+          // on a relink, leaving the previous patient's RFC behind would attach the new
+          // patient's income to the old patient's CFDIs in SAT matching.
+          await prisma.ledgerEntry.update({
+            where: { id: entry.id },
+            data: {
+              patientId: String(patientId),
+              counterpartyRfc: patient?.rfc ? patient.rfc.trim().toUpperCase().slice(0, 13) : null,
+              counterpartyName:
+                (patient?.razonSocial?.trim() || booking.patientName || '').slice(0, 300) || null,
+            },
+          });
+        } else {
+          await prisma.ledgerEntry.update({
+            where: { id: entry.id },
+            data: { patientId: null },
+          });
+        }
+      })().catch((err) => console.error('[ledger] patient backfill failed:', err));
+
       return NextResponse.json({ success: true, data: updated });
     }
     // ─────────────────────────────────────────────────────────────────────────

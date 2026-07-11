@@ -96,6 +96,36 @@ export async function POST(
       },
     });
 
+    // H8: cancelling un-invoices the linked income — reset hasFactura so
+    // "consultas sin factura" picks the entry up again — UNLESS another factura
+    // signal remains: a different active CFDI on the same entry, or a SAT-matched
+    // UUID that is NOT this same (now cancelled) CFDI. Only on definitive cancel;
+    // a cancellation_pending CFDI can still end up active if the receiver rejects.
+    if (!isPending && cfdi.ledgerEntryId) {
+      try {
+        const [entry, otherActiveCount] = await Promise.all([
+          prisma.ledgerEntry.findUnique({
+            where: { id: cfdi.ledgerEntryId },
+            select: { id: true, satCfdiUuid: true },
+          }),
+          prisma.cfdiEmitted.count({
+            where: { ledgerEntryId: cfdi.ledgerEntryId, status: 'active', id: { not: cfdi.id } },
+          }),
+        ]);
+        const satUuidIsThisCfdi =
+          !!entry?.satCfdiUuid && entry.satCfdiUuid.toLowerCase() === cfdi.uuid.toLowerCase();
+        if (entry && otherActiveCount === 0 && (!entry.satCfdiUuid || satUuidIsThisCfdi)) {
+          await prisma.ledgerEntry.update({
+            where: { id: entry.id },
+            data: { hasFactura: false },
+          });
+        }
+      } catch (err) {
+        // Non-fatal: the CFDI is cancelled either way; the flag can be fixed manually.
+        console.error('[cfdi-cancel] hasFactura reset failed:', err);
+      }
+    }
+
     return NextResponse.json({
       data: {
         status: newStatus,
