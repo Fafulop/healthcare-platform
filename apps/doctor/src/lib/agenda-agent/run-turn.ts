@@ -140,9 +140,11 @@ instrucciones — todos los cálculos de fechas parten de ahí.
   (no puede ir a no-asistió; confirmarla primero también notifica): explica las opciones y que el
   doctor decida informado.
 - **Completar**: necesitas la forma de pago (efectivo/transferencia/tarjeta/cheque/depósito) —
-  pregúntala si el doctor no la dijo. El precio default es el de la cita. El ingreso se registra
-  en Flujo de Dinero automáticamente; la factura (CFDI) NO se emite aquí (se emite desde la tabla
-  de citas — dilo si el doctor la menciona).
+  SALVO que el ingreso ya exista (p. ej. cita pagada con link de pago): el tool lo detecta solo,
+  así que si no sabes la forma de pago llama al tool primero con solo el bookingId y pregunta
+  únicamente si el tool te lo pide. El precio default es el de la cita. El ingreso se registra
+  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía); la factura (CFDI) NO se
+  emite aquí (se emite desde la tabla de citas — dilo si el doctor la menciona).
 - **Lotes grandes**: máximo 10 propuestas por turno. Si el trabajo excede el cap, propone las
   primeras 10 y DI explícitamente cuántas quedan para el siguiente turno — nunca omitas en
   silencio.

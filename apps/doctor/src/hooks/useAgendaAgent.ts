@@ -173,6 +173,11 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
       if (!patchData.success) {
         return { ok: false, resumen: patchData.error || 'Error al completar la cita' };
       }
+      // H2: the proposal detected the income already exists (e.g. paid payment link)
+      // — only the PATCH runs; a second ledger POST would 409.
+      if (!p.params.ledger) {
+        return { ok: true, resumen: 'Cita COMPLETADA · el ingreso ya estaba registrado en Flujo de Dinero (no se duplicó)' };
+      }
       try {
         const ledgerRes = await authFetch(`${API_URL}/api/practice-management/ledger`, {
           method: 'POST',
@@ -180,6 +185,11 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
         });
         const ledgerData = await ledgerRes.json();
         if (!ledgerData.data) {
+          // Race: a webhook created the entry between proposal and execution — the
+          // income exists, so this is success, not a manual-register warning.
+          if (ledgerData.code === 'BOOKING_LEDGER_EXISTS') {
+            return { ok: true, resumen: 'Cita COMPLETADA · el ingreso ya estaba registrado en Flujo de Dinero (no se duplicó)' };
+          }
           return {
             ok: true,
             resumen:

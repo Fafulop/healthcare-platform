@@ -270,6 +270,12 @@ export function useBookings(doctorId: string | undefined) {
       );
       const ledgerData = await ledgerRes.json();
       if (!ledgerData.data) {
+        // H2: a paid payment link already created this cita's income via webhook —
+        // that's success (the income exists), not an error.
+        if (ledgerData.code === "BOOKING_LEDGER_EXISTS") {
+          toast.success("Cita completada · el ingreso ya estaba registrado (pagado con link de pago)");
+          return { ledgerEntryId: ledgerData.existingEntry?.id };
+        }
         toast.error("Cita completada, pero hubo un error al crear el movimiento en Flujo de Dinero");
         return {};
       } else {

@@ -218,6 +218,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A booking can have at most ONE ledger entry (bookingId @unique). If it already exists
+    // (e.g. created by a payment-link webhook BEFORE the doctor completed the cita), return
+    // a distinctive 409 with the entry so callers can treat "already registered" as success
+    // instead of surfacing the misleading generic P2002 message.
+    if (bookingId) {
+      const existingForBooking = await prisma.ledgerEntry.findUnique({
+        where: { bookingId: String(bookingId) },
+        select: {
+          id: true, internalId: true, amount: true, origin: true,
+          formaDePago: true, paymentStatus: true, doctorId: true,
+        },
+      });
+      if (existingForBooking) {
+        if (existingForBooking.doctorId !== doctor.id) {
+          // bookingId collision across tenants shouldn't reveal the entry
+          return NextResponse.json({ error: 'Cita no encontrada' }, { status: 404 });
+        }
+        return NextResponse.json({
+          error: 'Esta cita ya tiene un ingreso registrado',
+          code: 'BOOKING_LEDGER_EXISTS',
+          existingEntry: {
+            id: existingForBooking.id,
+            internalId: existingForBooking.internalId,
+            amount: Number(existingForBooking.amount),
+            origin: existingForBooking.origin,
+            formaDePago: existingForBooking.formaDePago,
+            paymentStatus: existingForBooking.paymentStatus,
+          },
+        }, { status: 409 });
+      }
+    }
+
     // Generate or validate internal ID
     let finalInternalId = internalId?.trim();
 
@@ -345,6 +377,14 @@ export async function POST(request: NextRequest) {
 
     // Handle unique constraint violation
     if (error.code === 'P2002') {
+      // Race path of the pre-check above: a webhook created the booking's entry between
+      // our findUnique and the create.
+      if (String(error.meta?.target ?? '').includes('booking_id')) {
+        return NextResponse.json(
+          { error: 'Esta cita ya tiene un ingreso registrado', code: 'BOOKING_LEDGER_EXISTS' },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
         { error: 'El ID interno ya existe' },
         { status: 409 }

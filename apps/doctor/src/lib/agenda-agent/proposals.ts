@@ -267,7 +267,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_complete_booking',
     description:
-      'PROPONE marcar una cita CONFIRMADA como COMPLETADA y registrar el ingreso en Flujo de Dinero (estado FINAL; no notifica al paciente). REQUIERE la forma de pago — pregúntasela al doctor si no la dijo ("¿cómo te pagaron?"). El precio default es el de la cita. Una PENDIENTE no se puede completar directo: propone confirmar y completar como DOS pasos del mismo plan. La factura (CFDI) NO se emite aquí — se emite desde la tabla de citas.',
+      'PROPONE marcar una cita CONFIRMADA como COMPLETADA y registrar el ingreso en Flujo de Dinero (estado FINAL; no notifica al paciente). REQUIERE la forma de pago SALVO que el ingreso ya exista (p. ej. cita pagada con link de pago — este tool lo detecta y te lo dice). Si el doctor no dijo la forma de pago, llama al tool solo con bookingId: si hace falta, el error te pedirá preguntarla ("¿cómo te pagaron?"). El precio default es el de la cita. Una PENDIENTE no se puede completar directo: propone confirmar y completar como DOS pasos del mismo plan. La factura (CFDI) NO se emite aquí — se emite desde la tabla de citas.',
     input_schema: {
       type: 'object',
       properties: {
@@ -275,11 +275,11 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
         formaDePago: {
           type: 'string',
           enum: FORMAS_DE_PAGO.map((f) => f.value as string),
-          description: 'Cómo pagó el paciente — pregúntalo, no lo asumas',
+          description: 'Cómo pagó el paciente — pregúntalo, no lo asumas (omitible si el ingreso ya existe)',
         },
         price: { type: 'number', description: 'Monto cobrado (opcional — default: el precio de la cita)' },
       },
-      required: ['bookingId', 'formaDePago'],
+      required: ['bookingId'],
     },
   },
   {
@@ -1201,16 +1201,49 @@ const FORMAS_DE_PAGO_VALIDAS: string[] = FORMAS_DE_PAGO.map((f) => f.value);
 
 async function proposeCompleteBooking(
   ctx: ProposalContext,
-  input: { bookingId: string; formaDePago: string; price?: number }
+  input: { bookingId: string; formaDePago?: string; price?: number }
 ) {
   const b = await fetchBookingForProposal(ctx.doctorId, input.bookingId);
   if (!b) return { error: UNKNOWN_BOOKING_ERROR };
   const gate = completionStatusGate(ctx, b, 'COMPLETADA');
   if ('error' in gate) return { error: gate.error };
 
-  if (!FORMAS_DE_PAGO_VALIDAS.includes(input.formaDePago)) {
+  // H2: a paid payment link may have ALREADY created this cita's income via webhook
+  // (ledger_entries.booking_id is @unique). Completing then only needs the PATCH — a
+  // second ledger POST would 409. No formaDePago needed either: the income exists.
+  const existingLedger = await prisma.ledgerEntry.findUnique({
+    where: { bookingId: b.id },
+    select: { id: true, amount: true, origin: true, formaDePago: true },
+  });
+  if (existingLedger) {
+    const montoTxt = `$${Number(existingLedger.amount)}`;
+    const viaLink = existingLedger.origin === 'webhook_pago';
+    const proposal = ctx.collector.add({
+      type: 'complete_booking',
+      titulo: `Completar cita ${bookingLabel(b)}`,
+      detalle: [
+        `${b.serviceName ?? 'Sin servicio'} · pasa a COMPLETADA`,
+        `💰 El ingreso YA está registrado en Flujo de Dinero (${montoTxt}${viaLink ? ' · pagado con link de pago' : ''}) — no se crea otro`,
+      ],
+      advertencias: [
+        'COMPLETADA es estado FINAL — no se puede revertir.',
+        ...(gate.dependencia ? [gate.dependencia] : []),
+      ],
+      params: { bookingId: b.id, ledger: null },
+    });
+    if (!proposal) return { error: CAP_ERROR };
     return {
-      error: `formaDePago inválida — pregunta al doctor cómo le pagaron: ${FORMAS_DE_PAGO_VALIDAS.join(', ')}.`,
+      propuestaId: proposal.id,
+      orden: proposal.orden,
+      cita: bookingLabel(b),
+      ingreso: `ya registrado (${montoTxt}${viaLink ? ', pagado con link de pago' : ''})`,
+      nota: 'El ingreso ya existía — solo se marcará COMPLETADA, sin duplicarlo. No hace falta preguntar la forma de pago.',
+    };
+  }
+
+  if (!input.formaDePago || !FORMAS_DE_PAGO_VALIDAS.includes(input.formaDePago)) {
+    return {
+      error: `formaDePago ${input.formaDePago ? 'inválida' : 'requerida'} — pregunta al doctor cómo le pagaron: ${FORMAS_DE_PAGO_VALIDAS.join(', ')}.`,
     };
   }
   const price = input.price ?? Number(b.finalPrice);
