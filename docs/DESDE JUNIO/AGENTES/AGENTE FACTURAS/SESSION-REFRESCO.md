@@ -77,33 +77,45 @@ Falta la secuencia (valida H2+H7+cadena completa en un solo flujo):
 
 ## Próximos pasos
 
-1. **PR F1 — tools de LECTURA (el siguiente trabajo).** Alcance definido por el usuario:
-   `/dashboard/medical-records`, `/facturacion`, `/sat-descarga`, `/pagos` (+ subpáginas).
-   - Nuevo módulo `modules/facturas.ts` (o `billing.ts`): un archivo + una entrada en
-     `AGENT_MODULES` (registry.ts) + sus secciones de prompt.
-   - Tools: `get_patient_profile` (perfil + completitud fiscal como ENUM server-side:
-     completo/parcial/vacío/no-requiere), `get_fiscal_profile_status` (CSD del doctor),
-     `get_cfdis` (emitidos plataforma), `get_sat_cfdis` (fuente dual + frescura de
-     `sat_sync_jobs`), `get_payment_links`, y **`get_billing_status {bookingId|patientId}`**
-     (la estrella — responde la matriz de 6 preguntas de `02` §3 con señales compuestas
-     server-side, regla 0).
-   - Al agregar el módulo: actualizar los 2 TODOs de `prompt.ts` (lista de capacidades del
-     INTRO y "fuera de tu alcance" — facturas/pagos dejan de ser out-of-scope).
-   - Método (regla dura): cada query shape smoke-tested read-only contra prod ANTES de push;
-     evals sembrados del catálogo `03` ANTES de encender (mínimo los negativos: C2, D4, ORD-3,
-     H2); suite completa debe pasar (baseline 19/19 + los nuevos).
+1. **PR F1 — HECHO Y DESPLEGADO (2026-07-11).** Suite final: 24 casos — 22 PASS + 2 WARN soft
+   (data-dependent: datos de prueba que ESTA sesión cambió — vvvvvv limpiado, availability de
+   agosto). El FAIL de `ambigua-pregunta-concreta` era el EVAL podrido, no el modelo: el mensaje
+   "¿el miércoles?" perdió su ambigüedad con el calendario (un solo miércoles razonable →
+   resolverlo directo es correcto); reemplazado por un referente ausente ("muévela media hora
+   más tarde") que es ambiguo para siempre → PASS. **Siguiente trabajo: validación en vivo de
+   PR F1 en prod** (probar los 6 tools desde el panel con dr-prueba; la secuencia test-7 de
+   arriba valida get_billing_status de paso) → luego PR F2.
+   Módulo `modules/facturas.ts` (registrado en `AGENT_MODULES`) con los 6 tools de lectura:
+   `get_billing_status` (la estrella — matriz de 6 preguntas de `02` §3; modo cita o paciente,
+   10 citas máx, TODO batcheado), `get_patient_profile` (completitud fiscal server-side +
+   `listoParaFacturar` = el gate exacto del botón del expediente), `get_fiscal_profile_status`,
+   `get_cfdis` (plataforma), `get_sat_cfdis` (fuente dual + frescura por dirección; "received"
+   = GASTOS del doctor), `get_payment_links` (counts reales + mostrados). Prompt: 2 secciones
+   nuevas + INTRO capacidad 4 + "fuera de tu alcance" distingue CONSULTAR (en alcance) de
+   EMITIR/crear (F2). 5 evals nuevos (billing-un-golpe, fuente-SAT, completitud-server,
+   no-emite, sin-clínica).
+   **Code-review (4 ángulos, ~19 candidatos) → 11 fixes aplicados en re-write**, los gordos:
+   satCfdiUuid CANCELADO en metadata ya no cuenta como facturada; días calendario en
+   America/Mexico_City (`mxDayOf` + fronteras de rango a UTC-6) — no el día UTC; modo paciente
+   batcheado (3 queries, no ~60) y capado a 10 (límite de 8KB del tool result); counts reales
+   en links; guards de formato en fechas del modelo; frescura SAT scoped a metadata+dirección;
+   tenancy defense-in-depth en el verdict (fiscalProfile.doctorId).
+   Verificado: type-check ✓, shapes smoke-tested contra prod ✓ (2 rondas), evals ✓ (ver
+   arriba — los 5 nuevos PASS en ambas corridas, con el modelo eligiendo bien get_sat_cfdis
+   vs get_cfdis y rechazando contenido clínico sin llamar tools).
 2. **PR F2** — `propose_create_cfdi` + `propose_send_fiscal_form` (+ builder de impuestos
    server-side). **Fase 2 también:** `propose_payment_link` (los endpoints ya validan todo) y
    `propose_create_patient` (H3 — walk-in que pide factura).
 3. **PR F3** — entrega (`propose_email_cfdi`).
 
-## Preguntas abiertas (decidir en PR F1/F2)
+## Preguntas abiertas
 
-1. **Profundidad clínica** de medical-records: recomendación v1 = SOLO metadatos + datos
-   demográficos/fiscales, NADA de contenido de encounters/notas (otro tier de privacidad; es el
-   bloque "agente de expediente médico" del plan original). **Confirmar con el usuario.**
-2. ¿dr-prueba puede timbrar? (CSD/Facturama sandbox — revisar `facturamaStatus`). Bloquea la
-   validación en vivo de PR F2, no PR F1.
+1. **Profundidad clínica**: DECIDIDO en PR F1 (v1 = solo metadatos + demográficos/fiscales,
+   nada de contenido clínico — implementado así en el módulo y el prompt; eval
+   f1-sin-contenido-clinico lo cubre).
+2. ✅ **dr-prueba SÍ puede timbrar** (verificado en prod 2026-07-11: csdUploaded=true,
+   facturamaStatus='active', FIEL configurada) — la validación en vivo de PR F2 está
+   desbloqueada.
 3. ¿El panel del asistente se monta también en `/dashboard/facturacion`? (mismo componente).
 4. Confirmar qué taxes arma la UI para honorarios médicos (fuente del builder server-side).
 

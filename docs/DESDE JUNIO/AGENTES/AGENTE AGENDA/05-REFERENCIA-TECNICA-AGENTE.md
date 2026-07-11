@@ -57,7 +57,10 @@ apps/doctor/src/
 │   │   │                                   byte-idéntico verificado por sha256; prerequisito PR F1)
 │   │   ├── types.ts                     ← contrato AgentModule (tools + executors + secciones)
 │   │   ├── registry.ts                  ← AGENT_MODULES, ALL_TOOLS, dispatch — EL punto de enchufe
-│   │   └── agenda.ts                    ← módulo agenda: wirea tools/proposals + sus 2 secciones
+│   │   ├── agenda.ts                    ← módulo agenda: wirea tools/proposals + sus 2 secciones
+│   │   └── facturas.ts                  ← módulo facturas/pagos (PR F1): 6 tools de LECTURA
+│   │                                       (get_billing_status, perfil fiscal, cfdis plataforma/SAT,
+│   │                                       links de pago) + sus 2 secciones — autocontenido
 │   ├── anthropic.ts                     ← cliente raw-fetch del Messages API (tool use, timeout 60s)
 │   ├── dates.ts                         ← helpers de fecha/hora (TZ MX, weekday, addMinutes)
 │   ├── tools.ts                         ← 8 tools de LECTURA (definición + executor Prisma)
@@ -67,7 +70,8 @@ apps/doctor/src/
 │   ├── page.tsx                         ← monta el panel; refresca rangos/bloqueos tras ejecutar
 │   └── _components/AgendaAgentPanel.tsx ← UI: chat + cards de propuestas + barra "Uso de hoy"
 └── (apps/doctor/scripts/)
-    └── agenda-agent-evals.ts            ← evals G11: 19 golden cases, corre run-turn contra prod
+    └── agenda-agent-evals.ts            ← evals G11: 24 golden cases (19 agenda + 5 facturas PR F1),
+                                            corre run-turn contra prod
                                             read-only ANTES de cada push (instrucciones en cabecera)
 ```
 

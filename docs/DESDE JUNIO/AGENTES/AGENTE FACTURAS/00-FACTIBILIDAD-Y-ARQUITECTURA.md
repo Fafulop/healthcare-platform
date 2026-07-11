@@ -103,13 +103,16 @@ siguiente del mismo flujo: `completar cita → ledger entry → propose_create_c
 
 ## 4. Los tools del módulo facturas (propuesta)
 
-**Lectura (autónomos, como PR 1):**
-| Tool | Fuente | Para qué |
+**Lectura (autónomos, como PR 1) — ✅ CONSTRUIDOS en PR F1 (2026-07-11, `modules/facturas.ts`)
+con nombres/alcance finales que superan esta tabla original:**
+| Tool final | Fuente | Para qué |
 |---|---|---|
-| `get_patient_fiscal` | `Patient` campos fiscales | ¿García tiene RFC/uso/régimen/CP? ¿`requiereFactura`? |
-| `get_cfdis` | `cfdis_emitted` (+ join ledger para filtrar por paciente/fechas) | "¿qué facturé este mes?", "¿le he facturado a García?" |
-| `get_consultas_sin_factura` | `ledger_entries WHERE origin='cita' AND hasFactura=false` | la killer query — el schema la menciona textualmente |
+| `get_billing_status` | el grafo completo (booking+patient+ledger+links+cfdis+SAT) | LA estrella — diagnóstico de cobro/factura de una cita o paciente (matriz de `02` §3); cubre también la "killer query" por paciente (`ingresosSinFactura` en get_patient_profile) |
+| `get_patient_profile` (era `get_patient_fiscal`) | `Patient` fiscal + counts | completitud fiscal server-side + `listoParaFacturar` (el gate del botón del expediente) |
+| `get_cfdis` | `cfdis_emitted` (+ filtro por paciente vía relación ledger) | facturas de PLATAFORMA (declara su incompletitud) |
+| `get_sat_cfdis` | `sat_cfdi_metadata` + frescura de `sat_sync_jobs` | el panorama COMPLETO del RFC (fuente dual de `01`); received = gastos |
 | `get_fiscal_profile_status` | `DoctorFiscalProfile` | pre-check honesto: sin CSD activo, el agente lo dice ANTES de proponer |
+| `get_payment_links` | `payment_links` + `mp_payment_preferences` | estado de cobros por link (counts reales, flag de links huérfanos) |
 
 **Propuestas (card + confirmación, como PR 2/3):**
 | Tool | Endpoint real | Notas |

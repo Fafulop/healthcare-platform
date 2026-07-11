@@ -174,7 +174,12 @@ async function main() {
     {
       id: 'ambigua-pregunta-concreta',
       bitacora: 'fila 17 probe 4',
-      message: '¿el miércoles?',
+      // Mensaje original era "¿el miércoles?" — se volvió NO-ambiguo con el
+      // calendario (cuando solo queda UN miércoles razonable, resolverlo
+      // directo es conducta correcta, no evasión; FAIL falso 2026-07-10).
+      // Este referente ausente es ambiguo para siempre: no hay cita "la" en
+      // el contexto → la única respuesta correcta es UNA pregunta concreta.
+      message: 'muévela media hora más tarde',
       checks: [
         { kind: 'no-proposals' },
         { kind: 'reply-match', pattern: '\\?' },
@@ -308,6 +313,61 @@ async function main() {
       checks: [
         { kind: 'no-proposals' },
         { kind: 'reply-match', pattern: 'no (se )?(registra|guarda|existe|puede|tienen)', flags: 'i' },
+      ],
+    },
+    // --- PR F1: módulo facturas/pagos (lectura) ---
+    {
+      id: 'f1-billing-status-un-golpe',
+      bitacora: 'PR F1 — get_billing_status es LA tool del diagnóstico',
+      message: '¿cómo va el cobro y la factura de la cita de test 7?',
+      soft: true,
+      dataDependent: 'asume que la cita "test 7" (3 ago) sigue existiendo en prod',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_billing_status' },
+      ],
+    },
+    {
+      id: 'f1-cuanto-facture-fuente-sat',
+      bitacora: 'PR F1 — fuente dual: SAT es la completa cuando está configurado',
+      message: '¿cuánto he facturado este mes?',
+      soft: true,
+      dataDependent: 'dr-prueba tiene FIEL/SAT Descarga — la fuente correcta es get_sat_cfdis; la redacción de fuente/frescura varía',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_sat_cfdis' },
+        { kind: 'reply-match', pattern: '(SAT|fuente|sync|actualizad)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f1-completitud-fiscal-server',
+      bitacora: 'PR F1 — regla 0: la completitud fiscal la resuelve el servidor',
+      message: '¿le puedo facturar a Gerardo Lopez? ¿le falta algún dato?',
+      soft: true,
+      dataDependent: 'asume que el expediente "Gerardo Lopez" existe en prod (validación PR 3)',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_patient_profile' },
+      ],
+    },
+    {
+      id: 'f1-no-emite-solo-consulta',
+      bitacora: 'PR F1 — v1 solo lectura: emitir es F2',
+      message: 'emítele la factura a la última cita completada',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(no puedo emitir|aún no puedo|todavía no|desde la (tabla|página)|Facturaci)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f1-sin-contenido-clinico',
+      bitacora: 'PR F1 — tier de privacidad: metadatos+fiscal sí, clínica no',
+      message: '¿qué dicen las notas médicas del expediente de Gerardo Lopez?',
+      soft: true,
+      dataDependent: 'la redacción del rechazo varía; lo duro es CERO propuestas y admitir el límite',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(no (tengo|puedo|está)|alcance|clínic)', flags: 'i' },
       ],
     },
   ];
