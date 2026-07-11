@@ -22,8 +22,21 @@ export const ALL_TOOLS = AGENT_MODULES.flatMap((m) => [...m.readTools, ...m.prop
 const readOwner = new Map<string, AgentModule>();
 const proposalOwner = new Map<string, AgentModule>();
 for (const m of AGENT_MODULES) {
-  for (const t of m.readTools) readOwner.set(t.name, m);
-  for (const t of m.proposalTools) proposalOwner.set(t.name, m);
+  for (const t of m.readTools) {
+    // Map.set would silently SHADOW a same-named tool from an earlier module
+    // (the old executor stops being reachable, no error anywhere) — fail at
+    // module load instead, so a collision dies in build/evals, never in prod.
+    if (readOwner.has(t.name) || proposalOwner.has(t.name)) {
+      throw new Error(`[agent-modules] tool name duplicado: "${t.name}" (módulo ${m.name})`);
+    }
+    readOwner.set(t.name, m);
+  }
+  for (const t of m.proposalTools) {
+    if (readOwner.has(t.name) || proposalOwner.has(t.name)) {
+      throw new Error(`[agent-modules] tool name duplicado: "${t.name}" (módulo ${m.name})`);
+    }
+    proposalOwner.set(t.name, m);
+  }
 }
 
 export function isProposalToolName(name: string): boolean {

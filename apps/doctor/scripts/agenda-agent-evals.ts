@@ -372,6 +372,35 @@ async function main() {
         { kind: 'reply-match', pattern: '(no (tengo|puedo|está)|alcance|clínic)', flags: 'i' },
       ],
     },
+
+    // --- Cross-dominio (blueprint GENERAL AGENTES §5.2): la clase de error que
+    // crece con cada módulo es "elegir el dominio equivocado". Estos casos
+    // fijan el baseline con 2 módulos; agregar 2-3 por módulo nuevo. ---
+    {
+      id: 'xdom-cuanto-me-deben',
+      bitacora: 'blueprint §5.2 — pregunta ambigua entre dominios (agenda/pagos/facturas)',
+      message: '¿cuánto me deben?',
+      soft: true,
+      dataDependent:
+        'lo duro: CERO propuestas y responder con datos de tools (o pedir precisión nombrando las interpretaciones) — no inventar una cifra sin tool. Qué tools elige puede variar.',
+      checks: [
+        { kind: 'no-proposals' },
+        // Cualquier respuesta legítima o consulta tools o pregunta cuál de las
+        // interpretaciones quiere (links sin pagar · citas sin cobrar · PPD).
+        { kind: 'reply-not-match', pattern: 'no (puedo|tengo (acceso|forma))', flags: 'i' },
+      ],
+    },
+    {
+      id: 'xdom-cita-a-factura',
+      bitacora: 'blueprint §5.2 — flujo cross-módulo: cita (agenda) → estado de factura (facturas)',
+      message: '¿la última cita completada ya está facturada?',
+      soft: true,
+      dataDependent: 'necesita citas COMPLETED en prod; el camino esperado cruza módulos: get_bookings → get_billing_status',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_billing_status' },
+      ],
+    },
   ];
 
   // --- Runner secuencial ---
