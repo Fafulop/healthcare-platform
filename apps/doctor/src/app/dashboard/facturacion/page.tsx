@@ -2622,6 +2622,8 @@ function GuiaTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
   );
 }
 
+// ⚠️ El asistente tiene un RESUMEN curado de esta guía (GUIAS.facturacion en
+// lib/agenda-agent/modules/facturas.ts) — si cambias contenido aquí, actualízalo.
 function GuiaTab() {
   return (
     <div className="space-y-4">

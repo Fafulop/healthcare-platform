@@ -4341,6 +4341,8 @@ function AyudaTab() {
   );
 }
 
+// ⚠️ El asistente tiene un RESUMEN curado de esta guía (GUIAS.sat_descarga en
+// lib/agenda-agent/modules/facturas.ts) — si cambias contenido aquí, actualízalo.
 function GuiaTab() {
   return (
     <div className="space-y-8 max-w-3xl">

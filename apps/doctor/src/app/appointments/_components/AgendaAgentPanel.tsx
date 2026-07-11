@@ -213,6 +213,8 @@ function MessageBubble({ message }: { message: AgentMessage }) {
 const SUGGESTIONS = [
   '¿Cómo está mi agenda hoy?',
   '¿Tengo citas vencidas?',
+  '¿Cuánto ingresé este mes?',
+  '¿Quién me debe facturas PPD?',
   'Bloquea mi horario del viernes por la tarde',
 ];
 
@@ -270,7 +272,7 @@ export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAge
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-emerald-50">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-emerald-600" />
-          <span className="text-sm font-semibold text-gray-800">Asistente de Agenda</span>
+          <span className="text-sm font-semibold text-gray-800">Asistente</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
             beta · propone, tú confirmas
           </span>
@@ -303,7 +305,8 @@ export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAge
           <div className="text-center pt-8 space-y-4">
             <Bot className="w-10 h-10 text-emerald-200 mx-auto" />
             <p className="text-sm text-gray-500">
-              Pregúntame sobre tu agenda: citas, disponibilidad, pacientes.
+              Pregúntame sobre tu agenda (citas, disponibilidad, pacientes), tu facturación y
+              cobros, o tus números fiscales del SAT.
             </p>
             <div className="flex flex-col items-center gap-2">
               {SUGGESTIONS.map((s) => (

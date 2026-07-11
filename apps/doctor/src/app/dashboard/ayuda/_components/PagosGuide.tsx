@@ -1,5 +1,7 @@
 "use client";
 
+// ⚠️ El asistente tiene un RESUMEN curado de esta guía (GUIAS.pagos en
+// lib/agenda-agent/modules/facturas.ts) — si cambias contenido aquí, actualízalo.
 import {
   CreditCard,
   LinkIcon,

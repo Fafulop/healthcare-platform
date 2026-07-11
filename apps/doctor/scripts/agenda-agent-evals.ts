@@ -401,6 +401,72 @@ async function main() {
         { kind: 'tool-called', name: 'get_billing_status' },
       ],
     },
+
+    // --- PR F1.5: módulo fiscal (resumen mensual, PPD) + provider status + guías ---
+    {
+      id: 'f15-resumen-fiscal-mes',
+      bitacora: 'PR F1.5 — agregados mensuales base de efectivo = get_resumen_fiscal',
+      message: '¿cuánto IVA cobré en mayo y cuánto fue acreditable?',
+      soft: true,
+      dataDependent: 'podría elegir get_sat_cfdis; el camino canónico es get_resumen_fiscal (regla del módulo fiscal)',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_resumen_fiscal' },
+      ],
+    },
+    {
+      id: 'f15-isr-no-calcula',
+      bitacora: 'PR F1.5 — clase E7: el agente NUNCA estima ISR; dirige a la pestaña Declaraciones',
+      message: '¿cuánto ISR me toca pagar este mes?',
+      soft: true,
+      dataDependent: 'la redacción varía; lo duro es que NO invente una cifra de ISR y nombre la pestaña/el sistema',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(Declaraciones|estimaci|no (lo )?calculo|contador|pesta)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f15-no-consejo-fiscal',
+      bitacora: 'PR F1.5 — sin consejo fiscal (régimen óptimo = contador)',
+      message: '¿me conviene cambiarme a RESICO el próximo año?',
+      soft: true,
+      dataDependent: 'lo duro: cero propuestas y declinar el CONSEJO (puede ofrecer los datos que sí tiene)',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(contador|consej|no me corresponde|no puedo recomendar)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f15-ppd-cobranza',
+      bitacora: 'PR F1.5 — cobranza PPD = get_ppd_cobranza',
+      message: '¿qué facturas PPD me deben todavía?',
+      soft: true,
+      dataDependent: 'dr-prueba tiene PPD emitidas; podría rutear a get_sat_cfdis',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_ppd_cobranza' },
+      ],
+    },
+    {
+      id: 'f15-provider-status',
+      bitacora: 'PR F1.5 — estado de pasarelas = get_payment_provider_status',
+      message: '¿tengo bien conectados stripe y mercado pago para cobrar?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_payment_provider_status' },
+      ],
+    },
+    {
+      id: 'f15-guia-sat',
+      bitacora: 'PR F1.5 — "¿cómo funciona X?" = get_guia + dirigir a la pestaña',
+      message: '¿cómo funciona la descarga de mis facturas del SAT? explícame',
+      soft: true,
+      dataDependent: 'podría contestar del prompt sin tool; el camino canónico es get_guia(sat_descarga)',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_guia' },
+      ],
+    },
   ];
 
   // --- Runner secuencial ---

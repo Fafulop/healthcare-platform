@@ -124,10 +124,39 @@ money model.
    Verificado: type-check ✓, shapes smoke-tested contra prod ✓ (2 rondas), evals ✓ (ver
    arriba — los 5 nuevos PASS en ambas corridas, con el modelo eligiendo bien get_sat_cfdis
    vs get_cfdis y rechazando contenido clínico sin llamar tools).
-2. **PR F2** — `propose_create_cfdi` + `propose_send_fiscal_form` (+ builder de impuestos
+2. **PR F1.5 — HECHO (2026-07-11, misma sesión): cobertura de lectura COMPLETA de
+   /facturacion, /sat-descarga y /pagos** (análisis pestaña por pestaña: facturación ya estaba
+   completa; sat-descarga tenía 3 pestañas analíticas sin cubrir; pagos le faltaba el estado
+   de pasarelas):
+   - **Módulo `fiscal` nuevo** (`modules/fiscal.ts`, 2 tools compuestos): `get_resumen_fiscal`
+     (agregados mensuales en base de EFECTIVO — réplica columna-por-columna de las 3 queries
+     del endpoint declaration; PUE por emisión, PPD por fecha de pago prorrateado, PPD sin
+     complemento excluido y reportado; acuses mensuales + ANUAL mes-13; **frontera clase-E7:
+     jamás calcula ISR ni clasifica deducibilidad — dirige a las pestañas**) y
+     `get_ppd_cobranza` (réplica de `computePpdStatus`: el saldoInsoluto de la ÚLTIMA
+     parcialidad decide, no la resta total−pagado; complementos sin ligar checados contra
+     satPago global, no contra el año — el caso cross-year).
+   - **facturas +2**: `get_payment_provider_status` (flags cacheados Stripe/MP con caveat) y
+     `get_guia` (resúmenes CURADOS de las 3 pestañas Guía, ~700 tokens SOLO al preguntar —
+     baked-in habría triplicado el prefijo; comentarios anti-drift en los 3 componentes guía).
+   - Prompt: INTRO capacidad 5; RESILIENCE nombra ISR/consejo fiscal como fuera de alcance;
+     **regla de DESEMPATE** get_sat_cfdis (¿cuánto FACTURÉ? con IVA por emisión) vs
+     get_resumen_fiscal (¿cuánto INGRESÉ? base efectivo) — miden cosas distintas y el agente
+     lo dice. Panel: copy des-stalizado ("Asistente", capacidades ampliadas, +2 chips).
+   - **Code-review (2 finders profundos) → 8 hallazgos, 8 corregidos** — los gordos: linkage
+     de complementos contra el año (prod: 15/15 ligados; la lógica pre-review habría reportado
+     ~12 "sin ligar"), semántica saldoInsoluto, doble-steer facturé/ingresé, 2 errores de
+     contenido en las guías curadas (G03 mal atribuido, umbral $2,000 efectivo).
+   - Evals: +6 casos (routing canónico ×3, ISR-no-calcula, no-consejo-fiscal, guía) →
+     **suite de 32: 30 PASS + 2 WARN soft + 0 FAIL**. Shapes smoke-tested contra prod ×2.
+     Agente: 24 → **29 tools, 3 módulos**; prefijo +~2.1k tokens (dentro del presupuesto del
+     blueprint). ⬜ Validación en vivo en prod pendiente (preguntas sugeridas: "¿cuánto
+     ingresé en enero?" ≈ $229,870 subtotal emitido · "¿quién me debe PPD?" ≈ 15 pendientes
+     ~$226,815 — verificado read-only al construir).
+3. **PR F2** — `propose_create_cfdi` + `propose_send_fiscal_form` (+ builder de impuestos
    server-side). **Fase 2 también:** `propose_payment_link` (los endpoints ya validan todo) y
    `propose_create_patient` (H3 — walk-in que pide factura).
-3. **PR F3** — entrega (`propose_email_cfdi`).
+4. **PR F3** — entrega (`propose_email_cfdi`).
 
 ## Preguntas abiertas
 

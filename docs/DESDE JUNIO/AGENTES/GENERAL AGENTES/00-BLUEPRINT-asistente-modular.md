@@ -30,11 +30,15 @@ al agregar un módulo.
 | Módulo | Estado | Alcance |
 |---|---|---|
 | agenda | ✅ vivo (PR 1-3 + hardening) | horarios, citas, disponibilidad, propuestas de citas/rangos/bloqueos |
-| facturas/pagos | ✅ lectura viva (PR F1) | billing status, CFDIs (dual plataforma/SAT), fiscal, links de pago |
+| facturas/pagos | ✅ lectura viva (PR F1 + F1.5) | billing status, CFDIs (dual plataforma/SAT), fiscal, links de pago, estado de pasarelas, guías curadas (get_guia) |
+| fiscal | ✅ lectura construida (PR F1.5, 2026-07-11) | resumen mensual base de efectivo (ingresos/gastos/IVA/retenciones), cobranza PPD — frontera E7: nunca calcula ISR |
 | flujo de dinero | ⬜ candidato F1 | movimientos del ledger, totales, conciliación (estado, no acciones) |
 | expediente | ⬜ candidato F1 | SOLO metadatos + demográficos/fiscales — contenido clínico es otro tier de privacidad |
-| SAT profundo | ⬜ candidato F1 | declaración helper, cobranza PPD, deducibilidad |
 | voz | ⬜ PR 4 (independiente) | entrada por voz al mismo asistente |
+
+Con PR F1.5 las tres páginas /facturacion, /sat-descarga y /pagos quedaron con **cobertura de
+lectura completa** (análisis pestaña por pestaña 2026-07-11). "SAT profundo" dejó de ser módulo
+candidato: sus 3 pestañas analíticas son el módulo fiscal.
 
 ## 2. El playbook (cómo se construyeron agenda y facturas — replicar tal cual)
 
@@ -76,23 +80,41 @@ el prompt se edita en `prompt.ts` o `modules/<dominio>.ts`, NUNCA en `run-turn.t
 
 **Telemetría real (`llm_token_usage`, endpoint `agenda-agent`, 102 turnos):**
 - Volumen de input por turno: p50 **13.8k**, promedio 18.4k, p95 46k, máx 66.7k tokens.
-- Prefijo estático actual (system + 24 tools): **~13-14k tokens** — domina el p50.
+- Prefijo estático (system + tools): ~13-14k tokens con 24 tools; **~16.1k con los 29 de
+  PR F1.5** (3 módulos) — medido en evals (turnos sin tools), +2.1k por el módulo fiscal +
+  guías, dentro del presupuesto de ~2-3k/módulo.
 - Costo real por turno (budget tokens = ponderado por caché): promedio **~12.7k budget tokens
   ≈ $0.04 USD**. Cap diario: 500k budget ≈ $1.50/doctor.
 - Un día de USO INTENSO (la sesión de validación de PR F1: 16 turnos) quemó **41% del cap**.
+
+**Estrategia de GUÍAS (decidida en F1.5):** las pestañas Guía suman ~25-30k tokens de texto —
+meterlas al prompt habría TRIPLICADO el prefijo. En su lugar: `get_guia(tema)` devuelve
+resúmenes CURADOS (~700 tokens, solo en los turnos que preguntan "¿cómo funciona X?") y dirige
+a la pestaña para el detalle. Trade-off aceptado: los resúmenes son copia manual — comentarios
+anti-drift en los 3 componentes guía avisan de actualizar GUIAS al editar contenido. Lección
+del review: el contenido curado SE VERIFICA contra la pestaña real (2 errores factuales
+cazados: G03 mal atribuido, umbral de $2,000 en efectivo).
 
 **Modelo:** claude-sonnet-5 (`AGENDA_AGENT_MODEL`). Caché: 1 breakpoint estable
 (system+tools) + 2 breakpoints móviles al final de la conversación; TTL 5 min.
 
 ## 4. Qué sigue
 
-1. **"F1 everywhere":** módulos de lectura para flujo de dinero → expediente (metadatos) →
-   SAT profundo, con el playbook de §2. Lectura primero en todos los dominios porque es el
-   orden óptimo de riesgo: los errores de lectura son texto; los de propuesta ejecutan.
+1. **"F1 everywhere" (en curso):** ✅ fiscal (F1.5, 2026-07-11 — falta validación en vivo);
+   quedan flujo de dinero → expediente (metadatos), con el playbook de §2. Lectura primero en
+   todos los dominios porque es el orden óptimo de riesgo: los errores de lectura son texto;
+   los de propuesta ejecutan.
 2. **Después: PR F2 de facturas** (propose_create_cfdi + formulario fiscal + builder de
    impuestos server-side — leer primero qué taxes arma `useBookings.emitCfdi`), y las
    propuestas que cada dominio pida (propose_payment_link, propose_create_patient).
 3. **PR 4 voz** — independiente, no bloquea ni es bloqueado.
+
+**Regla de review consolidada (2026-07-11, evidencia de 3 reviews el mismo día):** lógica
+REPLICADA de otra fuente de verdad (SQL/fórmulas copiadas de un endpoint) y contenido que
+AFIRMA HECHOS (guías curadas) siempre llevan review completo — esas dos categorías produjeron
+los 8/8 hallazgos de F1.5 (paridad de queries, semántica saldoInsoluto, doble-steer entre
+tools, errores factuales en resúmenes). Cambios mecánicos cuyo fallo se auto-anuncia (guard
+del registry) llevan pasada inline.
 
 ## 5. Escalamiento: el análisis honesto
 

@@ -108,6 +108,28 @@ const FACTURAS_TOOLS: AnthropicTool[] = [
       },
     },
   },
+  {
+    name: 'get_payment_provider_status',
+    description:
+      'Estado de conexión de las pasarelas de pago del doctor (Stripe y Mercado Pago): si están conectadas y habilitadas para cobrar. Úsala ANTES de hablar de links de pago si hay duda de que el doctor pueda cobrar en línea. OJO: es el estado CACHEADO en el sistema — el detalle vivo (requisitos pendientes, depósitos) está en la página Pagos.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_guia',
+    description:
+      'Resumen CURADO de las guías del dashboard (las pestañas "Guía"): facturación (CFDI, REP, cancelación, retenciones), pagos en línea (Stripe/Mercado Pago, links, depósitos) o SAT Descarga (sincronización, deducciones, declaraciones). Úsala cuando el doctor pregunte CÓMO FUNCIONA algo o CÓMO SE HACE en la plataforma — responde con el resumen y dirígelo a la pestaña Guía correspondiente para el detalle completo.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tema: {
+          type: 'string',
+          enum: ['facturacion', 'pagos', 'sat_descarga'],
+          description: 'Qué guía: facturacion (CFDI/REP/fiscal), pagos (Stripe/MP/links) o sat_descarga (sync/deducciones/declaraciones)',
+        },
+      },
+      required: ['tema'],
+    },
+  },
 ];
 
 // -----------------------------------------------------------------------------
@@ -771,6 +793,103 @@ async function getPaymentLinks(
   };
 }
 
+// -----------------------------------------------------------------------------
+// Provider connection status (cached flags — the live check hits Stripe's API
+// and belongs to the Pagos page, not to an autonomous read tool)
+// -----------------------------------------------------------------------------
+
+async function getPaymentProviderStatus(ctx: ToolContext) {
+  const doctor = await prisma.doctor.findUnique({
+    where: { id: ctx.doctorId },
+    select: {
+      stripeAccountId: true,
+      stripeOnboardingComplete: true,
+      stripeChargesEnabled: true,
+      stripePayoutsEnabled: true,
+      mpConnected: true,
+      mpTokenExpiresAt: true,
+    },
+  });
+  if (!doctor) return { error: 'Doctor no encontrado.' };
+  const mpExpira = doctor.mpTokenExpiresAt;
+  const mpPorExpirar = !!mpExpira && mpExpira.getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000;
+  return {
+    stripe: {
+      conectado: !!doctor.stripeAccountId,
+      onboardingCompleto: doctor.stripeOnboardingComplete ?? false,
+      cobrosHabilitados: doctor.stripeChargesEnabled ?? false,
+      depositosHabilitados: doctor.stripePayoutsEnabled ?? false,
+    },
+    mercadoPago: {
+      conectado: doctor.mpConnected ?? false,
+      tokenExpira: mpExpira ? mxDayOf(mpExpira) : null,
+      tokenPorExpirar: mpPorExpirar,
+      ...(mpPorExpirar ? { nota: 'El token de Mercado Pago expira en menos de 30 días — reconectar desde la página Pagos.' } : {}),
+    },
+    nota: 'Estado cacheado en el sistema — el estado vivo (requisitos pendientes de Stripe, último depósito) se consulta en Dashboard → Pagos.',
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Guías — curated summaries of the dashboard "Guía" tabs, returned ON DEMAND
+// (never in the prompt: the full guides are ~25k tokens; these are ~600-800
+// tokens each and only cost when asked). Keep aligned with the guide tabs.
+// -----------------------------------------------------------------------------
+
+const GUIAS: Record<string, { resumen: string; pestana: string }> = {
+  facturacion: {
+    pestana: 'Dashboard → Facturación → pestaña Guía (12 secciones + preguntas frecuentes)',
+    resumen: `GUÍA DE FACTURACIÓN (resumen — el detalle completo está en la pestaña):
+1. CFDI 4.0 exige del receptor: RFC, nombre/razón social EXACTOS a su constancia, régimen fiscal, código postal fiscal y uso de CFDI.
+2. Existen claves SAT específicas para servicios médicos (la plataforma las aplica al emitir).
+3. Uso del CFDI: D01 (honorarios médicos — el más común, pacientes que deducen gastos médicos); G03 (gastos en general — empresas que pagan servicios médicos).
+4. Para que la factura sea deducible al paciente (D01): pagos en efectivo MAYORES a $2,000 MXN no son deducibles — tarjeta o transferencia.
+5. El régimen del doctor (612 vs RESICO 626) cambia retenciones e ISR — la plataforma lo maneja al emitir.
+6. Forma de pago = CÓMO pagó (efectivo/tarjeta/transferencia); método = PUE (pagado ya) vs PPD (pago diferido).
+7. Facturar a aseguradoras: normalmente exigen desglose y retenciones — sección propia en la guía.
+8. REP (Recibo Electrónico de Pago): OBLIGATORIO cuando emites PPD y te pagan después — pestaña REP.
+9. Cancelación de CFDIs: requiere motivo SAT y puede requerir aceptación del receptor; hay plazos.
+10. Retenciones: personas MORALES te retienen ISR (y a veces IVA); honorarios médicos a personas físicas van típicamente exentos de IVA.
+11. Errores comunes: RFC/nombre que no coinciden con la constancia, CP incorrecto, uso de CFDI equivocado.
+12. CSD (sello digital): sin CSD activo no se puede timbrar — pestaña Configuración.`,
+  },
+  pagos: {
+    pestana: 'Dashboard → Pagos → pestaña Guía (Stripe y Mercado Pago paso a paso)',
+    resumen: `GUÍA DE PAGOS EN LÍNEA (resumen — el detalle completo está en la pestaña):
+- Dos pasarelas: STRIPE (tarjetas, OXXO, Apple/Google Pay) y MERCADO PAGO (la más popular en México). Se conectan una vez desde la página Pagos (Stripe: crear cuenta Express y completar verificación; MP: autorizar con tu cuenta).
+- Links de pago: se crean desde la CITA (botón Cobro — recomendado, queda ligado al expediente y al ingreso) y se comparten por WhatsApp o copiando el link. El paciente elige su método al abrirlo.
+- Estados de un link: PENDIENTE (creado, sin pagar) → PAGADO (el ingreso se registra SOLO en Flujo de Dinero) · EXPIRADO · CANCELADO.
+- Depósitos: cada pasarela deposita a tu cuenta bancaria en su propio calendario; el panel de Stripe Express y el panel de MP administran depósitos, reembolsos y disputas.
+- Problemas de cuenta (restringida/deshabilitada): se resuelven en el panel del proveedor — la guía tiene la sección "Problemas con tu cuenta".
+- Requisito de la plataforma: crear un link desde la cita exige que la cita tenga EXPEDIENTE vinculado.`,
+  },
+  sat_descarga: {
+    pestana: 'Dashboard → SAT Descarga → pestañas Guía y Ayuda',
+    resumen: `GUÍA DE SAT DESCARGA (resumen — el detalle completo está en la pestaña):
+- Qué es: descarga DIRECTA del SAT (con tu e.Firma) de TODOS tus CFDIs — emitidos y recibidos, los hayas hecho en la plataforma o fuera.
+- Cómo funciona: por cada mes se autentica con tu e.Firma, pide el listado (metadata), espera al SAT (segundos a 72h), y baja los XML con el desglose fiscal completo. Un worker lo procesa cada 15 min — no hay que dejar la página abierta. Botón "Sync mes actual" para forzar el mes en curso.
+- Dos capas: METADATA (listado: UUID, emisor, monto, Vigente/Cancelado — la tabla principal) y XML (desglose: subtotal, IVA, ISR, conceptos, PUE/PPD).
+- PUE vs PPD: PUE se paga al emitir; PPD se paga después y requiere COMPLEMENTO de pago (REP) — la pestaña PPD rastrea qué facturas siguen sin pagarse.
+- Deducciones: tus CFDIs recibidos se clasifican por categoría automáticamente; banderas de deducibilidad (efectivo >$2,000, sin XML, etc.) — pestaña Deducciones.
+- Declaraciones: agregados mensuales en base de efectivo + estimación de ISR/IVA según tu régimen (612 acumulativo / RESICO tasa fija) — pestaña Declaraciones.
+- Régimen: en RESICO los gastos NO reducen ISR pero su IVA sí es acreditable; en 612 las deducciones sí reducen la base.`,
+  },
+};
+
+function getGuia(input: { tema?: string }) {
+  const tema = typeof input.tema === 'string' ? input.tema : '';
+  const guia = GUIAS[tema];
+  if (!guia) {
+    return { error: 'Tema inválido — usa "facturacion", "pagos" o "sat_descarga".' };
+  }
+  return {
+    tema,
+    resumen: guia.resumen,
+    detalleCompleto: guia.pestana,
+    nota: 'Este es un resumen curado — para pasos con capturas y la lista completa de secciones, dirige al doctor a la pestaña indicada.',
+  };
+}
+
 async function executeFacturasTool(
   ctx: ToolContext,
   name: string,
@@ -789,6 +908,10 @@ async function executeFacturasTool(
       return getSatCfdis(ctx, input as any);
     case 'get_payment_links':
       return getPaymentLinks(ctx, input as any);
+    case 'get_payment_provider_status':
+      return getPaymentProviderStatus(ctx);
+    case 'get_guia':
+      return getGuia(input as { tema?: string });
     default:
       return { error: `Tool desconocida: ${name}` };
   }
