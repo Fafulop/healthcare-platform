@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -24,6 +25,8 @@ import {
   Receipt,
   Download,
   Landmark,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -37,14 +40,15 @@ function NavItem({ icon: Icon, label, href, active = false }: NavItemProps) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+      title={label}
+      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors group-data-[collapsed]:justify-center group-data-[collapsed]:px-2 ${
         active
           ? "bg-blue-50 text-blue-700"
           : "text-gray-700 hover:bg-gray-100"
       }`}
     >
-      <Icon className="w-5 h-5" />
-      <span className="text-sm font-medium">{label}</span>
+      <Icon className="w-5 h-5 shrink-0" />
+      <span className="text-sm font-medium group-data-[collapsed]:hidden">{label}</span>
     </Link>
   );
 }
@@ -59,24 +63,46 @@ interface SidebarProps {
 export default function Sidebar({ doctorProfile }: SidebarProps) {
   const { data: session } = useSession();
   const pathname = usePathname();
+  // Icons-only mode so the content gets the width back (e.g. with the
+  // assistant panel docked). Same persistence pattern as widgetsCollapsed.
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sidebarCollapsed") === "true";
+    }
+    return false;
+  });
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem("sidebarCollapsed", String(next));
+      return next;
+    });
+  };
 
   return (
-    <aside className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col">
+    <aside
+      // data-collapsed drives the group-data-[collapsed] variants below —
+      // labels hide and items center without threading a prop through them
+      data-collapsed={collapsed || undefined}
+      className={`group h-screen bg-white border-r border-gray-200 flex flex-col transition-[width] duration-200 ${
+        collapsed ? "w-16" : "w-64"
+      }`}
+    >
       {/* Logo/Brand + User Info */}
-      <div className="px-4 py-3 border-b border-gray-200">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
+      <div className="px-4 py-3 border-b border-gray-200 group-data-[collapsed]:px-2">
+        <Link href="/dashboard" className="flex items-center gap-2.5 group-data-[collapsed]:justify-center">
           {session?.user?.image ? (
             <img
               src={session.user.image}
               alt={session.user.name || "User"}
-              className="w-8 h-8 rounded-full object-cover"
+              className="w-8 h-8 rounded-full object-cover shrink-0"
             />
           ) : (
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
               <User className="w-4 h-4 text-blue-600" />
             </div>
           )}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 group-data-[collapsed]:hidden">
             <h1 className="text-sm font-bold text-gray-900 truncate">
               {session?.user?.name || "Portal Médico"}
             </h1>
@@ -85,6 +111,17 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             </p>
           </div>
         </Link>
+      </div>
+
+      {/* Collapse/expand toggle */}
+      <div className={`px-3 pt-2 flex ${collapsed ? "justify-center" : "justify-end"}`}>
+        <button
+          onClick={toggleCollapsed}
+          title={collapsed ? "Mostrar etiquetas" : "Ocultar etiquetas (solo iconos)"}
+          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        >
+          {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+        </button>
       </div>
 
       {/* Navigation */}
@@ -102,10 +139,11 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
                 href={`${process.env.NEXT_PUBLIC_PUBLIC_URL || "http://localhost:3000"}/doctores/${doctorProfile.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100"
+                title="Perfil Público"
+                className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100 group-data-[collapsed]:justify-center group-data-[collapsed]:px-2"
               >
-                <ExternalLink className="w-5 h-5" />
-                <span className="text-sm font-medium">Perfil Público</span>
+                <ExternalLink className="w-5 h-5 shrink-0" />
+                <span className="text-sm font-medium group-data-[collapsed]:hidden">Perfil Público</span>
               </a>
             </>
           )}
@@ -219,13 +257,14 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
       </nav>
 
       {/* Cerrar Sesión */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-200 group-data-[collapsed]:p-2">
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100 w-full"
+          title="Cerrar Sesión"
+          className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100 w-full group-data-[collapsed]:justify-center group-data-[collapsed]:px-2"
         >
-          <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">Cerrar Sesión</span>
+          <LogOut className="w-5 h-5 shrink-0" />
+          <span className="text-sm font-medium group-data-[collapsed]:hidden">Cerrar Sesión</span>
         </button>
       </div>
     </aside>
