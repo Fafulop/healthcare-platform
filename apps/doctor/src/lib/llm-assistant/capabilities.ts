@@ -30,6 +30,7 @@ export interface EntityDef {
 
 export interface ModuleCapabilities {
   name: string;
+  /** URL path prefixes that imply this module (consumed by getModulesFromPath). */
   routes: string[];
   entities: Record<string, EntityDef>;
 }
@@ -41,7 +42,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
   // ─────────────────────────────────────────────────────────────
   appointments: {
     name: 'Citas',
-    routes: ['/appointments'],
+    routes: ['/dashboard/appointments'],
     entities: {
 
       'Horario (Slot)': {
@@ -156,10 +157,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
   // ─────────────────────────────────────────────────────────────
   'medical-records': {
     name: 'Expedientes Médicos',
-    routes: [
-      '/dashboard/medical-records',
-      '/dashboard/medical-records/patients',
-    ],
+    routes: ['/dashboard/medical-records'],
     entities: {
 
       'Paciente': {
@@ -317,16 +315,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
   // ─────────────────────────────────────────────────────────────
   'practice-management': {
     name: 'Gestión de Consultorio',
-    routes: [
-      '/dashboard/practice/ventas',
-      '/dashboard/practice/compras',
-      '/dashboard/practice/cotizaciones',
-      '/dashboard/practice/flujo-de-dinero',
-      '/dashboard/practice/products',
-      '/dashboard/practice/proveedores',
-      '/dashboard/practice/areas',
-      '/dashboard/practice/master-data',
-    ],
+    routes: ['/dashboard/practice'],
     entities: {
 
       'Venta': {
@@ -631,14 +620,23 @@ export function formatCapabilityMapForPrompt(moduleIds: string[]): string {
 }
 
 /**
- * Infer module IDs from the current URL path.
+ * Route prefixes for modules that have doc chunks (modules.ts) but no
+ * CAPABILITY_MAP entry — they still filter retrieval by module id.
+ */
+const EXTRA_ROUTE_MODULES: Record<string, string> = {
+  '/dashboard/blog': 'blog',
+};
+
+/**
+ * Infer module IDs from the current URL path. Derived from CAPABILITY_MAP
+ * routes (single source of truth) plus EXTRA_ROUTE_MODULES.
  */
 export function getModulesFromPath(path: string): string[] {
-  if (path.startsWith('/appointments')) return ['appointments'];
-  if (path.startsWith('/dashboard/medical-records')) return ['medical-records'];
-  if (path.startsWith('/dashboard/practice')) return ['practice-management'];
-  if (path.startsWith('/dashboard/blog')) return ['blog'];
-  if (path.startsWith('/dashboard/pendientes')) return ['pendientes'];
-  if (path.startsWith('/dashboard/mi-perfil')) return ['profile'];
+  for (const [moduleId, cap] of Object.entries(CAPABILITY_MAP)) {
+    if (cap.routes.some((prefix) => path.startsWith(prefix))) return [moduleId];
+  }
+  for (const [prefix, moduleId] of Object.entries(EXTRA_ROUTE_MODULES)) {
+    if (path.startsWith(prefix)) return [moduleId];
+  }
   return [];
 }

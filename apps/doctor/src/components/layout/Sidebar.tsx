@@ -167,8 +167,8 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
           <NavItem
             icon={Calendar}
             label="Mis Citas"
-            href="/appointments"
-            active={pathname === "/appointments"}
+            href="/dashboard/appointments"
+            active={pathname?.startsWith("/dashboard/appointments")}
           />
           <NavItem
             icon={Users}

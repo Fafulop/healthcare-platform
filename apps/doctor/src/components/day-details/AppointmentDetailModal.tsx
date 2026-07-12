@@ -108,7 +108,7 @@ export function AppointmentDetailModal({ slot, onClose, zIndex = 'z-50' }: Props
         {/* Actions */}
         <div className="px-5 py-4 border-t border-gray-200">
           <Link
-            href="/appointments"
+            href="/dashboard/appointments"
             className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors w-full"
           >
             Gestionar citas

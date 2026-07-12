@@ -10,7 +10,7 @@ import type { InitialChatData } from '@/hooks/useChatSession';
 const SESSION_TYPE_ROUTES: Partial<Record<VoiceSessionType, { route: string; storageKey: string }>> = {
   NEW_PATIENT: { route: '/dashboard/medical-records/patients/new', storageKey: 'voicePatientData' },
   NEW_TASK: { route: '/dashboard/pendientes/new', storageKey: 'voiceTaskData' },
-  CREATE_APPOINTMENT_SLOTS: { route: '/appointments', storageKey: 'voiceAppointmentData' },
+  CREATE_APPOINTMENT_SLOTS: { route: '/dashboard/appointments', storageKey: 'voiceAppointmentData' },
   CREATE_SALE: { route: '/dashboard/practice/ventas/new', storageKey: 'voiceSaleData' },
   CREATE_PURCHASE: { route: '/dashboard/practice/compras/new', storageKey: 'voicePurchaseData' },
   CREATE_LEDGER_ENTRY: { route: '/dashboard/practice/flujo-de-dinero/new', storageKey: 'voiceLedgerData' },

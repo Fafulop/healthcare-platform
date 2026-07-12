@@ -171,8 +171,8 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
             <NavItem
               icon={Calendar}
               label="Mis Citas"
-              href="/appointments"
-              active={pathname === "/appointments"}
+              href="/dashboard/appointments"
+              active={pathname.startsWith("/dashboard/appointments")}
               onClick={onClose}
             />
             <NavItem

@@ -18,6 +18,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/appointments/:path*",
+        destination: "/dashboard/appointments/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

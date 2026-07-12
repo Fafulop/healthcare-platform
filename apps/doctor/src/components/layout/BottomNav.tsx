@@ -76,8 +76,8 @@ export default function BottomNav({ onMoreClick, isDrawerOpen }: BottomNavProps)
         <NavItem
           icon={Calendar}
           label="Citas"
-          href="/appointments"
-          active={pathname === "/appointments"}
+          href="/dashboard/appointments"
+          active={pathname?.startsWith("/dashboard/appointments")}
         />
         <NavItem
           icon={CheckSquare}

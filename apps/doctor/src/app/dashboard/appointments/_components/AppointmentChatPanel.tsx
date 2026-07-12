@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { Sparkles, X, Bot, User, Loader2, Send, Minus, ChevronUp, CheckCircle } from 'lucide-react';
 import { VoiceRecordButton } from '@/components/voice-assistant/chat/VoiceRecordButton';
 import { useAppointmentsChat, type ChatMessage } from '@/hooks/useAppointmentsChat';
-import type { AppointmentSlot } from '@/app/appointments/_hooks/useSlots';
-import type { Booking } from '@/app/appointments/_hooks/useBookings';
+import type { AppointmentSlot } from '@/app/dashboard/appointments/_hooks/useSlots';
+import type { Booking } from '@/app/dashboard/appointments/_hooks/useBookings';
 
 // Markdown-like renderer (same pattern as TaskChatPanel)
 function renderContent(text: string) {

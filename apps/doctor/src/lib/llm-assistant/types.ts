@@ -26,7 +26,7 @@ export interface RetrievedChunk extends DocumentChunk {
 // --- Query Types ---
 
 export interface UIContext {
-  /** Current URL path, e.g. "/appointments" or "/dashboard/practice/ventas" */
+  /** Current URL path, e.g. "/dashboard/appointments" or "/dashboard/practice/ventas" */
   currentPath: string;
 }
 

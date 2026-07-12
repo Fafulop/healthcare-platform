@@ -3,10 +3,8 @@
 /**
  * AgentContext — app-shell-level state for the assistant copilot panel.
  *
- * Lifted from the old useAgendaAgent hook (which lived per-page in
- * /appointments) so the conversation SURVIVES navigation between the two
- * route trees (app/appointments and app/dashboard are sibling layouts — a
- * provider inside either one unmounts on cross-tree navigation). Mounted in
+ * Lifted from the old useAgendaAgent hook (which lived per-page in the
+ * appointments page) so the conversation SURVIVES navigation. Mounted in
  * the ROOT layout, which also wraps /login and /consent, so the provider is
  * INERT on mount: zero fetches until the doctor opens the panel or sends a
  * message (G1 of the copilot-panel plan).
