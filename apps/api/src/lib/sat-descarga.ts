@@ -167,6 +167,10 @@ function signRsaSha1(data: string, privateKey: crypto.KeyObject): string {
 // HTTPS Helper
 // ---------------------------------------------------------------------------
 
+// SAT's backend can stall well past 30s when degraded while its endpoints stay reachable
+// (jul 2026: a week of 30s timeouts on signed requests with instant TLS handshakes).
+const SAT_HTTP_TIMEOUT_MS = 90000;
+
 function httpsPost(url: string, body: string, headers: Record<string, string> = {}): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -174,7 +178,7 @@ function httpsPost(url: string, body: string, headers: Record<string, string> = 
       hostname: u.hostname,
       path: u.pathname,
       method: 'POST',
-      timeout: 30000,
+      timeout: SAT_HTTP_TIMEOUT_MS,
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
         'Content-Length': Buffer.byteLength(body, 'utf-8'),
@@ -186,7 +190,7 @@ function httpsPost(url: string, body: string, headers: Record<string, string> = 
       res.on('data', (chunk: string) => data += chunk);
       res.on('end', () => resolve({ status: res.statusCode!, body: data }));
     });
-    req.on('timeout', () => { req.destroy(); reject(new SatError('Timeout (30s)', 'TIMEOUT')); });
+    req.on('timeout', () => { req.destroy(); reject(new SatError(`Timeout (${SAT_HTTP_TIMEOUT_MS / 1000}s)`, 'TIMEOUT')); });
     req.on('error', (e) => reject(new SatError(`HTTPS error: ${e.message}`, 'NETWORK')));
     req.write(body);
     req.end();
