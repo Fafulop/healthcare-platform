@@ -6,9 +6,10 @@
 > (no se tapa), y la conversación SOBREVIVE la navegación entre pantallas. Diseñado 2026-07-11
 > contra el código real (archivos citados).
 >
-> **ESTADO 2026-07-11: IMPLEMENTADO + code review (8 hallazgos, 3 corregidos) — typecheck y
-> build de producción limpios. PENDIENTE: verificación en vivo (checklist §5) y commit.**
-> Ver §7 (desviaciones del plan) y §8 (follow-ups del review).
+> **ESTADO 2026-07-11: SHIPPED A PROD** (`03775778` panel + review fixes; `467f3923`,
+> `85a652ca`, `8ee295df` ajustes post-deploy, ver §9). Verificado en vivo por el usuario:
+> "working good in general". Ver §7 (desviaciones), §8 (follow-ups del review, siguen
+> abiertos) y §9 (ajustes de espacio post-deploy).
 >
 > Resuelve de paso la pregunta abierta "¿el panel se monta también en /facturacion?" — se
 > monta en TODAS las pantallas.
@@ -151,8 +152,28 @@ computa overflow-x:auto → min-width resuelve a 0, main SÍ encoge); "el feedba
 se pierde por el guard de loading" (el closure stale lo brinca — siempre se envía; el bug real
 en esa ruta era el de historia stale, ya corregido con `loading || executing`, ver §7).
 
+## 9. Ajustes de espacio post-deploy (2026-07-11, hallados usando el panel en prod)
+
+El "desktop angosto" de §5 resultó real en la práctica; en vez del umbral auto-overlay se
+recuperó espacio en el contenido:
+
+- **`467f3923`** — filas de botones/filtros de /appointments con `sm:flex-wrap`: un flex row
+  NO envuelve por default; los 8 botones del header exigían su ancho completo y con el panel
+  docked empujaban la página más allá del viewport (arrastrando la tabla).
+- **`85a652ca`** — tabla Todas las Citas: columnas EXPEDIENTE y CONTACTO fusionadas (chip +
+  tel/email apilados; emails con `break-all` para no dictar el min-width). Interactivos
+  verificados: el dropdown de búsqueda ancla a su propio wrapper, no a la celda.
+- **`8ee295df`** — **sidebar colapsable a solo-iconos** (toggle persistido en
+  `sidebarCollapsed`): recupera 12rem. Implementación: `data-collapsed` en el `<aside>` +
+  variantes `group-data-[collapsed]` — verificadas COMPILADAS en el CSS de prod, y su
+  especificidad (0,2,0) garantiza el override sobre las utilidades base (0,1,0).
+  ⚠️ Lección Tailwind (dos veces hoy): dos utilidades de la MISMA propiedad y mismo nivel
+  (`lg:right-6` vs `lg:right-[calc(…)]`, `justify-end` vs variante `justify-center`) se
+  resuelven por orden del CSS generado, no del className — usar condicional o variante con
+  mayor especificidad.
+
 ---
 
 *Relacionado: [`00-BLUEPRINT-asistente-modular.md`](00-BLUEPRINT-asistente-modular.md) (§4 qué
-sigue), `AGENTE AGENDA/05-REFERENCIA-TECNICA` (el panel original). Estado: IMPLEMENTADO,
-pendiente verificación en vivo (§5) y commit.*
+sigue), `AGENTE AGENDA/05-REFERENCIA-TECNICA` (el panel original). Estado: SHIPPED; quedan
+los follow-ups de §8.*

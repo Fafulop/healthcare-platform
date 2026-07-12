@@ -100,10 +100,11 @@ cazados: G03 mal atribuido, umbral de $2,000 en efectivo).
 
 ## 4. Qué sigue
 
-1. **Panel copilot persistente** — IMPLEMENTADO 2026-07-11 + code review (8 hallazgos, 3
-   corregidos, dos contexts para evitar re-renders); typecheck/build limpios. PENDIENTE:
-   verificación en vivo y commit. Plan, desviaciones y follow-ups en
-   [`01-PLAN-panel-copilot-persistente.md`](01-PLAN-panel-copilot-persistente.md) §7-§8.
+1. ✅ **Panel copilot persistente — SHIPPED 2026-07-11** (`03775778` + 3 ajustes de espacio
+   post-deploy incl. sidebar colapsable `8ee295df`), verificado en vivo. Code review: 8
+   hallazgos, 3 corregidos, dos contexts para evitar re-renders. Desviaciones, follow-ups
+   abiertos y lecciones Tailwind en
+   [`01-PLAN-panel-copilot-persistente.md`](01-PLAN-panel-copilot-persistente.md) §7-§9.
    Follow-up estructural detectado en la pasada: fusionar `/appointments` bajo
    `/dashboard/appointments` (13 refs en 8 archivos, sin enlaces externos; además el árbol
    appointments HOY se salta el gate de consentimiento y el check de rol que dashboard sí
