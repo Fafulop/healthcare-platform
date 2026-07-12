@@ -23,7 +23,7 @@ import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
 import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
 import { StandaloneFormularioModal } from "./_components/StandaloneFormularioModal";
 import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsModal";
-import { AgendaAgentPanel } from "./_components/AgendaAgentPanel";
+import { useAgentActions } from "@/contexts/AgentContext";
 import type { Booking } from "./_hooks/useBookings";
 import type { ClinicLocation } from "./_hooks/useSlots";
 
@@ -71,7 +71,23 @@ export default function AppointmentsPage() {
   const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
   const [standaloneFormModalOpen, setStandaloneFormModalOpen] = useState(false);
   const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
-  const [agentPanelOpen, setAgentPanelOpen] = useState(false);
+  const { open: openAgentPanel, subscribeAgendaChanged } = useAgentActions();
+
+  // Refresh this page's views after the assistant executes proposals; the
+  // effect returns the unsubscribe (fetchers are useCallback-stable, so this
+  // only resubscribes on doctorId/selectedDate changes — a cheap Set swap).
+  const { fetchRanges } = rangesHook;
+  const { fetchBlockedTimes } = blockedTimesHook;
+  const { fetchBookings } = bookingsHook;
+  useEffect(
+    () =>
+      subscribeAgendaChanged(() => {
+        fetchRanges();
+        fetchBlockedTimes();
+        fetchBookings();
+      }),
+    [subscribeAgendaChanged, fetchRanges, fetchBlockedTimes, fetchBookings]
+  );
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderOffset, setReminderOffset] = useState(120);
   const [togglingReminder, setTogglingReminder] = useState(false);
@@ -238,7 +254,7 @@ export default function AppointmentsPage() {
             <span className="sm:hidden">Campos</span>
           </button>
           <button
-            onClick={() => setAgentPanelOpen(true)}
+            onClick={openAgentPanel}
             className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
           >
             <Sparkles className="w-4 h-4 flex-shrink-0" />
@@ -255,16 +271,6 @@ export default function AppointmentsPage() {
           </Link>
         </div>
       </div>
-
-      <AgendaAgentPanel
-        isOpen={agentPanelOpen}
-        onClose={() => setAgentPanelOpen(false)}
-        onAgendaChanged={() => {
-          rangesHook.fetchRanges();
-          blockedTimesHook.fetchBlockedTimes();
-          bookingsHook.fetchBookings();
-        }}
-      />
 
       {/* Reminder email toggle */}
       <div className="bg-white rounded-lg shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">

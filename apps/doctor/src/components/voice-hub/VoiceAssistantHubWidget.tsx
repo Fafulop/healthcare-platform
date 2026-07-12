@@ -20,13 +20,13 @@ export function VoiceAssistantHubWidget() {
       <button
         onClick={() => setIsModalOpen(true)}
         className="
-          fixed bottom-44 right-4 sm:bottom-42 sm:right-6 z-50
+          fixed bottom-44 right-4 sm:bottom-42 sm:right-6 lg:right-[calc(1.5rem+var(--agent-dock,0px))] z-50
           w-12 h-12 sm:w-14 sm:h-14 rounded-full
           bg-indigo-600 hover:bg-indigo-700
           text-white shadow-lg hover:shadow-xl
           flex items-center justify-center
           transition-all active:scale-95
-          lg:bottom-42 lg:right-6
+          lg:bottom-42
         "
         title="Asistente IA"
       >

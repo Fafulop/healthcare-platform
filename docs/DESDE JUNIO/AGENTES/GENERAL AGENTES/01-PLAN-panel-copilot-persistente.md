@@ -4,7 +4,11 @@
 > `/appointments` en un **panel lateral acoplado (docked) a nivel del app shell** — el patrón
 > copilot (VS Code / Cursor / Notion AI): la pantalla del sistema se ENCOGE para hacerle lugar
 > (no se tapa), y la conversación SOBREVIVE la navegación entre pantallas. Diseñado 2026-07-11
-> contra el código real (archivos citados); implementación pendiente de OK.
+> contra el código real (archivos citados).
+>
+> **ESTADO 2026-07-11: IMPLEMENTADO + code review (8 hallazgos, 3 corregidos) — typecheck y
+> build de producción limpios. PENDIENTE: verificación en vivo (checklist §5) y commit.**
+> Ver §7 (desviaciones del plan) y §8 (follow-ups del review).
 >
 > Resuelve de paso la pregunta abierta "¿el panel se monta también en /facturacion?" — se
 > monta en TODAS las pantallas.
@@ -111,6 +115,44 @@ paso 5.
 
 ---
 
+## 7. Cómo quedó implementado (2026-07-11) — desviaciones del plan
+
+- **`useAgendaAgent` se ELIMINÓ, no quedó como wrapper** (paso 1 del plan): su único consumidor
+  era el panel, que ahora lee el context directo — un wrapper sin consumidores era código muerto.
+- **DOS contexts en vez de uno** (hallazgo #1 del review): `useAgentActions()` (isOpen/open/
+  close/subscribeAgendaChanged, memoizado, solo cambia al abrir/cerrar) y `useAgentChat()`
+  (messages/loading/executing/budget — SOLO el panel lo consume). Con un context único, cada
+  mensaje del chat re-renderizaba la página de appointments completa + Sidebar/BottomNav.
+  Regla: layouts y páginas usan `useAgentActions`; jamás `useAgentChat` fuera del panel.
+- **El panel vive en `components/agent/AgendaAgentPanel.tsx`** (salió de
+  `appointments/_components/`); el executor y tipos en `contexts/AgentContext.tsx`.
+- **Input bloqueado con `loading || executing`** (hallazgo #5): un mensaje enviado a media
+  ejecución corría en paralelo con el turno de verificación y le metía historia stale
+  (pre-existente, byte-idéntico en el hook viejo — se corrigió de paso).
+- **La suscripción de appointments es un effect plano** con los fetchers en deps — los 3 son
+  useCallback-estables (`[doctorId, selectedDate]`/`[doctorId]`); el plan de ref-indirection
+  se descartó (su justificación era factualmente incorrecta).
+- **Widgets flotantes:** además del offset `--agent-dock`, se removió un `lg:right-6` residual
+  al final del className multilínea de los 3 botones que COMPETÍA con el nuevo
+  `lg:right-[calc(…)]` (dos utilidades lg:right-* en el mismo elemento = gana el orden del CSS
+  generado, no el del className — el offset podía no aplicar nunca). Cazado por el review.
+
+## 8. Follow-ups del review (confirmados, difieren — no bloquean)
+
+| # | Hallazgo | Severidad | Fix barato |
+|---|---|---|---|
+| F1 | Tablet 640–1023px: panel overlay z-[60] tapa los 3 botones flotantes (z-50) y el toggle (z-51) — PRE-EXISTENTE en /appointments; el refactor lo extiende a todas las páginas y lo hace persistente | media (UX tablet) | decidir: offsetear widgets también en sm:, u ocultarlos con panel abierto |
+| F2 | Ancho del dock codificado a mano en ~7 sitios/5 archivos (`24rem` ×2 layouts, `sm:w-96` panel, 4 calc pegados); elementos fixed futuros flotarán SOBRE el panel por default | media (mantenimiento) | subir stack de widgets + toggle + var `--agent-dock` a DashboardLayout (verificado factible: los widgets no usan providers de los tree layouts) — natural hacerlo junto con la fusión /appointments→/dashboard/appointments |
+| F3 | G2 del plan quedó resuelto implícitamente como "aceptar": messages crece sin tope toda la sesión (el reset por navegación del diseño viejo ya no existe) | baja (~300-400 msgs en un día extremo, "Limpiar" resetea) | `messages.slice(-50)` al render + `React.memo(MessageBubble)` |
+| F4 | Con panel abierto, cada cruce appointments↔dashboard re-dispara GET /api/agenda-agent (remount del panel); tras reload con panel persistido-abierto, dispara sin acción del usuario | baja (1 aggregate de prisma, cero LLM; el invariante duro G1 en /login/consent SÍ se sostiene) | guard `budget != null` o mover el trigger a `open()` |
+
+**Refutados por el verify (no son bugs):** falta de `min-w-0` en `<main>` (overflow-y-auto
+computa overflow-x:auto → min-width resuelve a 0, main SÍ encoge); "el feedback de ejecución
+se pierde por el guard de loading" (el closure stale lo brinca — siempre se envía; el bug real
+en esa ruta era el de historia stale, ya corregido con `loading || executing`, ver §7).
+
+---
+
 *Relacionado: [`00-BLUEPRINT-asistente-modular.md`](00-BLUEPRINT-asistente-modular.md) (§4 qué
-sigue), `AGENTE AGENDA/05-REFERENCIA-TECNICA` (el panel original). Estado: DISEÑO aprobado
-pendiente de implementación.*
+sigue), `AGENTE AGENDA/05-REFERENCIA-TECNICA` (el panel original). Estado: IMPLEMENTADO,
+pendiente verificación en vivo (§5) y commit.*

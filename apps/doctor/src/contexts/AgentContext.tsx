@@ -1,17 +1,39 @@
+"use client";
+
 /**
- * useAgendaAgent — hook for the agenda agent panel (PR 1 reads + PR 2 proposals).
+ * AgentContext — app-shell-level state for the assistant copilot panel.
+ *
+ * Lifted from the old useAgendaAgent hook (which lived per-page in
+ * /appointments) so the conversation SURVIVES navigation between the two
+ * route trees (app/appointments and app/dashboard are sibling layouts — a
+ * provider inside either one unmounts on cross-tree navigation). Mounted in
+ * the ROOT layout, which also wraps /login and /consent, so the provider is
+ * INERT on mount: zero fetches until the doctor opens the panel or sends a
+ * message (G1 of the copilot-panel plan).
  *
  * Sends messages to /api/agenda-agent (server runs the tool loop) and keeps
- * client-side conversation history for the session (gap G10: no persistence yet).
- *
- * PR 2: assistant messages can carry ordered proposals. executeProposals runs
+ * client-side conversation history for the session (gap G10: no persistence
+ * yet). Assistant messages can carry ordered proposals; executeProposals runs
  * them STRICTLY SEQUENTIALLY against the real endpoints (same calls the UI
  * makes, doctor's own auth token); on failure the chain STOPS and remaining
  * steps are marked skipped (02-DISENO §3.1). Results are fed back into the
  * conversation so the agent can verify/replan next turn (§3.2).
+ *
+ * Pages that render agenda data subscribe via subscribeAgendaChanged to
+ * refresh their views after the executor mutates data; pages without a
+ * subscription simply don't auto-refresh (same as today from any other page).
  */
 
-import { useState, useCallback, useRef } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from 'react';
 import { authFetch } from '@/lib/auth-fetch';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -256,14 +278,75 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
   }
 }
 
-export function useAgendaAgent(onAgendaChanged?: () => void) {
+/**
+ * Split contexts (review finding): the layouts and pages only need the
+ * rarely-changing open state + stable actions, while messages/loading churn
+ * on every turn. One merged context made every chat message re-render the
+ * whole appointments page and shell chrome; with the split, chat activity
+ * re-renders ONLY the panel.
+ */
+interface AgentActionsValue {
+  /** Panel visibility — persisted in localStorage, survives reloads. */
+  isOpen: boolean;
+  open: () => void;
+  close: () => void;
+  /**
+   * Register a callback to run after the executor changed agenda data.
+   * Returns the unsubscribe function (call it on unmount).
+   */
+  subscribeAgendaChanged: (cb: () => void) => () => void;
+}
+
+interface AgentChatValue {
+  messages: AgentMessage[];
+  loading: boolean;
+  executing: boolean;
+  budget: AgentBudget | null;
+  refreshBudget: () => Promise<void>;
+  sendMessage: (text: string) => Promise<void>;
+  clearChat: () => void;
+  executeProposals: (messageIndex: number) => Promise<void>;
+  rejectProposal: (messageIndex: number, proposalId: string) => void;
+}
+
+const AgentActionsContext = createContext<AgentActionsValue | null>(null);
+const AgentChatContext = createContext<AgentChatValue | null>(null);
+
+const OPEN_STORAGE_KEY = 'agentPanelOpen';
+
+export function AgentProvider({ children }: { children: ReactNode }) {
+  // Starts false and reads localStorage in an effect (not in the initializer)
+  // to avoid an SSR hydration mismatch on first paint.
+  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [budget, setBudget] = useState<AgentBudget | null>(null);
   const executingRef = useRef(false);
+  const agendaChangedSubscribers = useRef<Set<() => void>>(new Set());
 
-  /** Fetch today's budget (panel calls this when it opens). */
+  useEffect(() => {
+    if (localStorage.getItem(OPEN_STORAGE_KEY) === 'true') setIsOpen(true);
+  }, []);
+
+  const open = useCallback(() => {
+    setIsOpen(true);
+    localStorage.setItem(OPEN_STORAGE_KEY, 'true');
+  }, []);
+
+  const close = useCallback(() => {
+    setIsOpen(false);
+    localStorage.setItem(OPEN_STORAGE_KEY, 'false');
+  }, []);
+
+  const subscribeAgendaChanged = useCallback((cb: () => void) => {
+    agendaChangedSubscribers.current.add(cb);
+    return () => {
+      agendaChangedSubscribers.current.delete(cb);
+    };
+  }, []);
+
+  /** Fetch today's budget (panel calls this when it opens — never on mount). */
   const refreshBudget = useCallback(async () => {
     try {
       const res = await fetch('/api/agenda-agent');
@@ -380,25 +463,57 @@ export function useAgendaAgent(onAgendaChanged?: () => void) {
 
       executingRef.current = false;
       setExecuting(false);
-      onAgendaChanged?.();
+      // Notify CURRENT subscribers (e.g. /appointments refreshes its views);
+      // pages without a subscription just don't auto-refresh.
+      agendaChangedSubscribers.current.forEach((cb) => cb());
 
       // Feed results back so the agent verifies and re-plans if needed (§3.2)
       await sendMessage(`[Resultado de la ejecución del plan]\n${resultados.join('\n')}`);
     },
-    [messages, updateProposal, sendMessage, onAgendaChanged]
+    [messages, updateProposal, sendMessage]
   );
 
   const clearChat = useCallback(() => setMessages([]), []);
 
-  return {
-    messages,
-    loading,
-    executing,
-    budget,
-    refreshBudget,
-    sendMessage,
-    clearChat,
-    executeProposals,
-    rejectProposal,
-  };
+  // Memoized so layout/page consumers only re-render on open/close, never on
+  // chat churn (open/close/subscribeAgendaChanged are stable callbacks).
+  const actionsValue = useMemo(
+    () => ({ isOpen, open, close, subscribeAgendaChanged }),
+    [isOpen, open, close, subscribeAgendaChanged]
+  );
+
+  const chatValue = useMemo(
+    () => ({
+      messages,
+      loading,
+      executing,
+      budget,
+      refreshBudget,
+      sendMessage,
+      clearChat,
+      executeProposals,
+      rejectProposal,
+    }),
+    [messages, loading, executing, budget, refreshBudget, sendMessage, clearChat, executeProposals, rejectProposal]
+  );
+
+  return (
+    <AgentActionsContext.Provider value={actionsValue}>
+      <AgentChatContext.Provider value={chatValue}>{children}</AgentChatContext.Provider>
+    </AgentActionsContext.Provider>
+  );
+}
+
+/** Open state + stable actions — safe for layouts/pages (no chat-churn re-renders). */
+export function useAgentActions(): AgentActionsValue {
+  const ctx = useContext(AgentActionsContext);
+  if (!ctx) throw new Error('useAgentActions must be used within AgentProvider (root layout)');
+  return ctx;
+}
+
+/** Full chat state — re-renders on every turn; only the panel should consume this. */
+export function useAgentChat(): AgentChatValue {
+  const ctx = useContext(AgentChatContext);
+  if (!ctx) throw new Error('useAgentChat must be used within AgentProvider (root layout)');
+  return ctx;
 }

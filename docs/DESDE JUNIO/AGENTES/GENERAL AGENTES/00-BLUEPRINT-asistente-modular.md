@@ -100,10 +100,14 @@ cazados: G03 mal atribuido, umbral de $2,000 en efectivo).
 
 ## 4. Qué sigue
 
-1. **Panel copilot persistente** — DISEÑADO 2026-07-11, pendiente de implementar: plan
-   completo en [`01-PLAN-panel-copilot-persistente.md`](01-PLAN-panel-copilot-persistente.md)
-   (side-by-side a nivel app shell, conversación sobrevive navegación; estado en root layout,
-   UI en DashboardLayout; 6 pasos, ~6 archivos, sin cambios de servidor/prompt/evals).
+1. **Panel copilot persistente** — IMPLEMENTADO 2026-07-11 + code review (8 hallazgos, 3
+   corregidos, dos contexts para evitar re-renders); typecheck/build limpios. PENDIENTE:
+   verificación en vivo y commit. Plan, desviaciones y follow-ups en
+   [`01-PLAN-panel-copilot-persistente.md`](01-PLAN-panel-copilot-persistente.md) §7-§8.
+   Follow-up estructural detectado en la pasada: fusionar `/appointments` bajo
+   `/dashboard/appointments` (13 refs en 8 archivos, sin enlaces externos; además el árbol
+   appointments HOY se salta el gate de consentimiento y el check de rol que dashboard sí
+   aplica — razón de peso propia). PR aparte con redirect permanente.
 2. **"F1 everywhere" (en curso):** ✅ fiscal (F1.5, 2026-07-11, VALIDADO EN VIVO 4/4);
    quedan flujo de dinero → expediente (metadatos), con el playbook de §2. Lectura primero en
    todos los dominios porque es el orden óptimo de riesgo: los errores de lectura son texto;

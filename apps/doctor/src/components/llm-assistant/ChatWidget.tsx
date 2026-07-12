@@ -32,13 +32,13 @@ export function ChatWidget() {
         <button
           onClick={() => setIsOpen(true)}
           className="
-            fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-50
+            fixed bottom-20 right-4 sm:bottom-6 sm:right-6 lg:right-[calc(1.5rem+var(--agent-dock,0px))] z-50
             w-12 h-12 sm:w-14 sm:h-14 rounded-full
             bg-blue-600 hover:bg-blue-700
             text-white shadow-lg hover:shadow-xl
             flex items-center justify-center
             transition-all active:scale-95
-            lg:bottom-6 lg:right-6
+            lg:bottom-6
           "
           title="Asistente de ayuda"
         >
@@ -52,7 +52,7 @@ export function ChatWidget() {
           className="
             fixed z-50
             inset-0 sm:inset-auto
-            sm:bottom-6 sm:right-6
+            sm:bottom-6 sm:right-6 lg:right-[calc(1.5rem+var(--agent-dock,0px))]
             w-full sm:w-[380px]
             h-full sm:h-auto sm:max-h-[600px]
             bg-white sm:rounded-2xl shadow-2xl

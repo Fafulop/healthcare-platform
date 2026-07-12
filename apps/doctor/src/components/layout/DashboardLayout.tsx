@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
+import { useAgentActions } from "@/contexts/AgentContext";
+import { AgendaAgentPanel } from "@/components/agent/AgendaAgentPanel";
 import Sidebar from "./Sidebar";
 import BottomNav from "./BottomNav";
 import MobileDrawer from "./MobileDrawer";
@@ -12,6 +15,7 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { doctorProfile } = useDoctorProfile();
+  const { isOpen: agentOpen, open: openAgent } = useAgentActions();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const handleMoreClick = () => {
@@ -39,6 +43,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
         {children}
       </main>
+
+      {/* Assistant copilot panel — SINGLE mount point (both route trees render
+          this layout). Docked flex sibling on lg+ (main shrinks), fixed
+          overlay/bottom-sheet below lg. State lives in AgentContext (root). */}
+      <AgendaAgentPanel />
+
+      {/* Global open tab — right edge, above the floating-widgets toggle */}
+      {!agentOpen && (
+        <button
+          onClick={openAgent}
+          className="fixed bottom-48 right-0 sm:bottom-40 z-[51]
+            bg-emerald-600 hover:bg-emerald-700 border border-emerald-600 border-r-0 rounded-l-lg shadow-md
+            w-5 h-12 flex items-center justify-center text-white
+            transition-colors"
+          title="Abrir asistente"
+        >
+          <Sparkles className="w-3 h-3" />
+        </button>
+      )}
 
       {/* Mobile Bottom Navigation */}
       <BottomNav onMoreClick={handleMoreClick} isDrawerOpen={isDrawerOpen} />

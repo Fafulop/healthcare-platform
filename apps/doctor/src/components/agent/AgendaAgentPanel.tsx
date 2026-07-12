@@ -1,8 +1,13 @@
 "use client";
 
 /**
- * AgendaAgentPanel — chat panel for the agenda agent (PR 1 reads + PR 2
- * internal-action proposals). Side panel on desktop, bottom sheet on mobile.
+ * AgendaAgentPanel — chat panel for the assistant (PR 1 reads + PR 2
+ * internal-action proposals). Mounted ONCE in DashboardLayout (never
+ * per-page — two mounts would duplicate UI over the shared AgentContext
+ * state): docked side panel on desktop (lg+, the layout shrinks to make
+ * room), fixed overlay on small desktop, bottom sheet on mobile. State
+ * lives in AgentContext (root layout) so the conversation and pending
+ * cards survive navigation.
  *
  * Proposals arrive as ordered cards under the assistant message; the doctor
  * confirms ("Ejecutar plan") or rejects each card. Execution is strictly
@@ -16,7 +21,7 @@ import {
   CheckCircle2, XCircle, CircleSlash, Play,
   CalendarCheck, CalendarClock, UserX, BadgeCheck,
 } from 'lucide-react';
-import { useAgendaAgent, type AgentMessage, type AgendaProposal, type AgentBudget } from '@/hooks/useAgendaAgent';
+import { useAgentActions, useAgentChat, type AgentMessage, type AgendaProposal, type AgentBudget } from '@/contexts/AgentContext';
 
 /** Daily-usage widget: slim bar + percentage. Green → amber (≥70%) → red (≥90%).
  * "Uso de hoy" because the cap resets at midnight (MX), not per conversation. */
@@ -218,23 +223,22 @@ const SUGGESTIONS = [
   'Bloquea mi horario del viernes por la tarde',
 ];
 
-interface AgendaAgentPanelProps {
-  isOpen: boolean;
-  onClose: () => void;
-  /** Called after the executor changed agenda data (refresh the page's views). */
-  onAgendaChanged?: () => void;
-}
-
-export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAgentPanelProps) {
+export function AgendaAgentPanel() {
+  const { isOpen, close } = useAgentActions();
   const {
     messages, loading, executing, budget, refreshBudget,
     sendMessage, clearChat, executeProposals, rejectProposal,
-  } = useAgendaAgent(onAgendaChanged);
+  } = useAgentChat();
+  // Block sending while a plan is executing too: a message sent mid-execution
+  // races the executor's verification turn with a stale history (review finding).
+  const busy = loading || executing;
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
 
-  // Budget is fetched when the panel opens (and updated by every turn's response)
+  // Budget is fetched when the panel opens (and updated by every turn's
+  // response) — NEVER on provider mount: the provider lives in the root
+  // layout and must stay inert on /login and /consent (G1).
   useEffect(() => {
     if (isOpen) refreshBudget();
   }, [isOpen, refreshBudget]);
@@ -247,7 +251,7 @@ export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAge
 
   const handleSend = (value?: string) => {
     const trimmed = (value ?? text).trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || busy) return;
     sendMessage(trimmed);
     setText('');
     inputRef.current?.focus();
@@ -266,7 +270,8 @@ export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAge
     <div
       className="fixed z-[60] flex flex-col shadow-xl bg-white border-t sm:border-t-0 sm:border-l border-gray-200
         inset-x-0 bottom-0 h-[60vh] rounded-t-2xl
-        sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:h-auto sm:w-96 sm:rounded-none"
+        sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:h-auto sm:w-96 sm:rounded-none
+        lg:static lg:shrink-0 lg:shadow-none"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-emerald-50">
@@ -288,7 +293,7 @@ export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAge
             </button>
           )}
           <button
-            onClick={onClose}
+            onClick={close}
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             title="Cerrar"
           >
@@ -355,12 +360,12 @@ export function AgendaAgentPanel({ isOpen, onClose, onAgendaChanged }: AgendaAge
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Escribe tu pregunta…"
-            disabled={loading}
+            disabled={busy}
             className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-50"
           />
           <button
             onClick={() => handleSend()}
-            disabled={!text.trim() || loading}
+            disabled={!text.trim() || busy}
             className="p-2 rounded-xl bg-emerald-600 text-white disabled:opacity-40 hover:bg-emerald-700"
             title="Enviar"
           >

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, ChevronRight, ChevronLeft } from "lucide-react";
 import { DoctorProfileProvider } from "@/contexts/DoctorProfileContext";
+import { useAgentActions } from "@/contexts/AgentContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { GoogleCalendarBanner } from "@/components/GoogleCalendarBanner";
 import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
@@ -38,6 +39,8 @@ export default function DashboardRootLayout({
       redirect("/login");
     },
   });
+
+  const { isOpen: agentOpen } = useAgentActions();
 
   const hasRefreshed = useRef(false);
 
@@ -84,26 +87,30 @@ export default function DashboardRootLayout({
         <GoogleCalendarBanner />
         <DashboardLayout>{children}</DashboardLayout>
 
-        {/* Collapse/expand tab — always visible on the right edge */}
-        <button
-          onClick={toggleWidgets}
-          className="fixed bottom-32 right-0 sm:bottom-24 z-[51]
-            bg-blue-500 hover:bg-blue-600 border border-blue-500 border-r-0 rounded-l-lg shadow-md
-            w-5 h-12 flex items-center justify-center text-white
-            transition-colors"
-          title={widgetsCollapsed ? "Mostrar herramientas" : "Ocultar herramientas"}
-        >
-          {widgetsCollapsed
-            ? <ChevronLeft className="w-3 h-3" />
-            : <ChevronRight className="w-3 h-3" />
-          }
-        </button>
+        {/* --agent-dock shifts the fixed widget stack left of the docked
+            assistant panel on lg+ (widgets consume it in their right-* calc). */}
+        <div style={{ "--agent-dock": agentOpen ? "24rem" : "0px" } as React.CSSProperties}>
+          {/* Collapse/expand tab — always visible on the right edge */}
+          <button
+            onClick={toggleWidgets}
+            className="fixed bottom-32 right-0 sm:bottom-24 lg:right-[var(--agent-dock,0px)] z-[51]
+              bg-blue-500 hover:bg-blue-600 border border-blue-500 border-r-0 rounded-l-lg shadow-md
+              w-5 h-12 flex items-center justify-center text-white
+              transition-colors"
+            title={widgetsCollapsed ? "Mostrar herramientas" : "Ocultar herramientas"}
+          >
+            {widgetsCollapsed
+              ? <ChevronLeft className="w-3 h-3" />
+              : <ChevronRight className="w-3 h-3" />
+            }
+          </button>
 
-        {/* Widget buttons — hidden when collapsed (display:none cascades to fixed children) */}
-        <div className={widgetsCollapsed ? "hidden" : ""}>
-          <VoiceAssistantHubWidget />
-          <DayDetailsWidget />
-          <ChatWidget />
+          {/* Widget buttons — hidden when collapsed (display:none cascades to fixed children) */}
+          <div className={widgetsCollapsed ? "hidden" : ""}>
+            <VoiceAssistantHubWidget />
+            <DayDetailsWidget />
+            <ChatWidget />
+          </div>
         </div>
       </PracticeUIProvider>
     </DoctorProfileProvider>
