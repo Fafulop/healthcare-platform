@@ -290,8 +290,7 @@ export function BookingsSection({
                           FECHA Y HORA <SortIcon column="date" sortColumn={sortColumn} sortDirection={sortDirection} />
                         </button>
                       </th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">EXPEDIENTE</th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">CONTACTO</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">EXPEDIENTE · CONTACTO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">PRECIO</th>
                       <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">
                         <button
@@ -331,13 +330,14 @@ export function BookingsSection({
                           </td>
                           <td className="py-3 px-3">
                             <ExpedienteCell booking={booking} onUpdatePatientLink={onUpdatePatientLink} />
-                          </td>
-                          <td className="py-3 px-3">
-                            <p className="flex items-center gap-1 text-xs text-gray-600">
+                            <p className="flex items-center gap-1 text-xs text-gray-600 mt-1">
                               <Phone className="w-3 h-3" /> {booking.patientPhone}
                             </p>
-                            <p className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
-                              <Mail className="w-3 h-3" /> {booking.patientEmail}
+                            {/* break-all: a long email is one unbreakable word and would
+                                dictate the merged column's min width otherwise */}
+                            <p className="flex items-start gap-1 text-xs text-gray-500 mt-0.5">
+                              <Mail className="w-3 h-3 shrink-0 mt-0.5" />
+                              <span className="break-all">{booking.patientEmail}</span>
                             </p>
                           </td>
                           <td className="py-3 px-3">
