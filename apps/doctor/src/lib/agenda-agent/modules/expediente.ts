@@ -73,9 +73,14 @@ const EXPEDIENTE_TOOLS: AnthropicTool[] = [
 // Helpers
 // -----------------------------------------------------------------------------
 
-const MX_TZ = 'America/Mexico_City';
+/** Calendar day of a date-like field. Medical-records dates (encounterDate,
+ * lastVisitDate, prescriptionDate, followUpDate…) are stored at UTC midnight
+ * from date inputs, and the UI renders their UTC date part (formatDateLong
+ * splits the ISO string) — an MX-timezone rendering shifts them BACK a day
+ * (live-validation finding: expediente said 2024-10-13, UI y find_patient
+ * dicen 2024-10-14). Match the UI: UTC date part. */
 const dayOf = (d: Date | null | undefined) =>
-  d ? d.toLocaleDateString('en-CA', { timeZone: MX_TZ }) : null;
+  d ? d.toISOString().split('T')[0] : null;
 
 /** Age in full years from a @db.Date DOB, against MX today. */
 function ageFrom(dob: Date): number {

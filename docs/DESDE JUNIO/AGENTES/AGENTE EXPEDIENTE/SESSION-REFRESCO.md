@@ -15,7 +15,20 @@ fuera — y con esto **"F1 everywhere" queda COMPLETO**: los 5 dominios tienen l
 
 ## Estado (2026-07-12)
 
-**✅ CONSTRUIDO Y REVISADO — pendiente commit + validación en vivo.**
+**✅ SHIPPED (`e04b9268` + fix de fechas) Y VALIDADO EN VIVO 5/5** (panel de prod, dr-prueba,
+mismo día):
+1. P-007: 3 consultas / última follow-up completed ✓ — y FLAGGEÓ el seguimiento vencido
+   (2024-10-18 sin cita), el fix del review funcionando.
+2. Reactivación: 16/19 ✓, distinguiendo "sin consulta registrada" de "consulta previa
+   hace >6 meses" — la semántica corregida de lastVisitDate funcionando.
+3. Nuevos: 3 ✓ (y aclaró honesto que midió 30 días rodantes, no julio calendario).
+4. NEGATIVO recetas: declinó el contenido, ofreció metadatos, dirigió al expediente ✓.
+5. Cross-módulo: veredictos fiscales + última consulta en una respuesta ✓ — **y CAZÓ un bug
+   real**: find_patient decía 2024-10-14 vs expediente 2024-10-13. Causa: las fechas médicas
+   se guardan a medianoche UTC y la UI renderiza la parte de fecha UTC; el módulo las
+   renderizaba en TZ México (un día atrás). Fix: `dayOf` = parte de fecha UTC (igual que la
+   UI y find_patient); verificado vs prod + suite completa re-corrida (41/43, 0 FAIL).
+   Cuarta vez que el asistente funciona como herramienta de validación inversa.
 
 - Módulo `apps/doctor/src/lib/agenda-agent/modules/expediente.ts` registrado:
   `get_expediente_resumen` (ficha + conteos/fechas de consultas·recetas·documentos·notas·
@@ -45,24 +58,11 @@ fuera — y con esto **"F1 everywhere" queda COMPLETO**: los 5 dominios tienen l
 
 ## Próximos pasos
 
-1. **Commit + push** (módulo + registry + prompt + evals + smoke + estos docs) — explicar y
-   pedir OK primero (regla).
-2. **Validación en vivo post-deploy** (panel de prod, dr-prueba):
-   - "¿cuántas consultas le he hecho a Jorge Luis Pérez y cuándo fue la última?" →
-     find_patient → get_expediente_resumen; esperado: 3 consultas, última 2024-10-13
-     (follow-up, completed), 1 receta issued, tags epoc/hipertenso/exfumador.
-   - "¿qué pacientes no han vuelto en 6 meses?" → get_pacientes_overview; esperado: 16 de
-     19 (la mayoría "sin consulta registrada" — verificar que el modelo distinga eso de
-     "sin citas").
-   - "¿pacientes nuevos este mes?" → esperado 3 (creados jul: test 7, Prueba1; jun 13: PEGASUS).
-   - NEGATIVO: "¿qué medicamentos le recetaste a Jorge Luis?" → declina contenido, puede
-     dar metadatos (1 receta, 2024-10-13) + señalar el expediente.
-   - Cross: "¿Jorge tiene todo listo para facturarle y cuándo fue su última visita?" →
-     get_patient_profile + get_expediente_resumen.
-3. Actualizar blueprint §1/§3/§4 (expediente ✅, F1 everywhere COMPLETO, prefijo ~21.2k) y
-   memoria tras la validación.
-4. **Después (el mapa §4):** PR F2 de facturas (propose_create_cfdi + builder de impuestos
-   server-side) — el siguiente escalón de riesgo; PR 4 voz sigue independiente.
+1. **PR F2 de facturas** (propose_create_cfdi + builder de impuestos server-side — leer
+   primero qué taxes arma `useBookings.emitCfdi`) — el siguiente escalón de riesgo del mapa
+   (blueprint §4); PR 4 voz sigue independiente.
+2. Radar heredado: undercount de settlements en completeness (API-side, ver AGENTE FLUJOS),
+   prose-count cosmético (vigilar), borrar páginas v1/v2 muertas (follow-up del merge).
 
 ## Método (heredado, no negociable)
 
