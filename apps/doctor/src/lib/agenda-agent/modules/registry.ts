@@ -14,8 +14,9 @@ import type { AgentModule } from './types';
 import { agendaModule } from './agenda';
 import { facturasModule } from './facturas';
 import { fiscalModule } from './fiscal';
+import { flujoModule } from './flujo';
 
-export const AGENT_MODULES: AgentModule[] = [agendaModule, facturasModule, fiscalModule];
+export const AGENT_MODULES: AgentModule[] = [agendaModule, facturasModule, fiscalModule, flujoModule];
 
 /** The exact tools array the API receives (reads then proposals, per module). */
 export const ALL_TOOLS = AGENT_MODULES.flatMap((m) => [...m.readTools, ...m.proposalTools]);

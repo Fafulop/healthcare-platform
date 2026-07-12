@@ -220,6 +220,7 @@ const SUGGESTIONS = [
   '¿Tengo citas vencidas?',
   '¿Cuánto ingresé este mes?',
   '¿Quién me debe facturas PPD?',
+  '¿Cómo voy con mi conciliación bancaria?',
   'Bloquea mi horario del viernes por la tarde',
 ];
 
@@ -311,7 +312,7 @@ export function AgendaAgentPanel() {
             <Bot className="w-10 h-10 text-emerald-200 mx-auto" />
             <p className="text-sm text-gray-500">
               Pregúntame sobre tu agenda (citas, disponibilidad, pacientes), tu facturación y
-              cobros, o tus números fiscales del SAT.
+              cobros, tus números fiscales del SAT, o tu flujo de dinero y conciliación bancaria.
             </p>
             <div className="flex flex-col items-center gap-2">
               {SUGGESTIONS.map((s) => (

@@ -467,6 +467,87 @@ async function main() {
         { kind: 'tool-called', name: 'get_guia' },
       ],
     },
+
+    // --- F1 flujo de dinero: módulo flujo (ledger/balance/conciliación) ---
+    {
+      id: 'flujo-status-diagnostico',
+      bitacora: 'F1 flujo — diagnóstico compuesto = get_flujo_status',
+      message: '¿cómo voy con mi conciliación? ¿qué me falta documentar?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_flujo_status' },
+      ],
+    },
+    {
+      id: 'flujo-movimientos-filtrados',
+      bitacora: 'F1 flujo — lista filtrada del ledger = get_movimientos',
+      message: 'muéstrame los gastos de junio en mi flujo de dinero',
+      soft: true,
+      dataDependent: 'con "flujo de dinero" explícito el camino canónico es get_movimientos (no el resumen fiscal)',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_movimientos' },
+      ],
+    },
+    {
+      id: 'flujo-detalle-movimiento',
+      bitacora: 'F1 flujo — detalle/evidencia de un movimiento por ID interno',
+      message: '¿por qué el movimiento EGR-2026-352 está incompleto? ¿qué evidencia le falta?',
+      soft: true,
+      dataDependent: 'EGR-2026-352 existe en prod (dato de prueba EXP-I2, manual $500 + PDF) — los datos de prueba se limpian a veces (EGR-2026-276 fue borrado), soft para que el drift no bloquee pushes',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_movimiento_detail' },
+      ],
+    },
+    {
+      id: 'flujo-conciliacion-bancaria',
+      bitacora: 'F1 flujo — estado de cuenta / sin conciliar = get_conciliacion_bancaria',
+      message: '¿qué movimientos de mis estados de cuenta del banco siguen sin conciliar?',
+      soft: true,
+      dataDependent: 'get_flujo_status también es legítimo para el agregado; el canónico con "estados de cuenta" es get_conciliacion_bancaria',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_conciliacion_bancaria' },
+      ],
+    },
+    {
+      id: 'flujo-no-concilia-negativo',
+      bitacora: 'F1 flujo — NEGATIVO: el agente no concilia/vincula (F1 = solo lectura); dirige a la UI',
+      message: 'concíliame junio: vincula todos los movimientos del banco con mis gastos',
+      soft: true,
+      dataDependent: 'lo duro: CERO propuestas y declinar la ACCIÓN nombrando dónde se hace (puede ofrecer el diagnóstico)',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(Conciliaci|no puedo (conciliar|vincular)|p[áa]gina|interfaz)', flags: 'i' },
+      ],
+    },
+
+    // Cross-dominio nuevos (blueprint §5.2: +2-3 por módulo) — el par confundible
+    // ahora es fiscal (base de efectivo SAT) vs flujo (ledger).
+    {
+      id: 'xdom-balance-vs-fiscal',
+      bitacora: 'blueprint §5.2 — "¿cuánto me quedó?" = ledger (get_balance), no el resumen fiscal',
+      message: '¿cuánto dinero me quedó en junio entre lo que entró y lo que salió?',
+      soft: true,
+      dataDependent: 'el camino canónico es get_balance (regla de desempate del módulo flujo); nombrar la fuente también cuenta',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_balance' },
+      ],
+    },
+    {
+      id: 'xdom-gaste-ambiguo',
+      bitacora: 'blueprint §5.2 — "¿cuánto gasté?" ambiguo entre deducciones (fiscal) y egresos (ledger)',
+      message: '¿cuánto gasté en junio?',
+      soft: true,
+      dataDependent: 'ambas lecturas son legítimas (get_resumen_fiscal deducciones · get_movimientos/get_balance egresos); lo duro: consulta tools, no inventa, y si da cifras dice la fuente',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tools-nonempty' },
+        { kind: 'reply-not-match', pattern: 'no (puedo|tengo (acceso|forma))', flags: 'i' },
+      ],
+    },
   ];
 
   // --- Runner secuencial ---

@@ -450,8 +450,10 @@ const FISCAL_RULES = `## Números fiscales — reglas (SOLO CONSULTA)
   get_sat_cfdis (totales CON IVA por fecha de emisión, incluye PPD sin cobrar); "¿cuánto
   INGRESÉ?" / números para declarar = **get_resumen_fiscal** (subtotales en base de EFECTIVO —
   PPD cuenta al pagarse). Si la pregunta es ambigua y das cifras, di cuál de las dos es.
-- Para gastos/IVA/retenciones mensuales usa **get_resumen_fiscal**; para cobranza de facturas
-  PPD ("¿quién me debe?") usa **get_ppd_cobranza**.
+- Para deducciones/IVA/retenciones mensuales (lo FACTURADO, para declarar) usa
+  **get_resumen_fiscal**; los gastos del día a día (todo el dinero que salió, con o sin
+  factura) viven en el ledger (get_balance/get_movimientos — regla de desempate del módulo
+  de flujo). Para cobranza de facturas PPD ("¿quién me debe?") usa **get_ppd_cobranza**.
 - NUNCA estimes ISR a pagar ni digas si un gasto "es deducible" — reporta los números del
   sistema y señala la pestaña (Declaraciones / Deducciones) para la estimación o clasificación.
 - No des consejo fiscal (régimen óptimo, estrategias de deducción) — eso es del contador; si te
