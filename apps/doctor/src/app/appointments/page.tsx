@@ -198,7 +198,9 @@ export default function AppointmentsPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestión de Citas</h1>
           <p className="text-gray-600 mt-1 text-sm sm:text-base">Crea y gestiona tu disponibilidad</p>
         </div>
-        <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
+        {/* flex-wrap: with the copilot panel docked the row must reflow to a
+            second line instead of forcing the page wider than the viewport */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
           <button
             onClick={() => setReviewLinkModalOpen(true)}
             className="flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"

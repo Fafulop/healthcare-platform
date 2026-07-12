@@ -101,7 +101,7 @@ export function BookingsSection({
       {!bookingsCollapsed && (
         <>
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-2 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => shiftBookingFilterDate(-1)}
