@@ -80,10 +80,11 @@ el prompt se edita en `prompt.ts` o `modules/<dominio>.ts`, NUNCA en `run-turn.t
 
 **Telemetría real (`llm_token_usage`, endpoint `agenda-agent`, 102 turnos):**
 - Volumen de input por turno: p50 **13.8k**, promedio 18.4k, p95 46k, máx 66.7k tokens.
-- Prefijo estático (system + tools): ~13-14k tokens con 24 tools; ~16.1k con los 29 de
-  PR F1.5; **~21.2k con los 36 de los 5 módulos** (2026-07-12: flujo +3.3k — algo arriba
+- Prefijo estático (system + tools): ~13-14k tokens con 24 tools; ~16.1k con los 28 de
+  PR F1.5; **~21.2k con los 35 de los 5 módulos** (2026-07-12: flujo +3.3k — algo arriba
   del presupuesto, podado en review; expediente +1.9k) — medido en evals (turnos sin tools).
-  Presupuesto de referencia: ~2-3k/módulo.
+  Presupuesto de referencia: ~2-3k/módulo. (Corrección 2026-07-12: los conteos "29/34/36"
+  venían inflados +1 desde F1.5; la verdad es `ALL_TOOLS.length` del registry.)
 - Costo real por turno (budget tokens = ponderado por caché): promedio **~12.7k budget tokens
   ≈ $0.04 USD**. Cap diario: 500k budget ≈ $1.50/doctor.
 - Un día de USO INTENSO (la sesión de validación de PR F1: 16 turnos) quemó **41% del cap**.
@@ -113,7 +114,7 @@ cazados: G03 mal atribuido, umbral de $2,000 en efectivo).
 2. **"F1 everywhere" — COMPLETO (código) 2026-07-12:** ✅ fiscal (F1.5, VALIDADO EN VIVO
    4/4); ✅ flujo de dinero (F1 `f1789cc1`, VALIDADO EN VIVO 5/5, docs en `AGENTE FLUJOS/`);
    ✅ expediente (F1 construido+revisado, docs en `AGENTE EXPEDIENTE/` — pendiente su
-   validación en vivo). Total: **36 tools / 5 módulos, prefijo ~21.2k**. Lectura primero en
+   validación en vivo). Total: **35 tools / 5 módulos, prefijo ~21.2k**. Lectura primero en
    todos los dominios porque es el orden óptimo de riesgo: los errores de lectura son texto;
    los de propuesta ejecutan.
 3. **Después: PR F2 de facturas** (propose_create_cfdi + formulario fiscal + builder de

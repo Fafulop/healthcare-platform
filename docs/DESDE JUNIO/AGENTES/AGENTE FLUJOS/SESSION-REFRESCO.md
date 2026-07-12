@@ -36,7 +36,7 @@ reales, cero escrituras. Es el paso "flujo de dinero" de la estrategia **F1 ever
 - Prompt: INTRO capacidad 6, RESILIENCE con el alcance de flujo, `FLUJO_DOMAIN_MODEL` +
   `FLUJO_RULES` (desempates fiscal↔flujo espejeados — también se editó `fiscal.ts` para la
   consistencia). Panel: sugerencia nueva + copy del empty state.
-- Asistente: **34 tools / 4 módulos**; prefijo ~19.4k tokens (+~3.3k).
+- Asistente: **33 tools / 4 módulos** (corregido — ver `00` §1); prefijo ~19.4k tokens (+~3.3k).
 - **Smoke vs prod (read-only)**: 13 shapes OK; cazó 2 bugs pre-push (fuga de TZ en fechas,
   drop silencioso de fecha malformada).
 - **Code-review completo** (regla: lógica replicada + contenido que afirma hechos = review

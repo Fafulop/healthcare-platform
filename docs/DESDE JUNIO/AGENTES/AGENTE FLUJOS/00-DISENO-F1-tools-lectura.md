@@ -15,7 +15,9 @@ ignorar/subir estados de cuenta siguen siendo de la UI. Las acciones asistidas s
 diseño ya existe (`../../flujo de dinero permutaciones/06-agente-motor4-diseno.md`: niveles de
 autonomía server-side, tabla de propuestas, reversibilidad como habilitador).
 
-Con este módulo el asistente queda en **34 tools / 4 módulos**; prefijo estático ~19.4k tokens
+Con este módulo el asistente queda en **33 tools / 4 módulos** (corrección 2026-07-12: los
+conteos históricos "29/34" venían inflados +1 desde F1.5; el real es `ALL_TOOLS` del
+registry); prefijo estático ~19.4k tokens
 (+~3.3k, un poco arriba del presupuesto de 2-3k/módulo del blueprint — se podó lo redundante
 en el review; siguiente palanca si muerde: blueprint §5.3 nivel 1).
 

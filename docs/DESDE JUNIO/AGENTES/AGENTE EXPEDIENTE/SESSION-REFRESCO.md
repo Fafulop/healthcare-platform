@@ -36,7 +36,8 @@ mismo día):
   `get_pacientes_overview` (totales por estatus, nuevos, reactivación, tags).
 - Prompt: INTRO capacidad 7, RESILIENCE (metadatos SÍ / contenido NO), domain model con la
   semántica REAL de última consulta (encounters, no citas), reglas con reparto de tools.
-- Asistente: **36 tools / 5 módulos**; prefijo ~21.2k (+~1.9k, dentro de presupuesto).
+- Asistente: **35 tools / 5 módulos** (conteo real de `ALL_TOOLS`); prefijo ~21.2k (+~1.9k,
+  dentro de presupuesto).
 - Smoke vs prod: 9 shapes + **tripwire de privacidad** (escanea el output por campos
   clínicos) — limpio en expediente rico (P-007) y vacío.
 - Review privacidad+correctness: 6 hallazgos, 6 corregidos (detalle en `00` §5) — el gordo:
