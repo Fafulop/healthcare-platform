@@ -32,8 +32,8 @@ al agregar un módulo.
 | agenda | ✅ vivo (PR 1-3 + hardening) | horarios, citas, disponibilidad, propuestas de citas/rangos/bloqueos |
 | facturas/pagos | ✅ lectura viva (PR F1 + F1.5) | billing status, CFDIs (dual plataforma/SAT), fiscal, links de pago, estado de pasarelas, guías curadas (get_guia) |
 | fiscal | ✅ lectura construida (PR F1.5, 2026-07-11) | resumen mensual base de efectivo (ingresos/gastos/IVA/retenciones), cobranza PPD — frontera E7: nunca calcula ISR |
-| flujo de dinero | ⬜ candidato F1 | movimientos del ledger, totales, conciliación (estado, no acciones) |
-| expediente | ⬜ candidato F1 | SOLO metadatos + demográficos/fiscales — contenido clínico es otro tier de privacidad |
+| flujo de dinero | ✅ lectura viva (F1, 2026-07-12, validado 5/5) | movimientos del ledger, balance, detalle+evidencia, conciliación bancaria (estado, no acciones) — ver `AGENTE FLUJOS/` |
+| expediente | ✅ lectura construida (F1, 2026-07-12, pendiente validación en vivo) | SOLO metadatos + demográficos (conteos/fechas de consultas·recetas·documentos, cartera/reactivación) — contenido clínico estructuralmente fuera; ver `AGENTE EXPEDIENTE/` |
 | voz | ⬜ PR 4 (independiente) | entrada por voz al mismo asistente |
 
 Con PR F1.5 las tres páginas /facturacion, /sat-descarga y /pagos quedaron con **cobertura de
@@ -80,9 +80,10 @@ el prompt se edita en `prompt.ts` o `modules/<dominio>.ts`, NUNCA en `run-turn.t
 
 **Telemetría real (`llm_token_usage`, endpoint `agenda-agent`, 102 turnos):**
 - Volumen de input por turno: p50 **13.8k**, promedio 18.4k, p95 46k, máx 66.7k tokens.
-- Prefijo estático (system + tools): ~13-14k tokens con 24 tools; **~16.1k con los 29 de
-  PR F1.5** (3 módulos) — medido en evals (turnos sin tools), +2.1k por el módulo fiscal +
-  guías, dentro del presupuesto de ~2-3k/módulo.
+- Prefijo estático (system + tools): ~13-14k tokens con 24 tools; ~16.1k con los 29 de
+  PR F1.5; **~21.2k con los 36 de los 5 módulos** (2026-07-12: flujo +3.3k — algo arriba
+  del presupuesto, podado en review; expediente +1.9k) — medido en evals (turnos sin tools).
+  Presupuesto de referencia: ~2-3k/módulo.
 - Costo real por turno (budget tokens = ponderado por caché): promedio **~12.7k budget tokens
   ≈ $0.04 USD**. Cap diario: 500k budget ≈ $1.50/doctor.
 - Un día de USO INTENSO (la sesión de validación de PR F1: 16 turnos) quemó **41% del cap**.
@@ -109,8 +110,10 @@ cazados: G03 mal atribuido, umbral de $2,000 en efectivo).
    `/dashboard/appointments` (13 refs en 8 archivos, sin enlaces externos; además el árbol
    appointments HOY se salta el gate de consentimiento y el check de rol que dashboard sí
    aplica — razón de peso propia). PR aparte con redirect permanente.
-2. **"F1 everywhere" (en curso):** ✅ fiscal (F1.5, 2026-07-11, VALIDADO EN VIVO 4/4);
-   quedan flujo de dinero → expediente (metadatos), con el playbook de §2. Lectura primero en
+2. **"F1 everywhere" — COMPLETO (código) 2026-07-12:** ✅ fiscal (F1.5, VALIDADO EN VIVO
+   4/4); ✅ flujo de dinero (F1 `f1789cc1`, VALIDADO EN VIVO 5/5, docs en `AGENTE FLUJOS/`);
+   ✅ expediente (F1 construido+revisado, docs en `AGENTE EXPEDIENTE/` — pendiente su
+   validación en vivo). Total: **36 tools / 5 módulos, prefijo ~21.2k**. Lectura primero en
    todos los dominios porque es el orden óptimo de riesgo: los errores de lectura son texto;
    los de propuesta ejecutan.
 3. **Después: PR F2 de facturas** (propose_create_cfdi + formulario fiscal + builder de

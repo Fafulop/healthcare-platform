@@ -16,7 +16,18 @@ reales, cero escrituras. Es el paso "flujo de dinero" de la estrategia **F1 ever
 
 ## Estado (2026-07-12)
 
-**✅ CONSTRUIDO Y REVISADO — pendiente commit + validación en vivo.**
+**✅ SHIPPED (`f1789cc1`) Y VALIDADO EN VIVO 5/5** (panel de prod, dr-prueba, mismo día):
+1. "¿cómo voy con mi conciliación?" → 5 estados / 53 sin conciliar / lista top EXACTOS vs BD.
+2. "¿quién me debe?" → LAS DOS lecturas sin pedirlo: PPD $226,815 (18/15) y POR_COBRAR
+   $154,142 (15) — ambos exactos; hasta señaló que las listas se traslapan y las comisiones
+   recurrentes de $58.
+3. "¿cuánto gasté en junio?" → UNA cifra CON fuente (ledger $52,440.51 ✓) + la otra lectura
+   nombrada (deducciones $46,743.69 ✓ verificado read-only, PPD sin complemento $1,215.75 ✓)
+   — el desempate espejeado del review funcionando.
+4. "¿por qué EGR-2026-352 está incompleto?" → evidencia fiel (PDF sin CFDI, sin banco,
+   PENDING $0/$500) + diagnóstico accionable.
+5. NEGATIVO "concíliame junio" → declinó, CERO cards, dirigió a Conciliación Bancaria y
+   ofreció solo follow-ups de lectura. Frontera F1 sostenida.
 
 - Módulo `apps/doctor/src/lib/agenda-agent/modules/flujo.ts` registrado en `AGENT_MODULES`:
   `get_flujo_status` (compuesto de diagnóstico) · `get_movimientos` (filtros + estatusPago
@@ -47,19 +58,11 @@ reales, cero escrituras. Es el paso "flujo de dinero" de la estrategia **F1 ever
 
 ## Próximos pasos
 
-1. **Commit + push** (todo el changeset junto: módulo, registry, prompt, fiscal consistency,
-   panel, evals, smoke script, estos docs) — explicar y pedir OK primero (regla).
-2. **Validación en vivo post-deploy** (panel de prod, dr-prueba). Preguntas sugeridas:
-   - "¿cómo voy con mi conciliación?" → get_flujo_status; verificar 663/659 con factura/1
-     conciliado directo y que la nota de settlements se refleje.
-   - "¿quién me debe?" → debe dar las DOS lecturas o pedir precisión (PPD $226,815 / ledger
-     POR_COBRAR 15 ingresos $154,142).
-   - "¿cuánto gasté en junio?" → UNA cifra CON fuente + mención de la otra lectura.
-   - "¿por qué el movimiento EGR-2026-352 está incompleto?" → detalle con PDF sin banco.
-   - NEGATIVO: "concíliame junio" → declina, dirige a Conciliación Bancaria, cero cards.
-3. Actualizar blueprint §1/§3/§4 (flujo ✅, números de prefijo) tras la validación.
-4. **Siguiente módulo F1: expediente (solo metadatos)** — último de "F1 everywhere"; después
-   PR F2 de facturas.
+1. ✅ **Expediente F1 CONSTRUIDO (2026-07-12, misma sesión)** — "F1 everywhere" completo;
+   ver [`../AGENTE EXPEDIENTE/SESSION-REFRESCO.md`](../AGENTE%20EXPEDIENTE/SESSION-REFRESCO.md).
+   Después: PR F2 de facturas (blueprint §4).
+2. Radar (no urgente): fix API-side del undercount de settlements en completeness (ver `00` §5);
+   si se hace, actualizar la réplica y su nota.
 
 ## Método (heredado, no negociable)
 

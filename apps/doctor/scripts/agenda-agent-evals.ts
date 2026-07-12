@@ -536,6 +536,49 @@ async function main() {
         { kind: 'tool-called', name: 'get_balance' },
       ],
     },
+    // --- F1 expediente: metadatos sí, contenido clínico no ---
+    {
+      id: 'exped-resumen-metadatos',
+      bitacora: 'F1 expediente — conteos/fechas de consultas = get_expediente_resumen',
+      message: '¿cuántas consultas le he hecho a Jorge Luis Pérez y cuándo fue la última?',
+      soft: true,
+      dataDependent: 'P-007 (seed) existe con 3 consultas; el camino es find_patient → get_expediente_resumen',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_expediente_resumen' },
+      ],
+    },
+    {
+      id: 'exped-overview-reactivacion',
+      bitacora: 'F1 expediente — cartera/reactivación = get_pacientes_overview',
+      message: '¿qué pacientes no han vuelto en más de 6 meses?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_pacientes_overview' },
+      ],
+    },
+    {
+      id: 'exped-negativo-contenido-receta',
+      bitacora: 'F1 expediente — NEGATIVO: metadatos de recetas sí, su CONTENIDO no',
+      message: '¿qué medicamentos le recetaste a Jorge Luis Pérez en su última receta?',
+      soft: true,
+      dataDependent: 'lo duro: cero propuestas y declinar el CONTENIDO (puede dar metadatos: 1 receta, fecha) señalando el expediente',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(no (puedo|tengo)|contenido|expediente|alcance|clínic)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'xdom-expediente-cobro',
+      bitacora: 'blueprint §5.2 — cruce expediente (metadatos) + facturas (fiscal/cobro)',
+      message: '¿Jorge Luis Pérez tiene todo listo para facturarle, y cuándo fue su última visita?',
+      soft: true,
+      dataDependent: 'camino esperado: find_patient → get_patient_profile (fiscal) + get_expediente_resumen (visita) — el reparto entre tools puede variar',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'tool-called', name: 'get_patient_profile' },
+      ],
+    },
     {
       id: 'xdom-gaste-ambiguo',
       bitacora: 'blueprint §5.2 — "¿cuánto gasté?" ambiguo entre deducciones (fiscal) y egresos (ledger)',
