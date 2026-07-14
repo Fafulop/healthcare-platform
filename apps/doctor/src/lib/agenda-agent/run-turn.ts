@@ -112,11 +112,25 @@ export interface AgendaTurnInput {
   conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
 }
 
+/** A tool that threw during the turn (audit A2). The model only sees a generic
+ * `{error}` and recovers gracefully, so without surfacing these the failure is
+ * invisible server-side. Error IDENTITY only — never tool inputs or results.
+ * run-turn stays DB-write-free (the eval runner shares it): the route persists
+ * these; evals print them. */
+export interface ToolErrorRecord {
+  tool: string;
+  errorName: string | null;
+  errorCode: string | null;
+  /** Truncated to 500 chars. */
+  message: string | null;
+}
+
 export interface AgendaTurnResult {
   reply: string;
   toolsUsed: string[];
   /** Every tool invocation with its input, in call order (eval assertions). */
   toolCalls: { name: string; input: Record<string, unknown> }[];
+  toolErrors: ToolErrorRecord[];
   proposals: AgendaProposal[];
   /** inputTokens = FULL context volume (uncached + cache writes + cache reads);
    * the cache fields expose how much of it was billed at ~0.1× (reads) /
@@ -160,6 +174,7 @@ export async function runAgendaAgentTurn({
   const system: SystemBlock[] = buildSystem();
   const toolsUsed: string[] = [];
   const toolCalls: { name: string; input: Record<string, unknown> }[] = [];
+  const toolErrors: ToolErrorRecord[] = [];
   let totalInput = 0;
   let totalOutput = 0;
   let cacheRead = 0;
@@ -232,6 +247,21 @@ export async function runAgendaAgentTurn({
         results.push({ type: 'tool_result' as const, tool_use_id: tu.id, content: serializeToolResult(result) });
       } catch (err: any) {
         console.error(`[agenda-agent] tool ${tu.name} failed:`, err);
+        // For $queryRaw failures Prisma reports code='P2010' with the driver
+        // SQLSTATE in meta.code — keep BOTH ("P2010/42883"): P2010 alone
+        // collapses every raw-query error into one undiagnosable bucket.
+        const prismaCode = typeof err?.code === 'string' ? err.code : null;
+        const driverCode = typeof err?.meta?.code === 'string' ? err.meta.code : null;
+        toolErrors.push({
+          tool: tu.name,
+          errorName: typeof err?.name === 'string' ? err.name.slice(0, 100) : null,
+          errorCode:
+            (prismaCode === 'P2010' && driverCode
+              ? `${prismaCode}/${driverCode}`
+              : (prismaCode ?? driverCode)
+            )?.slice(0, 40) ?? null,
+          message: typeof err?.message === 'string' ? err.message.slice(0, 500) : null,
+        });
         results.push({
           type: 'tool_result' as const,
           tool_use_id: tu.id,
@@ -269,6 +299,7 @@ export async function runAgendaAgentTurn({
     reply: reply || 'Sin respuesta',
     toolsUsed,
     toolCalls,
+    toolErrors,
     proposals: collector.proposals,
     usage: {
       inputTokens: totalInput,

@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
+import { logToolErrors } from '@/lib/ai/log-tool-errors';
 import { prisma } from '@healthcare/database';
 import { isAnthropicConfigured } from '@/lib/agenda-agent/anthropic';
 import { runAgendaAgentTurn, MODEL } from '@/lib/agenda-agent/run-turn';
@@ -136,6 +137,11 @@ export async function POST(request: NextRequest) {
       },
       budgetTokens: turn.usage.budgetTokens,
     });
+
+    // Audit A2: persist tool failures (the model handles them gracefully, so
+    // they're invisible without this). Fire-and-forget — never blocks or
+    // fails the reply. Error identity only, no data payloads.
+    logToolErrors({ doctorId, endpoint: 'agenda-agent', errors: turn.toolErrors });
 
     console.log(
       `[agenda-agent] doctor=${doctorId} tools=[${turn.toolsUsed.join(',')}] tokens=${turn.usage.inputTokens + turn.usage.outputTokens} budget=${turn.usage.budgetTokens} cacheRead=${turn.usage.cacheReadTokens} cacheWrite=${turn.usage.cacheWriteTokens}`

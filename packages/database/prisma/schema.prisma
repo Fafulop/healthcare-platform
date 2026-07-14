@@ -260,6 +260,7 @@ model Doctor {
 
   // LLM Usage Tracking
   llmTokenUsages     LlmTokenUsage[]
+  agentToolErrors    AgentToolError[]
 
   // Facturacion (CFDI)
   fiscalProfile      DoctorFiscalProfile?
@@ -2467,6 +2468,33 @@ model LlmTokenUsage {
   @@index([doctorId, createdAt])
   @@index([createdAt])
   @@map("llm_token_usage")
+  @@schema("public")
+}
+
+// Assistant tool failures (audit A2). When a tool throws, the model receives a
+// generic {error} and recovers gracefully — so failures are invisible without
+// this log (the mp_payment_preferences enum bug lived in prod unseen until an
+// eval tripped it). Rows carry error IDENTITY only, never tool inputs/results.
+// Reviewed manually (weekly query by tool/createdAt); alerting only if volume
+// ever demands it.
+model AgentToolError {
+  id        String   @id @default(cuid())
+  doctorId  String   @map("doctor_id")
+  endpoint  String   @db.VarChar(100) // "agenda-agent" today; future surfaces share the table
+  tool      String   @db.VarChar(100)
+  errorName String?  @map("error_name") @db.VarChar(100) // e.g. "PrismaClientKnownRequestError"
+  errorCode String?  @map("error_code") @db.VarChar(40)  // e.g. "P2010", "42883"
+  // Truncated server-side (500 chars). Error messages surface column names,
+  // query shapes and at worst model-supplied tool inputs — never database
+  // result rows, so no patient data payloads land here.
+  message   String?  @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([doctorId])
+  @@map("agent_tool_errors")
   @@schema("public")
 }
 

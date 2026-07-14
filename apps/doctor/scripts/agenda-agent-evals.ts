@@ -655,6 +655,12 @@ async function main() {
       if (c.dataDependent) console.log(`   (data-dependent: ${c.dataDependent})`);
       console.log(`   reply: ${turn.reply.slice(0, 300).replace(/\n/g, ' ')}`);
     }
+    // Tool failures the model recovered from gracefully (a PASS can hide a
+    // broken tool — the mp status enum bug did exactly that). Same records the
+    // route persists to agent_tool_errors in prod (audit A2).
+    for (const te of turn.toolErrors) {
+      console.log(`   ⚠ tool error: ${te.tool} — ${te.errorName ?? '?'}${te.errorCode ? ` [${te.errorCode}]` : ''}: ${(te.message ?? '').slice(0, 160).replace(/\n/g, ' ')}`);
+    }
 
     results.push({
       id: c.id,
