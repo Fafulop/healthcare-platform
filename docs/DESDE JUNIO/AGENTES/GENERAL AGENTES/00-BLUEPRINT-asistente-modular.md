@@ -165,9 +165,13 @@ de cada push, y las secciones compartidas (INTRO/RESILIENCE) como único punto d
    `xdom-cita-a-factura`); regla: +2-3 por módulo nuevo. **El primero encontró un bug latente
    de prod EN SU PRIMERA CORRIDA** (mp_payment_preferences.status TEXT vs enum → filtros
    tronaban; migración aplicada) — evidencia directa de que esta clase de eval paga.
-4. **Métrica de vigilancia sin alerta**: `llm_token_usage.budget_tokens` existe; falta mirar
-   p50/turno y tools/turno tras cada módulo nuevo (a mano basta por ahora — si el p50 sube
-   >20% tras un módulo, sus descripciones necesitan poda).
+4. ✅ **MEDIDO (A4, 2026-07-14)** — `llm_token_usage.budget_tokens` re-consultado tras
+   flujo+expediente: p50/turno +11.6% (no dispara el umbral de +20%), aperturas frías
+   24.4k–33.3k budget (como proyectaba §5.1a), peor día real 40.7% del cap → nivel 0 se
+   mantiene. Sigue siendo revisión a mano tras cada módulo nuevo; resultados y caveat
+   (todo es dr-prueba aún) en `03-PLAN-auditoria-integral.md` A4. Además **A2 shipped**
+   (`8a27e469`): los errores de tools ahora se persisten en `agent_tool_errors` — la
+   observabilidad que faltaba para que una tool rota no viva semanas invisible.
 
 ### 5.3 La escalera de opciones si "F1 everywhere" empieza a dar problemas
 

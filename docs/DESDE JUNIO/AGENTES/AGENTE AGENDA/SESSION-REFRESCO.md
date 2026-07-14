@@ -305,6 +305,17 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
   (42883); migración `fix-mp-preference-status-enum.sql` APLICADA A PROD y verificada.
   **La suite ahora es de 26 casos** (22 PASS + 4 WARN soft esperables, 0 FAIL); el baseline
   "19/19" de las notas de arriba es histórico.
+- `8a27e469` **feat: A2 auditoría — log server-side de errores de tools** (2026-07-14,
+  `../GENERAL AGENTES/03` A2): cuando una tool truena el modelo recibe `{error}` genérico y
+  se recupera → los fallos eran invisibles. Ahora run-turn devuelve `toolErrors` (identidad
+  del error, SIN payloads; run-turn sigue sin escrituras a BD) y el route persiste vía
+  `logToolErrors` (lib/ai) a la tabla nueva `agent_tool_errors` (SQL aplicado a prod +
+  smoke-testeado). El eval runner IMPRIME tool errors aunque el caso pase. Review medium:
+  1 CONFIRMED corregido (errorCode preserva SQLSTATE del driver: "P2010/42883" — P2010 solo
+  colapsaba toda falla raw en un bucket). Query semanal: group by tool/error_code sobre 7d.
+  Mismo día: **A4 re-medición de costo** (read-only, sin código) — p50/turno +11.6% tras
+  flujo+expediente (umbral +20% NO disparado), frías 24.4k–33.3k, peor día 40.7% del cap →
+  nivel 0 se mantiene; resultados en `../GENERAL AGENTES/03` A4. Siguen A3+A5, luego A6.
 
 ---
 

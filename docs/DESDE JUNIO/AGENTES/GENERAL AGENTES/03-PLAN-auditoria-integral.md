@@ -1,9 +1,13 @@
 # 🔍 Plan — Auditoría integral del asistente
 
-> Plan (nada ejecutado) para verificar que el asistente es **correcto, consistente, seguro y
+> Plan para verificar que el asistente es **correcto, consistente, seguro y
 > costo-óptimo** ahora que "F1 everywhere" está completo (5 módulos / 35 tools, todo validado
 > en vivo). Diseñado 2026-07-12. Es el paso previo recomendado antes de F2 (las propuestas
 > suben el riesgo — auditar la base primero).
+>
+> **ESTADO 2026-07-14:** orden re-acordado **A2 → A4 → A3+A5 → A6** (A4 promovido: barato y
+> su resultado puede reordenar el resto). **A2 ✅ shipped** (`8a27e469`) · **A4 ✅ hecho**
+> (ninguna señal disparada) · quedan A3+A5 (una sesión read-only vs prod) y A6 (antes de F2).
 >
 > **Contexto:** las disciplinas por módulo ya existen y probaron valor (reviews de
 > réplica+hechos: 19+ hallazgos corregidos; smoke vs prod; 43 evals; validación en vivo con
@@ -32,7 +36,7 @@ el radar legal (memoria `project_legal_compliance`), nadie ha respondido formalm
 trabajo legal+técnico, no de código. Nota: el asistente NO persiste conversaciones (G10) —
 eso es un PLUS de privacidad; documentarlo como decisión, no como pendiente.
 
-## A2 — Observabilidad de errores de tools (barato, permanente)
+## A2 — Observabilidad de errores de tools (barato, permanente) — ✅ HECHO (`8a27e469`, 2026-07-14)
 
 **El hueco:** cuando una tool falla en prod, el error va AL MODELO como `{error}` y el
 modelo lo maneja con gracia → **los fallos son invisibles para nosotros**. El bug del enum
@@ -43,6 +47,16 @@ rota podría estar semanas rota sin señal.
 loggear server-side cada tool result que sea `{error}` (tool, tipo de error, doctorId,
 timestamp — SIN payload de datos). Revisión: a mano por ahora (query semanal); alerta
 después si el volumen lo pide. ~1 archivo tocado, cero cambio de comportamiento del agente.
+
+**Cómo quedó (`8a27e469`):** run-turn captura `toolErrors` (identidad del error; SIN
+payloads) y sigue sin escrituras a BD (el eval runner lo comparte y ahora IMPRIME los
+errores aunque el caso pase); el route persiste vía `logToolErrors` (lib/ai, hermano de
+logTokenUsage) a la tabla nueva `agent_tool_errors` (SQL idempotente aplicado a prod +
+smoke-testeado 2026-07-14). `errorCode` preserva el SQLSTATE del driver en raw queries
+("P2010/42883") — hallazgo del review: P2010 solo colapsaba toda falla raw en un bucket.
+Query semanal: `SELECT tool, error_code, count(*) FROM agent_tool_errors WHERE created_at
+> now() - interval '7 days' GROUP BY 1,2;`. Follow-up aceptado: sin job de retención
+(deuda compartida con llm_token_usage).
 
 ## A3 — Matriz de consistencia: tool-vs-tool Y tool-vs-UI
 
@@ -65,7 +79,7 @@ Método: read-only contra prod (dr-prueba), documentar cada divergencia como (a)
 diferencia by-design que el tool debe DECLARAR, o (c) ya declarada. El undercount de
 settlements (API-side, ya documentado) es el primer renglón conocido.
 
-## A4 — Re-medición de costo (las señales del blueprint §5.3, nunca re-medidas)
+## A4 — Re-medición de costo (las señales del blueprint §5.3, nunca re-medidas) — ✅ HECHO 2026-07-14: ninguna señal disparada, quedarse en nivel 0
 
 **El hueco:** flujo+expediente agregaron ~5k de prefijo (~16.1k → ~21.2k) y las señales de
 escalamiento del blueprint (p50 budget/turno +20% tras un módulo, piso de pregunta fría,
@@ -76,6 +90,20 @@ vs después de los 2 módulos nuevos; tools/turno; costo de pregunta fría real 
 + output ≈ ¿~28k budget? → ¿cuántas preguntas frías/día caben en el cap de 500k?). Si el
 p50 subió >20% o el piso frío preocupa: aplicar nivel 1 (poda de descripciones — hay grasa
 identificada — y/o TTL de caché de 1h) ANTES de F2.
+
+**Resultados (2026-07-14, read-only vs prod; n=41 turnos con budget_tokens, TODOS de
+dr-prueba — aún no hay señal de doctores reales):**
+
+| Señal §5.3 | Umbral | Medido | Veredicto |
+|---|---|---|---|
+| (b) p50 budget/turno tras módulos | +20% | 10,014 → 11,175 (**+11.6%**) | ✅ no dispara |
+| pregunta fría real | ~28k proyectado | aperturas frías observadas: 24.4k–33.3k budget | ✅ como lo proyectó el blueprint (~15-20 frías/día caben en el cap) |
+| (c) cap diario en uso real | cap corto | peor día real: **40.7%** del cap (16 turnos, validación intensa) | ✅ headroom ~2.5× |
+
+Notas: p95 sí subió 26.1k → 32.5k (+24%) — es el write frío del prefijo más grande, el
+costo esperado del patrón esporádico; la palanca si muerde con doctores reales es TTL 1h
+(nivel 1), no poda. avg +4.4%. Volumen crudo p50 33.9k → 40.8k. **Decisión: nivel 0 se
+mantiene; nada que podar antes de F2. Re-medir cuando haya uso de doctores reales.**
 
 ## A5 — Higiene de evals (soft-rot y el gate)
 
@@ -109,9 +137,9 @@ en profundidad, no la única línea.
 | # | Qué | Esfuerzo | Cuándo |
 |---|---|---|---|
 | A1 | ~~PHI/compliance memo~~ | — | ❌ descartado (decisión usuario) |
-| A2 | log de tool errors | ~1 archivo | YA (barato, permanente) |
+| A2 | log de tool errors | ~1 archivo | ✅ hecho (`8a27e469`, 2026-07-14) |
 | A3 | matriz de consistencia | 1 sesión read-only vs prod | antes de F2 |
-| A4 | re-medición de costo | queries a telemetría | antes de F2 |
+| A4 | re-medición de costo | queries a telemetría | ✅ hecho 2026-07-14 (ninguna señal disparada; nivel 0 se mantiene) |
 | A5 | higiene de evals | 1 pasada | con A3 |
 | A6 | sondas de inyección | datos de prueba + ~3 evals | antes de F2 (F2 ejecuta) |
 
