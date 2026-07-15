@@ -78,12 +78,15 @@ corpus chico (~12 temas) donde retrieval es puro overhead — detalle y respaldo
 - **Diagnóstico de appointments:** ✅ hecho (`04`) — 9/12 ya bien, la frontera estado→tools se
   sostuvo, el único hueco es navegación de UI (a veces improvisa). El destino "rutear" (CitasGuide)
   YA existe.
-- **PR de appointments: ✅ CONSTRUIDO Y VALIDADO** (2026-07-14, uncommitted) — guardarraíl en
-  `RESILIENCE` + 3 evals `kl-*`, suite 48/49 PASS · 0 FAIL; el click-path improvisado del
-  diagnóstico desapareció, el concepto se sigue hablando. Detalle en
+- **PR de appointments: ✅ SHIPPED + VALIDADO EN VIVO EN PROD** (2026-07-14, `a9e57907`+`5ac3d4ca`)
+  — guardarraíl en `RESILIENCE` + 3 evals `kl-*`, suite 48/49 PASS · 0 FAIL; validado en prod por
+  el usuario (concepto se habla, UI-nav se rutea sin improvisar). Detalle en
   [`05-PLAN-appointments-PR.md`](05-PLAN-appointments-PR.md) §9. Sin corpus, sin tool nueva, sin
   que el agente LEA guías (route-first — la fuente-única quedó parqueada por riesgo de alucinación,
   `05` §6.1).
+- **Siguiente:** extender el mismo guardarraíl/guías a más secciones (Expedientes ya tiene guía
+  viva; `PagosGuide` está construida pero SIN enganchar; mi-perfil y otras = one-liners) **o**
+  facturas PR F2 (el siguiente original del blueprint). Ninguno bloquea al otro.
 - **Preocupación #1 (cómo sabe el agente cuándo usar conocimiento vs tools):** ver `02`. El
   diagnóstico confirmó que la frontera ya se sostiene en appointments.
 

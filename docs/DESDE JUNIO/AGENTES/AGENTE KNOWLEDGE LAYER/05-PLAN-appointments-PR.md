@@ -148,8 +148,11 @@ inexistente hoy — NO relacionado a este cambio). Réplicas verificadas en vivo
 - `kl-concepto-no-sobre-rutea`: el flujo de reagendar se sigue HABLANDO completo desde el modelo
   de dominio, sin deflectar a la guía — el carve-out se sostiene.
 
-Type-check ✓. Pendiente: commit (2 commits: `feat` prompt+evals, `docs` este folder) + bump del
-conteo a 49 en `02-CAPACIDADES`.
+Type-check ✓. **SHIPPED** (`a9e57907` prompt+evals · `5ac3d4ca` docs) y **VALIDADO EN VIVO EN
+PROD** por el usuario 2026-07-14: (1) "¿cómo funciona reagendar?" → explicó el flujo completo
+sin deflectar (concepto se HABLA); (2) "¿cómo creo un horario paso a paso en la app?" → declinó
+inventar clicks, ofreció hacerlo por chat y dirigió al Centro de ayuda — el click-path improvisado
+del diagnóstico DESAPARECIÓ. Ambas mitades confirmadas en prod.
 
 ---
 
