@@ -110,6 +110,8 @@ export interface AgendaTurnInput {
   doctorSlug: string;
   message: string;
   conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
+  /** Bearer for apps/api authenticated endpoints — see ToolContext.apiToken. */
+  apiToken?: string | null;
 }
 
 /** A tool that threw during the turn (audit A2). The model only sees a generic
@@ -158,8 +160,9 @@ export async function runAgendaAgentTurn({
   doctorSlug,
   message,
   conversationHistory = [],
+  apiToken = null,
 }: AgendaTurnInput): Promise<AgendaTurnResult> {
-  const ctx: ToolContext = { doctorId, doctorSlug };
+  const ctx: ToolContext = { doctorId, doctorSlug, apiToken };
   const collector = new ProposalCollector();
   const proposalCtx = { doctorId, doctorSlug, collector };
 

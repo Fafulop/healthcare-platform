@@ -12,10 +12,12 @@
 
 ## En una frase
 
-El agente de agenda se expande a **UN asistente con módulos por dominio** (decisión de `00`:
-NO agentes que se hablan). **El sustrato está CERRADO** (huecos H1/H2/H7/H8/H10 arreglados y
-desplegados — el grafo del ingreso converge a la verdad en cualquier orden) y **el refactor de
-módulos está HECHO** (byte-idéntico, evals 19/19). **Siguiente: PR F1 — los tools de LECTURA.**
+El agente de agenda se expande a **UN asistente con módulos por dominio** (decisión de `00`,
+RE-CONFIRMADA 2026-07-15 en `05-ANALISIS` frente a la alternativa de un agente especializado).
+Sustrato cerrado, F1+F1.5 validados en vivo, y **F2a (experto en facturas, solo lectura:
+catálogos SAT grounded + barrido de pendientes + conocimiento) CONSTRUIDO 2026-07-15** con
+suite 56 en verde. **Siguiente: push/deploy de F2a → validación en vivo → PR F2b
+(propose_create_cfdi).**
 
 ## Mapa de documentos
 
@@ -175,9 +177,14 @@ money model.
    recomendaciones grounded; la fórmula de impuestos vive en el FORM de /facturacion (NO en
    useBookings.emitCfdi — la nota vieja era stale); Facturama apunta a SANDBOX en prod
    (intencional, confirmado). Secuencia aprobada:
-   - **PR F2a — experto solo-lectura:** `search_catalogo_sat` + `get_pendientes_factura`
-     (hasFactura×requiereFactura) + conocimiento (prompt corto + get_guia; fuente
-     `06-KNOWLEDGE-BASE`).
+   - **PR F2a — experto solo-lectura: ✅ CONSTRUIDO 2026-07-15** (`07-PLAN` §10):
+     `search_catalogo_sat` (token de API minteado por turno — `api-token.ts`) +
+     `get_pendientes_factura` (paridad EXACTA verificada vs prod) + conocimiento
+     (domainRules + GUIAS.claves_y_reglas_cfdi). **Bug de sustrato cazado por el smoke:**
+     los catálogos de Facturama estaban ROTOS en prod (`/api-lite/catalogs/*` → 200 vacío;
+     fix a `/catalogs/*` + `FiscalRegimens` en apps/api — la UI lo enmascaraba con su
+     fallback). Evals f2a 7/7 aislados; suite completa como gate del push. El fix del API
+     debe DESPLEGARSE para que el catálogo devuelva resultados reales.
    - **PR F2b — emisión:** `propose_create_cfdi` + builder de impuestos server-side + card
      tier-máximo. Después: `propose_send_fiscal_form`, `propose_payment_link`,
      `propose_create_patient` (H3).

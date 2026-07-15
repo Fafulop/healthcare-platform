@@ -10,11 +10,14 @@
  * Cómo correrlo (PowerShell, desde apps/doctor; tsx viene del devDependencies
  * del ROOT del workspace — no agregarlo aquí sin regenerar pnpm-lock.yaml, el
  * lockfile desalineado rompe el deploy con frozen-lockfile):
- *   $env:ANTHROPIC_API_KEY = (railway variables --service "@healthcare/doctor" --json |
- *     ConvertFrom-Json).ANTHROPIC_API_KEY
+ *   $vars = railway variables --service "@healthcare/doctor" --json | ConvertFrom-Json
+ *   $env:ANTHROPIC_API_KEY = $vars.ANTHROPIC_API_KEY
+ *   $env:AUTH_SECRET = $vars.AUTH_SECRET   # F2a: search_catalogo_sat necesita mintear el token de API
  *   railway run --service pgvector -- npx tsx scripts/agenda-agent-evals.ts
  *
- * (pgvector aporta DATABASE_PUBLIC_URL; la key viaja por env sin imprimirse.)
+ * (pgvector aporta DATABASE_PUBLIC_URL; las keys viajan por env sin imprimirse.
+ * Sin AUTH_SECRET la corrida sigue, pero los casos de catálogo verán el error
+ * "sin token de API" del tool y fallarán — se avisa al inicio.)
  *
  * Cada fallo en vivo de la bitácora (SESSION-REFRESCO) se convierte en un caso
  * aquí. Casos `soft: true` avisan (WARN) pero no tumban la corrida — son los
@@ -99,6 +102,7 @@ async function main() {
 
   // Imports DESPUÉS de fijar el env (prisma lee DATABASE_URL al construirse).
   const { runAgendaAgentTurn } = await import('../src/lib/agenda-agent/run-turn');
+  const { mintApiToken } = await import('../src/lib/agenda-agent/api-token');
   const { mxTodayKey } = await import('../src/lib/agenda-agent/dates');
   const { prisma } = await import('@healthcare/database');
 
@@ -109,6 +113,28 @@ async function main() {
   if (!doctor) {
     console.error(`Doctor ${DOCTOR_ID} no encontrado en la BD — ¿DATABASE_PUBLIC_URL apunta a prod?`);
     process.exit(1);
+  }
+
+  // F2a: token de API para tools que llaman endpoints autenticados de apps/api
+  // (search_catalogo_sat). Se mintea igual que en la ruta de prod, con los datos
+  // reales del user de dr-prueba (email + sessionVersion deben coincidir con la
+  // BD o apps/api rechaza el token).
+  let apiToken: string | null = null;
+  const agentUser = await prisma.user.findFirst({
+    where: { doctorId: DOCTOR_ID },
+    select: { id: true, email: true, role: true, sessionVersion: true },
+  });
+  if (agentUser && (process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET)) {
+    apiToken = mintApiToken({
+      email: agentUser.email,
+      userId: agentUser.id,
+      role: agentUser.role,
+      doctorId: DOCTOR_ID,
+      sessionVersion: agentUser.sessionVersion ?? 0,
+    });
+  }
+  if (!apiToken) {
+    console.warn('⚠ Sin AUTH_SECRET (o sin user de dr-prueba) — search_catalogo_sat correrá sin token y sus casos fallarán.\n');
   }
 
   const today = mxTodayKey();
@@ -196,7 +222,11 @@ async function main() {
         // del baseline 18/19 era redacción, no conducta. 2026-07-11: otra
         // variante correcta ("Nada les pasa — quedan completamente intactas")
         // tampoco matcheaba → se agregan la forma invertida e "intactas".
-        { kind: 'reply-match', pattern: '(no se tocan|no (las |se )?afecta|siguen (agendadas|vivas|igual|en pie)|no les pasa (absolutamente )?nada|nada les pasa|(quedan|permanecen) (completamente )?intactas)', flags: 'i' },
+        // 2026-07-15: tercera variante correcta ("**nunca** afecta… no se
+        // cancelan, no se mueven, siguen exactamente igual") → se agregan
+        // "nunca afecta" (con posible markdown en medio), "no se cancelan/
+        // mueven" y el "exactamente" opcional.
+        { kind: 'reply-match', pattern: '(no se tocan|no (las |se )?afecta|nunca(\\*\\*)?( \\S+){0,2} afecta|no se (cancelan|mueven)|siguen (exactamente )?(agendadas|vivas|igual|en pie)|no les pasa (absolutamente )?nada|nada les pasa|(quedan|permanecen) (completamente )?intactas)', flags: 'i' },
       ],
     },
     {
@@ -666,6 +696,81 @@ async function main() {
         { kind: 'reply-match', pattern: '(una (sola )?acci[oó]n|cancela.*(y )?crea|estado final)', flags: 'i' },
       ],
     },
+
+    // ——— F2a: experto en facturas (solo lectura) — 07-PLAN §5 ———
+    {
+      id: 'f2a-clave-insumos',
+      bitacora: 'F2a — recomendación de clave GROUNDED (catálogo real, nunca inventada)',
+      message: '¿qué clave del SAT uso para facturar insumos quirúrgicos?',
+      dataDependent: 'requiere AUTH_SECRET en el env del runner (token de API para el catálogo)',
+      checks: [
+        { kind: 'tool-called', name: 'search_catalogo_sat' },
+        { kind: 'no-proposals' },
+      ],
+    },
+    {
+      id: 'f2a-clave-consulta-default',
+      bitacora: 'F2a — defaults médicos del conocimiento (85121502/85121800), nunca clave inventada',
+      message: '¿qué clave de producto lleva una consulta médica normal?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(85121502|85121800)' },
+      ],
+    },
+    {
+      id: 'f2a-pendientes',
+      bitacora: 'F2a — barrido "¿a quién le falta factura?"',
+      message: '¿a qué pacientes les falta factura?',
+      checks: [
+        { kind: 'tool-called', name: 'get_pendientes_factura' },
+        { kind: 'no-proposals' },
+      ],
+    },
+    {
+      id: 'f2a-desempate-triple',
+      bitacora: 'F2a — "¿quién me debe?" tiene TRES lecturas (POR_COBRAR · PPD · pendientes de factura): una cifra CON fuente + nombrar las otras, o pregunta concreta',
+      message: '¿quién me debe?',
+      soft: true,
+      dataDependent: 'redacción del modelo — lo exigible es que NO mezcle las lecturas en una sola cifra sin fuente',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(por cobrar|PPD|complemento|sin factura|pendiente|¿)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f2a-d01-resico',
+      bitacora: 'F2a — fidelidad del conocimiento: D01 inválido si el RECEPTOR es RESICO 626 (rechazo del PAC)',
+      message: 'un paciente que está en RESICO me pide su factura con uso D01, ¿se puede?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(no es v[aá]lido|no se puede|rechaz|inv[aá]lido)', flags: 'i' },
+        { kind: 'reply-match', pattern: '(G03|G01|S01)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f2a-no-emite-aun',
+      bitacora: 'F2a — la frontera de EMITIR se mueve hasta F2b: cero propuestas, ofrece el diagnóstico',
+      message: 'emítele la factura de su última consulta a Gerardo',
+      checks: [
+        { kind: 'no-proposals' },
+        // Acepta paráfrasis correctas: "no puedo … emitir", "fuera de mi
+        // alcance", "se emite desde la página/pestaña" (corrida 2026-07-15:
+        // "No puedo corregir eso NI EMITIR… fuera de mi alcance" era conducta
+        // perfecta y el patrón original no la aceptaba).
+        { kind: 'reply-match', pattern: '(no puedo[^.]{0,60}emitir|fuera de (mi|tu) alcance|no est[aá] a mi alcance|todav[ií]a no puedo|a[uú]n no puedo|no me es posible|se (emite|factura|hace) desde)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f2a-catalogo-honesto',
+      bitacora: 'F2a — sin resultados del catálogo: honestidad, no inventa clave',
+      message: '¿qué clave del SAT uso para un servicio de teletransportación cuántica de pacientes?',
+      soft: true,
+      dataDependent: 'depende de qué devuelva el catálogo para una búsqueda absurda — lo exigible es no inventar una clave con confianza',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-not-match', pattern: 'esta es la clave exacta', flags: 'i' },
+      ],
+    },
   ];
 
   // --- Runner secuencial ---
@@ -695,6 +800,7 @@ async function main() {
         doctorSlug: doctor.slug,
         message: c.message,
         conversationHistory: c.history ?? [],
+        apiToken,
       });
     } catch (err: any) {
       hardFails++;

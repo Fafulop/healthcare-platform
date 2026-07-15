@@ -114,12 +114,18 @@ cazados: G03 mal atribuido, umbral de $2,000 en efectivo).
 2. **"F1 everywhere" — COMPLETO (código) 2026-07-12:** ✅ fiscal (F1.5, VALIDADO EN VIVO
    4/4); ✅ flujo de dinero (F1 `f1789cc1`, VALIDADO EN VIVO 5/5, docs en `AGENTE FLUJOS/`);
    ✅ expediente (F1 construido+revisado, docs en `AGENTE EXPEDIENTE/` — pendiente su
-   validación en vivo). Total: **35 tools / 5 módulos, prefijo ~21.2k**. Lectura primero en
-   todos los dominios porque es el orden óptimo de riesgo: los errores de lectura son texto;
-   los de propuesta ejecutan.
-3. **Después: PR F2 de facturas** (propose_create_cfdi + formulario fiscal + builder de
-   impuestos server-side — leer primero qué taxes arma `useBookings.emitCfdi`), y las
-   propuestas que cada dominio pida (propose_payment_link, propose_create_patient).
+   validación en vivo). Lectura primero en todos los dominios porque es el orden óptimo de
+   riesgo: los errores de lectura son texto; los de propuesta ejecutan.
+3. **F2 de facturas — RE-PENSADO 2026-07-15 como "experto en facturas"** (el usuario re-abrió
+   la arquitectura; UN asistente re-confirmado — `AGENTE FACTURAS/05-ANALISIS`). Secuencia:
+   **F2a (lectura experta) ✅ CONSTRUIDO 2026-07-15** — search_catalogo_sat (catálogo SAT
+   grounded; destapó y corrigió el bug `/api-lite/catalogs/*` vacío en prod) +
+   get_pendientes_factura + conocimiento (domainRules + get_guia claves_y_reglas_cfdi);
+   total ahora **37 tools / 5 módulos**, suite 56, prefijo ~21.2k + ~1.5-2k est. (re-medir
+   post-deploy). **Luego F2b**: propose_create_cfdi + builder de impuestos server-side
+   (⚠️ la fórmula vive en el FORM de /facturacion — page.tsx:1383 —, no en
+   useBookings.emitCfdi; ver `AGENTE FACTURAS/06-KNOWLEDGE-BASE` §3), y las propuestas que
+   cada dominio pida (propose_send_fiscal_form, propose_payment_link, propose_create_patient).
 4. **PR 4 voz** — independiente, no bloquea ni es bloqueado.
 
 **Regla de review consolidada (2026-07-11, evidencia de 3 reviews el mismo día):** lógica

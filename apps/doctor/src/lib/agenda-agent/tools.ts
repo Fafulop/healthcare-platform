@@ -17,6 +17,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 export interface ToolContext {
   doctorId: string;
   doctorSlug: string;
+  /** Short-lived Bearer for apps/api AUTHENTICATED endpoints (F2a: catálogos
+   * SAT). Minted per-turn from the doctor's own session (api-token.ts) — same
+   * trust boundary as the client's authFetch. Absent in contexts without a
+   * session secret; tools that need it must degrade with a clear error. */
+  apiToken?: string | null;
 }
 
 // -----------------------------------------------------------------------------

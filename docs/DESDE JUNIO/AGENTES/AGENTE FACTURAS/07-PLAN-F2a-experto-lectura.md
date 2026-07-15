@@ -7,6 +7,10 @@
 > (`propose_create_cfdi`) es F2b y se construye sobre esto ya validado en vivo.
 > Diseñado 2026-07-15 contra el código real (anclas citadas). Fuente de conocimiento:
 > [`06-KNOWLEDGE-BASE-facturacion.md`](06-KNOWLEDGE-BASE-facturacion.md).
+>
+> **ESTADO 2026-07-15: CONSTRUIDO** — ver §10 (cómo quedó + los 2 hallazgos del smoke:
+> el reenvío de auth FUNCIONA vía token minteado, y los catálogos de Facturama estaban
+> ROTOS en prod por el path `/api-lite/catalogs/*` → corregido a `/catalogs/*`).
 
 ---
 
@@ -153,6 +157,47 @@ Sin migraciones, sin endpoints nuevos, sin cambios al loop.
 1 sesión de build (2 tools + prompt + guía) + 1 pasada de review completo + evals/smoke +
 validación en vivo. Después: **F2b** (`propose_create_cfdi` + builder de impuestos server-side
 + card tier-máximo) sobre esta base validada.
+
+## 10. Cómo quedó (construido 2026-07-15)
+
+Idéntico al diseño, con DOS hallazgos del smoke y UNA afinación:
+
+1. **El reenvío de auth funciona, pero minteando, no reenviando** (§2 ajustado en build): el
+   request entrante al agente se autentica por COOKIE de sesión (medical-auth `auth()`), no
+   trae Bearer. Solución: `api-token.ts` mintea el MISMO JWT HS256 que `/api/auth/get-token`
+   (email + sessionVersion contra la BD, secreto compartido `AUTH_SECRET`/`NEXTAUTH_SECRET`) —
+   una vez por turno en la ruta, pasado por `ToolContext.apiToken`. Verificado contra prod:
+   el endpoint de catálogos respondió 200 autenticado. `medical-auth` ahora devuelve
+   `sessionVersion`. El eval runner mintea igual (user real de dr-prueba; exige
+   `NEXTAUTH_SECRET` en el env — instrucciones en la cabecera del script).
+2. **BUG de sustrato encontrado y corregido: los catálogos estaban ROTOS en prod.**
+   `facturama.ts` usaba `/api-lite/catalogs/*`, que responde **HTTP 200 con body VACÍO**
+   (→ `{}`); la UI lo enmascaraba con su fallback hardcodeado de frontend. El path correcto
+   es **`/catalogs/*`** (y el de regímenes se llama **`FiscalRegimens`**) — verificado
+   directo contra el sandbox de Facturama: FiscalRegimens 19 ítems, CfdiUses 25 (14 con
+   keyword=RFC), productos "cirugía" 52 / "laboratorio" 214 / "quirófano" 2. La búsqueda es
+   LITERAL y sensible a acentos ("material quirurgico" → 0).
+3. **Afinación de costo (primera corrida de evals):** con el catálogo roto aún desplegado, la
+   instrucción "reintenta" produjo 11 llamadas en un turno (~224k tok). Se acotó a MÁXIMO 2
+   reintentos (descripción + sugerencia del tool) → re-corrida: 3 llamadas, PASS.
+
+Archivos: `api-token.ts` (nuevo) · `medical-auth.ts` (+sessionVersion) · `tools.ts` /
+`run-turn.ts` / `route.ts` (apiToken passthrough) · `modules/facturas.ts` (+2 tools, +GUIAS
+claves_y_reglas_cfdi, domainRules ampliadas) · `prompt.ts` (INTRO cap. 4) ·
+`agenda-agent-evals.ts` (+7 casos, token en runner) · `apps/api/lib/facturama.ts` (fix paths).
+
+**Verificación:** type-check api+doctor ✓ · smoke vs prod: paridad del barrido EXACTA
+(3=3 entradas · 3=3 pacientes · por-paciente 1=1 vs get_patient_profile), guards de
+fecha/tipo/query ✓, degradación sin token ✓ · evals F2a aislados **7/7 PASS** · **suite
+completa (56): 53 PASS directos + 2 casos con regex podrido reparado (conducta correcta,
+paráfrasis no aceptada — `invariante-rango-no-toca-citas` "nunca afecta…", `f2a-no-emite-aun`
+"no puedo… ni emitir… fuera de mi alcance") re-corridos 2/2 PASS + 1 WARN soft investigado
+(`bloqueo-simple`: drift de datos — el lunes de prueba ahora termina 12:00 y el bloqueo
+12–13 queda fuera de rango; el modelo pregunta antes de proponer, conducta defendible).**
+⚠️ El fix de catálogos requiere DEPLOY del API para que search_catalogo_sat devuelva
+resultados reales en prod; hasta entonces devuelve 0 con honestidad acotada (máx 2 reintentos).
+Bonus de la corrida: el eval no-emite destapó en dr-prueba una cita COMPLETED (27-may, $900)
+SIN ingreso en el ledger — rareza de datos de prueba a revisar en la validación en vivo.
 
 ---
 

@@ -27,6 +27,7 @@ import { logToolErrors } from '@/lib/ai/log-tool-errors';
 import { prisma } from '@healthcare/database';
 import { isAnthropicConfigured } from '@/lib/agenda-agent/anthropic';
 import { runAgendaAgentTurn, MODEL } from '@/lib/agenda-agent/run-turn';
+import { mintApiToken } from '@/lib/agenda-agent/api-token';
 import { mxTodayKey } from '@/lib/agenda-agent/dates';
 
 const DAILY_TOKEN_CAP = Number(process.env.AGENDA_AGENT_DAILY_TOKEN_CAP || 500_000);
@@ -62,7 +63,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { doctorId } = await requireDoctorAuth(request);
+    const authCtx = await requireDoctorAuth(request);
+    const { doctorId } = authCtx;
 
     if (!isAnthropicConfigured()) {
       return NextResponse.json(
@@ -119,6 +121,16 @@ export async function POST(request: NextRequest) {
       doctorSlug: doctor.slug,
       message,
       conversationHistory,
+      // Bearer for tools that call apps/api authenticated endpoints (catálogos
+      // SAT) — minted from THIS doctor's session, same trust boundary as the
+      // client's authFetch. Null if the secret is missing; the tool degrades.
+      apiToken: mintApiToken({
+        email: authCtx.email,
+        userId: authCtx.userId,
+        role: authCtx.role,
+        doctorId: authCtx.doctorId,
+        sessionVersion: authCtx.sessionVersion,
+      }),
     });
 
     // totalTokens stays RAW volume (three analytics endpoints aggregate it

@@ -19,7 +19,12 @@
  *   19:00 MX is "today" for the doctor, not tomorrow's UTC date. Date-range
  *   filters on timestamp columns use MX-midnight boundaries (fixed UTC-6; MX
  *   abolished DST in 2022). `@db.Date` columns keep utcDateToKey.
- * - v1 has NO write proposals here (emission/cancel/links/fiscal form = F2).
+ * - Still NO write proposals here (emission/cancel/links/fiscal form = F2b).
+ *   F2a (2026-07-15) added two more READ tools: search_catalogo_sat (grounded
+ *   SAT-catalog recommendations via the authenticated apps/api route — needs
+ *   ctx.apiToken) and get_pendientes_factura (per-patient sweep of unbilled
+ *   consultation incomes — WHERE clause in strict parity with the
+ *   ingresosSinFactura verdict below).
  */
 
 import { prisma } from '@healthcare/database';
@@ -30,8 +35,13 @@ import type { AgentModule } from './types';
 
 const LIST_CAP = 50;
 const PATIENT_CITAS_CAP = 10; // billing status per patient — nested payloads must fit the 8KB tool-result cap
+const PENDIENTES_CAP = 10; // sweep rows shown (totals stay real)
+const CATALOGO_CAP = 10; // catalog matches shown per search
 const MX_TZ = 'America/Mexico_City';
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Server-side fetch to apps/api needs an absolute URL — same fallback as tools.ts.
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
 // -----------------------------------------------------------------------------
 // Tool definitions
@@ -117,17 +127,53 @@ const FACTURAS_TOOLS: AnthropicTool[] = [
   {
     name: 'get_guia',
     description:
-      'Resumen CURADO de las guías del dashboard (las pestañas "Guía"): facturación (CFDI, REP, cancelación, retenciones), pagos en línea (Stripe/Mercado Pago, links, depósitos) o SAT Descarga (sincronización, deducciones, declaraciones). Úsala cuando el doctor pregunte CÓMO FUNCIONA algo o CÓMO SE HACE en la plataforma — responde con el resumen y dirígelo a la pestaña Guía correspondiente para el detalle completo.',
+      'Resumen CURADO de las guías del dashboard (las pestañas "Guía"): facturación (CFDI, REP, cancelación, retenciones), pagos en línea (Stripe/Mercado Pago, links, depósitos), SAT Descarga (sincronización, deducciones, declaraciones), o claves_y_reglas_cfdi (claves SAT médicas, uso de CFDI por régimen, IVA/retenciones, PUE/PPD — para armar bien una factura). Úsala cuando el doctor pregunte CÓMO FUNCIONA algo o CÓMO SE HACE en la plataforma — responde con el resumen y dirígelo a la pestaña correspondiente para el detalle completo.',
     input_schema: {
       type: 'object',
       properties: {
         tema: {
           type: 'string',
-          enum: ['facturacion', 'pagos', 'sat_descarga'],
-          description: 'Qué guía: facturacion (CFDI/REP/fiscal), pagos (Stripe/MP/links) o sat_descarga (sync/deducciones/declaraciones)',
+          enum: ['facturacion', 'pagos', 'sat_descarga', 'claves_y_reglas_cfdi'],
+          description: 'Qué guía: facturacion (CFDI/REP/fiscal), pagos (Stripe/MP/links), sat_descarga (sync/deducciones/declaraciones) o claves_y_reglas_cfdi (cómo armar un CFDI: claves, usos, IVA, retenciones)',
         },
       },
       required: ['tema'],
+    },
+  },
+  {
+    name: 'search_catalogo_sat',
+    description:
+      'Busca en los CATÁLOGOS OFICIALES del SAT (vía Facturama): claves de producto/servicio (ClaveProdServ — "¿qué clave uso para insumos/quirófano/medicamentos?"), unidades (ClaveUnidad), usos de CFDI, regímenes fiscales y formas/métodos de pago. Devuelve resultados REALES del catálogo — recomienda SOLO entre esos resultados, NUNCA inventes ni completes una clave de memoria. Para "productos" y "unidades", "query" es obligatoria: la búsqueda es LITERAL y los acentos importan — usa UNA palabra específica en español ("cirugía", "quirófano", "laboratorio", "medicamentos"); si devuelve 0, reintenta con OTRA palabra (sinónimo/término más general) — MÁXIMO 2 reintentos: tras 3 búsquedas sin resultados, di honesto que no encontraste la clave y dirige a la búsqueda de la pestaña Nueva Factura. Para "uso-cfdi" puedes pasar el RFC del receptor como query (los usos válidos varían entre persona física y moral).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tipo: {
+          type: 'string',
+          enum: ['productos', 'unidades', 'uso-cfdi', 'regimenes-fiscales', 'formas-pago', 'metodos-pago'],
+          description: 'Qué catálogo consultar',
+        },
+        query: {
+          type: 'string',
+          description: 'Palabra clave a buscar (obligatoria para productos/unidades; para uso-cfdi opcionalmente el RFC del receptor)',
+        },
+      },
+      required: ['tipo'],
+    },
+  },
+  {
+    name: 'get_pendientes_factura',
+    description:
+      'BARRIDO "¿a quién le falta factura?": agrupa POR PACIENTE los ingresos de citas/pagos de cita que NO tienen factura (la misma señal hasFactura que mantiene el sistema), con monto total y el veredicto del servidor de si ya se le puede facturar (requiereFactura + listoParaFacturar + camposFaltantes). Úsala para "¿qué pacientes necesitan factura?", "¿qué me falta facturar?". DESEMPATES: facturas PPD ya emitidas sin complemento de pago = get_ppd_cobranza; ingresos que NO te han pagado = get_movimientos con estatusPago POR_COBRAR — esta tool es sobre ingresos YA registrados a los que les falta la FACTURA.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        startDate: { type: 'string', description: 'Desde "YYYY-MM-DD" (opcional, por fecha del movimiento)' },
+        endDate: { type: 'string', description: 'Hasta "YYYY-MM-DD" (opcional)' },
+        soloListos: {
+          type: 'boolean',
+          description: 'true = solo pacientes LISTOS para facturar (datos fiscales completos Y requiereFactura activo)',
+        },
+      },
     },
   },
 ];
@@ -831,6 +877,179 @@ async function getPaymentProviderStatus(ctx: ToolContext) {
 }
 
 // -----------------------------------------------------------------------------
+// F2a: SAT catalog search — GROUNDED recommendations (the model recommends
+// among REAL catalog rows, it never invents codes). Data lives behind the
+// authenticated apps/api route (Facturama creds are api-side); ctx.apiToken is
+// the per-turn Bearer minted from the doctor's session (api-token.ts).
+// -----------------------------------------------------------------------------
+
+const CATALOGO_TIPOS = [
+  'productos',
+  'unidades',
+  'uso-cfdi',
+  'regimenes-fiscales',
+  'formas-pago',
+  'metodos-pago',
+] as const;
+
+async function searchCatalogoSat(
+  ctx: ToolContext,
+  input: { tipo?: unknown; query?: unknown }
+) {
+  const tipo = typeof input.tipo === 'string' ? input.tipo : '';
+  if (!(CATALOGO_TIPOS as readonly string[]).includes(tipo)) {
+    return { error: `Tipo inválido — usa uno de: ${CATALOGO_TIPOS.join(', ')}.` };
+  }
+  const query = typeof input.query === 'string' ? input.query.trim() : '';
+  if ((tipo === 'productos' || tipo === 'unidades') && !query) {
+    return { error: 'Para productos/unidades se requiere "query" (palabra clave a buscar, p. ej. "material quirúrgico").' };
+  }
+  if (!ctx.apiToken) {
+    return { error: 'Catálogo no disponible en este contexto (sin token de API) — dirige al doctor a la búsqueda de claves de la pestaña Nueva Factura.' };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `${API_URL}/api/facturacion/catalogos/${tipo}${query ? `?q=${encodeURIComponent(query)}` : ''}`,
+      {
+        headers: { authorization: `Bearer ${ctx.apiToken}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8_000),
+      }
+    );
+  } catch {
+    return { error: 'No se pudo consultar el catálogo SAT (red/timeout) — reintenta, o usa la búsqueda de la pestaña Nueva Factura.' };
+  }
+  const body = (await res.json().catch(() => null)) as
+    | { data?: unknown; _offline?: boolean; error?: string }
+    | null;
+  if (!res.ok || !body) {
+    return { error: `Catálogo no disponible (HTTP ${res.status})${body?.error ? `: ${body.error}` : ''}.` };
+  }
+
+  // Lesson from the Facturama integration: catalogs can return ANY shape —
+  // always Array.isArray before mapping.
+  const raw = Array.isArray(body.data) ? body.data : [];
+  const items = raw
+    .filter((it): it is { Value?: unknown; Name?: unknown } => !!it && typeof it === 'object')
+    .map((it) => ({ clave: String(it.Value ?? ''), descripcion: String(it.Name ?? '') }))
+    .filter((it) => it.clave !== '');
+
+  return {
+    tipo,
+    ...(query ? { busqueda: query } : {}),
+    totalEncontrados: items.length,
+    resultados: items.slice(0, CATALOGO_CAP),
+    ...(items.length > CATALOGO_CAP
+      ? { nota: `Mostrando ${CATALOGO_CAP} de ${items.length} — pide una palabra clave más específica si ninguna encaja.` }
+      : {}),
+    ...(items.length === 0 && query
+      ? { sugerencia: 'Cero resultados: la búsqueda es literal (acentos incluidos) — reintenta con UNA palabra distinta (sinónimo/término más general, acento correcto). Máximo 2 reintentos; después dilo honesto y dirige a la pestaña Nueva Factura.' }
+      : {}),
+    fuente: body._offline
+      ? 'catálogo OFFLINE de respaldo (Facturama no disponible — solo valores comunes, puede estar incompleto)'
+      : 'catálogo oficial SAT (vía Facturama)',
+    regla: 'Recomienda SOLO claves de estos resultados — el doctor decide. Si nada encaja, dilo honesto y dirige a la búsqueda de la pestaña Nueva Factura.',
+  };
+}
+
+// -----------------------------------------------------------------------------
+// F2a: pending-facturas sweep. PARITY RULE (audit A3: partial WHERE replicas
+// are the dominant bug class): the base clause is EXACTLY the one behind
+// get_patient_profile's `ingresosSinFactura` verdict — hasFactura:false +
+// origin in (cita, webhook_pago) — ONE definition of "consulta sin factura".
+// To harden it, change the source verdict first, never just this sweep.
+// -----------------------------------------------------------------------------
+
+/** transactionDate is @db.Date (UTC-day convention — same as the flujo module's
+ * dateWhere; NOT the MX-timestamp convention used for paidAt/issuedAt here). */
+function transactionDateRange(start: string | undefined, end: string | undefined) {
+  const filter: { gte?: Date; lte?: Date } = {};
+  if (start) filter.gte = new Date(start + 'T00:00:00Z');
+  if (end) filter.lte = new Date(end + 'T23:59:59.999Z');
+  return filter;
+}
+
+async function getPendientesFactura(
+  ctx: ToolContext,
+  input: { startDate?: unknown; endDate?: unknown; soloListos?: unknown }
+) {
+  const hasStart = input.startDate !== undefined && input.startDate !== null && input.startDate !== '';
+  const hasEnd = input.endDate !== undefined && input.endDate !== null && input.endDate !== '';
+  const start = hasStart ? asDateKey(input.startDate) : undefined;
+  const end = hasEnd ? asDateKey(input.endDate) : undefined;
+  if ((hasStart && !start) || (hasEnd && !end)) {
+    return { error: 'Fechas inválidas — usa el formato "YYYY-MM-DD".' };
+  }
+
+  const baseWhere = {
+    doctorId: ctx.doctorId,
+    hasFactura: false,
+    origin: { in: ['cita', 'webhook_pago'] },
+    ...(start || end ? { transactionDate: transactionDateRange(start ?? undefined, end ?? undefined) } : {}),
+  };
+
+  const [grouped, sinExpediente] = await Promise.all([
+    prisma.ledgerEntry.groupBy({
+      by: ['patientId'],
+      where: { ...baseWhere, patientId: { not: null } },
+      _count: { _all: true },
+      _sum: { amount: true },
+    }),
+    // Honesty count: same clause but WITHOUT expediente — these can't be
+    // grouped by patient, but hiding them would understate the backlog.
+    prisma.ledgerEntry.count({ where: { ...baseWhere, patientId: null } }),
+  ]);
+
+  const patientIds = grouped.map((g) => g.patientId).filter((id): id is string => !!id);
+  const patients = patientIds.length
+    ? await prisma.patient.findMany({
+        // Tenancy defense-in-depth: entries are already doctor-scoped, but the
+        // patient rows re-check doctorId like every other read here.
+        where: { id: { in: patientIds }, doctorId: ctx.doctorId },
+        select: PATIENT_FISCAL_SELECT,
+      })
+    : [];
+  const byId = new Map(patients.map((p) => [p.id, p]));
+
+  let rows = grouped.flatMap((g) => {
+    const p = g.patientId ? byId.get(g.patientId) : undefined;
+    if (!p) return [];
+    const fc = fiscalCompleteness(p);
+    return [{
+      paciente: `${p.firstName} ${p.lastName}`.trim(),
+      patientId: p.id,
+      ingresosSinFactura: g._count._all,
+      montoTotal: Math.round(Number(g._sum.amount ?? 0) * 100) / 100,
+      requiereFactura: p.requiereFactura,
+      listoParaFacturar: fc.listoParaFacturar,
+      ...(fc.camposFaltantes.length ? { camposFaltantes: fc.camposFaltantes } : {}),
+    }];
+  });
+  if (input.soloListos === true) rows = rows.filter((r) => r.listoParaFacturar);
+  rows.sort((a, b) => b.montoTotal - a.montoTotal);
+
+  return {
+    periodo: start || end ? `${start ?? 'inicio'} a ${end ?? 'hoy'}` : 'todo el historial',
+    ...(input.soloListos === true ? { filtro: 'solo pacientes listos para facturar' } : {}),
+    totalPacientes: rows.length,
+    totalIngresosSinFactura: rows.reduce((s, r) => s + r.ingresosSinFactura, 0),
+    montoTotalSinFactura: Math.round(rows.reduce((s, r) => s + r.montoTotal, 0) * 100) / 100,
+    pacientesQueRequierenFactura: rows.filter((r) => r.requiereFactura).length,
+    ...(rows.length > PENDIENTES_CAP
+      ? { nota: `Mostrando top ${PENDIENTES_CAP} por monto de ${rows.length} pacientes.` }
+      : {}),
+    pacientes: rows.slice(0, PENDIENTES_CAP),
+    ...(sinExpediente > 0
+      ? { ingresosSinExpediente: sinExpediente, notaSinExpediente: 'Ingresos de citas/pagos sin factura Y sin expediente vinculado — no se pueden agrupar por paciente; vincular el expediente desde la cita.' }
+      : {}),
+    alcance:
+      'Solo ingresos nacidos de citas o pagos de cita (origins cita/webhook_pago) sin factura (señal hasFactura del sistema). Ingresos manuales o del SAT no entran. Facturas PPD emitidas sin complemento son OTRA pregunta (get_ppd_cobranza); ingresos sin PAGAR es otra más (get_movimientos POR_COBRAR).',
+  };
+}
+
+// -----------------------------------------------------------------------------
 // Guías — curated summaries of the dashboard "Guía" tabs, returned ON DEMAND
 // (never in the prompt: the full guides are ~25k tokens; these are ~600-800
 // tokens each and only cost when asked). Keep aligned with the guide tabs.
@@ -874,13 +1093,28 @@ const GUIAS: Record<string, { resumen: string; pestana: string }> = {
 - Declaraciones: agregados mensuales en base de efectivo + estimación de ISR/IVA según tu régimen (612 acumulativo / RESICO tasa fija) — pestaña Declaraciones.
 - Régimen: en RESICO los gastos NO reducen ISR pero su IVA sí es acreditable; en 612 las deducciones sí reducen la base.`,
   },
+  // Fuente: docs/DESDE JUNIO/AGENTES/AGENTE FACTURAS/06-KNOWLEDGE-BASE-facturacion.md §5
+  // (verificado contra código y UNIFIED-FISCAL-REFERENCE 2026-07-15) — si cambian las
+  // reglas ahí, actualizar aquí.
+  claves_y_reglas_cfdi: {
+    pestana: 'Dashboard → Facturación → Nueva Factura (búsqueda de claves al capturar conceptos) y pestaña Guía',
+    resumen: `CLAVES Y REGLAS PARA ARMAR UN CFDI (resumen curado):
+1. Claves de producto/servicio (ClaveProdServ) médicas: consulta médica general 85121502 · servicios médicos especializados 85121800 (el default de la plataforma) · psicología 85121608 · nutrición 85121609 · análisis clínicos/laboratorio 85141600 · material quirúrgico 42311500 · medicamentos 51101500-51251002 (unidad según presentación). Unidad para servicios: E48. Para otros conceptos, buscar en el catálogo (search_catalogo_sat).
+2. Conceptos MIXTOS (p. ej. consulta + insumos + quirófano): cada concepto lleva su PROPIA clave y su propio tratamiento de IVA dentro de la misma factura.
+3. Uso de CFDI — depende del RÉGIMEN DEL RECEPTOR: D01 (honorarios médicos, el común para pacientes que deducen) y el resto de D01-D10 NO son válidos si el receptor es RESICO 626 — el timbrado se RECHAZA; para receptor RESICO van G01/G03/I01-I08/S01. Público en General: siempre S01 + régimen 616 (la plataforma lo fuerza).
+4. IVA: servicios médicos prestados por persona física con título (o sociedad civil) van EXENTOS (Art. 15-XIV LIVA — depende del PRESTADOR, no del cliente); procedimientos estéticos/cosméticos SIEMPRE 16%; medicamentos tasa 0%; otros insumos/productos normalmente 16%.
+5. Retenciones (solo si el receptor es persona MORAL): ISR 10% (régimen 612) o 1.25% (RESICO 626); la PM además retiene 2/3 del IVA cuando la factura lleva IVA. Pacientes (personas físicas) NO retienen.
+6. PUE vs PPD: PUE = pago ya recibido, con la forma de pago real; PPD = cobro diferido, forma de pago 99 obligatoria, y cada pago EXIGE complemento (REP) a más tardar el día 5 del mes siguiente al pago.
+7. Deducible para el paciente (D01): pagos en efectivo MAYORES a $2,000 no son deducibles — tarjeta o transferencia.
+8. Errores comunes de timbrado: código postal del receptor equivocado (causa #1), nombre no EXACTO a la constancia, RFC inactivo, PPD sin forma 99, uso de CFDI inválido para el régimen del receptor.`,
+  },
 };
 
 function getGuia(input: { tema?: string }) {
   const tema = typeof input.tema === 'string' ? input.tema : '';
   const guia = GUIAS[tema];
   if (!guia) {
-    return { error: 'Tema inválido — usa "facturacion", "pagos" o "sat_descarga".' };
+    return { error: 'Tema inválido — usa "facturacion", "pagos", "sat_descarga" o "claves_y_reglas_cfdi".' };
   }
   return {
     tema,
@@ -912,6 +1146,10 @@ async function executeFacturasTool(
       return getPaymentProviderStatus(ctx);
     case 'get_guia':
       return getGuia(input as { tema?: string });
+    case 'search_catalogo_sat':
+      return searchCatalogoSat(ctx, input as any);
+    case 'get_pendientes_factura':
+      return getPendientesFactura(ctx, input as any);
     default:
       return { error: `Tool desconocida: ${name}` };
   }
@@ -954,8 +1192,26 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas (por ahora SOLO CONSU
   el formulario fiscal (desde la cita, botón Facturación).
 - Del expediente solo ves contacto y datos fiscales — el contenido clínico (notas, consultas,
   recetas) NO está a tu alcance; dilo honesto si te lo piden.
-- No des consejos fiscales/legales (deducibilidad, régimen óptimo, IVA) — eso es del contador.
-  Tú reportas datos del sistema.`;
+- **Claves SAT de los conceptos:** defaults médicos — consulta general 85121502, servicios
+  médicos especializados 85121800 (el default de la plataforma), unidad E48. Medicamentos e
+  insumos/material llevan SU PROPIA clave: búscala con search_catalogo_sat (p. ej. material
+  quirúrgico 42311500). Una factura puede mezclar conceptos (consulta + insumos + quirófano) y
+  cada uno lleva su clave y su tratamiento de IVA. NUNCA cites una clave que no venga del
+  catálogo o de estos defaults.
+- **Reglas CFDI clave** (detalle: get_guia tema claves_y_reglas_cfdi): el uso de CFDI depende
+  del RÉGIMEN DEL RECEPTOR — D01 (honorarios médicos) NO es válido si el receptor es RESICO
+  626, el timbrado se rechaza (para RESICO: G01/G03/I0x/S01). IVA: servicios médicos de
+  persona física con título van EXENTOS (no depende del cliente); estéticos SIEMPRE 16%;
+  medicamentos tasa 0%. Retención ISR solo con receptor persona MORAL (10% en 612 · 1.25% en
+  RESICO). Método: PUE = ya cobrado (lo normal); PPD = diferido, forma 99 y EXIGE complemento
+  (REP) por cada pago — no lo sugieras salvo que el doctor lo pida.
+- **"¿A quién le falta factura?"** → get_pendientes_factura (ingresos de citas sin factura,
+  por paciente). OJO, "¿quién me debe?" tiene TRES lecturas distintas: dinero sin pagar
+  (get_movimientos POR_COBRAR), facturas PPD sin complemento (get_ppd_cobranza) y consultas
+  sin facturar (get_pendientes_factura) — si la pregunta es ambigua, da UNA cifra con su
+  fuente y nombra las otras lecturas.
+- No des consejos fiscales/legales (deducibilidad, régimen óptimo, qué régimen conviene) —
+  eso es del contador. Tú reportas datos del sistema y las reglas de operación de arriba.`;
 
 // -----------------------------------------------------------------------------
 // Module

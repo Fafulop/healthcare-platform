@@ -7,6 +7,9 @@ export interface MedicalAuthContext {
   email: string;
   role: string;
   doctorId: string;
+  /** For minting API tokens server-side (agenda-agent tools) — must match the
+   * user's current sessionVersion or apps/api rejects the token. */
+  sessionVersion: number;
 }
 
 /**
@@ -41,7 +44,8 @@ export async function requireDoctorAuth(
     userId: user.id as string,
     email: user.email as string,
     role: user.role as string,
-    doctorId
+    doctorId,
+    sessionVersion: (user.sessionVersion as number | undefined) ?? 0
   };
 }
 

@@ -158,7 +158,14 @@ nunca una sola por el total.
 `GET /api/facturacion/catalogos/[tipo]` con `?q=`: `productos` y `unidades` (búsqueda por
 keyword, q obligatoria), `uso-cfdi` (acepta RFC — los resultados varían PF/PM),
 `regimenes-fiscales`, `formas-pago`, `metodos-pago`. Con Facturama caído/no configurado hay
-fallback offline hardcodeado de los valores comunes. Las validaciones de `validar/*` consumen
+fallback offline hardcodeado de los valores comunes.
+
+⚠️ **Bug histórico (encontrado y corregido 2026-07-15, smoke F2a):** `facturama.ts` usaba
+`/api-lite/catalogs/*`, que responde 200 con body VACÍO → todos los catálogos devolvían `{}`
+en prod (la UI lo enmascaraba con su fallback de frontend). Path correcto: **`/catalogs/*`**,
+y regímenes se llama **`FiscalRegimens`**. La búsqueda por keyword es LITERAL y sensible a
+acentos ("cirugía" 52 · "quirófano" 2 · "material quirurgico" 0) — reintentar con otra
+palabra, no con frases. Las validaciones de `validar/*` consumen
 1 folio por llamada (declarado en código, facturama.ts:484); los catálogos no llevan esa
 advertencia (y los docs de Facturama los tratan como gratuitos) — si el consumo importara,
 verificar con Facturama antes de un tool de alto volumen.

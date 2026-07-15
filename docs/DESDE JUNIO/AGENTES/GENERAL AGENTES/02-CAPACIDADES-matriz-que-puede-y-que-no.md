@@ -29,13 +29,14 @@
 | NO puede | ejecutar nada sin confirmación · deducir huecos a mano · reactivar estados finales · filtrar citas por consultorio (el dato no existe) |
 | Docs | `AGENTE AGENDA/` |
 
-### FACTURAS/PAGOS (solo lectura)
+### FACTURAS/PAGOS (solo lectura — F2a "experto" 2026-07-15)
 | | |
 |---|---|
-| Tools | get_billing_status ⭐ · get_patient_profile · get_fiscal_profile_status · get_cfdis · get_sat_cfdis · get_payment_links · get_payment_provider_status · get_guia |
-| Responde | diagnóstico completo de cobro/factura de una cita o paciente (matriz de 6 preguntas), CFDIs por fuente DUAL (plataforma vs SAT, con frescura), completitud fiscal server-side (listoParaFacturar), links de pago, estado Stripe/MP, guías curadas de la plataforma |
-| NO puede | EMITIR ni cancelar CFDIs (F2/nunca-v1) · crear links de pago (F2) · enviar el formulario fiscal (F2) · tomar datos fiscales de texto libre (solo del expediente) |
-| Docs | `AGENTE FACTURAS/` |
+| Tools | get_billing_status ⭐ · get_patient_profile · get_fiscal_profile_status · get_cfdis · get_sat_cfdis · get_payment_links · get_payment_provider_status · get_guia (4 temas) · **search_catalogo_sat** · **get_pendientes_factura** |
+| Responde | diagnóstico completo de cobro/factura de una cita o paciente (matriz de 6 preguntas), CFDIs por fuente DUAL (plataforma vs SAT, con frescura), completitud fiscal server-side (listoParaFacturar), links de pago, estado Stripe/MP, guías curadas (incl. claves_y_reglas_cfdi), **claves de los catálogos OFICIALES del SAT (grounded — nunca inventa claves)** y **el barrido "¿a quién le falta factura?"** (paridad exacta con ingresosSinFactura) |
+| NO puede | EMITIR ni cancelar CFDIs (F2b/nunca-v1) · crear links de pago (F2b) · enviar el formulario fiscal (F2b) · tomar datos fiscales de texto libre (solo del expediente) |
+| Desempate | "¿quién me debe?" tiene TRES lecturas: sin PAGAR (flujo POR_COBRAR) · PPD sin complemento (fiscal) · sin FACTURA (get_pendientes_factura) — una cifra CON fuente + nombrar las otras |
+| Docs | `AGENTE FACTURAS/` (F2a: `07-PLAN`) |
 
 ### FISCAL (solo lectura)
 | | |
@@ -78,15 +79,16 @@
   de ayuda** (capa de conocimiento, `AGENTE KNOWLEDGE LAYER/`). NO aplica a CÓMO FUNCIONA un flujo
   (eso es concepto, SÍ lo explica).
 
-## 4. Números operativos (2026-07-12)
+## 4. Números operativos (2026-07-15)
 
-35 tools / 5 módulos (agenda 8+10 · facturas 8 · fiscal 2 · flujo 5 · expediente 2) ·
-prefijo estático ~21.2k tokens · modelo claude-sonnet-5 · cap diario
-500k budget tokens (~$1.50/doctor) cost-weighted · caché 1 breakpoint estable + 2 móviles,
-TTL 5 min · suite de evals: **49 casos** (incl. 3 sondas de inyección `inj-*` con fixtures
-permanentes `A6INJ*` + 3 de capa de conocimiento `kl-*` — guardarraíl de navegación de UI),
-**baseline 0 WARN** (un WARN se investiga, ya no es "normal"; los soft son guardas data-dependent
-justificadas).
+**37 tools / 5 módulos** (agenda 8+10 · facturas 10 · fiscal 2 · flujo 5 · expediente 2) ·
+prefijo estático ~21.2k + F2a (~1.5-2k est. — re-medir post-deploy, A4) · modelo
+claude-sonnet-5 · cap diario 500k budget tokens (~$1.50/doctor) cost-weighted · caché 1
+breakpoint estable + 2 móviles, TTL 5 min · suite de evals: **56 casos** (incl. 3 sondas de
+inyección `inj-*` con fixtures permanentes `A6INJ*`, 3 de capa de conocimiento `kl-*`, y 7
+`f2a-*` del experto en facturas), **baseline 0 WARN** (un WARN se investiga, ya no es
+"normal"; los soft son guardas data-dependent justificadas). Nota F2a: search_catalogo_sat
+necesita `ToolContext.apiToken` (minteado por turno desde la sesión — `api-token.ts`).
 
 ---
 
