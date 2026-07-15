@@ -121,9 +121,22 @@ fuerte para que el agente narre más contenido de UI, aceptando el costo de arri
 
 ## 8. Follow-ups (no en este PR)
 
-1. **Generalizar la cobertura del Centro de ayuda**: expedientes ya tiene guía viva; las pestañas
-   Perfil/Práctica de `/dashboard/ayuda` están `disabled` y `PagosGuide` (1,492 líneas) está
-   construida pero NO enganchada — engancharla es trabajo de UI aparte.
+> ⚠️ **CLAVE para el rollout (no re-hacer trabajo):** el guardarraíl vive en `RESILIENCE`, una
+> sección COMPARTIDA del prompt → es **GLOBAL, no por-módulo.** El comportamiento (no inventar UI,
+> ofrecer actuar, rutear al Centro de ayuda) YA aplica a TODAS las secciones en prod hoy —
+> expedientes incluido, sin tocar nada. **NO hay trabajo de agente para "extenderlo".** Lo único
+> que varía por sección es si EXISTE la guía destino en `/dashboard/ayuda`. O sea: el rollout es
+> trabajo de UI/contenido, NO de prompt.
+
+1. **Cobertura de guías destino (trabajo de UI, no de agente):**
+   - **Expedientes** → nada: la guía ya está viva y enganchada; funciona hoy.
+   - **Pagos** → chico: `PagosGuide` (1,492 líneas) ya está CONSTRUIDA pero NO enganchada en la
+     página de ayuda — solo habilitar la pestaña y renderizarla.
+   - **Perfil/Práctica** → real: pestañas `disabled`, sin guía escrita — autorar contenido (con
+     review factual) o aceptar el puntero genérico al Centro de ayuda.
+   - **Fiscal** → ya resuelto distinto: rutea vía `get_guia` a las pestañas Guía in-dashboard.
+   - Opcional (belt-and-suspenders): +2 evals `kl-*` por sección para fijar el ruteo — el global
+     ya lo cubre, los evals solo lo blindan.
 2. **Secciones de solo-conocimiento** (mi-perfil, etc.): one-liners "esto es X, ve a Ayuda" — el
    mismo guardarraíl ya las cubre parcialmente; formalizar por sección después.
 3. **La bifurcación "fuente única"** (`00` §2): decidir forma canónica solo si/ cuando queramos que

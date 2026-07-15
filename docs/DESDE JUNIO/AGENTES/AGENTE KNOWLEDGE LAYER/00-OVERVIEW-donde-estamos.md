@@ -84,9 +84,11 @@ corpus chico (~12 temas) donde retrieval es puro overhead — detalle y respaldo
   [`05-PLAN-appointments-PR.md`](05-PLAN-appointments-PR.md) §9. Sin corpus, sin tool nueva, sin
   que el agente LEA guías (route-first — la fuente-única quedó parqueada por riesgo de alucinación,
   `05` §6.1).
-- **Siguiente:** extender el mismo guardarraíl/guías a más secciones (Expedientes ya tiene guía
-  viva; `PagosGuide` está construida pero SIN enganchar; mi-perfil y otras = one-liners) **o**
-  facturas PR F2 (el siguiente original del blueprint). Ninguno bloquea al otro.
+- **Siguiente:** el guardarraíl es GLOBAL (RESILIENCE) → el ruteo YA aplica a todas las secciones
+  en prod (expedientes incluido) SIN trabajo de agente; lo único que varía por sección es si existe
+  la guía destino en `/dashboard/ayuda` (trabajo de UI, no de prompt — detalle en `05` §8:
+  expedientes=listo · Pagos=enganchar `PagosGuide` · Perfil/Práctica=autorar). **O** facturas PR
+  F2 (el siguiente original del blueprint). Ninguno bloquea al otro.
 - **Preocupación #1 (cómo sabe el agente cuándo usar conocimiento vs tools):** ver `02`. El
   diagnóstico confirmó que la frontera ya se sostiene en appointments.
 
