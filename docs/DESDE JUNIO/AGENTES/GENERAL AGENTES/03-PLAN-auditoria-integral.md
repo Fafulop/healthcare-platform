@@ -7,7 +7,9 @@
 >
 > **ESTADO 2026-07-14:** orden re-acordado **A2 → A4 → A3+A5 → A6** (A4 promovido: barato y
 > su resultado puede reordenar el resto). **A2 ✅ shipped** (`8a27e469`) · **A4 ✅ hecho**
-> (ninguna señal disparada) · quedan A3+A5 (una sesión read-only vs prod) y A6 (antes de F2).
+> (ninguna señal disparada) · **A3 ✅ hecho** (1 bug encontrado y corregido: POR_COBRAR) ·
+> **A5 ✅ hecho** (suite 43/43 PASS, 0 WARN — el baseline "2 WARN es normal" murió) ·
+> queda **A6** (sondas de inyección, antes de F2).
 >
 > **Contexto:** las disciplinas por módulo ya existen y probaron valor (reviews de
 > réplica+hechos: 19+ hallazgos corregidos; smoke vs prod; 43 evals; validación en vivo con
@@ -58,7 +60,7 @@ Query semanal: `SELECT tool, error_code, count(*) FROM agent_tool_errors WHERE c
 > now() - interval '7 days' GROUP BY 1,2;`. Follow-up aceptado: sin job de retención
 (deuda compartida con llm_token_usage).
 
-## A3 — Matriz de consistencia: tool-vs-tool Y tool-vs-UI
+## A3 — Matriz de consistencia: tool-vs-tool Y tool-vs-UI — ✅ HECHO 2026-07-14 (1 bug corregido)
 
 **El hueco:** los 4 bugs cazados en vivo fueron TODOS de consistencia cruzada (enum de mp,
 modal ciego al mes, agregados de settlement, fechas UTC-vs-MX) — y ninguno era detectable
@@ -78,6 +80,21 @@ smoke-testeando una tool aislada. No existe una pasada sistemática.
 Método: read-only contra prod (dr-prueba), documentar cada divergencia como (a) bug, (b)
 diferencia by-design que el tool debe DECLARAR, o (c) ya declarada. El undercount de
 settlements (API-side, ya documentado) es el primer renglón conocido.
+
+**Resultados (2026-07-14, script tsx temporal llamando los tools vía dispatchReadTool +
+queries SQL de paridad):**
+
+| Fila | Veredicto |
+|---|---|
+| facturé/ingresé/gasté enero | ✅ consistente: SAT $242,640 (por emisión) · fiscal $229,870.17 (base efectivo) · ledger $242,640 — cada tool declara su medida en `fuente`; SAT tool 18 vs BD 19 explicado por el filtro DECLARADO "efecto I" (el 19° es un complemento de $0) → (c) |
+| ¿quién me debe? | **(a) BUG corregido**: `POR_COBRAR` en get_movimientos solo replicaba `paymentStatus IN (PENDING,PARTIAL)` de la alerta — sin `entryType='ingreso'` ni `porRealizar=false` → devolvía **331 filas con $2.19M de EGRESOS por pagar** vs la alerta (16 ingresos). El smoke original ("=15= la alerta") pasó por COINCIDENCIA de datos (entonces no había egresos pendientes realizados; meses de sync SAT crearon cientos). Fix con paridad exacta verificada: 16 = 16 = 16, $157,592 (tool = alerta = SQL crudo). Además: get_ppd_cobranza 16/$230,265 = ppdSinComplemento de get_resumen_fiscal ✅ |
+| ¿conciliado? | ✅ 1 conciliado consistente entre get_flujo_status, matchedCounts de estados de cuenta y la aritmética sin-conciliar (54−1=53); undercount "Varios" ya declarado en la nota del tool → (c) |
+| fechas | ✅ EGR-2026-352 (día UTC de @db.Date) y última consulta de expediente (día UTC de lastVisitDate) = BD, cada uno en su convención |
+| counts | ✅ bookings jul 15=15 · patients 19=19 · ledger enero 37=37 |
+
+Lección (la misma de los 4 bugs previos, ahora 5): **las réplicas parciales de un WHERE son
+la clase de bug dominante** — y un smoke que pasa puede pasar por coincidencia de datos; la
+paridad se verifica contra las CONDICIONES de la fuente, no contra su resultado del día.
 
 ## A4 — Re-medición de costo (las señales del blueprint §5.3, nunca re-medidas) — ✅ HECHO 2026-07-14: ninguna señal disparada, quedarse en nivel 0
 
@@ -105,7 +122,7 @@ costo esperado del patrón esporádico; la palanca si muerde con doctores reales
 (nivel 1), no poda. avg +4.4%. Volumen crudo p50 33.9k → 40.8k. **Decisión: nivel 0 se
 mantiene; nada que podar antes de F2. Re-medir cuando haya uso de doctores reales.**
 
-## A5 — Higiene de evals (soft-rot y el gate)
+## A5 — Higiene de evals (soft-rot y el gate) — ✅ HECHO 2026-07-14 (43/43 PASS, 0 WARN)
 
 **El hueco:** la línea base es "2 WARN soft es normal" — normalización de la desviación;
 cada caso soft nuevo enmugra la señal. Y NADA fuerza correr la suite (es disciplina, no gate).
@@ -115,6 +132,14 @@ menos frágiles) o se justifica por escrito; meta: 0 WARN esperados en una corri
 (b) Decidir el gate: mínimo, documentar "suite antes de push" como checklist del playbook
 (ya es regla); opcional, hook pre-push. (c) Regla vigente: +2-3 evals cross-dominio por
 módulo nuevo — verificar que flujo/expediente los tengan (sí: 4).
+
+**Resultado (2026-07-14):** (a) corrida completa **43/43 PASS · 0 WARN · 0 FAIL** — los "2
+WARN esperables" no aparecieron; **el baseline esperado desde hoy es 0 WARN** (los flags
+`soft:` se quedan: son guardas data-dependent justificadas caso por caso en `dataDependent`,
+pero un WARN ya NO es "normal" — se investiga). (b) Gate: "suite antes de push" queda como
+regla documentada del playbook; hook pre-push = opcional, no construido. (c) Cross-dominio:
+**5 casos xdom** (arriba del mínimo); `xdom-cuanto-me-deben` ejercitó el path POR_COBRAR
+corregido en esta misma corrida.
 
 ## A6 — Sondas de prompt injection (la amenaza #1 del diseño Motor 4, nunca probada)
 
@@ -138,9 +163,9 @@ en profundidad, no la única línea.
 |---|---|---|---|
 | A1 | ~~PHI/compliance memo~~ | — | ❌ descartado (decisión usuario) |
 | A2 | log de tool errors | ~1 archivo | ✅ hecho (`8a27e469`, 2026-07-14) |
-| A3 | matriz de consistencia | 1 sesión read-only vs prod | antes de F2 |
+| A3 | matriz de consistencia | 1 sesión read-only vs prod | ✅ hecho 2026-07-14 (1 bug POR_COBRAR corregido; resto consistente o declarado) |
 | A4 | re-medición de costo | queries a telemetría | ✅ hecho 2026-07-14 (ninguna señal disparada; nivel 0 se mantiene) |
-| A5 | higiene de evals | 1 pasada | con A3 |
+| A5 | higiene de evals | 1 pasada | ✅ hecho 2026-07-14 (43/43 PASS; baseline ahora 0 WARN; 5 xdom) |
 | A6 | sondas de inyección | datos de prueba + ~3 evals | antes de F2 (F2 ejecuta) |
 
 *Relacionado: [`00-BLUEPRINT-asistente-modular.md`](00-BLUEPRINT-asistente-modular.md) §5

@@ -56,6 +56,15 @@ reales, cero escrituras. Es el paso "flujo de dinero" de la estrategia **F1 ever
   no existe en la UI; si la UI lo gana algún día, mantener paridad.
 - Desempates cross-módulo espejeados en ambos prompts (lección del doble-steer F1.5).
 
+## Fix post-validación (auditoría A3, 2026-07-14)
+
+**POR_COBRAR devolvía también egresos** — la réplica de la alerta solo copiaba
+`paymentStatus IN (PENDING,PARTIAL)` sin `entryType='ingreso'` ni `porRealizar=false`; el
+smoke original ("=15= la alerta") pasó por coincidencia de datos y meses de sync SAT crearon
+cientos de egresos pendientes → 331 filas con $2.19M de "por pagar" en la respuesta de
+"¿quién me debe?". Corregido con paridad exacta verificada (16 = 16 = 16, $157,592: tool =
+alerta = SQL crudo); suite completa 43/43 PASS · 0 WARN. Post-mortem en `00` §hallazgos #2.
+
 ## Próximos pasos
 
 1. ✅ **Expediente F1 CONSTRUIDO (2026-07-12, misma sesión)** — "F1 everywhere" completo;

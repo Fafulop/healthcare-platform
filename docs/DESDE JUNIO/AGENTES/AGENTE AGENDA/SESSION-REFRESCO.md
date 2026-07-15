@@ -316,6 +316,15 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
   Mismo día: **A4 re-medición de costo** (read-only, sin código) — p50/turno +11.6% tras
   flujo+expediente (umbral +20% NO disparado), frías 24.4k–33.3k, peor día 40.7% del cap →
   nivel 0 se mantiene; resultados en `../GENERAL AGENTES/03` A4. Siguen A3+A5, luego A6.
+- **A3+A5 auditoría** (2026-07-14, misma sesión): matriz de consistencia read-only vs prod —
+  **1 bug (a) corregido**: `POR_COBRAR` de get_movimientos replicaba parcialmente el WHERE
+  de la alerta (sin entryType/porRealizar) → 331 filas con $2.19M de egresos "por pagar" en
+  "¿quién me debe?"; paridad exacta verificada (16=16=16, $157,592). El resto de la matriz:
+  consistente o divergencia declarada (detalle en `../GENERAL AGENTES/03` A3). **A5:** suite
+  completa **43/43 PASS · 0 WARN** — el baseline esperado desde hoy es 0 WARN (un WARN se
+  investiga, ya no es "normal"); 5 evals xdom. 5° win de validación-inversa; lección nueva:
+  un smoke de paridad que pasa puede pasar por COINCIDENCIA de datos — verificar réplicas
+  contra las CONDICIONES de la fuente, no contra su resultado del día.
 
 ---
 

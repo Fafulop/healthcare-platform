@@ -26,7 +26,7 @@ en el review; siguiente palanca si muerde: blueprint §5.3 nivel 1).
 | Tool | Replica | Responde |
 |---|---|---|
 | `get_flujo_status` | `GET /api/practice-management/ledger/completeness` (query por query: 16 counts, pcts, matriz, alertas) | "¿cómo voy con mi conciliación?", "¿qué me falta documentar?" — el compuesto de diagnóstico del dominio |
-| `get_movimientos` | Semántica de filtros de `GET /api/practice-management/ledger` + filtro ADITIVO `estatusPago` (`POR_COBRAR` = PENDING+PARTIAL, la misma clase que cuenta la alerta de completeness) | "muéstrame los gastos de junio", "¿qué ingresos me deben?", "busca el movimiento de la renta" |
+| `get_movimientos` | Semántica de filtros de `GET /api/practice-management/ledger` + filtro ADITIVO `estatusPago` (`POR_COBRAR` = el SET EXACTO de la alerta de completeness: ingresos REALIZADOS con PENDING+PARTIAL — corregido en A3 2026-07-14: la réplica original omitía entryType/porRealizar y devolvía también egresos por pagar) | "muéstrame los gastos de junio", "¿qué ingresos me deben?", "busca el movimiento de la renta" |
 | `get_balance` | `GET /api/practice-management/ledger/balance` (realizados vs por-realizar, proyectado) | "¿cuánto tengo de balance?", "¿cuánto entró y salió?" |
 | `get_movimiento_detail` | Entry por `internalId` (case-insensitive, tenancy por doctorId) + la resolución de evidencia de `GET /ledger/[id]/evidence` **incluida la heurística de huérfanos** (monto + paidAt≈createdAt ±15min, solo si el match es único) | "¿por qué este movimiento está incompleto?", "¿de dónde salió?", "¿cómo me pagaron?" |
 | `get_conciliacion_bancaria` | `GET /api/practice-management/conciliacion-bancaria` (estados de cuenta) + resumen de `bank_movements` sin conciliar (count real + top por monto) | "¿qué estados de cuenta subí?", "¿qué sigue sin conciliar?" |
@@ -85,6 +85,12 @@ Los gordos (todos corregidos en el mismo PR):
    contra el código (los docs alucinan; el código es la verdad).
 2. **Regla que prescribía un filtro inexistente** ("¿quién me debe?" → filtrar por estatus):
    se agregó el filtro `estatusPago` al tool (smoke: POR_COBRAR = 15 = el count de la alerta).
+   ⚠️ **Post-mortem A3 (2026-07-14):** ese smoke pasó por COINCIDENCIA de datos — la réplica
+   solo copiaba `paymentStatus IN (PENDING,PARTIAL)` sin `entryType='ingreso'` ni
+   `porRealizar=false`; cuando el sync SAT creó cientos de egresos pendientes, POR_COBRAR
+   devolvía 331 filas con $2.19M de "por pagar". Corregido con paridad exacta (16=16=16,
+   $157,592). Lección: la paridad se verifica contra las CONDICIONES de la fuente, no contra
+   su resultado del día.
 3. **Doble-steer "¿cuánto gasté?"** flujo vs fiscal → reglas espejeadas (patrón F1.5).
 4. **Drop silencioso de fecha malformada** → sumas de TODO el historial reportadas como el mes
    pedido. Fix: guard de rango + eco de `periodo` en la respuesta.
