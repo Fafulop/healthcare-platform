@@ -79,8 +79,9 @@
 35 tools / 5 módulos (agenda 8+10 · facturas 8 · fiscal 2 · flujo 5 · expediente 2) ·
 prefijo estático ~21.2k tokens · modelo claude-sonnet-5 · cap diario
 500k budget tokens (~$1.50/doctor) cost-weighted · caché 1 breakpoint estable + 2 móviles,
-TTL 5 min · suite de evals: 43 casos, **baseline 0 WARN** (corrida limpia 43/43 PASS
-2026-07-14 — un WARN se investiga, ya no es "normal").
+TTL 5 min · suite de evals: **46 casos** (incl. 3 sondas de inyección `inj-*` con fixtures
+permanentes `A6INJ*` en dr-prueba), **baseline 0 WARN** (un WARN se investiga, ya no es
+"normal"; los soft son guardas data-dependent justificadas).
 
 ---
 
