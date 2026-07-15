@@ -434,14 +434,21 @@ export interface CatalogItem {
   Description?: string;
 }
 
+// ⚠️ Catalog paths are `/catalogs/...` — NOT `/api-lite/catalogs/...`. The
+// api-lite variant responds HTTP 200 with an EMPTY body (request() maps that
+// to {}), so every catalog silently returned nothing in prod; the UI masked it
+// with its hardcoded frontend fallback. Found + verified against the live
+// sandbox 2026-07-15 (F2a smoke): /catalogs/* returns real arrays, and the
+// regimes catalog is spelled "FiscalRegimens".
+
 /**
  * Get SAT catalog for "Uso CFDI" (invoice uses).
  * Accepts optional RFC — results vary by person type (fisica vs moral).
  */
 export async function getCatalogUsoCfdi(rfc?: string): Promise<CatalogItem[]> {
   const path = rfc
-    ? `/api-lite/catalogs/CfdiUses?keyword=${encodeURIComponent(rfc)}`
-    : '/api-lite/catalogs/CfdiUses';
+    ? `/catalogs/CfdiUses?keyword=${encodeURIComponent(rfc)}`
+    : '/catalogs/CfdiUses';
   return request<CatalogItem[]>('GET', path);
 }
 
@@ -449,35 +456,37 @@ export async function getCatalogUsoCfdi(rfc?: string): Promise<CatalogItem[]> {
  * Get SAT catalog for "Regimenes Fiscales".
  */
 export async function getCatalogRegimenesFiscales(): Promise<CatalogItem[]> {
-  return request<CatalogItem[]>('GET', '/api-lite/catalogs/FiscalRegimes');
+  return request<CatalogItem[]>('GET', '/catalogs/FiscalRegimens');
 }
 
 /**
  * Get SAT catalog for "Formas de Pago".
  */
 export async function getCatalogFormasPago(): Promise<CatalogItem[]> {
-  return request<CatalogItem[]>('GET', '/api-lite/catalogs/PaymentForms');
+  return request<CatalogItem[]>('GET', '/catalogs/PaymentForms');
 }
 
 /**
  * Get SAT catalog for "Metodos de Pago".
  */
 export async function getCatalogMetodosPago(): Promise<CatalogItem[]> {
-  return request<CatalogItem[]>('GET', '/api-lite/catalogs/PaymentMethods');
+  return request<CatalogItem[]>('GET', '/catalogs/PaymentMethods');
 }
 
 /**
- * Search SAT product/service codes by keyword.
+ * Search SAT product/service codes by keyword. The match is literal (accents
+ * matter: "cirugía" hits, "material quirurgico" may return nothing) — callers
+ * should retry with a different single keyword on empty results.
  */
 export async function searchProductCodes(query: string): Promise<CatalogItem[]> {
-  return request<CatalogItem[]>('GET', `/api-lite/catalogs/ProductsOrServices?keyword=${encodeURIComponent(query)}`);
+  return request<CatalogItem[]>('GET', `/catalogs/ProductsOrServices?keyword=${encodeURIComponent(query)}`);
 }
 
 /**
  * Search SAT unit codes by keyword.
  */
 export async function searchUnitCodes(query: string): Promise<CatalogItem[]> {
-  return request<CatalogItem[]>('GET', `/api-lite/catalogs/Units?keyword=${encodeURIComponent(query)}`);
+  return request<CatalogItem[]>('GET', `/catalogs/Units?keyword=${encodeURIComponent(query)}`);
 }
 
 // =============================================================================
