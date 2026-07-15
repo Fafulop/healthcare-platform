@@ -3881,6 +3881,10 @@ function DeclaracionesTab() {
 // Contable Tab — Accounting Guide
 // ---------------------------------------------------------------------------
 
+// ⚠️ Esta pestana DESCRIBE las demas pestanas de esta pagina (nombres, orden, features, panel
+// de sincronizacion). Si agregas/quitas/renombras una pestana o cambias el flujo de sync,
+// actualiza aqui: secciones numeradas, diagrama de flujo y FAQ. (Drift cazado 2026-07-15:
+// pestana fantasma "Resumen", "Cobranza" con buckets inexistentes, FAQ del sync viejo.)
 function AyudaTab() {
   return (
     <div className="space-y-8 max-w-3xl">
@@ -4009,16 +4013,64 @@ function AyudaTab() {
             <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
             <p className="text-xs text-blue-700">
               Solo analiza facturas <strong>recibidas</strong> (gastos) de la pestana 1.
-              Las deducciones validas aqui son las que se usan para calcular ISR en <strong>Declaraciones</strong> (pestana 3).
+              Las deducciones validas aqui son las que se usan para calcular ISR en <strong>Declaraciones</strong> (pestana 4).
             </p>
           </div>
         </div>
       </section>
 
-      {/* 3. Declaraciones */}
+      {/* 3. PPD / Pagos */}
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">
           <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">3</span>
+          PPD / Pagos
+        </h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
+          <p>
+            <strong>Que es:</strong> Seguimiento de facturas PPD (pago diferido) y sus complementos de pago,
+            en ambas direcciones: las que <strong>emitiste</strong> (te deben) y las que <strong>recibiste</strong> (debes).
+          </p>
+
+          <div>
+            <p className="font-semibold text-gray-800 mb-2">Que muestra (dos lados)</p>
+            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
+              <li><strong>&quot;Me deben&quot; — PPD emitidas</strong> — facturas que emitiste con PPD; cuando te paguen, emites el complemento de pago</li>
+              <li><strong>&quot;Yo debo&quot; — PPD recibidas</strong> — facturas que te enviaron con PPD; cuando pagues, el proveedor emite el complemento</li>
+              <li><strong>Tarjetas de resumen</strong> — total de facturas, completas, parciales y pendientes (con su saldo)</li>
+              <li><strong>Pendientes de pago</strong> — facturas con saldo, con total/pagado/pendiente por factura; si hay complementos del mismo RFC disponibles, puedes vincularlos con un clic</li>
+              <li><strong>Complementos huerfanos</strong> — pagos (tipo P) sin factura pendiente que coincida, para revisar o vincular manualmente</li>
+              <li><strong>Ledger completo</strong> — todas las facturas PPD con sus complementos inline</li>
+            </ul>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded p-3">
+            <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
+            <p className="text-xs text-gray-600">
+              En &quot;Me deben&quot; ves 2 facturas pendientes a la misma aseguradora con saldo de $45,000 desde hace 3 meses,
+              y decides llamarles para dar seguimiento. Tambien notas que sin el complemento de pago, ese ingreso
+              <strong> no cuenta como cobrado</strong> para efectos de IVA, asi que no debes declarar el IVA de esas
+              facturas hasta que te paguen.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
+            <p className="text-xs text-blue-700">
+              Solo analiza facturas <strong>con metodo PPD</strong> de la pestana 1. Cruza cada factura con sus complementos
+              de pago (tipo P) para determinar cuanto se ha cobrado o pagado. Las facturas PUE no aparecen aqui porque
+              se consideran pagadas al emitirse. Si al expandir el XML de una factura PPD en la pestana 1 ves el indicador
+              de pago en verde pero aqui aparece como pendiente, puede ser que el complemento aun no se ha sincronizado.
+              Las PPD sin complemento tambien afectan <strong>Declaraciones</strong> (pestana 4): no cuentan como
+              ingreso ni deduccion hasta que exista el complemento.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Declaraciones */}
+      <section>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">4</span>
           Declaraciones
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
@@ -4135,53 +4187,9 @@ function AyudaTab() {
           <div className="bg-blue-50 border border-blue-200 rounded p-3">
             <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
             <p className="text-xs text-blue-700">
-              Toma los ingresos de facturas emitidas y los gastos deducibles de facturas recibidas (mismos datos que pestanas 2 y 3).
+              Toma los ingresos de facturas emitidas y los gastos deducibles de facturas recibidas (mismos datos que pestanas 1 y 2).
               Las <strong>retenciones</strong> (ISR e IVA retenidos) vienen de las facturas emitidas a personas morales.
               Si los montos no coinciden entre pestanas, revisa si hay facturas canceladas o notas de credito.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. Cobranza */}
-      <section>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">
-          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm mr-2">4</span>
-          Cobranza
-        </h3>
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4 text-sm text-gray-700">
-          <p>
-            <strong>Que es:</strong> Seguimiento de facturas PPD (pago diferido) que aun no has cobrado.
-            Es un <strong>reporte de cuentas por cobrar</strong> — te muestra cuanto te deben, hace cuanto, y quien.
-          </p>
-
-          <div>
-            <p className="font-semibold text-gray-800 mb-2">Que muestra</p>
-            <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
-              <li><strong>Total por cobrar</strong> — Suma de facturas PPD emitidas sin complemento de pago completo</li>
-              <li><strong>Total vencido</strong> — Facturas con mas de 30 dias sin cobrar</li>
-              <li><strong>Buckets de antiguedad</strong> — 0-30 dias, 31-60 dias, 61-90 dias, +90 dias</li>
-              <li><strong>Lista de facturas</strong> — Expande cada bucket para ver las facturas individuales con RFC, nombre y monto</li>
-            </ul>
-          </div>
-
-          <div className="bg-gray-50 border border-gray-200 rounded p-3">
-            <p className="font-semibold text-gray-700 text-xs mb-1">Ejemplo</p>
-            <p className="text-xs text-gray-600">
-              Ves que tienes $45,000 en el bucket de "+90 dias" — son facturas de hace 3 meses que no te han pagado.
-              Expandes el bucket, identificas que son 2 facturas a la misma aseguradora, y decides llamarles para dar seguimiento.
-              Tambien notas que sin el complemento de pago, ese ingreso <strong>no cuenta como cobrado</strong> para efectos de IVA,
-              asi que no debes declarar el IVA de esas facturas hasta que te paguen.
-            </p>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded p-3">
-            <p className="font-semibold text-blue-800 text-xs mb-1">Relacion con otras pestanas</p>
-            <p className="text-xs text-blue-700">
-              Solo analiza facturas <strong>emitidas con metodo PPD</strong>. Cruza la factura original con sus complementos de pago (tipo P)
-              para determinar cuanto se ha cobrado. Las facturas PUE (pago de contado) no aparecen aqui porque se consideran pagadas
-              al momento de emitirse. Si al expandir el XML de una factura PPD en la pestana 1 ves el indicador de pago en verde
-              pero aqui aparece como pendiente, puede ser que el complemento de pago aun no se ha sincronizado.
             </p>
           </div>
         </div>
@@ -4252,23 +4260,18 @@ function AyudaTab() {
             <div className="flex justify-center gap-8 items-start">
               <div className="text-center">
                 <p className="text-gray-400">v</p>
-                <p className="font-bold text-green-700">[2] Resumen</p>
-                <p className="text-gray-500 text-xs">(totales anuales)</p>
+                <p className="font-bold text-orange-700">[2] Deducciones</p>
+                <p className="text-gray-500 text-xs">(gastos clasificados)</p>
               </div>
               <div className="text-center">
                 <p className="text-gray-400">v</p>
-                <p className="font-bold text-orange-700">[3] Deducciones</p>
-                <p className="text-gray-500 text-xs">(gastos clasificados)</p>
+                <p className="font-bold text-red-700">[3] PPD / Pagos</p>
+                <p className="text-gray-500 text-xs">(cuentas por cobrar/pagar)</p>
               </div>
               <div className="text-center">
                 <p className="text-gray-400">v</p>
                 <p className="font-bold text-purple-700">[4] Declaraciones</p>
                 <p className="text-gray-500 text-xs">(ISR + IVA estimados)</p>
-              </div>
-              <div className="text-center">
-                <p className="text-gray-400">v</p>
-                <p className="font-bold text-red-700">[5] Cobranza</p>
-                <p className="text-gray-500 text-xs">(cuentas por cobrar)</p>
               </div>
             </div>
           </div>
@@ -4281,7 +4284,7 @@ function AyudaTab() {
               <li>Consulta <strong>Declaraciones</strong> para el panorama general del ano/mes (ISR, IVA, retenciones)</li>
               <li>Revisa <strong>Deducciones</strong> para identificar gastos problematicos (S01, efectivo, sin clasificar)</li>
               <li>Antes de declarar, abre <strong>Declaraciones</strong> para estimar ISR e IVA del mes</li>
-              <li>Si emites facturas PPD, revisa <strong>Cobranza</strong> periodicamente para dar seguimiento a pagos pendientes</li>
+              <li>Si emites o recibes facturas PPD, revisa <strong>PPD / Pagos</strong> periodicamente para dar seguimiento a pagos pendientes y complementos</li>
               <li>Si no entiendes algun concepto, consultalo en la <strong>Guia</strong></li>
             </ol>
           </div>
@@ -4295,9 +4298,11 @@ function AyudaTab() {
           <div>
             <p className="font-semibold text-gray-800">¿Por que no veo datos en las pestanas?</p>
             <p className="text-xs text-gray-600 mt-1">
-              Necesitas sincronizar primero. Sube tu e.Firma (.key y .cer) en la parte superior, selecciona un mes,
-              y haz clic en "Descargar". La sincronizacion tipo "Completa" descarga metadata + XML (necesario para
-              Deducciones y Declaraciones). La sincronizacion tipo "Solo metadata" es mas rapida pero solo llena el listado de CFDIs.
+              Necesitas sincronizar primero. Sube tu e.Firma (.key y .cer) en la parte superior y haz clic en
+              <strong> "Iniciar descarga historica"</strong> — un solo clic descarga todos tus CFDIs (emitidos y recibidos)
+              desde enero 2025; un worker los procesa en segundo plano cada 15 minutos, sin necesidad de mantener la pagina abierta.
+              Si la metadata esta completa pero faltan detalles XML (Deducciones y Declaraciones los necesitan), usa
+              <strong> "Descargar XMLs faltantes"</strong>. Activa <strong>Auto-sync</strong> para que los meses nuevos se sincronicen solos.
             </p>
           </div>
 
