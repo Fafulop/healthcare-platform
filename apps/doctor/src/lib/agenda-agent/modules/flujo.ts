@@ -56,7 +56,7 @@ const FLUJO_TOOLS: AnthropicTool[] = [
         estatusPago: {
           type: 'string',
           enum: ['PENDING', 'PARTIAL', 'PAID', 'POR_COBRAR'],
-          description: 'Estatus de pago; POR_COBRAR = PENDING+PARTIAL juntos (opcional)',
+          description: 'Estatus de pago; POR_COBRAR = ingresos REALIZADOS pendientes de cobro (PENDING+PARTIAL, el mismo conteo que la alerta de get_flujo_status) (opcional)',
         },
         needsReview: { type: 'boolean', description: 'true = solo auto-vinculados pendientes de revisar (opcional)' },
         porRealizar: { type: 'boolean', description: 'true = solo movimientos POR REALIZAR (proyectados, no dinero real todavía) (opcional)' },
@@ -302,9 +302,15 @@ async function getMovimientos(ctx: ToolContext, input: MovimientosInput) {
   if (typeof input.hasFactura === 'boolean') where.hasFactura = input.hasFactura;
   if (typeof input.hasComprobante === 'boolean') where.hasComprobante = input.hasComprobante;
   // Additive filter beyond the ledger endpoint (read-only, same column the
-  // completeness alert counts): POR_COBRAR = the alert's PENDING+PARTIAL set.
+  // completeness alert counts): POR_COBRAR = the alert's EXACT set (see the
+  // unpaidIngresos count above): realized INGRESOS awaiting payment. Without
+  // the entryType/porRealizar constraints it also matched pending EGRESOS
+  // ("por pagar") — 331 rows vs the alert's 16 (A3 consistency audit,
+  // 2026-07-14). entryType is forced: POR_COBRAR is ingreso by definition.
   if (input.estatusPago === 'POR_COBRAR') {
     where.paymentStatus = { in: ['PENDING', 'PARTIAL'] };
+    where.entryType = 'ingreso';
+    where.porRealizar = false;
   } else if (typeof input.estatusPago === 'string' && ['PENDING', 'PARTIAL', 'PAID'].includes(input.estatusPago)) {
     where.paymentStatus = input.estatusPago;
   }
