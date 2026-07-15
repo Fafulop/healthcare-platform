@@ -3,7 +3,8 @@
 > Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
-> Última actualización: **2026-07-11** (2ª pasada: post-validación en vivo + gobernanza).
+> Última actualización: **2026-07-15** (F2 re-pensado: experto en facturas; arquitectura
+> re-abierta y RE-DECIDIDA — un asistente, módulo enriquecido; docs 05/06 nuevos).
 > El mapa de arriba de todos los agentes vive en
 > [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
 
@@ -25,6 +26,9 @@ módulos está HECHO** (byte-idéntico, evals 19/19). **Siguiente: PR F1 — los
 | `02-FLUJO-SISTEMA-cita-paciente-factura-pago.md` | El grafo real (LedgerEntry = hub) + **la matriz de 6 preguntas = el spec de `get_billing_status`** |
 | `03-PERMUTACIONES-paciente-dinero-factura.md` | Catálogo E×M×F×O + huecos H1–H10 con su estado — **cada permutación es un eval candidato de PR F1** |
 | `04-FIXES-links-de-pago-ligados.md` | Registro completo de los fixes de sustrato (2 tandas, con commits y lecciones) |
+| `05-ANALISIS-arquitectura-especializado-vs-modulo.md` | Re-examen 2026-07-15 (agente especializado vs módulo) → **decidido: UN asistente, módulo enriquecido**; secuencia F2a (lectura experta) → F2b (emisión) |
+| `06-KNOWLEDGE-BASE-facturacion.md` | LA base de conocimiento de facturación: emisión paso a paso, fórmula de impuestos, reglas SAT, catálogos, grafo — verificada contra código 2026-07-15 |
+| `07-PLAN-F2a-experto-lectura.md` | Plan del PR F2a: `search_catalogo_sat` + `get_pendientes_factura` + conocimiento (prompt/get_guia) + 7 evals — LISTO PARA BUILD |
 
 Playbook heredado: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md)
 (método, bitácora, evals) y `05-REFERENCIA-TECNICA` (el sistema, incl. la estructura de módulos).
@@ -162,10 +166,26 @@ money model.
      y DECLINÓ estimar ISR dirigiendo a Declaraciones — frontera E7 sostenida ✓.
      (4) "¿cómo funciona la descarga del SAT?" → get_guia fiel al resumen curado (incluido el
      umbral $2,000 CORREGIDO por el review) + pointer a la pestaña ✓.
-3. **PR F2** — `propose_create_cfdi` + `propose_send_fiscal_form` (+ builder de impuestos
-   server-side). **Fase 2 también:** `propose_payment_link` (los endpoints ya validan todo) y
-   `propose_create_patient` (H3 — walk-in que pide factura).
+3. **F2 RE-PENSADO (2026-07-15, sesión con el usuario):** objetivo = asistente EXPERTO en
+   facturas (recomendar claves de catálogo SAT para conceptos mixtos consulta/insumos/quirófano,
+   detectar pacientes con factura pendiente, emitir con aprobación, conocimiento legal). Se
+   re-abrió la arquitectura (¿agente especializado con botón propio?) → **RE-DECIDIDO: UN
+   asistente, módulo facturas enriquecido** (`05-ANALISIS`, aprobado por el usuario). Hallazgos
+   clave: el catálogo SAT YA tiene API con auth (`catalogos/[tipo]` + `searchProductCodes`) →
+   recomendaciones grounded; la fórmula de impuestos vive en el FORM de /facturacion (NO en
+   useBookings.emitCfdi — la nota vieja era stale); Facturama apunta a SANDBOX en prod
+   (intencional, confirmado). Secuencia aprobada:
+   - **PR F2a — experto solo-lectura:** `search_catalogo_sat` + `get_pendientes_factura`
+     (hasFactura×requiereFactura) + conocimiento (prompt corto + get_guia; fuente
+     `06-KNOWLEDGE-BASE`).
+   - **PR F2b — emisión:** `propose_create_cfdi` + builder de impuestos server-side + card
+     tier-máximo. Después: `propose_send_fiscal_form`, `propose_payment_link`,
+     `propose_create_patient` (H3).
 4. **PR F3** — entrega (`propose_email_cfdi`).
+5. **Higiene 2026-07-15 (uncommitted):** AyudaTab de /sat-descarga corregida (pestaña fantasma
+   "Resumen", "Cobranza"→"PPD / Pagos" con features reales — los buckets de antigüedad NO
+   existen —, FAQ del sync viejo, + comentario anti-drift). GuiaTab verificada CORRECTA contra
+   UNIFIED-FISCAL-REFERENCE (retenciones, PUE/PPD, uso CFDI, tablas ISR).
 
 ## Preguntas abiertas
 
