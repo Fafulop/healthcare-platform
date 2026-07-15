@@ -633,6 +633,39 @@ async function main() {
         { kind: 'tool-called', name: 'get_conciliacion_bancaria' },
       ],
     },
+
+    // --- Knowledge layer: navegación de UI (GENERAL AGENTES/.../AGENTE KNOWLEDGE LAYER) ---
+    // El agente NO ve la interfaz → nunca improvisa pasos de UI; rutea al Centro
+    // de ayuda u ofrece hacer la acción. El diagnóstico mostró que a veces
+    // improvisaba un click-path (kl-ui-nav-pasos-app). El 3er caso es defensivo:
+    // el guardarraíl no debe SOBRE-rutear las preguntas de CONCEPTO (que se hablan).
+    {
+      id: 'kl-ui-nav-pasos-app',
+      bitacora: 'KL — "paso a paso en la app" → rutea a ayuda / ofrece hacerlo, NO improvisa pasos',
+      message: '¿cómo creo un horario de disponibilidad, paso a paso en la app?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(centro de ayuda|men[uú].*ayuda|secci[oó]n de ayuda|puedo (crear|hacer|hacerlo)|te (lo )?(creo|preparo)|lo (creo|hago) por)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'kl-ui-nav-donde-click',
+      bitacora: 'KL — "¿dónde hago click?" → rutea/ofrece, no inventa botones',
+      message: '¿en qué parte de la pantalla hago click para reagendar una cita?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(centro de ayuda|men[uú].*ayuda|no (veo|tengo).*(interfaz|pantalla|visual)|puedo (reagendar|hacerlo)|lo hago por)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'kl-concepto-no-sobre-rutea',
+      bitacora: 'KL — pregunta de CONCEPTO se sigue HABLANDO (el guardarraíl no la sobre-rutea a ayuda)',
+      message: '¿cómo funciona reagendar una cita?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(una (sola )?acci[oó]n|cancela.*(y )?crea|estado final)', flags: 'i' },
+      ],
+    },
   ];
 
   // --- Runner secuencial ---
