@@ -6,6 +6,14 @@
 >
 > **Decisión de arquitectura: NO RAG.** Ver §2 — el conocimiento se sirve con el patrón
 > get_guia ya validado, sobre una fuente única compartida con la UI.
+>
+> **⚠️ REFINADO 2026-07-14 → `../AGENTE KNOWLEDGE LAYER/`.** Este plan sigue válido para la
+> secuencia K1-K4 y la decisión NO-RAG, pero la carpeta hermana `AGENTE KNOWLEDGE LAYER/` lo
+> actualiza con: el inventario REAL de código (K1 hecho — 4 superficies disjuntas, no 1),
+> la reformulación desde primeros principios (2 dimensiones: conocimiento en todas las
+> secciones, tools solo en algunas), la investigación de industria (Agentforce/grounding
+> 2026) y — lo más importante — la FRONTERA conocimiento↔tools (cómo sabe el agente cuándo
+> usar cuál). Leer esa carpeta primero.
 
 ---
 
