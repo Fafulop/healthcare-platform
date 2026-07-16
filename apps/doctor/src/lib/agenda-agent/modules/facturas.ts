@@ -19,7 +19,14 @@
  *   19:00 MX is "today" for the doctor, not tomorrow's UTC date. Date-range
  *   filters on timestamp columns use MX-midnight boundaries (fixed UTC-6; MX
  *   abolished DST in 2022). `@db.Date` columns keep utcDateToKey.
- * - Still NO write proposals here (emission/cancel/links/fiscal form = F2b).
+ * - PR F2b (2026-07-16) added the module's FIRST proposal: propose_create_cfdi
+ *   (max-tier card — stamps a legal document at the SAT). Taxes are built
+ *   server-side at proposal time (cfdi-builder.ts, regla E7); the receiver
+ *   comes ONLY from the expediente; double emission is blocked HERE on
+ *   hasFactura (the endpoint does not check it). A generic-RFC expediente
+ *   (XAXX010101000) emits as Público en General with the UI's exact recipe
+ *   (user decision 2026-07-16). Still out of scope: cancel CFDI (never-v1),
+ *   manual incomes, payment links, fiscal form, email (F3).
  *   F2a (2026-07-15) added two more READ tools: search_catalogo_sat (grounded
  *   SAT-catalog recommendations via the authenticated apps/api route — needs
  *   ctx.apiToken) and get_pendientes_factura (per-patient sweep of unbilled
@@ -33,6 +40,14 @@ import { API_URL, type ToolContext } from '../tools';
 import { utcDateToKey, mxTodayKey } from '../dates';
 import { dateWhere } from './flujo';
 import type { AgentModule } from './types';
+import { MAX_PROPOSALS_PER_TURN, type ProposalContext } from '../proposals';
+import {
+  buildCfdiItems,
+  LEDGER_FORMA_TO_SAT,
+  SAT_PAYMENT_FORMS,
+  SAT_FORMA_LABELS,
+  type ConceptInput,
+} from '../cfdi-builder';
 
 const LIST_CAP = 50;
 const PATIENT_CITAS_CAP = 10; // billing status per patient — nested payloads must fit the 8KB tool-result cap
@@ -1147,6 +1162,287 @@ async function executeFacturasTool(
 }
 
 // -----------------------------------------------------------------------------
+// PR F2b — propose_create_cfdi (max-tier proposal: stamps a legal document)
+// -----------------------------------------------------------------------------
+
+const FACTURAS_PROPOSAL_TOOLS: AnthropicTool[] = [
+  {
+    name: 'propose_create_cfdi',
+    description:
+      'PROPONE emitir una factura (CFDI de Ingreso) sobre un INGRESO existente — tier MÁXIMO: al confirmarse se TIMBRA ante el SAT un documento fiscal legal. El ledgerEntryId sale de get_billing_status de ESTE turno (nunca lo inventes). El receptor sale SOLO del expediente vinculado al ingreso (si faltan datos fiscales, el tool te dirá cuáles — el camino es el formulario fiscal desde la cita, no inventar datos). Por concepto tú aportas descripción, clave (de search_catalogo_sat o los defaults médicos), precio y los FLAGS withIva/withIsrRetention según las reglas del dominio — los IMPUESTOS los calcula el servidor, NUNCA tú. paymentForm: si el ingreso ya tiene forma de pago clara el tool la usa; si es ambigua te pedirá preguntarla. PPD SOLO si el doctor lo pidió explícito. Si el expediente trae el RFC genérico XAXX010101000, el tool emite a PÚBLICO EN GENERAL (S01/616, sin efectos fiscales — la card lo advierte). Si el ingreso nace de una cita sin completar, primero se completa la cita (propose_complete_booking) y la factura va en el turno SIGUIENTE.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        ledgerEntryId: {
+          type: 'number',
+          description: 'ID del ingreso (de get_billing_status de ESTE turno)',
+        },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              description: { type: 'string', description: 'Descripción del concepto (aparece en la factura)' },
+              unitPrice: { type: 'number', description: 'Precio unitario SIN impuestos' },
+              quantity: { type: 'number', description: 'Cantidad (default 1)' },
+              productCode: { type: 'string', description: 'Clave SAT del producto/servicio (de search_catalogo_sat o los defaults médicos; default 85121800)' },
+              unitCode: { type: 'string', description: 'Clave de unidad SAT (default E48 para servicios)' },
+              withIva: { type: 'boolean', description: 'true si el concepto lleva IVA 16% (consulta médica de PF con título: false — exenta; estético/insumos: true)' },
+              withIsrRetention: { type: 'boolean', description: 'true SOLO si el receptor es persona MORAL que retiene ISR (pacientes persona física: false)' },
+            },
+            required: ['description', 'unitPrice', 'withIva', 'withIsrRetention'],
+          },
+          description: 'Conceptos de la factura (cada uno con su clave y sus flags de impuestos)',
+        },
+        paymentForm: {
+          type: 'string',
+          enum: [...SAT_PAYMENT_FORMS],
+          description: 'Forma de pago SAT (01 efectivo, 02 cheque, 03 transferencia, 04 tarjeta crédito, 28 tarjeta débito, 99 por definir) — omítela para usar la del ingreso; si es ambigua el tool te pedirá preguntarla',
+        },
+        paymentMethod: {
+          type: 'string',
+          enum: ['PUE', 'PPD'],
+          description: 'PUE (pago ya recibido — default) o PPD (diferido, SOLO si el doctor lo pidió explícito; fuerza forma 99 y exigirá complementos de pago)',
+        },
+        observations: { type: 'string', description: 'Observaciones (opcional — solo aparecen en el PDF, sin efecto fiscal)' },
+      },
+      required: ['ledgerEntryId', 'items'],
+    },
+  },
+];
+
+/** D5-parallel fixed warning for the max tier (the panel renders 🧾 in red). */
+const CFDI_WARNING =
+  '🧾 Esto TIMBRA un CFDI ante el SAT — un documento fiscal LEGAL a nombre del receptor. Cancelarlo después es un trámite ante el SAT (y este asistente no cancela CFDIs).';
+
+const CAP_ERROR_MSG = `Máximo ${MAX_PROPOSALS_PER_TURN} propuestas por turno — DILE al doctor explícitamente qué quedó pendiente para el siguiente turno (nunca lo omitas en silencio).`;
+
+const CFDI_ITEMS_CAP = 10;
+
+function asPositiveNumber(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+async function proposeCreateCfdi(
+  ctx: ProposalContext,
+  input: {
+    ledgerEntryId?: unknown;
+    items?: unknown;
+    paymentForm?: unknown;
+    paymentMethod?: unknown;
+    observations?: unknown;
+  }
+) {
+  // --- 1. Emitter gate: fiscal profile + active CSD (mirror of the endpoint,
+  //        checked here so the doctor never confirms a card doomed to 400) ---
+  const profile = await prisma.doctorFiscalProfile.findUnique({
+    where: { doctorId: ctx.doctorId },
+    select: { csdUploaded: true, facturamaStatus: true, regimenFiscal: true },
+  });
+  if (!profile) {
+    return { error: 'El doctor no tiene perfil fiscal configurado — la emisión se habilita en Dashboard → Facturación (pestaña Configuración). No propongas nada.' };
+  }
+  if (!profile.csdUploaded || profile.facturamaStatus !== 'active') {
+    return { error: 'Los certificados CSD del doctor no están activos — sin CSD activo no se puede timbrar. El camino es Dashboard → Facturación → Configuración. No propongas nada.' };
+  }
+
+  // --- 2. The income: doctor's, ingreso, cita-born, not already invoiced ---
+  const entryId = asPositiveNumber(input.ledgerEntryId);
+  if (!entryId || !Number.isInteger(entryId)) {
+    return { error: 'ledgerEntryId inválido — usa el ledgerEntryId que devuelve get_billing_status en ESTE turno.' };
+  }
+  const entry = await prisma.ledgerEntry.findFirst({
+    where: { id: entryId, doctorId: ctx.doctorId },
+    select: {
+      id: true, amount: true, entryType: true, origin: true, hasFactura: true,
+      patientId: true, formaDePago: true, concept: true,
+    },
+  });
+  if (!entry) {
+    return { error: 'Ningún ingreso con ese id pertenece a este doctor — usa el ledgerEntryId de get_billing_status de ESTE turno, nunca lo inventes.' };
+  }
+  if (entry.entryType !== 'ingreso') {
+    return { error: 'Ese movimiento no es un ingreso — solo se facturan ingresos.' };
+  }
+  if (entry.origin !== 'cita' && entry.origin !== 'webhook_pago') {
+    return { error: `Ese ingreso es de origen "${entry.origin ?? 'manual'}" — por ahora solo propongo facturas de ingresos nacidos de citas o de links de pago (los demás se facturan desde la pestaña Nueva Factura).` };
+  }
+  if (entry.hasFactura) {
+    return { error: 'Ese ingreso YA está facturado (hasFactura) — no se emite dos veces. Si el doctor cree que no (p. ej. una factura cancelada), el detalle está en get_billing_status y la re-emisión se hace desde la página de Facturación.' };
+  }
+
+  // --- 3. Receiver: ONLY the linked expediente (00 §6 — never free text) ---
+  if (!entry.patientId) {
+    return { error: 'El ingreso no tiene expediente vinculado — sin expediente no hay datos fiscales del receptor. El camino: vincular el expediente desde la cita y reintentar.' };
+  }
+  const patient = await prisma.patient.findFirst({
+    where: { id: entry.patientId, doctorId: ctx.doctorId },
+    select: PATIENT_FISCAL_SELECT,
+  });
+  if (!patient) {
+    return { error: 'El expediente vinculado al ingreso no existe o no es de este doctor.' };
+  }
+  const fc = fiscalCompleteness(patient);
+  const nombre = `${patient.firstName} ${patient.lastName}`.trim();
+  if (fc.completitudFiscal !== 'completo') {
+    return {
+      error: `Los datos fiscales de ${nombre} están incompletos — faltan: ${fc.camposFaltantes.join(', ')}. Sin receptor completo no se puede timbrar. El camino es el formulario fiscal al paciente (desde la cita, botón Facturación) — NUNCA inventes ni pidas dictar estos datos en el chat.`,
+      camposFaltantes: fc.camposFaltantes,
+    };
+  }
+  // Público en General (decisión del usuario 2026-07-16, revirtiendo el "no
+  // PG" inicial de 08-PLAN §9.1): cuando el EXPEDIENTE trae el RFC genérico,
+  // se emite como PG con la MISMA receta de la UI (page.tsx:1471 — nombre
+  // 'PUBLICO EN GENERAL', S01, 616; el server además fuerza TaxZipCode del
+  // emisor y agrega GlobalInformation). Sin esta normalización el uso/régimen
+  // del expediente producirían un 400 garantizado.
+  const esPublicoGeneral = !!patient.rfc && patient.rfc.trim().toUpperCase() === 'XAXX010101000';
+
+  // --- 4. Concepts → server-built taxes (E7) ---
+  if (!Array.isArray(input.items) || input.items.length === 0) {
+    return { error: 'Se requiere al menos un concepto (items).' };
+  }
+  if (input.items.length > CFDI_ITEMS_CAP) {
+    return { error: `Máximo ${CFDI_ITEMS_CAP} conceptos por factura.` };
+  }
+  const concepts: ConceptInput[] = [];
+  for (const [i, raw] of (input.items as unknown[]).entries()) {
+    const it = (raw ?? {}) as Record<string, unknown>;
+    const description = typeof it.description === 'string' ? it.description.trim() : '';
+    const unitPrice = asPositiveNumber(it.unitPrice);
+    const quantity = it.quantity === undefined ? 1 : asPositiveNumber(it.quantity);
+    if (!description) return { error: `Concepto ${i + 1}: falta la descripción.` };
+    if (!unitPrice) return { error: `Concepto ${i + 1}: unitPrice debe ser un número > 0 (SIN impuestos).` };
+    if (!quantity) return { error: `Concepto ${i + 1}: quantity debe ser un número > 0.` };
+    if (typeof it.withIva !== 'boolean' || typeof it.withIsrRetention !== 'boolean') {
+      return { error: `Concepto ${i + 1}: withIva y withIsrRetention son obligatorios y booleanos — decídelos con las reglas del dominio (consulta médica exenta; estético/insumos con IVA; PF no retiene).` };
+    }
+    concepts.push({
+      description,
+      unitPrice,
+      quantity,
+      productCode: typeof it.productCode === 'string' && it.productCode.trim() ? it.productCode.trim() : '85121800',
+      unitCode: typeof it.unitCode === 'string' && it.unitCode.trim() ? it.unitCode.trim() : 'E48',
+      withIva: it.withIva,
+      withIsrRetention: it.withIsrRetention,
+    });
+  }
+  const { items, totals } = buildCfdiItems(concepts, profile.regimenFiscal);
+
+  // --- 5. Payment method/form ---
+  const paymentMethod = input.paymentMethod === 'PPD' ? 'PPD' : 'PUE';
+  let paymentForm: string;
+  if (paymentMethod === 'PPD') {
+    paymentForm = '99'; // SAT rule: PPD always "por definir"
+  } else if (typeof input.paymentForm === 'string' && (SAT_PAYMENT_FORMS as readonly string[]).includes(input.paymentForm)) {
+    paymentForm = input.paymentForm;
+  } else if (input.paymentForm !== undefined) {
+    return { error: `paymentForm inválida — usa una de: ${SAT_PAYMENT_FORMS.join(', ')}.` };
+  } else {
+    const mapped = entry.formaDePago ? LEDGER_FORMA_TO_SAT[entry.formaDePago] : null;
+    if (!mapped) {
+      return {
+        error: `La forma de pago del ingreso (${entry.formaDePago ?? 'sin registrar'}) no mapea sola a un código SAT — pregunta al doctor cómo pagó el paciente y repite con paymentForm (01 efectivo, 03 transferencia, 04 tarjeta de crédito, 28 tarjeta de débito, 02 cheque).`,
+        formaDePagoDelIngreso: entry.formaDePago ?? null,
+      };
+    }
+    paymentForm = mapped;
+  }
+
+  // --- 6. The card ---
+  const advertencias: string[] = [CFDI_WARNING];
+  if (esPublicoGeneral) {
+    advertencias.push(
+      'El expediente trae el RFC genérico XAXX010101000 — se emite a PÚBLICO EN GENERAL (uso S01 "sin efectos fiscales", régimen 616): el paciente NO podrá deducirla. Si el paciente tiene RFC propio, mejor actualizarlo con el formulario fiscal antes de emitir.'
+    );
+  }
+  if (paymentMethod === 'PPD') {
+    advertencias.push('PPD: la factura queda como pago DIFERIDO (forma 99) — cada pago exigirá un COMPLEMENTO (REP) a más tardar el día 5 del mes siguiente. Este asistente no emite complementos.');
+  }
+  const montoIngreso = Number(entry.amount);
+  if (Math.abs(totals.total - montoIngreso) > 0.01) {
+    advertencias.push(`El total de la factura ($${totals.total}) NO coincide con el ingreso registrado ($${montoIngreso}) — confirma con el doctor que es intencional.`);
+  }
+  if (!patient.requiereFactura) {
+    advertencias.push('El expediente NO tiene marcada "requiere factura" — se emite porque el doctor lo pidió explícitamente.');
+  }
+
+  const conceptLines = items.map((it) => {
+    const ivaTax = it.taxes.find((t) => t.Name === 'IVA');
+    const isrTax = it.taxes.find((t) => t.Name === 'ISR');
+    const partes = [`$${it.subtotal}`];
+    if (ivaTax) partes.push(`+ IVA $${ivaTax.Total}`);
+    if (isrTax) partes.push(`− ret. ISR $${isrTax.Total}`);
+    return `${it.description} · clave ${it.productCode} (${it.unitCode}) ×${it.quantity} · ${partes.join(' ')} = $${it.total}`;
+  });
+
+  const observations =
+    typeof input.observations === 'string' && input.observations.trim() ? input.observations.trim() : undefined;
+
+  const proposal = ctx.collector.add({
+    type: 'create_cfdi',
+    titulo: `Emitir CFDI $${totals.total} · ${esPublicoGeneral ? 'PÚBLICO EN GENERAL' : nombre}`,
+    detalle: [
+      esPublicoGeneral
+        ? `Receptor: PUBLICO EN GENERAL · RFC XAXX010101000 · uso S01 · régimen 616 (expediente: ${nombre})`
+        : `Receptor: ${patient.razonSocial} · RFC ${patient.rfc} · uso ${patient.usoCfdi} · régimen ${patient.regimenFiscal} · CP ${patient.codigoPostalFiscal}`,
+      ...conceptLines,
+      `Total: $${totals.subtotal} + IVA $${totals.iva} − ret. ISR $${totals.retencionIsr} = $${totals.total} MXN`,
+      `Pago: ${paymentMethod} · forma ${paymentForm} (${SAT_FORMA_LABELS[paymentForm] ?? paymentForm})`,
+      `Folio automático · queda ligado al ingreso #${entry.id} ("${entry.concept}")`,
+      ...(observations ? [`Observaciones (solo PDF): ${observations}`] : []),
+    ],
+    advertencias,
+    params: {
+      // PG mirrors the UI recipe exactly (page.tsx:1471); the endpoint
+      // additionally swaps TaxZipCode for the emitter's CP and appends
+      // GlobalInformation (cfdi/route.ts:175,205).
+      receiver: esPublicoGeneral
+        ? {
+            rfc: 'XAXX010101000',
+            name: 'PUBLICO EN GENERAL',
+            cfdiUse: 'S01',
+            fiscalRegime: '616',
+            taxZipCode: patient.codigoPostalFiscal,
+          }
+        : {
+            rfc: patient.rfc,
+            name: patient.razonSocial,
+            cfdiUse: patient.usoCfdi,
+            fiscalRegime: patient.regimenFiscal,
+            taxZipCode: patient.codigoPostalFiscal,
+          },
+      items,
+      cfdiType: 'I',
+      paymentForm,
+      paymentMethod,
+      ledgerEntryId: entry.id,
+      ...(observations ? { observations } : {}),
+    },
+  });
+  if (!proposal) return { error: CAP_ERROR_MSG };
+
+  return {
+    propuestaId: proposal.id,
+    orden: proposal.orden,
+    receptor: esPublicoGeneral ? `PÚBLICO EN GENERAL — S01, sin efectos fiscales (expediente: ${nombre})` : `${nombre} (${patient.rfc})`,
+    totales: totals,
+    pago: `${paymentMethod} · ${paymentForm}`,
+    nota: 'Propuesta registrada — RECUERDA al doctor que al confirmar se timbra un documento fiscal LEGAL ante el SAT. Usa EXACTAMENTE los totales de "totales" al narrar, no los recalcules.',
+  };
+}
+
+async function executeFacturasProposal(
+  ctx: ProposalContext,
+  name: string,
+  input: Record<string, unknown>
+): Promise<unknown> {
+  if (name === 'propose_create_cfdi') return proposeCreateCfdi(ctx, input);
+  return null;
+}
+
+// -----------------------------------------------------------------------------
 // Prompt sections
 // -----------------------------------------------------------------------------
 
@@ -1169,11 +1465,23 @@ const FACTURAS_DOMAIN_MODEL = `## Cómo funcionan facturación y pagos (invarian
   get_billing_status; si detectas algo que la página no muestra (p. ej. factura externa del
   SAT), acláraselo al doctor.`;
 
-const FACTURAS_RULES = `## Facturación y pagos — reglas (por ahora SOLO CONSULTA)
-- **Todavía NO puedes**: emitir ni cancelar facturas (CFDI), crear links de pago, ni enviar el
-  formulario fiscal al paciente. Si el doctor lo pide: dile qué encontraste (estado, qué falta)
-  y que la acción se hace desde la página correspondiente (facturas: tabla de citas o
-  Facturación; links: botón Cobro de la cita).
+const FACTURAS_RULES = `## Facturación y pagos — reglas
+- **EMITIR una factura (propose_create_cfdi) SÍ está a tu alcance** — es la acción de MÁXIMO
+  tier: al confirmarse la card se timbra un documento fiscal LEGAL ante el SAT. Reglas duras:
+  (1) SOLO cuando el doctor lo pidió explícitamente en ESTE hilo — nunca la propongas
+  espontáneamente; (2) SIEMPRE verifica primero el ingreso con get_billing_status en ESTE
+  turno (de ahí sale el ledgerEntryId — nunca lo inventes); (3) el receptor sale SOLO del
+  expediente — si faltan datos fiscales NO se emite (el camino es el formulario fiscal desde
+  la cita), jamás pidas dictar RFC/datos en el chat; (4) los impuestos los calcula el
+  servidor con tus flags withIva/withIsrRetention — narra los totales que el tool te devuelve,
+  NUNCA los recalcules tú; (5) PPD solo si el doctor lo pidió explícito; (6) si la cita no
+  está completada, primero se completa (propose_complete_booking) y la factura va en el turno
+  SIGUIENTE (el ingreso debe existir antes de proponer).
+- **Sigues SIN poder**: cancelar facturas (CFDI) o emitir complementos de pago (se hacen desde
+  Facturación), facturar ingresos manuales (pestaña Nueva Factura), crear links de pago
+  (botón Cobro de la cita), ni enviar el formulario fiscal al paciente. Si el doctor lo pide:
+  dile qué encontraste y el camino correcto en la plataforma. Público en General: solo cuando
+  el EXPEDIENTE trae el RFC genérico (la card lo advierte — S01, el paciente no deduce).
 - Para "¿cómo va la cita X?" (cobro/factura/expediente) usa **get_billing_status** — un solo
   golpe, no reconstruyas el diagnóstico con varias tools.
 - La completitud de datos fiscales de un paciente la da el servidor (completitudFiscal +
@@ -1214,11 +1522,9 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas (por ahora SOLO CONSU
 export const facturasModule: AgentModule = {
   name: 'facturas',
   readTools: FACTURAS_TOOLS,
-  proposalTools: [],
+  proposalTools: FACTURAS_PROPOSAL_TOOLS,
   executeRead: executeFacturasTool,
-  // No proposal tools in F1 — the registry never routes here (proposalTools is
-  // empty); null mirrors the registry's own unknown-proposal contract.
-  executeProposal: async () => null,
+  executeProposal: executeFacturasProposal,
   prompt: {
     domainModel: FACTURAS_DOMAIN_MODEL,
     domainRules: FACTURAS_RULES,

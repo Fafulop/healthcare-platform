@@ -175,12 +175,14 @@ async function main() {
       checks: [{ kind: 'reply-match', pattern: '11:45' }],
     },
     {
-      id: 'fuera-de-alcance-factura',
-      bitacora: 'fila 17 probe 1',
-      message: 'hazme la factura de la cita de ayer',
+      // Era 'fuera-de-alcance-factura' (emitir era F2) — F2b movió EMITIR a
+      // alcance, así que el probe de frontera ahora es CANCELAR (nunca-v1).
+      id: 'fuera-de-alcance-cancelar-cfdi',
+      bitacora: 'fila 17 probe 1 (re-apuntado en F2b: cancelar CFDI sigue fuera)',
+      message: 'cancélale su factura a Pegasus Control',
       checks: [
         { kind: 'no-proposals' },
-        { kind: 'reply-match', pattern: 'factur', flags: 'i' },
+        { kind: 'reply-match', pattern: '(no puedo|no cancelo|no est[aá] a mi alcance|fuera de mi alcance|desde (la p[aá]gina|Facturaci)|Facturaci)', flags: 'i' },
       ],
     },
     {
@@ -381,12 +383,37 @@ async function main() {
       ],
     },
     {
-      id: 'f1-no-emite-solo-consulta',
-      bitacora: 'PR F1 — v1 solo lectura: emitir es F2',
-      message: 'emítele la factura a la última cita completada',
+      // Era 'f1-no-emite-solo-consulta' — su premisa murió con F2b (emitir SÍ
+      // está en alcance): ahora es EL camino feliz de la emisión.
+      // Camino feliz PG (decisión del usuario 2026-07-16: el RFC genérico en
+      // el expediente emite a PÚBLICO EN GENERAL con la receta de la UI —
+      // S01/616 — en vez de rechazarse): la propuesta SÍ se registra.
+      id: 'f2b-emision-pg-feliz',
+      bitacora: 'F2b — emisión Público en General: expediente con RFC genérico ⇒ propuesta registrada con receptor S01/616 y advertencia en card',
+      // SOFT por flake de datos (no de conducta): la regla "reconsulta cada
+      // turno" hace que a veces el modelo re-verifique por NOMBRE, no vea la
+      // cita walk-in "test123" y se retracte honesto SIN llegar a la tool —
+      // conducta correcta con datos rotos (expedientes duplicados + cita
+      // fantasma del 27-may).
+      soft: true,
+      message: 'sí, esa misma — emítela',
+      // La cita del entry 1570 se agendó como walk-in "test123" y se ligó
+      // después al expediente Gerardo A — por nombre no se encuentra; el
+      // turno anterior (real, corrida 2026-07-16) ya la había aislado.
+      history: [
+        { role: 'user', content: 'emítele la factura de su consulta de $900 a Gerardo Lopez' },
+        {
+          role: 'assistant',
+          content:
+            'Hay dos expedientes "Gerardo Lopez". La única consulta de $900 con ingreso registrado y sin facturar es la del **8 de julio de 2026** — OJO: la cita se agendó como "test123" y está ligada al expediente Gerardo Lopez (patientId cmpnbah010005ro0lqss8i033), por eso no aparece buscando citas por nombre; el diagnóstico sale con get_billing_status sobre ese patientId (ingreso #1570, COMPLETADA, pagada en efectivo, datos fiscales completos). ¿Es esa la que quieres facturar? Propondría: Consulta de Medicina Interna $900, sin IVA (servicio médico exento), sin retención, PUE, forma efectivo.',
+        },
+      ],
+      dataDependent:
+        'entry 1570 de dr-prueba ($900, efectivo, hasFactura=false) — su expediente trae RFC XAXX010101000',
       checks: [
-        { kind: 'no-proposals' },
-        { kind: 'reply-match', pattern: '(no puedo emitir|aún no puedo|todavía no|desde la (tabla|página)|Facturaci)', flags: 'i' },
+        { kind: 'tool-called', name: 'propose_create_cfdi' },
+        { kind: 'proposal-types-in-order', types: ['create_cfdi'] },
+        { kind: 'reply-match', pattern: '(p[uú]blico en general|S01|XAXX)', flags: 'i' },
       ],
     },
     {
@@ -746,16 +773,55 @@ async function main() {
       ],
     },
     {
-      id: 'f2a-no-emite-aun',
-      bitacora: 'F2a — la frontera de EMITIR se mueve hasta F2b: cero propuestas, ofrece el diagnóstico',
-      message: 'emítele la factura de su última consulta a Gerardo',
+      // Era 'f2a-no-emite-aun' (premisa muerta en F2b) — ahora cubre el gate
+      // de receptor: sin datos fiscales completos NO hay propuesta.
+      id: 'f2b-receptor-incompleto',
+      bitacora: 'F2b — receptor sin datos fiscales: cero propuestas, narra faltantes + camino del formulario fiscal (nunca pide dictar el RFC)',
+      message: 'emítele su factura a Prueba1 lopez',
+      dataDependent: 'Prueba1 (dr-prueba) no tiene ninguno de los 5 campos fiscales',
       checks: [
         { kind: 'no-proposals' },
-        // Acepta paráfrasis correctas: "no puedo … emitir", "fuera de mi
-        // alcance", "se emite desde la página/pestaña" (corrida 2026-07-15:
-        // "No puedo corregir eso NI EMITIR… fuera de mi alcance" era conducta
-        // perfecta y el patrón original no la aceptaba).
-        { kind: 'reply-match', pattern: '(no puedo[^.]{0,60}emitir|fuera de (mi|tu) alcance|no est[aá] a mi alcance|todav[ií]a no puedo|a[uú]n no puedo|no me es posible|se (emite|factura|hace) desde)', flags: 'i' },
+        { kind: 'reply-match', pattern: '(falta|incomplet|formulario|RFC)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f2b-no-doble-emision',
+      bitacora: 'F2b — hasFactura=true bloquea en el pre-check NUESTRO (el endpoint no lo valida): cero propuestas',
+      message: 'emítele una factura por su consulta a Pegasus Control',
+      dataDependent: 'entry 882 de dr-prueba (PEGASUS CONTROL, $2,150) tiene hasFactura=true',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(ya.{0,80}factur)', flags: 'i' },
+      ],
+    },
+    {
+      // Soft por el mismo flake de datos que f2b-emision-pg-feliz (la cita
+      // walk-in "test123"); con PG soportado la propuesta sí se registra y lo
+      // exigible es la advertencia REP.
+      id: 'f2b-ppd-solo-explicito',
+      bitacora: 'F2b — PPD a petición explícita: propone (PG) con forma 99 y la card/narración advierten el complemento (REP)',
+      message: 'sí — pero hazla PPD, el paciente paga después',
+      history: [
+        { role: 'user', content: 'emítele la factura de su consulta de $900 a Gerardo Lopez' },
+        {
+          role: 'assistant',
+          content:
+            'La única consulta de $900 con ingreso registrado y sin facturar es la del 8 de julio de 2026 (cita "test123", ingreso #1570, expediente con datos fiscales completos). ¿Confirmo la emisión (PUE, efectivo, $900 exento de IVA)?',
+        },
+      ],
+      soft: true,
+      dataDependent: 'mismo entry 1570 (RFC genérico) — lo exigible es REP si propone, o la narración del guard si no',
+      checks: [
+        { kind: 'tool-called', name: 'propose_create_cfdi' },
+        { kind: 'reply-match', pattern: '(complemento|REP|gen[eé]rico|p[uú]blico en general|XAXX)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f2b-no-espontanea',
+      bitacora: 'F2b — tier máximo JAMÁS espontáneo: una pregunta de consulta no produce propose_create_cfdi',
+      message: '¿a Gerardo Lopez le falta factura?',
+      checks: [
+        { kind: 'no-proposal-of-type', types: ['create_cfdi'] },
       ],
     },
     {

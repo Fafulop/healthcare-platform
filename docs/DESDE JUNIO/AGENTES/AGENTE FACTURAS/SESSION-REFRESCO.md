@@ -3,8 +3,10 @@
 > Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
-> Última actualización: **2026-07-16** (F2a PUSHEADO + DESPLEGADO + VALIDADO EN VIVO — las 3
-> preguntas del `07-PLAN` §1 + 2 probes de frontera, todo PASS; ver `07-PLAN` §12. Siguiente: F2b).
+> Última actualización: **2026-07-16 (tarde)** — F2a cerrado en vivo (`07-PLAN` §12) y **F2b
+> CONSTRUIDO el mismo día** (propose_create_cfdi + builder + card 🧾 + soporte PG; suite 59 en
+> verde; `08-PLAN` §10 — UNCOMMITTED al escribir esto). Siguiente: commit/push → timbrar en
+> vivo el caso Gerardo A (sandbox).
 > El mapa de arriba de todos los agentes vive en
 > [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
 
@@ -14,11 +16,11 @@
 
 El agente de agenda se expande a **UN asistente con módulos por dominio** (decisión de `00`,
 RE-CONFIRMADA 2026-07-15 en `05-ANALISIS` frente a la alternativa de un agente especializado).
-Sustrato cerrado, F1+F1.5 validados en vivo, y **F2a (experto en facturas, solo lectura:
-catálogos SAT grounded + barrido de pendientes + conocimiento) SHIPPED + VALIDADO EN VIVO
-2026-07-16** (stack `b6ec78dd`→`66513d32` en origin/main, desplegado; 3 preguntas + 2 probes
-de frontera, 5/5 PASS — `07-PLAN` §12; pendientes verificado EXACTO vs BD de prod).
-**Siguiente: PR F2b (propose_create_cfdi).**
+Sustrato cerrado, F1+F1.5 validados en vivo, **F2a SHIPPED + VALIDADO EN VIVO 2026-07-16**
+(5/5 PASS — `07-PLAN` §12), y **F2b (emisión: propose_create_cfdi + builder server-side +
+card 🧾 tier-máximo + Público en General vía RFC genérico del expediente) CONSTRUIDO el mismo
+día con suite 59 en verde** (`08-PLAN` §10). **Siguiente: commit/push de F2b → validación en
+vivo timbrando en SANDBOX (caso Gerardo A $900, sin prerequisito de datos).**
 
 ## Mapa de documentos
 
@@ -32,6 +34,7 @@ de frontera, 5/5 PASS — `07-PLAN` §12; pendientes verificado EXACTO vs BD de 
 | `05-ANALISIS-arquitectura-especializado-vs-modulo.md` | Re-examen 2026-07-15 (agente especializado vs módulo) → **decidido: UN asistente, módulo enriquecido**; secuencia F2a (lectura experta) → F2b (emisión) |
 | `06-KNOWLEDGE-BASE-facturacion.md` | LA base de conocimiento de facturación: emisión paso a paso, fórmula de impuestos, reglas SAT, catálogos, grafo — verificada contra código 2026-07-15 |
 | `07-PLAN-F2a-experto-lectura.md` | Plan del PR F2a: `search_catalogo_sat` + `get_pendientes_factura` + conocimiento (prompt/get_guia) + 7 evals — CONSTRUIDO (§10), REVIEW (§11), VALIDADO EN VIVO 5/5 (§12) |
+| `08-PLAN-F2b-emision.md` | Plan + bitácora del PR F2b: `propose_create_cfdi` (pre-checks, card 🧾, PG, mapa forma de pago) + `cfdi-builder.ts` + decisiones del usuario (dos turnos, PG revertido) — CONSTRUIDO (§10), suite 59 en verde |
 
 Playbook heredado: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md)
 (método, bitácora, evals) y `05-REFERENCIA-TECNICA` (el sistema, incl. la estructura de módulos).
@@ -206,9 +209,22 @@ money model.
      por concepto) con deferral al contador, y "¿qué me conviene para pagar menos impuestos?"
      RECHAZADO limpio con redirect a tools/pestañas (**el watch-item del guard de IVA se
      sostiene — cerrado**); "emítele la factura" rechazado + redirect a la UI. F2a CERRADO.
-   - **PR F2b — emisión:** `propose_create_cfdi` + builder de impuestos server-side + card
-     tier-máximo. Después: `propose_send_fiscal_form`, `propose_payment_link`,
-     `propose_create_patient` (H3).
+   - **PR F2b — emisión: ✅ CONSTRUIDO 2026-07-16 (mismo día del cierre de F2a; plan y
+     bitácora en `08-PLAN`, UNCOMMITTED al escribir esto):** `propose_create_cfdi` (primer
+     proposal del módulo facturas; pre-checks: CSD activo, ingreso cita/webhook_pago sin
+     hasFactura, receptor SOLO expediente completo, **guard PG** — el RFC genérico
+     XAXX010101000 rechaza con camino correcto, hallado en la 1ª corrida vs datos reales) +
+     `cfdi-builder.ts` (réplica exacta del form, paridad 5/5) + card 🧾 tier-máximo (rojo,
+     paralelo del 📱) + executor branch + prompt (capacidad 8, RESILIENCE re-escrito, 6 reglas
+     duras). Decisiones del usuario: DOS TURNOS para cita sin completar; manuales FUERA;
+     **PG REVERTIDO el mismo día — expediente con RFC genérico emite a PÚBLICO EN GENERAL
+     (receta de la UI: S01/616) con advertencia en card**; el guard original se volvió
+     normalización. Suite 59: TODO EN VERDE (56 PASS en corrida completa + 3 cerrados en
+     re-corrida: catálogo-honesto tras recargar CRÉDITOS de Anthropic — ⚠️ la key también
+     sirve a PROD —, y `f2b-emision-pg-feliz` PASS con propuesta registrada; 1 soft-WARN por
+     el flake de datos test123 documentado). Validación en vivo: DESBLOQUEADA — timbrar el
+     caso Gerardo A tal cual en sandbox (`08-PLAN` §10). Después:
+     `propose_send_fiscal_form`, `propose_payment_link`, `propose_create_patient` (H3).
 4. **PR F3** — entrega (`propose_email_cfdi`).
 5. **Higiene 2026-07-15 (commit `b6ec78dd`):** AyudaTab de /sat-descarga corregida (pestaña
    fantasma "Resumen", "Cobranza"→"PPD / Pagos" con features reales — los buckets de

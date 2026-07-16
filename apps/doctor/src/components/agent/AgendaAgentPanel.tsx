@@ -19,7 +19,7 @@ import {
   Bot, User, Send, X, Trash2, Loader2, Sparkles,
   CalendarPlus, Lock, Unlock, CalendarX, AlertTriangle,
   CheckCircle2, XCircle, CircleSlash, Play,
-  CalendarCheck, CalendarClock, UserX, BadgeCheck,
+  CalendarCheck, CalendarClock, UserX, BadgeCheck, Receipt,
 } from 'lucide-react';
 import { useAgentActions, useAgentChat, type AgentMessage, type AgendaProposal, type AgentBudget } from '@/contexts/AgentContext';
 
@@ -88,6 +88,7 @@ const PROPOSAL_ICONS = {
   reschedule_booking: CalendarClock,
   complete_booking: CalendarCheck,
   no_show: UserX,
+  create_cfdi: Receipt,
 } as const;
 
 function ProposalCard({
@@ -129,9 +130,9 @@ function ProposalCard({
         <div key={i} className="text-gray-600 pl-5">{d}</div>
       ))}
       {proposal.advertencias.map((a, i) => (
-        // 📱 = notifies the patient (tier 🔴): irreversible once sent — stands
-        // out in red so the doctor can't miss it before confirming.
-        <div key={i} className={`flex gap-1 pl-5 ${a.startsWith('📱') ? 'text-red-700 font-medium' : 'text-amber-700'}`}>
+        // 📱 = notifies the patient (tier 🔴); 🧾 = stamps a legal document at
+        // the SAT (max tier). Both render red so the doctor can't miss them.
+        <div key={i} className={`flex gap-1 pl-5 ${a.startsWith('📱') || a.startsWith('🧾') ? 'text-red-700 font-medium' : 'text-amber-700'}`}>
           <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
           <span>{a}</span>
         </div>

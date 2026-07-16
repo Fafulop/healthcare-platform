@@ -46,7 +46,8 @@ export type ProposalType =
   | 'cancel_booking'
   | 'reschedule_booking'
   | 'complete_booking'
-  | 'no_show';
+  | 'no_show'
+  | 'create_cfdi';
 export type ProposalStatus = 'pendiente' | 'ejecutando' | 'exito' | 'error' | 'rechazada' | 'omitida';
 
 export interface AgendaProposal {
@@ -225,6 +226,25 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
       }
       const monto = (p.params.ledger as { amount?: number })?.amount;
       return { ok: true, resumen: `Cita COMPLETADA · ingreso registrado en Flujo de Dinero${monto ? ` ($${monto})` : ''}` };
+    }
+
+    // --- PR F2b: emisión de CFDI (tier máximo — timbra ante el SAT) ---
+
+    if (p.type === 'create_cfdi') {
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi`, {
+        method: 'POST',
+        body: JSON.stringify(p.params),
+      });
+      const data = await res.json().catch(() => ({ error: `respuesta inválida del servidor (HTTP ${res.status}) — verifica en Facturación si la factura se emitió antes de reintentar` }));
+      if (!res.ok || data.error) {
+        return { ok: false, resumen: data.error || `Error al emitir la factura (HTTP ${res.status})` };
+      }
+      const folio = data.data?.folio ? ` · folio ${data.data.folio}` : '';
+      const uuid = data.facturama?.uuid ? ` · UUID ${data.facturama.uuid}` : '';
+      return {
+        ok: true,
+        resumen: `CFDI TIMBRADO ante el SAT${folio}${uuid} — el ingreso quedó marcado como facturado; PDF/XML en Facturación`,
+      };
     }
 
     if (p.type === 'reschedule_booking') {

@@ -68,7 +68,15 @@ Gates y pasos, en orden (`apps/api/src/app/api/facturacion/cfdi/route.ts:55-315`
 
 **Errores Facturama** → status 4xx passthrough o 502, con `details`.
 
-## 3. El builder de impuestos HOY (la fórmula que F2 debe replicar server-side)
+## 3. El builder de impuestos (la fórmula del form — REPLICADA en F2b)
+
+> **F2b (2026-07-16):** la réplica server-side YA EXISTE:
+> `apps/doctor/src/lib/agenda-agent/cfdi-builder.ts` (función pura, paridad 5/5 verificada
+> contra el form, incl. redondeos: tax Total round2 por impuesto, item total round2 UNA vez,
+> Base/subtotal sin redondear). La usa `propose_create_cfdi` al armar la propuesta. Ahí vive
+> también el mapa ledger→SAT de forma de pago (efectivo→01, transferencia→03, cheque→02;
+> tarjeta/deposito AMBIGUOS ⇒ el tool pide preguntar). **Si el form cambia su fórmula, el
+> builder debe cambiar con él** (y viceversa).
 
 ⚠️ **Corrección al blueprint/00**: la fórmula NO vive en `useBookings.emitCfdi` (ese hook manda
 items SIN taxes — tipo en `useBookings.ts:432-438`). Vive en el **formulario de Nueva Factura**
@@ -223,12 +231,12 @@ Booking ←(bookingId @unique)─ LedgerEntry ─(ledgerEntryId?)→ CfdiEmitted
 | Pieza | Dónde vive en el agente |
 |---|---|
 | Reglas duras (PG, tenancy, CSD gate, TaxObject) | Ya en el endpoint — el agente solo las NARRA si el server las rechaza |
-| Fórmula de impuestos | Builder server-side en la propuesta (E7) — §3 |
+| Fórmula de impuestos | ✅ F2b: `cfdi-builder.ts`, corre al armar la propuesta (E7) — §3 |
 | Claves de catálogo | Tool grounded sobre `catalogos/*` (§6) + defaults médicos (§5) como conocimiento |
 | Uso CFDI por régimen receptor / IVA exento / PPD+REP | Conocimiento del módulo (prompt corto + get_guia para el detalle) — fuente: §5 |
 | Completitud del receptor | `get_patient_profile` (ya existe) + camino formulario fiscal |
 | Pendientes de factura | Tool compuesto NUEVO (§7) |
-| Emisión | `propose_create_cfdi` (F2) con card tier-máximo ("se timbra ante el SAT") |
+| Emisión | ✅ F2b: `propose_create_cfdi` con card 🧾 tier-máximo; doble emisión bloqueada AQUÍ (hasFactura — el endpoint NO lo valida); receptor solo expediente; RFC genérico ⇒ PG con la receta de la UI (S01/616 + advertencia) |
 | Cancelar / consejo fiscal (qué régimen conviene, ISR) | FUERA — nunca-v1 / frontera E7 |
 
 ---
