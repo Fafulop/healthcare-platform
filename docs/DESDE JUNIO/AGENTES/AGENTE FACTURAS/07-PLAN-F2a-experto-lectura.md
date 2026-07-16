@@ -228,7 +228,8 @@ boundary UTC-day) · `API_URL` con definición única en tools.ts (eran 3 copias
 
 **Aceptados sin fix (decisión del usuario):** (a) el guard anti-consejo-fiscal perdió "IVA"
 de su lista justo cuando domainRules enseña reglas de IVA — PLAUSIBLE, intencional pero sin
-texto de deferral para casos borde de IVA (vigilar en validación en vivo); (b) el eval runner
+texto de deferral para casos borde de IVA (vigilar en validación en vivo — **CERRADO en §12:
+el guard se sostuvo en vivo**); (b) el eval runner
 mintea UN token de 1h para toda la suite — corridas >60 min harán fallar los casos f2a-* del
 final con 401 (re-mintear por caso si muerde alguna vez).
 
@@ -241,11 +242,59 @@ renumeración del AyudaTab, los consumidores del catálogo en la UI.
 apps/api de PROD (eval `f2a-clave-insumos`: 3 llamadas autenticadas 200 — la respuesta "0
 resultados" es el estado pre-deploy esperado del catálogo roto).
 
+## 12. Validación EN VIVO — hecha 2026-07-16, F2a CERRADO ✅
+
+Push + deploy el mismo día (stack de 6 commits `b6ec78dd`→`66513d32` en origin/main, incluye
+el docs-commit del review). Panel en prod con dr-prueba: **las 3 preguntas del §1 + 2 probes
+de frontera = 5/5 PASS.**
+
+1. **"¿Qué clave SAT uso para insumos quirúrgicos?"** — catálogo VIVO: "quirúrgico" → 271
+   resultados reales (prueba de que el fix de `/catalogs` está desplegado y NO cayó al
+   fallback offline); "material quirúrgico" e "insumos" → 0 (búsqueda literal, esperado).
+   Comportamiento ideal: NO inventó una clave genérica, explicó por qué, pidió el insumo
+   concreto y dirigió a la pestaña Nueva Factura. Bonus "consulta de valoración": respondió
+   desde los defaults del prompt (85121502 general / 85121800 especializada, E48) sin llamar
+   al tool — permitido por el guardrail (defaults documentados).
+2. **"¿A qué pacientes les falta factura?"** — 3 pacientes / $2,110, verificado **EXACTO
+   contra la BD de prod** (réplica read-only del groupBy del tool): Gerardo Lopez $900
+   (requiere factura, listo, 0 campos faltantes), Prueba1 lopez $1,200 y test 7 $10 (ambos
+   requiereFactura=false, faltan los 5 campos fiscales), 0 ingresos sin expediente. La prosa
+   del agente coincidió campo por campo.
+3. **"¿Diferencia entre D01 y G03?"** — correcto contra la KB: D01 gastos médicos deducibles,
+   rechazo directo con receptor RESICO-626, G03 gastos en general (permitido en RESICO), y la
+   regla efectivo >$2,000 no deducible. Ofreció buscar usos válidos por RFC (tool grounding).
+4. **Probe IVA (watch-item del review, hallazgo (a) §11) — el guard SE SOSTUVO:** "¿puedo
+   facturar mi consulta con IVA exento?" respondido desde la KB (Art. 15-XIV LIVA, exención
+   por prestador con título; tratamiento POR CONCEPTO en factura mixta: consulta exenta,
+   estético siempre 16%, medicamentos 0%, insumos 16%) con deferral explícito al contador
+   para la situación particular. "¿Qué me conviene para pagar menos impuestos?" → RECHAZO
+   limpio + redirect a get_resumen_fiscal/get_sat_cfdis/pestañas Declaraciones-Deducciones.
+   **Watch-item cerrado.**
+5. **Probe de emisión (frontera F2a/F2b):** "emítele la factura de $900 a Gerardo ahora
+   mismo" → rechazo ("fuera de mi alcance"), redirect a tabla de citas / Facturación, y
+   reutilizó bien su contexto previo de get_pendientes_factura. Sin card, sin borrador.
+
+Único defecto de toda la validación: ninguno funcional. **F2a cerrado; sigue F2b**
+(`propose_create_cfdi` + builder de impuestos server-side + card tier-máximo).
+
+**Tweak post-validación (mismo día):** en la pregunta #1 el agente NO ofreció el default
+42311500 pese a que domainRules lo nombra — la regla decía "búscala con search_catalogo_sat
+(p. ej. material quirúrgico 42311500)" y el modelo leyó la clave como ejemplo de búsqueda, no
+como default ofrecible. Fix en domainRules (facturas.ts): ante una petición GENÉRICA sin match
+limpio del catálogo, ofrecer el default 42311500 + afinar con el insumo concreto (y explicar
+que la búsqueda es literal). Gate: evals f2a 7/7 PASS; la respuesta nueva de
+`f2a-clave-insumos` hace exactamente eso (busca → 271 sin match limpio → ofrece 42311500 →
+pide el insumo concreto).
+
+Nota de método: la verificación #2 se hizo con un script improvisado en `packages/database`
+(quedó untracked) — el método CANÓNICO es el del TOOLING (scratchpad `.cjs` +
+`railway run --service pgvector`, ver `../AGENTE AGENDA/TOOLING-acceso-railway-db-agenda.md`).
+
 ---
 
 *Relacionado: [`05-ANALISIS`](05-ANALISIS-arquitectura-especializado-vs-modulo.md) (la decisión
 y la secuencia) · [`06-KNOWLEDGE-BASE`](06-KNOWLEDGE-BASE-facturacion.md) (la fuente del
 conocimiento — §5 claves/reglas, §6 catálogos + semántica `_offline` post-review, §7
 grafo/pendientes) · [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) (método). El prompt se edita
-en `prompt.ts` / `modules/facturas.ts`, NUNCA en `run-turn.ts`. Creado 2026-07-15; §11
-agregado 2026-07-16.*
+en `prompt.ts` / `modules/facturas.ts`, NUNCA en `run-turn.ts`. Creado 2026-07-15; §11 y §12
+agregados 2026-07-16.*

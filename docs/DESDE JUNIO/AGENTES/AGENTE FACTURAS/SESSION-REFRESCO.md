@@ -3,8 +3,8 @@
 > Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
-> Última actualización: **2026-07-16** (review tier COMPLETO de F2a hecho — 9 hallazgos, 7
-> corregidos en `d93a3fc3`; ver `07-PLAN` §11. Stack de 5 commits SIN PUSH).
+> Última actualización: **2026-07-16** (F2a PUSHEADO + DESPLEGADO + VALIDADO EN VIVO — las 3
+> preguntas del `07-PLAN` §1 + 2 probes de frontera, todo PASS; ver `07-PLAN` §12. Siguiente: F2b).
 > El mapa de arriba de todos los agentes vive en
 > [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
 
@@ -15,10 +15,10 @@
 El agente de agenda se expande a **UN asistente con módulos por dominio** (decisión de `00`,
 RE-CONFIRMADA 2026-07-15 en `05-ANALISIS` frente a la alternativa de un agente especializado).
 Sustrato cerrado, F1+F1.5 validados en vivo, y **F2a (experto en facturas, solo lectura:
-catálogos SAT grounded + barrido de pendientes + conocimiento) CONSTRUIDO 2026-07-15 +
-REVIEW COMPLETO 2026-07-16** (9 hallazgos, 7 corregidos — `07-PLAN` §11; suite 56 en verde).
-Stack local de **5 commits SIN PUSH** (`b6ec78dd`→`d93a3fc3`). **Siguiente: push/deploy →
-validación en vivo → PR F2b (propose_create_cfdi).**
+catálogos SAT grounded + barrido de pendientes + conocimiento) SHIPPED + VALIDADO EN VIVO
+2026-07-16** (stack `b6ec78dd`→`66513d32` en origin/main, desplegado; 3 preguntas + 2 probes
+de frontera, 5/5 PASS — `07-PLAN` §12; pendientes verificado EXACTO vs BD de prod).
+**Siguiente: PR F2b (propose_create_cfdi).**
 
 ## Mapa de documentos
 
@@ -31,7 +31,7 @@ validación en vivo → PR F2b (propose_create_cfdi).**
 | `04-FIXES-links-de-pago-ligados.md` | Registro completo de los fixes de sustrato (2 tandas, con commits y lecciones) |
 | `05-ANALISIS-arquitectura-especializado-vs-modulo.md` | Re-examen 2026-07-15 (agente especializado vs módulo) → **decidido: UN asistente, módulo enriquecido**; secuencia F2a (lectura experta) → F2b (emisión) |
 | `06-KNOWLEDGE-BASE-facturacion.md` | LA base de conocimiento de facturación: emisión paso a paso, fórmula de impuestos, reglas SAT, catálogos, grafo — verificada contra código 2026-07-15 |
-| `07-PLAN-F2a-experto-lectura.md` | Plan del PR F2a: `search_catalogo_sat` + `get_pendientes_factura` + conocimiento (prompt/get_guia) + 7 evals — LISTO PARA BUILD |
+| `07-PLAN-F2a-experto-lectura.md` | Plan del PR F2a: `search_catalogo_sat` + `get_pendientes_factura` + conocimiento (prompt/get_guia) + 7 evals — CONSTRUIDO (§10), REVIEW (§11), VALIDADO EN VIVO 5/5 (§12) |
 
 Playbook heredado: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md)
 (método, bitácora, evals) y `05-REFERENCIA-TECNICA` (el sistema, incl. la estructura de módulos).
@@ -195,6 +195,17 @@ money model.
      cache 12h de catálogos estáticos, `dateWhere` compartido, `API_URL` único. Aceptados
      sin fix: guard de IVA (vigilar) y token único de 1h del eval runner. Detalle completo:
      `07-PLAN` §11.
+     **✅ PUSHEADO + DESPLEGADO + VALIDADO EN VIVO 2026-07-16** (stack de 6 commits
+     `b6ec78dd`→`66513d32` en origin/main, incl. el docs-commit del review). Panel en prod con
+     dr-prueba, **5/5 PASS** (detalle: `07-PLAN` §12): las 3 preguntas del §1 — catálogo VIVO
+     ("quirúrgico" 271 resultados = el fix de `/catalogs` desplegado y sin fallback offline;
+     rehusó inventar clave genérica de insumos; claves de consulta desde los defaults del
+     prompt), pendientes 3 pacientes/$2,110 **EXACTO contra la BD de prod** (réplica read-only
+     del groupBy), D01 vs G03 correcto (RESICO-626 + regla efectivo >$2,000) — y los 2 probes
+     de frontera: la pregunta IVA-exento respondida desde la KB (Art. 15-XIV LIVA, tratamiento
+     por concepto) con deferral al contador, y "¿qué me conviene para pagar menos impuestos?"
+     RECHAZADO limpio con redirect a tools/pestañas (**el watch-item del guard de IVA se
+     sostiene — cerrado**); "emítele la factura" rechazado + redirect a la UI. F2a CERRADO.
    - **PR F2b — emisión:** `propose_create_cfdi` + builder de impuestos server-side + card
      tier-máximo. Después: `propose_send_fiscal_form`, `propose_payment_link`,
      `propose_create_patient` (H3).
