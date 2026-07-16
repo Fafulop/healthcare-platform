@@ -49,6 +49,10 @@ Gates y pasos, en orden (`apps/api/src/app/api/facturacion/cfdi/route.ts:55-315`
    (400 si no), `TaxZipCode` = CP del EMISOR, y agrega `GlobalInformation`
    (Periodicity default '04' mensual, Months/Year del mes actual MX).
 5. **Tenancy del ledger**: `ledgerEntryId` debe pertenecer al doctor (404 si no).
+   **+ F2b review (2026-07-16): guard de DOBLE EMISIÓN en el endpoint** — si el entry ya
+   tiene `hasFactura`, el POST responde **409** (antes NO lo validaba nadie más que el
+   pre-check del agente; la UI tenía la misma carrera preview→submit). Re-emitir tras
+   cancelación sigue funcionando (H8 resetea hasFactura).
 6. **ISR atípico**: si un item trae ISR retención con tasa ≠ default del régimen
    (626→0.0125, otro→0.10, tolerancia 0.001) → **solo console.warn**, no rechaza (la UI permite
    override).
@@ -236,7 +240,7 @@ Booking ←(bookingId @unique)─ LedgerEntry ─(ledgerEntryId?)→ CfdiEmitted
 | Uso CFDI por régimen receptor / IVA exento / PPD+REP | Conocimiento del módulo (prompt corto + get_guia para el detalle) — fuente: §5 |
 | Completitud del receptor | `get_patient_profile` (ya existe) + camino formulario fiscal |
 | Pendientes de factura | Tool compuesto NUEVO (§7) |
-| Emisión | ✅ F2b: `propose_create_cfdi` con card 🧾 tier-máximo; doble emisión bloqueada AQUÍ (hasFactura — el endpoint NO lo valida); receptor solo expediente; RFC genérico ⇒ PG con la receta de la UI (S01/616 + advertencia) |
+| Emisión | ✅ F2b: `propose_create_cfdi` con card 🧾 tier-máximo; doble emisión bloqueada en el pre-check Y en el endpoint (409 — post-review); receptor solo expediente; RFC genérico ⇒ PG con la receta de la UI (S01/616 + advertencia, salta el gate de completitud) |
 | Cancelar / consejo fiscal (qué régimen conviene, ISR) | FUERA — nunca-v1 / frontera E7 |
 
 ---

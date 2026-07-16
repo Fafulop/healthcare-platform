@@ -3,10 +3,11 @@
 > Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
-> Última actualización: **2026-07-16 (tarde)** — F2a cerrado en vivo (`07-PLAN` §12) y **F2b
-> CONSTRUIDO el mismo día** (propose_create_cfdi + builder + card 🧾 + soporte PG; suite 59 en
-> verde; `08-PLAN` §10 — UNCOMMITTED al escribir esto). Siguiente: commit/push → timbrar en
-> vivo el caso Gerardo A (sandbox).
+> Última actualización: **2026-07-16 (noche)** — F2a cerrado en vivo (`07-PLAN` §12), **F2b
+> SHIPPED `d05e3d71`** y **code review inline hecho: 4 hallazgos, 4 corregidos** (`08-PLAN`
+> §11 — el gordo: guard 409 de doble emisión EN EL ENDPOINT; fixes UNCOMMITTED al escribir
+> esto; suite 60 en verde). Siguiente: commit/push de los fixes → timbrar en vivo el caso
+> Gerardo A (sandbox, como PÚBLICO EN GENERAL).
 > El mapa de arriba de todos los agentes vive en
 > [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
 
@@ -34,7 +35,7 @@ vivo timbrando en SANDBOX (caso Gerardo A $900, sin prerequisito de datos).**
 | `05-ANALISIS-arquitectura-especializado-vs-modulo.md` | Re-examen 2026-07-15 (agente especializado vs módulo) → **decidido: UN asistente, módulo enriquecido**; secuencia F2a (lectura experta) → F2b (emisión) |
 | `06-KNOWLEDGE-BASE-facturacion.md` | LA base de conocimiento de facturación: emisión paso a paso, fórmula de impuestos, reglas SAT, catálogos, grafo — verificada contra código 2026-07-15 |
 | `07-PLAN-F2a-experto-lectura.md` | Plan del PR F2a: `search_catalogo_sat` + `get_pendientes_factura` + conocimiento (prompt/get_guia) + 7 evals — CONSTRUIDO (§10), REVIEW (§11), VALIDADO EN VIVO 5/5 (§12) |
-| `08-PLAN-F2b-emision.md` | Plan + bitácora del PR F2b: `propose_create_cfdi` (pre-checks, card 🧾, PG, mapa forma de pago) + `cfdi-builder.ts` + decisiones del usuario (dos turnos, PG revertido) — CONSTRUIDO (§10), suite 59 en verde |
+| `08-PLAN-F2b-emision.md` | Plan + bitácora del PR F2b: `propose_create_cfdi` (pre-checks, card 🧾, PG, mapa forma de pago) + `cfdi-builder.ts` + decisiones del usuario (dos turnos, PG revertido) — CONSTRUIDO (§10) + REVIEW inline 4/4 fixes (§11), suite 60 en verde |
 
 Playbook heredado: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md)
 (método, bitácora, evals) y `05-REFERENCIA-TECNICA` (el sistema, incl. la estructura de módulos).
@@ -222,8 +223,14 @@ money model.
      normalización. Suite 59: TODO EN VERDE (56 PASS en corrida completa + 3 cerrados en
      re-corrida: catálogo-honesto tras recargar CRÉDITOS de Anthropic — ⚠️ la key también
      sirve a PROD —, y `f2b-emision-pg-feliz` PASS con propuesta registrada; 1 soft-WARN por
-     el flake de datos test123 documentado). Validación en vivo: DESBLOQUEADA — timbrar el
-     caso Gerardo A tal cual en sandbox (`08-PLAN` §10). Después:
+     el flake de datos test123 documentado). **SHIPPED `d05e3d71` + code review inline el
+     mismo día: 4 hallazgos, 4 corregidos (`08-PLAN` §11)** — guard 409 de doble emisión EN
+     EL ENDPOINT (cerraba la carrera preview→submit de la UI también), PG salta el gate de
+     completitud (solo exige el RFC genérico; CP del emisor), dedup (SAT labels + CAP_ERROR
+     exportado), eval nuevo de dos-turnos (CIT2) — suite 60, afectados 5/5 PASS. ⚠️ Método:
+     el review multi-agente mata el límite de sesión en sesiones largas — correr INLINE o en
+     sesión fresca. Validación en vivo: DESBLOQUEADA — timbrar el caso Gerardo A tal cual en
+     sandbox como PÚBLICO EN GENERAL (`08-PLAN` §10). Después:
      `propose_send_fiscal_form`, `propose_payment_link`, `propose_create_patient` (H3).
 4. **PR F3** — entrega (`propose_email_cfdi`).
 5. **Higiene 2026-07-15 (commit `b6ec78dd`):** AyudaTab de /sat-descarga corregida (pestaña

@@ -113,11 +113,23 @@ export async function POST(request: NextRequest) {
     if (ledgerEntryId) {
       const entry = await prisma.ledgerEntry.findFirst({
         where: { id: ledgerEntryId, doctorId: doctor.id },
+        select: { hasFactura: true },
       });
       if (!entry) {
         return NextResponse.json(
           { error: 'Entrada de ledger no encontrada' },
           { status: 404 }
+        );
+      }
+      // Double-emission guard at the SOURCE (F2b review finding #1): every
+      // caller — UI and agent — races between preview and submit; without this
+      // check a stale confirmation stamps a SECOND legal CFDI on the same
+      // income. Re-emitting after a cancellation is legitimate: cancel resets
+      // hasFactura (H8) unless another active signal remains.
+      if (entry.hasFactura) {
+        return NextResponse.json(
+          { error: 'Ese ingreso ya tiene una factura ligada (hasFactura) — no se emite dos veces. Si la factura anterior fue cancelada y quieres re-emitir, verifica su estado en Facturación.' },
+          { status: 409 }
         );
       }
     }

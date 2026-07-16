@@ -40,14 +40,14 @@ import { API_URL, type ToolContext } from '../tools';
 import { utcDateToKey, mxTodayKey } from '../dates';
 import { dateWhere } from './flujo';
 import type { AgentModule } from './types';
-import { MAX_PROPOSALS_PER_TURN, type ProposalContext } from '../proposals';
+import { CAP_ERROR, type ProposalContext } from '../proposals';
 import {
   buildCfdiItems,
   LEDGER_FORMA_TO_SAT,
   SAT_PAYMENT_FORMS,
-  SAT_FORMA_LABELS,
   type ConceptInput,
 } from '../cfdi-builder';
+import { SAT_FORMA_PAGO_LABELS } from '@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types';
 
 const LIST_CAP = 50;
 const PATIENT_CITAS_CAP = 10; // billing status per patient — nested payloads must fit the 8KB tool-result cap
@@ -1215,8 +1215,6 @@ const FACTURAS_PROPOSAL_TOOLS: AnthropicTool[] = [
 const CFDI_WARNING =
   '🧾 Esto TIMBRA un CFDI ante el SAT — un documento fiscal LEGAL a nombre del receptor. Cancelarlo después es un trámite ante el SAT (y este asistente no cancela CFDIs).';
 
-const CAP_ERROR_MSG = `Máximo ${MAX_PROPOSALS_PER_TURN} propuestas por turno — DILE al doctor explícitamente qué quedó pendiente para el siguiente turno (nunca lo omitas en silencio).`;
-
 const CFDI_ITEMS_CAP = 10;
 
 function asPositiveNumber(v: unknown): number | null {
@@ -1238,7 +1236,7 @@ async function proposeCreateCfdi(
   //        checked here so the doctor never confirms a card doomed to 400) ---
   const profile = await prisma.doctorFiscalProfile.findUnique({
     where: { doctorId: ctx.doctorId },
-    select: { csdUploaded: true, facturamaStatus: true, regimenFiscal: true },
+    select: { csdUploaded: true, facturamaStatus: true, regimenFiscal: true, codigoPostal: true },
   });
   if (!profile) {
     return { error: 'El doctor no tiene perfil fiscal configurado — la emisión se habilita en Dashboard → Facturación (pestaña Configuración). No propongas nada.' };
@@ -1283,21 +1281,23 @@ async function proposeCreateCfdi(
   if (!patient) {
     return { error: 'El expediente vinculado al ingreso no existe o no es de este doctor.' };
   }
-  const fc = fiscalCompleteness(patient);
   const nombre = `${patient.firstName} ${patient.lastName}`.trim();
-  if (fc.completitudFiscal !== 'completo') {
+  // Público en General (decisión del usuario 2026-07-16, revirtiendo el "no
+  // PG" inicial de 08-PLAN §9.1): cuando el EXPEDIENTE trae el RFC genérico,
+  // se emite como PG con la MISMA receta de la UI (page.tsx:1471 — nombre
+  // 'PUBLICO EN GENERAL', S01, 616; TaxZipCode = CP del EMISOR, como el server
+  // lo fuerza de todos modos). Se decide ANTES del gate de completitud (review
+  // F2b hallazgo #2): PG sobreescribe nombre/uso/régimen/CP, así que al
+  // expediente genérico solo se le exige el RFC — pedirle los 5 campos era
+  // bloquear emisiones válidas.
+  const esPublicoGeneral = !!patient.rfc && patient.rfc.trim().toUpperCase() === 'XAXX010101000';
+  const fc = fiscalCompleteness(patient);
+  if (!esPublicoGeneral && fc.completitudFiscal !== 'completo') {
     return {
       error: `Los datos fiscales de ${nombre} están incompletos — faltan: ${fc.camposFaltantes.join(', ')}. Sin receptor completo no se puede timbrar. El camino es el formulario fiscal al paciente (desde la cita, botón Facturación) — NUNCA inventes ni pidas dictar estos datos en el chat.`,
       camposFaltantes: fc.camposFaltantes,
     };
   }
-  // Público en General (decisión del usuario 2026-07-16, revirtiendo el "no
-  // PG" inicial de 08-PLAN §9.1): cuando el EXPEDIENTE trae el RFC genérico,
-  // se emite como PG con la MISMA receta de la UI (page.tsx:1471 — nombre
-  // 'PUBLICO EN GENERAL', S01, 616; el server además fuerza TaxZipCode del
-  // emisor y agrega GlobalInformation). Sin esta normalización el uso/régimen
-  // del expediente producirían un 400 garantizado.
-  const esPublicoGeneral = !!patient.rfc && patient.rfc.trim().toUpperCase() === 'XAXX010101000';
 
   // --- 4. Concepts → server-built taxes (E7) ---
   if (!Array.isArray(input.items) || input.items.length === 0) {
@@ -1389,7 +1389,7 @@ async function proposeCreateCfdi(
         : `Receptor: ${patient.razonSocial} · RFC ${patient.rfc} · uso ${patient.usoCfdi} · régimen ${patient.regimenFiscal} · CP ${patient.codigoPostalFiscal}`,
       ...conceptLines,
       `Total: $${totals.subtotal} + IVA $${totals.iva} − ret. ISR $${totals.retencionIsr} = $${totals.total} MXN`,
-      `Pago: ${paymentMethod} · forma ${paymentForm} (${SAT_FORMA_LABELS[paymentForm] ?? paymentForm})`,
+      `Pago: ${paymentMethod} · forma ${paymentForm} (${SAT_FORMA_PAGO_LABELS[paymentForm] ?? paymentForm})`,
       `Folio automático · queda ligado al ingreso #${entry.id} ("${entry.concept}")`,
       ...(observations ? [`Observaciones (solo PDF): ${observations}`] : []),
     ],
@@ -1397,14 +1397,15 @@ async function proposeCreateCfdi(
     params: {
       // PG mirrors the UI recipe exactly (page.tsx:1471); the endpoint
       // additionally swaps TaxZipCode for the emitter's CP and appends
-      // GlobalInformation (cfdi/route.ts:175,205).
+      // GlobalInformation (cfdi/route.ts:175,205). Emitter CP here because the
+      // expediente's CP may be empty (PG skips the completeness gate).
       receiver: esPublicoGeneral
         ? {
             rfc: 'XAXX010101000',
             name: 'PUBLICO EN GENERAL',
             cfdiUse: 'S01',
             fiscalRegime: '616',
-            taxZipCode: patient.codigoPostalFiscal,
+            taxZipCode: profile.codigoPostal,
           }
         : {
             rfc: patient.rfc,
@@ -1421,7 +1422,7 @@ async function proposeCreateCfdi(
       ...(observations ? { observations } : {}),
     },
   });
-  if (!proposal) return { error: CAP_ERROR_MSG };
+  if (!proposal) return { error: CAP_ERROR };
 
   return {
     propuestaId: proposal.id,

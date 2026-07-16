@@ -136,13 +136,6 @@ export const LEDGER_FORMA_TO_SAT: Record<string, string | null> = {
   deposito: null,
 };
 
+// Labels for these codes: reuse SAT_FORMA_PAGO_LABELS (ledger-types.ts) —
+// one definition, shared with the CFDI detail views.
 export const SAT_PAYMENT_FORMS = ['01', '02', '03', '04', '28', '99'] as const;
-
-export const SAT_FORMA_LABELS: Record<string, string> = {
-  '01': 'Efectivo',
-  '02': 'Cheque nominativo',
-  '03': 'Transferencia',
-  '04': 'Tarjeta de crédito',
-  '28': 'Tarjeta de débito',
-  '99': 'Por definir',
-};

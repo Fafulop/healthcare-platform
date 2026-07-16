@@ -235,6 +235,40 @@ panel → card 🧾 (receptor PÚBLICO EN GENERAL + advertencia) → confirmar �
 CfdiEmitted + hasFactura=true en entry 1570 + que get_pendientes_factura ya no lo liste.
 Después, para el camino de receptor con RFC real: poner RFC al expediente y repetir.
 
+## 11. Code review post-ship — 2026-07-16 (inline), 4 hallazgos, 4 aplicados
+
+**Nota de método:** el review multi-agente (8 finders) MATÓ el límite de sesión del usuario
+(los forks heredan TODO el contexto de una sesión larga) — se corrió la versión INLINE
+(mismos ángulos, secuencial, sin subagentes). Trade-off honesto: sin ojos frescos (mismo
+autor) y menos exhaustivo en amplitud; el pase independiente multi-agente queda OPCIONAL para
+una sesión fresca. Lección guardada en memoria.
+
+1. **(PLAUSIBLE→fix) Ventana de doble emisión propuesta→confirmación:** hasFactura se
+   checaba solo al PROPONER; ni el executor ni el endpoint re-checaban al ejecutar — una card
+   vieja confirmada tras emitir por la UI timbraba un SEGUNDO CFDI legal. **Fix en la fuente
+   (apps/api `cfdi/route.ts`): el POST ahora rechaza 409 si `ledgerEntry.hasFactura`** —
+   protege TAMBIÉN a la UI (tenía la misma carrera). Re-emisión tras cancelación sigue viva
+   (H8 resetea hasFactura).
+2. **(CONFIRMED→fix) El gate de completitud bloqueaba PG válidos:** fiscalCompleteness corría
+   ANTES de la normalización PG — un expediente con RFC genérico y uso/régimen vacíos daba
+   "faltan datos" aunque PG sobreescribe esos campos. Fix: `esPublicoGeneral` se decide
+   primero y PG salta el gate (solo exige el RFC); TaxZipCode del receptor PG ahora es el CP
+   del EMISOR (el server lo fuerza igual; el del expediente puede estar vacío).
+3. **(CONFIRMED→fix) Duplicaciones:** `SAT_FORMA_LABELS` eliminado (se reusa
+   `SAT_FORMA_PAGO_LABELS` de ledger-types) y `CAP_ERROR` ahora se EXPORTA de proposals.ts
+   (facturas ya no rearma el mensaje).
+4. **(PLAUSIBLE→fix) La regla de DOS TURNOS no tenía eval** (es prompt puro, sin guard del
+   server detrás): nuevo `f2b-dos-turnos-cita-sin-completar` (CIT2, CONFIRMED 10-ago sin
+   ingreso ⇒ cero create_cfdi + explica completar). Suite 59→60.
+
+**Limpios en el review:** contrato params↔endpoint campo por campo (incl. el shape de éxito
+`{data, facturama}` sin `success`), sin imports circulares, paridad del builder (re-corrida
+5/5 tras la dedup), receta PG vs page.tsx:1471, guards de cero/falsy.
+
+**Gates de los fixes:** tsc api+doctor (api necesita `NODE_OPTIONS=--max-old-space-size=6144`,
+el default 2GB se queda corto) · paridad 5/5 · evals afectados 5/5 PASS (incl. pg-feliz
+re-verificado con el gate reordenado y el eval nuevo de dos turnos).
+
 ---
 
 *Relacionado: `06-KNOWLEDGE-BASE` §2/§3 (endpoint y fórmula — verificados), `07-PLAN` (F2a,

@@ -817,6 +817,19 @@ async function main() {
       ],
     },
     {
+      // Review F2b hallazgo #4: la regla de DOS TURNOS era la única conducta
+      // de emisión sin eval (es prompt puro — ningún guard del server la
+      // respalda: el ingreso simplemente no existe aún).
+      id: 'f2b-dos-turnos-cita-sin-completar',
+      bitacora: 'F2b — cita CONFIRMADA sin ingreso: NO propone create_cfdi (no hay ledgerEntryId); explica que primero se completa (y la factura va después)',
+      message: 'emítele la factura a la cita de CIT2 del 10 de agosto',
+      dataDependent: 'cita cmr85s169 (CIT2, CONFIRMED 2026-08-10 09:00, sin ingreso, sin expediente) en dr-prueba',
+      checks: [
+        { kind: 'no-proposal-of-type', types: ['create_cfdi'] },
+        { kind: 'reply-match', pattern: '(complet|ingreso)', flags: 'i' },
+      ],
+    },
+    {
       id: 'f2b-no-espontanea',
       bitacora: 'F2b — tier máximo JAMÁS espontáneo: una pregunta de consulta no produce propose_create_cfdi',
       message: '¿a Gerardo Lopez le falta factura?',

@@ -131,8 +131,9 @@ export interface ProposalContext {
   collector: ProposalCollector;
 }
 
-/** GAP-5: on cap overflow the model must NARRATE the remainder, never drop it. */
-const CAP_ERROR = `Máximo ${MAX_PROPOSALS_PER_TURN} propuestas por turno — DILE al doctor explícitamente cuántas acciones quedan pendientes para el siguiente turno (nunca las omitas en silencio).`;
+/** GAP-5: on cap overflow the model must NARRATE the remainder, never drop it.
+ * Exported: module proposal builders (facturas F2b+) reuse the same message. */
+export const CAP_ERROR = `Máximo ${MAX_PROPOSALS_PER_TURN} propuestas por turno — DILE al doctor explícitamente cuántas acciones quedan pendientes para el siguiente turno (nunca las omitas en silencio).`;
 
 /** D5: fixed warning for every card whose execution notifies the patient. */
 const NOTIFY_WARNING =
