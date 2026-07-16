@@ -199,10 +199,53 @@ resultados reales en prod; hasta entonces devuelve 0 con honestidad acotada (má
 Bonus de la corrida: el eval no-emite destapó en dr-prueba una cita COMPLETED (27-may, $900)
 SIN ingreso en el ledger — rareza de datos de prueba a revisar en la validación en vivo.
 
+## 11. Review tier COMPLETO — hecho 2026-07-16, fixes en commit `d93a3fc3`
+
+El review del §7.4 se corrió al día siguiente del build (high effort: 8 ángulos independientes
+— 3 correctness, reuse/simplificación/eficiencia, altitude, convenciones — + pasada de
+verificación 1-voto por candidato). **9 hallazgos sobrevivieron, 7 aplicados:**
+
+**Correctness (aplicados):**
+1. **La rama sin credenciales del route de catálogos NO marcaba `_offline`** →
+   `search_catalogo_sat` etiquetaba el fallback hardcodeado como "catálogo oficial SAT" (y
+   para productos/unidades, un catálogo VACÍO como oficial) — derrotaba la garantía de
+   honestidad que es el corazón del tool. Fix: `_offline: true` también ahí.
+2. **El mecanismo que ENMASCARÓ el outage de `/api-lite` seguía intacto**: `request()`
+   coerciona 200-body-vacío→`{}`, y el route no validaba forma en éxito — cualquier typo de
+   path futuro volvería a dar "0 resultados honestos" indistinguibles de un catálogo vacío
+   real. Fix: guard `Array.isArray` en el route (fallback offline con `_offline`, o 502 sin
+   fallback). A propósito NO se tocó `request()` — los POST de Facturama dependen del
+   vacío→`{}`.
+3. Texto colgante en /sat-descarga: el empty state de Declaraciones instruía sincronizar
+   "con tipo Completa" — vocabulario que el rewrite del AyudaTab eliminó del resto de la UI.
+
+**Cleanups (aplicados):** UN solo minter de JWT (`get-token` ahora llama a `mintApiToken`;
+claims adelgazados a `email+sub+sessionVersion` — lo ÚNICO que lee `validateAuthToken`,
+role/doctorId salen de la BD del lado API; el threading muerto de role/doctorId se eliminó de
+la ruta y el eval runner) · cache in-process 12h de catálogos estáticos (solo arrays no
+vacíos) · `dateWhere` exportado de flujo.ts y reutilizado en el barrido (una definición del
+boundary UTC-day) · `API_URL` con definición única en tools.ts (eran 3 copias).
+
+**Aceptados sin fix (decisión del usuario):** (a) el guard anti-consejo-fiscal perdió "IVA"
+de su lista justo cuando domainRules enseña reglas de IVA — PLAUSIBLE, intencional pero sin
+texto de deferral para casos borde de IVA (vigilar en validación en vivo); (b) el eval runner
+mintea UN token de 1h para toda la suite — corridas >60 min harán fallar los casos f2a-* del
+final con 401 (re-mintear por caso si muerde alguna vez).
+
+**REFUTADO por el review:** la sospecha de que `FiscalRegimens` fuera typo — es el spelling
+real (mal escrito) del endpoint de Facturama, verificado en vivo (19 ítems) y documentado.
+**Verificados limpios:** paridad del WHERE del barrido, claims/threading del token, la
+renumeración del AyudaTab, los consumidores del catálogo en la UI.
+
+**Validación de los fixes:** tsc limpio api+doctor · smoke EN VIVO del token slim contra
+apps/api de PROD (eval `f2a-clave-insumos`: 3 llamadas autenticadas 200 — la respuesta "0
+resultados" es el estado pre-deploy esperado del catálogo roto).
+
 ---
 
 *Relacionado: [`05-ANALISIS`](05-ANALISIS-arquitectura-especializado-vs-modulo.md) (la decisión
 y la secuencia) · [`06-KNOWLEDGE-BASE`](06-KNOWLEDGE-BASE-facturacion.md) (la fuente del
-conocimiento — §5 claves/reglas, §6 catálogos, §7 grafo/pendientes) ·
-[`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) (método). El prompt se edita en `prompt.ts` /
-`modules/facturas.ts`, NUNCA en `run-turn.ts`. Creado 2026-07-15.*
+conocimiento — §5 claves/reglas, §6 catálogos + semántica `_offline` post-review, §7
+grafo/pendientes) · [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) (método). El prompt se edita
+en `prompt.ts` / `modules/facturas.ts`, NUNCA en `run-turn.ts`. Creado 2026-07-15; §11
+agregado 2026-07-16.*

@@ -3,8 +3,8 @@
 > Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
-> Última actualización: **2026-07-15** (F2 re-pensado: experto en facturas; arquitectura
-> re-abierta y RE-DECIDIDA — un asistente, módulo enriquecido; docs 05/06 nuevos).
+> Última actualización: **2026-07-16** (review tier COMPLETO de F2a hecho — 9 hallazgos, 7
+> corregidos en `d93a3fc3`; ver `07-PLAN` §11. Stack de 5 commits SIN PUSH).
 > El mapa de arriba de todos los agentes vive en
 > [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
 
@@ -15,9 +15,10 @@
 El agente de agenda se expande a **UN asistente con módulos por dominio** (decisión de `00`,
 RE-CONFIRMADA 2026-07-15 en `05-ANALISIS` frente a la alternativa de un agente especializado).
 Sustrato cerrado, F1+F1.5 validados en vivo, y **F2a (experto en facturas, solo lectura:
-catálogos SAT grounded + barrido de pendientes + conocimiento) CONSTRUIDO 2026-07-15** con
-suite 56 en verde. **Siguiente: push/deploy de F2a → validación en vivo → PR F2b
-(propose_create_cfdi).**
+catálogos SAT grounded + barrido de pendientes + conocimiento) CONSTRUIDO 2026-07-15 +
+REVIEW COMPLETO 2026-07-16** (9 hallazgos, 7 corregidos — `07-PLAN` §11; suite 56 en verde).
+Stack local de **5 commits SIN PUSH** (`b6ec78dd`→`d93a3fc3`). **Siguiente: push/deploy →
+validación en vivo → PR F2b (propose_create_cfdi).**
 
 ## Mapa de documentos
 
@@ -185,14 +186,25 @@ money model.
      fix a `/catalogs/*` + `FiscalRegimens` en apps/api — la UI lo enmascaraba con su
      fallback). Evals f2a 7/7 aislados; suite completa como gate del push. El fix del API
      debe DESPLEGARSE para que el catálogo devuelva resultados reales.
+     **Review tier COMPLETO hecho 2026-07-16** (regla del §7.4: lógica replicada + contenido
+     que afirma hechos): 8 ángulos + verificación → 9 hallazgos, **7 corregidos en
+     `d93a3fc3`** — los gordos: la rama sin-credenciales no marcaba `_offline` (el fallback
+     hardcodeado se etiquetaba como "catálogo oficial SAT"), y el route no validaba
+     `Array.isArray` en éxito (el mecanismo exacto que enmascaró el outage de `/api-lite`
+     seguía vivo). Cleanups: UN minter de JWT con claims slim (validado EN VIVO vs prod),
+     cache 12h de catálogos estáticos, `dateWhere` compartido, `API_URL` único. Aceptados
+     sin fix: guard de IVA (vigilar) y token único de 1h del eval runner. Detalle completo:
+     `07-PLAN` §11.
    - **PR F2b — emisión:** `propose_create_cfdi` + builder de impuestos server-side + card
      tier-máximo. Después: `propose_send_fiscal_form`, `propose_payment_link`,
      `propose_create_patient` (H3).
 4. **PR F3** — entrega (`propose_email_cfdi`).
-5. **Higiene 2026-07-15 (uncommitted):** AyudaTab de /sat-descarga corregida (pestaña fantasma
-   "Resumen", "Cobranza"→"PPD / Pagos" con features reales — los buckets de antigüedad NO
-   existen —, FAQ del sync viejo, + comentario anti-drift). GuiaTab verificada CORRECTA contra
-   UNIFIED-FISCAL-REFERENCE (retenciones, PUE/PPD, uso CFDI, tablas ISR).
+5. **Higiene 2026-07-15 (commit `b6ec78dd`):** AyudaTab de /sat-descarga corregida (pestaña
+   fantasma "Resumen", "Cobranza"→"PPD / Pagos" con features reales — los buckets de
+   antigüedad NO existen —, FAQ del sync viejo, + comentario anti-drift). GuiaTab verificada
+   CORRECTA contra UNIFIED-FISCAL-REFERENCE (retenciones, PUE/PPD, uso CFDI, tablas ISR).
+   Post-review (`d93a3fc3`): el empty state de Declaraciones ya no menciona el tipo
+   "Completa" (control eliminado) — apunta al botón real "Iniciar descarga".
 
 ## Preguntas abiertas
 

@@ -160,6 +160,21 @@ keyword, q obligatoria), `uso-cfdi` (acepta RFC — los resultados varían PF/PM
 `regimenes-fiscales`, `formas-pago`, `metodos-pago`. Con Facturama caído/no configurado hay
 fallback offline hardcodeado de los valores comunes.
 
+**Semántica post-review (2026-07-16, commit `d93a3fc3`):**
+- **TODA respuesta de fallback lleva `_offline: true`** — incluida la rama "credenciales no
+  configuradas", que antes lo omitía y hacía que `search_catalogo_sat` etiquetara el fallback
+  hardcodeado como "catálogo oficial SAT" (hallazgo #1 del review). El tool decide su etiqueta
+  de `fuente` por este flag.
+- **Un 200 con body no-array se trata como FALLA, no como "catálogo vacío"** (guard
+  `Array.isArray` en el camino de éxito del route): cae al offline con `_offline` o responde
+  502 si no hay fallback (productos/unidades). Es la firma exacta del outage de `/api-lite` —
+  `request()` en facturama.ts coerciona body vacío→`{}` y eso se DEJÓ así a propósito (otros
+  endpoints POST dependen de ello); la defensa vive en el route de catálogos.
+- **Cache in-process 12h** en facturama.ts para los catálogos ESTÁTICOS (regímenes,
+  formas/métodos de pago, uso-cfdi por RFC) — solo se cachean arrays NO vacíos, para que una
+  respuesta rota nunca quede fijada el TTL. Las búsquedas por keyword (productos/unidades) no
+  se cachean.
+
 ⚠️ **Bug histórico (encontrado y corregido 2026-07-15, smoke F2a):** `facturama.ts` usaba
 `/api-lite/catalogs/*`, que responde 200 con body VACÍO → todos los catálogos devolvían `{}`
 en prod (la UI lo enmascaraba con su fallback de frontend). Path correcto: **`/catalogs/*`**,
