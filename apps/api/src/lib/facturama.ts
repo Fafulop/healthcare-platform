@@ -441,6 +441,28 @@ export interface CatalogItem {
 // sandbox 2026-07-15 (F2a smoke): /catalogs/* returns real arrays, and the
 // regimes catalog is spelled "FiscalRegimens".
 
+// The static catalogs (regimes, payment forms/methods, CFDI uses) change
+// ~yearly; cache them in-process so repeated lookups (the agent can hit the
+// same catalog several times per turn) don't re-pay a Facturama round-trip.
+// Only non-empty arrays are cached — a broken/empty response (see the
+// empty-body note above) must stay visible, never get pinned for the TTL.
+// Keyword searches (productos/unidades) stay uncached.
+const catalogCache = new Map<string, { data: CatalogItem[]; expiresAt: number }>();
+const CATALOG_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
+async function cachedCatalog(
+  key: string,
+  fetcher: () => Promise<CatalogItem[]>
+): Promise<CatalogItem[]> {
+  const hit = catalogCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.data;
+  const data = await fetcher();
+  if (Array.isArray(data) && data.length > 0) {
+    catalogCache.set(key, { data, expiresAt: Date.now() + CATALOG_CACHE_TTL_MS });
+  }
+  return data;
+}
+
 /**
  * Get SAT catalog for "Uso CFDI" (invoice uses).
  * Accepts optional RFC — results vary by person type (fisica vs moral).
@@ -449,28 +471,34 @@ export async function getCatalogUsoCfdi(rfc?: string): Promise<CatalogItem[]> {
   const path = rfc
     ? `/catalogs/CfdiUses?keyword=${encodeURIComponent(rfc)}`
     : '/catalogs/CfdiUses';
-  return request<CatalogItem[]>('GET', path);
+  return cachedCatalog(`uso-cfdi:${rfc ?? ''}`, () => request<CatalogItem[]>('GET', path));
 }
 
 /**
  * Get SAT catalog for "Regimenes Fiscales".
  */
 export async function getCatalogRegimenesFiscales(): Promise<CatalogItem[]> {
-  return request<CatalogItem[]>('GET', '/catalogs/FiscalRegimens');
+  return cachedCatalog('regimenes-fiscales', () =>
+    request<CatalogItem[]>('GET', '/catalogs/FiscalRegimens')
+  );
 }
 
 /**
  * Get SAT catalog for "Formas de Pago".
  */
 export async function getCatalogFormasPago(): Promise<CatalogItem[]> {
-  return request<CatalogItem[]>('GET', '/catalogs/PaymentForms');
+  return cachedCatalog('formas-pago', () =>
+    request<CatalogItem[]>('GET', '/catalogs/PaymentForms')
+  );
 }
 
 /**
  * Get SAT catalog for "Metodos de Pago".
  */
 export async function getCatalogMetodosPago(): Promise<CatalogItem[]> {
-  return request<CatalogItem[]>('GET', '/catalogs/PaymentMethods');
+  return cachedCatalog('metodos-pago', () =>
+    request<CatalogItem[]>('GET', '/catalogs/PaymentMethods')
+  );
 }
 
 /**

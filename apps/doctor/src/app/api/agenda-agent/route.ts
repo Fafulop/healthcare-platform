@@ -127,8 +127,6 @@ export async function POST(request: NextRequest) {
       apiToken: mintApiToken({
         email: authCtx.email,
         userId: authCtx.userId,
-        role: authCtx.role,
-        doctorId: authCtx.doctorId,
         sessionVersion: authCtx.sessionVersion,
       }),
     });

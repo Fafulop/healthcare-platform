@@ -32,9 +32,7 @@ import {
   addMinutesToTime,
 } from './dates';
 import { AREA_INGRESOS_CONSULTA, FORMAS_DE_PAGO } from '@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types';
-
-// Server-side fetch needs an absolute URL (same fallback as tools.ts).
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+import { API_URL } from './tools';
 
 // ---------------------------------------------------------------------------
 // Types shared with the client (panel cards + executor)

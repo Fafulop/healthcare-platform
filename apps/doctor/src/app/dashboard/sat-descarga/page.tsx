@@ -3421,7 +3421,7 @@ function DeclaracionesTab() {
       <div className="text-center py-12 text-gray-500">
         <Calculator className="w-10 h-10 mx-auto mb-2 text-gray-300" />
         <p>No hay datos para calcular declaraciones de {year}.</p>
-        <p className="text-xs mt-1">Sincroniza CFDIs con tipo &quot;Completa&quot; para ver el calculo.</p>
+        <p className="text-xs mt-1">Descarga tus CFDIs con el boton &quot;Iniciar descarga&quot; para ver el calculo.</p>
         <div className="mt-4">
           <YearSelector year={year} setYear={setYear} />
         </div>

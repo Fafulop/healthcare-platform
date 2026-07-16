@@ -122,14 +122,12 @@ async function main() {
   let apiToken: string | null = null;
   const agentUser = await prisma.user.findFirst({
     where: { doctorId: DOCTOR_ID },
-    select: { id: true, email: true, role: true, sessionVersion: true },
+    select: { id: true, email: true, sessionVersion: true },
   });
   if (agentUser && (process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET)) {
     apiToken = mintApiToken({
       email: agentUser.email,
       userId: agentUser.id,
-      role: agentUser.role,
-      doctorId: DOCTOR_ID,
       sessionVersion: agentUser.sessionVersion ?? 0,
     });
   }

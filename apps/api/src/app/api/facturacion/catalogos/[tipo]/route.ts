@@ -21,8 +21,9 @@ export async function GET(
     const { tipo } = await params;
 
     if (!isFacturamaConfigured()) {
-      // Return hardcoded common values when Facturama is not configured
-      return NextResponse.json({ data: getOfflineCatalog(tipo) });
+      // Return hardcoded common values when Facturama is not configured.
+      // _offline: true so consumers (search_catalogo_sat) never label this as the official catalog.
+      return NextResponse.json({ data: getOfflineCatalog(tipo), _offline: true });
     }
 
     const { searchParams } = new URL(request.url);
@@ -67,6 +68,21 @@ export async function GET(
           { error: `Catálogo "${tipo}" no soportado. Usa: uso-cfdi, regimenes-fiscales, formas-pago, metodos-pago, productos, unidades` },
           { status: 400 }
         );
+    }
+
+    if (!Array.isArray(data)) {
+      // An empty/non-array 200 from Facturama means a broken integration (wrong path,
+      // contract change) — the /api-lite outage looked exactly like this. Treat it as
+      // a failure instead of returning plausible emptiness.
+      console.error(`Catálogo "${tipo}": respuesta no-array de Facturama`, data);
+      const offline = getOfflineCatalog(tipo);
+      if (offline.length > 0) {
+        return NextResponse.json({ data: offline, _offline: true });
+      }
+      return NextResponse.json(
+        { error: `Catálogo "${tipo}" no disponible (respuesta inválida de Facturama)` },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json({ data });

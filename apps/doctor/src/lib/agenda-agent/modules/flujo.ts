@@ -120,7 +120,7 @@ function asDay(v: unknown): string | undefined {
  * UTC on Railway; we pin Z explicitly so the tool matches the DEPLOYED
  * behavior even when run locally (evals/smoke run in TZ America/Mexico_City,
  * where the bare parse leaks the next day in — caught in the F1 smoke test). */
-function dateWhere(startDate?: string, endDate?: string) {
+export function dateWhere(startDate?: string, endDate?: string) {
   if (!startDate && !endDate) return {};
   const transactionDate: { gte?: Date; lte?: Date } = {};
   if (startDate) transactionDate.gte = new Date(startDate + 'T00:00:00Z');

@@ -12,7 +12,9 @@ import { dateKeyToUtcDate, utcDateToKey, isVencida, mxTodayKey, addMinutesToTime
 
 // Server-side fetch needs an absolute URL — same fallback as the other
 // server→server callers in apps/doctor (medical-records/tasks, calendar).
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+// Server-side fetch to apps/api needs an absolute URL. Single definition —
+// modules and proposals import it from here.
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
 export interface ToolContext {
   doctorId: string;

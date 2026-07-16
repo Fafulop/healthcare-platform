@@ -29,8 +29,9 @@
 
 import { prisma } from '@healthcare/database';
 import type { AnthropicTool } from '../anthropic';
-import type { ToolContext } from '../tools';
+import { API_URL, type ToolContext } from '../tools';
 import { utcDateToKey, mxTodayKey } from '../dates';
+import { dateWhere } from './flujo';
 import type { AgentModule } from './types';
 
 const LIST_CAP = 50;
@@ -39,9 +40,6 @@ const PENDIENTES_CAP = 10; // sweep rows shown (totals stay real)
 const CATALOGO_CAP = 10; // catalog matches shown per search
 const MX_TZ = 'America/Mexico_City';
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-// Server-side fetch to apps/api needs an absolute URL — same fallback as tools.ts.
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
 // -----------------------------------------------------------------------------
 // Tool definitions
@@ -962,15 +960,6 @@ async function searchCatalogoSat(
 // To harden it, change the source verdict first, never just this sweep.
 // -----------------------------------------------------------------------------
 
-/** transactionDate is @db.Date (UTC-day convention — same as the flujo module's
- * dateWhere; NOT the MX-timestamp convention used for paidAt/issuedAt here). */
-function transactionDateRange(start: string | undefined, end: string | undefined) {
-  const filter: { gte?: Date; lte?: Date } = {};
-  if (start) filter.gte = new Date(start + 'T00:00:00Z');
-  if (end) filter.lte = new Date(end + 'T23:59:59.999Z');
-  return filter;
-}
-
 async function getPendientesFactura(
   ctx: ToolContext,
   input: { startDate?: unknown; endDate?: unknown; soloListos?: unknown }
@@ -987,7 +976,9 @@ async function getPendientesFactura(
     doctorId: ctx.doctorId,
     hasFactura: false,
     origin: { in: ['cita', 'webhook_pago'] },
-    ...(start || end ? { transactionDate: transactionDateRange(start ?? undefined, end ?? undefined) } : {}),
+    // transactionDate is @db.Date (UTC-day convention) — dateWhere is flujo's
+    // shared builder, ONE definition of the deployed ledger date boundaries.
+    ...dateWhere(start ?? undefined, end ?? undefined),
   };
 
   const [grouped, sinExpediente] = await Promise.all([
