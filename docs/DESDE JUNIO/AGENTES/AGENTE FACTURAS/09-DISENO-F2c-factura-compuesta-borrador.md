@@ -1,6 +1,7 @@
 # 🧾 DISEÑO F2c — factura COMPUESTA (consulta + insumos + quirófano) vía BORRADOR en el form
 
-> **Estado: CONSTRUIDO 2026-07-16 (mismo día del diseño) — ver §8 bitácora.** Decisiones del
+> **Estado: CONSTRUIDO + VALIDADO EN VIVO 2026-07-16 (todo el ciclo en un día) — bitácora §8,
+> validación §9 (CFDI folio 9, $1,548, draft emitted+ligado; 5 follow-ups).** Decisiones del
 > usuario: card de confirmación LIGERA para crear el borrador (§5.1) y migración aplicada a
 > prod con aprobación explícita. Creado 2026-07-16 a partir de
 > la idea del usuario tras cerrar F2b: *"el agente arrastra el total de la cita, pero el
@@ -225,7 +226,45 @@ muerta por datos (folio 8) — notas de restauración en los evals. Cero CONFIRM
 correctness. Caveat de siempre: mismo autor; pase multi-agente independiente OPCIONAL en
 sesión fresca para el stack F2b+F2c.
 
-## 9. Qué NO cambia
+## 9. Validación EN VIVO — 2026-07-16/17 (madrugada), F2c CERRADO ✅
+
+Flujo completo con datos REALES sembrados en la misma conversación (dr-prueba, panel):
+
+1. **Dos-turnos orgánico:** "prepara la factura de Gerardo" sin ingreso → el agente detectó
+   los 2 expedientes duplicados, explicó que sin ingreso no hay factura, y propuso el camino:
+   crear cita (card 🔴, ejecutada) → completar con efectivo (card, ejecutada, ingreso 1598).
+2. **Enrutamiento compuesta:** 3 conceptos + total ≠ ingreso → eligió BORRADOR explícito
+   ("no lo timbro directo"). Claves grounded: buscó el catálogo, honesto con "gasas" (sin
+   match literal → 42311500 vendas) y 42312400 curación. Flags correctos: consulta exenta,
+   insumos +IVA, sin retención (receptor PF).
+3. **Card ligera al spec:** receptor real, conceptos con claves, "total $1,548 vs ingreso
+   $1,200 — difiere, el doctor lo revisa en el form" (informativo, sin fricción), PUE·01,
+   advertencia única sin 🧾. Confirmada → borrador #1 → botón "Abrir borrador" → form
+   hidratado con los 3 conceptos.
+4. **El form como capa de revisión REAL (la tesis del diseño, probada 2 veces):**
+   (a) el usuario corrigió uso CFDI D01→G03 (el expediente traía D01×626, combinación que
+   el PAC rechaza); (b) primer Emitir RECHAZADO por el SAT — "DomicilioFiscalReceptor no
+   inscrito" (CP del expediente ≠ constancia; la causa #1 de la KB §5 confirmada en vivo);
+   el draft quedó `draft` (no marcado en falso), el usuario corrigió el CP y el retry timbró.
+5. **Verificación read-only vs prod:** draft #1 `emitted` + `emitted_cfdi_id 9` · CFDI
+   folio 9, UUID `7da0adb1-1fec-4e04-b549-89781f243a92`, receptor LOFG910521283, uso G03
+   (la EDICIÓN del doctor sobre el borrador — punto de partida, no contrato), subtotal
+   $1,500 + IVA $48 − $0 = **$1,548 EXACTO al estimado de la card**, ligado a 1598 ·
+   entry 1598 `hasFactura=true` · pendientes de vuelta a 2 (Prueba1 + test 7).
+
+**Follow-ups nacidos de la validación (pendientes, en orden de valor):**
+1. **UI para editar datos fiscales del paciente** — hoy NO existe camino directo en el
+   expediente (solo el formulario fiscal por link); el usuario lo pidió explícito.
+2. **Claves visibles/editables en el form de Nueva Factura** — los conceptos hidratados
+   traen productCode pero el form no lo muestra ni deja editarlo (el usuario lo señaló).
+3. **Warning D01×régimen-incompatible en el pre-check del borrador** (el agente SABE la
+   regla en prosa; aplicarla al derivar el receptor).
+4. **CP-vs-constancia**: el error del SAT es críptico — hint amigable en el form y/o
+   reconsiderar `validar/rfc` opcional (costo: 1 folio) antes de emitir.
+5. Radar money-model (§5.3): el ingreso quedó en $1,200 y la factura en $1,548 — los $348
+   de insumos+IVA no existen en el ledger; ofrecer ingreso complementario al emitir.
+
+## 10. Qué NO cambia
 
 Regla E7 (impuestos server-side/form) · receptor solo del expediente · guard 409 de doble
 emisión (el form emite por el mismo POST) · cancelación fuera · PPD solo explícito · el

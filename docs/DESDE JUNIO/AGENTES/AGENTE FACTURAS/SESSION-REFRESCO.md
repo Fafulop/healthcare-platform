@@ -3,8 +3,13 @@
 > Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
-> Última actualización: **2026-07-16 (noche, 2ª tanda)** — **F2c CONSTRUIDO el mismo día**
-> (`09-DISENO` §8, UNCOMMITTED al escribir esto): borrador de factura COMPUESTA —
+> Última actualización: **2026-07-16/17 (madrugada)** — **F2c CERRADO EN VIVO** (`09-DISENO`
+> §9): ciclo completo con datos reales — dos-turnos orgánico (crear+completar cita → ingreso
+> 1598) → borrador compuesta 3 conceptos → form hidratado → el doctor EDITÓ (D01→G03 + CP
+> tras rechazo real del SAT — causa #1 de la KB confirmada) → CFDI folio 9 $1,548 EXACTO,
+> draft emitted+ligado, pendientes correcto. **5 follow-ups en §9** (headline: UI para editar
+> datos fiscales del paciente NO existe; claves invisibles en el form). SHIPPED `254d3a8b`
+> (`09-DISENO` §8): borrador de factura COMPUESTA —
 > propose_prepare_factura_borrador (card ligera sin 🧾) → CfdiDraft en BD (tabla APLICADA A
 > PROD y verificada) → botón "Abrir borrador" → form de Nueva Factura hidratado (`?draft=`)
 > → el doctor edita y emite → draft emitted+ligado; sección de borradores en el expediente;
