@@ -19,8 +19,9 @@ import {
   Bot, User, Send, X, Trash2, Loader2, Sparkles,
   CalendarPlus, Lock, Unlock, CalendarX, AlertTriangle,
   CheckCircle2, XCircle, CircleSlash, Play,
-  CalendarCheck, CalendarClock, UserX, BadgeCheck, Receipt,
+  CalendarCheck, CalendarClock, UserX, BadgeCheck, Receipt, FileText,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useAgentActions, useAgentChat, type AgentMessage, type AgendaProposal, type AgentBudget } from '@/contexts/AgentContext';
 
 /** Daily-usage widget: slim bar + percentage. Green → amber (≥70%) → red (≥90%).
@@ -89,6 +90,7 @@ const PROPOSAL_ICONS = {
   complete_booking: CalendarCheck,
   no_show: UserX,
   create_cfdi: Receipt,
+  prepare_factura_borrador: FileText,
 } as const;
 
 function ProposalCard({
@@ -140,6 +142,18 @@ function ProposalCard({
       {proposal.resultado && (
         <div className={`pl-5 font-medium ${status === 'exito' ? 'text-emerald-700' : status === 'error' ? 'text-red-700' : 'text-gray-500'}`}>
           {proposal.resultado}
+        </div>
+      )}
+      {/* F2c: follow-up action (e.g. open the draft in the form) — a real
+          button because renderInline does not linkify prose (09-DISENO §7.1) */}
+      {proposal.accion && status === 'exito' && (
+        <div className="pl-5 pt-1">
+          <Link
+            href={proposal.accion.href}
+            className="inline-block text-[11px] px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+          >
+            {proposal.accion.label}
+          </Link>
         </div>
       )}
     </div>

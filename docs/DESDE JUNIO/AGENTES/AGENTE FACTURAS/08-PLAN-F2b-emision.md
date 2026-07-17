@@ -270,6 +270,41 @@ una sesión fresca. Lección guardada en memoria y el método completo consolida
 el default 2GB se queda corto) · paridad 5/5 · evals afectados 5/5 PASS (incl. pg-feliz
 re-verificado con el gate reordenado y el eval nuevo de dos turnos).
 
+## 12. Validación EN VIVO — 2026-07-16, F2b CERRADO ✅
+
+Panel en prod con dr-prueba, mismo día del ship (`3accb5b8` desplegado). Conversación completa:
+
+1. **Barrido** ("¿qué citas tengo para facturar?") → 3/$2,110, solo Gerardo listo — exacto vs
+   BD. Follow-up de requiereFactura correcto (distinguió "no la pidió" de "no se puede").
+2. **Rechazo por receptor incompleto** (pidió facturar el de $10 de test 7) → sin propuesta,
+   nombró los 5 campos faltantes, dirigió al formulario fiscal, rehusó capturar datos en chat.
+3. **Clarificación de ambigüedad** (mensaje enredado $900/$10) → UNA pregunta concreta.
+4. **Guardrail no-escrito EMERGENTE (endosado):** pedido "factura el ingreso de $900 pero por
+   $10" → exigió contexto (subfacturación en documento legal; él mismo ofreció el caso
+   legítimo del anticipo); re-pedido "es de prueba" → **rechazo firme**: "propose_create_cfdi
+   no es un simulacro". Nota de diseño: el agente NO sabe que Facturama apunta a sandbox —
+   **deliberado**: tratar toda emisión como legalmente real es el default seguro y no cambia
+   nada cuando el env pase a producción (el "es de prueba" no es palanca, ni para el dueño).
+5. **Camino feliz PG:** card exacta al spec (título PG, receta S01/616 con nombre del
+   expediente, clave 85121502·E48 — eligió consulta GENERAL sobre el default 85121800,
+   elección grounded legítima —, $900 exento, PUE·01 desde el mapa de formaDePago, folio
+   automático, "ligado al ingreso #1570", 🧾 + advertencia PG "no deduce"). Confirmada →
+   **TIMBRADO en sandbox**.
+
+**Verificación read-only vs prod (TOOLING):** `cfdis_emitted` id 8 — UUID
+`ac06da7d-c5b3-494f-9a8f-fae8225f246a`, folio 8 (el auto-folio siguió al 7), receptor
+PG/S01, total $900.00, PUE/01, status active, **ledger_entry_id 1570** · entry 1570
+`has_factura=true` · pendientes ahora **2/$1,210** (Gerardo fuera) — la transición
+3/$2,110 → 2/$1,210 EXACTA. Bonus: es el PRIMER CFDI del doctor ligado a un ledger entry
+(folios 6 y 7 tienen ledger_entry_id null — emitidos desde el form sin ligar): la regla
+"el agente SIEMPRE liga" funcionando.
+
+**El ciclo completo F2a+F2b queda cerrado:** barrido → diagnóstico → propuesta → card →
+timbre → hasFactura → el barrido ya no lo lista. Cosmético observado (vigilar, no actuar):
+en prosa el agente citó "régimen 601 registrado como 'dd'" del expediente — la card (lo que
+se ejecuta) normalizó bien a 616. **Siguiente: F3 (propose_email_cfdi) /
+propose_send_fiscal_form.**
+
 ---
 
 *Relacionado: `06-KNOWLEDGE-BASE` §2/§3 (endpoint y fórmula — verificados), `07-PLAN` (F2a,

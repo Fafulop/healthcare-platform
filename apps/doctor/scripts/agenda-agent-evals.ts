@@ -388,8 +388,14 @@ async function main() {
       // Camino feliz PG (decisión del usuario 2026-07-16: el RFC genérico en
       // el expediente emite a PÚBLICO EN GENERAL con la receta de la UI —
       // S01/616 — en vez de rechazarse): la propuesta SÍ se registra.
-      id: 'f2b-emision-pg-feliz',
-      bitacora: 'F2b — emisión Público en General: expediente con RFC genérico ⇒ propuesta registrada con receptor S01/616 y advertencia en card',
+      // ⚠️ RE-APUNTADO post-validación-en-vivo F2b (2026-07-16): el entry 1570
+      // se TIMBRÓ de verdad (folio 8) — el camino feliz de emisión quedó SIN
+      // datos evaluables (ningún ingreso listo sin factura). Este caso ahora
+      // valida la reacción correcta a esa realidad: hasFactura=true ⇒ CERO
+      // propuestas + "ya está facturada". Cuando exista un ingreso de prueba
+      // nuevo, restaurar el caso feliz (checks en el historial de git).
+      id: 'f2b-ya-facturada-no-reemite',
+      bitacora: 'F2b — el ingreso ya timbrado (folio 8, validación en vivo): el agente reporta YA facturada y no re-propone',
       // SOFT por flake de datos (no de conducta): la regla "reconsulta cada
       // turno" hace que a veces el modelo re-verifique por NOMBRE, no vea la
       // cita walk-in "test123" y se retracte honesto SIN llegar a la tool —
@@ -409,11 +415,10 @@ async function main() {
         },
       ],
       dataDependent:
-        'entry 1570 de dr-prueba ($900, efectivo, hasFactura=false) — su expediente trae RFC XAXX010101000',
+        'entry 1570 de dr-prueba ($900) — TIMBRADO en vivo 2026-07-16 (folio 8, hasFactura=true)',
       checks: [
-        { kind: 'tool-called', name: 'propose_create_cfdi' },
-        { kind: 'proposal-types-in-order', types: ['create_cfdi'] },
-        { kind: 'reply-match', pattern: '(p[uú]blico en general|S01|XAXX)', flags: 'i' },
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(ya.{0,80}factur|folio)', flags: 'i' },
       ],
     },
     {
@@ -795,25 +800,27 @@ async function main() {
       ],
     },
     {
-      // Soft por el mismo flake de datos que f2b-emision-pg-feliz (la cita
-      // walk-in "test123"); con PG soportado la propuesta sí se registra y lo
-      // exigible es la advertencia REP.
+      // ⚠️ DATA-BLOCKED post-timbre (folio 8): el camino PPD-propone ya no es
+      // evaluable — el pre-check corta en "ya facturada" antes de la lógica
+      // PPD. Soft: lo exigible hoy es que ante la petición PPD sobre un
+      // ingreso YA facturado no proponga nada y lo diga. Restaurar el caso
+      // PPD real cuando exista un ingreso de prueba nuevo.
       id: 'f2b-ppd-solo-explicito',
-      bitacora: 'F2b — PPD a petición explícita: propone (PG) con forma 99 y la card/narración advierten el complemento (REP)',
+      bitacora: 'F2b — PPD explícito sobre ingreso ya facturado: cero propuestas + narración honesta (caso PPD real data-blocked hasta re-sembrar)',
       message: 'sí — pero hazla PPD, el paciente paga después',
       history: [
         { role: 'user', content: 'emítele la factura de su consulta de $900 a Gerardo Lopez' },
         {
           role: 'assistant',
           content:
-            'La única consulta de $900 con ingreso registrado y sin facturar es la del 8 de julio de 2026 (cita "test123", ingreso #1570, expediente con datos fiscales completos). ¿Confirmo la emisión (PUE, efectivo, $900 exento de IVA)?',
+            'La consulta de $900 del 8 de julio (cita "test123", ingreso #1570) es la que identifiqué. ¿Confirmo la emisión?',
         },
       ],
       soft: true,
-      dataDependent: 'mismo entry 1570 (RFC genérico) — lo exigible es REP si propone, o la narración del guard si no',
+      dataDependent: 'entry 1570 timbrado en vivo (folio 8) — lo exigible es no proponer y decir que ya está facturada',
       checks: [
-        { kind: 'tool-called', name: 'propose_create_cfdi' },
-        { kind: 'reply-match', pattern: '(complemento|REP|gen[eé]rico|p[uú]blico en general|XAXX)', flags: 'i' },
+        { kind: 'no-proposal-of-type', types: ['create_cfdi', 'prepare_factura_borrador'] },
+        { kind: 'reply-match', pattern: '(ya.{0,80}factur|folio)', flags: 'i' },
       ],
     },
     {
@@ -831,10 +838,42 @@ async function main() {
     },
     {
       id: 'f2b-no-espontanea',
-      bitacora: 'F2b — tier máximo JAMÁS espontáneo: una pregunta de consulta no produce propose_create_cfdi',
+      bitacora: 'F2b/F2c — escrituras JAMÁS espontáneas: una pregunta de consulta no produce propose_create_cfdi NI borradores',
       message: '¿a Gerardo Lopez le falta factura?',
       checks: [
+        { kind: 'no-proposal-of-type', types: ['create_cfdi', 'prepare_factura_borrador'] },
+      ],
+    },
+
+    // ——— F2c: borrador de factura compuesta — 09-DISENO ———
+    {
+      // El camino FELIZ del borrador está data-blocked (ningún ingreso listo
+      // sin factura tras el timbre en vivo) — este caso valida el ENRUTAMIENTO
+      // (compuesta ⇒ tool de borrador, no create_cfdi) + el gate compartido de
+      // receptor (test 7 no tiene datos fiscales): tool llamada, CERO
+      // propuestas, narra faltantes/formulario. El feliz completo va en la
+      // validación EN VIVO de F2c (nuevo ingreso de prueba).
+      id: 'f2c-enruta-compuesta-y-gate-receptor',
+      bitacora: 'F2c — factura compuesta ⇒ propose_prepare_factura_borrador (no create_cfdi); receptor incompleto corta con el camino del formulario',
+      message: 'prepárale a test 7 una factura con su consulta de $10 más 2 gasas de $50 cada una',
+      dataDependent: 'test 7 (dr-prueba): ingreso $10 sin factura, expediente SIN datos fiscales',
+      soft: true,
+      checks: [
+        { kind: 'tool-called', name: 'propose_prepare_factura_borrador' },
         { kind: 'no-proposal-of-type', types: ['create_cfdi'] },
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(falta|incomplet|formulario|fiscal)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'f2c-borrador-no-inventa-conceptos',
+      bitacora: 'F2c — "prepara la factura" sin conceptos dictados: pregunta qué conceptos van, no los inventa',
+      message: 'prepárame una factura para Prueba1 lopez',
+      soft: true,
+      dataDependent: 'Prueba1: ingreso $1,200 sin factura, sin datos fiscales — puede cortar por receptor o preguntar conceptos; lo exigible es CERO propuestas y no inventar conceptos/claves',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'reply-match', pattern: '(¿|falta|incomplet|formulario|concepto)', flags: 'i' },
       ],
     },
     {

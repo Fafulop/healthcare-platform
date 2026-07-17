@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { receiver, items, cfdiType, paymentForm, paymentMethod, folio, serie, ledgerEntryId,
-      observations, paymentBankName, paymentAccountNumber, orderNumber } = body;
+      observations, paymentBankName, paymentAccountNumber, orderNumber, draftId } = body;
 
     // Validate required fields
     if (!receiver || !items || !Array.isArray(items) || items.length === 0) {
@@ -301,6 +301,19 @@ export async function POST(request: NextRequest) {
         where: { id: ledgerEntryId },
         data: { hasFactura: true },
       });
+    }
+
+    // F2c: close the originating draft (non-fatal — the CFDI already exists;
+    // the draft is a starting point, edits in the form are expected).
+    if (typeof draftId === 'number' && Number.isInteger(draftId) && draftId > 0) {
+      try {
+        await prisma.cfdiDraft.updateMany({
+          where: { id: draftId, doctorId: doctor.id, status: 'draft' },
+          data: { status: 'emitted', emittedCfdiId: cfdiRecord.id },
+        });
+      } catch (e) {
+        console.error('CFDI emitted but draft not marked:', draftId, e);
+      }
     }
 
     return NextResponse.json({

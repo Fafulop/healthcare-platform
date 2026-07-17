@@ -1,9 +1,10 @@
 # 🧾 Matriz de capacidades — qué puede y qué NO puede el asistente
 
 > Referencia ÚNICA y transversal de los 5 módulos: tools, qué preguntas responde cada uno,
-> y las fronteras duras. Snapshot 2026-07-12 (**35 tools / 5 módulos** — `ALL_TOOLS.length`
+> y las fronteras duras. Snapshot 2026-07-16 (**38 tools / 5 módulos** — `ALL_TOOLS.length`
 > del registry, la única fuente de conteo válida —, todo validado en
-> vivo). La VERDAD es el código (`apps/doctor/src/lib/agenda-agent/modules/` + `prompt.ts`);
+> vivo incl. la PRIMERA escritura fuera de agenda: emisión de CFDI). La VERDAD es el código
+> (`apps/doctor/src/lib/agenda-agent/modules/` + `prompt.ts`);
 > este doc es el mapa. ⚠️ **Checklist del playbook: todo módulo o tool nuevo actualiza esta
 > matriz** (igual que INTRO/RESILIENCE).
 
@@ -19,7 +20,7 @@
 
 ## 2. Matriz por módulo
 
-### AGENDA (lectura + PROPUESTAS — el único módulo con escrituras hoy)
+### AGENDA (lectura + PROPUESTAS)
 | | |
 |---|---|
 | Tools lectura | get_day_schedule · get_ranges · get_bookings · get_booking_detail · get_availability · get_services · get_locations · find_patient |
@@ -29,14 +30,15 @@
 | NO puede | ejecutar nada sin confirmación · deducir huecos a mano · reactivar estados finales · filtrar citas por consultorio (el dato no existe) |
 | Docs | `AGENTE AGENDA/` |
 
-### FACTURAS/PAGOS (solo lectura — F2a "experto" 2026-07-15)
+### FACTURAS/PAGOS (lectura F2a + EMISIÓN F2b — validado en vivo 2026-07-16)
 | | |
 |---|---|
-| Tools | get_billing_status ⭐ · get_patient_profile · get_fiscal_profile_status · get_cfdis · get_sat_cfdis · get_payment_links · get_payment_provider_status · get_guia (4 temas) · **search_catalogo_sat** · **get_pendientes_factura** |
+| Tools lectura | get_billing_status ⭐ · get_patient_profile · get_fiscal_profile_status · get_cfdis · get_sat_cfdis · get_payment_links · get_payment_provider_status · get_guia (4 temas) · **search_catalogo_sat** · **get_pendientes_factura** |
+| Tools propuesta | **propose_create_cfdi** (card 🧾 tier-MÁXIMO — timbra un documento fiscal legal): ingreso de cita/link (nunca manual), receptor SOLO del expediente completo, impuestos server-side (`cfdi-builder.ts`, E7), RFC genérico ⇒ Público en General (S01/616) con advertencia; doble emisión bloqueada en pre-check Y endpoint (409); PPD solo explícito (forma 99 + advertencia REP); cita sin completar ⇒ DOS turnos · **propose_prepare_factura_borrador** (F2c, card LIGERA — reversible, nada se timbra): factura COMPUESTA pre-llenada como CfdiDraft que el doctor revisa/edita/emite en el form (`?draft=`); botón "Abrir borrador" en la card; anti-duplicado; discrepancia factura-vs-ingreso NORMAL aquí; los reads reportan borradorPendiente |
 | Responde | diagnóstico completo de cobro/factura de una cita o paciente (matriz de 6 preguntas), CFDIs por fuente DUAL (plataforma vs SAT, con frescura), completitud fiscal server-side (listoParaFacturar), links de pago, estado Stripe/MP, guías curadas (incl. claves_y_reglas_cfdi), **claves de los catálogos OFICIALES del SAT (grounded — nunca inventa claves)** y **el barrido "¿a quién le falta factura?"** (paridad exacta con ingresosSinFactura) |
-| NO puede | EMITIR ni cancelar CFDIs (F2b/nunca-v1) · crear links de pago (F2b) · enviar el formulario fiscal (F2b) · tomar datos fiscales de texto libre (solo del expediente) |
+| NO puede | cancelar CFDIs (nunca-v1) ni complementos de pago · facturar ingresos manuales o PG "de dedo" (solo vía RFC genérico del expediente) · crear links de pago (F2+) · enviar el formulario fiscal (F2+) · tomar datos fiscales de texto libre (solo del expediente) · subfacturar (guardrail emergente ENDOSADO: rehúsa montos ≠ ingreso sin contexto legítimo, incluso "de prueba") |
 | Desempate | "¿quién me debe?" tiene TRES lecturas: sin PAGAR (flujo POR_COBRAR) · PPD sin complemento (fiscal) · sin FACTURA (get_pendientes_factura) — una cifra CON fuente + nombrar las otras |
-| Docs | `AGENTE FACTURAS/` (F2a: `07-PLAN`) |
+| Docs | `AGENTE FACTURAS/` (F2a: `07-PLAN` · F2b: `08-PLAN`) |
 
 ### FISCAL (solo lectura)
 | | |
@@ -68,7 +70,9 @@
 
 ## 3. Fuera de alcance GLOBAL (RESILIENCE — el modelo lo declina y nombra lo que sí hace)
 
-- Emitir/cancelar CFDIs, crear links de pago, enviar formulario fiscal → **F2** (facturas).
+- ~~Emitir CFDIs~~ → **EN ALCANCE desde F2b** (propose_create_cfdi, card 🧾). Siguen fuera:
+  cancelar CFDIs/complementos, facturar manuales/PG-de-dedo, crear links de pago y enviar
+  formulario fiscal → **F2+/F3** (facturas).
 - Escribir en el ledger/conciliación → **F2+** (Motor 4, diseño en flujo docs 06).
 - Contenido clínico del expediente → **tier de privacidad propio** (quizá nunca, o módulo aparte con logging/modelo distintos — blueprint §5.3 nivel 3).
 - Calcular ISR/deducibilidad, consejo fiscal → **nunca** (E7; el sistema calcula, el contador aconseja).
@@ -79,16 +83,22 @@
   de ayuda** (capa de conocimiento, `AGENTE KNOWLEDGE LAYER/`). NO aplica a CÓMO FUNCIONA un flujo
   (eso es concepto, SÍ lo explica).
 
-## 4. Números operativos (2026-07-15)
+## 4. Números operativos (2026-07-16)
 
-**37 tools / 5 módulos** (agenda 8+10 · facturas 10 · fiscal 2 · flujo 5 · expediente 2) ·
-prefijo estático ~21.2k + F2a (~1.5-2k est. — re-medir post-deploy, A4) · modelo
+**39 tools / 5 módulos** (agenda 8+10 · facturas 10+2 · fiscal 2 · flujo 5 · expediente 2) ·
+prefijo estático ~21.2k + F2a/F2b/F2c (re-medir post-deploy, A4) · modelo
 claude-sonnet-5 · cap diario 500k budget tokens (~$1.50/doctor) cost-weighted · caché 1
-breakpoint estable + 2 móviles, TTL 5 min · suite de evals: **56 casos** (incl. 3 sondas de
-inyección `inj-*` con fixtures permanentes `A6INJ*`, 3 de capa de conocimiento `kl-*`, y 7
-`f2a-*` del experto en facturas), **baseline 0 WARN** (un WARN se investiga, ya no es
-"normal"; los soft son guardas data-dependent justificadas). Nota F2a: search_catalogo_sat
-necesita `ToolContext.apiToken` (minteado por turno desde la sesión — `api-token.ts`).
+breakpoint estable + 2 móviles, TTL 5 min · suite de evals: **62 casos** (incl. 3 sondas de
+inyección `inj-*` con fixtures permanentes `A6INJ*`, 3 de capa de conocimiento `kl-*`, 7
+`f2a-*`, 5 `f2b-*` de emisión y 2 `f2c-*` de borrador), **baseline 0 WARN** (un WARN se
+investiga, ya no es "normal"; los soft son guardas data-dependent justificadas). Nota F2a:
+search_catalogo_sat necesita `ToolContext.apiToken` (minteado por turno desde la sesión —
+`api-token.ts`).
+Nota F2b: Facturama apunta a SANDBOX en prod (intencional) y el agente NO lo sabe —
+deliberado: trata toda emisión como legalmente real ("es de prueba" no es palanca).
+Nota F2c: los caminos FELICES de emisión/borrador están data-blocked en evals desde el
+timbre en vivo (folio 8 consumió el único ingreso listo) — re-sembrar completando una cita
+de prueba.
 
 ---
 

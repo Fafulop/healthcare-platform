@@ -3,15 +3,23 @@
 > Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
-> Última actualización: **2026-07-16 (noche)** — F2a cerrado en vivo (`07-PLAN` §12), **F2b
-> SHIPPED `d05e3d71` + fixes del review SHIPPED `3accb5b8`** (4/4 hallazgos — el gordo: guard
-> 409 de doble emisión EN EL ENDPOINT; `08-PLAN` §11; suite 60 en verde; método consolidado
-> en `../GENERAL AGENTES/05-METODO-code-review.md`).
-> **ÚNICO PASO PENDIENTE para cerrar F2b: la validación en vivo** — timbrar en sandbox el
-> caso Gerardo A ($900, entry 1570, sale como PÚBLICO EN GENERAL): panel → card 🧾 →
-> confirmar → verificar read-only CfdiEmitted + hasFactura=true + que get_pendientes_factura
-> ya no lo liste (script exacto en `08-PLAN` §10-§11). Después: F3 (propose_email_cfdi) /
-> propose_send_fiscal_form.
+> Última actualización: **2026-07-16 (noche, 2ª tanda)** — **F2c CONSTRUIDO el mismo día**
+> (`09-DISENO` §8, UNCOMMITTED al escribir esto): borrador de factura COMPUESTA —
+> propose_prepare_factura_borrador (card ligera sin 🧾) → CfdiDraft en BD (tabla APLICADA A
+> PROD y verificada) → botón "Abrir borrador" → form de Nueva Factura hidratado (`?draft=`)
+> → el doctor edita y emite → draft emitted+ligado; sección de borradores en el expediente;
+> reads draft-aware (borradorPendiente). Suite 62: 60 PASS + 2 soft-WARN documentados, 0
+> FAIL. Review inline PRE-commit (05-METODO modo B): 0 correctness, 3 cleanup aceptados
+> (`09-DISENO` §8). ⚠️ Validación en vivo de F2c PENDIENTE y requiere DATOS FRESCOS (el timbre de F2b
+> dejó a dr-prueba sin ingresos facturables — completar una cita de prueba primero).
+> Antes, mismo día: **F2b CERRADO EN VIVO** (`08-PLAN` §12):
+> timbrado sandbox del caso Gerardo A — CFDI folio 8, UUID `ac06da7d…`, PG/S01, $900, ligado
+> al ingreso 1570, `hasFactura=true`, pendientes 3/$2,110 → 2/$1,210 EXACTO. Ships del día:
+> F2a validado (`07-PLAN` §12) · F2b `d05e3d71` · fixes del review `3accb5b8` (guard 409 de
+> doble emisión en el endpoint; método en `../GENERAL AGENTES/05-METODO-code-review.md`) ·
+> suite 60 en verde. Bonus de la validación: guardrail emergente ENDOSADO — el agente rehusó
+> subfacturar ($10 sobre ingreso de $900) incluso "de prueba" (no sabe que Facturama es
+> sandbox — deliberado). **Siguiente: F3 (propose_email_cfdi) / propose_send_fiscal_form.**
 > El mapa de arriba de todos los agentes vive en
 > [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
 
@@ -39,7 +47,8 @@ vivo timbrando en SANDBOX (caso Gerardo A $900, sin prerequisito de datos).**
 | `05-ANALISIS-arquitectura-especializado-vs-modulo.md` | Re-examen 2026-07-15 (agente especializado vs módulo) → **decidido: UN asistente, módulo enriquecido**; secuencia F2a (lectura experta) → F2b (emisión) |
 | `06-KNOWLEDGE-BASE-facturacion.md` | LA base de conocimiento de facturación: emisión paso a paso, fórmula de impuestos, reglas SAT, catálogos, grafo — verificada contra código 2026-07-15 |
 | `07-PLAN-F2a-experto-lectura.md` | Plan del PR F2a: `search_catalogo_sat` + `get_pendientes_factura` + conocimiento (prompt/get_guia) + 7 evals — CONSTRUIDO (§10), REVIEW (§11), VALIDADO EN VIVO 5/5 (§12) |
-| `08-PLAN-F2b-emision.md` | Plan + bitácora del PR F2b: `propose_create_cfdi` (pre-checks, card 🧾, PG, mapa forma de pago) + `cfdi-builder.ts` + decisiones del usuario (dos turnos, PG revertido) — CONSTRUIDO (§10) + REVIEW inline 4/4 fixes (§11), suite 60 en verde |
+| `08-PLAN-F2b-emision.md` | Plan + bitácora del PR F2b: `propose_create_cfdi` (pre-checks, card 🧾, PG, mapa forma de pago) + `cfdi-builder.ts` + decisiones del usuario (dos turnos, PG revertido) — CONSTRUIDO (§10) + REVIEW inline 4/4 fixes (§11) + VALIDADO EN VIVO/timbre folio 8 (§12) |
+| `09-DISENO-F2c-factura-compuesta-borrador.md` | F2c: factura COMPUESTA vía BORRADOR (CfdiDraft + form hidratado + expediente + tool card-ligera) — diseño (§1-6), re-chequeo de huecos (§7), CONSTRUIDO (§8); validación en vivo pendiente de datos frescos |
 
 Playbook heredado: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md)
 (método, bitácora, evals) y `05-REFERENCIA-TECNICA` (el sistema, incl. la estructura de módulos).
@@ -255,7 +264,8 @@ money model.
    facturamaStatus='active', FIEL configurada) — la validación en vivo de PR F2 está
    desbloqueada.
 3. ¿El panel del asistente se monta también en `/dashboard/facturacion`? (mismo componente).
-4. Confirmar qué taxes arma la UI para honorarios médicos (fuente del builder server-side).
+4. ✅ RESUELTA en F2b: los taxes de la UI viven en el form de Nueva Factura (KB §3) y ya
+   están replicados en `cfdi-builder.ts` (paridad 5/5, validado con timbre en vivo — folio 8).
 
 ## Método de trabajo (heredado de agenda — no negociable)
 

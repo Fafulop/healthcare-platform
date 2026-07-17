@@ -161,6 +161,26 @@ function FacturacionPageInner() {
     taxZipCode: searchParams.get("taxZipCode") || undefined,
   } : null, [fromPrefill, searchParams]);
 
+  // F2c: hydrate from a CFDI draft (?draft=<id>) — richer than query params
+  // (N conceptos with flags; receiver derived FRESH server-side). Wins over
+  // ledgerData when both are present (09-DISENO §7.3).
+  const draftIdParam = parseInt(searchParams.get("draft") || "0") || 0;
+  const [draftData, setDraftData] = useState<DraftPrefill | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!draftIdParam) return;
+    authFetch(`${API_URL}/api/facturacion/drafts/${draftIdParam}`)
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.data) {
+          setDraftError(body.error || "No se pudo cargar el borrador");
+          return;
+        }
+        setDraftData(body.data as DraftPrefill);
+      })
+      .catch(() => setDraftError("No se pudo cargar el borrador (error de red)"));
+  }, [draftIdParam]);
+
   const fetchProfile = useCallback(async () => {
     try {
       const res = await authFetch(`${API_URL}/api/facturacion/profile`);
@@ -192,11 +212,12 @@ function FacturacionPageInner() {
   }, [sessionStatus, fetchProfile, fetchCSDStatus]);
 
   // Once profile is set and CSD is active, default to appropriate tab
+  // (a pending draft link also lands on "nueva" — F2c)
   useEffect(() => {
     if (profile && csdStatus?.csdUploaded && csdStatus.facturamaStatus === "active") {
-      setActiveTab(ledgerData ? "nueva" : "facturas");
+      setActiveTab(ledgerData || draftIdParam ? "nueva" : "facturas");
     }
-  }, [profile, csdStatus, ledgerData]);
+  }, [profile, csdStatus, ledgerData, draftIdParam]);
 
   if (loading) {
     return (
@@ -278,7 +299,20 @@ function FacturacionPageInner() {
       )}
       {activeTab === "facturas" && <FacturasListTab />}
       {activeTab === "nueva" && profile && (
-        <NuevaFacturaTab profile={profile} onCreated={() => setActiveTab("facturas")} ledgerData={ledgerData} />
+        // Draft hydration is async: while a ?draft= link is loading, defer the
+        // form mount (state initializers run once — a form mounted empty would
+        // ignore the draft when it arrives).
+        draftIdParam && !draftData && !draftError ? (
+          <div className="text-sm text-gray-500 p-6">Cargando borrador…</div>
+        ) : (
+          <NuevaFacturaTab
+            profile={profile}
+            onCreated={() => setActiveTab("facturas")}
+            ledgerData={draftData ? null : ledgerData}
+            draftData={draftData}
+            draftError={draftError}
+          />
+        )
       )}
       {activeTab === "rep" && profile && (
         <REPTab onCreated={() => setActiveTab("facturas")} />
@@ -1247,6 +1281,26 @@ interface LedgerPrefill {
   taxZipCode?: string;
 }
 
+// F2c: what GET /facturacion/drafts/[id] returns — stored flags + FRESH
+// server-derived receiver/income context (09-DISENO §7.4/7.5).
+interface DraftPrefill {
+  id: number;
+  ledgerEntryId: number | null;
+  items: {
+    description: string; productCode: string; unitCode: string;
+    quantity: number; unitPrice: number; withIva: boolean; withIsrRetention: boolean;
+  }[];
+  paymentForm: string;
+  paymentMethod: string;
+  observations: string | null;
+  status: string;
+  receiver: { rfc: string; name: string; cfdiUse: string; fiscalRegime: string; taxZipCode: string } | null;
+  esPublicoGeneral: boolean;
+  camposFaltantes: string[];
+  paciente: { id: string; nombre: string } | null;
+  ingreso: { id: number; amount: number; concept: string; hasFactura: boolean; formaDePago: string | null } | null;
+}
+
 // Map ledger formaDePago values to SAT payment form codes
 const LEDGER_TO_SAT_FORMA: Record<string, string> = {
   efectivo: "01",
@@ -1257,32 +1311,43 @@ const LEDGER_TO_SAT_FORMA: Record<string, string> = {
 };
 
 function NuevaFacturaTab({
-  profile, onCreated, ledgerData
+  profile, onCreated, ledgerData, draftData, draftError
 }: {
   profile: FiscalProfile;
   onCreated: () => void;
   ledgerData?: LedgerPrefill | null;
+  draftData?: DraftPrefill | null;
+  draftError?: string | null;
 }) {
-  const [receiver, setReceiver] = useState({
-    rfc: ledgerData?.rfc || "",
-    name: ledgerData?.clientName || "",
-    cfdiUse: ledgerData?.cfdiUse || "D01",
-    fiscalRegime: ledgerData?.fiscalRegime || "",
-    taxZipCode: ledgerData?.taxZipCode || "",
-  });
-  const [items, setItems] = useState([{
-    description: ledgerData?.concept || "",
-    quantity: 1,
-    unitPrice: ledgerData?.amount || 0,
-    productCode: "85121800",
-    unitCode: "E48",
-    withIva: false,
-    withIsrRetention: false,
-  }]);
+  // F2c: a draft hydrates everything (receiver server-derived + N items with
+  // flags); the query-param prefill stays as the single-concept legacy path.
+  const [receiver, setReceiver] = useState(
+    draftData?.receiver ?? {
+      rfc: ledgerData?.rfc || "",
+      name: ledgerData?.clientName || "",
+      cfdiUse: ledgerData?.cfdiUse || "D01",
+      fiscalRegime: ledgerData?.fiscalRegime || "",
+      taxZipCode: ledgerData?.taxZipCode || "",
+    }
+  );
+  const [items, setItems] = useState(
+    draftData?.items?.length
+      ? draftData.items
+      : [{
+          description: ledgerData?.concept || "",
+          quantity: 1,
+          unitPrice: ledgerData?.amount || 0,
+          productCode: "85121800",
+          unitCode: "E48",
+          withIva: false,
+          withIsrRetention: false,
+        }]
+  );
   const [paymentForm, setPaymentForm] = useState(
+    draftData?.paymentForm ||
     (ledgerData?.formaDePago && LEDGER_TO_SAT_FORMA[ledgerData.formaDePago]) || "03"
   ); // Transferencia default
-  const [paymentMethod, setPaymentMethod] = useState("PUE");
+  const [paymentMethod, setPaymentMethod] = useState(draftData?.paymentMethod || "PUE");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1427,7 +1492,11 @@ function NuevaFacturaTab({
         paymentForm,
         paymentMethod,
       };
-      if (ledgerData?.ledgerEntryId) {
+      if (draftData) {
+        // F2c: link the income and close the draft on success (server-side).
+        if (draftData.ledgerEntryId) payload.ledgerEntryId = draftData.ledgerEntryId;
+        payload.draftId = draftData.id;
+      } else if (ledgerData?.ledgerEntryId) {
         payload.ledgerEntryId = ledgerData.ledgerEntryId;
       }
 
@@ -1455,6 +1524,33 @@ function NuevaFacturaTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* F2c: draft context — surfaced BEFORE submit (the 409 is the net) */}
+      {draftError && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {draftError} — el formulario está vacío; puedes capturar la factura a mano.
+        </div>
+      )}
+      {draftData && (
+        <div className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 space-y-1">
+          <div>
+            📝 Borrador #{draftData.id}{draftData.paciente ? ` · ${draftData.paciente.nombre}` : ""}
+            {draftData.ingreso ? ` · ingreso #${draftData.ingreso.id} ($${draftData.ingreso.amount})` : ""}
+            {" — revisa, edita lo que haga falta y emite."}
+          </div>
+          {draftData.status !== "draft" && (
+            <div className="text-red-700 font-medium">⚠️ Este borrador ya está {draftData.status === "emitted" ? "EMITIDO" : "descartado"} — emitirlo de nuevo duplicaría la factura.</div>
+          )}
+          {draftData.ingreso?.hasFactura && (
+            <div className="text-red-700 font-medium">⚠️ El ingreso ligado YA tiene factura — el sistema rechazará la emisión (409).</div>
+          )}
+          {draftData.camposFaltantes.length > 0 && (
+            <div className="text-amber-800">⚠️ El expediente ya no tiene datos fiscales completos (faltan: {draftData.camposFaltantes.join(", ")}) — completa el receptor a mano o manda el formulario fiscal.</div>
+          )}
+          {draftData.esPublicoGeneral && (
+            <div>Receptor: PÚBLICO EN GENERAL (S01) — el paciente no podrá deducirla.</div>
+          )}
+        </div>
+      )}
       {/* Receiver */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Datos del Receptor</h3>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, Sparkles, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -352,6 +352,73 @@ interface CitasIngresosSectionProps {
   patient: import('../_components/patient-types').Patient;
 }
 
+// F2c: pending CFDI drafts of this patient (prepared by the agent or future
+// manual flows) — the trace the doctor reviews/opens/discards from the
+// expediente. Only status='draft' shows; emitted ones already appear as CFDIs.
+function CfdiDraftsBlock({ patientId }: { patientId: string }) {
+  const router = useRouter();
+  const [drafts, setDrafts] = useState<{ id: number; items: { description: string; unitPrice: number; quantity: number }[]; createdAt: string }[]>([]);
+
+  const fetchDrafts = useCallback(async () => {
+    try {
+      const res = await authFetch(`${API_URL}/api/facturacion/drafts?patientId=${patientId}&status=draft`);
+      if (res.ok) {
+        const { data } = await res.json();
+        if (Array.isArray(data)) setDrafts(data);
+      }
+    } catch { /* silent: the block simply doesn't render */ }
+  }, [patientId]);
+
+  useEffect(() => { fetchDrafts(); }, [fetchDrafts]);
+
+  const handleDiscard = async (id: number) => {
+    try {
+      const res = await authFetch(`${API_URL}/api/facturacion/drafts/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'discard' }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Borrador descartado');
+      fetchDrafts();
+    } catch {
+      toast.error('No se pudo descartar el borrador');
+    }
+  };
+
+  if (drafts.length === 0) return null;
+  return (
+    <div className="mb-4 space-y-2">
+      {drafts.map((d) => {
+        const total = (d.items ?? []).reduce((s, it) => s + it.unitPrice * (it.quantity || 1), 0);
+        return (
+          <div key={d.id} className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-2">
+            <div className="text-sm text-blue-900">
+              📝 Borrador de factura #{d.id} · {(d.items ?? []).length} concepto(s) · subtotal ${total.toFixed(2)}
+              <span className="text-xs text-blue-700 ml-2">
+                {new Date(d.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 ml-2">
+              <button
+                onClick={() => router.push(`/dashboard/facturacion?draft=${d.id}`)}
+                className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                Revisar y emitir
+              </button>
+              <button
+                onClick={() => handleDiscard(d.id)}
+                className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) {
   const router = useRouter();
 
@@ -403,6 +470,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
         <CalendarDays className="w-5 h-5" />
         Citas e Ingresos
       </h2>
+      <CfdiDraftsBlock patientId={patient.id} />
       {bookings.length > 0 ? (
         <div className="space-y-3">
           {bookings.map((b) => {

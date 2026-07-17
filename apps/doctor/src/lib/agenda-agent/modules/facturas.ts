@@ -386,7 +386,7 @@ async function fetchVerdictData(doctorId: string, entries: { id: number; satCfdi
     .filter((u): u is string => !!u)
     .flatMap((u) => [u.toUpperCase(), u.toLowerCase()]);
 
-  const [cfdis, satMetas] = await Promise.all([
+  const [cfdis, satMetas, drafts] = await Promise.all([
     entryIds.length > 0
       ? prisma.cfdiEmitted.findMany({
           where: { ledgerEntryId: { in: entryIds }, fiscalProfile: { doctorId } },
@@ -403,6 +403,14 @@ async function fetchVerdictData(doctorId: string, entries: { id: number; satCfdi
           select: { uuid: true, satStatus: true },
         })
       : Promise.resolve([] as { uuid: string; satStatus: string }[]),
+    // F2c: pending drafts make the agent aware of its own prepared work
+    // (09-DISENO §7.2 — without this it would re-offer or duplicate).
+    entryIds.length > 0
+      ? prisma.cfdiDraft.findMany({
+          where: { doctorId, ledgerEntryId: { in: entryIds }, status: 'draft' },
+          select: { id: true, ledgerEntryId: true, createdAt: true },
+        })
+      : Promise.resolve([] as { id: number; ledgerEntryId: number | null; createdAt: Date }[]),
   ]);
 
   const cfdisByEntry = new Map<number, CfdiForVerdict[]>();
@@ -413,7 +421,13 @@ async function fetchVerdictData(doctorId: string, entries: { id: number; satCfdi
     cfdisByEntry.set(c.ledgerEntryId, list);
   }
   const satStatusByUuid = new Map(satMetas.map((m) => [m.uuid.toLowerCase(), m.satStatus]));
-  return { cfdisByEntry, satStatusByUuid };
+  const draftByEntry = new Map<number, { id: number; createdAt: Date }>();
+  for (const d of drafts) {
+    if (d.ledgerEntryId != null && !draftByEntry.has(d.ledgerEntryId)) {
+      draftByEntry.set(d.ledgerEntryId, { id: d.id, createdAt: d.createdAt });
+    }
+  }
+  return { cfdisByEntry, satStatusByUuid, draftByEntry };
 }
 
 /** COMPOSITE "facturada" verdict (regla 0 + H8 + H5), pure over prefetched data. */
@@ -470,7 +484,8 @@ function facturaVerdict(
 function buildBillingStatus(
   booking: BillingBooking,
   cfdisByEntry: Map<number, CfdiForVerdict[]>,
-  satStatusByUuid: Map<string, string>
+  satStatusByUuid: Map<string, string>,
+  draftByEntry: Map<number, { id: number; createdAt: Date }>
 ) {
   const date = booking.slot?.date ?? booking.date;
   const entry = booking.ledgerEntry;
@@ -524,6 +539,11 @@ function buildBillingStatus(
     factura: entry
       ? facturaVerdict(entry, cfdisByEntry, satStatusByUuid)
       : { facturada: false as const, nota: 'Sin ingreso registrado — no hay nada que facturar todavía.' },
+    // F2c: a prepared draft the doctor hasn't emitted yet — mention it instead
+    // of re-proposing (or duplicating) one.
+    ...(entry && draftByEntry.has(entry.id)
+      ? { borradorPendiente: { id: draftByEntry.get(entry.id)!.id, creado: mxDayOf(draftByEntry.get(entry.id)!.createdAt), nota: 'Ya hay un borrador de factura preparado — el doctor lo abre en Facturación o lo descarta desde el expediente.' } }
+      : {}),
   };
 }
 
@@ -532,8 +552,8 @@ async function billingStatusesFor(doctorId: string, bookings: BillingBooking[]) 
     .map((b) => b.ledgerEntry)
     .filter((e): e is NonNullable<typeof e> => e !== null)
     .map((e) => ({ id: e.id, satCfdiUuid: e.satCfdiUuid }));
-  const { cfdisByEntry, satStatusByUuid } = await fetchVerdictData(doctorId, entries);
-  return bookings.map((b) => buildBillingStatus(b, cfdisByEntry, satStatusByUuid));
+  const { cfdisByEntry, satStatusByUuid, draftByEntry } = await fetchVerdictData(doctorId, entries);
+  return bookings.map((b) => buildBillingStatus(b, cfdisByEntry, satStatusByUuid, draftByEntry));
 }
 
 // -----------------------------------------------------------------------------
@@ -996,7 +1016,7 @@ async function getPendientesFactura(
     ...dateWhere(start ?? undefined, end ?? undefined),
   };
 
-  const [grouped, sinExpediente] = await Promise.all([
+  const [grouped, sinExpediente, draftGroups] = await Promise.all([
     prisma.ledgerEntry.groupBy({
       by: ['patientId'],
       where: { ...baseWhere, patientId: { not: null } },
@@ -1006,7 +1026,15 @@ async function getPendientesFactura(
     // Honesty count: same clause but WITHOUT expediente — these can't be
     // grouped by patient, but hiding them would understate the backlog.
     prisma.ledgerEntry.count({ where: { ...baseWhere, patientId: null } }),
+    // F2c: pending drafts per patient — the sweep tells the doctor which
+    // "faltantes" already have a prepared borrador waiting in Facturación.
+    prisma.cfdiDraft.groupBy({
+      by: ['patientId'],
+      where: { doctorId: ctx.doctorId, status: 'draft', patientId: { not: null } },
+      _count: { _all: true },
+    }),
   ]);
+  const draftsByPatient = new Map(draftGroups.map((g) => [g.patientId as string, g._count._all]));
 
   const patientIds = grouped.map((g) => g.patientId).filter((id): id is string => !!id);
   const patients = patientIds.length
@@ -1031,6 +1059,9 @@ async function getPendientesFactura(
       requiereFactura: p.requiereFactura,
       listoParaFacturar: fc.listoParaFacturar,
       ...(fc.camposFaltantes.length ? { camposFaltantes: fc.camposFaltantes } : {}),
+      ...(draftsByPatient.has(p.id)
+        ? { borradoresPendientes: draftsByPatient.get(p.id), nota: 'Ya hay borrador(es) de factura preparados — se abren en Facturación o desde el expediente.' }
+        : {}),
     }];
   });
   if (input.soloListos === true) rows = rows.filter((r) => r.listoParaFacturar);
@@ -1209,6 +1240,45 @@ const FACTURAS_PROPOSAL_TOOLS: AnthropicTool[] = [
       required: ['ledgerEntryId', 'items'],
     },
   },
+  {
+    name: 'propose_prepare_factura_borrador',
+    description:
+      'PROPONE crear un BORRADOR de factura que el doctor revisa, edita y emite él mismo en Facturación — NO timbra nada (100% reversible: se puede descartar). Es el camino para facturas COMPUESTAS (consulta + insumos + quirófano…) o cuando el doctor pide "prepárala/llénala": los conceptos con sus claves (de search_catalogo_sat o defaults) y flags de impuestos quedan pre-llenados en el form de Nueva Factura. El ledgerEntryId sale de get_billing_status de ESTE turno. Si el total difiere del ingreso registrado NO pasa nada — es lo esperado en compuestas y el doctor lo revisa en el form. Para emitir DIRECTO un caso simple (1 concepto = ingreso) usa propose_create_cfdi. Si ya existe un borrador pendiente para ese ingreso, este tool lo dirá — no dupliques.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        ledgerEntryId: {
+          type: 'number',
+          description: 'ID del ingreso (de get_billing_status de ESTE turno)',
+        },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              description: { type: 'string', description: 'Descripción del concepto' },
+              unitPrice: { type: 'number', description: 'Precio unitario SIN impuestos' },
+              quantity: { type: 'number', description: 'Cantidad (default 1)' },
+              productCode: { type: 'string', description: 'Clave SAT (de search_catalogo_sat o defaults; default 85121800)' },
+              unitCode: { type: 'string', description: 'Clave de unidad SAT (default E48)' },
+              withIva: { type: 'boolean', description: 'true si lleva IVA 16% (consulta médica PF: false; estético/insumos: true)' },
+              withIsrRetention: { type: 'boolean', description: 'true SOLO si el receptor es persona MORAL que retiene' },
+            },
+            required: ['description', 'unitPrice', 'withIva', 'withIsrRetention'],
+          },
+          description: 'Conceptos del borrador (el doctor puede editarlos en el form)',
+        },
+        paymentForm: {
+          type: 'string',
+          enum: [...SAT_PAYMENT_FORMS],
+          description: 'Forma de pago SAT (opcional — default: la del ingreso; el doctor la puede cambiar en el form)',
+        },
+        paymentMethod: { type: 'string', enum: ['PUE', 'PPD'], description: 'PUE default; PPD solo si el doctor lo pidió' },
+        observations: { type: 'string', description: 'Observaciones (opcional, solo PDF)' },
+      },
+      required: ['ledgerEntryId', 'items'],
+    },
+  },
 ];
 
 /** D5-parallel fixed warning for the max tier (the panel renders 🧾 in red). */
@@ -1222,18 +1292,12 @@ function asPositiveNumber(v: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-async function proposeCreateCfdi(
-  ctx: ProposalContext,
-  input: {
-    ledgerEntryId?: unknown;
-    items?: unknown;
-    paymentForm?: unknown;
-    paymentMethod?: unknown;
-    observations?: unknown;
-  }
-) {
-  // --- 1. Emitter gate: fiscal profile + active CSD (mirror of the endpoint,
-  //        checked here so the doctor never confirms a card doomed to 400) ---
+/** Shared pre-checks of BOTH factura proposals (emit F2b / draft F2c):
+ * emitter CSD gate, income (doctor's, ingreso, cita-born, not invoiced),
+ * receiver from the linked expediente (complete or Público en General — PG
+ * decided BEFORE the completeness gate, review F2b finding #2: PG overrides
+ * name/uso/régimen/CP so a generic-RFC expediente only needs the RFC). */
+async function resolveEmisionContext(ctx: ProposalContext, ledgerEntryIdRaw: unknown) {
   const profile = await prisma.doctorFiscalProfile.findUnique({
     where: { doctorId: ctx.doctorId },
     select: { csdUploaded: true, facturamaStatus: true, regimenFiscal: true, codigoPostal: true },
@@ -1245,8 +1309,7 @@ async function proposeCreateCfdi(
     return { error: 'Los certificados CSD del doctor no están activos — sin CSD activo no se puede timbrar. El camino es Dashboard → Facturación → Configuración. No propongas nada.' };
   }
 
-  // --- 2. The income: doctor's, ingreso, cita-born, not already invoiced ---
-  const entryId = asPositiveNumber(input.ledgerEntryId);
+  const entryId = asPositiveNumber(ledgerEntryIdRaw);
   if (!entryId || !Number.isInteger(entryId)) {
     return { error: 'ledgerEntryId inválido — usa el ledgerEntryId que devuelve get_billing_status en ESTE turno.' };
   }
@@ -1270,7 +1333,6 @@ async function proposeCreateCfdi(
     return { error: 'Ese ingreso YA está facturado (hasFactura) — no se emite dos veces. Si el doctor cree que no (p. ej. una factura cancelada), el detalle está en get_billing_status y la re-emisión se hace desde la página de Facturación.' };
   }
 
-  // --- 3. Receiver: ONLY the linked expediente (00 §6 — never free text) ---
   if (!entry.patientId) {
     return { error: 'El ingreso no tiene expediente vinculado — sin expediente no hay datos fiscales del receptor. El camino: vincular el expediente desde la cita y reintentar.' };
   }
@@ -1282,14 +1344,6 @@ async function proposeCreateCfdi(
     return { error: 'El expediente vinculado al ingreso no existe o no es de este doctor.' };
   }
   const nombre = `${patient.firstName} ${patient.lastName}`.trim();
-  // Público en General (decisión del usuario 2026-07-16, revirtiendo el "no
-  // PG" inicial de 08-PLAN §9.1): cuando el EXPEDIENTE trae el RFC genérico,
-  // se emite como PG con la MISMA receta de la UI (page.tsx:1471 — nombre
-  // 'PUBLICO EN GENERAL', S01, 616; TaxZipCode = CP del EMISOR, como el server
-  // lo fuerza de todos modos). Se decide ANTES del gate de completitud (review
-  // F2b hallazgo #2): PG sobreescribe nombre/uso/régimen/CP, así que al
-  // expediente genérico solo se le exige el RFC — pedirle los 5 campos era
-  // bloquear emisiones válidas.
   const esPublicoGeneral = !!patient.rfc && patient.rfc.trim().toUpperCase() === 'XAXX010101000';
   const fc = fiscalCompleteness(patient);
   if (!esPublicoGeneral && fc.completitudFiscal !== 'completo') {
@@ -1298,16 +1352,19 @@ async function proposeCreateCfdi(
       camposFaltantes: fc.camposFaltantes,
     };
   }
+  return { profile, entry, patient, nombre, esPublicoGeneral };
+}
 
-  // --- 4. Concepts → server-built taxes (E7) ---
-  if (!Array.isArray(input.items) || input.items.length === 0) {
+/** Model-supplied concepts → validated business flags (shared F2b/F2c). */
+function parseConcepts(itemsRaw: unknown): { concepts: ConceptInput[] } | { error: string } {
+  if (!Array.isArray(itemsRaw) || itemsRaw.length === 0) {
     return { error: 'Se requiere al menos un concepto (items).' };
   }
-  if (input.items.length > CFDI_ITEMS_CAP) {
+  if (itemsRaw.length > CFDI_ITEMS_CAP) {
     return { error: `Máximo ${CFDI_ITEMS_CAP} conceptos por factura.` };
   }
   const concepts: ConceptInput[] = [];
-  for (const [i, raw] of (input.items as unknown[]).entries()) {
+  for (const [i, raw] of (itemsRaw as unknown[]).entries()) {
     const it = (raw ?? {}) as Record<string, unknown>;
     const description = typeof it.description === 'string' ? it.description.trim() : '';
     const unitPrice = asPositiveNumber(it.unitPrice);
@@ -1328,7 +1385,26 @@ async function proposeCreateCfdi(
       withIsrRetention: it.withIsrRetention,
     });
   }
-  const { items, totals } = buildCfdiItems(concepts, profile.regimenFiscal);
+  return { concepts };
+}
+
+async function proposeCreateCfdi(
+  ctx: ProposalContext,
+  input: {
+    ledgerEntryId?: unknown;
+    items?: unknown;
+    paymentForm?: unknown;
+    paymentMethod?: unknown;
+    observations?: unknown;
+  }
+) {
+  const ctxRes = await resolveEmisionContext(ctx, input.ledgerEntryId);
+  if ('error' in ctxRes) return ctxRes;
+  const { profile, entry, patient, nombre, esPublicoGeneral } = ctxRes;
+
+  const parsed = parseConcepts(input.items);
+  if ('error' in parsed) return parsed;
+  const { items, totals } = buildCfdiItems(parsed.concepts, profile.regimenFiscal);
 
   // --- 5. Payment method/form ---
   const paymentMethod = input.paymentMethod === 'PPD' ? 'PPD' : 'PUE';
@@ -1434,12 +1510,100 @@ async function proposeCreateCfdi(
   };
 }
 
+/** F2c: draft-friendly ledger→SAT map — the UI's own semantics
+ * (LEDGER_TO_SAT_FORMA, facturacion/page.tsx:1251): unlike the direct-emit
+ * map, ambiguity is fine here because the doctor reviews the form anyway. */
+const LEDGER_FORMA_TO_SAT_DRAFT: Record<string, string> = {
+  efectivo: '01',
+  cheque: '02',
+  transferencia: '03',
+  tarjeta: '04',
+  deposito: '03',
+};
+
+async function proposePrepareFacturaBorrador(
+  ctx: ProposalContext,
+  input: {
+    ledgerEntryId?: unknown;
+    items?: unknown;
+    paymentForm?: unknown;
+    paymentMethod?: unknown;
+    observations?: unknown;
+  }
+) {
+  const ctxRes = await resolveEmisionContext(ctx, input.ledgerEntryId);
+  if ('error' in ctxRes) return ctxRes;
+  const { profile, entry, patient, nombre, esPublicoGeneral } = ctxRes;
+
+  // Anti-duplicate (09-DISENO §7.2): one live draft per income.
+  const existing = await prisma.cfdiDraft.findFirst({
+    where: { doctorId: ctx.doctorId, ledgerEntryId: entry.id, status: 'draft' },
+    select: { id: true, createdAt: true },
+  });
+  if (existing) {
+    return {
+      error: `Ya existe un borrador pendiente para ese ingreso (borrador #${existing.id}) — díselo al doctor: puede abrirlo en Facturación (o descartarlo desde el expediente) en vez de crear otro.`,
+      borradorExistente: existing.id,
+    };
+  }
+
+  const parsed = parseConcepts(input.items);
+  if ('error' in parsed) return parsed;
+  const { totals } = buildCfdiItems(parsed.concepts, profile.regimenFiscal);
+
+  const paymentMethod = input.paymentMethod === 'PPD' ? 'PPD' : 'PUE';
+  const paymentForm =
+    paymentMethod === 'PPD'
+      ? '99'
+      : typeof input.paymentForm === 'string' && (SAT_PAYMENT_FORMS as readonly string[]).includes(input.paymentForm)
+        ? input.paymentForm
+        : (entry.formaDePago && LEDGER_FORMA_TO_SAT_DRAFT[entry.formaDePago]) || '01';
+
+  const montoIngreso = Number(entry.amount);
+  const detalle = [
+    `Receptor: ${esPublicoGeneral ? 'PÚBLICO EN GENERAL (S01 — el paciente no deduce)' : `${patient.razonSocial} · RFC ${patient.rfc}`} (expediente: ${nombre})`,
+    ...parsed.concepts.map((c) => `${c.description} · clave ${c.productCode} ×${c.quantity} · $${c.unitPrice}${c.withIva ? ' +IVA' : ''}${c.withIsrRetention ? ' −ret.ISR' : ''}`),
+    `Total estimado: $${totals.total} (ingreso registrado: $${montoIngreso}${Math.abs(totals.total - montoIngreso) > 0.01 ? ' — difiere, el doctor lo revisa en el form' : ''})`,
+    `Pago sugerido: ${paymentMethod} · ${paymentForm}`,
+  ];
+
+  const observations =
+    typeof input.observations === 'string' && input.observations.trim() ? input.observations.trim() : undefined;
+
+  const proposal = ctx.collector.add({
+    type: 'prepare_factura_borrador',
+    titulo: `Preparar borrador de factura $${totals.total} · ${esPublicoGeneral ? 'PÚBLICO EN GENERAL' : nombre}`,
+    detalle,
+    advertencias: [
+      'Esto SOLO crea un borrador — nada se timbra. El doctor lo revisa, edita y emite en Facturación (o lo descarta desde el expediente).',
+    ],
+    params: {
+      ledgerEntryId: entry.id,
+      items: parsed.concepts,
+      paymentForm,
+      paymentMethod,
+      ...(observations ? { observations } : {}),
+      origin: 'agent',
+    },
+  });
+  if (!proposal) return { error: CAP_ERROR };
+
+  return {
+    propuestaId: proposal.id,
+    orden: proposal.orden,
+    receptor: esPublicoGeneral ? 'PÚBLICO EN GENERAL' : `${nombre} (${patient.rfc})`,
+    totalEstimado: totals.total,
+    nota: 'Propuesta registrada — al confirmarse se crea el BORRADOR (sin timbrar) y la card mostrará el botón para abrirlo en Facturación. Deja claro al doctor que la factura NO se emite hasta que él la revise y emita en el form.',
+  };
+}
+
 async function executeFacturasProposal(
   ctx: ProposalContext,
   name: string,
   input: Record<string, unknown>
 ): Promise<unknown> {
   if (name === 'propose_create_cfdi') return proposeCreateCfdi(ctx, input);
+  if (name === 'propose_prepare_factura_borrador') return proposePrepareFacturaBorrador(ctx, input);
   return null;
 }
 
@@ -1478,6 +1642,16 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas
   NUNCA los recalcules tú; (5) PPD solo si el doctor lo pidió explícito; (6) si la cita no
   está completada, primero se completa (propose_complete_booking) y la factura va en el turno
   SIGUIENTE (el ingreso debe existir antes de proponer).
+- **BORRADOR de factura (propose_prepare_factura_borrador) — el camino para facturas
+  COMPUESTAS** (consulta + insumos + quirófano…) o cuando el doctor pide "prepárala/llénala":
+  crea un borrador que el doctor revisa, EDITA y emite él mismo en Facturación — nada se
+  timbra al confirmarse la card (100% reversible). ENRUTAMIENTO: caso simple (1 concepto =
+  el ingreso) y el doctor quiere emitir YA ⇒ propose_create_cfdi; varios conceptos, montos
+  que difieren del ingreso, o el doctor quiere revisar antes ⇒ borrador. En el borrador la
+  diferencia factura-vs-ingreso es NORMAL (no exijas justificación — el doctor la revisa en
+  el form); las claves de conceptos salen de search_catalogo_sat o los defaults, como
+  siempre. Si get_billing_status/get_pendientes_factura reportan un borradorPendiente, DILO
+  y no prepares otro (el tool lo rechazaría).
 - **Sigues SIN poder**: cancelar facturas (CFDI) o emitir complementos de pago (se hacen desde
   Facturación), facturar ingresos manuales (pestaña Nueva Factura), crear links de pago
   (botón Cobro de la cita), ni enviar el formulario fiscal al paciente. Si el doctor lo pide:

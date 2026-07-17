@@ -239,6 +239,7 @@ model Doctor {
   productAttributes  ProductAttribute[]
   products           Product[]
   ledgerEntries      LedgerEntry[]
+  cfdiDrafts         CfdiDraft[]
   quotations         Quotation[]         @relation("DoctorQuotations")
   sales              Sale[]              @relation("DoctorSales")
   purchases          Purchase[]          @relation("DoctorPurchases")
@@ -1191,6 +1192,7 @@ model LedgerEntry {
   facturas        LedgerFactura[]
   facturasXml     LedgerFacturaXml[]
   cfdisEmitted    CfdiEmitted[]
+  cfdiDrafts      CfdiDraft[]        @relation("LedgerEntryCfdiDrafts")
   bankMovement    BankMovement?  @relation("BankMovementLedgerEntry")
   settlementItem  BankSettlementItem? @relation("LedgerEntrySettlement")
 
@@ -2598,6 +2600,41 @@ model CfdiEmitted {
   @@index([rfcEmisor, status])
   @@index([issuedAt])
   @@map("cfdis_emitted")
+  @@schema("practice_management")
+}
+
+// Borrador de CFDI (F2c): the agent (or a future manual flow) PREPARES a
+// factura; the doctor reviews/edits/emits it in the Nueva Factura form
+// (/dashboard/facturacion?draft=<id>). Items store BUSINESS FLAGS only
+// (withIva/withIsrRetention) — the form recomputes taxes on hydrate (single
+// source of truth, regla E7). Receiver is NOT stored: it is re-derived from
+// the patient at hydrate time so stale fiscal data never ships on a CFDI.
+model CfdiDraft {
+  id             Int       @id @default(autoincrement())
+  doctorId       String    @map("doctor_id")
+  patientId      String?   @map("patient_id")
+  ledgerEntryId  Int?      @map("ledger_entry_id")
+
+  /// [{description, productCode, unitCode, quantity, unitPrice, withIva, withIsrRetention}]
+  items          Json
+  paymentForm    String    @default("01") @map("payment_form") @db.VarChar(5)
+  paymentMethod  String    @default("PUE") @map("payment_method") @db.VarChar(5)
+  observations   String?   @db.Text
+
+  origin         String    @default("agent") @db.VarChar(10) // "agent" | "user"
+  status         String    @default("draft") @db.VarChar(15) // "draft" | "emitted" | "discarded"
+  emittedCfdiId  Int?      @map("emitted_cfdi_id")
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  doctor         Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  ledgerEntry    LedgerEntry? @relation("LedgerEntryCfdiDrafts", fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  @@index([doctorId, status])
+  @@index([doctorId, patientId])
+  @@index([ledgerEntryId])
+  @@map("cfdi_drafts")
   @@schema("practice_management")
 }
 

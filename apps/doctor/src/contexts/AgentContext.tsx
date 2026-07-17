@@ -47,7 +47,8 @@ export type ProposalType =
   | 'reschedule_booking'
   | 'complete_booking'
   | 'no_show'
-  | 'create_cfdi';
+  | 'create_cfdi'
+  | 'prepare_factura_borrador';
 export type ProposalStatus = 'pendiente' | 'ejecutando' | 'exito' | 'error' | 'rechazada' | 'omitida';
 
 export interface AgendaProposal {
@@ -62,6 +63,10 @@ export interface AgendaProposal {
   status?: ProposalStatus;
   /** Result/error message after execution. */
   resultado?: string;
+  /** F2c: follow-up action after a successful execution (e.g. "Abrir
+   * borrador" → the Nueva Factura form) — the panel renders it as a button
+   * because the chat renderer does NOT linkify prose (09-DISENO §7.1). */
+  accion?: { label: string; href: string };
 }
 
 export interface AgentMessage {
@@ -88,8 +93,9 @@ interface AgentResponse {
   error?: { code: string; message: string };
 }
 
-/** Execute ONE proposal against the real endpoint. Returns a human summary. */
-async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: string }> {
+/** Execute ONE proposal against the real endpoint. Returns a human summary
+ * (and optionally a follow-up accion for the card — F2c). */
+async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: string; accion?: { label: string; href: string } }> {
   try {
     if (p.type === 'create_range') {
       const res = await authFetch(`${API_URL}/api/appointments/ranges`, {
@@ -226,6 +232,25 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
       }
       const monto = (p.params.ledger as { amount?: number })?.amount;
       return { ok: true, resumen: `Cita COMPLETADA · ingreso registrado en Flujo de Dinero${monto ? ` ($${monto})` : ''}` };
+    }
+
+    // --- PR F2c: preparar borrador de factura (tier bajo — reversible) ---
+
+    if (p.type === 'prepare_factura_borrador') {
+      const res = await authFetch(`${API_URL}/api/facturacion/drafts`, {
+        method: 'POST',
+        body: JSON.stringify(p.params),
+      });
+      const data = await res.json().catch(() => ({ error: `respuesta inválida del servidor (HTTP ${res.status})` }));
+      if (!res.ok || !data.data) {
+        return { ok: false, resumen: data.error || `Error al crear el borrador (HTTP ${res.status})` };
+      }
+      const draftId = data.data.id as number;
+      return {
+        ok: true,
+        resumen: `Borrador #${draftId} creado — nada se timbró; revísalo y emítelo en Facturación`,
+        accion: { label: 'Abrir borrador →', href: `/dashboard/facturacion?draft=${draftId}` },
+      };
     }
 
     // --- PR F2b: emisión de CFDI (tier máximo — timbra ante el SAT) ---
@@ -474,7 +499,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         }
         updateProposal(messageIndex, p.id, { status: 'ejecutando' });
         const r = await executeOne(p);
-        updateProposal(messageIndex, p.id, { status: r.ok ? 'exito' : 'error', resultado: r.resumen });
+        updateProposal(messageIndex, p.id, {
+          status: r.ok ? 'exito' : 'error',
+          resultado: r.resumen,
+          ...(r.accion ? { accion: r.accion } : {}),
+        });
         resultados.push(`Paso ${p.orden} (${p.titulo}): ${r.ok ? 'ÉXITO' : 'FALLÓ'} — ${r.resumen}`);
         if (!r.ok) failed = true;
       }

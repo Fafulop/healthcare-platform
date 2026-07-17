@@ -49,8 +49,9 @@ export type ProposalType =
   | 'reschedule_booking'
   | 'complete_booking'
   | 'no_show'
-  // PR F2b (owned by modules/facturas.ts — the registry routes it there):
-  | 'create_cfdi';
+  // PR F2b/F2c (owned by modules/facturas.ts — the registry routes them there):
+  | 'create_cfdi'
+  | 'prepare_factura_borrador';
 
 export interface AgendaProposal {
   /** Server-assigned id within the turn ("p1", "p2", …). */

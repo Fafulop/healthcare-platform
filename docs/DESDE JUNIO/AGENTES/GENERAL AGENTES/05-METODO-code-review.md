@@ -22,7 +22,10 @@ Clasificar el diff ANTES de decidir:
 **Datos que validan la heurística:** F1.5 (2 finders profundos → 8/8 hallazgos reales, los
 gordos en lógica replicada y guías curadas) · F2a (8 ángulos → 9 hallazgos, headline en la
 honestidad del catálogo = contenido que afirma hechos) · F2b (inline → 4 hallazgos, headline
-una carrera de doble emisión en la frontera propuesta→ejecución).
+una carrera de doble emisión en la frontera propuesta→ejecución) · F2c (inline PRE-commit,
+primer ejercicio de este playbook → 0 correctness / 3 cleanup aceptados — la diferencia vs
+F2b: las lecciones del review anterior se aplicaron DURANTE el build, p. ej. el ángulo de
+carreras ya estaba resuelto en el diseño; el review barato confirmó, no corrigió).
 
 ## 2. Los DOS modos de correr el review completo
 
