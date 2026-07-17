@@ -4,10 +4,14 @@
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
 > Última actualización: **2026-07-16 (noche)** — F2a cerrado en vivo (`07-PLAN` §12), **F2b
-> SHIPPED `d05e3d71`** y **code review inline hecho: 4 hallazgos, 4 corregidos** (`08-PLAN`
-> §11 — el gordo: guard 409 de doble emisión EN EL ENDPOINT; fixes UNCOMMITTED al escribir
-> esto; suite 60 en verde). Siguiente: commit/push de los fixes → timbrar en vivo el caso
-> Gerardo A (sandbox, como PÚBLICO EN GENERAL).
+> SHIPPED `d05e3d71` + fixes del review SHIPPED `3accb5b8`** (4/4 hallazgos — el gordo: guard
+> 409 de doble emisión EN EL ENDPOINT; `08-PLAN` §11; suite 60 en verde; método consolidado
+> en `../GENERAL AGENTES/05-METODO-code-review.md`).
+> **ÚNICO PASO PENDIENTE para cerrar F2b: la validación en vivo** — timbrar en sandbox el
+> caso Gerardo A ($900, entry 1570, sale como PÚBLICO EN GENERAL): panel → card 🧾 →
+> confirmar → verificar read-only CfdiEmitted + hasFactura=true + que get_pendientes_factura
+> ya no lo liste (script exacto en `08-PLAN` §10-§11). Después: F3 (propose_email_cfdi) /
+> propose_send_fiscal_form.
 > El mapa de arriba de todos los agentes vive en
 > [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
 
@@ -227,10 +231,12 @@ money model.
      mismo día: 4 hallazgos, 4 corregidos (`08-PLAN` §11)** — guard 409 de doble emisión EN
      EL ENDPOINT (cerraba la carrera preview→submit de la UI también), PG salta el gate de
      completitud (solo exige el RFC genérico; CP del emisor), dedup (SAT labels + CAP_ERROR
-     exportado), eval nuevo de dos-turnos (CIT2) — suite 60, afectados 5/5 PASS. ⚠️ Método:
-     el review multi-agente mata el límite de sesión en sesiones largas — correr INLINE o en
-     sesión fresca. Validación en vivo: DESBLOQUEADA — timbrar el caso Gerardo A tal cual en
-     sandbox como PÚBLICO EN GENERAL (`08-PLAN` §10). Después:
+     exportado), eval nuevo de dos-turnos (CIT2) — suite 60, afectados 5/5 PASS. **Fixes
+     SHIPPED `3accb5b8`.** ⚠️ Método: el review multi-agente mata el límite de sesión en
+     sesiones largas — correr INLINE o en sesión fresca (playbook completo:
+     `../GENERAL AGENTES/05-METODO-code-review.md`). Validación en vivo: DESBLOQUEADA y
+     PENDIENTE — timbrar el caso Gerardo A tal cual en sandbox como PÚBLICO EN GENERAL
+     (`08-PLAN` §10). Después:
      `propose_send_fiscal_form`, `propose_payment_link`, `propose_create_patient` (H3).
 4. **PR F3** — entrega (`propose_email_cfdi`).
 5. **Higiene 2026-07-15 (commit `b6ec78dd`):** AyudaTab de /sat-descarga corregida (pestaña

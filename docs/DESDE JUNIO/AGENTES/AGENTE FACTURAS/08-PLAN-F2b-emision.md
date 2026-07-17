@@ -241,7 +241,8 @@ Después, para el camino de receptor con RFC real: poner RFC al expediente y rep
 (los forks heredan TODO el contexto de una sesión larga) — se corrió la versión INLINE
 (mismos ángulos, secuencial, sin subagentes). Trade-off honesto: sin ojos frescos (mismo
 autor) y menos exhaustivo en amplitud; el pase independiente multi-agente queda OPCIONAL para
-una sesión fresca. Lección guardada en memoria.
+una sesión fresca. Lección guardada en memoria y el método completo consolidado en
+[`../GENERAL AGENTES/05-METODO-code-review.md`](../GENERAL%20AGENTES/05-METODO-code-review.md).
 
 1. **(PLAUSIBLE→fix) Ventana de doble emisión propuesta→confirmación:** hasFactura se
    checaba solo al PROPONER; ni el executor ni el endpoint re-checaban al ejecutar — una card
