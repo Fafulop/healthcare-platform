@@ -170,7 +170,13 @@ nunca una sola por el total.
 `GET /api/facturacion/catalogos/[tipo]` con `?q=`: `productos` y `unidades` (búsqueda por
 keyword, q obligatoria), `uso-cfdi` (acepta RFC — los resultados varían PF/PM),
 `regimenes-fiscales`, `formas-pago`, `metodos-pago`. Con Facturama caído/no configurado hay
-fallback offline hardcodeado de los valores comunes.
+fallback offline hardcodeado de los valores comunes (⚠️ productos/unidades NO tienen
+fallback — responden 502).
+**Post-F2c (follow-up #2):** el form de Nueva Factura ahora SÍ tiene búsqueda inline del
+catálogo de productos por concepto (antes la "búsqueda de la pestaña Nueva Factura" que el
+prompt del agente citaba NO existía — drift de hecho corregido haciéndola realidad), con
+claves Prod/Serv y Unidad visibles/editables y estado de error propio cuando el catálogo
+está caído.
 
 **Semántica post-review (2026-07-16, commit `d93a3fc3`):**
 - **TODA respuesta de fallback lleva `_offline: true`** — incluida la rama "credenciales no
@@ -237,7 +243,7 @@ Booking ←(bookingId @unique)─ LedgerEntry ─(ledgerEntryId?)→ CfdiEmitted
 | Reglas duras (PG, tenancy, CSD gate, TaxObject) | Ya en el endpoint — el agente solo las NARRA si el server las rechaza |
 | Fórmula de impuestos | ✅ F2b: `cfdi-builder.ts`, corre al armar la propuesta (E7) — §3 |
 | Claves de catálogo | Tool grounded sobre `catalogos/*` (§6) + defaults médicos (§5) como conocimiento |
-| Uso CFDI por régimen receptor / IVA exento / PPD+REP | Conocimiento del módulo (prompt corto + get_guia para el detalle) — fuente: §5 |
+| Uso CFDI por régimen receptor / IVA exento / PPD+REP | Conocimiento del módulo (prompt corto + get_guia) — fuente: §5. **Uso×régimen además ENFORZADO en código** (post-F2c: matriz `REGIMEN_USO_VALID` ×3 — DatosFiscalesCard, cfdi-builder.ts, api lib/cfdi-drafts.ts; emisión directa = hard stop, borrador = advertencia) |
 | Completitud del receptor | `get_patient_profile` (ya existe) + camino formulario fiscal |
 | Pendientes de factura | Tool compuesto NUEVO (§7) |
 | Emisión | ✅ F2b: `propose_create_cfdi` con card 🧾 tier-máximo; doble emisión bloqueada en el pre-check Y en el endpoint (409 — post-review); receptor solo expediente; RFC genérico ⇒ PG con la receta de la UI (S01/616 + advertencia, salta el gate de completitud) |

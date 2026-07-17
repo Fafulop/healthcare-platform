@@ -45,6 +45,29 @@ export function validateDraftItems(raw: unknown): { items: DraftItemInput[] } | 
   return { items };
 }
 
+/** Uso de CFDI valid per RECEIVER régimen — same values as REGIMEN_USO_VALID
+ * in the expediente's DatosFiscalesCard and cfdi-builder.ts in apps/doctor
+ * (cross-app import not possible; keep the three in sync). An incompatible
+ * pair is a guaranteed PAC rejection at stamping. */
+const REGIMEN_USO_VALID: Record<string, string[]> = {
+  '601': ['G03', 'S01'],
+  '603': ['G03', 'S01'],
+  '605': ['D01', 'D02', 'S01'],
+  '606': ['D01', 'D02', 'G03', 'S01'],
+  '608': ['D01', 'D02', 'G03', 'S01'],
+  '612': ['D01', 'D02', 'G03', 'S01'],
+  '616': ['S01'],
+  '621': ['D01', 'D02', 'G03', 'S01'],
+  '625': ['D01', 'D02', 'G03', 'S01'],
+  '626': ['G03', 'S01'],
+};
+
+export function usoIncompatibleConRegimen(uso: string | null, regimen: string | null): boolean {
+  if (!uso || !regimen) return false;
+  const valid = REGIMEN_USO_VALID[regimen];
+  return !!valid && !valid.includes(uso);
+}
+
 /** Receiver derived FRESH from the patient at hydrate time (09-DISENO §7.4):
  * PG normalization mirrors the UI recipe (facturacion/page.tsx:1471) and the
  * agent's proposal path — one semantics for all three. */

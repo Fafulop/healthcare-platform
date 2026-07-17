@@ -45,6 +45,7 @@ import {
   buildCfdiItems,
   LEDGER_FORMA_TO_SAT,
   SAT_PAYMENT_FORMS,
+  usoCompatibleConRegimen,
   type ConceptInput,
 } from '../cfdi-builder';
 import { SAT_FORMA_PAGO_LABELS } from '@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types';
@@ -1352,7 +1353,14 @@ async function resolveEmisionContext(ctx: ProposalContext, ledgerEntryIdRaw: unk
       camposFaltantes: fc.camposFaltantes,
     };
   }
-  return { profile, entry, patient, nombre, esPublicoGeneral };
+  // F2c follow-up #3 (found live: D01×626 in the expediente): an uso the
+  // receiver's régimen doesn't admit is a GUARANTEED PAC rejection at
+  // stamping. PG is exempt (S01/616 is forced by the recipe).
+  const usoIncompatible =
+    !esPublicoGeneral && patient.usoCfdi && patient.regimenFiscal
+      ? usoCompatibleConRegimen(patient.usoCfdi, patient.regimenFiscal) === false
+      : false;
+  return { profile, entry, patient, nombre, esPublicoGeneral, usoIncompatible };
 }
 
 /** Model-supplied concepts → validated business flags (shared F2b/F2c). */
@@ -1400,7 +1408,18 @@ async function proposeCreateCfdi(
 ) {
   const ctxRes = await resolveEmisionContext(ctx, input.ledgerEntryId);
   if ('error' in ctxRes) return ctxRes;
-  const { profile, entry, patient, nombre, esPublicoGeneral } = ctxRes;
+  const { profile, entry, patient, nombre, esPublicoGeneral, usoIncompatible } = ctxRes;
+
+  // Direct emission: an incompatible uso×régimen is a hard stop (the PAC
+  // rejects it — a card that can only fail must not be registered). The
+  // BORRADOR path stays open: the doctor fixes the uso in the form.
+  if (usoIncompatible) {
+    return {
+      error: `El uso CFDI del expediente (${patient.usoCfdi}) NO es válido para el régimen del receptor (${patient.regimenFiscal}) — el SAT rechazaría el timbrado. Corrige el uso en el expediente (card Datos Fiscales) o usa propose_prepare_factura_borrador para que el doctor lo ajuste en el form de Nueva Factura.`,
+      usoCfdi: patient.usoCfdi,
+      regimenFiscal: patient.regimenFiscal,
+    };
+  }
 
   const parsed = parseConcepts(input.items);
   if ('error' in parsed) return parsed;
@@ -1533,7 +1552,7 @@ async function proposePrepareFacturaBorrador(
 ) {
   const ctxRes = await resolveEmisionContext(ctx, input.ledgerEntryId);
   if ('error' in ctxRes) return ctxRes;
-  const { profile, entry, patient, nombre, esPublicoGeneral } = ctxRes;
+  const { profile, entry, patient, nombre, esPublicoGeneral, usoIncompatible } = ctxRes;
 
   // Anti-duplicate (09-DISENO §7.2): one live draft per income.
   const existing = await prisma.cfdiDraft.findFirst({
@@ -1576,6 +1595,9 @@ async function proposePrepareFacturaBorrador(
     detalle,
     advertencias: [
       'Esto SOLO crea un borrador — nada se timbra. El doctor lo revisa, edita y emite en Facturación (o lo descarta desde el expediente).',
+      ...(usoIncompatible
+        ? [`⚠️ El uso CFDI del expediente (${patient.usoCfdi}) NO es válido para el régimen del receptor (${patient.regimenFiscal}) — el SAT lo rechazaría: CÁMBIALO en el form antes de emitir (p. ej. G03).`]
+        : []),
     ],
     params: {
       ledgerEntryId: entry.id,

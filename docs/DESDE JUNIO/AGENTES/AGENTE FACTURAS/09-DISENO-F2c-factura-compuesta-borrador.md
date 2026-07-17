@@ -252,17 +252,38 @@ Flujo completo con datos REALES sembrados en la misma conversación (dr-prueba, 
    $1,500 + IVA $48 − $0 = **$1,548 EXACTO al estimado de la card**, ligado a 1598 ·
    entry 1598 `hasFactura=true` · pendientes de vuelta a 2 (Prueba1 + test 7).
 
-**Follow-ups nacidos de la validación (pendientes, en orden de valor):**
-1. **UI para editar datos fiscales del paciente** — hoy NO existe camino directo en el
-   expediente (solo el formulario fiscal por link); el usuario lo pidió explícito.
-2. **Claves visibles/editables en el form de Nueva Factura** — los conceptos hidratados
-   traen productCode pero el form no lo muestra ni deja editarlo (el usuario lo señaló).
-3. **Warning D01×régimen-incompatible en el pre-check del borrador** (el agente SABE la
-   regla en prosa; aplicarla al derivar el receptor).
-4. **CP-vs-constancia**: el error del SAT es críptico — hint amigable en el form y/o
-   reconsiderar `validar/rfc` opcional (costo: 1 folio) antes de emitir.
-5. Radar money-model (§5.3): el ingreso quedó en $1,200 y la factura en $1,548 — los $348
+**Follow-ups nacidos de la validación — 1-4 CORREGIDOS el mismo día (2ª tanda):**
+1. ✅ **UI para editar datos fiscales del paciente** — PLOT TWIST: la card
+   `DatosFiscalesCard` (edición completa, incl. la matriz régimen↔uso) YA EXISTÍA en el
+   expediente, pero un gate `requiereFactura && rfc` la ESCONDÍA exactamente para los
+   pacientes sin datos (chicken-and-egg). Fix: card siempre visible; botón "Agregar" cuando
+   no hay RFC.
+2. ✅ **Claves visibles/editables en el form** — inputs Clave Prod/Serv + Clave Unidad por
+   concepto, MÁS búsqueda inline del catálogo SAT (endpoint `catalogos/productos` — que ya
+   tenía auth y nadie usaba desde la UI: la "búsqueda de la pestaña Nueva Factura" que el
+   prompt del agente citaba NO EXISTÍA — drift de hecho, ahora es verdad). Placeholder
+   enseña la disciplina literal ("gasas" > "insumos").
+3. ✅ **Uso×régimen incompatible** — matriz `REGIMEN_USO_VALID` compartida (3 copias
+   documentadas: DatosFiscalesCard, cfdi-builder.ts, api lib/cfdi-drafts.ts — cross-app):
+   emisión directa = HARD STOP en el pre-check (card que solo puede fallar no se registra);
+   borrador = ADVERTENCIA en card + banner rojo al hidratar (usoIncompatible del GET).
+4. ✅ **Errores crípticos del SAT** — capa de traducción en el catch del form: hints
+   accionables para DomicilioFiscalReceptor (CP de la constancia — el caso vivido),
+   régimen/uso, y nombre-no-exacto.
+5. ⬜ Radar money-model (§5.3): el ingreso quedó en $1,200 y la factura en $1,548 — los $348
    de insumos+IVA no existen en el ledger; ofrecer ingreso complementario al emitir.
+   (Pendiente — pertenece al dominio flujo de dinero, no a este PR.)
+
+**Review inline de los fixes 1-4 (05-METODO modo B, pre-commit):** clasificación automática
+(lógica replicada: matriz uso×régimen ×3 + hints que afirman hechos fiscales). Limpios:
+contratos cross-file, paridad carácter-a-carácter de las 3 matrices (fuente: la card ya
+shippeada — misma regla en agente/form/expediente, sin semántica nueva), fact-check de los
+hints vs KB, gate eliminado solo guardaba el render. **1 CONFIRMED corregido:** la búsqueda
+de catálogo mostraba "sin resultados" también cuando el SERVICIO falla (productos no tiene
+fallback offline — hallazgo del review F2a) → estado de error propio ("catálogo no
+disponible — captura a mano"). Aceptados: matriz triplicada (documentada, misma familia que
+la derivación de receptor) y sin eval para uso-incompatible (data-blocked: el único
+expediente D01×626 ya no tiene ingreso sin facturar; sembrar cuando haya datos).
 
 ## 10. Qué NO cambia
 

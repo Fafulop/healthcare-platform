@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { deriveReceiverFromPatient } from '@/lib/cfdi-drafts';
+import { deriveReceiverFromPatient, usoIncompatibleConRegimen } from '@/lib/cfdi-drafts';
 
 /**
  * F2c — single draft: GET hydrates the Nueva Factura form; PATCH discards.
@@ -59,6 +59,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         receiver: derivation.receiver,
         esPublicoGeneral: derivation.esPublicoGeneral,
         camposFaltantes: derivation.camposFaltantes,
+        // F2c follow-up #3: incompatible uso×régimen = guaranteed PAC
+        // rejection — the form warns BEFORE the doctor hits Emitir.
+        usoIncompatible: !derivation.esPublicoGeneral && patient
+          ? usoIncompatibleConRegimen(patient.usoCfdi, patient.regimenFiscal)
+          : false,
         paciente: patient ? { id: patient.id, nombre: `${patient.firstName} ${patient.lastName}`.trim() } : null,
         ingreso: entry
           ? { id: entry.id, amount: Number(entry.amount), concept: entry.concept, hasFactura: entry.hasFactura, formaDePago: entry.formaDePago }

@@ -7,8 +7,11 @@
 > §9): ciclo completo con datos reales — dos-turnos orgánico (crear+completar cita → ingreso
 > 1598) → borrador compuesta 3 conceptos → form hidratado → el doctor EDITÓ (D01→G03 + CP
 > tras rechazo real del SAT — causa #1 de la KB confirmada) → CFDI folio 9 $1,548 EXACTO,
-> draft emitted+ligado, pendientes correcto. **5 follow-ups en §9** (headline: UI para editar
-> datos fiscales del paciente NO existe; claves invisibles en el form). SHIPPED `254d3a8b`
+> draft emitted+ligado, pendientes correcto. **Follow-ups 1-4 CORREGIDOS en la misma sesión**
+> (`09-DISENO` §9 — plot twist: la card de datos fiscales YA existía, un gate la escondía;
+> claves+búsqueda de catálogo agregadas al form; guard uso×régimen en 3 capas; hints de
+> errores SAT; review inline: 1 CONFIRMED corregido). Solo queda #5 (money-model, dominio
+> flujo). SHIPPED `254d3a8b`
 > (`09-DISENO` §8): borrador de factura COMPUESTA —
 > propose_prepare_factura_borrador (card ligera sin 🧾) → CfdiDraft en BD (tabla APLICADA A
 > PROD y verificada) → botón "Abrir borrador" → form de Nueva Factura hidratado (`?draft=`)

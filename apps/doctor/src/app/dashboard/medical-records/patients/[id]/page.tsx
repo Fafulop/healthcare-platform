@@ -224,8 +224,7 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
             onClick={() => setEditing(true)}
             className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
           >
-            <Edit className="w-3.5 h-3.5" />
-            Editar
+            {patient.rfc ? (<><Edit className="w-3.5 h-3.5" />Editar</>) : (<><Plus className="w-3.5 h-3.5" />Agregar</>)}
           </button>
         )}
       </div>
@@ -845,10 +844,10 @@ export default function PatientProfilePage() {
             </div>
           </div>
 
-          {/* Fiscal Data */}
-          {patient.requiereFactura && patient.rfc && (
-            <DatosFiscalesCard patient={patient} patientId={patient.id} onUpdate={refreshPatient} />
-          )}
+          {/* Fiscal Data — ALWAYS rendered (F2c follow-up #1): the old gate
+              (requiereFactura && rfc) hid the card exactly for the patients
+              that NEED fiscal capture — chicken-and-egg the user hit live. */}
+          <DatosFiscalesCard patient={patient} patientId={patient.id} onUpdate={refreshPatient} />
 
           {/* Emergency Contact */}
           {patient.emergencyContactName && (

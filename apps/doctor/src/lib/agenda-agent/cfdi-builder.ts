@@ -139,3 +139,30 @@ export const LEDGER_FORMA_TO_SAT: Record<string, string | null> = {
 // Labels for these codes: reuse SAT_FORMA_PAGO_LABELS (ledger-types.ts) —
 // one definition, shared with the CFDI detail views.
 export const SAT_PAYMENT_FORMS = ['01', '02', '03', '04', '28', '99'] as const;
+
+/** Uso de CFDI valid per RECEIVER régimen (SAT c_UsoCFDI matrix, the subset
+ * this platform offers). Same values as REGIMEN_USO_VALID in the expediente's
+ * DatosFiscalesCard (patients/[id]/page.tsx) and lib/cfdi-drafts.ts in
+ * apps/api — keep the three in sync (cross-app import not possible).
+ * F2c follow-up #3: an incompatible pair (e.g. D01×626) is REJECTED by the
+ * PAC at stamping — catch it at proposal time instead. */
+export const REGIMEN_USO_VALID: Record<string, string[]> = {
+  '601': ['G03', 'S01'],
+  '603': ['G03', 'S01'],
+  '605': ['D01', 'D02', 'S01'],
+  '606': ['D01', 'D02', 'G03', 'S01'],
+  '608': ['D01', 'D02', 'G03', 'S01'],
+  '612': ['D01', 'D02', 'G03', 'S01'],
+  '616': ['S01'],
+  '621': ['D01', 'D02', 'G03', 'S01'],
+  '625': ['D01', 'D02', 'G03', 'S01'],
+  '626': ['G03', 'S01'],
+};
+
+/** true = compatible · false = the PAC will reject · null = régimen not in
+ * the matrix (unknown — don't judge). */
+export function usoCompatibleConRegimen(uso: string, regimen: string): boolean | null {
+  const valid = REGIMEN_USO_VALID[regimen];
+  if (!valid) return null;
+  return valid.includes(uso);
+}

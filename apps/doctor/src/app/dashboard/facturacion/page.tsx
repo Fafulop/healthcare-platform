@@ -1297,6 +1297,7 @@ interface DraftPrefill {
   receiver: { rfc: string; name: string; cfdiUse: string; fiscalRegime: string; taxZipCode: string } | null;
   esPublicoGeneral: boolean;
   camposFaltantes: string[];
+  usoIncompatible?: boolean;
   paciente: { id: string; nombre: string } | null;
   ingreso: { id: number; amount: number; concept: string; hasFactura: boolean; formaDePago: string | null } | null;
 }
@@ -1401,6 +1402,39 @@ function NuevaFacturaTab({
   const isReceiverPF = receiver.rfc.length === 13 && /^[A-Z]{4}/.test(receiver.rfc);
   const isReceiverPublicoGeneral = receiver.rfc === 'XAXX010101000';
   const isMedicalService = items.some(i => i.productCode.startsWith('8512'));
+
+  // F2c follow-up #2: inline SAT product-code search per concept (the agent's
+  // prompt has always pointed doctors here — this makes that claim true).
+  // The search is LITERAL and accent-sensitive (Facturama) — the placeholder
+  // says so. One open search at a time.
+  const [claveSearchIdx, setClaveSearchIdx] = useState<number | null>(null);
+  const [claveQuery, setClaveQuery] = useState("");
+  const [claveResults, setClaveResults] = useState<CatalogItem[]>([]);
+  const [claveSearching, setClaveSearching] = useState(false);
+  // null = no error; a service failure must NOT render as "sin resultados"
+  // (the productos search has no offline fallback — review finding).
+  const [claveError, setClaveError] = useState<string | null>(null);
+  const searchClave = async () => {
+    const q = claveQuery.trim();
+    if (q.length < 3) return;
+    setClaveSearching(true);
+    setClaveError(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/facturacion/catalogos/productos?q=${encodeURIComponent(q)}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !Array.isArray(body.data)) {
+        setClaveResults([]);
+        setClaveError("El catálogo no está disponible en este momento — captura la clave a mano o reintenta.");
+        return;
+      }
+      setClaveResults(body.data.slice(0, 8));
+    } catch {
+      setClaveResults([]);
+      setClaveError("El catálogo no está disponible (error de red) — captura la clave a mano o reintenta.");
+    } finally {
+      setClaveSearching(false);
+    }
+  };
 
   const addItem = () => {
     setItems([...items, {
@@ -1514,7 +1548,17 @@ function NuevaFacturaTab({
       alert(`Factura emitida exitosamente!\nUUID: ${data.uuid}`);
       onCreated();
     } catch (err: any) {
-      setError(err.message);
+      // F2c follow-up #4: the SAT's raw errors are cryptic — translate the
+      // frequent ones into actionable hints (CP-vs-constancia was hit live).
+      let msg: string = err.message || "Error al emitir factura";
+      if (/DomicilioFiscalReceptor/i.test(msg)) {
+        msg += " — 💡 El Código Postal del receptor debe ser EXACTAMENTE el de su constancia de situación fiscal (no el de su casa/consultorio). Corrígelo arriba y vuelve a emitir.";
+      } else if (/RegimenFiscalReceptor|UsoCFDI/i.test(msg)) {
+        msg += " — 💡 Verifica que el régimen y el uso CFDI del receptor coincidan con su constancia (y que el uso sea válido para ese régimen: p. ej. D01 no aplica para RESICO 626).";
+      } else if (/nombre.*receptor|Name/i.test(msg) && /coincide|inscrito|l_RFC/i.test(msg)) {
+        msg += " — 💡 El nombre debe ser EXACTO al de la constancia (sin régimen de capital, respetando acentos).";
+      }
+      setError(msg);
     } finally {
       setCreating(false);
     }
@@ -1545,6 +1589,9 @@ function NuevaFacturaTab({
           )}
           {draftData.camposFaltantes.length > 0 && (
             <div className="text-amber-800">⚠️ El expediente ya no tiene datos fiscales completos (faltan: {draftData.camposFaltantes.join(", ")}) — completa el receptor a mano o manda el formulario fiscal.</div>
+          )}
+          {draftData.usoIncompatible && (
+            <div className="text-red-700 font-medium">⚠️ El uso CFDI del expediente NO es válido para el régimen del receptor — el SAT rechazará el timbrado: cámbialo abajo (p. ej. G03) antes de emitir.</div>
           )}
           {draftData.esPublicoGeneral && (
             <div>Receptor: PÚBLICO EN GENERAL (S01) — el paciente no podrá deducirla.</div>
@@ -1696,6 +1743,93 @@ function NuevaFacturaTab({
                   )}
                 </div>
               </div>
+
+              {/* SAT keys (F2c follow-up #2: drafts hydrate productCode/unitCode —
+                  they must be visible and editable, not silently submitted) */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Clave Prod/Serv (SAT)</label>
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      value={item.productCode}
+                      onChange={e => updateItem(idx, "productCode", e.target.value.trim())}
+                      placeholder="85121800"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClaveSearchIdx(claveSearchIdx === idx ? null : idx);
+                        setClaveQuery("");
+                        setClaveResults([]);
+                        setClaveError(null);
+                      }}
+                      className="px-2 py-1 text-xs rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 whitespace-nowrap"
+                      title="Buscar en el catálogo SAT"
+                    >
+                      Buscar
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Clave Unidad</label>
+                  <input
+                    type="text"
+                    value={item.unitCode}
+                    onChange={e => updateItem(idx, "unitCode", e.target.value.trim().toUpperCase())}
+                    placeholder="E48"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+              {claveSearchIdx === idx && (
+                <div className="mt-2 p-3 rounded-md border border-blue-200 bg-blue-50 space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={claveQuery}
+                      onChange={e => setClaveQuery(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchClave(); } }}
+                      placeholder='Búsqueda literal — mejor "gasas" o "suturas" que "insumos" (mín. 3 letras)'
+                      className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={searchClave}
+                      disabled={claveSearching || claveQuery.trim().length < 3}
+                      className="px-3 py-1 text-xs rounded-md bg-blue-600 text-white disabled:opacity-50"
+                    >
+                      {claveSearching ? '…' : 'Buscar'}
+                    </button>
+                  </div>
+                  {claveResults.length > 0 && (
+                    <div className="max-h-40 overflow-y-auto divide-y divide-blue-100">
+                      {claveResults.map((r) => (
+                        <button
+                          key={r.Value}
+                          type="button"
+                          onClick={() => {
+                            updateItem(idx, "productCode", r.Value);
+                            setClaveSearchIdx(null);
+                          }}
+                          className="w-full text-left px-2 py-1.5 text-xs hover:bg-blue-100 rounded"
+                        >
+                          <span className="font-mono font-semibold">{r.Value}</span> — {r.Name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {claveError && (
+                    <p className="text-xs text-red-700">{claveError}</p>
+                  )}
+                  {!claveSearching && !claveError && claveQuery.trim().length >= 3 && claveResults.length === 0 && (
+                    <p className="text-xs text-blue-800">Sin resultados — la búsqueda es literal: intenta el nombre exacto del producto/servicio.</p>
+                  )}
+                </div>
+              )}
 
               {/* Tax toggles */}
               <div className="flex flex-wrap gap-4 mt-3">
