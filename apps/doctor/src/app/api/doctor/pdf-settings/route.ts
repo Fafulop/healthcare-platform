@@ -71,6 +71,13 @@ export async function PATCH(request: NextRequest) {
       (updateData as any).rxPageSize = body.rxPageSize;
     }
 
+    if ('rxOrientation' in body) {
+      if (!['portrait', 'landscape'].includes(body.rxOrientation)) {
+        return NextResponse.json({ success: false, error: 'rxOrientation inválido' }, { status: 400 });
+      }
+      (updateData as any).rxOrientation = body.rxOrientation;
+    }
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ success: false, error: 'Nothing to update' }, { status: 400 });
     }

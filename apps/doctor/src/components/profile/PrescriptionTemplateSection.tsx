@@ -9,6 +9,15 @@ interface Credential {
   cedula: string;
 }
 
+// Uploadthing components ship unstyled (their v3-Tailwind stylesheet conflicts
+// with our Tailwind v4 --tw-* vars if imported globally) — style per-button.
+const UPLOAD_BUTTON_APPEARANCE = {
+  button:
+    'bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer w-auto h-auto',
+  container: 'items-start',
+  allowedContent: 'text-xs text-gray-400 mt-1',
+};
+
 const COLOR_SCHEMES = [
   { id: 'blue',   label: 'Azul médico',        hex: '#1e40af' },
   { id: 'green',  label: 'Verde salud',         hex: '#15803d' },
@@ -60,6 +69,23 @@ export default function PrescriptionTemplateSection() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Images auto-save on upload/delete: leaving without pressing "Guardar" used
+  // to silently lose them (happened live 2026-07-18 — logo vanished from a receta).
+  const persistImage = async (field: 'logoUrl' | 'signatureUrl', value: string | null) => {
+    try {
+      const res = await fetch('/api/prescription-template', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (!res.ok) throw new Error();
+      setSaveMessage({ type: 'success', text: value ? 'Imagen guardada.' : 'Imagen eliminada.' });
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch {
+      setSaveMessage({ type: 'error', text: 'La imagen se subió pero no se guardó — presiona Guardar Plantilla.' });
+    }
+  };
 
   const updateCredential = (index: number, patch: Partial<Credential>) => {
     setCredentials((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
@@ -206,7 +232,7 @@ export default function PrescriptionTemplateSection() {
               className="h-16 w-auto max-w-[120px] border border-gray-200 rounded-md object-contain bg-gray-50 p-1"
             />
             <button
-              onClick={() => setLogoUrl(null)}
+              onClick={() => { setLogoUrl(null); persistImage('logoUrl', null); }}
               className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 mt-1"
             >
               <X className="w-3.5 h-3.5" />
@@ -216,8 +242,10 @@ export default function PrescriptionTemplateSection() {
         )}
         <UploadButton
           endpoint="prescriptionLogo"
+          appearance={UPLOAD_BUTTON_APPEARANCE}
+          content={{ button: logoUrl ? 'Cambiar logo' : 'Subir logo' }}
           onClientUploadComplete={(res) => {
-            if (res?.[0]) setLogoUrl(res[0].ufsUrl);
+            if (res?.[0]) { setLogoUrl(res[0].ufsUrl); persistImage('logoUrl', res[0].ufsUrl); }
           }}
           onUploadError={(err) => console.error('Logo upload error:', err)}
         />
@@ -237,7 +265,7 @@ export default function PrescriptionTemplateSection() {
               className="h-16 w-auto max-w-[180px] border border-gray-200 rounded-md object-contain bg-gray-50 p-1"
             />
             <button
-              onClick={() => setSignatureUrl(null)}
+              onClick={() => { setSignatureUrl(null); persistImage('signatureUrl', null); }}
               className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 mt-1"
             >
               <X className="w-3.5 h-3.5" />
@@ -247,8 +275,10 @@ export default function PrescriptionTemplateSection() {
         )}
         <UploadButton
           endpoint="prescriptionSignature"
+          appearance={UPLOAD_BUTTON_APPEARANCE}
+          content={{ button: signatureUrl ? 'Cambiar firma' : 'Subir firma' }}
           onClientUploadComplete={(res) => {
-            if (res?.[0]) setSignatureUrl(res[0].ufsUrl);
+            if (res?.[0]) { setSignatureUrl(res[0].ufsUrl); persistImage('signatureUrl', res[0].ufsUrl); }
           }}
           onUploadError={(err) => console.error('Signature upload error:', err)}
         />

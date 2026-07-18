@@ -13,15 +13,16 @@ interface PrescriptionPdfSettingsDialogProps {
 
 export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded }: PrescriptionPdfSettingsDialogProps) {
   const [settings, setSettings] = useState<PdfSettings>(DEFAULT_PDF_SETTINGS);
+  // Last-persisted snapshot: the Guardar button only activates when the
+  // current settings differ from it (otherwise it reads "Guardado", disabled).
+  const [savedSettings, setSavedSettings] = useState<PdfSettings>(DEFAULT_PDF_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (open) {
       fetchSettings();
-      setSaved(false);
     }
   }, [open]);
 
@@ -33,6 +34,7 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
       const data = await res.json();
       if (data.success) {
         setSettings(data.data);
+        setSavedSettings(data.data);
         onSettingsLoaded(data.data);
       }
     } catch {
@@ -45,7 +47,6 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
   const handleSave = async () => {
     setSaving(true);
     setError('');
-    setSaved(false);
     try {
       const res = await fetch('/api/doctor/pdf-settings', {
         method: 'PATCH',
@@ -59,15 +60,16 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
           rxShowLogo: settings.rxShowLogo,
           rxShowSignature: settings.rxShowSignature,
           rxPageSize: settings.rxPageSize,
+          rxOrientation: settings.rxOrientation,
           rxTopMarginMm: settings.rxTopMarginMm,
           rxBottomMarginMm: settings.rxBottomMarginMm,
         }),
       });
       const data = await res.json();
       if (data.success) {
+        setSettings(data.data);
+        setSavedSettings(data.data);
         onSettingsLoaded(data.data);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
       } else {
         setError(data.error || 'Error al guardar');
       }
@@ -125,6 +127,28 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
               <p className="text-xs text-gray-400 mt-1">
                 Elige el tamaño de tu recetario si imprimes sobre hojas pre-impresas.
               </p>
+              <div className="mt-2 flex items-center gap-4">
+                <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="rxOrientation"
+                    checked={settings.rxOrientation !== 'landscape'}
+                    onChange={() => setSettings((prev) => ({ ...prev, rxOrientation: 'portrait' }))}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  Vertical
+                </label>
+                <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="rxOrientation"
+                    checked={settings.rxOrientation === 'landscape'}
+                    onChange={() => setSettings((prev) => ({ ...prev, rxOrientation: 'landscape' }))}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  Horizontal
+                </label>
+              </div>
             </div>
 
             {/* Header & Footer */}
@@ -222,18 +246,28 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
         )}
 
         {/* Footer buttons */}
-        {!loading && (
-          <div className="flex items-center justify-end p-4 border-t border-gray-200">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-              {saved ? 'Guardado' : saving ? 'Guardando...' : 'Guardar'}
-            </button>
-          </div>
-        )}
+        {!loading && (() => {
+          const dirty = JSON.stringify(settings) !== JSON.stringify(savedSettings);
+          return (
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200">
+              {!dirty && !saving && (
+                <span className="text-xs text-green-700">✓ Sin cambios pendientes</span>
+              )}
+              <button
+                onClick={handleSave}
+                disabled={saving || !dirty}
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-md ${
+                  dirty
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                    : 'bg-gray-100 text-gray-400 cursor-default'
+                }`}
+              >
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                {saving ? 'Guardando...' : dirty ? 'Guardar' : 'Guardado'}
+              </button>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

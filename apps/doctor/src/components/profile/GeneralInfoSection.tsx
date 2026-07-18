@@ -139,6 +139,13 @@ export default function GeneralInfoSection({ formData, updateField }: GeneralInf
         )}
         <UploadButton
           endpoint="doctorHeroImage"
+          appearance={{
+            button:
+              'bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer w-auto h-auto',
+            container: 'items-start',
+            allowedContent: 'text-xs text-gray-400 mt-1',
+          }}
+          content={{ button: 'Subir foto' }}
           onClientUploadComplete={(res) => {
             const uploadedUrl = res[0]?.url;
             if (uploadedUrl) {

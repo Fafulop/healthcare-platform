@@ -1,8 +1,8 @@
 "use client";
 
 
-import { useState, useEffect } from "react";
-import { Loader2, Calendar, CheckCircle2, XCircle, RefreshCw, AlertTriangle, MessageCircle, ShieldOff } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Loader2, Calendar, CheckCircle2, XCircle, RefreshCw, AlertTriangle, MessageCircle, ShieldOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { signIn, signOut } from "next-auth/react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { authFetch } from "@/lib/auth-fetch";
@@ -96,6 +96,31 @@ export default function MiPerfilPage() {
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Tab strip overflows on narrow screens with the scrollbar hidden — edge
+  // arrows are the only visual cue that more tabs exist.
+  const tabsNavRef = useRef<HTMLElement | null>(null);
+  const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
+  const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
+
+  const updateTabArrows = useCallback(() => {
+    const el = tabsNavRef.current;
+    if (!el) return;
+    setCanScrollTabsLeft(el.scrollLeft > 4);
+    setCanScrollTabsRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  // isLoading in deps: the page early-returns a spinner while loading, so the
+  // nav (and its ref) only exists after load — re-measure then, not just on mount.
+  useEffect(() => {
+    updateTabArrows();
+    window.addEventListener('resize', updateTabArrows);
+    return () => window.removeEventListener('resize', updateTabArrows);
+  }, [updateTabArrows, isLoading]);
+
+  const scrollTabs = (dir: -1 | 1) => {
+    tabsNavRef.current?.scrollBy({ left: dir * 240, behavior: 'smooth' });
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -646,8 +671,12 @@ export default function MiPerfilPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-4 sm:mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
-        <nav className="flex gap-0 sm:gap-1 overflow-x-auto -mb-px scrollbar-hide">
+      <div className="relative border-b border-gray-200 mb-4 sm:mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
+        <nav
+          ref={tabsNavRef}
+          onScroll={updateTabArrows}
+          className="flex gap-0 sm:gap-1 overflow-x-auto -mb-px scrollbar-hide"
+        >
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -662,6 +691,27 @@ export default function MiPerfilPage() {
             </button>
           ))}
         </nav>
+        {/* Scroll cues — only when more tabs exist on that side */}
+        {canScrollTabsLeft && (
+          <button
+            type="button"
+            onClick={() => scrollTabs(-1)}
+            aria-label="Ver pestañas anteriores"
+            className="absolute left-0 top-0 bottom-0 flex items-center pl-1 pr-4 bg-gradient-to-r from-white via-white/90 to-transparent text-gray-500 hover:text-gray-800"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
+        {canScrollTabsRight && (
+          <button
+            type="button"
+            onClick={() => scrollTabs(1)}
+            aria-label="Ver más pestañas"
+            className="absolute right-0 top-0 bottom-0 flex items-center pr-1 pl-4 bg-gradient-to-l from-white via-white/90 to-transparent text-gray-500 hover:text-gray-800"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Tab Content */}

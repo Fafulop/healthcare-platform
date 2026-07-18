@@ -26,6 +26,8 @@ export interface PdfSettings {
   rxShowSignature: boolean;  // firma digital in the footer band
   /** Page size — doctors often print on pre-printed receta paper (media carta). */
   rxPageSize: RxPageSize;
+  /** Page orientation (vertical = portrait, horizontal = landscape). */
+  rxOrientation: 'portrait' | 'landscape';
   rxTopMarginMm: number;
   rxBottomMarginMm: number;
 }
@@ -67,6 +69,7 @@ export const DEFAULT_PDF_SETTINGS: PdfSettings = {
   rxShowLogo: true,
   rxShowSignature: true,
   rxPageSize: 'a4', // preserves pre-feature behavior for existing doctors
+  rxOrientation: 'portrait',
   rxTopMarginMm: 0,
   rxBottomMarginMm: 0,
 };

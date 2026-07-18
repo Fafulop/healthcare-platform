@@ -186,6 +186,7 @@ export function usePrescriptionDetail() {
         showLogo: settings.rxShowLogo ?? true,
         showSignature: settings.rxShowSignature ?? true,
         pageSize: (settings.rxPageSize ?? 'a4') as RxPageSize,
+        orientation: (settings.rxOrientation === 'landscape' ? 'landscape' : 'portrait') as 'portrait' | 'landscape',
         topMarginMm: Math.max(0, Math.min(80, settings.rxTopMarginMm ?? 0)),
         bottomMarginMm: Math.max(0, Math.min(80, settings.rxBottomMarginMm ?? 0)),
       };
@@ -222,15 +223,30 @@ export function usePrescriptionDetail() {
 
       // 4. Generate PDF (page size per the doctor's recetario)
       const { default: jsPDF } = await import('jspdf');
-      const doc = new jsPDF({ unit: 'mm', format: RX_PAGE_FORMATS[rx.pageSize] ?? 'a4' });
+      const doc = new jsPDF({ unit: 'mm', format: RX_PAGE_FORMATS[rx.pageSize] ?? 'a4', orientation: rx.orientation });
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
       const margin = 14;
       const colW = pageW - margin * 2;
       const footerH = rx.showFooter ? 22 : 0;
-      const footerY = pageH - footerH - rx.bottomMarginMm;
+
+      // Guard: letterhead margins (up to 80mm each) on small/landscape pages
+      // must never leave a zero/negative content area — checkPage would call
+      // addPage() forever and hang the tab. Scale both down proportionally so
+      // at least ~30mm of content fits per page.
+      const bandTop = rx.showHeader ? 40 : 14;
+      let topMarginMm = rx.topMarginMm;
+      let bottomMarginMm = rx.bottomMarginMm;
+      const availForMargins = pageH - bandTop - footerH - 30 - 6;
+      if (topMarginMm + bottomMarginMm > availForMargins) {
+        const scale = Math.max(0, availForMargins) / (topMarginMm + bottomMarginMm || 1);
+        topMarginMm = Math.floor(topMarginMm * scale);
+        bottomMarginMm = Math.floor(bottomMarginMm * scale);
+      }
+
+      const footerY = pageH - footerH - bottomMarginMm;
       const maxContentY = footerY - 6;
-      const topReset = rx.topMarginMm + 14;
+      const topReset = topMarginMm + 14;
       let y = 0;
 
       const checkPage = (needed: number) => {
@@ -298,9 +314,9 @@ export function usePrescriptionDetail() {
         credLines.forEach((line, i) => {
           doc.text(line, pageW - margin, 22.5 + i * 3.2, { align: 'right' });
         });
-        y = 40 + rx.topMarginMm;
+        y = 40 + topMarginMm;
       } else {
-        y = rx.topMarginMm + 14;
+        y = topReset;
       }
 
       // ── PATIENT BOX ────────────────────────────────────────────────────────
