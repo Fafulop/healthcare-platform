@@ -266,7 +266,8 @@ export async function POST(request: NextRequest) {
       messages: anthropicMessages,
       tools: TOOLS,
       maxTokens: MAX_TOKENS,
-      temperature: 0.2, // form generation should be near-deterministic (parity with the old endpoint)
+      // NOTE: no temperature — claude-sonnet-5 rejects the param with a 400
+      // ("temperature is deprecated for this model"), broke live 2026-07-18.
       timeoutMs: 90_000,
     });
 
@@ -330,6 +331,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: { code: 'CHAT_FAILED', message: 'Error de conexión. Verifique su internet e intente nuevamente.' } },
         { status: 503 }
+      );
+    }
+
+    // Upstream API rejections (4xx/5xx from Anthropic) — surface a real message
+    // instead of the client's "Error desconocido" fallback.
+    if (typeof error?.status === 'number') {
+      return NextResponse.json(
+        { success: false, error: { code: 'CHAT_FAILED', message: 'El servicio de IA rechazó la solicitud. Intente de nuevo; si persiste, repórtalo.' } },
+        { status: 502 }
       );
     }
 
