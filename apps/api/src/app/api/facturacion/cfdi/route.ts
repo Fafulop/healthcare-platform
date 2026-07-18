@@ -295,12 +295,28 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Mark linked ledger entry as having factura
+    // Mark linked ledger entry as having factura AND stamp the CFDI uuid on it
+    // (money-model #5 Fix A): with the uuid on the entry, the SAT emitted sync
+    // recognizes this CFDI as already registered (its skip-check matches
+    // ledgerEntry.satCfdiUuid) instead of creating a DUPLICATE sat_emitido
+    // income. UPPERCASE to match the sat_cfdi_metadata convention the skip
+    // compares against. Non-fatal: the CFDI is already legally stamped — a
+    // ledger hiccup (e.g. P2002 if the uuid somehow exists) must not 500.
     if (ledgerEntryId) {
-      await prisma.ledgerEntry.update({
-        where: { id: ledgerEntryId },
-        data: { hasFactura: true },
-      });
+      try {
+        await prisma.ledgerEntry.update({
+          where: { id: ledgerEntryId },
+          data: {
+            hasFactura: true,
+            satCfdiUuid: cfdiRecord.uuid.toUpperCase(),
+          },
+        });
+      } catch (e) {
+        console.error('[CFDI] stamped OK but ledger flag/uuid update failed:', ledgerEntryId, e);
+        try {
+          await prisma.ledgerEntry.update({ where: { id: ledgerEntryId }, data: { hasFactura: true } });
+        } catch { /* flag can be fixed manually; emission response must succeed */ }
+      }
     }
 
     // F2c: close the originating draft (non-fatal — the CFDI already exists;

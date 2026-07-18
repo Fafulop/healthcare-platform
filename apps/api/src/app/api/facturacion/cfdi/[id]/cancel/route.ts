@@ -117,7 +117,10 @@ export async function POST(
         if (entry && otherActiveCount === 0 && (!entry.satCfdiUuid || satUuidIsThisCfdi)) {
           await prisma.ledgerEntry.update({
             where: { id: entry.id },
-            data: { hasFactura: false },
+            // Also clear the uuid when it belongs to THIS (now cancelled) CFDI
+            // — otherwise the entry keeps claiming a dead factura and blocks
+            // re-emission from stamping the new uuid (unique column).
+            data: { hasFactura: false, ...(satUuidIsThisCfdi ? { satCfdiUuid: null } : {}) },
           });
         }
       } catch (err) {

@@ -269,23 +269,29 @@ money model.
 Todo lo del día está SHIPPED y desplegado (último commit `29ac72d7`). Los candidatos
 siguientes, en el orden que el usuario los tiene en mente:
 
-1. **🔍 INVESTIGAR PRIMERO — "no puedo cancelar facturas" (reporte del usuario al cierre,
-   SIN diagnosticar):** el endpoint `POST /facturacion/cfdi/[id]/cancel` existe (motivo SAT
-   — `00` §2), pero el usuario no encuentra/no le funciona la cancelación desde la UI.
-   Diagnosticar: ¿falta el botón en la tabla de facturas? ¿truena? ¿aplica solo a ciertos
-   status? Nota: la CANCELACIÓN POR EL AGENTE sigue siendo nunca-v1 — esto es sobre la UI.
-   Ojo con el limbo conocido `cancellation_pending` que nadie finaliza (KB §7).
-2. **✨ FEATURE NUEVA — "recetas/plantillas on demand"** (idea del usuario al cierre, sin
-   desarrollar): plantillas de recetas generables a demanda. TODO: sesión de diseño — ¿el
-   agente propone recetas desde plantillas? ¿plantillas por doctor? Toca el dominio
-   expediente/recetas (tier de privacidad clínica — ver la frontera en `02-CAPACIDADES`:
-   el agente NO toca contenido clínico; esta feature probablemente es UI-first o requiere
-   decisión explícita de tier).
+1. ✅ **"No puedo cancelar facturas" — DIAGNOSTICADO 2026-07-18 (`29b59360`):** NO es bug
+   nuestro — el SANDBOX de Facturama no puede cancelar CFDIs timbrados con el CSD REAL del
+   doctor (folios 2-9; el ambiente de pruebas del SAT no conoce el certificado; error
+   genérico "Ups! Ocurrió un problema al cancelar"). El folio 1 sí canceló en mayo porque su
+   emisor era el RFC de prueba del SAT (ESCUELA KEMPER URGATE). **La cancelación seguirá
+   fallando hasta salir de sandbox.** UX shipped: motivo inválido ya no es no-op + el error
+   del PAC se traduce ("la falla es del servicio, tus datos están bien").
+2. ✅ **Recetas/plantillas — COMPLETO Y VALIDADO 2026-07-18** (sesión aparte, UI-first como
+   se anticipó, agente intacto): plantillas custom del FormBuilder como formulario de receta
+   + identidad del médico (cédulas por título + firma) + PDF flexible. Trace:
+   `docs/NEW.MD-GUIDES/RECETA-TEMPLATES.md` (commits `d2905a4e`→`3e2ec317`).
 3. **F3 — entrega:** `propose_email_cfdi` (mandar la factura al paciente) y/o
    `propose_send_fiscal_form` (el camino de datos faltantes, ahora complementado por la
    card de datos fiscales des-bloqueada).
-4. **Money-model #5** (`09-DISENO` §9): ingreso $1,200 vs factura $1,548 — ofrecer ingreso
-   complementario al emitir. Dominio flujo de dinero.
+4. ✅ **Money-model #5 — CONSTRUIDO 2026-07-19 con PATRÓN DE SEPARACIÓN** (re-diseñado con
+   el usuario; el "ingreso complementario" original se DESCARTÓ): 1 factura = 1 ingreso del
+   mismo monto; extras en factura aparte (expediente "+ Nueva factura" → dropdown de
+   receptores server-derivado). Factura sin ingreso ligado ⇒ diálogo post-emisión
+   `register-income` (ingreso 1:1, nace hasFactura+uuid). Bonus Fix A: toda emisión ligada
+   estampa `satCfdiUuid` → el sync SAT no duplicará emisiones al pasar a producción; la
+   cancelación limpia el uuid. Cero migraciones, agente intacto. Detalle: `06-KNOWLEDGE-BASE`
+   §7 + `09-DISENO` §9 follow-up 5. PENDIENTE: validación en vivo (emitir factura de extras
+   → diálogo → ingreso en flujo).
 5. **Semillas pendientes de datos frescos:** eval de uso-incompatible + restaurar el camino
    feliz de emisión directa (`f2b-emision-pg-feliz`, checks en git) — necesitan un ingreso
    de prueba nuevo sin factura.

@@ -270,9 +270,15 @@ Flujo completo con datos REALES sembrados en la misma conversación (dr-prueba, 
 4. ✅ **Errores crípticos del SAT** — capa de traducción en el catch del form: hints
    accionables para DomicilioFiscalReceptor (CP de la constancia — el caso vivido),
    régimen/uso, y nombre-no-exacto.
-5. ⬜ Radar money-model (§5.3): el ingreso quedó en $1,200 y la factura en $1,548 — los $348
-   de insumos+IVA no existen en el ledger; ofrecer ingreso complementario al emitir.
-   (Pendiente — pertenece al dominio flujo de dinero, no a este PR.)
+5. ✅ Radar money-model (§5.3) — **RESUELTO 2026-07-19 con el PATRÓN DE SEPARACIÓN** (decisión
+   del usuario, re-diseñado en sesión): NO ingreso complementario sobre facturas mixtas, sino
+   **1 factura = 1 ingreso del mismo monto** — la cita se factura con su monto exacto y los
+   extras en factura APARTE (expediente → "+ Nueva factura" → receptor preseleccionado). La
+   factura de extras (sin ingreso ligado) dispara el diálogo post-emisión que crea el ingreso
+   1:1 (`register-income`: nace hasFactura + satCfdiUuid, backfillea ledger_entry_id). Bonus
+   Fix A: TODA emisión ligada estampa satCfdiUuid en el entry → el sync SAT ya no duplicará
+   emisiones de plataforma al pasar a producción. Cero migraciones. Detalle en
+   `06-KNOWLEDGE-BASE` §7 (actualización money-model #5).
 
 **Review inline de los fixes 1-4 (05-METODO modo B, pre-commit):** clasificación automática
 (lógica replicada: matriz uso×régimen ×3 + hints que afirman hechos fiscales). Limpios:

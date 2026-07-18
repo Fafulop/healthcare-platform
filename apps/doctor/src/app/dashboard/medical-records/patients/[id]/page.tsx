@@ -465,10 +465,20 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
-        <CalendarDays className="w-5 h-5" />
-        Citas e Ingresos
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <CalendarDays className="w-5 h-5" />
+          Citas e Ingresos
+        </h2>
+        {/* Money-model #5: separate factura for extras (insumos/quirófano) —
+            opens Nueva Factura with this patient preselected as receptor */}
+        <Link
+          href={`/dashboard/facturacion?patient=${patient.id}`}
+          className="text-sm text-blue-600 hover:text-blue-700 hover:underline whitespace-nowrap"
+        >
+          + Nueva factura
+        </Link>
+      </div>
       <CfdiDraftsBlock patientId={patient.id} />
       {bookings.length > 0 ? (
         <div className="space-y-3">

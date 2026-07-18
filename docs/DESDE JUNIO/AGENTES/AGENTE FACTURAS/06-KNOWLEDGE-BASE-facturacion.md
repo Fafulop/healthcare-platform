@@ -214,6 +214,18 @@ Booking ←(bookingId @unique)─ LedgerEntry ─(ledgerEntryId?)→ CfdiEmitted
                                      satCfdiUuid ≠ este uuid) — cancellation_pending NO resetea (cancel/route.ts:99-127)
 ```
 
+**Actualización money-model #5 (2026-07-19):** el POST al ligar ahora también estampa
+`satCfdiUuid` (UPPERCASE) en el entry — el sync SAT emitidos RECONOCE las emisiones de
+plataforma (skip-check por uuid) en vez de duplicarlas cuando Facturama pase a producción;
+la cancelación definitiva limpia el uuid junto con hasFactura. **Patrón de separación**
+(decisión del usuario): 1 factura = 1 ingreso del mismo monto — la cita se factura con SU
+monto, y los extras (insumos/quirófano/resto) en factura APARTE (botón "+ Nueva factura" en
+el expediente → `?patient=` preselecciona el receptor vía dropdown server-derivado,
+`GET /facturacion/receptores`). Una factura emitida SIN ingreso ligado dispara el diálogo
+post-emisión: `POST /cfdi/[id]/register-income` crea el ingreso 1:1 (nace hasFactura + uuid,
+backfillea `cfdis_emitted.ledger_entry_id`; cobrado/por-cobrar según PUE/PPD). Omitir es
+seguro: el sync SAT eventualmente crea el ingreso faltante (self-healing).
+
 - Cadena expediente↔factura **transitiva vía LedgerEntry** (opción A de `00` §3, sin migración).
   Regla de diseño: el agente SIEMPRE liga `ledgerEntryId` al emitir.
 - *"Facturada"* es señal COMPUESTA: `hasFactura ∧ (cfdi activo ∨ satCfdiUuid vigente)` —
@@ -235,6 +247,13 @@ Booking ←(bookingId @unique)─ LedgerEntry ─(ledgerEntryId?)→ CfdiEmitted
    legales usar UNIFIED, no los docs corregidos.
 4. dr-prueba SÍ puede timbrar (csdUploaded + facturamaStatus active, verificado 2026-07-11) —
    en SANDBOX (§1): la validación en vivo de F2 timbra de prueba, no documentos reales.
+5. **Watch item post-Fix-A (2026-07-19, estado hoy INALCANZABLE):** con el uuid de plataforma
+   estampado en el entry, un CFDI de plataforma en `cancellation_pending` haría que
+   `facturaVerdict` (leg 2) lo etiquete "externa_sat" durante la ventana pendiente (leg 1
+   solo ve activos; el uuid solo se limpia en cancelación DEFINITIVA). Hoy no ocurre: el
+   sandbox no puede cancelar CFDIs de CSD real (ver PRÓXIMOS PASOS #1 del REFRESCO). Fix de
+   una línea si muerde en producción: en leg 2, saltar a leg 3 cuando el uuid pertenece a un
+   CFDI de plataforma del mismo entry.
 
 ## 9. Qué implica para el agente (el mapa a tools/conocimiento)
 

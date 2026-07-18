@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { redirect, useSearchParams } from "next/navigation";
 import {
@@ -165,6 +165,9 @@ function FacturacionPageInner() {
   // (N conceptos with flags; receiver derived FRESH server-side). Wins over
   // ledgerData when both are present (09-DISENO §7.3).
   const draftIdParam = parseInt(searchParams.get("draft") || "0") || 0;
+  // Money-model #5: ?patient=<id> (expediente "Nueva factura" button) preselects
+  // the receptor dropdown — receiver is derived server-side, nothing else prefilled.
+  const patientParam = searchParams.get("patient") || "";
   const [draftData, setDraftData] = useState<DraftPrefill | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   useEffect(() => {
@@ -215,9 +218,9 @@ function FacturacionPageInner() {
   // (a pending draft link also lands on "nueva" — F2c)
   useEffect(() => {
     if (profile && csdStatus?.csdUploaded && csdStatus.facturamaStatus === "active") {
-      setActiveTab(ledgerData || draftIdParam ? "nueva" : "facturas");
+      setActiveTab(ledgerData || draftIdParam || patientParam ? "nueva" : "facturas");
     }
-  }, [profile, csdStatus, ledgerData, draftIdParam]);
+  }, [profile, csdStatus, ledgerData, draftIdParam, patientParam]);
 
   if (loading) {
     return (
@@ -311,6 +314,7 @@ function FacturacionPageInner() {
             ledgerData={draftData ? null : ledgerData}
             draftData={draftData}
             draftError={draftError}
+            preselectPatientId={patientParam || (draftData?.paciente?.id ?? null)}
           />
         )
       )}
@@ -1325,14 +1329,24 @@ const LEDGER_TO_SAT_FORMA: Record<string, string> = {
   deposito: "03",
 };
 
+interface ReceptorOption {
+  patientId: string;
+  nombre: string;
+  rfc: string | null;
+  receiver: { rfc: string; name: string; cfdiUse: string; fiscalRegime: string; taxZipCode: string } | null;
+  esPublicoGeneral: boolean;
+  camposFaltantes: string[];
+}
+
 function NuevaFacturaTab({
-  profile, onCreated, ledgerData, draftData, draftError
+  profile, onCreated, ledgerData, draftData, draftError, preselectPatientId
 }: {
   profile: FiscalProfile;
   onCreated: () => void;
   ledgerData?: LedgerPrefill | null;
   draftData?: DraftPrefill | null;
   draftError?: string | null;
+  preselectPatientId?: string | null;
 }) {
   // F2c: a draft hydrates everything (receiver server-derived + N items with
   // flags); the query-param prefill stays as the single-concept legacy path.
@@ -1370,6 +1384,68 @@ function NuevaFacturaTab({
   const [usosCfdi, setUsosCfdi] = useState<CatalogItem[]>([]);
   const [formasPago, setFormasPago] = useState<CatalogItem[]>([]);
   const [regimenes, setRegimenes] = useState<CatalogItem[]>([]);
+
+  // Receptor dropdown (money-model #5): patients with fiscal data, receiver
+  // derived SERVER-SIDE (no 4th copy of the derivation). Selection also feeds
+  // patientId to the post-emission income offer.
+  const [receptores, setReceptores] = useState<ReceptorOption[]>([]);
+  const [receptorQuery, setReceptorQuery] = useState("");
+  const [receptorOpen, setReceptorOpen] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; nombre: string } | null>(
+    draftData?.paciente ?? null
+  );
+  const [receptorWarning, setReceptorWarning] = useState<string | null>(null);
+
+  // Post-emission income offer (money-model #5): set when a factura stamped
+  // without a linked ledger entry — the dialog registers the 1:1 income.
+  const [incomeOffer, setIncomeOffer] = useState<null | {
+    cfdiId: number; folio: string | null; uuid: string; total: number;
+    metodoPago: string; nombreReceptor: string; issuedDate: string; patientId: string | null;
+  }>(null);
+
+  useEffect(() => {
+    authFetch(`${API_URL}/api/facturacion/receptores`)
+      .then(r => r.json())
+      .then(body => { if (Array.isArray(body.data)) setReceptores(body.data); })
+      .catch(() => {}); // dropdown is an accelerator — manual capture always works
+  }, []);
+
+  const applyReceptor = (opt: ReceptorOption) => {
+    setReceptorOpen(false);
+    setReceptorQuery("");
+    if (opt.receiver) {
+      setReceiver(opt.receiver);
+      setSelectedPatient({ id: opt.patientId, nombre: opt.nombre });
+      setReceptorWarning(opt.esPublicoGeneral
+        ? "Este expediente tiene RFC genérico — se factura como PÚBLICO EN GENERAL (S01, no deducible)."
+        : null);
+    } else {
+      setSelectedPatient(null);
+      setReceptorWarning(`El expediente de ${opt.nombre} no tiene datos fiscales completos (faltan: ${opt.camposFaltantes.join(", ")}) — captúralos en su expediente o llena el receptor a mano.`);
+    }
+  };
+
+  // ?patient= / draft preselect: apply once when the list arrives
+  const preselectAppliedRef = useRef(false);
+  useEffect(() => {
+    if (preselectAppliedRef.current || !preselectPatientId || receptores.length === 0) return;
+    const opt = receptores.find(r => r.patientId === preselectPatientId);
+    if (opt) {
+      preselectAppliedRef.current = true;
+      // A draft already carries its server-derived receiver — don't overwrite,
+      // just register the selection for the income offer.
+      if (draftData?.receiver) {
+        setSelectedPatient({ id: opt.patientId, nombre: opt.nombre });
+      } else {
+        applyReceptor(opt);
+      }
+    }
+  }, [preselectPatientId, receptores, draftData]);
+
+  const filteredReceptores = receptorQuery.trim().length > 0
+    ? receptores.filter(r =>
+        `${r.nombre} ${r.rfc || ""}`.toLowerCase().includes(receptorQuery.trim().toLowerCase()))
+    : receptores;
 
   useEffect(() => {
     Promise.all([
@@ -1559,6 +1635,23 @@ function NuevaFacturaTab({
       }
 
       const { data } = await res.json();
+      // Money-model #5: a factura emitted WITHOUT a linked income leaves real
+      // money out of the ledger — offer to register the 1:1 matching entry.
+      const hadLedgerLink = !!(payload.ledgerEntryId);
+      if (!hadLedgerLink) {
+        setIncomeOffer({
+          cfdiId: data.id,
+          folio: data.folio || null,
+          uuid: data.uuid,
+          total: parseFloat(String(data.total)),
+          metodoPago: data.metodoPago || "PUE",
+          nombreReceptor: data.nombreReceptor || receiver.name,
+          // MX day, not UTC day — an evening emission is "today" in Mexico City
+          issuedDate: new Date(data.issuedAt || Date.now()).toLocaleDateString("sv-SE", { timeZone: "America/Mexico_City" }),
+          patientId: selectedPatient?.id ?? null,
+        });
+        return; // onCreated() fires when the offer dialog closes
+      }
       alert(`Factura emitida exitosamente!\nUUID: ${data.uuid}`);
       onCreated();
     } catch (err: any) {
@@ -1581,6 +1674,13 @@ function NuevaFacturaTab({
   const totals = calculateTotals();
 
   return (
+    <>
+    {incomeOffer && (
+      <IncomeOfferDialog
+        offer={incomeOffer}
+        onClose={() => { setIncomeOffer(null); onCreated(); }}
+      />
+    )}
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* F2c: draft context — surfaced BEFORE submit (the 409 is the net) */}
       {draftError && (
@@ -1615,6 +1715,65 @@ function NuevaFacturaTab({
       {/* Receiver */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Datos del Receptor</h3>
+
+        {/* Patient picker: autofills the receptor from the expediente's fiscal
+            data (server-derived — same recipe as the drafts). Manual capture
+            below always remains available. */}
+        {receptores.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Buscar paciente (expedientes con datos fiscales)</label>
+            {selectedPatient ? (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+                  {selectedPatient.nombre}
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedPatient(null); setReceptorWarning(null); }}
+                    className="text-blue-500 hover:text-blue-700"
+                    title="Quitar selección (los datos capturados se conservan)"
+                  >
+                    ×
+                  </button>
+                </span>
+                <span className="text-xs text-gray-400">Los campos de abajo siguen siendo editables.</span>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  value={receptorQuery}
+                  onChange={e => { setReceptorQuery(e.target.value); setReceptorOpen(true); }}
+                  onFocus={() => setReceptorOpen(true)}
+                  onBlur={() => setTimeout(() => setReceptorOpen(false), 150)}
+                  placeholder="Nombre o RFC del paciente…"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                {receptorOpen && filteredReceptores.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg">
+                    {filteredReceptores.slice(0, 12).map(opt => (
+                      <button
+                        key={opt.patientId}
+                        type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => applyReceptor(opt)}
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm"
+                      >
+                        <span className="text-gray-900">{opt.nombre}</span>
+                        <span className="ml-2 text-xs text-gray-400">
+                          {opt.rfc || "sin RFC"}
+                          {!opt.receiver && " · datos incompletos"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {receptorWarning && (
+              <p className="mt-1.5 text-xs text-amber-700">⚠️ {receptorWarning}</p>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -2033,6 +2192,134 @@ function NuevaFacturaTab({
         Al emitir, se timbra el CFDI ante el SAT. Esta acción no se puede deshacer (solo cancelar).
       </p>
     </form>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// INCOME OFFER DIALOG (money-model #5)
+// A factura emitted without a linked ledger entry (the "extras" pattern:
+// insumos/quirófano/resto invoiced apart from the cita) leaves real income out
+// of the ledger. This registers the 1:1 matching entry — amount = the CFDI's
+// total, born facturada with the uuid. Declining is safe: a future SAT sync
+// backfills the missing income (self-healing).
+// ---------------------------------------------------------------------------
+
+function IncomeOfferDialog({
+  offer, onClose,
+}: {
+  offer: {
+    cfdiId: number; folio: string | null; uuid: string; total: number;
+    metodoPago: string; nombreReceptor: string; issuedDate: string; patientId: string | null;
+  };
+  onClose: () => void;
+}) {
+  const [concept, setConcept] = useState(
+    `Factura${offer.folio ? ` folio ${offer.folio}` : ""} — ${offer.nombreReceptor}`
+  );
+  const [transactionDate, setTransactionDate] = useState(offer.issuedDate);
+  // PUE = paid on emission (typical); PPD = the money comes later
+  const [porCobrar, setPorCobrar] = useState(offer.metodoPago === "PPD");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRegister = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${offer.cfdiId}/register-income`, {
+        method: "POST",
+        body: JSON.stringify({
+          concept,
+          transactionDate,
+          porCobrar,
+          ...(offer.patientId ? { patientId: offer.patientId } : {}),
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Error al registrar el ingreso");
+      onClose();
+    } catch (err: any) {
+      setError(err.message);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">✓ Factura emitida</h3>
+          <p className="text-xs text-gray-400 break-all mt-0.5">UUID: {offer.uuid}</p>
+        </div>
+
+        <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-900">
+          Esta factura de <strong>${offer.total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</strong> no
+          está ligada a ningún ingreso — tu flujo de dinero no la refleja todavía.
+          ¿Registrar el ingreso correspondiente?
+        </div>
+
+        {error && (
+          <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Concepto</label>
+            <input
+              type="text"
+              value={concept}
+              onChange={e => setConcept(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+              <input
+                type="date"
+                value={transactionDate}
+                onChange={e => setTransactionDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <div className="flex flex-col gap-1 pt-1">
+                <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                  <input type="radio" name="incomeStatus" checked={!porCobrar} onChange={() => setPorCobrar(false)} className="w-4 h-4 text-blue-600" />
+                  Ya cobrado
+                </label>
+                <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                  <input type="radio" name="incomeStatus" checked={porCobrar} onChange={() => setPorCobrar(true)} className="w-4 h-4 text-blue-600" />
+                  Por cobrar
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+          >
+            Omitir
+          </button>
+          <button
+            type="button"
+            onClick={handleRegister}
+            disabled={saving || !concept.trim() || !transactionDate}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            Registrar ingreso
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
