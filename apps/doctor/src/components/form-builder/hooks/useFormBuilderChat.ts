@@ -21,15 +21,17 @@ interface ApiConversationMessage {
   content: string;
 }
 
+type ApiAction =
+  | { type: 'set_fields'; fields: Omit<FieldDefinition, 'id'>[] }
+  | { type: 'update_fields'; patches: { name: string; changes: Partial<FieldDefinition> }[] }
+  | { type: 'remove_fields'; names: string[] }
+  | { type: 'set_metadata'; metadata: { name?: string; description?: string } };
+
 interface ApiResponse {
   success: boolean;
   data: {
     message: string;
-    action: 'set_fields' | 'update_fields' | 'remove_fields' | 'set_metadata' | 'no_change';
-    fields?: Omit<FieldDefinition, 'id'>[];
-    fieldUpdates?: { name: string; updates: Partial<FieldDefinition> }[];
-    removeFieldNames?: string[];
-    metadataUpdates?: { name?: string; description?: string };
+    actions: ApiAction[];
   };
   error?: { code: string; message: string };
 }
@@ -55,7 +57,7 @@ function generateFieldId(): string {
 // -----------------------------------------------------------------------------
 
 export function useFormBuilderChat() {
-  const { state, setFields, updateField, removeField, setMetadata } = useFormBuilder();
+  const { state, setFields, setMetadata } = useFormBuilder();
 
   const [messages, setMessages] = useState<FormBuilderChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,6 +67,12 @@ export function useFormBuilderChat() {
   const conversationRef = useRef<ApiConversationMessage[]>([]);
   const sendMessageRef = useRef<(text: string) => Promise<void>>(undefined);
   const shouldAutoSendRef = useRef(false);
+
+  // Latest canvas fields — the apply step reads THIS, not the send-time
+  // closure, so a hand-edit made while the model call is in flight isn't
+  // clobbered by update/remove patches (set_fields still replaces wholesale).
+  const fieldsRef = useRef<FieldDefinition[]>(state.fields);
+  fieldsRef.current = state.fields;
 
   // Voice recording
   const voice = useVoiceRecording({ maxDuration: 120 });
@@ -116,80 +124,105 @@ export function useFormBuilderChat() {
           return;
         }
 
-        const { message, action, fields, fieldUpdates, removeFieldNames, metadataUpdates } = json.data;
+        const { message, actions } = json.data;
 
-        // Apply action to canvas
-        let actionSummary: string | undefined;
+        // Apply all actions against ONE working copy (a turn can carry several
+        // actions; matching against render-time state after a set_fields in the
+        // same turn would use a stale snapshot). One setFields dispatch at the end.
+        let working: FieldDefinition[] = [...fieldsRef.current];
+        let fieldsChanged = false;
+        const summaries: string[] = [];
+        const warnings: string[] = [];
 
-        switch (action) {
-          case 'set_fields': {
-            if (fields && fields.length > 0) {
-              const withIds: FieldDefinition[] = fields.map((f, i) => ({
-                ...f,
-                id: generateFieldId(),
-                order: i,
-              })) as FieldDefinition[];
-              setFields(withIds);
-              actionSummary = `Se aplicaron ${withIds.length} campo${withIds.length !== 1 ? 's' : ''}`;
+        for (const act of actions || []) {
+          switch (act.type) {
+            case 'set_fields': {
+              if (act.fields.length > 0) {
+                // Preserve ids of surviving fields (name match) so selection
+                // and DB-born ids on /edit aren't discarded on every AI pass.
+                const withIds: FieldDefinition[] = act.fields.map((f, i) => ({
+                  ...f,
+                  id: working.find((w) => w.name === f.name)?.id ?? generateFieldId(),
+                  order: i,
+                })) as FieldDefinition[];
+                working = withIds;
+                fieldsChanged = true;
+                summaries.push(`Se aplicaron ${withIds.length} campo${withIds.length !== 1 ? 's' : ''}`);
+              }
+              break;
             }
-            break;
-          }
 
-          case 'update_fields': {
-            if (fieldUpdates && fieldUpdates.length > 0) {
+            case 'update_fields': {
               let updatedCount = 0;
-              for (const patch of fieldUpdates) {
-                const existing = state.fields.find((f) => f.name === patch.name);
-                if (existing) {
-                  updateField(existing.id, patch.updates);
-                  updatedCount++;
+              for (const patch of act.patches) {
+                const idx = working.findIndex((f) => f.name === patch.name);
+                if (idx === -1) {
+                  warnings.push(`no encontré el campo "${patch.name}"`);
+                  continue;
                 }
+                const { id: _ignored, ...changes } = patch.changes as Partial<FieldDefinition>;
+                if (Object.keys(changes).length === 0) continue;
+                working[idx] = { ...working[idx], ...changes, id: working[idx].id };
+                updatedCount++;
+                fieldsChanged = true;
               }
               if (updatedCount > 0) {
-                actionSummary = `Se actualizaron ${updatedCount} campo${updatedCount !== 1 ? 's' : ''}`;
+                summaries.push(`Se actualizaron ${updatedCount} campo${updatedCount !== 1 ? 's' : ''}`);
               }
+              break;
             }
-            break;
-          }
 
-          case 'remove_fields': {
-            if (removeFieldNames && removeFieldNames.length > 0) {
+            case 'remove_fields': {
               let removedCount = 0;
-              for (const name of removeFieldNames) {
-                const existing = state.fields.find((f) => f.name === name);
-                if (existing) {
-                  removeField(existing.id);
-                  removedCount++;
+              for (const name of act.names) {
+                const idx = working.findIndex((f) => f.name === name);
+                if (idx === -1) {
+                  warnings.push(`no encontré el campo "${name}"`);
+                  continue;
                 }
+                working.splice(idx, 1);
+                removedCount++;
+                fieldsChanged = true;
               }
               if (removedCount > 0) {
-                actionSummary = `Se eliminaron ${removedCount} campo${removedCount !== 1 ? 's' : ''}`;
+                summaries.push(`Se eliminaron ${removedCount} campo${removedCount !== 1 ? 's' : ''}`);
               }
+              break;
             }
-            break;
-          }
 
-          case 'set_metadata': {
-            if (metadataUpdates) {
-              setMetadata(metadataUpdates);
-              actionSummary = 'Se actualizó la plantilla';
+            case 'set_metadata': {
+              setMetadata(act.metadata);
+              summaries.push('Se actualizó la plantilla');
+              break;
             }
-            break;
           }
-
-          // no_change: just show the message
         }
 
-        // Add assistant message to UI
+        if (fieldsChanged) {
+          setFields(working); // reducer reindexes order
+        }
+
+        // Honesty: if the canvas didn't move, say so visibly instead of letting
+        // the model's prose claim success.
+        let content = message;
+        if (warnings.length > 0) {
+          content += `\n\n⚠️ No apliqué todo: ${warnings.join('; ')}.`;
+        }
+        if ((actions?.length ?? 0) > 0 && summaries.length === 0) {
+          content += '\n\n⚠️ No se aplicó ningún cambio en el canvas.';
+        }
+
         const assistantMsg: FormBuilderChatMessage = {
           id: generateId(),
           role: 'assistant',
-          content: message,
+          content,
           timestamp: new Date(),
-          actionSummary,
+          actionSummary: summaries.length > 0 ? summaries.join(' · ') : undefined,
         };
         setMessages((prev) => [...prev, assistantMsg]);
-        conversationRef.current.push({ role: 'assistant', content: message });
+        // History carries the warning-annotated content so the model never
+        // believes a claim the canvas contradicts on the next turn.
+        conversationRef.current.push({ role: 'assistant', content });
       } catch (err) {
         console.error('[useFormBuilderChat] Error:', err);
         const assistantMsg: FormBuilderChatMessage = {
@@ -204,7 +237,7 @@ export function useFormBuilderChat() {
         setIsLoading(false);
       }
     },
-    [isLoading, state.fields, state.metadata, setFields, updateField, removeField, setMetadata]
+    [isLoading, state.fields, state.metadata, setFields, setMetadata]
   );
 
   // Keep a ref to latest sendMessage so processVoiceMessage can call it

@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { validateCustomFields } from '@/lib/custom-template-validation';
 
 // GET - Get single template
 export async function GET(
@@ -108,6 +109,24 @@ export async function PUT(
           isDefault: false,
         },
       });
+    }
+
+    // Validate customFields when provided (parity with POST — this hole let
+    // the edit page save any shape unvalidated)
+    if (body.customFields !== undefined) {
+      if (!Array.isArray(body.customFields)) {
+        return NextResponse.json(
+          { success: false, error: 'customFields must be an array' },
+          { status: 400 }
+        );
+      }
+      const validationError = validateCustomFields(body.customFields);
+      if (validationError) {
+        return NextResponse.json(
+          { success: false, error: validationError },
+          { status: 400 }
+        );
+      }
     }
 
     // Build update data (only include provided fields)

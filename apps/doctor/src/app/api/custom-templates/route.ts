@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
-import type { FieldDefinition } from '@/types/custom-encounter';
+import { validateCustomFields } from '@/lib/custom-template-validation';
 
 // GET - List custom templates for authenticated doctor
 export async function GET(request: NextRequest) {
@@ -145,77 +145,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Validate custom fields array structure
- */
-function validateCustomFields(fields: any[]): string | null {
-  if (fields.length === 0) {
-    return 'At least one field is required';
-  }
-
-  if (fields.length > 50) {
-    return 'Maximum 50 fields allowed';
-  }
-
-  const fieldNames = new Set<string>();
-
-  for (let i = 0; i < fields.length; i++) {
-    const field = fields[i];
-
-    // Check required properties
-    if (!field.id || typeof field.id !== 'string') {
-      return `Field at index ${i}: id is required`;
-    }
-
-    if (!field.name || typeof field.name !== 'string') {
-      return `Field at index ${i}: name is required`;
-    }
-
-    // Check for duplicate names
-    if (fieldNames.has(field.name)) {
-      return `Duplicate field name: ${field.name}`;
-    }
-    fieldNames.add(field.name);
-
-    // Validate field name format (camelCase)
-    if (!/^[a-z][a-zA-Z0-9]*$/.test(field.name)) {
-      return `Field "${field.name}": name must be camelCase (start with lowercase, no spaces)`;
-    }
-
-    if (!field.label || typeof field.label !== 'string') {
-      return `Field "${field.name}": label is required`;
-    }
-
-    if (!field.type) {
-      return `Field "${field.name}": type is required`;
-    }
-
-    const validTypes = ['text', 'textarea', 'number', 'date', 'time', 'dropdown', 'radio', 'checkbox', 'file'];
-    if (!validTypes.includes(field.type)) {
-      return `Field "${field.name}": invalid type "${field.type}"`;
-    }
-
-    if (typeof field.required !== 'boolean') {
-      return `Field "${field.name}": required must be boolean`;
-    }
-
-    if (typeof field.order !== 'number') {
-      return `Field "${field.name}": order must be number`;
-    }
-
-    // Validate type-specific requirements
-    if ((field.type === 'dropdown' || field.type === 'radio') && !field.options) {
-      return `Field "${field.name}": options array required for ${field.type}`;
-    }
-
-    if (field.options && !Array.isArray(field.options)) {
-      return `Field "${field.name}": options must be an array`;
-    }
-
-    if (field.options && field.options.length === 0) {
-      return `Field "${field.name}": options array cannot be empty`;
-    }
-  }
-
-  return null;
-}
