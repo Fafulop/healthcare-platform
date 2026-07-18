@@ -402,21 +402,79 @@ export function usePrescriptionDetail() {
       );
       if (customContent.length > 0) {
         drawSectionTitle((prescription.template?.name || 'PRESCRIPCIÓN').toUpperCase());
-        customContent.forEach((item) => {
-          checkPage(10);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(8);
-          doc.setTextColor(cr, cg, cb);
-          doc.text(item.label, margin, y);
-          y += 4.5;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          doc.setTextColor(30, 30, 30);
-          const valueLines = doc.splitTextToSize(item.value, colW - 4);
-          checkPage(valueLines.length * 4.5 + 3);
-          doc.text(valueLines, margin + 2, y);
-          y += valueLines.length * 4.5 + 3;
-        });
+
+        // Replicate the template's on-screen layout: half/third fields share a
+        // row (packed left-to-right until the width fractions fill it), and
+        // section changes get a light subtitle (only when >1 section exists).
+        const WIDTH_FRACTION = { full: 1, half: 0.5, third: 1 / 3 } as const;
+        const gutter = 4;
+        const sections = new Set(customContent.map((c) => c.section || 'General'));
+        const showSectionTitles = sections.size > 1;
+
+        type Measured = { label: string[]; value: string[]; x: number; w: number; h: number };
+
+        let currentSection: string | undefined;
+        let idx = 0;
+        while (idx < customContent.length) {
+          const item = customContent[idx];
+          const itemSection = item.section || 'General';
+          if (showSectionTitles && itemSection !== currentSection) {
+            currentSection = itemSection;
+            checkPage(9);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor(cr, cg, cb);
+            doc.text(currentSection, margin, y);
+            doc.setDrawColor(220, 220, 220);
+            doc.line(margin, y + 1.5, margin + colW, y + 1.5);
+            y += 6;
+          }
+
+          // Pack a row: consecutive items of the SAME section while fractions fit
+          const row: typeof customContent = [];
+          let used = 0;
+          while (idx < customContent.length) {
+            const next = customContent[idx];
+            if ((next.section || 'General') !== itemSection) break;
+            const frac = WIDTH_FRACTION[next.width] ?? 1;
+            if (row.length > 0 && used + frac > 1.001) break;
+            row.push(next);
+            used += frac;
+            idx++;
+          }
+
+          // Measure columns (label + wrapped value), row height = tallest
+          let x = margin;
+          const cols: Measured[] = row.map((c) => {
+            const frac = WIDTH_FRACTION[c.width] ?? 1;
+            const w = frac * colW - (frac < 1 ? gutter : 0);
+            // Measure with the same font used to draw (bold runs wider)
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            const label = doc.splitTextToSize(c.label, w) as string[];
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            const value = doc.splitTextToSize(c.value, w - 2) as string[];
+            const h = label.length * 3.8 + value.length * 4.5 + 2;
+            const col = { label, value, x, w, h };
+            x += frac * colW;
+            return col;
+          });
+          const rowH = Math.max(...cols.map((c) => c.h));
+
+          checkPage(rowH + 2);
+          for (const col of cols) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(cr, cg, cb);
+            doc.text(col.label, col.x, y);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(30, 30, 30);
+            doc.text(col.value, col.x + 1, y + col.label.length * 3.8 + 3.2);
+          }
+          y += rowH + 3;
+        }
       }
 
       // ── MEDICATIONS ────────────────────────────────────────────────────────

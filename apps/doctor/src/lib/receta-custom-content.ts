@@ -13,6 +13,9 @@
 export interface RecetaContentItem {
   label: string;
   value: string;
+  /** Layout hints from the template (PDF replicates the on-screen format). */
+  width: 'full' | 'half' | 'third';
+  section?: string;
 }
 
 interface TemplateFieldLike {
@@ -21,6 +24,8 @@ interface TemplateFieldLike {
   labelEs?: string;
   order?: number;
   showInPdf?: boolean;
+  width?: 'full' | 'half' | 'third';
+  section?: string;
 }
 
 function formatValue(v: unknown): string {
@@ -49,10 +54,12 @@ export function resolveRecetaCustomContent(
       .map((f) => ({
         label: f.labelEs || f.label || f.name,
         value: formatValue(customData[f.name]),
+        width: f.width === 'half' || f.width === 'third' ? f.width : 'full' as const,
+        section: f.section || undefined,
       }));
   }
 
   return Object.entries(customData)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => ({ label: k, value: formatValue(v) }));
+    .map(([k, v]) => ({ label: k, value: formatValue(v), width: 'full' as const }));
 }
