@@ -30,6 +30,7 @@ export default function NewPrescriptionPage() {
     clinicalNotes, setClinicalNotes,
     doctorFullName, setDoctorFullName,
     doctorLicense, setDoctorLicense,
+    doctorCredentials,
     expiresAt, setExpiresAt,
     medications, setMedications,
     imagingStudies, setImagingStudies,
@@ -228,39 +229,67 @@ export default function NewPrescriptionPage() {
           </div>
         </div>
 
-        {/* Doctor Info */}
+        {/* Doctor Info — from the saved receta identity when configured */}
         <div className="bg-white rounded-lg shadow p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-900">Información del Doctor</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre Completo *
-              </label>
-              <input
-                type="text"
-                value={doctorFullName}
-                onChange={(e) => setDoctorFullName(e.target.value)}
-                placeholder="Dr. Juan Pérez"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
+          {doctorCredentials.length > 0 ? (
+            <div className="rounded-md bg-gray-50 border border-gray-200 px-4 py-3">
+              <p className="font-medium text-gray-900">{doctorFullName}</p>
+              <ul className="mt-1 space-y-0.5">
+                {doctorCredentials.map((c, i) => (
+                  <li key={i} className="text-sm text-gray-600">
+                    {c.titulo} — Céd. {c.cedula}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-gray-400">
+                Estos datos vienen de tu perfil y aparecerán en la receta y su PDF.{' '}
+                <Link href="/dashboard/mi-perfil" className="text-blue-600 hover:underline">
+                  Editar en Mi Perfil
+                </Link>
+              </p>
             </div>
+          ) : (
+            <>
+              <p className="text-xs text-amber-700">
+                💡 Guarda tu nombre, cédulas y firma una sola vez en{' '}
+                <Link href="/dashboard/mi-perfil" className="underline">
+                  Mi Perfil → Receta
+                </Link>{' '}
+                y este bloque se llenará automáticamente.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre Completo *
+                  </label>
+                  <input
+                    type="text"
+                    value={doctorFullName}
+                    onChange={(e) => setDoctorFullName(e.target.value)}
+                    placeholder="Dr. Juan Pérez"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cédula Profesional *
-              </label>
-              <input
-                type="text"
-                value={doctorLicense}
-                onChange={(e) => setDoctorLicense(e.target.value)}
-                placeholder="1234567"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-          </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cédula Profesional *
+                  </label>
+                  <input
+                    type="text"
+                    value={doctorLicense}
+                    onChange={(e) => setDoctorLicense(e.target.value)}
+                    placeholder="1234567"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Template mode: the template's fields ARE the receta content */}

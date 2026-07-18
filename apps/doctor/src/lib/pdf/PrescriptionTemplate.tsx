@@ -88,6 +88,7 @@ interface PrescriptionPDFProps {
     doctorFullName: string;
     doctorLicense: string;
     doctorSignature?: string | null;
+    doctorCredentials?: { titulo: string; cedula: string }[] | null;
     diagnosis?: string | null;
     clinicalNotes?: string | null;
     patient: {
@@ -124,6 +125,10 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
   customContent
 }) => {
   const patientAge = calculateAge(prescription.patient.dateOfBirth);
+  // Credentials list (titulo + cédula each); fallback: legacy single cédula
+  const credentialLines = prescription.doctorCredentials?.length
+    ? prescription.doctorCredentials.map((c) => `${c.titulo} — Céd. ${c.cedula}`)
+    : [`Cédula Profesional: ${prescription.doctorLicense}`];
 
   return (
     <Document>
@@ -134,9 +139,9 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
           <Text style={styles.doctorInfo}>
             Dr. {prescription.doctorFullName}
           </Text>
-          <Text style={styles.doctorInfo}>
-            Cédula Profesional: {prescription.doctorLicense}
-          </Text>
+          {credentialLines.map((line, i) => (
+            <Text key={i} style={styles.doctorInfo}>{line}</Text>
+          ))}
           {clinicInfo.address && (
             <Text style={styles.doctorInfo}>{clinicInfo.address}</Text>
           )}
@@ -246,9 +251,9 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
             <Text style={{ fontSize: 10, marginTop: 5 }}>
               Dr. {prescription.doctorFullName}
             </Text>
-            <Text style={{ fontSize: 9, color: '#666' }}>
-              Cédula: {prescription.doctorLicense}
-            </Text>
+            {credentialLines.map((line, i) => (
+              <Text key={i} style={{ fontSize: 8, color: '#666' }}>{line}</Text>
+            ))}
           </View>
 
           <Text style={styles.timestamp}>

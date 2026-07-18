@@ -9,6 +9,8 @@ export interface PrescriptionDetails {
   clinicalNotes?: string;
   doctorFullName: string;
   doctorLicense: string;
+  doctorSignature?: string | null;
+  doctorCredentials?: { titulo: string; cedula: string }[] | null;
   expiresAt?: string;
   issuedAt?: string;
   issuedBy?: string;

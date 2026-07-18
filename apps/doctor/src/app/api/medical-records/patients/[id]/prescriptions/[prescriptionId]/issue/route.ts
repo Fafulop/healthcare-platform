@@ -67,6 +67,18 @@ export async function POST(
       );
     }
 
+    // The real firma must always reach the receta: fall back to the signature
+    // saved in the profile's receta settings (mi-perfil → Receta) when the
+    // prescription doesn't carry one of its own.
+    let doctorSignature = body.doctorSignature || existingPrescription.doctorSignature;
+    if (!doctorSignature) {
+      const doctorProfile = await prisma.doctor.findUnique({
+        where: { id: doctorId },
+        select: { prescriptionSignatureUrl: true },
+      });
+      doctorSignature = doctorProfile?.prescriptionSignatureUrl || null;
+    }
+
     // Issue the prescription
     const prescription = await prisma.prescription.update({
       where: { id: prescriptionId },
@@ -74,7 +86,7 @@ export async function POST(
         status: 'issued',
         issuedBy: userId,
         issuedAt: new Date(),
-        doctorSignature: body.doctorSignature || existingPrescription.doctorSignature,
+        doctorSignature,
       },
       include: {
         medications: {

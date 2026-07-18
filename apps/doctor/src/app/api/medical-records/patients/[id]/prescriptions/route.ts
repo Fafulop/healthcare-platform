@@ -3,6 +3,7 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logPrescriptionCreated } from '@/lib/activity-logger';
 import { handleApiError } from '@/lib/api-error-handler';
+import { validateCredentials } from '@/lib/prescription-credentials';
 
 /**
  * GET /api/medical-records/patients/[id]/prescriptions
@@ -156,6 +157,18 @@ export async function POST(
       }
     }
 
+    // Doctor credentials snapshot ([{titulo, cedula}] from the profile's
+    // receta identity) — copied at creation for legal integrity, same as
+    // doctorFullName/doctorLicense.
+    let doctorCredentials: { titulo: string; cedula: string }[] | undefined;
+    if (body.doctorCredentials !== undefined) {
+      const result = validateCredentials(body.doctorCredentials);
+      if (result.error) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+      doctorCredentials = result.credentials;
+    }
+
     // Custom receta template: the template replaces the fixed form, so the
     // receta stores templateId + customData instead of medication rows.
     if (body.templateId) {
@@ -210,6 +223,7 @@ export async function POST(
         status: 'draft',
         doctorFullName: body.doctorFullName,
         doctorLicense: body.doctorLicense,
+        doctorCredentials: doctorCredentials && doctorCredentials.length > 0 ? doctorCredentials : undefined,
         diagnosis: body.diagnosis || null,
         clinicalNotes: body.clinicalNotes || null,
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,

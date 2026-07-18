@@ -162,6 +162,9 @@ model Doctor {
   prescriptionLogoUrl       String?   @map("prescription_logo_url") @db.VarChar(500)
   prescriptionSignatureUrl  String?   @map("prescription_signature_url") @db.VarChar(500)
   prescriptionColorScheme   String?   @default("blue") @map("prescription_color_scheme") @db.VarChar(50)
+  // Credentials shown on every receta: [{ titulo, cedula }] — médico general +
+  // especialidad(es)/subespecialidad, each with its own cédula
+  prescriptionCredentials   Json?     @map("prescription_credentials")
 
   // Encounter PDF print settings (for pre-printed letterhead paper)
   pdfSettings               Json?     @map("pdf_settings")
@@ -1996,6 +1999,7 @@ model Prescription {
   doctorFullName  String   @map("doctor_full_name") @db.VarChar(255)
   doctorLicense   String   @map("doctor_license") @db.VarChar(100)
   doctorSignature String?  @map("doctor_signature") @db.Text  // URL to signature image
+  doctorCredentials Json?  @map("doctor_credentials")  // [{ titulo, cedula }] snapshot at creation
 
   // Clinical context
   diagnosis       String?  @db.Text

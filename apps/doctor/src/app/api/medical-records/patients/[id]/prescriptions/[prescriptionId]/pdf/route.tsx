@@ -127,6 +127,8 @@ export async function GET(
         prescription={{
           ...prescription,
           prescriptionDate: prescription.prescriptionDate.toISOString(),
+          // Prisma Json → typed [{titulo, cedula}] (validated at creation)
+          doctorCredentials: (prescription.doctorCredentials as { titulo: string; cedula: string }[] | null) ?? null,
           patient: {
             ...prescription.patient,
             dateOfBirth: prescription.patient.dateOfBirth.toISOString(),

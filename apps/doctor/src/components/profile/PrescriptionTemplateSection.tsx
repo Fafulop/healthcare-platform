@@ -1,8 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, X, Save, Check } from 'lucide-react';
+import { Loader2, X, Save, Check, Plus } from 'lucide-react';
 import { UploadButton } from '@/lib/uploadthing-components';
+
+interface Credential {
+  titulo: string;
+  cedula: string;
+}
 
 const COLOR_SCHEMES = [
   { id: 'blue',   label: 'Azul médico',        hex: '#1e40af' },
@@ -21,6 +26,9 @@ export default function PrescriptionTemplateSection() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [colorScheme, setColorScheme] = useState('blue');
+  const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [doctorName, setDoctorName] = useState('');
+  const [specialtyHint, setSpecialtyHint] = useState('');
 
   useEffect(() => {
     fetch('/api/prescription-template')
@@ -30,20 +38,53 @@ export default function PrescriptionTemplateSection() {
           setLogoUrl(data.data.prescriptionLogoUrl || null);
           setSignatureUrl(data.data.prescriptionSignatureUrl || null);
           setColorScheme(data.data.prescriptionColorScheme || 'blue');
+          setDoctorName(data.data.doctorFullName || '');
+          const specialties = [data.data.primarySpecialty, ...(data.data.subspecialties || [])].filter(Boolean);
+          setSpecialtyHint(specialties.join(' · '));
+          const saved = data.data.prescriptionCredentials;
+          if (Array.isArray(saved) && saved.length > 0) {
+            setCredentials(saved);
+          } else {
+            // Seed a starting point from the public profile so the doctor only
+            // fills in cédula numbers instead of building the list from zero.
+            const seed: Credential[] = [
+              { titulo: 'Médico Cirujano', cedula: data.data.cedulaProfesional || '' },
+            ];
+            if (data.data.primarySpecialty) {
+              seed.push({ titulo: `Especialidad en ${data.data.primarySpecialty}`, cedula: '' });
+            }
+            setCredentials(seed);
+          }
         }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
+  const updateCredential = (index: number, patch: Partial<Credential>) => {
+    setCredentials((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+  };
+
+  const removeCredential = (index: number) => {
+    setCredentials((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addCredential = () => {
+    setCredentials((prev) => (prev.length >= 8 ? prev : [...prev, { titulo: '', cedula: '' }]));
+  };
+
   const handleSave = async () => {
+    // Only fully-filled rows are saved; drop half-empty leftovers silently
+    const cleaned = credentials
+      .map((c) => ({ titulo: c.titulo.trim(), cedula: c.cedula.trim() }))
+      .filter((c) => c.titulo && c.cedula);
     setSaving(true);
     setSaveMessage(null);
     try {
       const res = await fetch('/api/prescription-template', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logoUrl, signatureUrl, colorScheme }),
+        body: JSON.stringify({ logoUrl, signatureUrl, colorScheme, credentials: cleaned }),
       });
       if (!res.ok) throw new Error('Error al guardar');
       setSaveMessage({ type: 'success', text: 'Plantilla guardada correctamente.' });
@@ -70,6 +111,60 @@ export default function PrescriptionTemplateSection() {
         <p className="text-sm text-gray-500 mt-1">
           Personaliza el diseño del PDF de tus recetas médicas. Los cambios aplican a todas las recetas nuevas.
         </p>
+      </div>
+
+      {/* Doctor identity: credentials shown on every receta */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 mb-1">Identidad del médico</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Estos datos aparecen en TODAS tus recetas (encabezado y pie del PDF): tu nombre, y cada
+          título con su cédula profesional (médico general, especialidad, subespecialidad).
+        </p>
+        <div className="mb-3 rounded-md bg-gray-50 border border-gray-200 px-3 py-2">
+          <p className="text-sm font-medium text-gray-900">{doctorName || '(sin nombre en el perfil)'}</p>
+          {specialtyHint && <p className="text-xs text-gray-500">{specialtyHint}</p>}
+        </div>
+        <div className="space-y-2">
+          {credentials.map((cred, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={cred.titulo}
+                onChange={(e) => updateCredential(i, { titulo: e.target.value })}
+                placeholder='Título (ej. "Especialidad en Cardiología")'
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+              <input
+                type="text"
+                value={cred.cedula}
+                onChange={(e) => updateCredential(i, { cedula: e.target.value })}
+                placeholder="Cédula"
+                className="w-36 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+              <button
+                onClick={() => removeCredential(i)}
+                className="p-1.5 text-gray-400 hover:text-red-600"
+                title="Eliminar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+        {credentials.length < 8 && (
+          <button
+            onClick={addCredential}
+            className="mt-2 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar cédula
+          </button>
+        )}
+        {credentials.every((c) => !c.titulo.trim() || !c.cedula.trim()) && (
+          <p className="mt-2 text-xs text-amber-700">
+            ⚠️ Sin al menos una cédula completa, las recetas nuevas te pedirán capturar los datos a mano.
+          </p>
+        )}
       </div>
 
       {/* Color scheme */}

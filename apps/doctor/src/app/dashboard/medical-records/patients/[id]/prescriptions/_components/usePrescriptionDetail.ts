@@ -280,10 +280,17 @@ export function usePrescriptionDetail() {
         doc.text('RECETA MÉDICA', pageW / 2, 15, { align: 'center' });
 
         doc.setFontSize(9);
-        doc.text(prescription.doctorFullName, pageW - margin, 23, { align: 'right' });
+        doc.text(prescription.doctorFullName, pageW - margin, 18, { align: 'right' });
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text(`Cédula Profesional: ${prescription.doctorLicense}`, pageW - margin, 30, { align: 'right' });
+        doc.setFontSize(7);
+        // Credentials list (titulo + cédula each); fallback: legacy single cédula
+        const credLines = (prescription.doctorCredentials?.length
+          ? prescription.doctorCredentials.map((c) => `${c.titulo} — Céd. ${c.cedula}`)
+          : [`Cédula Profesional: ${prescription.doctorLicense}`]
+        ).slice(0, 4); // header band (35mm) fits 4 lines: last baseline 32.1
+        credLines.forEach((line, i) => {
+          doc.text(line, pageW - margin, 22.5 + i * 3.2, { align: 'right' });
+        });
         y = 40 + rx.topMarginMm;
       } else {
         y = rx.topMarginMm + 14;
@@ -524,10 +531,16 @@ export function usePrescriptionDetail() {
           doc.setTextColor(noColor ? 30 : 255, noColor ? 30 : 255, noColor ? 30 : 255);
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(9);
-          doc.text(prescription.doctorFullName, margin, footerY + 10);
+          doc.text(prescription.doctorFullName, margin, footerY + 7);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8);
-          doc.text(`Cédula Profesional: ${prescription.doctorLicense}`, margin, footerY + 17);
+          doc.setFontSize(6.5);
+          const footCreds = (prescription.doctorCredentials?.length
+            ? prescription.doctorCredentials.map((c) => `${c.titulo} — Céd. ${c.cedula}`)
+            : [`Cédula Profesional: ${prescription.doctorLicense}`]
+          ).slice(0, 4); // footer band (22mm) fits 4 lines: last baseline 19.2
+          footCreds.forEach((line, i) => {
+            doc.text(line, margin, footerY + 10.5 + i * 2.9);
+          });
 
           if (sigB64) {
             doc.setFontSize(7);

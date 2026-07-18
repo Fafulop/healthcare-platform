@@ -70,6 +70,12 @@ export function useNewPrescriptionForm() {
   } | null>(null);
   const [voiceDataLoaded, setVoiceDataLoaded] = useState(false);
 
+  // Doctor identity from the profile's receta settings (mi-perfil → Receta):
+  // when credentials exist, they REPLACE the manual name/license inputs and are
+  // snapshotted onto the prescription (legal integrity, same as name/license).
+  const [doctorCredentials, setDoctorCredentials] = useState<{ titulo: string; cedula: string }[]>([]);
+  const [identityLoaded, setIdentityLoaded] = useState(false);
+
   // Form state
   const [prescriptionDate, setPrescriptionDate] = useState(getLocalDateString(new Date()));
   const [diagnosis, setDiagnosis] = useState('');
@@ -122,6 +128,29 @@ export function useNewPrescriptionForm() {
       });
     }
   }, [session]);
+
+  // Load the saved receta identity (name + credentials + their cédulas)
+  useEffect(() => {
+    fetch('/api/prescription-template')
+      .then((r) => r.json())
+      .then((data) => {
+        const d = data?.data;
+        if (!d) return;
+        const creds = Array.isArray(d.prescriptionCredentials) ? d.prescriptionCredentials : [];
+        if (creds.length > 0) {
+          setDoctorCredentials(creds);
+          // Legacy columns still required by the API — fill from the profile
+          setDoctorFullName((prev) => prev || d.doctorFullName || '');
+          setDoctorLicense((prev) => prev || creds[0].cedula);
+        } else {
+          // No credentials configured: at least prefill the name/cédula inputs
+          setDoctorFullName((prev) => prev || d.doctorFullName || '');
+          setDoctorLicense((prev) => prev || d.cedulaProfesional || '');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIdentityLoaded(true));
+  }, []);
 
   // Handle modal completion - transition to sidebar with initial data
   const handleModalComplete = useCallback((
@@ -364,6 +393,7 @@ export function useNewPrescriptionForm() {
         doctorLicense,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         encounterId: selectedEncounterId || null,
+        ...(doctorCredentials.length > 0 ? { doctorCredentials } : {}),
         ...(isTemplateMode ? { templateId: selectedTemplate.id, customData } : {}),
       };
 
@@ -486,6 +516,8 @@ export function useNewPrescriptionForm() {
     clinicalNotes, setClinicalNotes,
     doctorFullName, setDoctorFullName,
     doctorLicense, setDoctorLicense,
+    doctorCredentials,
+    identityLoaded,
     expiresAt, setExpiresAt,
     medications, setMedications,
     imagingStudies, setImagingStudies,

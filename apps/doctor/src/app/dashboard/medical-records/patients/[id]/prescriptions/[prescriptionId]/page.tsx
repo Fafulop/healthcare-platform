@@ -199,8 +199,16 @@ export default function ViewPrescriptionPage() {
           </div>
 
           <div>
-            <p className="text-sm text-gray-600">Cédula Profesional</p>
-            <p className="text-gray-900">{prescription.doctorLicense}</p>
+            <p className="text-sm text-gray-600">Cédula{(prescription.doctorCredentials?.length ?? 0) > 1 ? 's' : ''} Profesional{(prescription.doctorCredentials?.length ?? 0) > 1 ? 'es' : ''}</p>
+            {prescription.doctorCredentials?.length ? (
+              <ul className="space-y-0.5">
+                {prescription.doctorCredentials.map((c, i) => (
+                  <li key={i} className="text-gray-900 text-sm">{c.titulo} — Céd. {c.cedula}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-900">{prescription.doctorLicense}</p>
+            )}
           </div>
         </div>
       </div>
