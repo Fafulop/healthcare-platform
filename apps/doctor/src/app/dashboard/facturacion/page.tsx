@@ -1047,10 +1047,16 @@ function FacturasListTab() {
   };
 
   const handleCancel = async (id: number) => {
-    const motive = prompt(
+    const motiveInput = prompt(
       "Motivo de cancelación:\n01 - Errores con relación (sustituir)\n02 - Errores sin relación\n03 - No se llevó a cabo\n04 - Factura global\n\nIngresa el código (01-04):"
     );
-    if (!motive || !["01", "02", "03", "04"].includes(motive)) return;
+    if (motiveInput === null || motiveInput.trim() === "") return;
+    const trimmed = motiveInput.trim();
+    const motive = ["1", "2", "3", "4"].includes(trimmed) ? `0${trimmed}` : trimmed;
+    if (!["01", "02", "03", "04"].includes(motive)) {
+      alert(`Motivo inválido: "${trimmed}". Escribe el código de dos dígitos: 01, 02, 03 o 04.`);
+      return;
+    }
 
     let uuidReplacement: string | undefined;
     if (motive === "01") {
@@ -1076,7 +1082,15 @@ function FacturasListTab() {
         : "Factura cancelada exitosamente.");
       fetchFacturas();
     } catch (err: any) {
-      alert(err.message);
+      // El "Ups! Ocurrió un problema al cancelar tu comprobante" genérico de
+      // Facturama no es un problema de datos del doctor: el PAC falló al
+      // procesar la cancelación (en sandbox pasa SIEMPRE con CFDIs timbrados
+      // con un CSD real — el ambiente de pruebas del SAT no lo reconoce).
+      let msg: string = err.message || "Error al cancelar factura";
+      if (/problema al cancelar/i.test(msg)) {
+        msg += "\n\n💡 La falla es del servicio de cancelación (PAC), no de tus datos. La factura sigue vigente; intenta más tarde y si persiste contacta soporte.";
+      }
+      alert(msg);
     } finally {
       setCancellingId(null);
     }
