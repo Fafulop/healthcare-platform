@@ -244,16 +244,45 @@ export default function ViewPrescriptionPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             {prescription.template?.name || 'Contenido de la Receta'}
           </h2>
-          <div className="space-y-3">
-            {resolveRecetaCustomContent(prescription.customData, prescription.template?.customFields, {
+          {(() => {
+            const items = resolveRecetaCustomContent(prescription.customData, prescription.template?.customFields, {
               respectShowInPdf: false, // the app view shows everything; only the PDF filters
-            }).map((item, i) => (
-              <div key={i}>
-                <p className="text-sm text-gray-600">{item.label}</p>
-                <p className="text-gray-900 whitespace-pre-wrap">{item.value}</p>
+            });
+            // Group consecutive items by section (resolver already orders them
+            // section-contiguously, form-parity) and lay out by declared width.
+            const groups: { section?: string; items: typeof items }[] = [];
+            for (const it of items) {
+              const last = groups[groups.length - 1];
+              if (last && (last.section || 'General') === (it.section || 'General')) last.items.push(it);
+              else groups.push({ section: it.section, items: [it] });
+            }
+            const SPAN: Record<string, string> = {
+              full: 'col-span-6',
+              half: 'col-span-6 sm:col-span-3',
+              third: 'col-span-6 sm:col-span-2',
+            };
+            return (
+              <div className="space-y-5">
+                {groups.map((g, gi) => (
+                  <div key={gi}>
+                    {groups.length > 1 && (
+                      <h3 className="text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1 mb-3">
+                        {g.section || 'General'}
+                      </h3>
+                    )}
+                    <div className="grid grid-cols-6 gap-x-4 gap-y-3">
+                      {g.items.map((item, i) => (
+                        <div key={i} className={SPAN[item.width] || 'col-span-6'}>
+                          <p className="text-xs text-gray-500">{item.label}</p>
+                          <p className="text-gray-900 whitespace-pre-wrap">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
       )}
 

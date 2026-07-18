@@ -43,9 +43,20 @@ export function resolveRecetaCustomContent(
   const { respectShowInPdf = true } = options;
 
   if (fields && fields.length > 0) {
-    return fields
-      .slice()
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    const byOrder = fields.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    // Group by section NAME like the on-screen form does (sections in first-
+    // appearance order, fields by order within) — a section reused at a later
+    // order must not appear twice.
+    const sectionRank = new Map<string, number>();
+    for (const f of byOrder) {
+      const s = f.section || 'General';
+      if (!sectionRank.has(s)) sectionRank.set(s, sectionRank.size);
+    }
+    return byOrder
+      .sort((a, b) => {
+        const ra = sectionRank.get(a.section || 'General')! - sectionRank.get(b.section || 'General')!;
+        return ra !== 0 ? ra : (a.order ?? 0) - (b.order ?? 0);
+      })
       .filter((f) => !respectShowInPdf || f.showInPdf !== false)
       .filter((f) => {
         const v = customData[f.name];
