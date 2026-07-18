@@ -97,7 +97,10 @@ export async function sendAppointmentReminderEmail(
   const auth = buildAuthedClient(accessToken, refreshToken);
   const gmail = google.gmail({ version: 'v1', auth });
 
-  const subject = `Recordatorio: Tu cita es hoy a las ${data.startTime} hrs – ${data.doctorName}`;
+  // Absolute date only — "hoy"/"mañana" phrasing lied whenever the per-doctor
+  // reminder offset crossed a day boundary (reminderEmailOffsetMinutes is
+  // configurable; the copy assumed 2h same-day).
+  const subject = `Recordatorio: Tu cita del ${formatEmailDate(data.date)} a las ${data.startTime} hrs – ${data.doctorName}`;
   const htmlBody = buildReminderEmailHtml(data);
   const from = `${fromName} <${fromEmail}>`;
 
@@ -372,7 +375,7 @@ function buildReminderEmailHtml(data: AppointmentReminderEmailData): string {
         <tr>
           <td style="padding:32px 40px 20px;">
             <p style="margin:0 0 8px;color:#1a1a2e;font-size:16px;">Hola <strong>${escapeHtml(data.patientName)}</strong>,</p>
-            <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">Te recordamos que tienes una cita médica <strong>hoy en aproximadamente 2 horas</strong>. Te esperamos.</p>
+            <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">Te recordamos que tienes una cita médica el <strong>${formattedDate} a las ${escapeHtml(data.startTime)} hrs</strong>. Te esperamos.</p>
           </td>
         </tr>
 
