@@ -39,6 +39,7 @@ export interface PrescriptionDetails {
       labelEs?: string;
       order?: number;
       type?: string;
+      showInPdf?: boolean;
     }>;
   } | null;
   createdAt: string;

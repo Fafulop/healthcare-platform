@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import type { PdfSettings } from '@/types/pdf-settings';
-import { DEFAULT_PDF_SETTINGS } from '@/types/pdf-settings';
+import type { PdfSettings, RxPageSize } from '@/types/pdf-settings';
+import { DEFAULT_PDF_SETTINGS, RX_PAGE_SIZES } from '@/types/pdf-settings';
 
 interface PrescriptionPdfSettingsDialogProps {
   open: boolean;
@@ -56,6 +56,9 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
           rxShowPatientBox: settings.rxShowPatientBox,
           rxShowDiagnosis: settings.rxShowDiagnosis,
           rxShowClinicalNotes: settings.rxShowClinicalNotes,
+          rxShowLogo: settings.rxShowLogo,
+          rxShowSignature: settings.rxShowSignature,
+          rxPageSize: settings.rxPageSize,
           rxTopMarginMm: settings.rxTopMarginMm,
           rxBottomMarginMm: settings.rxBottomMarginMm,
         }),
@@ -107,6 +110,23 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
               <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">{error}</div>
             )}
 
+            {/* Page size */}
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Tamaño de Papel</p>
+              <select
+                value={settings.rxPageSize}
+                onChange={(e) => setSettings((prev) => ({ ...prev, rxPageSize: e.target.value as RxPageSize }))}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {RX_PAGE_SIZES.map((s) => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Elige el tamaño de tu recetario si imprimes sobre hojas pre-impresas.
+              </p>
+            </div>
+
             {/* Header & Footer */}
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Encabezado y Pie de Pagina</p>
@@ -118,10 +138,22 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
                   onChange={() => toggle('rxShowHeader')}
                 />
                 <CheckboxRow
+                  id="rxShowLogo"
+                  label="Mostrar logo del consultorio (en el encabezado)"
+                  checked={settings.rxShowLogo}
+                  onChange={() => toggle('rxShowLogo')}
+                />
+                <CheckboxRow
                   id="rxShowFooter"
                   label="Mostrar pie de pagina (datos del doctor + firma)"
                   checked={settings.rxShowFooter}
                   onChange={() => toggle('rxShowFooter')}
+                />
+                <CheckboxRow
+                  id="rxShowSignature"
+                  label="Mostrar firma digital (en el pie de pagina)"
+                  checked={settings.rxShowSignature}
+                  onChange={() => toggle('rxShowSignature')}
                 />
               </div>
             </div>

@@ -4,6 +4,7 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { PrescriptionPDF } from '@/lib/pdf/PrescriptionTemplate';
+import { resolveRecetaCustomContent } from '@/lib/receta-custom-content';
 
 // GET /api/medical-records/patients/:id/prescriptions/:prescriptionId/pdf
 // Generate and download prescription PDF
@@ -69,32 +70,12 @@ export async function GET(
       );
     }
 
-    // Resolve template-based receta body: [label, value] pairs from the
-    // template's field definitions (order + showInPdf + labelEs), falling back
-    // to raw customData keys if the template is gone (FK is SET NULL).
-    const customData = prescription.customData as Record<string, any> | null;
-    let customContent: Array<{ label: string; value: string }> | undefined;
-    if (customData && Object.keys(customData).length > 0) {
-      const fields = (prescription.template?.customFields as any[] | null) || null;
-      const formatValue = (v: any): string =>
-        typeof v === 'boolean' ? (v ? 'Sí' : 'No') : Array.isArray(v) ? v.join(', ') : String(v);
-      customContent = fields
-        ? fields
-            .slice()
-            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-            .filter((f) => f.showInPdf !== false)
-            .filter((f) => {
-              const v = customData[f.name];
-              return v !== undefined && v !== null && v !== '';
-            })
-            .map((f) => ({
-              label: f.labelEs || f.label || f.name,
-              value: formatValue(customData[f.name]),
-            }))
-        : Object.entries(customData)
-            .filter(([, v]) => v !== undefined && v !== null && v !== '')
-            .map(([k, v]) => ({ label: k, value: formatValue(v) }));
-    }
+    // Resolve template-based receta body via the shared helper (order +
+    // showInPdf + labelEs; raw-key fallback when the template is gone).
+    const customContent = resolveRecetaCustomContent(
+      prescription.customData as Record<string, unknown> | null,
+      prescription.template?.customFields as any[] | null
+    );
 
     // Validate prescription has content (medications, or custom template body)
     if (prescription.medications.length === 0 && (!customContent || customContent.length === 0)) {

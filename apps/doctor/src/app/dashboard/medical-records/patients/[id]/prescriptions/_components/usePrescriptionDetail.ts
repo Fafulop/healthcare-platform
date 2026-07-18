@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { practiceConfirm } from '@/lib/practice-confirm';
-import { DEFAULT_PDF_SETTINGS, type PdfSettings } from '@/types/pdf-settings';
+import { DEFAULT_PDF_SETTINGS, RX_PAGE_FORMATS, type PdfSettings, type RxPageSize } from '@/types/pdf-settings';
+import { resolveRecetaCustomContent } from '@/lib/receta-custom-content';
 import type { PrescriptionDetails } from './prescription-types';
 
 export function usePrescriptionDetail() {
@@ -182,6 +183,9 @@ export function usePrescriptionDetail() {
         showPatientBox: settings.rxShowPatientBox ?? true,
         showDiagnosis: settings.rxShowDiagnosis ?? true,
         showClinicalNotes: settings.rxShowClinicalNotes ?? true,
+        showLogo: settings.rxShowLogo ?? true,
+        showSignature: settings.rxShowSignature ?? true,
+        pageSize: (settings.rxPageSize ?? 'a4') as RxPageSize,
         topMarginMm: Math.max(0, Math.min(80, settings.rxTopMarginMm ?? 0)),
         bottomMarginMm: Math.max(0, Math.min(80, settings.rxBottomMarginMm ?? 0)),
       };
@@ -212,13 +216,13 @@ export function usePrescriptionDetail() {
       };
 
       const [logoB64, sigB64] = await Promise.all([
-        logoUrl ? toBase64(logoUrl) : Promise.resolve(null),
-        signatureUrl ? toBase64(signatureUrl) : Promise.resolve(null),
+        logoUrl && rx.showLogo ? toBase64(logoUrl) : Promise.resolve(null),
+        signatureUrl && rx.showSignature ? toBase64(signatureUrl) : Promise.resolve(null),
       ]);
 
-      // 4. Generate PDF
+      // 4. Generate PDF (page size per the doctor's recetario)
       const { default: jsPDF } = await import('jspdf');
-      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const doc = new jsPDF({ unit: 'mm', format: RX_PAGE_FORMATS[rx.pageSize] ?? 'a4' });
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
       const margin = 14;
@@ -267,16 +271,19 @@ export function usePrescriptionDetail() {
           doc.rect(0, 0, pageW, 35, 'F');
         }
 
+        // Narrow pages (media carta / A5): smaller logo + title so they don't crowd
+        const narrow = pageW < 180;
         if (logoB64) {
           try {
             const fmt = logoB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-            doc.addImage(logoB64, fmt, margin, 5, 25, 25);
+            const logoSize = narrow ? 18 : 25;
+            doc.addImage(logoB64, fmt, margin, narrow ? 8 : 5, logoSize, logoSize);
           } catch {}
         }
 
         doc.setTextColor(noColor ? 30 : 255, noColor ? 30 : 255, noColor ? 30 : 255);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
+        doc.setFontSize(narrow ? 13 : 18);
         doc.text('RECETA MÉDICA', pageW / 2, 15, { align: 'center' });
 
         doc.setFontSize(9);
@@ -372,7 +379,32 @@ export function usePrescriptionDetail() {
 
       y += 3;
 
+      // ── TEMPLATE RECETA CONTENT (custom fields replace medication rows) ────
+      const customContent = resolveRecetaCustomContent(
+        prescription.customData,
+        prescription.template?.customFields
+      );
+      if (customContent.length > 0) {
+        drawSectionTitle((prescription.template?.name || 'PRESCRIPCIÓN').toUpperCase());
+        customContent.forEach((item) => {
+          checkPage(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(cr, cg, cb);
+          doc.text(item.label, margin, y);
+          y += 4.5;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.setTextColor(30, 30, 30);
+          const valueLines = doc.splitTextToSize(item.value, colW - 4);
+          checkPage(valueLines.length * 4.5 + 3);
+          doc.text(valueLines, margin + 2, y);
+          y += valueLines.length * 4.5 + 3;
+        });
+      }
+
       // ── MEDICATIONS ────────────────────────────────────────────────────────
+      if (prescription.medications.length > 0) {
       drawSectionTitle('MEDICAMENTOS');
 
       prescription.medications.forEach((med, idx) => {
@@ -423,6 +455,7 @@ export function usePrescriptionDetail() {
 
         y += 4;
       });
+      }
 
       // ── IMAGING STUDIES ────────────────────────────────────────────────────
       if (prescription.imagingStudies?.length > 0) {

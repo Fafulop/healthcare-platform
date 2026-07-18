@@ -35,6 +35,7 @@ export async function PATCH(request: NextRequest) {
       'showHeader', 'showFooter', 'showPageNumbers',
       'showPatientBox', 'showEncounterMeta', 'showVitals', 'showFollowUp',
       'rxShowHeader', 'rxShowFooter', 'rxShowPatientBox', 'rxShowDiagnosis', 'rxShowClinicalNotes',
+      'rxShowLogo', 'rxShowSignature',
     ];
     const NUMBER_KEYS: (keyof PdfSettings)[] = [
       'topMarginMm', 'bottomMarginMm',
@@ -60,6 +61,14 @@ export async function PATCH(request: NextRequest) {
         }
         (updateData as any)[key] = val;
       }
+    }
+
+    if ('rxPageSize' in body) {
+      const VALID_SIZES = ['letter', 'half-letter', 'a4', 'a5'];
+      if (!VALID_SIZES.includes(body.rxPageSize)) {
+        return NextResponse.json({ success: false, error: 'rxPageSize inválido' }, { status: 400 });
+      }
+      (updateData as any).rxPageSize = body.rxPageSize;
     }
 
     if (Object.keys(updateData).length === 0) {

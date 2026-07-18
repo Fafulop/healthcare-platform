@@ -6,6 +6,7 @@ import { MedicationList } from '@/components/medical-records/MedicationList';
 import { ImagingStudyList, LabStudyList } from '@/components/medical-records/StudyList';
 import { PrescriptionPdfSettingsDialog } from '@/components/medical-records/PrescriptionPdfSettingsDialog';
 import { formatDateLong } from '@/lib/practice-utils';
+import { resolveRecetaCustomContent } from '@/lib/receta-custom-content';
 import { getStatusLabel, getStatusColor } from '../_components/prescription-types';
 import { usePrescriptionDetail } from '../_components/usePrescriptionDetail';
 
@@ -244,22 +245,12 @@ export default function ViewPrescriptionPage() {
             {prescription.template?.name || 'Contenido de la Receta'}
           </h2>
           <div className="space-y-3">
-            {(prescription.template?.customFields
-              ? prescription.template.customFields
-                  .slice()
-                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                  .filter((f) => {
-                    const v = prescription.customData![f.name];
-                    return v !== undefined && v !== null && v !== '';
-                  })
-                  .map((f) => ({ label: f.labelEs || f.label || f.name, value: prescription.customData![f.name] }))
-              : Object.entries(prescription.customData).map(([k, v]) => ({ label: k, value: v }))
-            ).map((item, i) => (
+            {resolveRecetaCustomContent(prescription.customData, prescription.template?.customFields, {
+              respectShowInPdf: false, // the app view shows everything; only the PDF filters
+            }).map((item, i) => (
               <div key={i}>
                 <p className="text-sm text-gray-600">{item.label}</p>
-                <p className="text-gray-900 whitespace-pre-wrap">
-                  {typeof item.value === 'boolean' ? (item.value ? 'Sí' : 'No') : Array.isArray(item.value) ? item.value.join(', ') : String(item.value)}
-                </p>
+                <p className="text-gray-900 whitespace-pre-wrap">{item.value}</p>
               </div>
             ))}
           </div>
