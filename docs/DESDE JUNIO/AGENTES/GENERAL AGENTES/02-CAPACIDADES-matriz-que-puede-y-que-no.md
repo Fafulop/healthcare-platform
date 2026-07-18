@@ -1,8 +1,9 @@
 # 🧾 Matriz de capacidades — qué puede y qué NO puede el asistente
 
 > Referencia ÚNICA y transversal de los 5 módulos: tools, qué preguntas responde cada uno,
-> y las fronteras duras. Snapshot 2026-07-16 (**38 tools / 5 módulos** — `ALL_TOOLS.length`
-> del registry, la única fuente de conteo válida —, todo validado en
+> y las fronteras duras. Snapshot 2026-07-16 (**39 tools / 5 módulos** — `ALL_TOOLS.length`
+> del registry, la única fuente de conteo válida; el header decía 38 por no contar
+> propose_prepare_factura_borrador de F2c, corregido 2026-07-18 —, todo validado en
 > vivo incl. la PRIMERA escritura fuera de agenda: emisión de CFDI). La VERDAD es el código
 > (`apps/doctor/src/lib/agenda-agent/modules/` + `prompt.ts`);
 > este doc es el mapa. ⚠️ **Checklist del playbook: todo módulo o tool nuevo actualiza esta

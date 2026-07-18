@@ -45,6 +45,11 @@ CONFIRMED/PLAUSIBLE/REFUTED.
   de producir un solo hallazgo).
 - **Regla de uso:** solo al INICIO de una sesión fresca (contexto chico → forks baratos), o
   como pase independiente diferido ("mañana en sesión nueva").
+- **Variante NUBE (2026-07-18): `/code-review ultra`** — el multi-agente corre EN LA NUBE
+  contra la rama/PR, no como forks locales, así que NO hereda el contexto de la sesión y el
+  límite de sesión deja de ser el problema. Lo dispara el USUARIO (comando facturado; el
+  asistente no puede lanzarlo). Es la segunda capa natural de "ojos frescos" para features
+  de tier legal/dinero sin esperar sesión nueva.
 
 ### Modo B — inline (mismos ángulos, secuencial, sin subagentes)
 
