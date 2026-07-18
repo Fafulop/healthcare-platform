@@ -41,6 +41,13 @@ export async function GET(
         labStudies: {
           orderBy: { order: 'asc' }
         },
+        template: {
+          select: {
+            id: true,
+            name: true,
+            customFields: true,
+          }
+        },
         encounter: {
           select: {
             id: true,
@@ -162,6 +169,10 @@ export async function PUT(
         diagnosis: body.diagnosis !== undefined ? body.diagnosis : undefined,
         clinicalNotes: body.clinicalNotes !== undefined ? body.clinicalNotes : undefined,
         expiresAt: body.expiresAt !== undefined ? (body.expiresAt ? new Date(body.expiresAt) : null) : undefined,
+        // Template receta content (templateId itself is immutable after creation)
+        customData: existingPrescription.templateId && body.customData !== undefined
+          ? body.customData
+          : undefined,
       },
       include: {
         medications: { orderBy: { order: 'asc' } },

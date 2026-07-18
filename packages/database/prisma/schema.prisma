@@ -1988,6 +1988,10 @@ model Prescription {
   prescriptionDate DateTime @map("prescription_date")
   status          String   @default("draft") @db.VarChar(20)  // draft, issued, cancelled, expired
 
+  // Custom receta template (replaces the fixed form when set)
+  templateId      String?  @map("template_id")
+  customData      Json?    @map("custom_data")   // Field values keyed by FieldDefinition.name
+
   // Doctor details (copied at time of issuance for legal integrity)
   doctorFullName  String   @map("doctor_full_name") @db.VarChar(255)
   doctorLicense   String   @map("doctor_license") @db.VarChar(100)
@@ -2018,6 +2022,7 @@ model Prescription {
   // Relations
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   encounter       ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  template        EncounterTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   medications     PrescriptionMedication[]
   imagingStudies  PrescriptionImagingStudy[]
   labStudies      PrescriptionLabStudy[]
@@ -2159,6 +2164,7 @@ model EncounterTemplate {
   isCustom           Boolean  @default(false) @map("is_custom")           // Distinguish custom vs standard templates
   customFields       Json?    @map("custom_fields")                       // Array of FieldDefinition for custom templates
   isPreAppointment   Boolean  @default(false) @map("is_pre_appointment")  // Available for pre-appointment form links
+  isReceta           Boolean  @default(false) @map("is_receta")           // Available as a custom receta form
 
   // Settings
   useSOAPMode     Boolean  @default(false) @map("use_soap_mode")
@@ -2176,11 +2182,13 @@ model EncounterTemplate {
 
   doctor          Doctor              @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   encounters      ClinicalEncounter[] // Encounters using this template
+  prescriptions   Prescription[]      // Recetas using this template
 
   @@unique([doctorId, name])
   @@index([doctorId, isActive])
   @@index([doctorId, isCustom])
   @@index([doctorId, isPreAppointment])
+  @@index([doctorId, isReceta])
   @@map("encounter_templates")
   @@schema("medical_records")
 }

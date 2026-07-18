@@ -21,6 +21,14 @@ interface PrescriptionForEdit {
   medications: Medication[];
   imagingStudies: ImagingStudy[];
   labStudies: LabStudy[];
+  // Template-based receta (template replaces the fixed form)
+  templateId?: string | null;
+  customData?: Record<string, any> | null;
+  template?: {
+    id: string;
+    name: string;
+    customFields: any[];
+  } | null;
 }
 
 export function useEditPrescriptionForm() {
@@ -52,6 +60,11 @@ export function useEditPrescriptionForm() {
   const [medications, setMedications] = useState<Medication[]>([]);
   const [imagingStudies, setImagingStudies] = useState<ImagingStudy[]>([]);
   const [labStudies, setLabStudies] = useState<LabStudy[]>([]);
+  const [customData, setCustomData] = useState<Record<string, any>>({});
+
+  const handleCustomFieldChange = (fieldName: string, value: any) => {
+    setCustomData((prev) => ({ ...prev, [fieldName]: value }));
+  };
 
   useEffect(() => {
     if (session?.user?.doctorId) {
@@ -97,6 +110,7 @@ export function useEditPrescriptionForm() {
       setMedications(data.medications || []);
       setImagingStudies(data.imagingStudies || []);
       setLabStudies(data.labStudies || []);
+      setCustomData(data.customData || {});
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -110,11 +124,26 @@ export function useEditPrescriptionForm() {
     setError('');
 
     try {
-      // Validate medications
-      const validationError = validateMedications(medications);
-      if (validationError) throw new Error(validationError);
+      const isTemplateMode = !!prescription?.templateId;
 
-      const validMedications = medications.filter((med) => med.drugName?.trim());
+      // Validate medications (template recetas have none — the template's
+      // fields replace them)
+      if (!isTemplateMode) {
+        const validationError = validateMedications(medications);
+        if (validationError) throw new Error(validationError);
+      } else {
+        const fields = (prescription?.template?.customFields as any[]) || [];
+        for (const field of fields) {
+          if (field.required) {
+            const value = customData[field.name];
+            if (value === undefined || value === null || value === '') {
+              throw new Error(`El campo "${field.labelEs || field.label}" es requerido`);
+            }
+          }
+        }
+      }
+
+      const validMedications = isTemplateMode ? [] : medications.filter((med) => med.drugName?.trim());
 
       if (!doctorFullName || !doctorLicense) {
         throw new Error('Debe completar la información del doctor');
@@ -128,6 +157,7 @@ export function useEditPrescriptionForm() {
         doctorFullName,
         doctorLicense,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        ...(isTemplateMode ? { customData } : {}),
       };
 
       const resUpdate = await fetch(
@@ -223,6 +253,9 @@ export function useEditPrescriptionForm() {
     medications, setMedications,
     imagingStudies, setImagingStudies,
     labStudies, setLabStudies,
+    // Template receta
+    customData,
+    handleCustomFieldChange,
     // Submit
     handleSubmit,
   };

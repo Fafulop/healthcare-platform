@@ -47,6 +47,9 @@ export async function GET(
         },
         medications: {
           orderBy: { order: 'asc' }
+        },
+        template: {
+          select: { customFields: true }
         }
       }
     });
@@ -66,8 +69,35 @@ export async function GET(
       );
     }
 
-    // Validate prescription has medications
-    if (prescription.medications.length === 0) {
+    // Resolve template-based receta body: [label, value] pairs from the
+    // template's field definitions (order + showInPdf + labelEs), falling back
+    // to raw customData keys if the template is gone (FK is SET NULL).
+    const customData = prescription.customData as Record<string, any> | null;
+    let customContent: Array<{ label: string; value: string }> | undefined;
+    if (customData && Object.keys(customData).length > 0) {
+      const fields = (prescription.template?.customFields as any[] | null) || null;
+      const formatValue = (v: any): string =>
+        typeof v === 'boolean' ? (v ? 'Sí' : 'No') : Array.isArray(v) ? v.join(', ') : String(v);
+      customContent = fields
+        ? fields
+            .slice()
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+            .filter((f) => f.showInPdf !== false)
+            .filter((f) => {
+              const v = customData[f.name];
+              return v !== undefined && v !== null && v !== '';
+            })
+            .map((f) => ({
+              label: f.labelEs || f.label || f.name,
+              value: formatValue(customData[f.name]),
+            }))
+        : Object.entries(customData)
+            .filter(([, v]) => v !== undefined && v !== null && v !== '')
+            .map(([k, v]) => ({ label: k, value: formatValue(v) }));
+    }
+
+    // Validate prescription has content (medications, or custom template body)
+    if (prescription.medications.length === 0 && (!customContent || customContent.length === 0)) {
       return NextResponse.json(
         { error: 'Cannot generate PDF for prescription without medications' },
         { status: 400 }
@@ -107,6 +137,7 @@ export async function GET(
           address: doctor.clinicAddress || undefined,
           phone: doctor.clinicPhone || undefined
         }}
+        customContent={customContent}
       />
     );
 

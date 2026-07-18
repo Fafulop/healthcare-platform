@@ -4,6 +4,7 @@ import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MedicationList } from '@/components/medical-records/MedicationList';
 import { ImagingStudyList, LabStudyList } from '@/components/medical-records/StudyList';
+import { DynamicFieldRenderer } from '@/components/medical-records/DynamicFieldRenderer';
 import { useEditPrescriptionForm } from '../../_components/useEditPrescriptionForm';
 
 export default function EditPrescriptionPage() {
@@ -24,8 +25,12 @@ export default function EditPrescriptionPage() {
     medications, setMedications,
     imagingStudies, setImagingStudies,
     labStudies, setLabStudies,
+    customData,
+    handleCustomFieldChange,
     handleSubmit,
   } = useEditPrescriptionForm();
+
+  const isTemplateMode = !!prescription?.templateId;
 
   if (sessionStatus === 'loading' || loadingPrescription) {
     return (
@@ -111,31 +116,36 @@ export default function EditPrescriptionPage() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Diagnóstico
-            </label>
-            <input
-              type="text"
-              value={diagnosis}
-              onChange={(e) => setDiagnosis(e.target.value)}
-              placeholder="Ej: Infección respiratoria aguda"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {/* Content fields — template recetas use the template's own fields */}
+          {!isTemplateMode && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Diagnóstico
+                </label>
+                <input
+                  type="text"
+                  value={diagnosis}
+                  onChange={(e) => setDiagnosis(e.target.value)}
+                  placeholder="Ej: Infección respiratoria aguda"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notas Clínicas
-            </label>
-            <textarea
-              value={clinicalNotes}
-              onChange={(e) => setClinicalNotes(e.target.value)}
-              placeholder="Notas adicionales sobre el tratamiento"
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notas Clínicas
+                </label>
+                <textarea
+                  value={clinicalNotes}
+                  onChange={(e) => setClinicalNotes(e.target.value)}
+                  placeholder="Notas adicionales sobre el tratamiento"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Doctor Info */}
@@ -173,32 +183,48 @@ export default function EditPrescriptionPage() {
           </div>
         </div>
 
-        {/* Medications */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Medicamentos</h2>
-          <MedicationList
-            medications={medications}
-            onChange={setMedications}
-          />
-        </div>
+        {/* Template mode: the template's fields ARE the receta content */}
+        {isTemplateMode ? (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {prescription?.template?.name || 'Contenido de la Receta'}
+            </h2>
+            <DynamicFieldRenderer
+              fields={(prescription?.template?.customFields || []) as any}
+              values={customData}
+              onChange={handleCustomFieldChange}
+            />
+          </div>
+        ) : (
+          <>
+            {/* Medications */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Medicamentos</h2>
+              <MedicationList
+                medications={medications}
+                onChange={setMedications}
+              />
+            </div>
 
-        {/* Imaging Studies */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Imagen</h2>
-          <ImagingStudyList
-            studies={imagingStudies}
-            onChange={setImagingStudies}
-          />
-        </div>
+            {/* Imaging Studies */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Imagen</h2>
+              <ImagingStudyList
+                studies={imagingStudies}
+                onChange={setImagingStudies}
+              />
+            </div>
 
-        {/* Lab Studies */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Laboratorio</h2>
-          <LabStudyList
-            studies={labStudies}
-            onChange={setLabStudies}
-          />
-        </div>
+            {/* Lab Studies */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Laboratorio</h2>
+              <LabStudyList
+                studies={labStudies}
+                onChange={setLabStudies}
+              />
+            </div>
+          </>
+        )}
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3">

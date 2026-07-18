@@ -229,15 +229,46 @@ export default function ViewPrescriptionPage() {
         </div>
       </div>
 
+      {/* Template-based receta content */}
+      {prescription.customData && Object.keys(prescription.customData).length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            {prescription.template?.name || 'Contenido de la Receta'}
+          </h2>
+          <div className="space-y-3">
+            {(prescription.template?.customFields
+              ? prescription.template.customFields
+                  .slice()
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                  .filter((f) => {
+                    const v = prescription.customData![f.name];
+                    return v !== undefined && v !== null && v !== '';
+                  })
+                  .map((f) => ({ label: f.labelEs || f.label || f.name, value: prescription.customData![f.name] }))
+              : Object.entries(prescription.customData).map(([k, v]) => ({ label: k, value: v }))
+            ).map((item, i) => (
+              <div key={i}>
+                <p className="text-sm text-gray-600">{item.label}</p>
+                <p className="text-gray-900 whitespace-pre-wrap">
+                  {typeof item.value === 'boolean' ? (item.value ? 'Sí' : 'No') : Array.isArray(item.value) ? item.value.join(', ') : String(item.value)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Medications */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Medicamentos</h2>
-        <MedicationList
-          medications={prescription.medications}
-          onChange={() => {}}
-          readOnly
-        />
-      </div>
+      {(prescription.medications.length > 0 || !prescription.templateId) && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Medicamentos</h2>
+          <MedicationList
+            medications={prescription.medications}
+            onChange={() => {}}
+            readOnly
+          />
+        </div>
+      )}
 
       {/* Imaging Studies */}
       {prescription.imagingStudies.length > 0 && (

@@ -83,6 +83,7 @@ export interface CustomEncounterTemplate {
   isDefault: boolean;
   isActive: boolean;
   isPreAppointment: boolean;
+  isReceta: boolean;
   displayOrder: number;
 
   // Usage tracking
@@ -105,6 +106,7 @@ export interface CreateCustomTemplateInput {
   customFields: FieldDefinition[];
   isDefault?: boolean;
   isPreAppointment?: boolean;
+  isReceta?: boolean;
 }
 
 /**
@@ -119,6 +121,7 @@ export interface UpdateCustomTemplateInput {
   isDefault?: boolean;
   isActive?: boolean;
   isPreAppointment?: boolean;
+  isReceta?: boolean;
   displayOrder?: number;
 }
 

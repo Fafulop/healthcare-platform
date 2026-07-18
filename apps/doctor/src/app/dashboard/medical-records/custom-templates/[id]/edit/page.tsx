@@ -54,6 +54,7 @@ export default function EditCustomTemplatePage() {
     color?: string;
     customFields: FieldDefinition[];
     isPreAppointment: boolean;
+    isReceta: boolean;
   }) => {
     const res = await fetch(`/api/custom-templates/${templateId}`, {
       method: 'PUT',

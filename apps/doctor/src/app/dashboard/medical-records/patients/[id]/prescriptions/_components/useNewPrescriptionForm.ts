@@ -9,6 +9,7 @@ import type { ImagingStudy, LabStudy } from '@/components/medical-records/StudyL
 import type { PrescriptionFormData } from '@/hooks/usePrescriptionChat';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoicePrescriptionData, VoiceStructuredData } from '@/types/voice-assistant';
+import type { CustomEncounterTemplate, FieldDefinition } from '@/types/custom-encounter';
 import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-utils';
 import { getLocalDateString } from '@/lib/dates';
 import { validateMedications } from './prescription-types';
@@ -81,6 +82,38 @@ export function useNewPrescriptionForm() {
   ]);
   const [imagingStudies, setImagingStudies] = useState<ImagingStudy[]>([]);
   const [labStudies, setLabStudies] = useState<LabStudy[]>([]);
+
+  // Custom receta templates: when one is selected, its fields REPLACE the
+  // fixed content (diagnosis/notes/medications/studies); metadata (dates,
+  // encounter link, doctor info) stays fixed.
+  const [recetaTemplates, setRecetaTemplates] = useState<CustomEncounterTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [customData, setCustomData] = useState<Record<string, any>>({});
+
+  const selectedTemplate = useMemo(
+    () => recetaTemplates.find((t) => t.id === selectedTemplateId) || null,
+    [recetaTemplates, selectedTemplateId]
+  );
+
+  useEffect(() => {
+    fetch('/api/custom-templates?isReceta=true')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) setRecetaTemplates(data.data);
+      })
+      .catch(() => {}); // Non-fatal: the standard form works without templates
+  }, []);
+
+  const handleCustomFieldChange = useCallback((fieldName: string, value: any) => {
+    setCustomData((prev) => ({ ...prev, [fieldName]: value }));
+  }, []);
+
+  // Switching templates resets values — leftover keys from another template
+  // would otherwise be stored (and PDF'd via the no-template fallback).
+  const handleTemplateSelect = useCallback((templateId: string) => {
+    setSelectedTemplateId(templateId);
+    setCustomData({});
+  }, []);
 
   useEffect(() => {
     if (session?.user?.doctorId) {
@@ -297,11 +330,26 @@ export function useNewPrescriptionForm() {
     setError('');
 
     try {
-      // Validate medications — require all fields the backend also requires
-      const validMedications = medications.filter((med) => med.drugName.trim());
+      const isTemplateMode = !!selectedTemplate;
 
-      const validationError = validateMedications(medications);
-      if (validationError) throw new Error(validationError);
+      // Validate medications — require all fields the backend also requires
+      // (template mode has no medication rows: the template replaces them)
+      const validMedications = isTemplateMode ? [] : medications.filter((med) => med.drugName.trim());
+
+      if (!isTemplateMode) {
+        const validationError = validateMedications(medications);
+        if (validationError) throw new Error(validationError);
+      } else {
+        const fields = (selectedTemplate.customFields as FieldDefinition[]) || [];
+        for (const field of fields) {
+          if (field.required) {
+            const value = customData[field.name];
+            if (value === undefined || value === null || value === '') {
+              throw new Error(`El campo "${field.labelEs || field.label}" es requerido`);
+            }
+          }
+        }
+      }
 
       if (!doctorFullName || !doctorLicense) {
         throw new Error('Debe completar la información del doctor');
@@ -310,12 +358,13 @@ export function useNewPrescriptionForm() {
       // Create prescription
       const prescriptionData = {
         prescriptionDate: new Date(prescriptionDate).toISOString(),
-        diagnosis: diagnosis || null,
-        clinicalNotes: clinicalNotes || null,
+        diagnosis: isTemplateMode ? null : diagnosis || null,
+        clinicalNotes: isTemplateMode ? null : clinicalNotes || null,
         doctorFullName,
         doctorLicense,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         encounterId: selectedEncounterId || null,
+        ...(isTemplateMode ? { templateId: selectedTemplate.id, customData } : {}),
       };
 
       const res = await fetch(`/api/medical-records/patients/${patientId}/prescriptions`, {
@@ -357,8 +406,9 @@ export function useNewPrescriptionForm() {
         throw medError;
       }
 
-      // Add imaging studies
-      const validImagingStudies = imagingStudies.filter((s) => s.studyName.trim());
+      // Add imaging studies (none in template mode — sections are hidden, but
+      // state may carry leftovers from before switching to the template)
+      const validImagingStudies = isTemplateMode ? [] : imagingStudies.filter((s) => s.studyName.trim());
       for (const study of validImagingStudies) {
         const res = await fetch(
           `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}/imaging-studies`,
@@ -375,7 +425,7 @@ export function useNewPrescriptionForm() {
       }
 
       // Add lab studies
-      const validLabStudies = labStudies.filter((s) => s.studyName.trim());
+      const validLabStudies = isTemplateMode ? [] : labStudies.filter((s) => s.studyName.trim());
       for (const study of validLabStudies) {
         const res = await fetch(
           `/api/medical-records/patients/${patientId}/prescriptions/${prescription.id}/lab-studies`,
@@ -441,6 +491,13 @@ export function useNewPrescriptionForm() {
     imagingStudies, setImagingStudies,
     labStudies, setLabStudies,
     selectedEncounterId, setSelectedEncounterId,
+    // Receta templates
+    recetaTemplates,
+    selectedTemplateId,
+    handleTemplateSelect,
+    selectedTemplate,
+    customData,
+    handleCustomFieldChange,
     // Voice
     modalOpen, setModalOpen,
     sidebarOpen, setSidebarOpen,

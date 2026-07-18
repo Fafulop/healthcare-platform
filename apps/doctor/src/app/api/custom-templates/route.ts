@@ -15,9 +15,11 @@ export async function GET(request: NextRequest) {
     const { doctorId } = await requireDoctorAuth(request);
     const { searchParams } = new URL(request.url);
     const isPreAppointmentFilter = searchParams.get('isPreAppointment');
+    const isRecetaFilter = searchParams.get('isReceta');
 
     const where: any = { doctorId, isCustom: true, isActive: true };
     if (isPreAppointmentFilter === 'true') where.isPreAppointment = true;
+    if (isRecetaFilter === 'true') where.isReceta = true;
 
     const templates = await prisma.encounterTemplate.findMany({
       where,
@@ -125,6 +127,7 @@ export async function POST(request: NextRequest) {
         useSOAPMode: false,
         isDefault: body.isDefault || false,
         isPreAppointment: body.isPreAppointment ?? false,
+        isReceta: body.isReceta ?? false,
         isActive: true,
         displayOrder: body.displayOrder || 0,
       },

@@ -134,6 +134,12 @@ export default function CustomTemplatesPage() {
                               Pre-cita
                             </span>
                           )}
+                          {template.isReceta && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-teal-100 text-teal-700 text-xs font-medium rounded">
+                              <ClipboardList className="w-3 h-3" />
+                              Receta
+                            </span>
+                          )}
                         </div>
                         {template.description && (
                           <p className="text-sm text-gray-500 line-clamp-1">{template.description}</p>

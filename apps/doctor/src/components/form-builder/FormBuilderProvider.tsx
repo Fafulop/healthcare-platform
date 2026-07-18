@@ -23,6 +23,7 @@ interface FormBuilderProviderProps {
     icon?: string;
     color?: string;
     isPreAppointment?: boolean;
+    isReceta?: boolean;
   };
   initialFields?: FieldDefinition[];
 }

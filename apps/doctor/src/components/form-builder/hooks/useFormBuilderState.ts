@@ -11,6 +11,7 @@ export interface FormBuilderMetadata {
   icon?: string;
   color?: string;
   isPreAppointment?: boolean;
+  isReceta?: boolean;
 }
 
 export interface FormBuilderState {
@@ -210,6 +211,7 @@ export function useFormBuilderState(options: UseFormBuilderStateOptions = {}) {
       icon: options.initialMetadata?.icon,
       color: options.initialMetadata?.color,
       isPreAppointment: options.initialMetadata?.isPreAppointment,
+      isReceta: options.initialMetadata?.isReceta,
     },
     fields: options.initialFields ?? [],
     selectedFieldId: null,

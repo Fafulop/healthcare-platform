@@ -54,8 +54,13 @@ export async function POST(
       );
     }
 
-    // Validate prescription has at least one medication
-    if (existingPrescription.medications.length === 0) {
+    // Validate prescription has content: medication rows for the standard
+    // form, or customData for template-based recetas (the template replaces
+    // the fixed form, so there are no medication rows to require).
+    const isTemplateReceta = !!existingPrescription.templateId &&
+      !!existingPrescription.customData &&
+      Object.keys(existingPrescription.customData as object).length > 0;
+    if (existingPrescription.medications.length === 0 && !isTemplateReceta) {
       return NextResponse.json(
         { error: 'Cannot issue prescription without medications' },
         { status: 400 }

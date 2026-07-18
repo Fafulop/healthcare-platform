@@ -156,12 +156,56 @@ export async function POST(
       }
     }
 
+    // Custom receta template: the template replaces the fixed form, so the
+    // receta stores templateId + customData instead of medication rows.
+    if (body.templateId) {
+      const template = await prisma.encounterTemplate.findFirst({
+        where: {
+          id: body.templateId,
+          doctorId,
+          isCustom: true,
+          isReceta: true,
+          isActive: true,
+        },
+      });
+
+      if (!template) {
+        return NextResponse.json(
+          { error: 'Plantilla de receta no encontrada o no habilitada para recetas' },
+          { status: 404 }
+        );
+      }
+
+      if (!body.customData || typeof body.customData !== 'object' || Array.isArray(body.customData)) {
+        return NextResponse.json(
+          { error: 'customData es requerido para recetas con plantilla' },
+          { status: 400 }
+        );
+      }
+
+      // Validate required fields declared by the template
+      const fields = (template.customFields as any[]) || [];
+      for (const field of fields) {
+        if (field.required) {
+          const value = body.customData[field.name];
+          if (value === undefined || value === null || value === '') {
+            return NextResponse.json(
+              { error: `El campo "${field.labelEs || field.label || field.name}" es requerido` },
+              { status: 400 }
+            );
+          }
+        }
+      }
+    }
+
     // Create prescription with draft status
     const prescription = await prisma.prescription.create({
       data: {
         patientId,
         doctorId,
         encounterId: body.encounterId || null,
+        templateId: body.templateId || null,
+        customData: body.templateId ? body.customData : undefined,
         prescriptionDate: new Date(body.prescriptionDate),
         status: 'draft',
         doctorFullName: body.doctorFullName,

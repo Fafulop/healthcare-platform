@@ -134,6 +134,20 @@ export function Toolbar({ onSave, saving, onToggleAIChat, showAIChat }: ToolbarP
         </label>
       </div>
 
+      {/* Receta toggle */}
+      <div className="mt-2 flex items-center gap-2">
+        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
+          <input
+            type="checkbox"
+            checked={metadata.isReceta ?? false}
+            onChange={(e) => setMetadata({ isReceta: e.target.checked })}
+            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+          />
+          Usar como plantilla de receta
+          <span className="text-xs text-gray-400">(reemplaza el formulario fijo al crear una receta)</span>
+        </label>
+      </div>
+
       {/* Validation errors */}
       {hasErrors && (
         <div className="mt-3">

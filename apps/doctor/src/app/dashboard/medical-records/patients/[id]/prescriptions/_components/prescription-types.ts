@@ -25,6 +25,20 @@ export interface PrescriptionDetails {
   medications: Medication[];
   imagingStudies: ImagingStudy[];
   labStudies: LabStudy[];
+  // Template-based receta (template replaces the fixed form)
+  templateId?: string | null;
+  customData?: Record<string, any> | null;
+  template?: {
+    id: string;
+    name: string;
+    customFields: Array<{
+      name: string;
+      label: string;
+      labelEs?: string;
+      order?: number;
+      type?: string;
+    }>;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

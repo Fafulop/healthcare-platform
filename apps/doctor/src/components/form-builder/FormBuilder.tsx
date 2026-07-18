@@ -37,6 +37,7 @@ interface FormBuilderInnerProps {
     color?: string;
     customFields: FieldDefinition[];
     isPreAppointment: boolean;
+    isReceta: boolean;
   }) => Promise<void>;
 }
 
@@ -98,6 +99,7 @@ function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
         color: state.metadata.color,
         customFields: state.fields,
         isPreAppointment: state.metadata.isPreAppointment ?? false,
+        isReceta: state.metadata.isReceta ?? false,
       });
     } finally {
       setSaving(false);
@@ -198,6 +200,7 @@ interface FormBuilderProps {
     color?: string;
     customFields: FieldDefinition[];
     isPreAppointment: boolean;
+    isReceta: boolean;
   }) => Promise<void>;
 }
 
@@ -212,6 +215,7 @@ export function FormBuilder({ initialTemplate, onSave }: FormBuilderProps) {
               icon: initialTemplate.icon ?? undefined,
               color: initialTemplate.color ?? undefined,
               isPreAppointment: initialTemplate.isPreAppointment,
+              isReceta: initialTemplate.isReceta,
             }
           : undefined
       }

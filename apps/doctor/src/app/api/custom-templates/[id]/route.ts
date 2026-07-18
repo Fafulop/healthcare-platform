@@ -120,6 +120,7 @@ export async function PUT(
     if (body.isDefault !== undefined) updateData.isDefault = body.isDefault;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
     if (body.isPreAppointment !== undefined) updateData.isPreAppointment = body.isPreAppointment;
+    if (body.isReceta !== undefined) updateData.isReceta = body.isReceta;
     if (body.displayOrder !== undefined) updateData.displayOrder = body.displayOrder;
 
     // Update template
@@ -157,6 +158,7 @@ export async function DELETE(
         _count: {
           select: {
             encounters: true,
+            prescriptions: true,
           },
         },
       },
@@ -172,8 +174,11 @@ export async function DELETE(
       );
     }
 
-    // Check if template has been used
-    if (existing._count.encounters > 0) {
+    // Check if template has been used. Recetas count too: an issued receta is
+    // legally locked and its PDF resolves field labels from this template — a
+    // hard delete would strand them (templateId FK is SET NULL).
+    const usedBy = existing._count.encounters + existing._count.prescriptions;
+    if (usedBy > 0) {
       // Don't delete, just deactivate
       await prisma.encounterTemplate.update({
         where: { id },
@@ -185,10 +190,10 @@ export async function DELETE(
 
       return NextResponse.json({
         success: true,
-        message: `Template deactivated (was used in ${existing._count.encounters} encounters)`,
+        message: `Template deactivated (used in ${existing._count.encounters} encounters, ${existing._count.prescriptions} recetas)`,
       });
     } else {
-      // Safe to delete - no encounters use it
+      // Safe to delete - no encounters or recetas use it
       await prisma.encounterTemplate.delete({
         where: { id },
       });

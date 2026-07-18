@@ -10,6 +10,7 @@ import {
   VoiceRecordingModal,
 } from '@/components/voice-assistant';
 import { PrescriptionChatPanel } from '@/components/medical-records/PrescriptionChatPanel';
+import { DynamicFieldRenderer } from '@/components/medical-records/DynamicFieldRenderer';
 import { formatLocalDate as formatDateString } from '@/lib/dates';
 import { useNewPrescriptionForm } from '../_components/useNewPrescriptionForm';
 
@@ -34,6 +35,12 @@ export default function NewPrescriptionPage() {
     imagingStudies, setImagingStudies,
     labStudies, setLabStudies,
     selectedEncounterId, setSelectedEncounterId,
+    recetaTemplates,
+    selectedTemplateId,
+    handleTemplateSelect,
+    selectedTemplate,
+    customData,
+    handleCustomFieldChange,
     modalOpen, setModalOpen,
     sidebarOpen, setSidebarOpen,
     sidebarInitialData,
@@ -83,13 +90,16 @@ export default function NewPrescriptionPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setChatPanelOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              <Sparkles className="w-5 h-5" />
-              Chat IA
-            </button>
+            {/* Chat IA edits the fixed fields — hidden in template mode */}
+            {!selectedTemplate && (
+              <button
+                onClick={() => setChatPanelOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Sparkles className="w-5 h-5" />
+                Chat IA
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -113,6 +123,30 @@ export default function NewPrescriptionPage() {
 
       {/* Form */}
       <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
+        {/* Template selector — a receta template replaces the fixed form */}
+        {recetaTemplates.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Tipo de Receta
+            </label>
+            <select
+              value={selectedTemplateId}
+              onChange={(e) => handleTemplateSelect(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Receta estándar (medicamentos y estudios)</option>
+              {recetaTemplates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Plantilla: {t.name}
+                </option>
+              ))}
+            </select>
+            {selectedTemplate?.description && (
+              <p className="text-sm text-gray-500">{selectedTemplate.description}</p>
+            )}
+          </div>
+        )}
+
         {/* Prescription Info */}
         <div className="bg-white rounded-lg shadow p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-900">Información General</h2>
@@ -144,31 +178,36 @@ export default function NewPrescriptionPage() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Diagnóstico
-            </label>
-            <input
-              type="text"
-              value={diagnosis}
-              onChange={(e) => setDiagnosis(e.target.value)}
-              placeholder="Ej: Infección respiratoria aguda"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {/* Content fields — replaced by the template's own fields */}
+          {!selectedTemplate && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Diagnóstico
+                </label>
+                <input
+                  type="text"
+                  value={diagnosis}
+                  onChange={(e) => setDiagnosis(e.target.value)}
+                  placeholder="Ej: Infección respiratoria aguda"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notas Clínicas
-            </label>
-            <textarea
-              value={clinicalNotes}
-              onChange={(e) => setClinicalNotes(e.target.value)}
-              placeholder="Notas adicionales sobre el tratamiento"
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notas Clínicas
+                </label>
+                <textarea
+                  value={clinicalNotes}
+                  onChange={(e) => setClinicalNotes(e.target.value)}
+                  placeholder="Notas adicionales sobre el tratamiento"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -224,32 +263,48 @@ export default function NewPrescriptionPage() {
           </div>
         </div>
 
-        {/* Medications */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Medicamentos</h2>
-          <MedicationList
-            medications={medications}
-            onChange={setMedications}
-          />
-        </div>
+        {/* Template mode: the template's fields ARE the receta content */}
+        {selectedTemplate ? (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {selectedTemplate.name}
+            </h2>
+            <DynamicFieldRenderer
+              fields={(selectedTemplate.customFields || []) as any}
+              values={customData}
+              onChange={handleCustomFieldChange}
+            />
+          </div>
+        ) : (
+          <>
+            {/* Medications */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Medicamentos</h2>
+              <MedicationList
+                medications={medications}
+                onChange={setMedications}
+              />
+            </div>
 
-        {/* Imaging Studies */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Imagen</h2>
-          <ImagingStudyList
-            studies={imagingStudies}
-            onChange={setImagingStudies}
-          />
-        </div>
+            {/* Imaging Studies */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Imagen</h2>
+              <ImagingStudyList
+                studies={imagingStudies}
+                onChange={setImagingStudies}
+              />
+            </div>
 
-        {/* Lab Studies */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Laboratorio</h2>
-          <LabStudyList
-            studies={labStudies}
-            onChange={setLabStudies}
-          />
-        </div>
+            {/* Lab Studies */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudios de Laboratorio</h2>
+              <LabStudyList
+                studies={labStudies}
+                onChange={setLabStudies}
+              />
+            </div>
+          </>
+        )}
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3">

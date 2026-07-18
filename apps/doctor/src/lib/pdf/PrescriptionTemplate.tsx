@@ -113,11 +113,15 @@ interface PrescriptionPDFProps {
     address?: string;
     phone?: string;
   };
+  /** Template-based receta body: resolved [label, value] pairs (already
+   * filtered by showInPdf and ordered). Rendered instead of medications. */
+  customContent?: Array<{ label: string; value: string }>;
 }
 
 export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
   prescription,
-  clinicInfo
+  clinicInfo,
+  customContent
 }) => {
   const patientAge = calculateAge(prescription.patient.dateOfBirth);
 
@@ -166,7 +170,23 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
           </View>
         )}
 
+        {/* Template-based receta: custom fields replace the medications table */}
+        {customContent && customContent.length > 0 && (
+          <View style={styles.medicationsSection}>
+            <Text style={styles.sectionTitle}>Prescripción</Text>
+            {customContent.map((item, index) => (
+              <View key={index} style={{ marginBottom: 8 }}>
+                <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 2 }}>
+                  {item.label}
+                </Text>
+                <Text style={{ fontSize: 10 }}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Medications */}
+        {prescription.medications.length > 0 && (
         <View style={styles.medicationsSection}>
           <Text style={styles.sectionTitle}>Prescripción</Text>
           {prescription.medications.map((med, index) => (
@@ -202,6 +222,7 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
             </View>
           ))}
         </View>
+        )}
 
         {/* Clinical Notes */}
         {prescription.clinicalNotes && (
