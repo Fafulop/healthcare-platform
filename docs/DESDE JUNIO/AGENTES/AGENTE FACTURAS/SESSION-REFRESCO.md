@@ -3,7 +3,21 @@
 > Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
 > expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
 > archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
-> Última actualización: **2026-07-16/17 (madrugada)** — **F2c CERRADO EN VIVO** (`09-DISENO`
+>
+> **Última actualización: 2026-07-19 — MONEY-MODEL #5 SHIPPED + VALIDADO EN VIVO** (folio 10):
+> patrón de SEPARACIÓN (1 factura = 1 ingreso; extras en factura aparte — ver PRÓXIMOS PASOS
+> #4 ✅ y KB §7). Commits `6148e7ab` (feature) + `03025f41` (fixes de la validación: ingreso
+> sin area/subarea inventada; modal de evidencia resuelve CFDIs de plataforma con fallback a
+> cfdis_emitted + descarga PDF/XML) + `614173f2` (radar #6: tool del agente para facturas
+> SIN cita — decidido, sin diseñar). Los PRÓXIMOS PASOS 1 (cancelación = sandbox, no bug
+> nuestro), 2 (recetas COMPLETO, sesión aparte) y 4 (este) están ✅; **quedan F3 (#3),
+> semillas de evals (#5) y el radar (#6)**. Sesiones 2026-07-18 fuera de este dominio:
+> sistema de recetas/plantillas completo (`docs/NEW.MD-GUIDES/RECETA-TEMPLATES.md`),
+> form-builder-chat migrado a claude-sonnet-5 tool_use (`66d90b17`, validado), fix de emails
+> de recordatorio (fecha absoluta), mapa de superficie IA en
+> `../GENERAL AGENTES/06-MAPA-superficie-IA.md`.
+>
+> Actualización previa: **2026-07-16/17 (madrugada)** — **F2c CERRADO EN VIVO** (`09-DISENO`
 > §9): ciclo completo con datos reales — dos-turnos orgánico (crear+completar cita → ingreso
 > 1598) → borrador compuesta 3 conceptos → form hidratado → el doctor EDITÓ (D01→G03 + CP
 > tras rechazo real del SAT — causa #1 de la KB confirmada) → CFDI folio 9 $1,548 EXACTO,
@@ -290,8 +304,14 @@ siguientes, en el orden que el usuario los tiene en mente:
    `register-income` (ingreso 1:1, nace hasFactura+uuid). Bonus Fix A: toda emisión ligada
    estampa `satCfdiUuid` → el sync SAT no duplicará emisiones al pasar a producción; la
    cancelación limpia el uuid. Cero migraciones, agente intacto. Detalle: `06-KNOWLEDGE-BASE`
-   §7 + `09-DISENO` §9 follow-up 5. PENDIENTE: validación en vivo (emitir factura de extras
-   → diálogo → ingreso en flujo).
+   §7 + `09-DISENO` §9 follow-up 5. **✅ VALIDADO EN VIVO 2026-07-19 (folio 10, $1 PG):**
+   diálogo → ingreso 1603 con uuid UPPERCASE estampado y ledger_entry_id backfilleado
+   (verificado read-only). Dos hallazgos corregidos en la validación (`03025f41`): el ingreso
+   nacía con area/subarea del default ("Consulta primera vez" — mentira para extras; ahora
+   nace sin clasificar) y el modal de evidencia era callejón sin salida para CFDIs de
+   plataforma (solo consultaba SAT XML; ahora fallback a cfdis_emitted vía filtro `?uuid=`
+   case-insensitive + botones Descargar PDF/XML + "Desvincular" oculto — deshacer ese link
+   sería cancelar).
 5. **Semillas pendientes de datos frescos:** eval de uso-incompatible + restaurar el camino
    feliz de emisión directa (`f2b-emision-pg-feliz`, checks en git) — necesitan un ingreso
    de prueba nuevo sin factura.
