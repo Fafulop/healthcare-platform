@@ -49,6 +49,27 @@ interface CfdiDetail {
   } | null;
 }
 
+/** CFDI emitted by the PLATFORM (cfdis_emitted) — the fallback source when the
+ * uuid has no SAT XML detail (sandbox always; production until the first sync). */
+interface PlatformCfdi {
+  id: number;
+  uuid: string;
+  folio: string | null;
+  serie: string | null;
+  rfcEmisor: string;
+  rfcReceptor: string;
+  nombreReceptor: string;
+  usoCfdi: string;
+  subtotal: string | number;
+  iva: string | number | null;
+  retencionIsr: string | number | null;
+  total: string | number;
+  formaPago: string;
+  metodoPago: string;
+  status: string;
+  issuedAt: string;
+}
+
 interface Props {
   entry: Pick<LedgerEntry, 'id' | 'satCfdiUuid' | 'facturas' | 'facturasXml'>;
   onClose: () => void;
@@ -75,9 +96,11 @@ export function CfdiDetailModal({ entry, onClose, onUnlinked }: Props) {
     ...(entry.facturasXml || []).filter((f: any) => f?.fileUrl).map((f: any) => ({ key: `xml-${f.id}`, name: f.fileName as string, url: f.fileUrl as string, kind: 'XML' })),
   ];
   const [data, setData] = useState<CfdiDetail | null>(null);
+  const [platform, setPlatform] = useState<PlatformCfdi | null>(null);
   const [loading, setLoading] = useState(!!uuid);
   const [error, setError] = useState<string | null>(null);
   const [unlinking, setUnlinking] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const handleClose = useCallback(() => onClose(), [onClose]);
 
@@ -88,22 +111,61 @@ export function CfdiDetailModal({ entry, onClose, onUnlinked }: Props) {
   }, [handleClose]);
 
   useEffect(() => {
-    if (!uuid) { setData(null); setError(null); setLoading(false); return; }
+    if (!uuid) { setData(null); setPlatform(null); setError(null); setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    authFetch(`${API_URL}/api/sat-descarga/details/${uuid}`)
-      .then(res => {
-        if (!res.ok) throw new Error(res.status === 404 ? 'No hay detalles XML para este CFDI.' : 'Error al cargar datos.');
-        return res.json();
-      })
-      .then(json => { if (!cancelled) setData(json.data); })
-      .catch(err => { if (!cancelled) setError(err.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    (async () => {
+      try {
+        // 1st source: SAT XML detail (external CFDIs, or platform ones after a sync)
+        const res = await authFetch(`${API_URL}/api/sat-descarga/details/${uuid}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (!cancelled) setData(json.data);
+          return;
+        }
+        if (res.status !== 404) throw new Error('Error al cargar datos.');
+
+        // 2nd source: platform-emitted CFDI (cfdis_emitted) — the ledger entry
+        // may carry a uuid WE stamped at emission, which the SAT hasn't synced.
+        const pRes = await authFetch(`${API_URL}/api/facturacion/cfdi?uuid=${encodeURIComponent(uuid)}`);
+        const pBody = await pRes.json().catch(() => ({}));
+        const record = Array.isArray(pBody.data) ? pBody.data[0] : null;
+        if (record) {
+          if (!cancelled) setPlatform(record as PlatformCfdi);
+          return;
+        }
+        throw new Error('No hay detalles XML para este CFDI.');
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || 'Error al cargar datos.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
 
     return () => { cancelled = true; };
   }, [uuid]);
+
+  const downloadPlatformFile = async (format: 'pdf' | 'xml') => {
+    if (!platform) return;
+    setDownloading(format);
+    try {
+      const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${platform.id}/${format}`);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `factura_${platform.folio || platform.id}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert(`No se pudo descargar el ${format.toUpperCase()}.`);
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   const meta = data?.metadata;
 
@@ -238,6 +300,61 @@ export function CfdiDetailModal({ entry, onClose, onUnlinked }: Props) {
             </>
           )}
 
+          {/* Platform-emitted CFDI (no SAT XML yet — sandbox, or pre-first-sync) */}
+          {platform && !data && (
+            <>
+              <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
+                Factura emitida EN LA PLATAFORMA — datos del registro de emisión (el SAT aún no la reporta en Descarga).
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Datos del CFDI</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+                  <Item label="UUID" value={platform.uuid} mono />
+                  <Item label="Status" value={platform.status === 'active' ? 'Vigente' : platform.status === 'cancellation_pending' ? 'Cancelación en proceso' : 'Cancelada'} />
+                  <Item label="Emisor (RFC)" value={platform.rfcEmisor} />
+                  <Item label="Receptor" value={`${platform.nombreReceptor} (${platform.rfcReceptor})`} />
+                  <Item label="Fecha Emisión" value={new Date(platform.issuedAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })} />
+                  {platform.folio && <Item label="Folio" value={`${platform.serie ? platform.serie + '-' : ''}${platform.folio}`} />}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Desglose Fiscal</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs">
+                  <Item label="Subtotal" value={fmt(Number(platform.subtotal))} />
+                  <Item label="IVA Trasladado" value={fmt(platform.iva !== null ? Number(platform.iva) : null)} />
+                  {platform.retencionIsr !== null && <Item label="ISR Retenido" value={fmt(Number(platform.retencionIsr))} />}
+                  <Item label="Total" value={fmt(Number(platform.total))} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pago</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs">
+                  <Item label="Método" value={platform.metodoPago === 'PUE' ? 'PUE (Pago en una exhibición)' : 'PPD (Pago en parcialidades)'} />
+                  <Item label="Forma" value={`${platform.formaPago} — ${SAT_FORMA_PAGO_LABELS[platform.formaPago] || 'Otro'}`} />
+                  <Item label="Uso CFDI" value={platform.usoCfdi} />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => downloadPlatformFile('pdf')}
+                  disabled={downloading !== null}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {downloading === 'pdf' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                  Descargar PDF
+                </button>
+                <button
+                  onClick={() => downloadPlatformFile('xml')}
+                  disabled={downloading !== null}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {downloading === 'xml' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                  Descargar XML
+                </button>
+              </div>
+            </>
+          )}
+
           {/* Uploaded factura files (PDF / XML) — always available, even without a linked CFDI */}
           {uploadedFiles.length > 0 && (
             <div className="space-y-2">
@@ -265,9 +382,10 @@ export function CfdiDetailModal({ entry, onClose, onUnlinked }: Props) {
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer — no Desvincular for platform-emitted CFDIs (that link is the
+            emission itself; undoing it is CANCELLING the factura, not unlinking) */}
         <div className="px-5 py-3 border-t border-gray-200 flex gap-2">
-          {uuid && entryId && onUnlinked && (
+          {uuid && entryId && onUnlinked && !platform && (
             <button
               onClick={async () => {
                 if (!confirm('¿Desvincular esta factura CFDI del movimiento?')) return;

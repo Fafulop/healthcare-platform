@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { generateLedgerInternalId, getDefaultArea } from '@/lib/practice-utils';
+import { generateLedgerInternalId } from '@/lib/practice-utils';
 import { mapFormaPago } from '@/lib/sat-auto-register';
 
 /**
@@ -87,7 +87,6 @@ export async function POST(
 
     const entry = await prisma.$transaction(async (tx) => {
       const internalId = await generateLedgerInternalId(doctor.id, 'ingreso', tx);
-      const defaultArea = await getDefaultArea(doctor.id, 'INGRESO', tx);
 
       const created = await tx.ledgerEntry.create({
         data: {
@@ -98,8 +97,11 @@ export async function POST(
           transactionDate,
           internalId,
           formaDePago: mapFormaPago(cfdi.formaPago),
-          area: defaultArea.area,
-          subarea: defaultArea.subarea,
+          // No area/subarea: the default would claim a service ("Consulta
+          // primera vez") this factura may not be — the doctor classifies the
+          // row afterward (caught in live validation, folio 10).
+          area: '',
+          subarea: '',
           origin: 'manual',
           transactionType: 'N/A',
           paymentStatus: porCobrar ? 'PENDING' : 'PAID',

@@ -22,11 +22,15 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || undefined;
+    const uuid = searchParams.get('uuid') || undefined;
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '50') || 50));
 
     const where: any = { fiscalProfileId: profile.id };
     if (status) where.status = status;
+    // Lookup by uuid (evidence modal resolves platform-emitted CFDIs this way;
+    // ledger stores uuids UPPERCASE, Facturama returns lowercase)
+    if (uuid) where.uuid = { equals: uuid, mode: 'insensitive' };
 
     const [cfdis, total] = await Promise.all([
       prisma.cfdiEmitted.findMany({
