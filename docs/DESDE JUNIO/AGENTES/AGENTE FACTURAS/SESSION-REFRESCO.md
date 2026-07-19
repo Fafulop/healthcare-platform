@@ -295,6 +295,15 @@ siguientes, en el orden que el usuario los tiene en mente:
 5. **Semillas pendientes de datos frescos:** eval de uso-incompatible + restaurar el camino
    feliz de emisión directa (`f2b-emision-pg-feliz`, checks en git) — necesitan un ingreso
    de prueba nuevo sin factura.
+6. **🔭 RADAR — tool del agente para facturas SIN cita (decidido 2026-07-19, sin diseñar):**
+   con el patrón de separación, la factura de extras hoy es UI-only (expediente
+   "+ Nueva factura" / dropdown de receptores). En algún punto el agente ganará el camino
+   equivalente: proponer/preparar una factura que NO viene de un ingreso de cita
+   (extras, venta suelta) — probablemente relajando `propose_prepare_factura_borrador`
+   para aceptar paciente-sin-ingreso (CfdiDraft.ledger_entry_id ya es nullable) y
+   encadenando el ingreso 1:1 post-emisión (`register-income`). Requiere: decisión de
+   tier (borrador = reversible, tier bajo — el precedente F2c aplica), evals nuevos, y
+   actualizar la frontera "facturar ingresos manuales" de `02-CAPACIDADES` §3.
 
 ## Preguntas abiertas
 

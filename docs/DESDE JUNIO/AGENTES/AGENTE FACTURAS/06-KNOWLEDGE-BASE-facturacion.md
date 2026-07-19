@@ -224,7 +224,10 @@ el expediente → `?patient=` preselecciona el receptor vía dropdown server-der
 `GET /facturacion/receptores`). Una factura emitida SIN ingreso ligado dispara el diálogo
 post-emisión: `POST /cfdi/[id]/register-income` crea el ingreso 1:1 (nace hasFactura + uuid,
 backfillea `cfdis_emitted.ledger_entry_id`; cobrado/por-cobrar según PUE/PPD). Omitir es
-seguro: el sync SAT eventualmente crea el ingreso faltante (self-healing).
+seguro: el sync SAT eventualmente crea el ingreso faltante (self-healing). **Radar:** el
+camino de extras es UI-only por ahora; un tool del agente para facturas sin cita
+(borrador sin ingreso ligado + register-income encadenado) está decidido-sin-diseñar —
+ver REFRESCO PRÓXIMOS PASOS #6.
 
 - Cadena expediente↔factura **transitiva vía LedgerEntry** (opción A de `00` §3, sin migración).
   Regla de diseño: el agente SIEMPRE liga `ledgerEntryId` al emitir.
