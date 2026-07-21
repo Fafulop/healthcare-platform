@@ -1,5 +1,10 @@
 # NUEVOS USUARIOS — Diseño técnico
 
+> **⚠️ CANONICAL LIVE HANDOFF (leer primero cada sesión):**
+> [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) — estado actual, qué falta de la validación
+> en vivo, y qué sigue. Este doc (01-DISENO) es la referencia técnica profunda; el REFRESCO
+> es el resumen operativo.
+>
 > **Estado:** DISEÑO 2026-07-20, implementación EN CURSO. Requisitos cerrados en
 > [`00-REQUISITOS-usuarios-secundarios.md`](00-REQUISITOS-usuarios-secundarios.md).
 > Todo lo citado aquí (archivos, líneas, rutas) fue verificado en código el 2026-07-20.
@@ -10,9 +15,9 @@
 > segundo gmail real como member, andreabarbagal@gmail.com) — pasos 1-3+7 de §9
 > confirmados limpios; 3 rondas de bug hunt dirigido (§16, hallazgos 1-5) encontraron
 > **9 bugs reales de la misma familia** (superficies owner-only expuestas a members sin
-> guard) y los corrigió. **5 commits COMMITEADOS, sin pushear todavía:** `27c04273`,
-> `0824a18d`, `216e1606`, `3c89cd07`, `d8217f44`. Pendiente: pasos 4-6 de §9 + OK del
-> usuario para push.
+> guard) y los corrigió. **6 commits COMMITEADOS, sin pushear todavía:** `27c04273`,
+> `0824a18d`, `216e1606`, `3c89cd07`, `d8217f44`, `4a18f7e8`. Pendiente: pasos 4-6 de §9 +
+> OK del usuario para push — detalle exacto de qué falta en SESSION-REFRESCO.md.
 >
 > Convenciones de BD según `docs/NEW.MD-GUIDES/database-architecture.md`: NO `prisma db push`;
 > migraciones SQL standalone idempotentes, aplicadas a Railway ANTES de pushear el código;
