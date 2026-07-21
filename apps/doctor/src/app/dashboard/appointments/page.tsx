@@ -24,6 +24,7 @@ import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
 import { StandaloneFormularioModal } from "./_components/StandaloneFormularioModal";
 import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsModal";
 import { useAgentActions } from "@/contexts/AgentContext";
+import { usePermissions } from "@/lib/permissions-client";
 import type { Booking } from "./_hooks/useBookings";
 import type { ClinicLocation } from "./_hooks/useSlots";
 
@@ -72,6 +73,7 @@ export default function AppointmentsPage() {
   const [standaloneFormModalOpen, setStandaloneFormModalOpen] = useState(false);
   const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
   const { open: openAgentPanel, subscribeAgendaChanged } = useAgentActions();
+  const { can: canAgent } = usePermissions();
 
   // Refresh this page's views after the assistant executes proposals; the
   // effect returns the unsubscribe (fetchers are useCallback-stable, so this
@@ -255,14 +257,16 @@ export default function AppointmentsPage() {
             <span className="hidden sm:inline">Campos de Cita</span>
             <span className="sm:hidden">Campos</span>
           </button>
-          <button
-            onClick={openAgentPanel}
-            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
-          >
-            <Sparkles className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Asistente</span>
-            <span className="sm:hidden">IA</span>
-          </button>
+          {canAgent("asistente_ia") && (
+            <button
+              onClick={openAgentPanel}
+              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
+            >
+              <Sparkles className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Asistente</span>
+              <span className="sm:hidden">IA</span>
+            </button>
+          )}
           <Link
             href="/dashboard/ayuda?tab=citas"
             title="Ver guía de Citas"
