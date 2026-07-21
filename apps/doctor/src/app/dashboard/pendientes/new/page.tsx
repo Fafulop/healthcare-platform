@@ -13,6 +13,7 @@ export default function NewTaskPage() {
   const {
     session,
     authStatus,
+    isOwner,
     form,
     setForm,
     patientSearch,
@@ -65,6 +66,7 @@ export default function NewTaskPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Nueva Tarea</h1>
             <p className="text-gray-600 mt-1">Crea una nueva tarea pendiente</p>
           </div>
+          {isOwner && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setChatPanelOpen(true)}
@@ -74,6 +76,7 @@ export default function NewTaskPage() {
               Chat IA
             </button>
           </div>
+          )}
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { useSession } from "next-auth/react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoiceStructuredData, VoiceTaskData } from '@/types/voice-assistant';
+import { usePermissions } from '@/lib/permissions-client';
 
 interface PatientOption {
   id: string;
@@ -39,6 +40,7 @@ export function useNewTask() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
 
+  const { isOwner } = usePermissions();
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [accumulatedTasks, setAccumulatedTasks] = useState<VoiceTaskData[]>([]);
 
@@ -54,10 +56,13 @@ export function useNewTask() {
   });
 
   useEffect(() => {
-    if (searchParams.get('chat') === 'true') {
+    // task-chat is a legacy AI surface, OWNER_ONLY regardless of the Tareas
+    // toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21, same class
+    // as ChatWidget/VoiceAssistantHubWidget (§16 hallazgo 3).
+    if (searchParams.get('chat') === 'true' && isOwner) {
       setChatPanelOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isOwner]);
 
   useEffect(() => {
     if (authStatus === "authenticated") {
@@ -298,6 +303,7 @@ export function useNewTask() {
   return {
     session,
     authStatus,
+    isOwner,
     form,
     setForm,
     patientSearch,

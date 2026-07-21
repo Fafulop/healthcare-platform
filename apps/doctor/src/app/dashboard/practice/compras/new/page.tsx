@@ -18,6 +18,7 @@ import { PurchaseProductModal } from '../_components/PurchaseProductModal';
 import { PurchaseCustomItemModal } from '../_components/PurchaseCustomItemModal';
 import { PurchaseSummaryCard } from '../_components/PurchaseSummaryCard';
 import type { PurchaseItem } from '../_components/purchase-types';
+import { usePermissions } from '@/lib/permissions-client';
 
 // Dynamically import voice assistant components (client-side only)
 const VoiceRecordingModal = dynamic(
@@ -87,12 +88,15 @@ export default function NewCompraPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-open chat panel from hub widget
+  // Auto-open chat panel from hub widget. purchase-chat is a legacy AI
+  // surface, OWNER_ONLY regardless of the Compras toggle (00-REQUISITOS
+  // §5.3) — found via bug hunt 2026-07-21 (§16 hallazgo 3 family).
+  const { isOwner } = usePermissions();
   useEffect(() => {
-    if (searchParams.get('chat') === 'true') {
+    if (searchParams.get('chat') === 'true' && isOwner) {
       setChatPanelOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isOwner]);
 
   // Load voice data from sessionStorage (hub widget flow)
   useEffect(() => {
@@ -441,6 +445,7 @@ export default function NewCompraPage() {
             <ArrowLeft className="w-4 h-4" />
             Volver a Compras
           </Link>
+          {isOwner && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setChatPanelOpen(true)}
@@ -451,6 +456,7 @@ export default function NewCompraPage() {
               Chat IA
             </button>
           </div>
+          )}
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Nueva Compra</h1>
         <p className="text-gray-600 mt-1">Registra una nueva compra</p>

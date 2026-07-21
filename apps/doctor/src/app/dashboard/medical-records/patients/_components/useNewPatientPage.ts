@@ -8,6 +8,7 @@ import type { PatientFormData } from '@/components/medical-records/PatientForm';
 import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoicePatientData, VoiceStructuredData } from '@/types/voice-assistant';
 import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-utils';
+import { usePermissions } from '@/lib/permissions-client';
 
 // Helper to map voice data to form data
 function mapVoiceToFormData(voiceData: VoicePatientData): Partial<PatientFormData> {
@@ -72,12 +73,15 @@ export function useNewPatientPage() {
     confidence: 'high' | 'medium' | 'low';
   } | null>(null);
 
-  // Auto-open chat panel from hub widget
+  // Auto-open chat panel from hub widget. patient-chat is a legacy AI
+  // surface, OWNER_ONLY regardless of the Expedientes toggle (00-REQUISITOS
+  // §5.3) — found via bug hunt 2026-07-21 (§16 hallazgo 3 family).
+  const { isOwner } = usePermissions();
   useEffect(() => {
-    if (searchParams.get('chat') === 'true') {
+    if (searchParams.get('chat') === 'true' && isOwner) {
       setChatPanelOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isOwner]);
 
   // Load voice data from sessionStorage
   useEffect(() => {
@@ -235,6 +239,7 @@ export function useNewPatientPage() {
     // Session
     session,
     sessionStatus: status,
+    isOwner,
     // Data
     doctorProfile,
     // Voice

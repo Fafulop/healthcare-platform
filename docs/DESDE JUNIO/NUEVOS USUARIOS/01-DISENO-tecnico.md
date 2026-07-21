@@ -4,12 +4,11 @@
 > [`00-REQUISITOS-usuarios-secundarios.md`](00-REQUISITOS-usuarios-secundarios.md).
 > Todo lo citado aquí (archivos, líneas, rutas) fue verificado en código el 2026-07-20.
 >
-> **PR A** SHIPPED `d6c48256` (migración aplicada a prod, ultra review 0 findings).
-> **PR B, C y D** construidos + revisados inline 2026-07-20, COMMITEADOS localmente
-> (`b9fbeae2`/`d5e2e692`/`d23a5f13`), sin pushear — ver §11-§14 (as-built + review de
-> cada uno). **`/code-review ultra` lanzado 2026-07-20 cubriendo los 3 commits juntos**
-> (un solo pase, ahorra cuota); resultados pendientes de triage — se documentarán en
-> §15 al llegar.
+> **PR A-D SHIPPED** (`d6c48256`..`345b2a09`, 2026-07-20/21) — feature completa en prod.
+> `/code-review ultra` sobre B+C+D: 0 findings en B/C, 4 CONFIRMED en D (§15), corregidos
+> y pusheados junto con el resto. **Validación en vivo EN CURSO 2026-07-21** (dr-prueba +
+> segundo gmail real como member) — 2 bugs reales encontrados y corregidos, ver §16;
+> commits `27c04273`/`0824a18d` **COMMITEADOS, sin pushear todavía**.
 >
 > Convenciones de BD según `docs/NEW.MD-GUIDES/database-architecture.md`: NO `prisma db push`;
 > migraciones SQL standalone idempotentes, aplicadas a Railway ANTES de pushear el código;
@@ -476,20 +475,28 @@ read-only, `pnpm-lock.yaml` si hay deps nuevas, explicación + OK del usuario an
       (grep de consumidores listado 2026-07-20: medical-auth, DoctorProfileContext, ~14 páginas).
 - [ ] Runner de evals: flag para simular permisos de member (§7.3).
 
-**Validación live (dr-prueba + un segundo gmail real como member):**
-1. Invitar al gmail B con defaults → login B → pantalla `/invitacion` → aceptar → dashboard
-   con sidebar recortado (solo Citas/Tareas/Notas/Ayuda).
-2. B: página bloqueada por URL directa → "sin acceso"; endpoint bloqueado por curl con token
-   de B → 403 PERMISSION_BLOCKED; endpoint permitido (crear cita) → funciona y el evento
-   Calendar sale del Google del OWNER (verificar en el calendar del owner).
-3. Owner activa `facturacion`+`sat` en vivo → siguiente request de B ya ve Facturación;
-   agente de B (si `asistente_ia` ON) gana módulos facturas/fiscal en el siguiente mensaje.
-4. B con `flujo` OFF completa una cita (citas ON) → LedgerEntry se crea igual (regla §3.6
-   de 00); verificar read-only en prod.
-5. Owner revoca a B → siguiente request de B = pantalla revocado; su token viejo → 403 en
-   todo. Re-invitar a B a OTRO portal de prueba → funciona (slot liberado).
-6. `member_audit_log` tiene los writes de B (y solo los de B).
-7. Owner: cero cambios — panel agente, evals, todas las páginas.
+**Validación live (dr-prueba + un segundo gmail real como member) — EN CURSO 2026-07-21,
+member real = andreabarbagal@gmail.com:**
+1. [x] Invitar al gmail B con defaults → login B → pantalla `/invitacion` → aceptar →
+   dashboard con sidebar recortado (solo Citas/Tareas/Notas/Ayuda). **Confirmado en prod
+   read-only**: invite PENDING→ACCEPTED, doctor_members creado ACTIVE con los permisos
+   exactos del invite (ver §16 para el detalle).
+2. [x] B: página bloqueada por URL directa → "sin acceso" (confirmado, screenshot real:
+   `/dashboard/facturacion` → pantalla PermissionGate). [x] Endpoint bloqueado por curl con
+   token real de B → **`403 {"error":"PERMISSION_BLOCKED"}`** en `/api/facturacion/profile`;
+   endpoint permitido (`/api/appointments/bookings`) → `200` con datos reales. [x] Cita
+   creada por B → Calendar event con `google_event_id` bajo el `google_calendar_id` del
+   OWNER (Andrea no tiene ni puede tener conexión de Calendar propia — confirmado, ver §16).
+3. [x] Owner activa `facturacion`+`sat` en vivo → sidebar de B lo muestra en el SIGUIENTE
+   refresh, sin re-login (confirmado). **Encontró bug real** — ver §16 hallazgo 1.
+   Módulos del agente con `asistente_ia` ON: NO probado aún (asistente_ia seguía OFF).
+4. [ ] Pendiente.
+5. [ ] Pendiente.
+6. [ ] Pendiente.
+7. [x] Owner: cero cambios observados en todo lo probado hasta ahora.
+
+Bug adicional fuera de esta lista, encontrado por el usuario probando la agenda: el botón
+verde "Asistente" DENTRO de la página de citas no abría el panel para B — ver §16 hallazgo 2.
 
 ## 10. Riesgos residuales
 
@@ -752,3 +759,145 @@ nuevo — estos son cambios de lógica pura sobre queries ya smoke-testeadas (lo
 usan patrones de query verificados; `mode:'insensitive'` es sintaxis Prisma estándar para
 postgresql, no un query shape nuevo que amerite smoke read-only). Pendiente: commit de los
 fixes (nuevo commit, no amend, per regla del repo) + OK del usuario antes de push.
+
+**Estado 2026-07-21: fixes commiteados (`345b2a09`) y pusheados junto con B/C/D.**
+
+## 16. Validación en vivo — hallazgos reales (2026-07-21, EN CURSO)
+
+Feature completa en prod. Método: dr-prueba como OWNER (ya logueado), `andreabarbagal@gmail.com`
+como MEMBER real (login real en `https://doctor.tusalud.pro/login`, no simulado) — el usuario
+ejecuta cada paso en su navegador, yo verifico contra prod read-only entre pasos (más un curl
+directo con el token real de Andrea vía `/api/auth/get-token`, para probar el límite server-side
+sin depender de que la UI lo esconda). Pasos 1-3 y 7 del checklist §9 confirmados limpios; 4-6
+pendientes. Dos bugs reales encontrados, ambos por el mismo mecanismo — probar con un humano real
+en vez de solo argumentar desde el código — y ambos ya corregidos:
+
+### Hallazgo 1 — endpoints de solo-lectura de estado agrupados bajo el mismo OWNER_ONLY que la escritura
+
+**Síntoma reportado por Andrea:** tras el toggle en vivo de `facturacion`+`sat`, su sidebar sí
+mostró Facturación (paso 3 confirmado), pero DENTRO de la página solo veía las pestañas
+Configuración y Guía — ni Mis Facturas, ni Nueva Factura, ni REP, ni Nota de Crédito.
+
+**Causa:** `apps/doctor/src/app/dashboard/facturacion/page.tsx` calcula
+`isReady = profile && csdStatus?.csdUploaded && csdStatus.facturamaStatus === "active"` y
+gatea esas 4 pestañas en `isReady`. `csdStatus` viene de `GET /api/facturacion/csd/status`,
+que PR B mapeó bajo la MISMA regla `{ prefix: 'facturacion/csd', key: 'OWNER_ONLY' }` que la
+subida real del certificado (`POST /api/facturacion/csd`) — un error de granularidad: el
+diseño trataba "csd" como una unidad, pero el endpoint real separa CLARAMENTE la lectura de
+estado (booleans + RFC + fechas, `apps/api/.../csd/status/route.ts:44-55` — nunca la llave
+privada) de la escritura del material sensible. El status 403 de Andrea hacía que
+`csdStatus` quedara `undefined`, `isReady` false, y la página escondía las 4 pestañas en
+silencio — sin error visible, exactamente el patrón "se ve roto pero no truena" que hace
+estos bugs difíciles de cazar solo leyendo código.
+
+**Búsqueda proactiva del mismo patrón** (antes de que otro usuario lo encontrara): mismo
+molde exacto en `sat-descarga/fiel` (GET/POST/DELETE comparten la MISMA url — split por
+método, no por path) y en `stripe/connect/status` + `mercadopago/connect/status` (split por
+path, igual que CSD). Los tres devuelven solo booleans/metadata, nunca credenciales.
+
+**Fix** (`packages/database/src/route-permissions.ts`, commit `27c04273`): reglas más
+específicas — `facturacion/csd/status` → toggle `facturacion`; `sat-descarga/fiel` con
+`methods:['GET']` → toggle `sat` (POST/DELETE siguen OWNER_ONLY); `stripe/connect/status` y
+`mercadopago/connect/status` → toggle `pagos`. Verificado con un script de 10 casos contra el
+matcher real (borrado tras usar) — los 10 resolvieron como se esperaba. Ruta de subida/borrado
+de credenciales intacta en OWNER_ONLY en los tres casos.
+
+**Lección para el mapa de rutas:** cuando un endpoint mezcla "¿está configurado?" con "aquí
+está el secreto", son DOS endpoints (o el mismo path con métodos distintos) con DOS niveles
+de exposición — agruparlos bajo una sola regla por prefijo es demasiado grueso. Antes de
+marcar algo OWNER_ONLY por "toca credenciales", verificar qué devuelve el GET específicamente.
+
+### Hallazgo 2 — segundo punto de apertura del panel del agente, nunca gateado
+
+**Síntoma:** el usuario probó el botón verde "Asistente" DENTRO de la página de citas (no el
+botón flotante del layout) — no pasó nada, sin error.
+
+**Causa:** `DashboardLayout.tsx` (PR B) gatea el botón flotante Y el montaje de
+`AgendaAgentPanel` con `can("asistente_ia")` — pero `apps/doctor/src/app/dashboard/appointments/page.tsx`
+tiene su PROPIO botón "Asistente" (esmeralda, línea ~259) que llama al MISMO `openAgentPanel()`
+de `AgentContext`, construido antes de esta feature y nunca tocado por PR B. Ese `open()` solo
+cambia un booleano en contexto — como el panel nunca se monta para un member sin
+`asistente_ia`, el click no hacía nada visible (ni error, ni feedback).
+
+**Fix** (`apps/doctor/src/app/dashboard/appointments/page.tsx`, commit `0824a18d`): mismo
+guard `usePermissions().can("asistente_ia")` alrededor del botón. Grep de TODOS los
+consumidores de `useAgentActions` en el repo confirmó que este era el ÚNICO otro punto de
+apertura — no quedan más.
+
+**Lección:** al gatear un componente compartido (el panel), hay que grepear TODOS los
+call-sites que puedan intentar abrirlo, no solo el punto "principal" donde vive el montaje.
+Un `open()` sin componente montado falla en silencio — el peor tipo de bug para detectar sin
+un humano real haciendo click.
+
+### Hallazgo 3 — 3 widgets globales exponían superficies IA/Calendar owner-only
+
+**No encontrado por el usuario probando** — encontrado por un bug hunt dirigido después de
+los hallazgos 1-2, arrancando de una observación: `GoogleCalendarBanner.tsx` (montado
+globalmente en `dashboard/layout.tsx` para CUALQUIER visita, incluidos members) solo se
+degradaba a salvo para un member POR ACCIDENTE — su llamada a
+`GET /doctors/*/google-calendar/status` (OWNER_ONLY) recibe un 403, pero la forma del cuerpo
+de error (`{error:...}`, sin `connected`/`enabled`) hace que el chequeo `!data.connected &&
+!data.enabled` sea `true` y el banner nunca se muestre — correcto en efecto, pero por
+casualidad de forma, no por diseño. Revisar depender de eso es frágil (angle 9: si el shape
+del error cambia algún día, deja de degradarse a salvo). Al revisar el resto de los widgets
+montados globalmente en el mismo layout con el mismo criterio, aparecieron dos MÁS con el
+mismo problema pero SIN degradación accidental:
+
+- **`ChatWidget.tsx`** (chat de ayuda legacy, botón flotante "?"): CERO chequeo de owner.
+  Un member que le da click y manda un mensaje recibe 403 de `/api/llm-assistant/chat`
+  (correctamente OWNER_ONLY por 00-REQUISITOS §5.3) y **el string crudo
+  "PERMISSION_BLOCKED" se renderiza como respuesta del chat** — peor que silencioso.
+- **`VoiceAssistantHubWidget.tsx`** (botón flotante Sparkles índigo): mismo patrón, solo
+  chequeaba `doctorId` (que los members SÍ tienen) no `isOwner`; su modal llama a
+  `voice/*`, todo OWNER_ONLY.
+
+**Fix** (commit `216e1606`): los 3 ganan `usePermissions().isOwner` — Chat y Voice se
+esconden completo (`return null`) si no es owner; el banner de Calendar salta su fetch
+explícitamente en vez de confiar en la forma accidental del 403.
+
+**Lección:** el patrón de bug de los hallazgos 1 y 2 ("¿qué más comparte esta forma?") vale
+la pena aplicarlo proactivamente una vez encontrado el primer caso, no solo reactivamente
+cuando el usuario lo reporta — encontrar 2 de 3 ANTES de que Andrea los tropezara fue puro
+bug hunt dirigido, no validación en vivo.
+
+### Hallazgo 4 — los 8 paneles de chat legacy no verificaban isOwner en NINGÚN punto de disparo
+
+**Continuación directa del hallazgo 3.** Al preguntarse "¿un segundo bug hunt vale la pena?"
+se revisaron sistemáticamente TODOS los consumidores de `*ChatPanel` (los 8 endpoints
+`*-chat` que 00-REQUISITOS §5.3 decidió owner-only: task/patient/sale/purchase/quotation/
+ledger/encounter/prescription-chat). Los 8 comparten el MISMO patrón, y ninguno tenía guard:
+
+1. **Apertura por URL** (`?chat=true`, leído por cada hook `use*Page`/`useNew*Form`) — un
+   member navegando directo a `/dashboard/pendientes/new?chat=true` (o cualquiera de los
+   otros 5) auto-abría el panel sin chequeo alguno.
+2. **Botón inline "Chat IA"** en la página misma (independiente del punto 1) — visible y
+   clickeable para CUALQUIER usuario con el toggle de dominio ON, sin importar `asistente_ia`
+   ni `isOwner`.
+3. **Los links "Acciones Rápidas" del dashboard home** (agregados en PR B) estaban gateados
+   por el toggle de DOMINIO (`can("expedientes")`, `can("tareas")`, etc.) — la clasificación
+   equivocada: como los 6 links apuntan TODOS a flujos `?chat=true`, el gate correcto era
+   `isOwner`, no el permiso del módulo (un member con `tareas:true` de todos modos no debe
+   ver el atajo "Nueva Tarea con Chat IA", porque el backend al que apunta es owner-only).
+
+**Fix:** los 8 hooks (`useNewTask`, `useNewPatientPage`, `useNewLedgerEntry`,
+`useNewEncounterPage`, `useNewPrescriptionForm`, más los 3 page.tsx autocontenidos de
+compras/cotizaciones/ventas) ganan `usePermissions().isOwner`, devuelto donde aplica, y:
+- el efecto que lee `?chat=true` ahora exige `isOwner` además del query param;
+- el botón inline "Chat IA" se esconde completo (`{isOwner && (...)}`) en las 8 páginas;
+- los 6 links de Acciones Rápidas en dashboard home cambiaron de `can(dominio)` a `isOwner`.
+
+**No tocado a propósito:** `AppointmentChatPanel.tsx` (usa `appointments-chat`, también
+OWNER_ONLY) solo se importa en `/dashboard/appointments/v1/page.tsx` — página legacy sin
+links entrantes, ya marcada para borrar como follow-up acordado (memoria
+`project_agentes_por_bloque`). Endurecer código que se va a borrar no es buen uso del
+esfuerzo; queda como nota, no como fix.
+
+**Lección (refuerza la del hallazgo 3):** una vez que un bug es "componente compartido sin
+gate", vale la pena enumerar TODOS los consumidores de ese patrón por grep en vez de
+confirmarlo caso por caso — los 8 endpoints legacy comparten arquitectura idéntica
+(hook `use*` + `searchParams.get('chat')` + botón inline), así que el bug, una vez
+identificado en 2 lugares, era casi seguro que estuviera en los otros 6 también.
+
+**Estado:** tsc limpio (apps/doctor) tras cada tanda de fixes. Todo lo de esta sesión de bug
+hunt (hallazgos 1-4) sigue en 4 commits locales (`27c04273`, `0824a18d`, `216e1606`, más el
+de esta última tanda) — **sin pushear**, pendiente del resto de §9 y del OK del usuario.

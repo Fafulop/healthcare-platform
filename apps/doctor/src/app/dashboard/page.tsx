@@ -169,7 +169,11 @@ export default function DoctorDashboardPage() {
         </div>
         <div className="p-4 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {can("expedientes") && (
+            {/* Chat IA quick actions all target legacy *-chat panels, which
+                are OWNER_ONLY regardless of the domain toggle (00-REQUISITOS
+                §5.3) — gated on isOwner, not the module permission (found
+                via bug hunt 2026-07-21, §16 hallazgo 3 family). */}
+            {isOwner && (
             <Link
               href="/dashboard/medical-records/patients/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -187,7 +191,7 @@ export default function DoctorDashboardPage() {
             </Link>
             )}
 
-            {can("tareas") && (
+            {isOwner && (
             <Link
               href="/dashboard/pendientes/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -205,7 +209,7 @@ export default function DoctorDashboardPage() {
             </Link>
             )}
 
-            {can("flujo") && (
+            {isOwner && (
             <Link
               href="/dashboard/practice/flujo-de-dinero/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -223,7 +227,7 @@ export default function DoctorDashboardPage() {
             </Link>
             )}
 
-            {can("ventas") && (
+            {isOwner && (
             <Link
               href="/dashboard/practice/ventas/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -241,7 +245,7 @@ export default function DoctorDashboardPage() {
             </Link>
             )}
 
-            {can("ventas") && (
+            {isOwner && (
             <Link
               href="/dashboard/practice/cotizaciones/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -259,7 +263,7 @@ export default function DoctorDashboardPage() {
             </Link>
             )}
 
-            {can("compras") && (
+            {isOwner && (
             <Link
               href="/dashboard/practice/compras/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"

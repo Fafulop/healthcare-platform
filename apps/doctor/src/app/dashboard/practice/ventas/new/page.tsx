@@ -18,6 +18,7 @@ import { SaleProductModal } from '../_components/SaleProductModal';
 import { SaleCustomItemModal } from '../_components/SaleCustomItemModal';
 import { SaleSummaryCard } from '../_components/SaleSummaryCard';
 import type { SaleItem } from '../_components/sale-types';
+import { usePermissions } from '@/lib/permissions-client';
 
 const VoiceRecordingModal = dynamic(
   () => import('@/components/voice-assistant/VoiceRecordingModal').then(m => m.VoiceRecordingModal),
@@ -69,9 +70,13 @@ export default function NewVentaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.email]);
 
+  // sale-chat is a legacy AI surface, OWNER_ONLY regardless of the Ventas
+  // toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21 (§16
+  // hallazgo 3 family).
+  const { isOwner } = usePermissions();
   useEffect(() => {
-    if (searchParams.get('chat') === 'true') setChatPanelOpen(true);
-  }, [searchParams]);
+    if (searchParams.get('chat') === 'true' && isOwner) setChatPanelOpen(true);
+  }, [searchParams, isOwner]);
 
   useEffect(() => {
     if (searchParams.get('voice') === 'true') {
@@ -325,6 +330,7 @@ export default function NewVentaPage() {
             <ArrowLeft className="w-4 h-4" />
             Volver a Ventas
           </Link>
+          {isOwner && (
           <button
             onClick={() => setChatPanelOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
@@ -332,6 +338,7 @@ export default function NewVentaPage() {
             <Sparkles className="w-4 h-4" />
             Chat IA
           </button>
+          )}
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Nueva Venta</h1>
         <p className="text-gray-600 mt-1">Registra una nueva venta en firme</p>

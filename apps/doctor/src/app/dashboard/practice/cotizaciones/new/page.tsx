@@ -15,6 +15,7 @@ import { QuotationItemsSection } from '../_components/QuotationItemsSection';
 import { QuotationProductModal } from '../_components/QuotationProductModal';
 import { QuotationCustomItemModal } from '../_components/QuotationCustomItemModal';
 import { QuotationSummaryCard } from '../_components/QuotationSummaryCard';
+import { usePermissions } from '@/lib/permissions-client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -71,12 +72,15 @@ export default function NewCotizacionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-open chat panel from hub widget
+  // Auto-open chat panel from hub widget. quotation-chat is a legacy AI
+  // surface, OWNER_ONLY regardless of the Ventas toggle (00-REQUISITOS
+  // §5.3) — found via bug hunt 2026-07-21 (§16 hallazgo 3 family).
+  const { isOwner } = usePermissions();
   useEffect(() => {
-    if (searchParams.get('chat') === 'true') {
+    if (searchParams.get('chat') === 'true' && isOwner) {
       setChatPanelOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isOwner]);
 
   // Pre-select client from URL parameter
   useEffect(() => {
@@ -327,6 +331,7 @@ export default function NewCotizacionPage() {
             <FileText className="w-8 h-8 text-blue-600" />
             Nueva Cotización
           </h1>
+          {isOwner && (
           <button
             type="button"
             onClick={() => setChatPanelOpen(true)}
@@ -335,6 +340,7 @@ export default function NewCotizacionPage() {
             <Sparkles className="w-4 h-4" />
             Chat IA
           </button>
+          )}
         </div>
         <p className="text-gray-600 mt-2">Crea una cotización profesional para tu paciente</p>
       </div>

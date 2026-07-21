@@ -10,6 +10,7 @@ import type { InitialChatData } from '@/hooks/useChatSession';
 import type { VoiceStructuredData, VoiceLedgerEntryData, VoiceLedgerEntryBatch } from '@/types/voice-assistant';
 import { AREA_INGRESOS_CONSULTA } from './ledger-types';
 import type { LedgerEntryData } from '@/hooks/useLedgerChat';
+import { usePermissions } from '@/lib/permissions-client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -73,11 +74,15 @@ export function useNewLedgerEntry() {
   // Pending file uploads
   const [pendingFiles, setPendingFiles] = useState<{ file: File; type: 'attachment' | 'factura' | 'xml' }[]>([]);
 
+  // ledger-chat is a legacy AI surface, OWNER_ONLY regardless of the Flujo
+  // toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21 (§16
+  // hallazgo 3 family).
+  const { isOwner } = usePermissions();
   useEffect(() => {
-    if (searchParams.get('chat') === 'true') {
+    if (searchParams.get('chat') === 'true' && isOwner) {
       setChatPanelOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isOwner]);
 
   useEffect(() => {
     fetchAreas();
@@ -400,6 +405,7 @@ export function useNewLedgerEntry() {
 
   return {
     doctorId: session?.user?.doctorId as string | undefined,
+    isOwner,
     formData,
     submitting,
     error,

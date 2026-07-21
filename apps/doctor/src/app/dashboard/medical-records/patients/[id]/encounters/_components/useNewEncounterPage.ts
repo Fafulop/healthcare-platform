@@ -11,6 +11,7 @@ import type { VoiceEncounterData, VoiceStructuredData } from '@/types/voice-assi
 import type { EncounterTemplate, FieldVisibility, DefaultValues } from '@/types/encounter-template';
 import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-utils';
 import { getLocalDateString } from '@/lib/dates';
+import { usePermissions } from '@/lib/permissions-client';
 
 // Helper to map voice data to form data
 function mapVoiceToFormData(voiceData: VoiceEncounterData): Partial<EncounterFormData> {
@@ -49,6 +50,10 @@ export function useNewEncounterPage() {
       redirect('/login');
     },
   });
+  // encounter-chat is a legacy AI surface, OWNER_ONLY regardless of the
+  // Expedientes toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21
+  // (§16 hallazgo 3 family).
+  const { isOwner } = usePermissions();
 
   const [doctorProfile, setDoctorProfile] = useState<PracticeDoctorProfile | null>(null);
   const [patientName, setPatientName] = useState<string>('');
@@ -289,6 +294,7 @@ export function useNewEncounterPage() {
     patientId,
     session,
     sessionStatus: status,
+    isOwner,
     // Data
     patientName,
     doctorProfile,

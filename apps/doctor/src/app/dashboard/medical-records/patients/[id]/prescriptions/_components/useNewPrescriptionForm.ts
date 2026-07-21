@@ -13,6 +13,7 @@ import type { CustomEncounterTemplate, FieldDefinition } from '@/types/custom-en
 import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-utils';
 import { getLocalDateString } from '@/lib/dates';
 import { validateMedications } from './prescription-types';
+import { usePermissions } from '@/lib/permissions-client';
 
 interface Patient {
   id: string;
@@ -40,6 +41,11 @@ export function useNewPrescriptionForm() {
       redirect('/login');
     },
   });
+  // prescription-chat is a legacy AI surface, OWNER_ONLY regardless of the
+  // Expedientes toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21
+  // (§16 hallazgo 3 family). Separate from the issue-guard: this only gates
+  // the AI-assist chat, not drafting/capturing the prescription itself.
+  const { isOwner } = usePermissions();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<PracticeDoctorProfile | null>(null);
@@ -502,6 +508,7 @@ export function useNewPrescriptionForm() {
     patientId,
     session,
     sessionStatus: status,
+    isOwner,
     // Data
     patient,
     doctorProfile,

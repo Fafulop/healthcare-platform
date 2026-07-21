@@ -17,6 +17,7 @@ export default function NewFlujoDeDineroPage() {
 
   const {
     doctorId,
+    isOwner,
     formData,
     submitting,
     error,
@@ -67,6 +68,7 @@ export default function NewFlujoDeDineroPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Nuevo Movimiento</h1>
             <p className="text-gray-600 mt-0.5 text-sm sm:text-base">Registra un nuevo ingreso o egreso</p>
           </div>
+          {isOwner && (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -77,6 +79,7 @@ export default function NewFlujoDeDineroPage() {
               Chat IA
             </button>
           </div>
+          )}
         </div>
       </div>
 
