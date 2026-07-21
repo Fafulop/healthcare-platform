@@ -3,8 +3,51 @@
  * Validates JWT tokens from admin/doctor apps using NextAuth secret
  */
 
-import { prisma, computeEffectiveAccess, type PermissionSet } from '@healthcare/database';
+import {
+  prisma,
+  computeEffectiveAccess,
+  checkRoutePermission,
+  type PermissionSet,
+} from '@healthcare/database';
 import jwt from 'jsonwebtoken';
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * MEMBER route enforcement + cheap audit (PR B). Called from validateAuthToken
+ * for non-owner, non-admin users only — owners/admins never reach it.
+ * Fail-closed: unmapped authenticated routes are blocked for members.
+ */
+function enforceMemberRoute(
+  request: Request,
+  access: { doctorId: string | null; permissions: PermissionSet | null },
+  userId: string
+): void {
+  const { pathname } = new URL(request.url);
+  const method = request.method.toUpperCase();
+  const decision = checkRoutePermission(pathname, method, access.permissions);
+
+  if (!decision.allowed) {
+    const err = new AuthError('PERMISSION_BLOCKED', 403);
+    (err as AuthError & { toggle?: string | null }).toggle = decision.toggle;
+    throw err;
+  }
+
+  // Fire-and-forget audit of member WRITES only (route identity, never body).
+  if (MUTATING_METHODS.has(method) && access.doctorId) {
+    prisma.memberAuditLog
+      .create({
+        data: {
+          doctorId: access.doctorId,
+          userId,
+          method,
+          path: pathname.slice(0, 300),
+          toggleKey: decision.toggle,
+        },
+      })
+      .catch((e) => console.error('[auth] member audit write failed:', e));
+  }
+}
 
 /**
  * Thrown for authentication/authorization failures.
@@ -120,6 +163,18 @@ export async function validateAuthToken(
     // owner fail-open fallback. Every downstream helper reads doctorId from
     // this return, so members are scoped to their portal here and nowhere else.
     const access = computeEffectiveAccess(user.memberships, user.doctorId);
+
+    // MEMBER enforcement: owners and admins bypass entirely (no-op deploy for
+    // every current user); members are checked against the route→toggle map.
+    // Gated on access.doctorId: a fully unlinked user (no membership, no
+    // legacy doctorId — mid-onboarding before an admin links them) has no
+    // portal to scope permissions against. Let that fall through to the
+    // existing doctorId-based checks (getAuthenticatedDoctor etc.), which
+    // already produce their own clear 403 — don't invent a new blocking path
+    // ahead of them for an ambiguous case (02-METODO angle 9).
+    if (!access.isOwner && user.role !== 'ADMIN' && access.doctorId) {
+      enforceMemberRoute(request, access, user.id);
+    }
 
     return {
       email: user.email,

@@ -11,7 +11,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string; prescriptionId: string }> }
 ) {
   try {
-    const { doctorId, userId, role } = await requireDoctorAuth(request);
+    const { doctorId, userId, role, isOwner } = await requireDoctorAuth(request);
+
+    // Issuing stamps the doctor's firma + cédula — a legal act reserved to the
+    // owner ALWAYS, regardless of the Expedientes toggle (00-REQUISITOS §3.5).
+    // Members can read/draft; only the owner issues.
+    if (!isOwner) {
+      return NextResponse.json({ error: 'PERMISSION_BLOCKED' }, { status: 403 });
+    }
+
     const { id: patientId, prescriptionId } = await params;
     const body = await request.json();
 

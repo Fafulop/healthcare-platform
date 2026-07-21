@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { pagePermissionKey } from "@healthcare/database";
+import { usePermissions } from "@/lib/permissions-client";
 import {
   User,
   FileText,
@@ -37,6 +39,13 @@ interface NavItemProps {
 }
 
 function NavItem({ icon: Icon, label, href, active = false }: NavItemProps) {
+  // Secondary users: hide sections their toggles don't allow (UI courtesy —
+  // the API check is the real boundary). Key derives from the href via the
+  // shared PAGE_PERMISSION_MAP, so no per-item wiring.
+  const { can } = usePermissions();
+  const permKey = pagePermissionKey(href);
+  if (permKey && !can(permKey)) return null;
+
   return (
     <Link
       href={href}
@@ -62,6 +71,7 @@ interface SidebarProps {
 
 export default function Sidebar({ doctorProfile }: SidebarProps) {
   const { data: session } = useSession();
+  const { can } = usePermissions();
   const pathname = usePathname();
   // Icons-only mode so the content gets the width back (e.g. with the
   // assistant panel docked). Same persistence pattern as widgetsCollapsed.
@@ -135,16 +145,18 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
                 href="/dashboard/mi-perfil"
                 active={pathname?.startsWith("/dashboard/mi-perfil")}
               />
-              <a
-                href={`${process.env.NEXT_PUBLIC_PUBLIC_URL || "http://localhost:3000"}/doctores/${doctorProfile.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Perfil Público"
-                className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100 group-data-[collapsed]:justify-center group-data-[collapsed]:px-2"
-              >
-                <ExternalLink className="w-5 h-5 shrink-0" />
-                <span className="text-sm font-medium group-data-[collapsed]:hidden">Perfil Público</span>
-              </a>
+              {can('perfil_publico') && (
+                <a
+                  href={`${process.env.NEXT_PUBLIC_PUBLIC_URL || "http://localhost:3000"}/doctores/${doctorProfile.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Perfil Público"
+                  className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100 group-data-[collapsed]:justify-center group-data-[collapsed]:px-2"
+                >
+                  <ExternalLink className="w-5 h-5 shrink-0" />
+                  <span className="text-sm font-medium group-data-[collapsed]:hidden">Perfil Público</span>
+                </a>
+              )}
             </>
           )}
           <NavItem

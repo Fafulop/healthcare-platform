@@ -8,6 +8,8 @@ import { AgendaAgentPanel } from "@/components/agent/AgendaAgentPanel";
 import Sidebar from "./Sidebar";
 import BottomNav from "./BottomNav";
 import MobileDrawer from "./MobileDrawer";
+import PermissionGate from "./PermissionGate";
+import { usePermissions } from "@/lib/permissions-client";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -16,7 +18,11 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { doctorProfile } = useDoctorProfile();
   const { isOpen: agentOpen, open: openAgent } = useAgentActions();
+  const { can } = usePermissions();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // Members without the Asistente IA toggle get no panel at all (its API
+  // route is blocked for them anyway — this hides the dead surface).
+  const agentAllowed = can("asistente_ia");
 
   const handleMoreClick = () => {
     setIsDrawerOpen(true);
@@ -41,16 +47,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
-        {children}
+        <PermissionGate>{children}</PermissionGate>
       </main>
 
       {/* Assistant copilot panel — SINGLE mount point (both route trees render
           this layout). Docked flex sibling on lg+ (main shrinks), fixed
           overlay/bottom-sheet below lg. State lives in AgentContext (root). */}
-      <AgendaAgentPanel />
+      {agentAllowed && <AgendaAgentPanel />}
 
       {/* Global open tab — right edge, above the floating-widgets toggle */}
-      {!agentOpen && (
+      {agentAllowed && !agentOpen && (
         <button
           onClick={openAgent}
           className="fixed bottom-48 right-0 sm:bottom-40 z-[51]

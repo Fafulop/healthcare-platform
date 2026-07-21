@@ -2,6 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { pagePermissionKey } from "@healthcare/database";
+import { usePermissions } from "@/lib/permissions-client";
 import {
   Home,
   Users,
@@ -19,6 +21,11 @@ interface NavItemProps {
 }
 
 function NavItem({ icon: Icon, label, href, active = false, onClick }: NavItemProps) {
+  // Secondary users: hide tabs their toggles don't allow (registry-derived).
+  const { can } = usePermissions();
+  const permKey = pagePermissionKey(href);
+  if (permKey && !can(permKey)) return null;
+
   if (onClick) {
     return (
       <button

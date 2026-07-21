@@ -6,6 +6,7 @@ import { Loader2, Calendar, CheckCircle2, XCircle, RefreshCw, AlertTriangle, Mes
 import { signIn, signOut } from "next-auth/react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { authFetch } from "@/lib/auth-fetch";
+import { usePermissions } from "@/lib/permissions-client";
 import GeneralInfoSection from "@/components/profile/GeneralInfoSection";
 import ServicesSection from "@/components/profile/ServicesSection";
 import ClinicSection from "@/components/profile/ClinicSection";
@@ -15,6 +16,7 @@ import FaqsSocialSection from "@/components/profile/FaqsSocialSection";
 import ReviewsSection from "@/components/profile/ReviewsSection";
 import PrescriptionTemplateSection from "@/components/profile/PrescriptionTemplateSection";
 import GuiaSeoSection from "@/components/profile/GuiaSeoSection";
+import TeamSection from "@/components/profile/TeamSection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
@@ -27,11 +29,17 @@ const TABS = [
   { id: "faqs", label: "FAQs y Social" },
   { id: "reviews", label: "Opiniones" },
   { id: "integraciones", label: "Integraciones" },
+  { id: "equipo", label: "Equipo" },
   { id: "receta", label: "Receta PDF" },
   { id: "guia", label: "Guía SEO" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
+
+// Owner-only tabs even when a member has the Editar Perfil toggle:
+// integraciones = the owner's Google/Telegram connections; receta = the
+// doctor's legal identity (firma/cédula) — 00-REQUISITOS §3.4/§3.5.
+const OWNER_ONLY_TABS: TabId[] = ["integraciones", "equipo", "receta"];
 
 const DEFAULT_FORM_DATA = {
   doctor_full_name: "",
@@ -93,6 +101,7 @@ const DEFAULT_FORM_DATA = {
 
 export default function MiPerfilPage() {
   const { doctorProfile, refetch } = useDoctorProfile();
+  const { isOwner } = usePermissions();
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
   const [isLoading, setIsLoading] = useState(true);
@@ -677,7 +686,7 @@ export default function MiPerfilPage() {
           onScroll={updateTabArrows}
           className="flex gap-0 sm:gap-1 overflow-x-auto -mb-px scrollbar-hide"
         >
-          {TABS.map((tab) => (
+          {TABS.filter((tab) => isOwner || !OWNER_ONLY_TABS.includes(tab.id)).map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -737,6 +746,7 @@ export default function MiPerfilPage() {
         {activeTab === "reviews" && (
           <ReviewsSection reviews={reviews} reviewStats={reviewStats} onDelete={handleDeleteReview} />
         )}
+        {activeTab === "equipo" && <TeamSection />}
         {activeTab === "receta" && <PrescriptionTemplateSection />}
         {activeTab === "guia" && <GuiaSeoSection />}
         {activeTab === "integraciones" && (
@@ -1134,7 +1144,7 @@ export default function MiPerfilPage() {
       </div>
 
       {/* Save Bar - hidden on Integraciones and Receta PDF tabs (they have their own save) */}
-      <div className={`fixed bottom-16 lg:bottom-0 left-0 right-0 lg:sticky bg-white border-t border-gray-200 p-3 sm:p-4 flex items-center justify-between gap-3 z-40 ${(activeTab === "integraciones" || activeTab === "receta" || activeTab === "guia") ? "hidden" : ""}`}>
+      <div className={`fixed bottom-16 lg:bottom-0 left-0 right-0 lg:sticky bg-white border-t border-gray-200 p-3 sm:p-4 flex items-center justify-between gap-3 z-40 ${(activeTab === "integraciones" || activeTab === "equipo" || activeTab === "receta" || activeTab === "guia") ? "hidden" : ""}`}>
         {saveMessage && (
           <p
             className={`text-xs sm:text-sm font-medium truncate ${

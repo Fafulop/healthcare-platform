@@ -18,12 +18,16 @@ import Link from "next/link";
 import RecentActivityTable from "@/components/RecentActivityTable";
 import { DashboardDaySection } from "@/components/day-details/DashboardDaySection";
 import { authFetch } from "@/lib/auth-fetch";
+import { usePermissions } from "@/lib/permissions-client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function DoctorDashboardPage() {
   const { data: session } = useSession();
   const doctorId = session?.user?.doctorId;
+  // Secondary users: widgets of blocked sections don't render (and their
+  // fetches don't fire) — same registry keys as the sidebar/PermissionGate.
+  const { can, isOwner } = usePermissions();
 
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [confirmedCount, setConfirmedCount] = useState<number | null>(null);
@@ -40,12 +44,13 @@ export default function DoctorDashboardPage() {
   useEffect(() => {
     if (!doctorId) return;
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Mexico_City" });
+    const blockedJson = { json: async () => ({}) } as Response;
     const fetchData = async () => {
       const [pendingRes, confirmedRes, tasksRes, ventasRes] = await Promise.all([
-        authFetch(`${API_URL}/api/appointments/bookings?doctorId=${doctorId}&status=PENDING`),
-        authFetch(`${API_URL}/api/appointments/bookings?doctorId=${doctorId}&status=CONFIRMED`),
-        authFetch(`/api/medical-records/tasks?startDate=${today}&endDate=${today}`),
-        authFetch(`${API_URL}/api/practice-management/ventas?startDate=${startDate}&endDate=${endDate}`),
+        can("citas") ? authFetch(`${API_URL}/api/appointments/bookings?doctorId=${doctorId}&status=PENDING`) : blockedJson,
+        can("citas") ? authFetch(`${API_URL}/api/appointments/bookings?doctorId=${doctorId}&status=CONFIRMED`) : blockedJson,
+        can("tareas") ? authFetch(`/api/medical-records/tasks?startDate=${today}&endDate=${today}`) : blockedJson,
+        can("ventas") ? authFetch(`${API_URL}/api/practice-management/ventas?startDate=${startDate}&endDate=${endDate}`) : blockedJson,
       ]);
       const [pendingData, confirmedData, tasksData, ventasData] = await Promise.all([
         pendingRes.json(),
@@ -85,6 +90,7 @@ export default function DoctorDashboardPage() {
 
       {/* Summary counters */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          {can("citas") && (
           <Link
             href="/dashboard/appointments"
             className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
@@ -99,6 +105,8 @@ export default function DoctorDashboardPage() {
               <p className="text-xs sm:text-sm text-gray-500 truncate">Citas por confirmar</p>
             </div>
           </Link>
+          )}
+          {can("citas") && (
           <Link
             href="/dashboard/appointments"
             className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
@@ -113,6 +121,8 @@ export default function DoctorDashboardPage() {
               <p className="text-xs sm:text-sm text-gray-500 truncate">Citas agendadas</p>
             </div>
           </Link>
+          )}
+          {can("tareas") && (
           <Link
             href="/dashboard/pendientes"
             className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
@@ -127,6 +137,8 @@ export default function DoctorDashboardPage() {
               <p className="text-xs sm:text-sm text-gray-500 truncate">Tareas hoy</p>
             </div>
           </Link>
+          )}
+          {can("ventas") && (
           <Link
             href="/dashboard/practice/ventas"
             className="bg-white rounded-lg shadow p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:shadow-md transition-shadow"
@@ -141,10 +153,11 @@ export default function DoctorDashboardPage() {
               <p className="text-xs sm:text-sm text-gray-500 truncate">Ventas {monthLabel}</p>
             </div>
           </Link>
+          )}
         </div>
 
       {/* Itinerario del día + Calendario */}
-      <DashboardDaySection />
+      {can("citas") && <DashboardDaySection />}
 
       {/* Acciones Rápidas - Chat IA */}
       <div className="bg-white rounded-lg shadow mb-6">
@@ -156,6 +169,7 @@ export default function DoctorDashboardPage() {
         </div>
         <div className="p-4 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {can("expedientes") && (
             <Link
               href="/dashboard/medical-records/patients/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -171,7 +185,9 @@ export default function DoctorDashboardPage() {
                 <p className="text-sm text-gray-600 hidden sm:block">Registrar con Chat IA</p>
               </div>
             </Link>
+            )}
 
+            {can("tareas") && (
             <Link
               href="/dashboard/pendientes/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -187,7 +203,9 @@ export default function DoctorDashboardPage() {
                 <p className="text-sm text-gray-600 hidden sm:block">Crear tarea con Chat IA</p>
               </div>
             </Link>
+            )}
 
+            {can("flujo") && (
             <Link
               href="/dashboard/practice/flujo-de-dinero/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -203,7 +221,9 @@ export default function DoctorDashboardPage() {
                 <p className="text-sm text-gray-600 hidden sm:block">Registrar ingreso o egreso</p>
               </div>
             </Link>
+            )}
 
+            {can("ventas") && (
             <Link
               href="/dashboard/practice/ventas/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -219,7 +239,9 @@ export default function DoctorDashboardPage() {
                 <p className="text-sm text-gray-600 hidden sm:block">Registrar venta con Chat IA</p>
               </div>
             </Link>
+            )}
 
+            {can("ventas") && (
             <Link
               href="/dashboard/practice/cotizaciones/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -235,7 +257,9 @@ export default function DoctorDashboardPage() {
                 <p className="text-sm text-gray-600 hidden sm:block">Crear cotización con Chat IA</p>
               </div>
             </Link>
+            )}
 
+            {can("compras") && (
             <Link
               href="/dashboard/practice/compras/new?chat=true"
               className="flex items-center gap-3 p-3 sm:p-4 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
@@ -251,11 +275,13 @@ export default function DoctorDashboardPage() {
                 <p className="text-sm text-gray-600 hidden sm:block">Registrar compra con Chat IA</p>
               </div>
             </Link>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Actividad Reciente */}
+      {/* Actividad Reciente — cross-block feed, owner-only (activity-logs API) */}
+      {isOwner && (
       <div className="bg-white rounded-lg shadow">
         <button
           onClick={() => setActivityCollapsed(prev => !prev)}
@@ -270,6 +296,7 @@ export default function DoctorDashboardPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -7,6 +7,11 @@ import { Prisma } from '@healthcare/database';
 export function handleApiError(error: unknown, context: string = 'API request'): NextResponse {
   console.error(`Error in ${context}:`, error);
 
+  // Structured errors with an explicit status (team/invite flows: 404/409/410).
+  if (error instanceof AppError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+
   // Authentication errors
   if (error instanceof Error) {
     if (error.message.includes('Authentication required')) {
@@ -20,6 +25,15 @@ export function handleApiError(error: unknown, context: string = 'API request'):
         error.message.includes('No doctor profile')) {
       return NextResponse.json(
         { error: 'Forbidden - Doctor access required' },
+        { status: 403 }
+      );
+    }
+
+    // Secondary user hit a route their toggles don't allow (medical-auth PR B).
+    // Marker string is what the UI distinguishes from a generic 403.
+    if (error.message === 'PERMISSION_BLOCKED') {
+      return NextResponse.json(
+        { error: 'PERMISSION_BLOCKED' },
         { status: 403 }
       );
     }
@@ -73,6 +87,17 @@ export class ValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ValidationError';
+  }
+}
+
+/** Generic structured error with an explicit HTTP status — used where 400
+ * doesn't fit (404 not found, 409 conflict, 410 gone). */
+export class AppError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'AppError';
+    this.status = status;
   }
 }
 

@@ -3,6 +3,8 @@
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { pagePermissionKey } from "@healthcare/database";
+import { usePermissions } from "@/lib/permissions-client";
 import {
   User,
   ExternalLink,
@@ -36,6 +38,12 @@ interface NavItemProps {
 }
 
 function NavItem({ icon: Icon, label, href, active = false, onClick }: NavItemProps) {
+  // Secondary users: hide sections their toggles don't allow (same registry
+  // derivation as the desktop Sidebar).
+  const { can } = usePermissions();
+  const permKey = pagePermissionKey(href);
+  if (permKey && !can(permKey)) return null;
+
   return (
     <Link
       href={href}
@@ -63,6 +71,7 @@ interface MobileDrawerProps {
 
 export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileDrawerProps) {
   const { data: session } = useSession();
+  const { can } = usePermissions();
   const pathname = usePathname();
 
   return (
@@ -136,6 +145,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
                   active={pathname.startsWith("/dashboard/mi-perfil")}
                   onClick={onClose}
                 />
+                {can('perfil_publico') && (
                 <a
                   href={`${process.env.NEXT_PUBLIC_PUBLIC_URL || "http://localhost:3000"}/doctores/${doctorProfile.slug}`}
                   target="_blank"
@@ -146,6 +156,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
                   <ExternalLink className="w-5 h-5" />
                   <span className="text-sm font-medium">Perfil Público</span>
                 </a>
+                )}
               </>
             )}
             <NavItem
