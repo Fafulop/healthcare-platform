@@ -7,6 +7,9 @@ declare module "next-auth" {
       id: string;
       role: string;
       doctorId: string | null;
+      isOwner: boolean;
+      permissions: Partial<Record<string, boolean>> | null;
+      membershipRevoked: boolean;
       sessionVersion: number;
     } & DefaultSession["user"];
   }

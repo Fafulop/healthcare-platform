@@ -8,7 +8,11 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      /** EFFECTIVE doctor (ACTIVE doctor_members membership first, legacy User.doctorId fallback). */
       doctorId: string | null;
+      isOwner: boolean;
+      permissions: Partial<Record<string, boolean>> | null;
+      membershipRevoked: boolean;
     } & DefaultSession["user"];
   }
 

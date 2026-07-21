@@ -6,7 +6,14 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      /** EFFECTIVE doctor (ACTIVE doctor_members membership first, legacy User.doctorId fallback). */
       doctorId: string | null;
+      /** true for portal owners (membership OWNER or legacy fallback). */
+      isOwner: boolean;
+      /** null for owners (= everything). Members: toggle set — read via hasPermission() (fail-closed). */
+      permissions: Partial<Record<string, boolean>> | null;
+      /** No ACTIVE membership but a REVOKED one exists → show "acceso revocado", never onboarding. */
+      membershipRevoked: boolean;
       privacyConsentAt: Date | string | null; // Date from DB, string when serialized to client
       sessionVersion: number;
     } & DefaultSession["user"];

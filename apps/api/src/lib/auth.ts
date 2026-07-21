@@ -3,7 +3,7 @@
  * Validates JWT tokens from admin/doctor apps using NextAuth secret
  */
 
-import { prisma } from '@healthcare/database';
+import { prisma, computeEffectiveAccess, type PermissionSet } from '@healthcare/database';
 import jwt from 'jsonwebtoken';
 
 /**
@@ -40,7 +40,12 @@ export async function validateAuthToken(
   email: string;
   role: string;
   userId: string;
+  /** EFFECTIVE doctor: ACTIVE doctor_members membership first, legacy users.doctor_id fallback. */
   doctorId: string | null;
+  /** true for portal owners (membership OWNER or legacy fallback). */
+  isOwner: boolean;
+  /** null for owners (= everything). Members: toggle set — read via hasPermission() (fail-closed). */
+  permissions: PermissionSet | null;
 }> {
   const authHeader = request.headers.get('authorization');
 
@@ -66,17 +71,39 @@ export async function validateAuthToken(
       throw new AuthError('Token missing email claim');
     }
 
-    // Verify user still exists in database
-    const user = await prisma.user.findUnique({
-      where: { email: payload.email },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        doctorId: true,
-        sessionVersion: true,
-      },
-    });
+    // Verify user still exists in database.
+    // memberships included so effective-doctor resolution stays a single query
+    // per request (doctor_members has a partial unique index on user_id).
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: payload.email },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          doctorId: true,
+          sessionVersion: true,
+          memberships: {
+            select: { doctorId: true, role: true, status: true, permissions: true },
+          },
+        },
+      });
+    } catch (error) {
+      // doctor_members table not migrated yet (P2021): owners must fail OPEN
+      // via their legacy users.doctor_id — never turn a deploy-order slip into
+      // a full API outage. Members simply resolve to no access.
+      if ((error as { code?: string })?.code === 'P2021') {
+        console.error('[auth] doctor_members missing — legacy fallback:', error);
+        const legacy = await prisma.user.findUnique({
+          where: { email: payload.email },
+          select: { id: true, email: true, role: true, doctorId: true, sessionVersion: true },
+        });
+        user = legacy ? { ...legacy, memberships: [] } : null;
+      } else {
+        throw error;
+      }
+    }
 
     if (!user) {
       throw new AuthError('User not found in database');
@@ -89,11 +116,18 @@ export async function validateAuthToken(
       throw new AuthError('Session has been invalidated - please log in again');
     }
 
+    // Effective doctor (secondary users): membership-first, legacy column as
+    // owner fail-open fallback. Every downstream helper reads doctorId from
+    // this return, so members are scoped to their portal here and nowhere else.
+    const access = computeEffectiveAccess(user.memberships, user.doctorId);
+
     return {
       email: user.email,
       role: user.role,
       userId: user.id,
-      doctorId: user.doctorId,
+      doctorId: access.doctorId,
+      isOwner: access.isOwner,
+      permissions: access.permissions,
     };
   } catch (error) {
     if (error instanceof AuthError) throw error;

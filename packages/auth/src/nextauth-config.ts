@@ -1,7 +1,7 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "@healthcare/database";
+import { prisma, resolveEffectiveAccess } from "@healthcare/database";
 
 // Wrap adapter to assign correct role on new user creation.
 // Default adapter only sets email, name, image — no knowledge of ADMIN_EMAILS.
@@ -75,9 +75,19 @@ export const authConfig: NextAuthConfig = {
     async session({ session, user }: any) {
       session.user.id = user.id;
       session.user.role = user.role;
-      session.user.doctorId = user.doctorId ?? null;
       session.user.sessionVersion = user.sessionVersion ?? 0;
       session.user.privacyConsentAt = user.privacyConsentAt ?? null;
+
+      // EFFECTIVE doctor resolution (secondary users): ACTIVE membership in
+      // doctor_members wins, legacy user.doctorId is the owner fallback.
+      // Runs on every request (database sessions) — permission toggles and
+      // revocations apply on the member's next request without re-login.
+      const access = await resolveEffectiveAccess(prisma, user.id, user.doctorId ?? null);
+      session.user.doctorId = access.doctorId;
+      session.user.isOwner = access.isOwner;
+      session.user.permissions = access.permissions;
+      session.user.membershipRevoked = access.membershipRevoked;
+
       // Expose session row id so /api/auth/sessions can identify the current session
       session.sessionId = session.id;
       return session;

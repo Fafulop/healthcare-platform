@@ -39,7 +39,75 @@ model User {
   accounts Account[]
   sessions Session[]
 
+  // Team memberships (doctor_members is the source of truth for user→doctor
+  // resolution; doctorId above is the legacy owner link kept as fallback)
+  memberships DoctorMember[]
+
   @@map("users")
+  @@schema("public")
+}
+
+/// Team membership: which users can act on which doctor portal, with per-block
+/// permissions. Source of truth for user→doctor resolution (users.doctor_id is
+/// the legacy owner fallback). v1 rule "one ACTIVE membership per user" and
+/// "one ACTIVE OWNER per doctor" are PARTIAL unique indexes that Prisma cannot
+/// express — they live only in add-doctor-members.sql (never `db push` to prod).
+model DoctorMember {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  doctorId    String    @map("doctor_id")
+  role        String    @db.VarChar(10) // 'OWNER' | 'MEMBER'
+  status      String    @default("ACTIVE") @db.VarChar(10) // 'ACTIVE' | 'REVOKED'
+  // { [PermissionKey]: true } — absent/false = blocked (fail-closed).
+  // Ignored for OWNER rows (owner always has everything).
+  permissions Json      @default("{}")
+  invitedBy   String?   @map("invited_by") // user_id of the inviting owner
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@map("doctor_members")
+  @@schema("public")
+}
+
+/// Pending team invitations. email is ALWAYS stored lowercase (single
+/// normalization point; no gmail dot-folding). Uniqueness of one PENDING invite
+/// per (doctor, email) is a partial index in SQL only.
+model MemberInvite {
+  id          String    @id @default(cuid())
+  doctorId    String    @map("doctor_id")
+  email       String
+  permissions Json      @default("{}")
+  status      String    @default("PENDING") @db.VarChar(10) // PENDING|ACCEPTED|DECLINED|REVOKED|EXPIRED
+  invitedBy   String    @map("invited_by")
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  respondedAt DateTime? @map("responded_at")
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@map("member_invites")
+  @@schema("public")
+}
+
+/// Cheap audit trail for MEMBER-initiated writes (G6 option b): route identity
+/// only, never the body. Written fire-and-forget at the two auth choke points.
+model MemberAuditLog {
+  id        BigInt   @id @default(autoincrement())
+  doctorId  String   @map("doctor_id")
+  userId    String   @map("user_id")
+  method    String   @db.VarChar(8)
+  path      String   @db.VarChar(300)
+  toggleKey String?  @map("toggle_key") @db.VarChar(40)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([doctorId, createdAt])
+  @@map("member_audit_log")
   @@schema("public")
 }
 
@@ -283,6 +351,10 @@ model Doctor {
 
   // Patient AI Summaries
   patientSummaries   PatientSummary[]
+
+  // Team (secondary users)
+  members            DoctorMember[]
+  memberInvites      MemberInvite[]
 
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
