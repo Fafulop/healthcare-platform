@@ -53,8 +53,10 @@ export async function POST(request: NextRequest) {
 
     const permissions = sanitizePermissions(body.permissions);
 
+    // Case-insensitive (ultra finding): the invited email is normalized
+    // lowercase, but users.email is stored verbatim from Google OAuth.
     const existingMember = await prisma.doctorMember.findFirst({
-      where: { doctorId, status: 'ACTIVE', user: { email } },
+      where: { doctorId, status: 'ACTIVE', user: { email: { equals: email, mode: 'insensitive' } } },
     });
     if (existingMember) {
       return NextResponse.json({ error: 'Ese email ya es miembro activo de tu equipo' }, { status: 409 });

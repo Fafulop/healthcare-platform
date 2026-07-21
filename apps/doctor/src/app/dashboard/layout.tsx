@@ -111,6 +111,20 @@ export default function DashboardRootLayout({
   }
 
   if (status === "authenticated" && session?.user?.membershipRevoked) {
+    // Ultra review finding: rendering RevokedAccessScreen immediately (before
+    // the pending-invite fetch above resolves) let a re-invited revoked user
+    // see "Cerrar sesión" — its only control — and sign themselves out of the
+    // very session needed to accept the re-invite. Show the same loader while
+    // the check is in flight; only commit to the dead-end screen once we know
+    // there's no pending invite waiting (the redirect effect handles the
+    // has-invite case).
+    if (!pendingInviteChecked || hasPendingInvite) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600" />
+        </div>
+      );
+    }
     return <RevokedAccessScreen />;
   }
 

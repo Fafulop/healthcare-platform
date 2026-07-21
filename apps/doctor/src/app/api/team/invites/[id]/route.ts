@@ -20,12 +20,20 @@ export async function DELETE(
       return NextResponse.json({ success: true, data: invite }); // idempotent
     }
 
-    const revoked = await prisma.memberInvite.update({
-      where: { id },
+    // Atomic conditional update (ultra finding — lost-update race): without
+    // the status:'PENDING' guard here, an accept that commits between the
+    // findFirst above and this write would get silently overwritten back to
+    // REVOKED while the member's ACTIVE row stays intact — no security hole,
+    // but the invite audit trail would lie about what happened.
+    const { count } = await prisma.memberInvite.updateMany({
+      where: { id, doctorId, status: 'PENDING' },
       data: { status: 'REVOKED', respondedAt: new Date() },
     });
+    const result = count > 0
+      ? await prisma.memberInvite.findUnique({ where: { id } })
+      : invite; // lost the race — already responded, return prior state (idempotent)
 
-    return NextResponse.json({ success: true, data: revoked });
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     return handleApiError(error, 'DELETE /api/team/invites/[id]');
   }

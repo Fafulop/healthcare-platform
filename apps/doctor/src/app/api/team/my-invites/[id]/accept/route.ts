@@ -17,14 +17,27 @@ export async function POST(
   try {
     const { userId, email, doctorId: myDoctorId } = await requireAnyAuth(request);
     const { id } = await params;
+    const emailNorm = email.toLowerCase();
+
+    // Lazy-expire BEFORE opening the transaction — a write followed by a
+    // throw inside prisma.$transaction rolls the whole thing back, so doing
+    // this INSIDE the tx (the original code) silently discarded the EXPIRED
+    // write every time (ultra review finding, 2026-07-21). Mirrors the same
+    // sweep GET /api/team/(my-)invites already does.
+    await prisma.memberInvite.updateMany({
+      where: { id, status: 'PENDING', expiresAt: { lt: new Date() } },
+      data: { status: 'EXPIRED' },
+    });
 
     const membership = await prisma.$transaction(async (tx) => {
       const invite = await tx.memberInvite.findUnique({ where: { id } });
-      if (!invite || invite.email !== email) {
+      // Case-insensitive: invite.email is normalized at creation
+      // (invites/route.ts), but session emails from Google OAuth are stored
+      // verbatim — Workspace domains can preserve mixed case (ultra finding).
+      if (!invite || invite.email.toLowerCase() !== emailNorm) {
         throw new AppError('Invitación no encontrada', 404);
       }
-      if (invite.status === 'PENDING' && invite.expiresAt < new Date()) {
-        await tx.memberInvite.update({ where: { id }, data: { status: 'EXPIRED' } });
+      if (invite.status === 'EXPIRED' || (invite.status === 'PENDING' && invite.expiresAt < new Date())) {
         throw new AppError('La invitación expiró', 410);
       }
       if (invite.status !== 'PENDING') {
@@ -53,10 +66,20 @@ export async function POST(
           invitedBy: invite.invitedBy,
         },
       });
-      await tx.memberInvite.update({
-        where: { id },
+      // Same class of race as ultra's revoke/decline finding, symmetric: the
+      // initial read (line 33) took no lock, so an owner revoke could commit
+      // during THIS transaction's execution. An unconditional update here
+      // would silently overwrite that revoke back to ACCEPTED and let the
+      // membership just created above stand. Guarding status:'PENDING' and
+      // throwing on count===0 rolls back the WHOLE transaction — including
+      // the doctorMember create — so a mid-flight revoke wins cleanly.
+      const { count } = await tx.memberInvite.updateMany({
+        where: { id, status: 'PENDING' },
         data: { status: 'ACCEPTED', respondedAt: new Date() },
       });
+      if (count === 0) {
+        throw new AppError('La invitación cambió mientras se procesaba, intenta de nuevo', 409);
+      }
       return created;
     });
 

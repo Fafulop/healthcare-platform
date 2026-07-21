@@ -5,10 +5,11 @@
 > Todo lo citado aquí (archivos, líneas, rutas) fue verificado en código el 2026-07-20.
 >
 > **PR A** SHIPPED `d6c48256` (migración aplicada a prod, ultra review 0 findings).
-> **PR B, C y D** construidos 2026-07-20, gates verdes, pendientes de commit/push —
-> ver §11-§14 (as-built + review de cada uno) más abajo. Plan de review: B/C/D con
-> review inline completo cada uno; UN solo `/code-review ultra` cubriendo B+C+D
-> antes de pushear (ahorra cuota de ultra — 2 de 3 gratis restantes).
+> **PR B, C y D** construidos + revisados inline 2026-07-20, COMMITEADOS localmente
+> (`b9fbeae2`/`d5e2e692`/`d23a5f13`), sin pushear — ver §11-§14 (as-built + review de
+> cada uno). **`/code-review ultra` lanzado 2026-07-20 cubriendo los 3 commits juntos**
+> (un solo pase, ahorra cuota); resultados pendientes de triage — se documentarán en
+> §15 al llegar.
 >
 > Convenciones de BD según `docs/NEW.MD-GUIDES/database-architecture.md`: NO `prisma db push`;
 > migraciones SQL standalone idempotentes, aplicadas a Railway ANTES de pushear el código;
@@ -702,3 +703,52 @@ PR D no toca los choke points de auth (solo agrega endpoints nuevos detrás de e
 cualquier commit — decisión explícita del usuario: construir C y D primero, review inline
 completo en cada uno (no se salta por costo), UN solo `/code-review ultra` cubriendo B+C+D
 al final para conservar cuota (quedan 2 de 3 gratis tras PR A).*
+
+## 15. `/code-review ultra` sobre B+C+D — hallazgos y fixes (2026-07-21)
+
+4 hallazgos, los 4 CONFIRMED y corregidos (severidad "nit" — ninguno era explotable ni
+rompía nada visible, pero los 4 eran errores reales de construcción, no ruido). Los 4 caen
+en categorías que el review inline de PR D ya cubría en teoría (ángulos 4 y 8) — ultra los
+cazó donde el review inline no llegó a mirar con suficiente profundidad. Ningún hallazgo en
+PR B o PR C.
+
+1. **Escritura EXPIRED muerta dentro de la transacción de accept** (`accept/route.ts`): el
+   `tx.memberInvite.update({status:'EXPIRED'})` corría DENTRO del `$transaction` y el
+   `throw` inmediato después revertía TODO, incluida esa escritura — la fila se quedaba
+   PENDING para siempre en vez de EXPIRED (sin impacto visible: el 410 al usuario era
+   correcto igual, y los sweeps lazy de los GET la limpiaban eventualmente). Fix: mover el
+   `updateMany` de expiración ANTES de abrir la transacción (mismo patrón que los sweeps
+   existentes), re-chequear el estado de expiración dentro sin volver a escribir.
+2. **Comparación de email sensible a mayúsculas** (4 sitios: `accept`, `decline`,
+   `my-invites` GET, `invites` POST el check de miembro existente): `invite.email` se
+   normaliza a minúsculas al crear la invitación, pero `users.email` (poblado por Google
+   OAuth) se guarda TAL CUAL — dominios Google Workspace pueden preservar mayúsculas en el
+   claim OIDC. Un asistente invitado con email mixed-case habría visto CERO invitaciones
+   pendientes (silencioso, sin error) y quedado atorado en el flujo de onboarding de
+   doctor. Fix: comparación `toLowerCase()` en accept/decline; `mode: 'insensitive'` de
+   Prisma (soportado en postgresql) en los 3 queries de BD.
+3. **Lost-update race en revoke/decline de invitaciones** (`invites/[id]` DELETE,
+   `my-invites/[id]/decline`, y por consistencia también `members/[id]` DELETE): patrón
+   `findFirst` (sin lock) → chequeo en JS → `update where:{id}` (sin filtro de estado) — si
+   un accept/decline/expire concurrente comitea en esa ventana, el update subsiguiente lo
+   sobreescribe en silencio. Sin hueco de seguridad (la fila `doctor_members` ya creada por
+   un accept legítimo queda intacta), pero el rastro de auditoría de la invitación mentiría
+   sobre qué pasó. Fix: `updateMany` con `status:'PENDING'` (o `'ACTIVE'` para members) en
+   el WHERE — el UPDATE re-evalúa la fila ACTUAL al ejecutarse, así que `count===0` détecta
+   la carrera perdida de forma atómica, tratado como idempotente (ya-respondida).
+4. **Variante simétrica encontrada en auto-review de los fixes, no por ultra** (mismo
+   archivo `accept/route.ts`, línea de escritura ACCEPTED): la escritura final de
+   `tx.memberInvite.update({status:'ACCEPTED'})` DENTRO de la transacción de accept tenía el
+   MISMO patrón sin guardia — un revoke del dueño en la ventana exacta de ejecución de la
+   transacción de accept podía comitear entre la lectura inicial (línea 33) y esta escritura
+   final, y el update ciego lo sobreescribiría de vuelta a ACCEPTED dejando parada la
+   membresía recién creada a pesar del revoke. Fix: mismo patrón `updateMany` +
+   `count===0` → throw — pero aquí el throw debe TUMBAR toda la transacción (incluida la
+   creación del `doctorMember`), no solo reportar idempotencia, porque un revoke a mitad de
+   vuelo debe ganar limpio.
+
+**Gates post-fix:** tsc limpio (apps/doctor) tras cada fix y al final. Sin gate de prod
+nuevo — estos son cambios de lógica pura sobre queries ya smoke-testeadas (los 4 sitios ya
+usan patrones de query verificados; `mode:'insensitive'` es sintaxis Prisma estándar para
+postgresql, no un query shape nuevo que amerite smoke read-only). Pendiente: commit de los
+fixes (nuevo commit, no amend, per regla del repo) + OK del usuario antes de push.

@@ -70,12 +70,17 @@ export async function DELETE(
       return NextResponse.json({ success: true, data: member }); // already revoked, idempotent
     }
 
-    const revoked = await prisma.doctorMember.update({
-      where: { id },
+    // Atomic conditional update (same class of lost-update race flagged by
+    // ultra review on the invite-revoke endpoints) — cheap consistency fix.
+    const { count } = await prisma.doctorMember.updateMany({
+      where: { id, doctorId, status: 'ACTIVE' },
       data: { status: 'REVOKED', revokedAt: new Date() },
     });
+    const result = count > 0
+      ? await prisma.doctorMember.findUnique({ where: { id } })
+      : member;
 
-    return NextResponse.json({ success: true, data: revoked });
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     return handleApiError(error, 'DELETE /api/team/members/[id]');
   }
