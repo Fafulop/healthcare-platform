@@ -13,8 +13,8 @@ enforcement server-side en ambos apps (doctor + api).
 
 ## Estado ahora mismo (2026-07-21)
 
-**Feature completa construida (PR A→D) + 3 rondas de bug hunt post-validación. 6 commits
-locales sin pushear**, apilados sobre `345b2a09` (último commit real en `origin/main`):
+**Feature completa construida (PR A→D) + 3 rondas de bug hunt post-validación. Todo
+PUSHEADO Y DESPLEGADO Y VERIFICADO 2026-07-21 (`345b2a09..14b1872c`):**
 
 ```
 27c04273  fix: status-read endpoints (csd/status, fiel GET, connect/status) mal marcados OWNER_ONLY
@@ -25,8 +25,11 @@ d8217f44  fix: voice/transcribe en Notas + form-builder-chat en custom-templates
 4a18f7e8  docs: header + método del bug hunt (02-METODO §3.2)
 ```
 
-Todo el código tiene tsc limpio. **Nada de esto se ha pusheado a prod todavía** — quedó
-pendiente terminar la validación en vivo antes de decidir push.
+Todo el código tiene tsc limpio. **Verificado con curl real usando el token de Andrea
+post-deploy:** `GET /api/facturacion/csd/status` y `GET /api/sat-descarga/fiel` pasaron de
+`403 PERMISSION_BLOCKED` a `200` con los datos correctos — los fixes están confirmados vivos
+en prod, no solo pusheados. Ver el gotcha de deploy abajo — el push NO alcanzó por sí solo,
+hizo falta un redeploy manual del servicio `@healthcare/api`.
 
 ## Validación en vivo — dónde se quedó
 
@@ -55,18 +58,41 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
 
 ## Qué sigue (en orden)
 
-1. **Terminar pasos 4-6 de la validación en vivo** (arriba). Usar el método read-only
-   documentado en `reference_prod_db_tooling` (memoria) — scratchpad `.cjs` +
-   `railway run --service pgvector`.
-2. **Pedir el OK del usuario y pushear los 6 commits.** Regla del repo: nunca push sin
-   explicar primero qué se va a pushear (feedback_no_push_without_explaining, memoria).
-3. **Después de push:** correr la suite de evals del agente (60 casos, gasto real de API,
-   nunca corrida todavía) — sobre todo para probar PR C (filtrado de módulos), que solo
-   tiene la garantía de identidad de bytes para el owner, cero evals para el path de member.
-4. **Fuera de alcance v1** (ver 00-REQUISITOS §7): multi-portal, caps de presupuesto IA por
+1. **Terminar pasos 4-6 de la validación en vivo** (arriba) — única cosa pendiente de la
+   validación misma. Usar el método read-only documentado en `reference_prod_db_tooling`
+   (memoria) — scratchpad `.cjs` + `railway run --service pgvector`.
+2. **Correr la suite de evals del agente** (60 casos, gasto real de API, nunca corrida
+   todavía) — sobre todo para probar PR C (filtrado de módulos), que solo tiene la garantía
+   de identidad de bytes para el owner, cero evals para el path de member.
+3. **Fuera de alcance v1** (ver 00-REQUISITOS §7): multi-portal, caps de presupuesto IA por
    member, borradores de receta por members, transferencia de ownership.
 
 ## Gotchas para la próxima sesión
+
+- **⚠️ El push a `main` NO garantiza que TODOS los servicios de Railway se desplieguen.**
+  Descubierto en vivo 2026-07-21: tras pushear los 6 commits de fixes, `@healthcare/doctor`
+  se redesplegó automáticamente (`railway status --json` mostraba su `latestDeployment.meta.commitHash`
+  ya en el nuevo commit), pero **`@healthcare/api` se quedó silenciosamente en el commit
+  viejo** — sin error, sin aviso, el dashboard no lo señala como fallido, simplemente nunca
+  disparó el auto-deploy. Esto causó una validación en vivo confusa: la UI de Andrea se veía
+  actualizada (porque el doctor app SÍ desplegó) pero los endpoints seguían bloqueados
+  (porque el api NO había desplegado) — parecía un bug de lógica cuando en realidad era un
+  servicio entero corriendo código de ayer.
+  - **Cómo detectarlo:** `railway status --json` (con el servicio correcto linkeado) →
+    buscar `"serviceName"` + el `commitHash` de su `latestDeployment.meta` — compararlo
+    contra `git rev-parse HEAD`. Si no coincide, ese servicio no desplegó.
+  - **Cómo NO arreglarlo:** `railway redeploy` **no sirve** — solo re-corre el build del
+    ÚLTIMO deployment ya registrado (el commit viejo), no jala el commit nuevo de git.
+  - **Cómo SÍ arreglarlo:** `railway up` (con el CLI linkeado al servicio correcto y el
+    directorio local en el mismo commit que `origin/main`) — sube y despliega el código
+    LOCAL directo, sin pasar por el trigger de git. Confirmar éxito con `railway status
+    --json` (commitHash correcto + status SUCCESS) — el status puede quedarse en
+    "BUILDING" un rato incluso después de que el build log muestre "image push" terminado
+    (el rollout/healthcheck post-build tarda aparte); no asumir que terminó hasta ver
+    `SUCCESS`, y verificar con una prueba real (curl con token) — no solo con el status.
+  - **No investigado todavía:** POR QUÉ el auto-deploy de `@healthcare/api` no se disparó
+    esa vez — podría ser un problema de webhook/integración de GitHub específico de ese
+    servicio en Railway. Vale la pena revisarlo si vuelve a pasar.
 
 - **`prisma db push` contra Railway revierte** el composite FK de bookings Y los índices
   parciales de `doctor_members` (uno-activo-por-user, uno-owner-por-doctor) — nunca correrlo

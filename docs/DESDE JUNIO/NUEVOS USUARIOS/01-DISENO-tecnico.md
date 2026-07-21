@@ -504,6 +504,7 @@ member real = andreabarbagal@gmail.com:**
 6. [ ] Pendiente.
 7. [x] Owner: cero cambios observados en todo lo probado hasta ahora.
 
+
 Bug adicional fuera de esta lista, encontrado por el usuario probando la agenda: el botón
 verde "Asistente" DENTRO de la página de citas no abría el panel para B — ver §16 hallazgo 2.
 
