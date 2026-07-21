@@ -35,6 +35,30 @@ export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 /** Shape stored in doctor_members.permissions / member_invites.permissions. */
 export type PermissionSet = Partial<Record<PermissionKey, boolean>>;
 
+/** Human labels for the Equipo tab toggle list — the ONE place UI copy for a
+ * toggle lives, so it never drifts from the sidebar label it corresponds to. */
+export const PERMISSION_LABELS: Record<PermissionKey, string> = {
+  perfil: 'Editar Perfil',
+  perfil_publico: 'Perfil Público',
+  contenido: 'Contenido Audiovisual',
+  blog: 'Mi Blog',
+  citas: 'Mis Citas',
+  expedientes: 'Expedientes Médicos',
+  tareas: 'Tareas',
+  notas: 'Notas',
+  reportes: 'Reportes',
+  flujo: 'Flujo de Dinero',
+  pagos: 'Pagos',
+  facturacion: 'Facturación',
+  sat: 'Descarga SAT',
+  conciliacion: 'Conciliación Bancaria',
+  ventas: 'Ventas',
+  compras: 'Compras',
+  productos: 'Productos y Servicios',
+  ayuda: 'Ayuda',
+  asistente_ia: 'Asistente IA',
+};
+
 /** Safe defaults prefilling the invite dialog: agenda/organización/ayuda ON,
  * clinical + money + profile + AI OFF. */
 export const INVITE_DEFAULTS: Record<PermissionKey, boolean> = {

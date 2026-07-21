@@ -1,8 +1,14 @@
 # NUEVOS USUARIOS — Diseño técnico
 
-> **Estado:** DISEÑO 2026-07-20 — ningún código escrito. Requisitos cerrados en
+> **Estado:** DISEÑO 2026-07-20, implementación EN CURSO. Requisitos cerrados en
 > [`00-REQUISITOS-usuarios-secundarios.md`](00-REQUISITOS-usuarios-secundarios.md).
 > Todo lo citado aquí (archivos, líneas, rutas) fue verificado en código el 2026-07-20.
+>
+> **PR A** SHIPPED `d6c48256` (migración aplicada a prod, ultra review 0 findings).
+> **PR B, C y D** construidos 2026-07-20, gates verdes, pendientes de commit/push —
+> ver §11-§14 (as-built + review de cada uno) más abajo. Plan de review: B/C/D con
+> review inline completo cada uno; UN solo `/code-review ultra` cubriendo B+C+D
+> antes de pushear (ahorra cuota de ultra — 2 de 3 gratis restantes).
 >
 > Convenciones de BD según `docs/NEW.MD-GUIDES/database-architecture.md`: NO `prisma db push`;
 > migraciones SQL standalone idempotentes, aplicadas a Railway ANTES de pushear el código;
@@ -499,8 +505,200 @@ read-only, `pnpm-lock.yaml` si hay deps nuevas, explicación + OK del usuario an
 
 ---
 
+## 11. PR A — as-built + review (COMPLETADO, SHIPPED)
+
+Construido tal cual el diseño §1/§3. Gates: migración aplicada a prod (backfill 9 OWNER,
+0 mismatches), smoke read-only con el shape EXACTO de la nueva query (`effective==legacy`
+11/11 usuarios), tsc limpio ambas apps. Review inline: 1 hallazgo CONFIRMED corregido — sin
+el guard, una tabla `doctor_members` ausente en prod (orden de deploy invertido) habría
+tronado CADA request autenticado en apps/api (`memberships` include falla) en vez de fallar
+abierto hacia el owner legacy; se agregó catch de `P2021` que re-consulta sin memberships.
+**`/code-review ultra` sobre la rama: 0 findings** en los 13 archivos del PR (el único
+hallazgo fue un typo en un doc no relacionado, en el working tree). Commit `d6c48256`,
+pusheado 2026-07-20.
+
+## 12. PR B — as-built + review
+
+Construido según §4/§5 con una desviación del plan original (documentada abajo). Sin
+migración SQL — PR B es código de aplicación puro sobre las tablas de PR A.
+
+**Desviaciones vs el plan original:**
+- El inventario real de rutas (verificado con `ls`, no muestreado) dio **149 rutas en
+  apps/api + 71 en apps/doctor = 220** (el diseño estimaba una primera pasada parcial).
+  El mapa terminó con **61 reglas** de prefijo (varias rutas comparten prefijo padre).
+- Clasificaciones nuevas no anticipadas en el diseño, resueltas durante la construcción:
+  `doctors/*/google-calendar` y `doctors/*/telegram` → OWNER_ONLY (Integraciones, no
+  cubierto explícitamente en el diseño pero consistente con §3.4 de 00); `stripe/connect` y
+  `mercadopago/connect` (onboarding del proveedor de pago) → OWNER_ONLY, separado de las
+  rutas de uso diario (`pagos`); `facturacion/csd` y `sat-descarga/fiel` (identidad fiscal)
+  → OWNER_ONLY, separado de `facturacion`/`sat` de uso diario; `activity-logs` (feed
+  cross-block) → OWNER_ONLY conservador (§9 del diseño lo dejaba como pendiente de
+  verificar contenido — se resolvió así, no se abrió un toggle nuevo).
+- El diseño no especificaba el toggle maestro del agente aplicado al endpoint
+  `/api/agenda-agent` con verbo GET incluido (no solo POST) — se mapeó sin restricción de
+  método, consistente con que la UI ya esconde el panel completo cuando `asistente_ia` está
+  OFF (nadie llama GET si el panel no se monta).
+
+**Review inline (02-METODO ángulos 7-9), ejecutado ANTES de correr el script de inventario
+(el orden importa: el ángulo 7 se ejecuta construyendo el propio inventario, no después):**
+
+- **Ángulo 7 (bypass del matcher)**: el script de inventario (`scripts/check-route-permission-coverage.ts`)
+  ES este ángulo — recorrió las 220 rutas reales y no una muestra. Encontró (indirectamente,
+  vía el compilador) **2 comentarios JSDoc con `'doctors/*/telegram'` dentro de un bloque
+  `/** ... */`** — el `*/` literal dentro del string cerraba el comentario antes de tiempo y
+  corrompía el resto del archivo. No es un hallazgo de seguridad, pero es exactamente el
+  tipo de error invisible sin correr el parser real. Corregido reescribiendo los comentarios
+  sin el patrón `*/`.
+- **Ángulo 9 (dirección de fallo), 1 CONFIRMED, corregido**: un usuario totalmente
+  desvinculado (role `DOCTOR`, sin `doctorId`, sin membresía — alguien a medio-onboarding
+  antes de que un admin lo vincule) resuelve `isOwner: false` por construcción en
+  `computeEffectiveAccess`. Sin guard adicional, esto disparaba `enforceMemberRoute` en
+  CADA ruta que tocara, reemplazando el error específico existente
+  (`getAuthenticatedDoctor`: "No doctor profile linked to this account") por el nuevo
+  `PERMISSION_BLOCKED` genérico — mismo 403, pero el mensaje cambia y algún manejo
+  downstream podría depender del texto viejo. Fix: la condición de enforcement en
+  `apps/api/src/lib/auth.ts` ganó `&& access.doctorId` — sin doctor que resolver, la
+  petición cae a los checks existentes basados en `doctorId` sin inventar un nuevo camino de
+  bloqueo. Se revisó el lado `apps/doctor` (`medical-auth.ts`) y NO necesitó el mismo fix:
+  ya lanza su propio check de `doctorId` ANTES de llegar al bloque de enforcement.
+- **Ángulo 8 (escalación de privilegios)**: `/api/team` no existe todavía (PR D) — nada que
+  escalar aún; confirmado que ADMIN hace bypass de enforcement sin importar `isOwner`
+  (`user.role !== 'ADMIN'` en la condición); confirmado que el guard de recetas vive en el
+  endpoint (`issue/route.ts`), no solo escondido en UI.
+- Se trazaron los ~60 sitios que desestructuran `requireDoctorAuth()` — los campos nuevos
+  (`isOwner`, `permissions`) son puramente aditivos, ningún call site se rompe.
+
+**Gates:**
+- `scripts/check-route-permission-coverage.ts`: **227 archivos de ruta cubiertos, 0 sin
+  mapear** (61 reglas + allowlist `users`/`cron` + prefijos públicos/webhook/cron).
+- tsc limpio en ambas apps (re-verificado tras el fix del ángulo 9).
+- Sin gate de prod nuevo: el enforcement es un no-op para los 11 usuarios reales (mismo
+  hecho que probó el smoke de PR A — `isOwner=true` para todos), no se requiere una segunda
+  sonda porque la condición que lo garantiza (`!access.isOwner`) es la misma que PR A ya
+  verificó en prod.
+- Evals del agente: NO corridos todavía para PR B — el diseño (§7.3) los pedía para PR C
+  (filtrado de módulos); PR B solo toca el choke point de auth, que los owners atraviesan
+  sin cambio de comportamiento por construcción, así que el argumento de "no-op" no depende
+  de correr la suite. Queda como ítem abierto correr la suite completa como gate de PUSH del
+  PR C, no de este.
+
+Estado: construido, revisado, gates verdes, **pendiente de commit** (esperando `/code-review
+ultra` opcional + OK del usuario, mismo protocolo que PR A).
+
+---
+
 *Creado 2026-07-20. Verificado contra código: nextauth-config.ts (database sessions, session
 callback), apps/api/src/lib/auth.ts (validateAuthToken + wrappers), medical-auth.ts
 (requireDoctorAuth + logAudit/PatientAuditLog), api-token.ts (mint por email),
 modules/registry.ts + prompt.ts (composición por AGENT_MODULES), rutas reales de ambas apps
-(`ls`), pendientes→/api/medical-records/tasks, reportes→/api/analytics+/api/llm-usage.*
+(`ls`), pendientes→/api/medical-records/tasks, reportes→/api/analytics+/api/llm-usage.
+§11-§12 añadidos tras completar PR A (shipped) y construir PR B (2026-07-20).*
+
+## 13. PR C — as-built + review
+
+Construido según §7, con UNA desviación real vs el diseño (no un ajuste cosmético):
+
+**Hallazgo de diseño (descubierto construyendo, no antes):** 01-DISENO §7.1 afirmaba
+"INTRO/capacidades se compone por-módulo ya" — FALSO al releer `prompt.ts` real. Solo
+`domainModel`/`domainRules` se componen por módulo; `INTRO` y `RESILIENCE` son prosa
+compartida escrita a mano que ENUMERA las 9 capacidades de TODOS los módulos sin
+condicionar a cuáles están presentes. Sin corregir esto, un member con módulos filtrados
+recibiría un prompt que afirma con confianza capacidades cuyas tools no existen para él —
+justo la categoría "contenido que afirma hechos" que 02-METODO exige revisar siempre.
+**Fix:** `MEMBER_SCOPE_NOTE` — un párrafo genérico (no enumera qué está bloqueado) insertado
+SOLO cuando el set de módulos es un subconjunto propio; el path owner/set-completo no lo
+incluye nunca (probado por el gate, no solo afirmado).
+
+**Piezas construidas:**
+- `modules/registry.ts`: `AGENT_MODULE_REQUIREMENTS` (mapeo módulo→toggles, regla ALL);
+  `enabledModules(access)` — owner devuelve `AGENT_MODULES` **por referencia** (no copia);
+  `buildTools(modules)` generalizado, `ALL_TOOLS` sigue siendo el mismo valor top-level.
+- `prompt.ts`: `composePrompt(modules)` + `buildSystemPrompt(modules)` memoizado por firma
+  de nombres de módulo; `STABLE_SYSTEM_PROMPT` sigue siendo la MISMA constante (mismo
+  nombre, mismo valor) — nada que la importe en otro lugar se rompe.
+- `run-turn.ts`: `modules` opcional en `AgendaTurnInput` (default `AGENT_MODULES` — el eval
+  runner sigue probando el owner sin cambios); **defensa en profundidad** — `allowedToolNames`
+  (Set) bloquea el dispatch de cualquier tool fuera del set filtrado ANTES de llamar al
+  executor, aunque el modelo nunca podría solicitarla (no está en `tools` del request) — el
+  01-DISENO §7.1 pedía explícitamente "no existe ni para dispatch, no solo se esconde".
+- `route.ts`: calcula `modules` desde `authCtx.isOwner/permissions`; **set vacío con
+  `asistente_ia` ON** (owner activa el toggle IA sin ningún dominio) → respuesta amistosa sin
+  llamar al modelo (cero tokens gastados) — simplificación de v1 vs el ideal del diseño
+  ("el panel se esconde igual"): el panel SIGUE visible en ese caso raro, pero no revienta ni
+  gasta presupuesto; ocultar el panel completo requeriría exponer `AGENT_MODULE_REQUIREMENTS`
+  al cliente, fuera de alcance v1.
+
+**Gate de identidad de bytes (`scripts/check-agent-prompt-identity.ts`, 12/12 checks):**
+sha256 del prompt owner impreso y estable; `buildSystemPrompt(AGENT_MODULES) ===
+STABLE_SYSTEM_PROMPT` (no tautológico — construido independientemente); `buildTools` mismo
+orden/cantidad que `ALL_TOOLS`; el addendum de member NUNCA aparece en el path owner; reglas
+de filtrado verificadas (agenda-only → 1 módulo; flujo exige LOS 3 toggles, parcial lo
+excluye; permissions null/vacío → 0 módulos, fail-closed). **Verificado además por diff**:
+las únicas líneas removidas de `prompt.ts` son la construcción antigua de
+`STABLE_SYSTEM_PROMPT` (9 líneas), ningún string de INTRO/RESILIENCE/RULES/FORMAT fue tocado
+— la prueba de bytes no depende de confiar en la refactorización, el diff la corrobora.
+
+**Gates:** tsc limpio doctor app. Evals del agente (suite 60) **NO corridos** — gasto real
+de API, se pospone a que el usuario decida (la garantía de cero-riesgo para el owner ya está
+prendida: misma referencia de módulos + mismo string de prompt + mismo código de dispatch
+que antes de esta PR).
+
+## 14. PR D — as-built + review
+
+Construido según §6, con las piezas nuevas no completamente detalladas en el diseño
+original resueltas durante la construcción:
+
+**Piezas construidas:**
+- Migración: NINGUNA (PR D es código de aplicación puro sobre las tablas de PR A).
+- Helpers nuevos en `medical-auth.ts`: `requireAnyAuth` (cualquier usuario autenticado,
+  doctorId opcional — el caso exacto de alguien revisando sus invitaciones ANTES de
+  pertenecer a cualquier portal) y `requireOwnerAuth` (envuelve `requireDoctorAuth` +
+  `isOwner`, no el toggle `perfil` — 00-REQUISITOS §3.4).
+- 7 endpoints bajo `/api/team/`: `members` (GET), `members/[id]` (PATCH/DELETE),
+  `invites` (GET/POST), `invites/[id]` (DELETE), `my-invites` (GET),
+  `my-invites/[id]/accept` (POST, transacción), `my-invites/[id]/decline` (POST).
+- `AppError` nueva clase en `api-error-handler.ts` (error estructurado con status explícito
+  404/409/410 — no existía antes, los helpers previos solo cubrían 400/401/403 genéricos).
+- `PERMISSION_LABELS` añadido al registry (`packages/database/src/permissions.ts`) — las
+  etiquetas del diálogo de Equipo derivan del MISMO registry que el sidebar, nunca driftean.
+- UI: `TeamSection.tsx` (pestaña Equipo — lista + edición inline + diálogo de invitar con
+  `INVITE_DEFAULTS` prellenados), `/invitacion` (pantalla de aceptar/rechazar, fuera del
+  layout del dashboard — mismo patrón que `/consent`), `RevokedAccessScreen.tsx`.
+- Routing en `dashboard/layout.tsx`: chequeo de invitaciones pendientes ANTES del flujo de
+  onboarding existente, pantalla de revocado ANTES del render normal.
+
+**Review inline (02-METODO ángulos 4 y 8), con un hallazgo real:**
+- **Ángulo 8 (escalación), verificado sin fix necesario**: `invite.email !== email` bloquea
+  aceptar la invitación de otro (los ids son cuid, no adivinables, y aunque se adivinaran el
+  check de email lo detiene); el 404 es IDÉNTICO para "no existe" y "existe pero es de otro
+  email" (sin oracle de existencia); `members/[id]` PATCH/DELETE rechazan tocar filas
+  `role:'OWNER'`; `sanitizePermissions` sólo acepta las 19 claves conocidas del registry
+  (claves extra en el body se ignoran, nunca se guardan).
+- **Ángulo 4 (¿qué cambia entre proponer y ejecutar?), backstop PROBADO en prod (no solo
+  argumentado)**: dos accepts simultáneos del mismo usuario (doble click, o dos invitaciones
+  de dos doctores distintos) bajo READ COMMITTED podrían ambos leer "sin membresía activa" y
+  ambos intentar crear — el índice parcial `doctor_members_one_active_per_user` es el
+  backstop. **Smoke de escritura-con-rollback contra prod** (patrón de
+  database-architecture.md, mismo método que validó el composite FK en 2026-07-08):
+  transacción real crea membership 1, intenta membership 2 para el mismo user_id → **P2002
+  confirmado**, luego throw intencional → CERO filas commiteadas. El backstop es real, no
+  solo teórico.
+- **1 CONFIRMED, corregido — encontrado revisando la interacción revoked×invite**: el efecto
+  de chequeo de invitaciones pendientes en `dashboard/layout.tsx` excluía explícitamente a
+  los usuarios con `membershipRevoked:true`. Pero re-invitar a un member removido es un flujo
+  soportado explícitamente (00-REQUISITOS §2.3: "un gmail removido queda libre para ser
+  invitado a otro portal") — sin el fix, ese usuario re-invitado quedaría atorado en la
+  pantalla "Acceso revocado" PARA SIEMPRE (el efecto nunca corría, nunca lo mandaría a
+  `/invitacion`). Fix: se quitó la exclusión de `membershipRevoked` del efecto — ahora
+  revisa invitaciones pendientes SIEMPRE que no haya doctorId efectivo, revocado o no.
+
+**Gates:** tsc limpio doctor app · inventario de rutas 234/234 cubierto (63 reglas, +7 vs
+PR B) · smoke de constraint contra prod (arriba) · sin gate de prod nuevo más allá de eso —
+PR D no toca los choke points de auth (solo agrega endpoints nuevos detrás de ellos).
+
+---
+
+*§13-§14 añadidos tras construir PR C y PR D en la misma sesión (2026-07-20), antes de
+cualquier commit — decisión explícita del usuario: construir C y D primero, review inline
+completo en cada uno (no se salta por costo), UN solo `/code-review ultra` cubriendo B+C+D
+al final para conservar cuota (quedan 2 de 3 gratis tras PR A).*

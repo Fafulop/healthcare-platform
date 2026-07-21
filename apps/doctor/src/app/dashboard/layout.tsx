@@ -7,6 +7,7 @@ import { Loader2, ChevronRight, ChevronLeft } from "lucide-react";
 import { DoctorProfileProvider } from "@/contexts/DoctorProfileContext";
 import { useAgentActions } from "@/contexts/AgentContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import RevokedAccessScreen from "@/components/layout/RevokedAccessScreen";
 import { GoogleCalendarBanner } from "@/components/GoogleCalendarBanner";
 import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
 import { DayDetailsWidget } from "@/components/day-details/DayDetailsWidget";
@@ -70,6 +71,34 @@ export default function DashboardRootLayout({
     }
   }, [status, session?.user?.privacyConsentAt]);
 
+  // NUEVOS USUARIOS PR D (01-DISENO §5.2 routing order): a session with no
+  // effective doctorId might have a pending team invite — route there BEFORE
+  // falling through to the existing doctor-onboarding flow. Skipped for
+  // owners/members (always a non-null doctorId). Deliberately NOT skipped for
+  // revoked members: re-inviting a removed member to another portal (or the
+  // same one) is an explicit supported flow (00-REQUISITOS §2.3) — without
+  // this check a re-invited user would be stuck on the revoked screen forever
+  // (a real bug caught during PR D review, angle 9).
+  const [pendingInviteChecked, setPendingInviteChecked] = useState(false);
+  const [hasPendingInvite, setHasPendingInvite] = useState(false);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    if (session?.user?.doctorId) return;
+    if (pendingInviteChecked) return;
+    setPendingInviteChecked(true);
+    fetch("/api/team/my-invites")
+      .then((r) => r.json())
+      .then((json) => {
+        if (Array.isArray(json?.data) && json.data.length > 0) setHasPendingInvite(true);
+      })
+      .catch(() => {});
+  }, [status, session?.user?.doctorId, pendingInviteChecked]);
+
+  useEffect(() => {
+    if (hasPendingInvite) redirect("/invitacion");
+  }, [hasPendingInvite]);
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -79,6 +108,10 @@ export default function DashboardRootLayout({
         </div>
       </div>
     );
+  }
+
+  if (status === "authenticated" && session?.user?.membershipRevoked) {
+    return <RevokedAccessScreen />;
   }
 
   return (
