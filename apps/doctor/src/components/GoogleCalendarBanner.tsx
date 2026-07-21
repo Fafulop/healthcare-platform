@@ -5,16 +5,27 @@ import { signIn } from "next-auth/react";
 import { X, CalendarX2 } from "lucide-react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { authFetch } from "@/lib/auth-fetch";
+import { usePermissions } from "@/lib/permissions-client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 const DISMISS_KEY = "gcal_token_banner_dismissed";
 
 export function GoogleCalendarBanner() {
   const { doctorProfile } = useDoctorProfile();
+  // Mounted globally for every dashboard visit, incl. members. The status
+  // check (doctors/*/google-calendar/status) is OWNER_ONLY, and the banner's
+  // action (re-authenticate GOOGLE) only makes sense for the owner — Calendar
+  // sync is always attributed to the owner's tokens regardless of who acts
+  // (§4 of 01-DISENO), so a member has nothing to re-authenticate here.
+  // Previously degraded safely by ACCIDENT (the 403 body's shape happened to
+  // short-circuit the "show banner" check) — hardened to an explicit skip
+  // instead of relying on that (found during the §16 bug hunt, 2026-07-21).
+  const { isOwner } = usePermissions();
   const [show, setShow] = useState(false);
   const [reason, setReason] = useState<"expired" | "missing" | null>(null);
 
   useEffect(() => {
+    if (!isOwner) return;
     if (!doctorProfile?.slug) return;
     if (sessionStorage.getItem(DISMISS_KEY)) return;
 
@@ -31,7 +42,7 @@ export function GoogleCalendarBanner() {
         }
       })
       .catch(() => {}); // silent — don't break the dashboard on status failure
-  }, [doctorProfile?.slug]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [doctorProfile?.slug, isOwner]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!show) return null;
 

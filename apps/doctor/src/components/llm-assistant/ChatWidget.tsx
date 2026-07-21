@@ -12,11 +12,19 @@ import { HelpCircle, X, Trash2, Loader2 } from 'lucide-react';
 import { useLlmChat } from '@/hooks/useLlmChat';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { usePermissions } from '@/lib/permissions-client';
 
 export function ChatWidget() {
+  // Legacy AI surface — owner-only in v1 (00-REQUISITOS §5.3). Without this,
+  // /api/llm-assistant/chat 403s for a member and the raw "PERMISSION_BLOCKED"
+  // string renders as a chat reply (found live, 2026-07-21 — same bug class as
+  // VoiceAssistantHubWidget below and the agenda-page agent button, §16).
+  const { isOwner } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const { messages, isLoading, sendMessage, clearChat } = useLlmChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  if (!isOwner) return null;
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {

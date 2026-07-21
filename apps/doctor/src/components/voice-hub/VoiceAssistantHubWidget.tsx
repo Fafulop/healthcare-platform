@@ -4,15 +4,20 @@ import { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { VoiceAssistantHubModal } from './VoiceAssistantHubModal';
 import { useSession } from 'next-auth/react';
+import { usePermissions } from '@/lib/permissions-client';
 
 export function VoiceAssistantHubWidget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { data: session } = useSession();
+  // Legacy AI surface — owner-only in v1 (00-REQUISITOS §5.3): the modal
+  // talks to voice/* endpoints, all OWNER_ONLY. Found live, 2026-07-21 —
+  // same bug class as ChatWidget and the agenda-page agent button (§16).
+  const { isOwner } = usePermissions();
 
   const doctorId = session?.user?.doctorId;
 
-  // Don't render if no doctor ID
-  if (!doctorId) return null;
+  // Don't render if no doctor ID, or if this session isn't the owner.
+  if (!doctorId || !isOwner) return null;
 
   return (
     <>
