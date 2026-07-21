@@ -27,6 +27,7 @@ import { logToolErrors } from '@/lib/ai/log-tool-errors';
 import { prisma } from '@healthcare/database';
 import { isAnthropicConfigured } from '@/lib/agenda-agent/anthropic';
 import { runAgendaAgentTurn, MODEL } from '@/lib/agenda-agent/run-turn';
+import { enabledModules } from '@/lib/agenda-agent/modules/registry';
 import { mintApiToken } from '@/lib/agenda-agent/api-token';
 import { mxTodayKey } from '@/lib/agenda-agent/dates';
 
@@ -65,6 +66,24 @@ export async function POST(request: NextRequest) {
   try {
     const authCtx = await requireDoctorAuth(request);
     const { doctorId } = authCtx;
+
+    // NUEVOS USUARIOS PR C: module set for THIS caller. Owners get every
+    // module (byte-identical prompt/tools to before this feature existed).
+    const modules = enabledModules({ isOwner: authCtx.isOwner, permissions: authCtx.permissions });
+    if (modules.length === 0) {
+      // Reachable only if an owner grants asistente_ia without any domain
+      // toggle — the panel is supposed to hide itself in that case (client),
+      // this is the server-side fail-safe. No model call, no tokens spent.
+      return NextResponse.json({
+        success: true,
+        data: {
+          reply: 'No tienes ningún módulo del asistente habilitado en esta cuenta. Pídele al dueño del consultorio que active al menos uno.',
+          toolsUsed: [],
+          proposals: [],
+          budget: { used: await getTokensUsedToday(doctorId), cap: DAILY_TOKEN_CAP },
+        },
+      });
+    }
 
     if (!isAnthropicConfigured()) {
       return NextResponse.json(
@@ -121,6 +140,7 @@ export async function POST(request: NextRequest) {
       doctorSlug: doctor.slug,
       message,
       conversationHistory,
+      modules,
       // Bearer for tools that call apps/api authenticated endpoints (catálogos
       // SAT) — minted from THIS doctor's session, same trust boundary as the
       // client's authFetch. Null if the secret is missing; the tool degrades.

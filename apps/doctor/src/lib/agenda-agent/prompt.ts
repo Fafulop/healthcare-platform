@@ -20,6 +20,7 @@
  */
 
 import { AGENT_MODULES } from './modules/registry';
+import type { AgentModule } from './modules/types';
 
 const INTRO = `Eres el asistente del consultorio de un médico en México: su agenda, sus citas, y la
 facturación y cobros de su consulta.
@@ -151,12 +152,51 @@ const FORMAT = `## Formato de respuestas
 - Varios días: repite la estructura por día, cabecera de fecha en negritas.
 - Cifras/conteos ("tienes N citas") en negritas.`;
 
-export const STABLE_SYSTEM_PROMPT = [
-  INTRO,
-  ...AGENT_MODULES.map((m) => m.prompt.domainModel),
-  RESILIENCE,
-  ...AGENT_MODULES.flatMap((m) => (m.prompt.domainRules ? [m.prompt.domainRules] : [])),
-  HOW_TO_PROPOSE,
-  RULES,
-  FORMAT,
-].join('\n\n');
+// NUEVOS USUARIOS PR C: INTRO/RESILIENCE are shared, hand-written prose that
+// enumerate ALL capabilities — unlike domainModel/domainRules, they are NOT
+// composed per-module (a design assumption in 01-DISENO §7.1 that turned out
+// false when re-checked against this file). A member with a filtered module
+// set would otherwise get a prompt that confidently claims capabilities whose
+// tools don't exist for them. This note is the minimal fix: appended ONLY for
+// a non-full module set, so the owner path (isFullModuleSet===true) produces
+// the EXACT same string as before — verified by the sha256 gate.
+const MEMBER_SCOPE_NOTE = `## Nota de permisos de esta cuenta
+Esta cuenta tiene acceso limitado a algunas de las funciones descritas arriba, según lo que
+haya habilitado el dueño del consultorio. Si no tienes la tool que necesitarías para algo, o el
+sistema te dice que no tienes acceso, dilo directo ("esa función no está habilitada en esta
+cuenta") — nunca inventes el resultado ni asumas que sí puedes hacerlo.`;
+
+function composePrompt(modules: AgentModule[]): string {
+  const isFullModuleSet = modules === AGENT_MODULES;
+  const parts = [
+    INTRO,
+    ...modules.map((m) => m.prompt.domainModel),
+    ...(isFullModuleSet ? [] : [MEMBER_SCOPE_NOTE]),
+    RESILIENCE,
+    ...modules.flatMap((m) => (m.prompt.domainRules ? [m.prompt.domainRules] : [])),
+    HOW_TO_PROPOSE,
+    RULES,
+    FORMAT,
+  ];
+  return parts.join('\n\n');
+}
+
+/** Owner/full-set prompt — byte-identical to the pre-PR-C constant (gate:
+ * scripts/check-agent-prompt-identity.ts). */
+export const STABLE_SYSTEM_PROMPT = composePrompt(AGENT_MODULES);
+
+const promptCache = new Map<string, string>();
+
+/** Per-request composition for a filtered module set (secondary users).
+ * Memoized by module-name signature — the number of distinct sets in
+ * practice is small (one per permission combination actually granted), so
+ * this stays a handful of cache entries per process, not per request. */
+export function buildSystemPrompt(modules: AgentModule[]): string {
+  if (modules === AGENT_MODULES) return STABLE_SYSTEM_PROMPT;
+  const key = modules.map((m) => m.name).join(',');
+  const cached = promptCache.get(key);
+  if (cached) return cached;
+  const composed = composePrompt(modules);
+  promptCache.set(key, composed);
+  return composed;
+}

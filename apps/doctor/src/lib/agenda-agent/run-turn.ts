@@ -29,12 +29,15 @@ import { ProposalCollector, type AgendaProposal } from './proposals';
 // ALL_TOOLS is one definition for BOTH callsites (loop + synthesis): a
 // divergent toolset would go unnoticed and also split the tools-prefix cache.
 import {
+  AGENT_MODULES,
   ALL_TOOLS,
+  buildTools,
   isProposalToolName,
   dispatchReadTool,
   dispatchProposalTool,
 } from './modules/registry';
-import { STABLE_SYSTEM_PROMPT } from './prompt';
+import type { AgentModule } from './modules/types';
+import { STABLE_SYSTEM_PROMPT, buildSystemPrompt } from './prompt';
 import { mxNowString, mxTodayKey, mxTodayWeekday } from './dates';
 
 export const MODEL = process.env.AGENDA_AGENT_MODEL || 'claude-sonnet-5';
@@ -69,9 +72,10 @@ function extractText(content: { type: string }[]): string {
  * carries the cache breakpoint; the breakpoint also covers `tools`, which
  * render before system. Anything interpolated per-turn (date, time, weekday)
  * must live in the volatile block — never in the stable prompt. */
-function buildSystem(): SystemBlock[] {
+function buildSystem(modules: AgentModule[]): SystemBlock[] {
+  const promptText = modules === AGENT_MODULES ? STABLE_SYSTEM_PROMPT : buildSystemPrompt(modules);
   return [
-    { type: 'text', text: STABLE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: promptText, cache_control: { type: 'ephemeral' } },
     {
       type: 'text',
       text: `## Contexto temporal
@@ -112,6 +116,12 @@ export interface AgendaTurnInput {
   conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
   /** Bearer for apps/api authenticated endpoints — see ToolContext.apiToken. */
   apiToken?: string | null;
+  /** Module set for THIS caller (NUEVOS USUARIOS PR C). Defaults to
+   * AGENT_MODULES (full/owner set, byte-identical prompt+tools) so the eval
+   * runner and any caller that doesn't pass this keep testing owner behavior
+   * unchanged. Secondary users: apps/doctor's route computes this via
+   * modules/registry.ts enabledModules(access) before calling in. */
+  modules?: AgentModule[];
 }
 
 /** A tool that threw during the turn (audit A2). The model only sees a generic
@@ -161,10 +171,16 @@ export async function runAgendaAgentTurn({
   message,
   conversationHistory = [],
   apiToken = null,
+  modules = AGENT_MODULES,
 }: AgendaTurnInput): Promise<AgendaTurnResult> {
   const ctx: ToolContext = { doctorId, doctorSlug, apiToken };
   const collector = new ProposalCollector();
   const proposalCtx = { doctorId, doctorSlug, collector };
+  // Defense in depth (01-DISENO §7.1): a blocked module's tools don't exist
+  // for dispatch, not just hidden from the prompt/tools list — even though
+  // the model can only ever REQUEST tools present in `tools` below, so this
+  // is belt-and-suspenders against a future bug that desyncs the two.
+  const allowedToolNames = modules === AGENT_MODULES ? null : new Set(buildTools(modules).map((t) => t.name));
 
   const messages: AnthropicMessage[] = [
     ...conversationHistory
@@ -174,7 +190,8 @@ export async function runAgendaAgentTurn({
     { role: 'user' as const, content: message },
   ];
 
-  const system: SystemBlock[] = buildSystem();
+  const system: SystemBlock[] = buildSystem(modules);
+  const tools = modules === AGENT_MODULES ? ALL_TOOLS : buildTools(modules);
   const toolsUsed: string[] = [];
   const toolCalls: { name: string; input: Record<string, unknown> }[] = [];
   const toolErrors: ToolErrorRecord[] = [];
@@ -205,7 +222,7 @@ export async function runAgendaAgentTurn({
       model: MODEL,
       system,
       messages,
-      tools: ALL_TOOLS,
+      tools,
       maxTokens: MAX_TOKENS_PER_CALL,
       ...(toolChoice ? { toolChoice } : {}),
     });
@@ -244,9 +261,17 @@ export async function runAgendaAgentTurn({
       toolsUsed.push(tu.name);
       toolCalls.push({ name: tu.name, input: (tu.input ?? {}) as Record<string, unknown> });
       try {
-        const result = isProposalToolName(tu.name)
-          ? await dispatchProposalTool(proposalCtx, tu.name, tu.input)
-          : await dispatchReadTool(ctx, tu.name, tu.input);
+        // allowedToolNames is null for the full/owner set (no check needed —
+        // ALL_TOOLS already covers every tool). For a filtered set, the model
+        // literally cannot have requested a name outside `tools` above; this
+        // only fires if something ever desyncs, and degrades exactly like an
+        // unknown tool name (never leaks "blocked" vs "doesn't exist").
+        const result =
+          allowedToolNames && !allowedToolNames.has(tu.name)
+            ? { error: `Tool desconocida: ${tu.name}` }
+            : isProposalToolName(tu.name)
+              ? await dispatchProposalTool(proposalCtx, tu.name, tu.input)
+              : await dispatchReadTool(ctx, tu.name, tu.input);
         results.push({ type: 'tool_result' as const, tool_use_id: tu.id, content: serializeToolResult(result) });
       } catch (err: any) {
         console.error(`[agenda-agent] tool ${tu.name} failed:`, err);

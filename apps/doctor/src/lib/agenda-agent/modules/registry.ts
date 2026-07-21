@@ -8,9 +8,11 @@
  * cache for every doctor mid-day.
  */
 
+import type { AnthropicTool } from '../anthropic';
 import type { ToolContext } from '../tools';
 import type { ProposalContext } from '../proposals';
 import type { AgentModule } from './types';
+import { hasPermission, type PermissionKey, type PermissionSet } from '@healthcare/database';
 import { agendaModule } from './agenda';
 import { facturasModule } from './facturas';
 import { fiscalModule } from './fiscal';
@@ -25,8 +27,51 @@ export const AGENT_MODULES: AgentModule[] = [
   expedienteModule,
 ];
 
-/** The exact tools array the API receives (reads then proposals, per module). */
-export const ALL_TOOLS = AGENT_MODULES.flatMap((m) => [...m.readTools, ...m.proposalTools]);
+/** The tools array for a given module set (reads then proposals, per module,
+ * registry order preserved). */
+export function buildTools(modules: AgentModule[]): AnthropicTool[] {
+  return modules.flatMap((m) => [...m.readTools, ...m.proposalTools]);
+}
+
+/** The exact tools array the API receives for OWNERS (reads then proposals,
+ * per module). Kept as a top-level constant — same value, same reference
+ * semantics as before PR C — because run-turn.ts defaults to it. */
+export const ALL_TOOLS = buildTools(AGENT_MODULES);
+
+/**
+ * Secondary users (NUEVOS USUARIOS PR C): which sidebar-permission toggles a
+ * module requires — ALL must be ON (conservative rule, 00-REQUISITOS §5.2).
+ * A module absent from this map is BLOCKED for members (fail-closed, G9) —
+ * a future module must be added here explicitly to reach members at all.
+ * Design: docs/DESDE JUNIO/NUEVOS USUARIOS/01-DISENO-tecnico.md §7.1
+ */
+export const AGENT_MODULE_REQUIREMENTS: Record<string, PermissionKey[]> = {
+  agenda: ['citas'],
+  expediente: ['expedientes'],
+  flujo: ['flujo', 'pagos', 'conciliacion'],
+  facturas: ['facturacion', 'sat'],
+  fiscal: ['facturacion', 'sat'],
+};
+
+export interface AgentAccess {
+  isOwner: boolean;
+  permissions: PermissionSet | null;
+}
+
+/**
+ * The module set for this user. Owners get AGENT_MODULES BY REFERENCE (not a
+ * copy) — callers that need to detect "is this the full/owner set" can do
+ * `modules === AGENT_MODULES`, and prompt.ts relies on exactly this to stay
+ * byte-identical for owners without re-deriving equality.
+ */
+export function enabledModules(access: AgentAccess): AgentModule[] {
+  if (access.isOwner) return AGENT_MODULES;
+  return AGENT_MODULES.filter((m) => {
+    const required = AGENT_MODULE_REQUIREMENTS[m.name];
+    if (!required) return false;
+    return required.every((key) => hasPermission(access.permissions, key));
+  });
+}
 
 const readOwner = new Map<string, AgentModule>();
 const proposalOwner = new Map<string, AgentModule>();
