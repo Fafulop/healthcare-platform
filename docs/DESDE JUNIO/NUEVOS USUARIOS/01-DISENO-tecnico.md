@@ -7,8 +7,12 @@
 > **PR A-D SHIPPED** (`d6c48256`..`345b2a09`, 2026-07-20/21) — feature completa en prod.
 > `/code-review ultra` sobre B+C+D: 0 findings en B/C, 4 CONFIRMED en D (§15), corregidos
 > y pusheados junto con el resto. **Validación en vivo EN CURSO 2026-07-21** (dr-prueba +
-> segundo gmail real como member) — 2 bugs reales encontrados y corregidos, ver §16;
-> commits `27c04273`/`0824a18d` **COMMITEADOS, sin pushear todavía**.
+> segundo gmail real como member, andreabarbagal@gmail.com) — pasos 1-3+7 de §9
+> confirmados limpios; 3 rondas de bug hunt dirigido (§16, hallazgos 1-5) encontraron
+> **9 bugs reales de la misma familia** (superficies owner-only expuestas a members sin
+> guard) y los corrigió. **5 commits COMMITEADOS, sin pushear todavía:** `27c04273`,
+> `0824a18d`, `216e1606`, `3c89cd07`, `d8217f44`. Pendiente: pasos 4-6 de §9 + OK del
+> usuario para push.
 >
 > Convenciones de BD según `docs/NEW.MD-GUIDES/database-architecture.md`: NO `prisma db push`;
 > migraciones SQL standalone idempotentes, aplicadas a Railway ANTES de pushear el código;

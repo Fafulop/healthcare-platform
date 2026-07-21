@@ -65,6 +65,42 @@ gratis por periodo). Con eso claro, la estrategia correcta cuando hay varios PRs
 - Aplicado en PR B+C+D: 3 PRs construidas y revisadas inline por separado, comiteadas por
   separado, UN ultra al final cubriendo las 3. Cuota gastada: 1 (no 3).
 
+## 3.2. Bug hunt dirigido post-fix (validado en vivo, 2026-07-21): dos greps, no uno
+
+Durante la validación en vivo de PR B-D, un usuario real (member) tropezó con un botón que
+no hacía nada (el "Asistente" de la página de citas). El fix obvio (gatear ESE botón) llevó
+a preguntar "¿vale la pena un bug hunt rápido?" — la respuesta fue sí, y se hizo en 3 rondas
+que en total encontraron **9 bugs reales** de la misma familia (superficies owner-only
+alcanzables por un member sin guard, todas "nit" — sin hueco de seguridad real, porque el
+403 del backend siempre sostenía el límite, pero sí UX rota o confusa). El patrón que hizo
+esto productivo, replicable para la próxima vez que aparezca un bug de "componente
+compartido sin gate":
+
+1. **Ronda 1 (grep por endpoint específico):** el primer bug (facturación) llevó a preguntar
+   "¿qué MÁS comparte el mismo prefijo de ruta OWNER_ONLY?" — grep sobre las reglas del
+   mapa de permisos mismas, encontrando 2 casos más del mismo molde (status-read agrupado
+   con escritura-de-secreto).
+2. **Ronda 2 (grep por NOMBRE de componente compartido):** el segundo bug (botón del agente
+   en citas) llevó a enumerar TODOS los consumidores de `useAgentActions` — 0 más. Pero
+   generalizando la pregunta a "¿qué otros componentes se montan globalmente sin gate?"
+   encontró 3 widgets más (`ChatWidget`, `VoiceAssistantHubWidget`,
+   `GoogleCalendarBanner`). Extendiendo el mismo grep a los 8 endpoints `*-chat` legacy
+   (buscando el nombre de su panel compartido: `TaskChatPanel`, `SaleChatPanel`, etc.)
+   encontró que los 8 compartían el mismo defecto en 2 puntos de disparo cada uno.
+3. **Ronda 3 (grep por RUTA de API cruda, no por nombre de componente):** las rondas 1-2
+   solo encuentran bugs donde hay un componente o regla NOMBRADA y reusada. La ronda 3
+   buscó la variante inversa — features embebidas en páginas que SÍ son member-accessible,
+   sin componente compartido reconocible (una llamada `fetch()` suelta). Grep de las
+   RUTAS crudas (`/api/voice/`, `/api/task-chat`, etc.) en vez de nombres de componente
+   encontró 2 más (dictado por voz en Notas, asistente IA en FormBuilder) que las rondas
+   1-2 NUNCA iban a atrapar buscando por nombre.
+
+**La regla generalizable:** un bug de "gate faltante" casi nunca es único. Antes de cerrar
+el fix puntual, correr AL MENOS dos búsquedas con criterios distintos — por nombre de
+componente/hook compartido, y por ruta de API cruda — porque cada una encuentra una familia
+distinta de instancias del mismo bug. Parar cuando una ronda no encuentra nada nuevo (ronda
+3 fue la última en este caso: no quedaban rutas OWNER_ONLY sin dueño de bug conocido).
+
 ## 4. Reglas que no cambian
 
 - Modo B inline es el default en sesión larga; multi-agente local NUNCA al final del día.
