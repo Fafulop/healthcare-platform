@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from '@/lib/practice-toast';
+import { usePermissions } from '@/lib/permissions-client';
 
 export interface PatientNote {
   id: string;
@@ -11,6 +12,10 @@ export interface PatientNote {
 }
 
 export function usePatientNotes(patientId: string) {
+  // voice/transcribe is OWNER_ONLY (00-REQUISITOS §5.3) — same fix as
+  // dashboard/notas (§16 hallazgo 5).
+  const { isOwner } = usePermissions();
+
   // Data
   const [notes, setNotes] = useState<PatientNote[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(true);
@@ -150,6 +155,11 @@ export function usePatientNotes(patientId: string) {
       return;
     }
 
+    if (!isOwner) {
+      toast.error('El dictado por voz no está disponible en esta cuenta.');
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -191,7 +201,7 @@ export function usePatientNotes(patientId: string) {
     } catch {
       toast.error('No se pudo acceder al micrófono');
     }
-  }, [recording]);
+  }, [recording, isOwner]);
 
   // ─── Return ──────────────────────────────────────────────────────────────────
 

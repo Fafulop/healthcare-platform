@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
+import { usePermissions } from '@/lib/permissions-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,13 @@ export interface NoteTema {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useNotesPage() {
+  // voice/transcribe is OWNER_ONLY (00-REQUISITOS §5.3) — a member with
+  // notas:true otherwise gets a confusing "no se pudo transcribir" toast for
+  // a feature that will never work for their role. Found via bug hunt
+  // 2026-07-21 (§16 hallazgo 5 — different from 3/4: Notas itself IS a
+  // member-accessible page, only the voice-to-text shortcut isn't).
+  const { isOwner } = usePermissions();
+
   // Data
   const [notes, setNotes] = useState<Note[]>([]);
   const [temas, setTemas] = useState<NoteTema[]>([]);
@@ -242,6 +250,11 @@ export function useNotesPage() {
       return;
     }
 
+    if (!isOwner) {
+      toast.error('El dictado por voz no está disponible en esta cuenta.');
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -283,7 +296,7 @@ export function useNotesPage() {
     } catch {
       toast.error('No se pudo acceder al micrófono');
     }
-  }, [recording]);
+  }, [recording, isOwner]);
 
   // ─── Task modal ─────────────────────────────────────────────────────────────
 

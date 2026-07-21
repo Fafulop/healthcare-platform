@@ -24,6 +24,7 @@ import { ConfigPanel } from './ConfigPanel';
 import { PreviewMode } from './PreviewMode';
 import { AIChatPanel } from './AIChatPanel';
 import { FieldTypeIcon, getFieldTypeLabel } from './FieldTypeIcon';
+import { usePermissions } from '@/lib/permissions-client';
 
 // =============================================================================
 // INNER COMPONENT (has access to context)
@@ -43,6 +44,10 @@ interface FormBuilderInnerProps {
 
 function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
   const { state, addField, reorderField, validateNow } = useFormBuilder();
+  // form-builder-chat is OWNER_ONLY (00-REQUISITOS §5.3) — custom-templates
+  // itself is member-accessible via the Expedientes toggle, only this AI
+  // shortcut isn't. Found via bug hunt 2026-07-21 (§16 hallazgo 5 family).
+  const { isOwner } = usePermissions();
   const [saving, setSaving] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
   const [dragActiveType, setDragActiveType] = useState<FieldType | null>(null);
@@ -129,7 +134,7 @@ function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
         <Toolbar
           onSave={handleSave}
           saving={saving}
-          onToggleAIChat={() => setShowAIChat((v) => !v)}
+          onToggleAIChat={isOwner ? () => setShowAIChat((v) => !v) : undefined}
           showAIChat={showAIChat}
         />
 

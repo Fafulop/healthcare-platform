@@ -898,6 +898,41 @@ confirmarlo caso por caso — los 8 endpoints legacy comparten arquitectura idé
 (hook `use*` + `searchParams.get('chat')` + botón inline), así que el bug, una vez
 identificado en 2 lugares, era casi seguro que estuviera en los otros 6 también.
 
-**Estado:** tsc limpio (apps/doctor) tras cada tanda de fixes. Todo lo de esta sesión de bug
-hunt (hallazgos 1-4) sigue en 4 commits locales (`27c04273`, `0824a18d`, `216e1606`, más el
-de esta última tanda) — **sin pushear**, pendiente del resto de §9 y del OK del usuario.
+### Hallazgo 5 — voice/transcribe y form-builder-chat: features EN páginas member-accessible
+
+**Segunda vuelta del bug hunt (ronda 3), buscando la variante contraria a 3-4:** ahí, la
+página ENTERA era owner-only por diseño (chat legacy). Aquí es al revés — la página SÍ es
+para members (Notas con `notas:true`, Custom Templates con `expedientes:true`), pero tiene
+un botón de voz/IA incrustado que llama a un endpoint OWNER_ONLY:
+
+- **`useNotesPage.ts` + `usePatientNotes.ts`**: el botón de dictado por voz (mic) llama
+  `POST /api/voice/transcribe` (OWNER_ONLY) directo, sin componente compartido de por medio
+  — invisible al grep de "ChatPanel" que encontró los hallazgos 3-4, solo apareció al buscar
+  fetches crudos a los 8 prefijos legacy + voice + llm-assistant. Nota interesante: esta vez
+  el fallo YA degradaba con un mensaje razonable ("no se pudo transcribir el audio", por la
+  forma del cuerpo `{error:"PERMISSION_BLOCKED"}` sin `.success`/`.message` cayendo al
+  default) — pero seguía siendo confuso para un member con acceso legítimo a Notas.
+- **`FormBuilder.tsx`** (usado por `custom-templates`, toggle `expedientes`): el botón
+  "Asistente IA" del Toolbar llama `form-builder-chat` (OWNER_ONLY).
+
+**Fix:** en Notas, guard `if (!isOwner)` dentro de `toggleRecording` con un mensaje claro
+("El dictado por voz no está disponible en esta cuenta") en vez de dejar que falle contra la
+API. En FormBuilder, `onToggleAIChat` se pasa como `undefined` cuando `!isOwner` — Toolbar.tsx
+YA trataba el handler como opcional (`{onToggleAIChat && (<button.../>)}`), así que el botón
+desaparece con un cambio de una línea, sin tocar Toolbar.tsx.
+
+**Verificado limpio, sin fix necesario:** `VoiceRecordingModal`/`VoiceChatSidebar` embebidos
+directamente en las 7 páginas `/new` — su estado `modalOpen` nunca se dispara desde un botón
+en esas páginas (dead state); solo se alimentan vía sessionStorage desde el flujo del
+`VoiceAssistantHubWidget` (hallazgo 3), que ya quedó gateado — protección transitiva.
+
+**Lección (generaliza 3-4):** dos variantes del mismo bug conviven — (a) página entera
+owner-only con botón inline sin gate (3-4), (b) página member-accessible con UN feature
+interno owner-only sin gate (5). El grep por NOMBRE de componente compartido (`*ChatPanel`)
+encuentra (a); hace falta grep por RUTA de API (`/api/voice/`, `/api/<prefijo>-chat`) para
+encontrar (b), porque ahí no hay un componente reusado con nombre reconocible — es una
+llamada `fetch()` suelta dentro de una feature que por lo demás es legítima para el member.
+
+**Estado:** tsc limpio (apps/doctor) tras cada tanda. Todo lo de esta sesión de bug hunt
+(hallazgos 1-5) sigue en commits locales — **sin pushear**, pendiente del resto de §9 y del
+OK del usuario.
