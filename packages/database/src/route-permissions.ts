@@ -53,15 +53,35 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   { prefix: 'settings', key: 'perfil' },
 
   // Legal certificate configuration = the doctor's fiscal identity → owner-only
+  // csd/status is a READ (booleans + RFC/taxName, never the private key) —
+  // a member with facturacion:true needs it just to know whether emission is
+  // possible; the facturacion page's tabs gate on it (isReady). Found live
+  // 2026-07-21: without this split, a member's status check 403'd, isReady
+  // stayed false, and Facturación silently showed only Configuración+Guía.
+  // The actual CSD upload (facturacion/csd, no /status suffix) stays
+  // OWNER_ONLY — that endpoint handles the private key material.
+  { prefix: 'facturacion/csd/status', key: 'facturacion' },
   { prefix: 'facturacion/csd', key: 'OWNER_ONLY' },
   { prefix: 'facturacion', key: 'facturacion' },
+  // GET/POST/DELETE all share this exact URL (unlike CSD's separate
+  // /status path) — GET is status-only (booleans + dates + RFC, no private
+  // key: apps/api/src/app/api/sat-descarga/fiel/route.ts:91-120), needed by
+  // a member with sat:true just to see e.Firma status. POST (upload) and
+  // DELETE (revoke) touch the encrypted credential itself — OWNER_ONLY.
+  // Same class of bug as facturacion/csd/status, found live 2026-07-21.
+  { prefix: 'sat-descarga/fiel', key: 'sat', methods: ['GET'] },
   { prefix: 'sat-descarga/fiel', key: 'OWNER_ONLY' },
   { prefix: 'sat-descarga', key: 'sat' },
 
   // Payment provider ONBOARDING (connect/disconnect) = owner's money accounts;
-  // day-to-day payment links/preferences = the Pagos toggle.
+  // day-to-day payment links/preferences = the Pagos toggle. /status is a
+  // READ (account id + onboarding booleans, never secret keys) needed by a
+  // member with pagos:true to see connection state — same class of bug as
+  // facturacion/csd/status and sat-descarga/fiel, found live 2026-07-21.
+  { prefix: 'stripe/connect/status', key: 'pagos' },
   { prefix: 'stripe/connect', key: 'OWNER_ONLY' },
   { prefix: 'stripe', key: 'pagos' },
+  { prefix: 'mercadopago/connect/status', key: 'pagos' },
   { prefix: 'mercadopago/connect', key: 'OWNER_ONLY' },
   { prefix: 'mercadopago', key: 'pagos' },
 
