@@ -1,8 +1,20 @@
 # NUEVOS USUARIOS — Plan: máximo 1 helper (member) activo por doctor
 
-> **Estado:** PLANEADO 2026-07-22 (decisión del usuario: enforce exactamente 1). **Sin código.**
+> **Estado:** EN CURSO 2026-07-22 (decisión del usuario: enforce exactamente 1; G3 incluido).
+> **Paso 2 HECHO — migración aplicada y verificada en prod** (`add-one-active-member-per-doctor.sql`:
+> ambos índices parciales `doctor_members_one_active_member_per_doctor` y
+> `member_invites_one_pending_per_doctor` creados y confirmados vía `pg_indexes`, data gate
+> re-verificado 0 violaciones). **Pendiente: el código** (§3 checks + fixes G1/G2). El índice ya
+> ENFORZA aunque el código amable no esté (ver "Estado interino" abajo).
 > Base v1: `00-REQUISITOS`, `01-DISENO`. Vista admin de helpers = doc hermano
 > `04-PLAN-vista-admin-helpers.md` (independiente de este). Todo lo citado verificado 2026-07-22.
+>
+> **⚠️ Estado interino (índice live, código sin actualizar):** el constraint ya se aplica en BD,
+> pero los endpoints aún NO tienen los checks amables. Si AHORA alguien intentara agregar un 2º
+> helper (2º accept, o 2ª invitación pendiente a otro email), el índice lo BLOQUEA con un P2002
+> crudo → el catch existente devuelve un mensaje 409 poco preciso (justo el bug G1). Falla seguro
+> (bloquea de más, nunca de menos). Riesgo real bajo: solo dr-prueba usa la feature y no hay 2º
+> helper en curso. El paso de código cierra G1/G2.
 
 ---
 
@@ -142,3 +154,41 @@ se anota para que el implementador lo pruebe explícitamente (regresión).
 *Creado 2026-07-22. Decisión del usuario: máximo 1 helper activo por doctor — ENFORCE. Re-análisis
 del plan encontró G1 (mensaje P2002 equivocado) y G2 (lazy-expire antes del check) como bugs
 reales a atender, G3 como decisión (hardening opcional del pending), G4/G5 como notas.*
+
+---
+
+## 6. As-built (2026-07-22) — construido, SIN PUSHEAR
+
+**BD (aplicado y verificado en prod):** `add-one-active-member-per-doctor.sql` con LOS DOS índices
+(member + G3 pending). Data gate re-verificado 0 violaciones; ambos confirmados vía `pg_indexes`;
+**probados con write-probe-rollback** (mismo método que PR D, `01-DISENO §14`): insertar un 2º
+member activo y una 2ª invitación pendiente → **P2002 en ambos** (`target=["doctor_id"]`), cero
+filas comiteadas. Los índices ENFORZAN, no solo existen. (Nota: un conteo `status='ACTIVE'` sin
+filtrar `role` da 2 = 1 member + 1 owner; el owner también es ACTIVE — no es un leak.)
+
+**Código (tsc limpio `apps/doctor`, sin pushear):**
+- `invites/route.ts` (POST): G2 sweep de expiradas + checks "1 slot" (member activo O invite
+  pendiente → 409 con mensaje claro) reemplazando el viejo check same-email; catch P2002 ramifica
+  por `meta.target` (`one_pending_per_doctor` vs el de doctor+email) — G1.
+- `my-invites/[id]/accept/route.ts` (POST): check "el doctor ya tiene member activo" dentro de la
+  tx (409); catch P2002 ramifica (`one_active_member_per_doctor` vs `one_active_per_user`) — G1.
+- `TeamSection.tsx`: botón "Invitar" deshabilitado cuando el slot está ocupado (cortesía), hint.
+
+**Review inline (authz-frontier ⇒ obligatorio, 02-METODO §1) — 1 hallazgo REAL, corregido:**
+la primera versión del fix G1 ramificaba el mensaje del P2002 por **nombre de índice**
+(`target.includes('one_active_member_per_doctor')`) — pero el write-probe mostró empíricamente
+que Prisma devuelve en `meta.target` los **nombres de COLUMNA** (`["doctor_id"]`), no el nombre del
+índice (además el precedente del repo — `booking_id`/`sale_number` — ya keyeaba por columna). Con
+el bug, G1 NUNCA acertaba: el índice member-per-doctor (columna `doctor_id`) caía al else y
+devolvía el mensaje de "tu cuenta ya está vinculada" — o sea el bug que G1 debía arreglar seguía
+vivo. **Fix:** accept ramifica por `target.includes('doctor_id')` (member-per-doctor, columna
+doctor_id) vs `user_id` (one_active_per_user) — substrings mutuamente excluyentes, robusto. En
+invites se simplificó: tras los pre-checks de "1 slot", cualquier P2002 es una carrera → un solo
+mensaje "ya tienes una invitación pendiente" (sin ramificar). Otros ángulos revisados limpios:
+el check same-email removido queda subsumido por "cualquier member activo"; revoke→re-invite sigue
+OK (`doctorHasMember` solo cuenta ACTIVE); `slotFull` en UI refleja member+pending; sin otras
+fuentes de P2002 en esos create. tsc limpio tras el fix.
+
+**Pendiente:** (a) explicación + OK del usuario → commit → push; (b) verificación funcional en vivo
+post-deploy (con member activo, intentar invitar → 409; revoke→re-invite→accept sigue OK — G5).
+Hasta el push, el código amable NO está vivo pero el índice ya enforza (ver "Estado interino" arriba).

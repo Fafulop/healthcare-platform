@@ -56,6 +56,16 @@ export async function POST(
         throw new AppError('Tu cuenta ya pertenece a otro consultorio', 409);
       }
 
+      // (03-PLAN §3.2) 1-helper rule: the target doctor must not already have an
+      // active member. Backstopped atomically by
+      // doctor_members_one_active_member_per_doctor (P2002 → mapped in catch).
+      const doctorHasMember = await tx.doctorMember.findFirst({
+        where: { doctorId: invite.doctorId, role: 'MEMBER', status: 'ACTIVE' },
+      });
+      if (doctorHasMember) {
+        throw new AppError('Este consultorio ya tiene un asistente', 409);
+      }
+
       const created = await tx.doctorMember.create({
         data: {
           userId,
@@ -86,10 +96,16 @@ export async function POST(
     return NextResponse.json({ success: true, data: membership });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Tu cuenta ya fue vinculada a un consultorio' },
-        { status: 409 }
-      );
+      // (G1, 03-PLAN §4) Two doctor_members indexes fire P2002 here, distinguished
+      // by COLUMN (Prisma meta.target = column names, verified empirically = ["doctor_id"];
+      // matches the booking_id/sale_number precedent in this repo): the per-doctor
+      // member index is on doctor_id ("this doctor already has a helper"); the
+      // one_active_per_user index is on user_id ("your account is already linked").
+      const target = String(error.meta?.target ?? '');
+      const msg = target.includes('doctor_id')
+        ? 'Este consultorio ya tiene un asistente'
+        : 'Tu cuenta ya fue vinculada a un consultorio';
+      return NextResponse.json({ error: msg }, { status: 409 });
     }
     return handleApiError(error, 'POST /api/team/my-invites/[id]/accept');
   }

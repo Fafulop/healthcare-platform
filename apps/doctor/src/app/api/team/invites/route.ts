@@ -53,13 +53,29 @@ export async function POST(request: NextRequest) {
 
     const permissions = sanitizePermissions(body.permissions);
 
-    // Case-insensitive (ultra finding): the invited email is normalized
-    // lowercase, but users.email is stored verbatim from Google OAuth.
-    const existingMember = await prisma.doctorMember.findFirst({
-      where: { doctorId, status: 'ACTIVE', user: { email: { equals: email, mode: 'insensitive' } } },
+    // (G2, 03-PLAN §3.1) Lazy-expire this doctor's stale PENDING invites BEFORE
+    // evaluating the slot — otherwise an expired-but-still-PENDING invite would
+    // falsely occupy the slot forever. Same sweep the GET already does.
+    await prisma.memberInvite.updateMany({
+      where: { doctorId, status: 'PENDING', expiresAt: { lt: new Date() } },
+      data: { status: 'EXPIRED' },
     });
-    if (existingMember) {
-      return NextResponse.json({ error: 'Ese email ya es miembro activo de tu equipo' }, { status: 409 });
+
+    // "1 slot" rule (03-PLAN §3.1): a doctor may have at most ONE helper — one
+    // ACTIVE member OR one PENDING invite occupies the single slot. Backstopped
+    // in the DB by doctor_members_one_active_member_per_doctor +
+    // member_invites_one_pending_per_doctor (the catch below maps their P2002s).
+    const activeMember = await prisma.doctorMember.findFirst({
+      where: { doctorId, role: 'MEMBER', status: 'ACTIVE' },
+    });
+    if (activeMember) {
+      return NextResponse.json({ error: 'Ya tienes un asistente vinculado; revócalo antes de invitar a otro' }, { status: 409 });
+    }
+    const pendingInvite = await prisma.memberInvite.findFirst({
+      where: { doctorId, status: 'PENDING' },
+    });
+    if (pendingInvite) {
+      return NextResponse.json({ error: 'Ya tienes una invitación pendiente; cancélala antes de invitar a otro' }, { status: 409 });
     }
 
     try {
@@ -75,7 +91,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data: invite });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        return NextResponse.json({ error: 'Ya hay una invitación pendiente para ese email' }, { status: 409 });
+        // After the "1 slot" pre-checks above, any P2002 on create is a concurrent
+        // invite that won the race. Both possible indexes (one_pending on
+        // doctor+email, one_pending_per_doctor on doctor_id) mean the same thing to
+        // the owner: a pending invite now exists. One accurate message — no fragile
+        // meta.target branching (meta.target is column names, not the index name).
+        return NextResponse.json(
+          { error: 'Ya tienes una invitación pendiente; cancélala antes de invitar a otro' },
+          { status: 409 }
+        );
       }
       throw e;
     }

@@ -157,6 +157,9 @@ export default function TeamSection() {
   }
 
   const activeMembers = members.filter((m) => m.status === "ACTIVE");
+  // 1-helper rule (03-PLAN §3.3): the single slot is taken by one active member
+  // OR one pending invite. Courtesy only — the server enforces it (invites POST).
+  const slotFull = activeMembers.length > 0 || invites.length > 0;
 
   return (
     <div className="space-y-6">
@@ -169,7 +172,9 @@ export default function TeamSection() {
         </div>
         <button
           onClick={() => setInviteOpen(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          disabled={slotFull}
+          title={slotFull ? "Solo se permite un asistente; revoca o cancela el actual para cambiarlo" : undefined}
+          className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
         >
           <UserPlus className="w-4 h-4" /> Invitar
         </button>
