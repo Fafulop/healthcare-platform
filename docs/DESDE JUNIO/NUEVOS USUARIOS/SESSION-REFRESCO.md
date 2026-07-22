@@ -31,17 +31,28 @@ post-deploy:** `GET /api/facturacion/csd/status` y `GET /api/sat-descarga/fiel` 
 en prod, no solo pusheados. Ver el gotcha de deploy abajo — el push NO alcanzó por sí solo,
 hizo falta un redeploy manual del servicio `@healthcare/api`.
 
-**Ronda paso-4 (2026-07-21, `c9ad9b60`+`99ce4cb5`, PUSHEADO+DESPLEGADO, falta confirmación
-funcional en vivo):** arrancando el paso 4 apareció un bug de **familia NUEVA** — el ingreso de
-completar una cita se creaba con un SEGUNDO POST del cliente al endpoint flujo-gated, así que un
-member con `citas` sin `flujo` recibía 403 y el ingreso se perdía en silencio. Fix: el ingreso
-pasa a ser efecto server-side de la PATCH de completar (detalle completo en **01-DISENO §17
-hallazgo 6**). El bug hunt de la misma familia gateó 2 superficies cross-block más (checkbox
-"Emitir factura" en el modal de completar → `facturacion`; "vincular CFDI a movimiento existente"
-en SAT → `flujo`). Deploy verificado per-service: `@healthcare/api` y `@healthcare/doctor` en
-HEAD `99ce4cb5`, ambos SUCCESS. **Ojo:** este fix tiene dependencia dura api↔doctor — el cliente
-nuevo ya NO hace el POST viejo, así que si el api no despliega, TODA completación (owners incluidos)
-pierde el ingreso; siempre verificar que `@healthcare/api` llegue a SUCCESS antes de darlo por vivo.
+**Ronda paso-4 (2026-07-21, `c9ad9b60`+`99ce4cb5`, PUSHEADO+DESPLEGADO+VERIFICADO EN VIVO):**
+arrancando el paso 4 apareció un bug de **familia NUEVA** — el ingreso de completar una cita se
+creaba con un SEGUNDO POST del cliente al endpoint flujo-gated, así que un member con `citas` sin
+`flujo` recibía 403 y el ingreso se perdía en silencio. Fix: el ingreso pasa a ser efecto
+server-side de la PATCH de completar (detalle completo en **01-DISENO §17 hallazgo 6**). El bug
+hunt de la misma familia gateó 2 superficies cross-block más (checkbox "Emitir factura" en el
+modal de completar → `facturacion`; "vincular CFDI a movimiento existente" en SAT → `flujo`).
+Deploy verificado per-service: `@healthcare/api` y `@healthcare/doctor` en HEAD `99ce4cb5`, ambos
+SUCCESS. **Ojo:** este fix tiene dependencia dura api↔doctor — el cliente nuevo ya NO hace el POST
+viejo, así que si el api no despliega, TODA completación (owners incluidos) pierde el ingreso;
+siempre verificar que `@healthcare/api` llegue a SUCCESS antes de darlo por vivo.
+
+**Confirmado funcionalmente en vivo (2026-07-21):** (A2) member vía el **agente** — Andrea (sin
+`flujo`) completó una cita a futuro (Pepito López, $1,500 efectivo) → fila `ledger_entries`
+verificada read-only en prod: `origin='cita'`, monto/área (`Ingresos Consulta`)/subárea/paciente
+correctos, `has_comprobante=false`, `doctor_id`=OWNER (no Andrea), `transaction_date`=fecha de la
+cita. (A2b) member vía el **botón "Completar" de la tabla** — WORKED. (A1) **regresión owner** —
+dr-prueba completa una cita → una sola fila de ingreso, correcta — WORKED. **El fix está cerrado.**
+
+**Commits de docs COMMITEADOS PERO SIN PUSHEAR** (el código `99ce4cb5` sí está vivo): `cf8a97e6`
+(docs NUEVOS USUARIOS: §17 + este REFRESCO) y `2d7fe6fd` (docs AGENTE AGENDA: bug conocido "card
+fantasma"). Pushearlos cuando se retome (son solo docs, sin efecto en prod).
 
 ## Validación en vivo — dónde se quedó
 
@@ -58,30 +69,55 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
    request, sin re-login. (Esto es lo que expuso el hallazgo 1 — ver 01-DISENO §16.)
 7. Owner: cero cambios observados en todo lo probado.
 
-**Pendiente (pasos 4-6 de §9):**
-4. **[fix shippeado, falta confirmar funcionalmente en vivo]** Member con `flujo` OFF completa
-   una cita (`citas` ON) → verificar que el LedgerEntry se crea igual. El bug que rompía esto
-   ya se corrigió y desplegó (§17 hallazgo 6); falta la confirmación funcional: Andrea completa
-   una cita → confirmar read-only que la fila `ledger_entries` (origin `cita`) aparece con
-   monto/área/paciente correctos; + **regresión owner** (el path cambió para TODOS): dr-prueba
-   completa una cita → una sola fila de ingreso, correcta.
+**Pendiente:**
+4. ✅ **CERRADO** — ver arriba (fix del ingreso de cita shippeado + verificado en vivo: agente,
+   botón de tabla, regresión owner). Sub-pruebas menores DIFERIDAS (no bloquean, todas son
+   polish respaldado por el 403 server-side; la pérdida de datos ya se corrigió y verificó):
+   - **A3 idempotencia** (completar una cita ya pagada vía link → toast "ya estaba registrado",
+     sin duplicar): el usuario no supo cómo montarlo → diferido.
+   - **B1 gate SAT** (`sat` sin `flujo`, en Descarga SAT: "Registrar" un CFDI que tenga entradas
+     similares → nota "necesitas permiso de Flujo de Dinero", sin lista, "Crear nuevo" funciona):
+     difícil de disparar (necesita un CFDI cuyo monto/fecha matchee una entrada existente) →
+     diferido. Verificado por código + tsc, no en vivo.
+   - **B2 gate checkbox factura** (`facturacion` OFF: el checkbox "Emitir factura (CFDI)" del
+     modal Completar desaparece): NO probado en vivo. Requiere (i) un paciente con datos fiscales
+     completos en el booking y (ii) owner poner `facturacion` OFF a Andrea (ahora está ON). Pasos
+     exactos en el chat de esta sesión / abajo en "Qué sigue".
 5. Owner revoca a Andrea → verificar pantalla "Acceso revocado"; re-invitar a Andrea (mismo
    portal u otro) → verificar que el slot se liberó y el flujo de re-invitación funciona
    (esto es justo lo que el fix de `dashboard/layout.tsx` en PR D corrigió — confirmarlo en
-   vivo cierra ese hallazgo).
+   vivo cierra ese hallazgo). **PENDIENTE.**
 6. Revisar `member_audit_log` en prod — debe tener SOLO los writes de Andrea, con el
-   `toggle_key` correcto en cada fila.
+   `toggle_key` correcto en cada fila. **PENDIENTE.** Nota: tras el fix del ingreso de cita, una
+   completación de member = UN solo write auditado (la PATCH de `citas`), SIN fila de `flujo`
+   aparte (los 403 nunca se auditan) — eso es lo esperado, no un hueco.
 
 ## Qué sigue (en orden)
 
-1. **Terminar pasos 4-6 de la validación en vivo** (arriba) — única cosa pendiente de la
-   validación misma. Usar el método read-only documentado en `reference_prod_db_tooling`
-   (memoria) — scratchpad `.cjs` + `railway run --service pgvector`.
-2. **Correr la suite de evals del agente** (60 casos, gasto real de API, nunca corrida
+0. **PUSHEAR los 2 commits de docs** (`cf8a97e6`, `2d7fe6fd`) — están locales, sin pushear.
+1. **Pasos 5-6 de la validación en vivo** (revoke/re-invite + audit log) — lo único de la
+   validación que aún importa. Método read-only: `reference_prod_db_tooling` (memoria) —
+   scratchpad `.cjs` + `railway run --service pgvector`.
+2. **B2 (gate del checkbox de factura)** si se quiere cerrar el polish: (a) como Andrea con
+   `facturacion` ON, abrir **Completar** en un booking cuyo paciente TENGA datos fiscales →
+   el checkbox "Emitir factura (CFDI)" debe aparecer; (b) owner pone `facturacion` OFF a
+   Andrea; (c) reabrir Completar → el checkbox debe DESAPARECER. B1 (SAT) y A3 (idempotencia)
+   quedaron diferidos por ser difíciles de montar (ver paso 4 arriba).
+3. **Correr la suite de evals del agente** (60 casos, gasto real de API, nunca corrida
    todavía) — sobre todo para probar PR C (filtrado de módulos), que solo tiene la garantía
-   de identidad de bytes para el owner, cero evals para el path de member.
-3. **Fuera de alcance v1** (ver 00-REQUISITOS §7): multi-portal, caps de presupuesto IA por
+   de identidad de bytes para el owner, cero evals para el path de member. Aprovechar para
+   sembrar un eval del path member de completar-cita (ingreso server-side).
+4. **Fix de la "card fantasma" del agente** (bug conocido, ver AGENTE AGENDA SESSION-REFRESCO
+   bitácora #23): guardarraíl de prompt para que el agente no anuncie una card antes de llamar
+   `propose_*`. Es su propia pasada (cambia bytes del prompt → cache + evals).
+5. **Fuera de alcance v1** (ver 00-REQUISITOS §7): multi-portal, caps de presupuesto IA por
    member, borradores de receta por members, transferencia de ownership.
+
+**Estado de datos de prueba en prod:** dr-prueba (`cmni1bov90000mk0lyeztr3ad`) = OWNER;
+`andreabarbagal@gmail.com` = MEMBER ACTIVE con `citas`/`sat`/`facturacion`/`expedientes`/
+`tareas`/`notas`/`ayuda`/`asistente_ia` ON y `flujo`/`pagos`/`conciliacion` OFF. Se crearon
+varias citas COMPLETADAS de prueba con sus ingresos (Pepito López $1,500, y las de A1/A2) —
+limpiar si estorban.
 
 ## Gotchas para la próxima sesión
 
