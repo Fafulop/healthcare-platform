@@ -115,11 +115,13 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
      por el usuario; app-layer gating read-only en prod; BD write-probe) + **ciclo G5 en vivo
      confirmado 2026-07-22** (revoke → botón se re-habilita → re-invite → accept → nueva fila ACTIVE,
      slot liberado, sigue 1 member). **Extensión A CERRADA.** Detalle: `03-PLAN §6`.
-   - **`04-PLAN-vista-admin-helpers.md`** — vista admin de helpers por doctor. **AÚN SIN CONSTRUIR.**
-     `apps/admin` lee `user.doctorId` legacy y NO ve members; nuevo endpoint admin-only que lea
-     `doctor_members`. Gap de integración clave **G1**: toda ruta nueva de apps/api debe entrar a
-     `route-permissions.ts` o el gate `check-route-permission-coverage.ts` falla. Construir en
-     sesión futura.
+   - **`04-PLAN-vista-admin-helpers.md` — ✅ SHIPPED 2026-07-22.** Vista admin de helpers por doctor:
+     nuevo `GET /api/admin/doctor-members` (admin-only, lee `doctor_members` no `user.doctorId`) +
+     página `/helpers` en `apps/admin` (doctor-céntrica, "N de 19" permisos) + link en Navbar. G1
+     resuelto (`{prefix:'admin',key:'NEUTRAL'}` en route-permissions; coverage gate verde 235 rutas).
+     Gates: tsc api+admin, coverage, smoke read-only del shape. Toca `@healthcare/api`+`@healthcare/admin`,
+     sin migración. Pendiente menor: verificación funcional en vivo (`/helpers` como admin). Detalle:
+     `04-PLAN §6`.
 2. **B2 (gate del checkbox de factura)** si se quiere cerrar el polish: (a) como Andrea con
    `facturacion` ON, abrir **Completar** en un booking cuyo paciente TENGA datos fiscales →
    el checkbox "Emitir factura (CFDI)" debe aparecer; (b) owner pone `facturacion` OFF a

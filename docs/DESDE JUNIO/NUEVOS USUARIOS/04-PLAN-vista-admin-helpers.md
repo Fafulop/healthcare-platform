@@ -1,7 +1,8 @@
 # NUEVOS USUARIOS — Plan: vista admin de helpers ligados a cada doctor
 
-> **Estado:** PLANEADO 2026-07-22 (decisión del usuario: planear ahora, construir después).
-> **Sin código.** Base v1: `00-REQUISITOS`, `01-DISENO`. Límite de 1 helper = doc hermano
+> **Estado:** ✅ SHIPPED 2026-07-22 (as-built en §6, gates verdes, pusheado). Toca `@healthcare/api`
+> + `@healthcare/admin`; sin migración, sin dependencia con doctor app.
+> Base v1: `00-REQUISITOS`, `01-DISENO`. Límite de 1 helper = doc hermano
 > `03-PLAN-limite-1-helper.md` (independiente). Todo lo citado verificado en código 2026-07-22.
 
 ---
@@ -125,3 +126,51 @@ v1 muestra solo ACTIVE + PENDING. Ver el historial de revocados (auditoría de q
 *Creado 2026-07-22. Decisión del usuario: planear ahora, construir después. Re-análisis encontró
 G1 (ruta nueva debe entrar al mapa de permisos o el gate de cobertura falla) como el gap de
 integración real; G2-G5 notas. Estado prod: solo dr-prueba tiene 1 helper activo.*
+
+---
+
+## 6. As-built (2026-07-22) — construido, gates verdes, SIN commitear/pushear
+
+**Piezas construidas:**
+- **API** `apps/api/src/app/api/admin/doctor-members/route.ts` — GET, `requireAdminAuth`
+  (confirmado que exige `role==='ADMIN'` → 403, `auth.ts:205`). Devuelve `{ members, pending }`:
+  members activos (`role='MEMBER' AND status='ACTIVE'`) con user+doctor embebidos + `invitedByEmail`
+  resuelto (lookup de `invitedBy` user_id → email, no es relación); pending NO expiradas
+  (`expiresAt>=now`, filtro read-only, sin write de lazy-expire). Lee `doctor_members`, NUNCA
+  `user.doctorId` (G1 del gap original — así los members SÍ se ven).
+- **route-permissions.ts** — `{ prefix: 'admin', key: 'NEUTRAL' }` (G1 de §4): el coverage gate
+  pasa (235 rutas cubiertas). ADMINs saltan el enforcement de member; el `requireAdminAuth` del
+  handler es el gate real.
+- **UI** `apps/admin/src/app/helpers/page.tsx` — página dedicada `/helpers` (opción 2 recomendada),
+  doctor-céntrica: itera TODOS los doctores (`GET /api/doctors`, devuelve todos — verificado, sin
+  filtro → ningún helper se esconde, G4) y hace left-join contra members/pending. Columna Asistente
+  = member (email/foto) | "Invitado (pendiente): email" (ámbar) | "Sin asistente". Permisos =
+  "N de 19" con tooltip de los labels ON (deriva de `PERMISSION_KEYS`/`PERMISSION_LABELS` del
+  registry — mismo origen que la pestaña Equipo). Read-only (sin revocar desde admin — G5 diferido).
+- **Navbar** — link "Asistentes" → `/helpers`.
+
+**Gates (todos verdes):**
+- `check-route-permission-coverage.ts`: 235 rutas, 0 sin mapear (68 reglas + allowlist).
+- tsc limpio en `apps/api` (con `--max-old-space-size=6144`; OOM con el default, no es error de
+  tipos) y `apps/admin`.
+- Smoke read-only del shape exacto contra prod (`scratchpad/smoke-admin-helpers.cjs`): 1 member
+  activo (dr-prueba ← andreabarbagal, 4 toggles ON), 0 pending, `invitedByEmail` resuelto a
+  `sismo.sistema1@gmail.com` (el owner). Shape válido, datos esperados.
+
+**Self-review (data-exposure admin):** solo metadatos (emails/nombres/foto/permisos/doctor), nada
+clínico/financiero (G2); sin input de usuario en queries; nullables manejados (foto, nombre→email,
+invitedByEmail); pending filtrado a no-expiradas. Supuesto documentado: `GET /api/doctors` devuelve
+TODOS los doctores (verificado) — si algún día se filtrara, un helper cuyo doctor no esté en la lista
+no se renderizaría (hoy imposible).
+
+**¿Bug hunt?** No amerita el hunt multi-ronda de §16 (ese era para la familia "componente
+compartido sin gate" en write-paths). Extensión B es un endpoint aislado read-only admin-only —
+categoría "mecánico → inline pass" de la heurística. Pero sí valían 2 checks dirigidos, ambos
+limpios: (1) blast radius del prefijo `admin` nuevo → `admin/doctor-members` es la ÚNICA ruta bajo
+`/api/admin/*`, sin hermanos que mal-clasificar, y el match es segment-bounded; (2) sobre-exposición
+de datos → `select` explícito (user id/email/name/image, doctor id/slug/name/specialty), permissions
+= booleans, nada clínico/financiero.
+
+**SHIPPED:** pusheado 2026-07-22 (`@healthcare/api` + `@healthcare/admin`). Verificación funcional
+en vivo post-deploy: entrar a `/helpers` como admin → ver a Andrea bajo dr-prueba (Dr. Gerardo Lopez
+Fafutis).

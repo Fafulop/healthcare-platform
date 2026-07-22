@@ -101,6 +101,7 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
 
   { prefix: 'auth', key: 'NEUTRAL' },
   { prefix: 'users', key: 'NEUTRAL' }, // admin-guarded by requireAdminAuth on top
+  { prefix: 'admin', key: 'NEUTRAL' }, // admin-guarded by requireAdminAuth on top (helpers view etc.)
   { prefix: 'uploadthing', key: 'NEUTRAL' },
 
   // ── apps/doctor internal ────────────────────────────────────────────────
