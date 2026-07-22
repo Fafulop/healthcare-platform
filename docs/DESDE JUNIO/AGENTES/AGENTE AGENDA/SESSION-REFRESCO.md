@@ -2,8 +2,9 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última actualización: **2026-07-21** (append: bitácora #23 — bug conocido "card fantasma",
-> pendiente de fix; ver la fila 23).
+> Última actualización: **2026-07-22** (append: suite de evals a 65 casos + path de MEMBER
+> —corrida 62/65, 0 FAIL—; bitácora #24 — over-claim de capacidades del agente member, DIFERIDO).
+> Antes: 2026-07-21 (bitácora #23 — "card fantasma", pendiente de fix).
 
 ---
 
@@ -170,6 +171,47 @@ capas) · 4 probes de resiliencia (filas 15–17 de la bitácora). PR 2 queda va
   `pnpm-lock.yaml` tumbó el build (`cb759082` FAILED — frozen lockfile; sin outage, el deploy
   anterior siguió sirviendo). Fix: revert (`d8bca1cd`, SUCCESS) — tsx resuelve desde el ROOT del
   workspace. **Regla: ningún cambio de dependencia sin regenerar el lockfile en el mismo commit.**
+
+## ✅ Evals G11 — suite completa 65 casos + path de MEMBER (2026-07-22)
+
+Contexto: la feature NUEVOS USUARIOS (usuarios secundarios con permisos por bloque) recorta el
+set de módulos del agente por permisos (`enabledModules`). El eval runner ganó soporte para
+simular esos members, y la suite creció a 65 casos.
+
+- **Runner (`agenda-agent-evals.ts`): soporte de MEMBER.** Un caso puede declarar `permissions`
+  (toggles del member) → el runner llama `enabledModules({isOwner:false, permissions})` y pasa el
+  set recortado a `runAgendaAgentTurn` (que ya tenía el param `modules`). Nuevo check
+  `no-tool-called` (falla si se invocó una tool de un módulo que el member no tiene). Prueba la
+  capa de COMPOSICIÓN (prompt+tools filtrados), NO el enforcement del API (eso = mapa de rutas + curl).
+- **Corrida completa 2026-07-22 (owner, con `NEXTAUTH_SECRET` para los casos de catálogo SAT):
+  `62/65 PASS · 3 WARN · 0 FAIL`.** Cero regresiones de conducta — baseline verde. Confirma en una
+  sola corrida que el filtrado de módulos de PR C NO rompió el path owner (prompt byte-idéntico
+  aguantó) y que los 3 casos member conviven. Cache 96–99% en toda la corrida.
+  - Los 3 WARN son todos `soft`/data-dependent (fixtures de prueba que ya driftearon en prod), y en
+    los 3 la conducta REAL fue correcta: `vencida-cancel-warning` (cita "vvvvvv" ya no existe → el
+    agente lo dijo honesto); `f2b-ppd-solo-explicito` (entry #1570 ya no cuadra → se retractó
+    honesto); `f2c-enruta-compuesta-y-gate-receptor` (cortó bien en el gate de receptor sin datos
+    fiscales, no llegó a la tool de borrador). Ninguno es regresión; re-sembrar esos 3 fixtures los
+    pondría verdes (no vale la pena).
+- **3 casos member (`{citas:true}` ⇒ solo módulo agenda) → 3/3 PASS:** (1) su módulo permitido
+  funciona igual (`get_bookings`); (2) declina facturas y (3) declina flujo — sin invocar tools de
+  módulos bloqueados (no existen para el member), sin inventar, y **sin culpar al dueño** ("no tengo
+  habilitada **en esta cuenta**…").
+
+### ⚠️ Bitácora #24 (bug conocido, DIFERIDO) — over-claim de capacidades del agente member
+
+El agente member a veces **SOBRE-DECLARA** capacidades de módulos bloqueados en su lista "lo que sí
+puedo hacer": el caso `member-citas-declina-flujo` listó capacidades de facturas
+(`get_billing_status`/`create_cfdi`) que ese member NO tiene, mientras que `member-citas-declina-facturas`
+(MISMO member) las negó bien → **inconsistencia del modelo**, no enumeración hardcodeada del prompt.
+**No puede EJECUTARLAS** (las tools no existen para el member) → es cosmético, no un hueco de
+conducta/seguridad. **Decisión 2026-07-22: DIFERIR** (no vale una iteración de prompt por algo
+cosmético). **Cuando se retome — NO batchear con "card fantasma" (#23):** blast radius distinto —
+este fix vive en `MEMBER_SCOPE_NOTE` (solo prompt de member → owner byte-idéntico, re-eval = 3 casos
+member, barato); card-fantasma toca el prompt COMPARTIDO (owner cambia → re-eval suite completa).
+Guardarraíl sugerido (sin enumerar lo bloqueado): "deriva tu lista de capacidades SOLO de tus tools
+disponibles". Failure mode conocido de LLMs → un nudge lo reduce, no lo elimina. Ver
+`GENERAL AGENTES/00-BLUEPRINT §5.2` (método de evals de member) y NUEVOS USUARIOS `01-DISENO §7.3`.
 
 ## Próximos pasos
 

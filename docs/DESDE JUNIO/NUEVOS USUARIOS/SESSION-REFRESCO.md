@@ -136,8 +136,12 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
    `permissions` por caso → `enabledModules` recorta módulos antes del turno (+ check `no-tool-called`).
    3 casos member (`{citas:true}`) corridos contra prod read-only → **3/3 PASS**: módulo agenda
    funciona; declina facturas y flujo sin invocar tools bloqueadas, sin inventar, y **sin culpar al
-   dueño** ("no tengo habilitada en esta cuenta…"). Sigue pendiente (decisión del usuario): correr la
-   suite completa de owner (~65 casos, gasto real de API) para confirmar el baseline.
+   dueño** ("no tengo habilitada en esta cuenta…"). **Suite completa de owner CORRIDA 2026-07-22:
+   `62/65 PASS · 3 WARN · 0 FAIL`** — baseline verde, cero regresiones (los 3 WARN son soft por
+   fixtures driftados; la misma corrida prueba que el filtrado de módulos de PR C no rompió el path
+   owner + que los 3 casos member conviven). **Los findings del agente viven en los docs de AGENTES**
+   (canónico): `AGENTE AGENDA/SESSION-REFRESCO.md` (Evals G11 2026-07-22 + bitácora #24 over-claim) y
+   `GENERAL AGENTES/00-BLUEPRINT §5.2` (método de evals de member + lección). Este doc solo resume.
 
 **⚠️ Known issue DIFERIDO — over-claim de capacidades del agente member (sev. baja):** el agente
 member a veces SOBRE-DECLARA capacidades de módulos bloqueados en su lista "lo que sí puedo hacer"

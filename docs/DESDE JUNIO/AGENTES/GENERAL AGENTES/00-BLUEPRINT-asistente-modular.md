@@ -72,7 +72,7 @@ el prompt se edita en `prompt.ts` o `modules/<dominio>.ts`, NUNCA en `run-turn.t
 ## 3. Dónde estamos (2026-07-11, números reales de prod)
 
 **Construido y validado:**
-- Agenda: PR 1+2+3 vivos, prompt caching, 4 hardening items, evals 19→24 casos.
+- Agenda: PR 1+2+3 vivos, prompt caching, 4 hardening items, evals 19→24→65 casos (incl. path de member, 2026-07-22).
 - Facturas: sustrato cerrado (H1/H2/H7/H8/H10), PR F1 desplegado y **validado en vivo 10/10**
   (los 6 tools correctos contra la BD, incluyendo negativos y expedientes duplicados).
 - Refactor de módulos byte-idéntico: agregar un módulo = 1 archivo + 1 entrada en
@@ -177,6 +177,25 @@ de cada push, y las secciones compartidas (INTRO/RESILIENCE) como único punto d
    (todo es dr-prueba aún) en `03-PLAN-auditoria-integral.md` A4. Además **A2 shipped**
    (`8a27e469`): los errores de tools ahora se persisten en `agent_tool_errors` — la
    observabilidad que faltaba para que una tool rota no viva semanas invisible.
+5. ✅ **HECHO (2026-07-22)** — **evals del path de MEMBER (módulos filtrados por permisos).**
+   NUEVOS USUARIOS recorta el set de módulos por permisos (`enabledModules`). El runner ahora
+   acepta `permissions` por caso → simula un member; nuevo check `no-tool-called`. 3 casos
+   (`{citas:true}`) → 3/3: el módulo permitido funciona, y declina los dominios ausentes sin
+   invocar sus tools (no existen), sin inventar, sin culpar al dueño. **Suite completa 65 casos,
+   corrida 2026-07-22: 62/65 · 0 FAIL** (3 WARN soft por fixtures driftados). La misma corrida
+   prueba que el filtrado no rompió el path owner (prompt byte-idéntico). Detalle: AGENTE AGENDA
+   SESSION-REFRESCO (Evals G11, 2026-07-22) + NUEVOS USUARIOS `01-DISENO §7.3`.
+6. ⚠️ **BUG CONOCIDO, DIFERIDO — over-claim de capacidades en members.** Instancia CONCRETA del
+   riesgo del punto 2 (INTRO/RESILIENCE enumeran capacidades a mano): un member con módulos
+   recortados a veces SOBRE-DECLARA capacidades de módulos que NO tiene en su lista "lo que sí
+   puedo hacer" (visto: member solo-agenda ofreciendo facturas). No puede EJECUTARLAS (tools
+   ausentes) → cosmético. Inconsistente entre corridas → es el modelo improvisando la lista, no
+   el prompt hardcodeado. **Fix (diferido, standalone — NO batchear con cambios del prompt
+   COMPARTIDO):** vive en `MEMBER_SCOPE_NOTE` → solo prompt de member (owner byte-idéntico,
+   re-eval = solo casos member). Guardarraíl: "deriva tu lista de capacidades SOLO de tus tools
+   disponibles" (sin enumerar lo bloqueado). Failure mode conocido de LLMs → un nudge lo reduce,
+   no lo elimina; garantía dura = post-procesar la respuesta (más de lo que amerita). Bitácora
+   #24 en AGENTE AGENDA SESSION-REFRESCO.
 
 ### 5.3 La escalera de opciones si "F1 everywhere" empieza a dar problemas
 
