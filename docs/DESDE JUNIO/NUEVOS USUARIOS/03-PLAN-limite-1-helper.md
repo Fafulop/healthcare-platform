@@ -190,8 +190,9 @@ dr-prueba (Andrea ACTIVE):
   primero).
 - **BD (backstop):** ambos índices probados con write-probe-rollback (P2002, cero commits).
 
-**Pendiente (menor, no bloquea):** correr el ciclo G5 completo en vivo (revoke → el botón se
-re-habilita → re-invite → accept sigue OK). Mecánica ya probada: revoke deja la fila en REVOKED →
-`activeMember` findFirst da null → los gates se abren; el flujo revoke→re-invite→accept ya se validó
-en vivo antes de este cambio (`01-DISENO §18`), y el nuevo check de accept solo añade una condición
-que es null tras el revoke. Queda como confirmación opcional.
+**G5 CONFIRMADO EN VIVO 2026-07-22:** ciclo completo revoke → botón "Invitar" se re-habilita →
+re-invite → accept, bajo el nuevo enforcement. Verificado read-only en prod: nueva fila
+`doctor_members` ACTIVE (`cmrwg2cax…`, 18:57) creada por el re-invite; la fila vieja pasó a REVOKED
+→ el índice `one_active_member_per_doctor` NO bloqueó el re-invite legítimo (el slot se liberó al
+revocar). Estado final: exactamente 1 member activo + 1 owner. **Extensión A cerrada — verificada
+end-to-end en las 3 capas + ciclo revoke/re-invite.**

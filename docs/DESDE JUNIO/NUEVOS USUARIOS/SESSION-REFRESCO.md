@@ -111,9 +111,10 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
      (`one_active_member_per_doctor` + `member_invites_one_pending_per_doctor` G3, aplicados+probados
      write-probe) + checks invite/accept (fixes G1/G2). El review inline atrapó un bug REAL en el
      propio fix G1 (ramificaba por nombre de índice, pero Prisma `meta.target` = nombres de COLUMNA
-     `["doctor_id"]` — corregido). Verificado en 3 capas (UI botón deshabilitado confirmado por el
-     usuario; app-layer gating read-only en prod; BD write-probe). Pendiente menor: ciclo G5 en vivo
-     (revoke→re-invite, mecánica ya probada). Detalle: `03-PLAN §6`.
+     `["doctor_id"]` — corregido). Verificado end-to-end: 3 capas (UI botón deshabilitado confirmado
+     por el usuario; app-layer gating read-only en prod; BD write-probe) + **ciclo G5 en vivo
+     confirmado 2026-07-22** (revoke → botón se re-habilita → re-invite → accept → nueva fila ACTIVE,
+     slot liberado, sigue 1 member). **Extensión A CERRADA.** Detalle: `03-PLAN §6`.
    - **`04-PLAN-vista-admin-helpers.md`** — vista admin de helpers por doctor. **AÚN SIN CONSTRUIR.**
      `apps/admin` lee `user.doctorId` legacy y NO ve members; nuevo endpoint admin-only que lea
      `doctor_members`. Gap de integración clave **G1**: toda ruta nueva de apps/api debe entrar a
