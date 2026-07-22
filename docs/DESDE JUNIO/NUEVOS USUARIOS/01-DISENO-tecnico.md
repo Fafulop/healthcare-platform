@@ -944,5 +944,7 @@ encontrar (b), porque ahí no hay un componente reusado con nombre reconocible �
 llamada `fetch()` suelta dentro de una feature que por lo demás es legítima para el member.
 
 **Estado:** tsc limpio (apps/doctor) tras cada tanda. Todo lo de esta sesión de bug hunt
-(hallazgos 1-5) sigue en commits locales — **sin pushear**, pendiente del resto de §9 y del
-OK del usuario.
+(hallazgos 1-5) fue **pusheado, desplegado y verificado en prod** el 2026-07-21
+(`345b2a09..14b1872c`; verificado con curl real usando el token de Andrea — ver
+SESSION-REFRESCO, doc canónico). Pendiente solo el resto de §9 (pasos 4-6 de la validación
+en vivo).
