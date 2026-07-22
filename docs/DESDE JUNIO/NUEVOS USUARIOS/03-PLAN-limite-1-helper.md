@@ -1,20 +1,10 @@
 # NUEVOS USUARIOS — Plan: máximo 1 helper (member) activo por doctor
 
-> **Estado:** EN CURSO 2026-07-22 (decisión del usuario: enforce exactamente 1; G3 incluido).
-> **Paso 2 HECHO — migración aplicada y verificada en prod** (`add-one-active-member-per-doctor.sql`:
-> ambos índices parciales `doctor_members_one_active_member_per_doctor` y
-> `member_invites_one_pending_per_doctor` creados y confirmados vía `pg_indexes`, data gate
-> re-verificado 0 violaciones). **Pendiente: el código** (§3 checks + fixes G1/G2). El índice ya
-> ENFORZA aunque el código amable no esté (ver "Estado interino" abajo).
+> **Estado:** ✅ SHIPPED 2026-07-22 (commit `4666a9d1`, pusheado y desplegado en `@healthcare/doctor`).
+> BD (2 índices parciales) + código (checks §3 + fixes G1/G2) live; enforcement confirmado en las
+> 3 capas (UI/app/BD) — detalle en §6. Decisión del usuario: enforce exactamente 1; G3 incluido.
 > Base v1: `00-REQUISITOS`, `01-DISENO`. Vista admin de helpers = doc hermano
-> `04-PLAN-vista-admin-helpers.md` (independiente de este). Todo lo citado verificado 2026-07-22.
->
-> **⚠️ Estado interino (índice live, código sin actualizar):** el constraint ya se aplica en BD,
-> pero los endpoints aún NO tienen los checks amables. Si AHORA alguien intentara agregar un 2º
-> helper (2º accept, o 2ª invitación pendiente a otro email), el índice lo BLOQUEA con un P2002
-> crudo → el catch existente devuelve un mensaje 409 poco preciso (justo el bug G1). Falla seguro
-> (bloquea de más, nunca de menos). Riesgo real bajo: solo dr-prueba usa la feature y no hay 2º
-> helper en curso. El paso de código cierra G1/G2.
+> `04-PLAN-vista-admin-helpers.md` (independiente, aún sin construir). Todo verificado 2026-07-22.
 
 ---
 
@@ -157,7 +147,7 @@ reales a atender, G3 como decisión (hardening opcional del pending), G4/G5 como
 
 ---
 
-## 6. As-built (2026-07-22) — construido, SIN PUSHEAR
+## 6. As-built (2026-07-22) — SHIPPED (commit `4666a9d1`, pusheado + desplegado)
 
 **BD (aplicado y verificado en prod):** `add-one-active-member-per-doctor.sql` con LOS DOS índices
 (member + G3 pending). Data gate re-verificado 0 violaciones; ambos confirmados vía `pg_indexes`;
@@ -189,6 +179,19 @@ el check same-email removido queda subsumido por "cualquier member activo"; revo
 OK (`doctorHasMember` solo cuenta ACTIVE); `slotFull` en UI refleja member+pending; sin otras
 fuentes de P2002 en esos create. tsc limpio tras el fix.
 
-**Pendiente:** (a) explicación + OK del usuario → commit → push; (b) verificación funcional en vivo
-post-deploy (con member activo, intentar invitar → 409; revoke→re-invite→accept sigue OK — G5).
-Hasta el push, el código amable NO está vivo pero el índice ya enforza (ver "Estado interino" arriba).
+**Shipped + verificado (2026-07-22, commit `4666a9d1` pusheado y desplegado — solo `@healthcare/doctor`,
+sin dependencia de api):** enforcement confirmado en las TRES capas para el estado actual de
+dr-prueba (Andrea ACTIVE):
+- **UI (cortesía):** botón "Invitar" deshabilitado con el slot ocupado — **confirmado en vivo por
+  el usuario** en el navegador.
+- **App-layer (pre-checks):** las queries EXACTAS que corre el código nuevo, verificadas read-only
+  en prod (`scratchpad/verify-gating.cjs`): `activeMember` presente → invites POST devolvería 409;
+  un 2º accept a dr-prueba devolvería 409. `pendingInvite` = 0 (el check de member activo dispara
+  primero).
+- **BD (backstop):** ambos índices probados con write-probe-rollback (P2002, cero commits).
+
+**Pendiente (menor, no bloquea):** correr el ciclo G5 completo en vivo (revoke → el botón se
+re-habilita → re-invite → accept sigue OK). Mecánica ya probada: revoke deja la fila en REVOKED →
+`activeMember` findFirst da null → los gates se abren; el flujo revoke→re-invite→accept ya se validó
+en vivo antes de este cambio (`01-DISENO §18`), y el nuevo check de accept solo añade una condición
+que es null tras el revoke. Queda como confirmación opcional.

@@ -105,17 +105,20 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
 
 0. **PUSHEAR los 3 commits de docs** (`cf8a97e6`, `2d7fe6fd`, `b8cc9ada` + el commit de esta
    sesión con §18) — están locales, sin pushear; código ya vivo. Solo docs, sin efecto en prod.
-1. **Extensiones post-v1 PLANEADAS (2 docs, decisiones del usuario 2026-07-22, aún sin código):**
-   - **`03-PLAN-limite-1-helper.md`** — enforce máximo 1 helper activo por doctor (índice parcial
-     `one_active_member_per_doctor` + checks invite/accept). Re-análisis encontró 2 bugs a atender:
-     **G1** (el P2002 del índice nuevo cae en un catch con mensaje equivocado en `accept/route.ts`)
-     y **G2** (lazy-expirar antes del check de slot). Gate de datos ya verificado (solo dr-prueba,
-     1 member, 0 pendientes → seguro).
-   - **`04-PLAN-vista-admin-helpers.md`** — vista admin de helpers por doctor (`apps/admin` lee
-     `user.doctorId` legacy y NO ve members; nuevo endpoint admin-only que lea `doctor_members`).
-     Gap de integración clave **G1**: toda ruta nueva de apps/api debe entrar a `route-permissions.ts`
-     o el gate `check-route-permission-coverage.ts` falla.
-   Construir en sesión futura.
+1. **Extensiones post-v1:**
+   - **`03-PLAN-limite-1-helper.md` — ✅ SHIPPED 2026-07-22** (commit `4666a9d1`, desplegado en
+     `@healthcare/doctor`). Enforce máximo 1 helper activo por doctor: 2 índices parciales
+     (`one_active_member_per_doctor` + `member_invites_one_pending_per_doctor` G3, aplicados+probados
+     write-probe) + checks invite/accept (fixes G1/G2). El review inline atrapó un bug REAL en el
+     propio fix G1 (ramificaba por nombre de índice, pero Prisma `meta.target` = nombres de COLUMNA
+     `["doctor_id"]` — corregido). Verificado en 3 capas (UI botón deshabilitado confirmado por el
+     usuario; app-layer gating read-only en prod; BD write-probe). Pendiente menor: ciclo G5 en vivo
+     (revoke→re-invite, mecánica ya probada). Detalle: `03-PLAN §6`.
+   - **`04-PLAN-vista-admin-helpers.md`** — vista admin de helpers por doctor. **AÚN SIN CONSTRUIR.**
+     `apps/admin` lee `user.doctorId` legacy y NO ve members; nuevo endpoint admin-only que lea
+     `doctor_members`. Gap de integración clave **G1**: toda ruta nueva de apps/api debe entrar a
+     `route-permissions.ts` o el gate `check-route-permission-coverage.ts` falla. Construir en
+     sesión futura.
 2. **B2 (gate del checkbox de factura)** si se quiere cerrar el polish: (a) como Andrea con
    `facturacion` ON, abrir **Completar** en un booking cuyo paciente TENGA datos fiscales →
    el checkbox "Emitir factura (CFDI)" debe aparecer; (b) owner pone `facturacion` OFF a
