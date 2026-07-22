@@ -499,7 +499,16 @@ member real = andreabarbagal@gmail.com:**
 3. [x] Owner activa `facturacion`+`sat` en vivo → sidebar de B lo muestra en el SIGUIENTE
    refresh, sin re-login (confirmado). **Encontró bug real** — ver §16 hallazgo 1.
    Módulos del agente con `asistente_ia` ON: NO probado aún (asistente_ia seguía OFF).
-4. [ ] Pendiente.
+4. [~] **Bug encontrado y CORREGIDO+SHIPPEADO; falta confirmación funcional en vivo.**
+   Completar una cita registraba el ingreso con un SEGUNDO POST del cliente al endpoint
+   flujo-gated `/practice-management/ledger` → un member con `citas` pero sin `flujo`
+   recibía 403 y el ingreso se perdía en silencio (la cita SÍ pasaba a COMPLETADA). Rompe
+   la promesa §3.6 "los efectos internos de una acción permitida siempre proceden". Fix:
+   el ingreso ahora es un efecto server-side de la propia PATCH de completar (citas) — ver
+   §17 hallazgo 6. Shippeado `c9ad9b60`+`99ce4cb5`, api+doctor desplegados y verificados en
+   HEAD. **Falta:** Andrea (`citas`/sin `flujo`) completa una cita → confirmar read-only que
+   la fila `ledger_entries` (origin `cita`) aparece; + regresión owner (el path cambió para
+   TODOS): dr-prueba completa una cita → ingreso sigue registrándose, una sola fila.
 5. [ ] Pendiente.
 6. [ ] Pendiente.
 7. [x] Owner: cero cambios observados en todo lo probado hasta ahora.
@@ -948,3 +957,66 @@ llamada `fetch()` suelta dentro de una feature que por lo demás es legítima pa
 (`345b2a09..14b1872c`; verificado con curl real usando el token de Andrea — ver
 SESSION-REFRESCO, doc canónico). Pendiente solo el resto de §9 (pasos 4-6 de la validación
 en vivo).
+
+## 17. Paso 4 de la validación — hallazgo 6 (ingreso de cita) + 2 gates (2026-07-21)
+
+Arrancando el paso 4 de §9 (member sin `flujo` completa una cita → ¿se crea el ingreso?)
+apareció un bug real de una **familia NUEVA** vs. la del bug hunt de §16 (que era "superficie
+owner-only sin guard"). Esta familia es: **un efecto interno que §3.6 promete que "siempre
+procede", pero implementado como un SEGUNDO llamado del cliente a un endpoint gated por OTRO
+toggle** — el member con toggle X pero sin toggle Y pierde el efecto en silencio.
+
+### Hallazgo 6 — el ingreso de completar cita se perdía para members sin `flujo`
+
+**Causa:** completar una cita era un flujo de DOS llamados orquestado por el cliente
+(`useBookings.completeBooking` Y el executor `complete_booking` del agente en
+`AgentContext.tsx`): (1) `PATCH /appointments/bookings/[id]` status COMPLETED (gated `citas`
+✓), luego (2) `POST /practice-management/ledger` (gated `flujo`). Un member con `citas` sin
+`flujo` recibía **403 en el paso 2** → la cita quedaba COMPLETADA pero el ingreso NUNCA se
+registraba, sin error visible (toast suave "hubo un error al crear el movimiento"). El diseño
+(00-REQUISITOS §3.6, y 01-DISENO §4.3 "emitir factura escribe ledger server-side") ASUMÍA que
+el ledger write era un efecto interno server-side — falso para este flujo.
+
+**Fix (commit `c9ad9b60`):** el ingreso pasa a ser un efecto **server-side** de la PATCH de
+completar (acción `citas`), inmune al gate de `flujo`:
+- `createCitaLedgerEntry()` nuevo en `apps/api/src/lib/practice-utils.ts` — reconstruye
+  server-side desde el booking concepto/área/subárea/identidad fiscal del paciente/fecha
+  (paridad EXACTA con los 2 payloads de cliente viejos), idempotente por `bookingId @unique`
+  + catch P2002 (carrera con webhook de pago). Constante `AREA_INGRESOS_CONSULTA` duplicada
+  en el API con comentario (no se puede importar del doctor app).
+- La PATCH de `bookings/[id]` crea el ingreso dentro de la transición a COMPLETED (best-effort:
+  nunca tumba la completación; regresa `ledgerEntryId`/`ledgerAlreadyExisted`/`ledgerWarning`).
+- Los 2 clientes dejan de hacer el POST flujo-gated y mandan `{ income: { price, formaDePago } }`
+  en la PATCH. Bonus de seguridad: el cliente ya NO manda `patientId`/`counterpartyRfc`/`area`
+  (el server los reconstruye) → se cierra esa superficie de inyección que confiaba en el cliente.
+
+**Bug hunt de la MISMA familia (02-METODO §3.2, dos criterios):** grep de todos los POST de
+cliente al endpoint `practice-management/ledger` desde páginas gated por OTRO toggle, + verificar
+que las OTRAS promesas de efecto-interno de §3.6 sí son server-side. Resultado: las otras SÍ se
+sostienen (CFDI→ledger vía `register-income` server-side; ventas/compras escriben ledger en sus
+propias rutas). Pero aparecieron 2 superficies cross-block adicionales (NO pérdida de datos,
+solo 403 confuso), gateadas en UI (commit `99ce4cb5`):
+
+- **Finding A (`facturacion`):** el checkbox "Emitir factura (CFDI)" del CompleteBookingModal se
+  mostraba sin importar el permiso; un member con `citas` sin `facturacion` que lo marcaba
+  recibía 403 del POST de CFDI. Fix: `onEmitCfdi` se pasa `undefined` si `!can('facturacion')`
+  (el modal ya escondía el checkbox sin ese handler). El ingreso NO se afecta (ya es server-side).
+- **Finding B (`flujo`):** en la página SAT descarga, "vincular un CFDI a un movimiento EXISTENTE"
+  (`handleSuggestionLink`) pega al endpoint flujo-gated `/ledger/[id]/link-cfdi` Y la lista de
+  sugerencias filtra concepto+monto de otras entradas — ambas requieren `flujo`. Fix: se gatea
+  ese path en `flujo`; un member solo-`sat` ve una nota honesta y puede registrar el CFDI como
+  movimiento NUEVO (server-side, sat-gated). Registrar-nuevo nunca estuvo roto.
+
+**Gates:** tsc limpio ambas apps · sin migración · sin cambio al mapa de rutas · sin query shape
+nuevo (reusa el shape de `ledgerEntry.create` que ya corre en prod). **Deploy verificado
+per-service:** `@healthcare/api` Y `@healthcare/doctor` en HEAD `99ce4cb5`, ambos SUCCESS
+(ventana transitoria: doctor terminó de buildear antes que api — durante ese lapso el cliente
+nuevo ya no hacía el POST viejo y el api viejo ignoraba `income`, así que TODA completación
+perdía ingreso; se esperó a que api llegara a SUCCESS antes de dar por cerrado). **Falta:
+confirmación funcional en vivo** (paso 4 de §9 arriba): Andrea completa cita → fila `ledger_entries`
+aparece; + regresión owner.
+
+**Lección:** una promesa de "efecto interno siempre procede" NO se puede asumir — hay que
+verificar que el write sea realmente server-side y no un segundo llamado del cliente a un
+endpoint de otro bloque. Es una familia distinta a la de §16 (owner-only sin guard) y necesita
+su propio grep (POST de cliente a endpoint-de-otro-toggle desde una acción permitida).

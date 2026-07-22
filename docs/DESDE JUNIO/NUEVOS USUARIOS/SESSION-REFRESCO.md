@@ -31,6 +31,18 @@ post-deploy:** `GET /api/facturacion/csd/status` y `GET /api/sat-descarga/fiel` 
 en prod, no solo pusheados. Ver el gotcha de deploy abajo — el push NO alcanzó por sí solo,
 hizo falta un redeploy manual del servicio `@healthcare/api`.
 
+**Ronda paso-4 (2026-07-21, `c9ad9b60`+`99ce4cb5`, PUSHEADO+DESPLEGADO, falta confirmación
+funcional en vivo):** arrancando el paso 4 apareció un bug de **familia NUEVA** — el ingreso de
+completar una cita se creaba con un SEGUNDO POST del cliente al endpoint flujo-gated, así que un
+member con `citas` sin `flujo` recibía 403 y el ingreso se perdía en silencio. Fix: el ingreso
+pasa a ser efecto server-side de la PATCH de completar (detalle completo en **01-DISENO §17
+hallazgo 6**). El bug hunt de la misma familia gateó 2 superficies cross-block más (checkbox
+"Emitir factura" en el modal de completar → `facturacion`; "vincular CFDI a movimiento existente"
+en SAT → `flujo`). Deploy verificado per-service: `@healthcare/api` y `@healthcare/doctor` en
+HEAD `99ce4cb5`, ambos SUCCESS. **Ojo:** este fix tiene dependencia dura api↔doctor — el cliente
+nuevo ya NO hace el POST viejo, así que si el api no despliega, TODA completación (owners incluidos)
+pierde el ingreso; siempre verificar que `@healthcare/api` llegue a SUCCESS antes de darlo por vivo.
+
 ## Validación en vivo — dónde se quedó
 
 Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `andreabarbagal@gmail.com`
@@ -47,8 +59,12 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
 7. Owner: cero cambios observados en todo lo probado.
 
 **Pendiente (pasos 4-6 de §9):**
-4. Member con `flujo` OFF completa una cita (`citas` ON) → verificar que el LedgerEntry se
-   crea igual (regla de "efectos internos siempre proceden", 00-REQUISITOS §3.6).
+4. **[fix shippeado, falta confirmar funcionalmente en vivo]** Member con `flujo` OFF completa
+   una cita (`citas` ON) → verificar que el LedgerEntry se crea igual. El bug que rompía esto
+   ya se corrigió y desplegó (§17 hallazgo 6); falta la confirmación funcional: Andrea completa
+   una cita → confirmar read-only que la fila `ledger_entries` (origin `cita`) aparece con
+   monto/área/paciente correctos; + **regresión owner** (el path cambió para TODOS): dr-prueba
+   completa una cita → una sola fila de ingreso, correcta.
 5. Owner revoca a Andrea → verificar pantalla "Acceso revocado"; re-invitar a Andrea (mismo
    portal u otro) → verificar que el slot se liberó y el flujo de re-invitación funciona
    (esto es justo lo que el fix de `dashboard/layout.tsx` en PR D corrigió — confirmarlo en
