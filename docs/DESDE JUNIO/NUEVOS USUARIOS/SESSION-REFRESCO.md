@@ -11,11 +11,26 @@ Usuarios secundarios (staff/asistentes) por portal de doctor, con 19 toggles de 
 granulares (18 secciones del sidebar + "Asistente IA"), invitación explícita por email,
 enforcement server-side en ambos apps (doctor + api).
 
-## Estado ahora mismo (2026-07-22)
+## Estado ahora mismo (fin de día 2026-07-22)
 
-**Feature completa (PR A→D) + 3 rondas de bug hunt + validación en vivo §9 COMPLETA. Todo el
-código PUSHEADO+DESPLEGADO+VERIFICADO. Validación en vivo cerrada 2026-07-22 (pasos 1-7, ver
-01-DISENO §16/§17/§18). Único pendiente: pushear commits de docs.**
+**TODO PUSHEADO Y DESPLEGADO — `origin/main` en `dceaf9f4`, working tree limpio.** Resumen para
+la próxima sesión:
+
+- **v1 (PR A→D) COMPLETA** + 3 rondas de bug hunt + **validación en vivo §9 CERRADA** (pasos 1-7,
+  ver `01-DISENO §16/§17/§18`).
+- **Extensión A — máximo 1 helper activo por doctor — SHIPPED + verificada end-to-end** (índices
+  parciales + checks invite/accept; review atrapó el bug del `meta.target`; ciclo G5 revoke/re-invite
+  confirmado en vivo). Detalle: `03-PLAN-limite-1-helper.md §6`.
+- **Extensión B — vista admin `/helpers` — SHIPPED + verificada en vivo** (endpoint admin-only que
+  lee `doctor_members`; página doctor-céntrica; link en Navbar y dashboard). Detalle: `04-PLAN §6`.
+- **Cobertura de bloqueo de los 19 toggles — AUDITADA** (`05-COBERTURA-19-toggles.md`): 16/19 con
+  enforcement server-side, 3 sin ruta por diseño; gate de 235 rutas + fail-closed.
+- **Evals del agente:** path de member CONSTRUIDO + suite completa CORRIDA 2026-07-22 →
+  **62/65 · 0 FAIL** (baseline verde). Findings canónicos en **AGENTES** (ver abajo, §"Qué sigue").
+
+**Qué sigue = nada bloqueante.** Ítems abiertos/diferidos, todos opcionales, en la sección
+"Qué sigue" abajo (el más notable: guardarraíl del over-claim del agente member — diferido,
+standalone, prompt solo-member).
 
 **Ronda inicial de fixes — todo PUSHEADO Y DESPLEGADO Y VERIFICADO 2026-07-21 (`345b2a09..14b1872c`):**
 
