@@ -11,10 +11,13 @@ Usuarios secundarios (staff/asistentes) por portal de doctor, con 19 toggles de 
 granulares (18 secciones del sidebar + "Asistente IA"), invitación explícita por email,
 enforcement server-side en ambos apps (doctor + api).
 
-## Estado ahora mismo (2026-07-21)
+## Estado ahora mismo (2026-07-22)
 
-**Feature completa construida (PR A→D) + 3 rondas de bug hunt post-validación. Todo
-PUSHEADO Y DESPLEGADO Y VERIFICADO 2026-07-21 (`345b2a09..14b1872c`):**
+**Feature completa (PR A→D) + 3 rondas de bug hunt + validación en vivo §9 COMPLETA. Todo el
+código PUSHEADO+DESPLEGADO+VERIFICADO. Validación en vivo cerrada 2026-07-22 (pasos 1-7, ver
+01-DISENO §16/§17/§18). Único pendiente: pushear commits de docs.**
+
+**Ronda inicial de fixes — todo PUSHEADO Y DESPLEGADO Y VERIFICADO 2026-07-21 (`345b2a09..14b1872c`):**
 
 ```
 27c04273  fix: status-read endpoints (csd/status, fiel GET, connect/status) mal marcados OWNER_ONLY
@@ -83,21 +86,36 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
      modal Completar desaparece): NO probado en vivo. Requiere (i) un paciente con datos fiscales
      completos en el booking y (ii) owner poner `facturacion` OFF a Andrea (ahora está ON). Pasos
      exactos en el chat de esta sesión / abajo en "Qué sigue".
-5. Owner revoca a Andrea → verificar pantalla "Acceso revocado"; re-invitar a Andrea (mismo
-   portal u otro) → verificar que el slot se liberó y el flujo de re-invitación funciona
-   (esto es justo lo que el fix de `dashboard/layout.tsx` en PR D corrigió — confirmarlo en
-   vivo cierra ese hallazgo). **PENDIENTE.**
-6. Revisar `member_audit_log` en prod — debe tener SOLO los writes de Andrea, con el
-   `toggle_key` correcto en cada fila. **PENDIENTE.** Nota: tras el fix del ingreso de cita, una
-   completación de member = UN solo write auditado (la PATCH de `citas`), SIN fila de `flujo`
-   aparte (los 403 nunca se auditan) — eso es lo esperado, no un hueco.
+5. ✅ **CERRADO EN VIVO 2026-07-22 (UI + datos).** Owner revocó a Andrea → fila vieja
+   `REVOKED` con `revoked_at`, permisos intactos, fila NO borrada. Andrea vio "Acceso
+   revocado" (no onboarding). Owner re-invitó → Andrea pasó por `/invitacion` → aceptó →
+   nueva fila `ACTIVE` con `INVITE_DEFAULTS`. Dos filas mismo `user_id` (REVOKED+ACTIVE)
+   conviven → el índice parcial liberó el slot como diseñado. Cierra el hallazgo del fix de
+   `dashboard/layout.tsx` (PR D §14). Detalle: **01-DISENO §18**.
+6. ✅ **CERRADO EN VIVO 2026-07-22.** `member_audit_log`: 22 filas, TODAS de Andrea (cero del
+   owner), `toggle_key` correcto en cada una, solo POST/PATCH, ningún GET, ningún 403. **Cero
+   filas `flujo`** pese a 6 completaciones → confirma en datos que el ingreso es server-side
+   (hallazgo 6). El revoke/re-invite no agregó filas (acciones de owner + accept NEUTRAL).
+   Detalle: **01-DISENO §18**.
 
 ## Qué sigue (en orden)
 
-0. **PUSHEAR los 2 commits de docs** (`cf8a97e6`, `2d7fe6fd`) — están locales, sin pushear.
-1. **Pasos 5-6 de la validación en vivo** (revoke/re-invite + audit log) — lo único de la
-   validación que aún importa. Método read-only: `reference_prod_db_tooling` (memoria) —
-   scratchpad `.cjs` + `railway run --service pgvector`.
+> **✅ Validación en vivo §9 COMPLETA (2026-07-22).** Pasos 1-7 todos confirmados. Lo que
+> queda abajo es push de docs + polish diferido + evals + follow-ups fuera de la validación.
+
+0. **PUSHEAR los 3 commits de docs** (`cf8a97e6`, `2d7fe6fd`, `b8cc9ada` + el commit de esta
+   sesión con §18) — están locales, sin pushear; código ya vivo. Solo docs, sin efecto en prod.
+1. **Extensiones post-v1 PLANEADAS (2 docs, decisiones del usuario 2026-07-22, aún sin código):**
+   - **`03-PLAN-limite-1-helper.md`** — enforce máximo 1 helper activo por doctor (índice parcial
+     `one_active_member_per_doctor` + checks invite/accept). Re-análisis encontró 2 bugs a atender:
+     **G1** (el P2002 del índice nuevo cae en un catch con mensaje equivocado en `accept/route.ts`)
+     y **G2** (lazy-expirar antes del check de slot). Gate de datos ya verificado (solo dr-prueba,
+     1 member, 0 pendientes → seguro).
+   - **`04-PLAN-vista-admin-helpers.md`** — vista admin de helpers por doctor (`apps/admin` lee
+     `user.doctorId` legacy y NO ve members; nuevo endpoint admin-only que lea `doctor_members`).
+     Gap de integración clave **G1**: toda ruta nueva de apps/api debe entrar a `route-permissions.ts`
+     o el gate `check-route-permission-coverage.ts` falla.
+   Construir en sesión futura.
 2. **B2 (gate del checkbox de factura)** si se quiere cerrar el polish: (a) como Andrea con
    `facturacion` ON, abrir **Completar** en un booking cuyo paciente TENGA datos fiscales →
    el checkbox "Emitir factura (CFDI)" debe aparecer; (b) owner pone `facturacion` OFF a

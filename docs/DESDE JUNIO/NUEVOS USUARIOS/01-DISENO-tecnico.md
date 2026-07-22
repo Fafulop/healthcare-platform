@@ -11,13 +11,13 @@
 >
 > **PR A-D SHIPPED** (`d6c48256`..`345b2a09`, 2026-07-20/21) — feature completa en prod.
 > `/code-review ultra` sobre B+C+D: 0 findings en B/C, 4 CONFIRMED en D (§15), corregidos
-> y pusheados junto con el resto. **Validación en vivo EN CURSO 2026-07-21** (dr-prueba +
-> segundo gmail real como member, andreabarbagal@gmail.com) — pasos 1-3+7 de §9
-> confirmados limpios; 3 rondas de bug hunt dirigido (§16, hallazgos 1-5) encontraron
-> **9 bugs reales de la misma familia** (superficies owner-only expuestas a members sin
-> guard) y los corrigió. **6 commits COMMITEADOS, sin pushear todavía:** `27c04273`,
-> `0824a18d`, `216e1606`, `3c89cd07`, `d8217f44`, `4a18f7e8`. Pendiente: pasos 4-6 de §9 +
-> OK del usuario para push — detalle exacto de qué falta en SESSION-REFRESCO.md.
+> y pusheados junto con el resto. 3 rondas de bug hunt dirigido (§16, hallazgos 1-5)
+> encontraron **9 bugs reales de la misma familia** (superficies owner-only expuestas a
+> members sin guard) y los corrigió; todos pusheados+desplegados+verificados.
+> **Validación en vivo §9 COMPLETA 2026-07-22** (dr-prueba + member real
+> andreabarbagal@gmail.com): pasos 1-3+7 (2026-07-21), paso 4 = ingreso de cita server-side
+> (§17), pasos 5-6 = revoke/re-invite + audit log (§18) — todos confirmados en vivo (UI +
+> datos read-only en prod). Único pendiente: pushear los commits de docs (código ya vivo).
 >
 > Convenciones de BD según `docs/NEW.MD-GUIDES/database-architecture.md`: NO `prisma db push`;
 > migraciones SQL standalone idempotentes, aplicadas a Railway ANTES de pushear el código;
@@ -394,6 +394,83 @@ $transaction:
   `perfil` — un member con perfil ON sigue sin poder tocar `/api/team` (G10).
 - El owner no puede revocarse a sí mismo (guard en members/[id]).
 
+### 6.3 Caso cross-portal: otro doctor invita a un gmail que YA es member de otro portal
+
+Escenario concreto (verificado contra el código 2026-07-22, no solo derivado del diseño):
+Dr. B invita `andrea@gmail.com` mientras Andrea ya es member **ACTIVE** de dr-prueba. La regla
+v1 "un gmail = un portal" (00-REQUISITOS §1.1/§2.2, G2) se sostiene, y se hace cumplir **en el
+accept + el índice de BD**, NO al crear la invitación. Paso a paso:
+
+1. **La invitación de Dr. B se crea sin problema.** `POST /api/team/invites`
+   (`invites/route.ts:58`) solo chequea si el email ya es member activo **del portal de Dr. B**
+   (`where: { doctorId, status:'ACTIVE', ... }`) — Andrea pertenece a dr-prueba, no a Dr. B, así
+   que nada la bloquea. Se crea una fila `PENDING` válida 7 días. El índice `one_pending` es por
+   `(doctor_id, email)`, así que no colisiona con nada en dr-prueba. Es a propósito: el gate real
+   vive en el accept; un typo/duplicado al invitar es "solo una fila pendiente, nunca acceso"
+   (comentario en `invites/route.ts:42`, requisito de aceptación explícita 00-REQUISITOS §2.1).
+2. **Andrea NO ve la invitación automáticamente.** El layout del dashboard solo redirige a
+   `/invitacion` cuando NO hay doctorId efectivo (`dashboard/layout.tsx:87` → `if
+   (session?.user?.doctorId) return;`). Como Andrea está activa en dr-prueba, TIENE doctorId
+   efectivo → cae en su dashboard normal, nunca es ruteada al invite. Solo la vería si navega
+   manualmente a `/invitacion` (el `GET /api/team/my-invites` lista por email, sin importar la
+   membresía).
+3. **Si abre `/invitacion` y da Aceptar → 409, bloqueado.** La transacción de accept
+   (`accept/route.ts:52-57`) corre `existingActive = doctorMember.findFirst({ userId,
+   status:'ACTIVE' })` → encuentra su membresía de dr-prueba → lanza **409 "Tu cuenta ya
+   pertenece a otro consultorio"**. Bajo carrera (dos accepts simultáneos), el índice parcial
+   `doctor_members_one_active_per_user WHERE status='ACTIVE'` es el backstop → P2002 → 409. NO
+   hay camino a dos membresías activas para un gmail.
+4. **La invitación de Dr. B queda `PENDING`** hasta expirar (7 días) o hasta que Andrea libere
+   su slot. Si dr-prueba la **revoca** mientras el invite sigue válido, ENTONCES puede aceptar
+   el de Dr. B — el slot liberado (fila vieja → `REVOKED`) permite crear la nueva membresía
+   `ACTIVE` bajo Dr. B. Es el mismo mecanismo revoke→re-invite del §18, pero entre dos portales.
+
+**Resultado:** otro doctor puede *invitarla*, pero no puede *lograr que acepte* mientras esté
+activa en otro lado — sin attach silencioso cross-portal, sin fuga de datos. El multi-portal
+diferido (§7 de 00-REQUISITOS) es lo que permitiría que un gmail tenga varias membresías con un
+switcher de portal.
+
+**Nota de UX (polish, no bug):** si Andrea SÍ llega a `/invitacion` estando activa en otro
+portal, ve una invitación de la que solo puede rebotar con un 409. Si algún día se quiere más
+amable, la pantalla de accept podría mostrar "primero debes salir de tu consultorio actual" en
+vez de un error genérico — fuera de alcance v1.
+
+### 6.4 Un member revocado NUNCA se vuelve owner (por eso el re-invite siempre funciona)
+
+Preocupación planteada (verificada contra código 2026-07-22): "si a un member lo revocan y
+entra al dashboard, ¿se le crea una cuenta de doctor propia? Si así fuera, un re-invite
+después fallaría con 409, porque ya sería dueño de un portal (regla v1 un-portal, §6.3)."
+**Ese escenario NO ocurre** — el diseño lo bloquea explícitamente. La cadena de garantía:
+
+1. **Revocar conserva la fila.** `DELETE /api/team/members/[id]` (`members/[id]/route.ts:75-78`)
+   hace un flip de status a `REVOKED` con `revoked_at`, **nunca borra la fila** (confirmado en
+   vivo en el paso 5, §18).
+2. **La resolución la marca `membershipRevoked: true`.** `computeEffectiveAccess`
+   (`membership.ts:79-80`): sin membresía ACTIVE + sin `users.doctor_id` legacy + existe una
+   fila REVOKED → `{ doctorId: null, isOwner: false, membershipRevoked: true }`.
+3. **El layout muestra "Acceso revocado" y se detiene ahí.** `dashboard/layout.tsx:113-128`:
+   `if (membershipRevoked) return <RevokedAccessScreen/>` — nunca cae a los children del
+   dashboard ni a ningún onboarding. El propio tipo `EffectiveAccess` lo dice
+   (`membership.ts:25`): *"a REVOKED one exists → 'acceso revocado' screen, never doctor
+   onboarding."*
+4. **No se crea cuenta de doctor.** No hay flujo self-serve de "crear doctor" disparado por
+   entrar al dashboard — un grep sobre `apps/doctor/src` encuentra **cero** código
+   `doctor.create`/onboarding (las cuentas de doctor se vinculan por fuera/admin; ver el
+   auto-refresh "logged in before being linked" en `layout.tsx:50`). Aunque el guard del paso
+   3 fallara, entrar al dashboard igual no minta una cuenta de owner.
+
+**Resultado:** un member revocado se queda como member revocado, SIN `doctorId` — por lo tanto
+NUNCA cae en la rama `if (myDoctorId) throw 409` del accept (`accept/route.ts:49-51`). El
+re-invite siempre funciona (es justo lo que validó el paso 5, §18). La rama del 409
+"Tu cuenta ya está vinculada a un consultorio" existe SOLO para dueños de portal reales (un
+doctor con `user.doctorId`), que es un caso distinto (00-REQUISITOS §2.2, "un member que
+quiere su propio portal → primero debe salir de la membresía").
+
+**Dos guardarraíles cierran el hueco**, no uno: (a) revocar conserva la fila → `membershipRevoked`
+→ pantalla de revocado (nunca onboarding); (b) no existe creación de doctor al entrar al
+dashboard. Cualquiera de los dos bastaría; juntos hacen imposible que revocar convierta a un
+member en owner por accidente.
+
 ---
 
 ## 7. Agente IA
@@ -509,9 +586,28 @@ member real = andreabarbagal@gmail.com:**
    HEAD. **Falta:** Andrea (`citas`/sin `flujo`) completa una cita → confirmar read-only que
    la fila `ledger_entries` (origin `cita`) aparece; + regresión owner (el path cambió para
    TODOS): dr-prueba completa una cita → ingreso sigue registrándose, una sola fila.
-5. [ ] Pendiente.
-6. [ ] Pendiente.
-7. [x] Owner: cero cambios observados en todo lo probado hasta ahora.
+5. [x] **CONFIRMADO EN VIVO 2026-07-22 (UI + datos).** Owner revocó a Andrea → fila
+   `doctor_members` vieja pasó a `status='REVOKED'` con `revoked_at` estampado (permisos
+   intactos, fila NO borrada). Andrea vio la pantalla **"Acceso revocado"** (no el onboarding
+   de crear-doctor). Owner re-invitó → nuevo invite `PENDING`; Andrea pasó por la pantalla
+   **`/invitacion`** → aceptó → NUEVA fila `doctor_members` `ACTIVE` con `INVITE_DEFAULTS`
+   (citas/tareas/notas/ayuda ON, resto OFF). Verificado read-only en prod: dos filas para el
+   mismo `user_id` conviven (una REVOKED, una ACTIVE) — el índice parcial
+   `one_active_per_user WHERE status='ACTIVE'` liberó el slot exactamente como promete el
+   diseño (§1.1 / 00-REQUISITOS §2.3). El hecho de que Andrea llegara a `/invitacion` y
+   aceptara confirma en vivo el fix de PR D (§14): un member revocado+re-invitado NO queda
+   atorado para siempre en la pantalla de revocado.
+6. [x] **CONFIRMADO EN VIVO 2026-07-22.** `member_audit_log` en prod: 22 filas, **TODAS de
+   Andrea** (cero writes del owner logueados — correcto, §6 audita solo writes de members).
+   `toggle_key` correcto en cada fila: `asistente_ia`/POST→`/api/agenda-agent` (10),
+   `citas`/PATCH→`bookings/[id]` completions (6), `citas`/POST→range-bookings+fiscal-form-link
+   (5), `expedientes`/POST→`medical-records/patients` (1). Solo métodos mutantes (POST/PATCH),
+   ningún GET. **Ningún `flujo`** pese a 6 completaciones → confirma que el ingreso de cita es
+   efecto server-side (hallazgo 6, §17), no un segundo write flujo-gated. Ningún 403 logueado
+   (los bloqueos nunca llegan al insert de auditoría). El revoke/re-invite/accept NO agregó
+   filas de auditoría — correcto: son acciones del owner (no auditadas) + el accept va por la
+   ruta NEUTRAL `my-invites/accept`, no un write member-gated.
+7. [x] Owner: cero cambios observados en todo lo probado. **§9 COMPLETO — validación en vivo cerrada.**
 
 
 Bug adicional fuera de esta lista, encontrado por el usuario probando la agenda: el botón
@@ -1020,3 +1116,59 @@ aparece; + regresión owner.
 verificar que el write sea realmente server-side y no un segundo llamado del cliente a un
 endpoint de otro bloque. Es una familia distinta a la de §16 (owner-only sin guard) y necesita
 su propio grep (POST de cliente a endpoint-de-otro-toggle desde una acción permitida).
+
+## 18. Pasos 5-6 de la validación — revoke/re-invite + audit log (2026-07-22, CERRADO)
+
+Últimos dos pasos de §9, ambos confirmados en vivo (UI observada por el usuario + verificación
+read-only en prod entre acciones, método `TOOLING-acceso-railway-db.md`). Con esto **§9 queda
+completo — la validación en vivo de la feature está cerrada**. Cero hallazgos nuevos (a
+diferencia de los pasos 3 y 4, que sí destaparon bugs) — el ciclo de membresía se comportó
+exactamente como lo prometía el diseño.
+
+### Paso 5 — revoke → re-invite → accept (ciclo completo)
+
+Estado en prod tras el ciclo (`doctor_members` para dr-prueba, filtrado a Andrea):
+
+| fila | status | permissions | timestamp |
+|---|---|---|---|
+| `cmru5psrd…` (vieja) | **REVOKED** | set viejo, intacto | `revoked_at = 2026-07-22T17:43:42Z` |
+| `cmrwdhxc6…` (nueva) | **ACTIVE** | `INVITE_DEFAULTS` (citas/tareas/notas/ayuda ON, resto OFF) | `created_at = 2026-07-22T17:45:22Z` |
+
+`member_invites`: el nuevo invite `cmrwdhk91…` PENDING→ACCEPTED en 17 s (creado 17:45:05,
+aceptado 17:45:22).
+
+Propiedades de diseño confirmadas en datos reales:
+- **Revoke = flip de status, NO borrado.** La fila vieja persiste con `revoked_at` estampado y
+  sus permisos intactos (rastro de auditoría + alimenta la pantalla "acceso revocado").
+- **Slot liberado por el índice parcial.** Dos filas para el MISMO `user_id` (una REVOKED, una
+  ACTIVE) conviven porque `doctor_members_one_active_per_user WHERE status='ACTIVE'` solo cuenta
+  ACTIVE — el INSERT de la nueva ACTIVE se permitió precisamente porque la vieja es REVOKED. Es
+  el mecanismo exacto de §1.1 / 00-REQUISITOS §2.3, sin migración de datos.
+- **Pantallas confirmadas visualmente por el usuario:** Andrea vio "Acceso revocado" (no el
+  onboarding de crear-doctor) tras el revoke; y `/invitacion` (aceptar/rechazar) tras el
+  re-invite. Que llegara a `/invitacion` y aceptara **prueba en vivo el fix de PR D §14**: un
+  member revocado+re-invitado NO queda atorado para siempre en la pantalla de revocado.
+
+### Paso 6 — `member_audit_log` en prod
+
+22 filas, **TODAS de Andrea** (`user_id` único = ella; cero writes del owner logueados —
+correcto, §6 audita SOLO writes de members). Desglose, `toggle_key` correcto en cada fila:
+
+| toggle_key | método | n | rutas |
+|---|---|---|---|
+| `asistente_ia` | POST | 10 | `/api/agenda-agent` |
+| `citas` | PATCH | 6 | `/api/appointments/bookings/[id]` (completaciones) |
+| `citas` | POST | 5 | range-bookings, range-bookings/instant, fiscal-form-link |
+| `expedientes` | POST | 1 | `/api/medical-records/patients` |
+
+- Solo métodos mutantes (POST/PATCH); ningún GET auditado.
+- **Ningún `flujo`** pese a 6 completaciones → confirma en datos que el ingreso de cita es
+  efecto server-side (hallazgo 6, §17), no un segundo write flujo-gated. Una completación de
+  member = UN solo write auditado (`citas`).
+- Ningún 403 logueado (los bloqueos nunca alcanzan el insert de auditoría).
+- El revoke/re-invite/accept del paso 5 NO agregó filas — correcto: son acciones del owner (no
+  auditadas) + el accept va por la ruta NEUTRAL `my-invites/accept`, no un write member-gated.
+
+**Sub-pruebas de polish diferidas (no bloquean, respaldadas por el 403 server-side):** A3
+idempotencia, B1 gate SAT, B2 gate checkbox factura — difíciles de montar, verificadas por
+código+tsc, no en vivo (ver SESSION-REFRESCO paso 4).

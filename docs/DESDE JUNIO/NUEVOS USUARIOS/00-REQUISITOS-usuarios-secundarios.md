@@ -66,6 +66,10 @@ request sin re-login (§3.3).
 
 - Gmail invitado que **ya es dueño de un portal** → invitación rechazada al aceptar (regla
   v1 un-portal). El check se hace en el accept, no solo al crear el invite.
+- Gmail que **ya es member ACTIVE de otro portal** → otro doctor SÍ puede crear la invitación
+  (queda `PENDING`), pero el accept la rechaza con 409 mientras siga activa en otro lado;
+  además el layout no le muestra el invite automáticamente porque tiene doctorId efectivo.
+  Walkthrough end-to-end verificado contra código en `01-DISENO §6.3`.
 - Un member que después quiere su **propio portal** → primero debe salir de la membresía.
 - El layout del dashboard tiene un auto-refresh cuando `session.user.doctorId` es null
   (`apps/doctor/src/app/dashboard/layout.tsx:48-54`) — los members DEBEN recibir el doctorId
