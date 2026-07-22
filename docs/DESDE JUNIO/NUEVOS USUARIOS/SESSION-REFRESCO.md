@@ -115,12 +115,12 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
      por el usuario; app-layer gating read-only en prod; BD write-probe) + **ciclo G5 en vivo
      confirmado 2026-07-22** (revoke → botón se re-habilita → re-invite → accept → nueva fila ACTIVE,
      slot liberado, sigue 1 member). **Extensión A CERRADA.** Detalle: `03-PLAN §6`.
-   - **`04-PLAN-vista-admin-helpers.md` — ✅ SHIPPED 2026-07-22.** Vista admin de helpers por doctor:
-     nuevo `GET /api/admin/doctor-members` (admin-only, lee `doctor_members` no `user.doctorId`) +
-     página `/helpers` en `apps/admin` (doctor-céntrica, "N de 19" permisos) + link en Navbar. G1
-     resuelto (`{prefix:'admin',key:'NEUTRAL'}` en route-permissions; coverage gate verde 235 rutas).
-     Gates: tsc api+admin, coverage, smoke read-only del shape. Toca `@healthcare/api`+`@healthcare/admin`,
-     sin migración. Pendiente menor: verificación funcional en vivo (`/helpers` como admin). Detalle:
+   - **`04-PLAN-vista-admin-helpers.md` — ✅ SHIPPED + VERIFICADO EN VIVO 2026-07-22.** Vista admin
+     de helpers por doctor: nuevo `GET /api/admin/doctor-members` (admin-only, lee `doctor_members`
+     no `user.doctorId`) + página `/helpers` en `apps/admin` (doctor-céntrica, "N de 19" permisos) +
+     link en Navbar Y en el menú de `/dashboard` (`64677f6f` — el dashboard es cards, no usa Navbar).
+     G1 resuelto (`{prefix:'admin',key:'NEUTRAL'}`; coverage gate 235 rutas). Verificado por el
+     usuario: `/helpers` muestra a Andrea bajo dr-prueba. Commits `4403c6d3`+`64677f6f`. Detalle:
      `04-PLAN §6`.
 2. **B2 (gate del checkbox de factura)** si se quiere cerrar el polish: (a) como Andrea con
    `facturacion` ON, abrir **Completar** en un booking cuyo paciente TENGA datos fiscales →

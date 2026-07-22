@@ -171,6 +171,11 @@ limpios: (1) blast radius del prefijo `admin` nuevo → `admin/doctor-members` e
 de datos → `select` explícito (user id/email/name/image, doctor id/slug/name/specialty), permissions
 = booleans, nada clínico/financiero.
 
-**SHIPPED:** pusheado 2026-07-22 (`@healthcare/api` + `@healthcare/admin`). Verificación funcional
-en vivo post-deploy: entrar a `/helpers` como admin → ver a Andrea bajo dr-prueba (Dr. Gerardo Lopez
-Fafutis).
+**SHIPPED + VERIFICADO EN VIVO 2026-07-22** (`@healthcare/api` + `@healthcare/admin`):
+- Commits: `4403c6d3` (endpoint + `/helpers` + Navbar + route-permissions) y `64677f6f`
+  (link "Asistentes (helpers)" en el menú de `/dashboard` — el dashboard es un menú de cards que
+  NO renderiza el Navbar, así que el link del Navbar no bastaba para llegar).
+- **Verificación funcional confirmada por el usuario:** `/helpers` renderiza a Andrea
+  (`andreabarbagal@gmail.com`) bajo Dr. Gerardo Lopez Fafutis (dr-prueba) con su resumen de
+  permisos; el resto de doctores como "Sin asistente". Endpoint api desplegado OK (los datos
+  cargaron). **Extensión B cerrada.**
