@@ -33,6 +33,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { usePermissions } from "@/lib/permissions-client";
 import { useUploadThing } from "@/lib/uploadthing";
 import { SAT_FORMA_PAGO_LABELS, ORIGIN_LABELS } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
 
@@ -729,6 +730,12 @@ function CfdiList({
   } | null>(null);
   const [linking, setLinking] = useState<number | null>(null); // ledgerEntryId being linked
   const [deducibilityFlags, setDeducibilityFlags] = useState<Record<string, Array<{ type: string; severity: string; message: string }>>>({});
+  // Linking a SAT CFDI to an EXISTING ledger entry hits the flujo-gated
+  // /ledger/[id]/link-cfdi endpoint AND exposes other entries' concepts/amounts — both
+  // require `flujo`. A member with `sat` but not `flujo` can still register a CFDI as a
+  // NEW entry (server-side, sat-gated), so we only gate the "link to existing" path.
+  const { can } = usePermissions();
+  const canLinkExisting = can("flujo");
 
   // Check which CFDIs are already registered as LedgerEntries
   const checkRegistered = useCallback(async (uuids: string[]) => {
@@ -1084,21 +1091,31 @@ function CfdiList({
             <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-200">
               <div>
                 <h3 className="text-base font-bold text-gray-900">Movimientos similares encontrados</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Selecciona uno para vincular o crea un movimiento nuevo</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {canLinkExisting
+                    ? "Selecciona uno para vincular o crea un movimiento nuevo"
+                    : "Crea un movimiento nuevo para registrar este CFDI"}
+                </p>
               </div>
               <button onClick={() => setSuggestionModal(null)} className="text-gray-400 hover:text-gray-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Suggestions list */}
+            {/* Suggestions list — hidden for members without `flujo`: linking to an existing
+                entry needs that permission, and the list itself exposes other entries' data. */}
             <div className="flex-1 overflow-y-auto min-h-0">
-              {suggestionModal.suggestions.length === 0 && (
+              {!canLinkExisting && (
+                <div className="px-5 py-6 text-center text-sm text-gray-500">
+                  Se encontraron movimientos similares, pero necesitas permiso de <span className="font-medium">Flujo de Dinero</span> para vincularlos. Puedes registrar este CFDI como un movimiento nuevo.
+                </div>
+              )}
+              {canLinkExisting && suggestionModal.suggestions.length === 0 && (
                 <div className="px-5 py-8 text-center text-sm text-gray-500">
                   No se encontraron movimientos similares
                 </div>
               )}
-              {suggestionModal.suggestions.map((s) => {
+              {canLinkExisting && suggestionModal.suggestions.map((s) => {
                 const originInfo = ORIGIN_LABELS[s.origin] || { label: s.origin, color: 'bg-gray-100 text-gray-700' };
                 return (
                   <div key={s.ledgerEntryId} className="px-5 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">

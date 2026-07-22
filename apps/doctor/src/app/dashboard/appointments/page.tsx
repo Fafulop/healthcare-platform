@@ -73,7 +73,9 @@ export default function AppointmentsPage() {
   const [standaloneFormModalOpen, setStandaloneFormModalOpen] = useState(false);
   const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
   const { open: openAgentPanel, subscribeAgendaChanged } = useAgentActions();
-  const { can: canAgent } = usePermissions();
+  // `can` gates member-only UI: the agent button (asistente_ia) and the CompleteBooking
+  // modal's "Emitir factura" checkbox (facturacion) — passing onEmitCfdi undefined hides it.
+  const { can } = usePermissions();
 
   // Refresh this page's views after the assistant executes proposals; the
   // effect returns the unsubscribe (fetchers are useCallback-stable, so this
@@ -257,7 +259,7 @@ export default function AppointmentsPage() {
             <span className="hidden sm:inline">Campos de Cita</span>
             <span className="sm:hidden">Campos</span>
           </button>
-          {canAgent("asistente_ia") && (
+          {can("asistente_ia") && (
             <button
               onClick={openAgentPanel}
               className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
@@ -372,7 +374,7 @@ export default function AppointmentsPage() {
           rangesHook.fetchRanges();
           return result;
         }}
-        onEmitCfdi={bookingsHook.emitCfdi}
+        onEmitCfdi={can("facturacion") ? bookingsHook.emitCfdi : undefined}
         onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
         onUpdatePatientLink={bookingsHook.updatePatientLink}
