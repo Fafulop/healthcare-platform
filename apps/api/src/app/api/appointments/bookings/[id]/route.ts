@@ -15,6 +15,7 @@ import {
 import { createSlotEvent, updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
 import { getCalendarTokens } from '@/lib/appointments-utils';
 import { findBookingOverlap } from '@/lib/booking-overlap';
+import { createCitaLedgerEntry } from '@/lib/practice-utils';
 import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { sendAppointmentCancellationEmail } from '@/lib/gmail';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
@@ -104,7 +105,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status: newStatus, extendedBlockMinutes, patientId, confirmationCode: bodyConfirmationCode, finalPrice } = body;
+    const { status: newStatus, extendedBlockMinutes, patientId, confirmationCode: bodyConfirmationCode, finalPrice, income } = body;
 
     // ── Patient link update (no status change, no block change) ───────────────
     if (patientId !== undefined && newStatus === undefined && extendedBlockMinutes === undefined) {
@@ -542,6 +543,32 @@ export async function PATCH(
         }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking COMPLETED/NO_SHOW):', err));
       }
 
+      // ── Income as a server-side internal effect of completion ────────────────
+      // Completing a cita is a `citas`-permitted action; recording its income must
+      // proceed even for a secondary user without `flujo` (00-REQUISITOS §3.6). This
+      // used to be a SECOND client POST to /practice-management/ledger (flujo-gated),
+      // which 403'd for such members and silently dropped the income. Best-effort:
+      // a failure here never fails the completion — same soft-warning semantics the
+      // clients had, just surfaced via `ledgerWarning` instead of a failed request.
+      let ledgerEntryId: number | undefined;
+      let ledgerAlreadyExisted = false;
+      let ledgerWarning = false;
+      if (newStatus === 'COMPLETED' && income && typeof income.price === 'number' && income.price > 0) {
+        try {
+          const result = await createCitaLedgerEntry({
+            doctorId: currentBooking.doctorId,
+            bookingId: currentBooking.id,
+            amount: income.price,
+            formaDePago: typeof income.formaDePago === 'string' ? income.formaDePago : 'efectivo',
+          });
+          ledgerEntryId = result.id;
+          ledgerAlreadyExisted = result.alreadyExisted;
+        } catch (err) {
+          console.error('[ledger] cita income creation failed (booking completed anyway):', err);
+          ledgerWarning = true;
+        }
+      }
+
       const statusMessages = {
         CANCELLED: 'Booking cancelled successfully',
         COMPLETED: 'Booking marked as completed',
@@ -552,6 +579,9 @@ export async function PATCH(
         success: true,
         data: updatedBooking,
         message: statusMessages[newStatus as keyof typeof statusMessages],
+        ...(ledgerEntryId !== undefined ? { ledgerEntryId } : {}),
+        ...(ledgerAlreadyExisted ? { ledgerAlreadyExisted: true } : {}),
+        ...(ledgerWarning ? { ledgerWarning: true } : {}),
       });
     }
 

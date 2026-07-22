@@ -175,6 +175,121 @@ export async function createPaymentLedgerEntry(
   return entry;
 }
 
+// ─── Appointment completion → LedgerEntry (server-side internal effect) ──────
+
+/**
+ * Area name for appointment income. MUST stay in sync with the client constant
+ * `AREA_INGRESOS_CONSULTA` in
+ * apps/doctor/.../flujo-de-dinero/_components/ledger-types.ts ('Ingresos Consulta').
+ * Duplicated here because the API app can't import from the doctor app.
+ */
+const AREA_INGRESOS_CONSULTA = 'Ingresos Consulta';
+
+const VALID_FORMAS_DE_PAGO = ['efectivo', 'transferencia', 'tarjeta', 'cheque', 'deposito'];
+
+interface CitaLedgerInput {
+  doctorId: string;
+  bookingId: string;
+  amount: number;
+  formaDePago: string;
+}
+
+/**
+ * Creates the income LedgerEntry for a COMPLETED appointment, server-side, as an
+ * internal effect of the completion (which is a `citas`-permitted action). This is
+ * why it lives on the server and NOT as a client POST to /practice-management/ledger:
+ * a secondary user with `citas` but not `flujo` must still get the income recorded
+ * (00-REQUISITOS §3.6 "los efectos internos de una acción permitida siempre proceden").
+ *
+ * Field parity with the two former client payloads (useBookings.completeBooking and
+ * the agent's complete_booking executor) is deliberate — concept, area, subarea,
+ * patient fiscal identity and transactionDate are rebuilt here from the booking so the
+ * written row is byte-for-byte what those clients produced.
+ *
+ * Idempotent on the bookingId @unique: if income already exists (e.g. a paid payment
+ * link created it via webhook), returns it with alreadyExisted:true instead of throwing.
+ */
+export async function createCitaLedgerEntry(
+  input: CitaLedgerInput
+): Promise<{ id: number; internalId: string; alreadyExisted: boolean }> {
+  const { doctorId, bookingId, amount } = input;
+  const formaDePago = VALID_FORMAS_DE_PAGO.includes(input.formaDePago) ? input.formaDePago : 'efectivo';
+
+  // Idempotency pre-check (mirrors the POST route + createPaymentLedgerEntry).
+  const existing = await prisma.ledgerEntry.findUnique({
+    where: { bookingId },
+    select: { id: true, internalId: true },
+  });
+  if (existing) return { ...existing, alreadyExisted: true };
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      serviceId: true,
+      serviceName: true,
+      patientId: true,
+      patientName: true,
+      date: true,
+      patient: { select: { rfc: true, razonSocial: true } },
+      slot: { select: { date: true } },
+    },
+  });
+
+  const patientName = booking?.patientName ?? '';
+  const serviceName = booking?.serviceName ?? null;
+  const concept = serviceName ? `${serviceName} - ${patientName}` : `Consulta - ${patientName}`;
+
+  // transactionDate = appointment day (slot date, else freeform booking date, else today),
+  // stored at T12:00:00 like every other ledger entry.
+  const apptDate = booking?.slot?.date ?? booking?.date ?? null;
+  const dateKey = apptDate
+    ? apptDate.toISOString().split('T')[0]
+    : new Date().toISOString().split('T')[0];
+
+  const internalId = await generateLedgerInternalId(doctorId, 'ingreso');
+  // `||` (not `??`) on purpose: an empty-string razonSocial falls through to patientName.
+  const counterpartyRfc = booking?.patient?.rfc?.trim().toUpperCase().slice(0, 13) || null;
+  const counterpartyName = booking?.patient?.razonSocial || patientName || null;
+
+  try {
+    const entry = await prisma.ledgerEntry.create({
+      data: {
+        doctorId,
+        amount,
+        concept: concept.slice(0, 500),
+        entryType: 'ingreso',
+        transactionDate: new Date(dateKey + 'T12:00:00'),
+        internalId,
+        formaDePago,
+        area: AREA_INGRESOS_CONSULTA,
+        subarea: serviceName || '',
+        origin: 'cita',
+        transactionType: 'N/A',
+        amountPaid: amount,
+        paymentStatus: 'PAID',
+        bookingId,
+        ...(booking?.serviceId ? { serviceId: booking.serviceId } : {}),
+        ...(serviceName ? { serviceName } : {}),
+        ...(booking?.patientId ? { patientId: booking.patientId } : {}),
+        ...(counterpartyRfc ? { counterpartyRfc } : {}),
+        ...(counterpartyName ? { counterpartyName } : {}),
+      },
+      select: { id: true, internalId: true },
+    });
+    return { ...entry, alreadyExisted: false };
+  } catch (error: any) {
+    // Race: a payment webhook created the entry between our pre-check and this create.
+    if (error?.code === 'P2002' && String(error?.meta?.target ?? '').includes('booking_id')) {
+      const raced = await prisma.ledgerEntry.findUnique({
+        where: { bookingId },
+        select: { id: true, internalId: true },
+      });
+      if (raced) return { ...raced, alreadyExisted: true };
+    }
+    throw error;
+  }
+}
+
 // ─── Default Area Resolution ────────────────────────────────────────────────
 
 /**

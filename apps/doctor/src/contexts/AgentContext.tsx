@@ -189,48 +189,37 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
     }
 
     if (p.type === 'complete_booking') {
-      // Two calls, mirroring useBookings.completeBooking (G1): the PATCH does
-      // NOT create the LedgerEntry — the ledger POST (payload built server-side
-      // at proposal time) is what registers the income in Flujo de Dinero.
+      // ONE call: the PATCH marks the cita COMPLETED and the API creates the income
+      // LedgerEntry as an internal effect of that (citas-permitted) completion — NOT a
+      // separate flujo-gated POST, so it also works for a secondary user without `flujo`
+      // (00-REQUISITOS §3.6). The server rebuilds concept/area/patient identity from the
+      // booking; we only forward the amount + forma de pago the proposal captured.
+      // `params.ledger` is null when the income already exists (H2, e.g. paid payment link).
+      const ledger = p.params.ledger as { amount?: number; formaDePago?: string } | null;
+      const body: { status: string; income?: { price: number; formaDePago?: string } } = { status: 'COMPLETED' };
+      if (ledger && typeof ledger.amount === 'number') {
+        body.income = { price: ledger.amount, formaDePago: ledger.formaDePago };
+      }
       const patchRes = await authFetch(`${API_URL}/api/appointments/bookings/${p.params.bookingId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: 'COMPLETED' }),
+        body: JSON.stringify(body),
       });
       const patchData = await patchRes.json().catch(() => ({ success: false, error: `respuesta inválida del servidor (HTTP ${patchRes.status}) — verifica el estado de la cita` }));
       if (!patchData.success) {
         return { ok: false, resumen: patchData.error || 'Error al completar la cita' };
       }
-      // H2: the proposal detected the income already exists (e.g. paid payment link)
-      // — only the PATCH runs; a second ledger POST would 409.
-      if (!p.params.ledger) {
-        return { ok: true, resumen: 'Cita COMPLETADA · el ingreso ya estaba registrado en Flujo de Dinero (no se duplicó)' };
-      }
-      try {
-        const ledgerRes = await authFetch(`${API_URL}/api/practice-management/ledger`, {
-          method: 'POST',
-          body: JSON.stringify(p.params.ledger),
-        });
-        const ledgerData = await ledgerRes.json();
-        if (!ledgerData.data) {
-          // Race: a webhook created the entry between proposal and execution — the
-          // income exists, so this is success, not a manual-register warning.
-          if (ledgerData.code === 'BOOKING_LEDGER_EXISTS') {
-            return { ok: true, resumen: 'Cita COMPLETADA · el ingreso ya estaba registrado en Flujo de Dinero (no se duplicó)' };
-          }
-          return {
-            ok: true,
-            resumen:
-              '⚠️ Cita COMPLETADA, pero el ingreso NO se registró en Flujo de Dinero — regístralo manualmente',
-          };
-        }
-      } catch {
+      if (patchData.ledgerWarning) {
         return {
           ok: true,
           resumen:
             '⚠️ Cita COMPLETADA, pero el ingreso NO se registró en Flujo de Dinero — regístralo manualmente',
         };
       }
-      const monto = (p.params.ledger as { amount?: number })?.amount;
+      // H2 (no income to create) or the entry already existed (race with a payment webhook).
+      if (!ledger || patchData.ledgerAlreadyExisted) {
+        return { ok: true, resumen: 'Cita COMPLETADA · el ingreso ya estaba registrado en Flujo de Dinero (no se duplicó)' };
+      }
+      const monto = ledger.amount;
       return { ok: true, resumen: `Cita COMPLETADA · ingreso registrado en Flujo de Dinero${monto ? ` ($${monto})` : ''}` };
     }
 

@@ -3,7 +3,6 @@ import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { practiceConfirm } from "@/lib/practice-confirm";
 import { getLocalDateString } from "@/lib/dates";
-import { AREA_INGRESOS_CONSULTA } from "@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -220,68 +219,29 @@ export function useBookings(doctorId: string | undefined) {
 
   const completeBooking = async (bookingId: string, price: number, formaDePago: string): Promise<{ ledgerEntryId?: number }> => {
     try {
-      // 1. Mark booking as COMPLETED
-      const statusRes = await authFetch(
+      // Mark COMPLETED + record income in ONE call. The income LedgerEntry is created by
+      // the API as an internal effect of the (citas-permitted) completion — NOT a separate
+      // flujo-gated POST — so it also works for secondary users without `flujo`
+      // (00-REQUISITOS §3.6). The server rebuilds concept/area/patient identity from the
+      // booking; the client only supplies the price + forma de pago the user entered.
+      const res = await authFetch(
         `${API_URL}/api/appointments/bookings/${bookingId}`,
-        { method: "PATCH", body: JSON.stringify({ status: "COMPLETED" }) }
+        { method: "PATCH", body: JSON.stringify({ status: "COMPLETED", income: { price, formaDePago } }) }
       );
-      const statusData = await statusRes.json();
-      if (!statusData.success) {
-        toast.error(statusData.error || "Error al completar la cita");
+      const data = await res.json();
+      if (!data.success) {
+        toast.error(data.error || "Error al completar la cita");
         return {};
       }
-
-      // 2. Build concept from local booking state
-      const booking = bookings.find((b) => b.id === bookingId);
-      const patientName = booking?.patientName ?? "";
-      const serviceName = booking?.serviceName;
-      const concept = serviceName
-        ? `${serviceName} - ${patientName}`
-        : `Consulta - ${patientName}`;
-
-      // 3. Create ledger entry (fire the call, but surface errors as a soft warning)
-      const appointmentDate = (booking?.slot?.date ?? booking?.date ?? "").split("T")[0];
-      const transactionDate = appointmentDate || new Date().toISOString().split("T")[0];
-      const ledgerRes = await authFetch(
-        `${API_URL}/api/practice-management/ledger`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            entryType: "ingreso",
-            amount: price,
-            concept,
-            formaDePago,
-            transactionDate,
-            paymentStatus: "PAID",
-            amountPaid: price,
-            bookingId,
-            origin: "cita",
-            serviceId: booking?.serviceId || null,
-            serviceName: serviceName || null,
-            area: AREA_INGRESOS_CONSULTA,
-            subarea: serviceName || "",
-            // Patient fiscal identity — lets SAT matching link the eventual CFDI by RFC
-            // (the strongest, date-independent signal) and lets an agent trace income↔patient.
-            patientId: booking?.patientId || null,
-            counterpartyRfc: booking?.patient?.rfc || null,
-            counterpartyName: booking?.patient?.razonSocial || patientName || null,
-          }),
-        }
-      );
-      const ledgerData = await ledgerRes.json();
-      if (!ledgerData.data) {
-        // H2: a paid payment link already created this cita's income via webhook —
-        // that's success (the income exists), not an error.
-        if (ledgerData.code === "BOOKING_LEDGER_EXISTS") {
-          toast.success("Cita completada · el ingreso ya estaba registrado (pagado con link de pago)");
-          return { ledgerEntryId: ledgerData.existingEntry?.id };
-        }
+      if (data.ledgerWarning) {
         toast.error("Cita completada, pero hubo un error al crear el movimiento en Flujo de Dinero");
-        return {};
+      } else if (data.ledgerAlreadyExisted) {
+        // H2: a paid payment link already created this cita's income via webhook.
+        toast.success("Cita completada · el ingreso ya estaba registrado (pagado con link de pago)");
       } else {
         toast.success("Cita completada · ingreso registrado en Flujo de Dinero");
-        return { ledgerEntryId: ledgerData.data.id };
       }
+      return { ledgerEntryId: data.ledgerEntryId };
     } catch {
       toast.error("Error al completar la cita");
       return {};
