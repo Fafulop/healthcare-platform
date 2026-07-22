@@ -127,10 +127,32 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
    el checkbox "Emitir factura (CFDI)" debe aparecer; (b) owner pone `facturacion` OFF a
    Andrea; (c) reabrir Completar → el checkbox debe DESAPARECER. B1 (SAT) y A3 (idempotencia)
    quedaron diferidos por ser difíciles de montar (ver paso 4 arriba).
-3. **Correr la suite de evals del agente** (60 casos, gasto real de API, nunca corrida
-   todavía) — sobre todo para probar PR C (filtrado de módulos), que solo tiene la garantía
-   de identidad de bytes para el owner, cero evals para el path de member. Aprovechar para
-   sembrar un eval del path member de completar-cita (ingreso server-side).
+2.5. **Cobertura de bloqueo de los 19 toggles — AUDITADA 2026-07-22** (`05-COBERTURA-19-toggles.md`):
+   16/19 con enforcement server-side real; 3 sin ruta por diseño (`perfil_publico` esconde link,
+   `ayuda` estático, `contenido` es placeholder "Próximamente"). Garantía de máquina: el coverage
+   gate asserta 235 rutas clasificadas + fail-closed. Cobertura confirmada completa.
+3. **Evals del agente — path de MEMBER CONSTRUIDO + CORRIDO 2026-07-22** (era el gap real: PR C solo
+   tenía identidad de bytes para owner, cero evals de member). `agenda-agent-evals.ts` ahora acepta
+   `permissions` por caso → `enabledModules` recorta módulos antes del turno (+ check `no-tool-called`).
+   3 casos member (`{citas:true}`) corridos contra prod read-only → **3/3 PASS**: módulo agenda
+   funciona; declina facturas y flujo sin invocar tools bloqueadas, sin inventar, y **sin culpar al
+   dueño** ("no tengo habilitada en esta cuenta…"). Sigue pendiente (decisión del usuario): correr la
+   suite completa de owner (~65 casos, gasto real de API) para confirmar el baseline.
+
+**⚠️ Known issue DIFERIDO — over-claim de capacidades del agente member (sev. baja):** el agente
+member a veces SOBRE-DECLARA capacidades de módulos bloqueados en su lista "lo que sí puedo hacer"
+(el caso flujo listó capacidades de facturas — `get_billing_status`/`create_cfdi` — que NO tiene; el
+caso facturas del MISMO member las negó bien → inconsistencia del modelo, no enumeración hardcodeada
+del prompt). **No puede EJECUTARLAS** (las tools no existen para el member); solo se describe mal —
+por eso es cosmético, no un hueco de conducta/seguridad. **Decisión 2026-07-22: DIFERIR** (no vale
+una iteración de prompt por algo cosmético). **Cuando se retome — NO batchear con "card fantasma"
+(§4):** blast radius distinto. Este fix vive en `MEMBER_SCOPE_NOTE` → **solo afecta el prompt de
+members, el de owner queda byte-idéntico** (cache intacto), y el re-eval son solo los 3 casos member
+(barato). Card-fantasma toca el prompt COMPARTIDO → rompe identidad de bytes del owner → exige
+re-eval de la suite completa. Guardarraíl sugerido (consistente con §13, sin enumerar lo bloqueado):
+*"deriva tu lista de 'lo que puedo hacer' SOLO de tus tools disponibles; no ofrezcas ni insinúes
+capacidades que no puedes ejecutar."* Ojo: es un failure mode conocido de LLMs → un nudge de prompt
+lo reduce, no lo elimina; garantía dura = post-procesar la respuesta (más de lo que amerita).
 4. **Fix de la "card fantasma" del agente** (bug conocido, ver AGENTE AGENDA SESSION-REFRESCO
    bitácora #23): guardarraíl de prompt para que el agente no anuncie una card antes de llamar
    `propose_*`. Es su propia pasada (cambia bytes del prompt → cache + evals).

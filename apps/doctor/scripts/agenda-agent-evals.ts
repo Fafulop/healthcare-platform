@@ -39,6 +39,8 @@ type Check =
    * dentro de un span {startDate,endDate} (el modelo puede resolver un día
    * con una consulta de rango; eso también es correcto). */
   | { kind: 'any-tool-date'; dates: string[] }
+  /** Falla si se llamó alguna de estas tools (módulo bloqueado para un member). */
+  | { kind: 'no-tool-called'; names: string[] }
   | { kind: 'reply-match'; pattern: string; flags?: string }
   | { kind: 'reply-not-match'; pattern: string; flags?: string };
 
@@ -59,6 +61,11 @@ interface EvalCase {
   bitacora?: string;
   message: string;
   history?: HistoryMsg[];
+  /** Toggles de un MEMBER (NUEVOS USUARIOS PR C). Si está presente, el turno corre
+   * con el set de módulos recortado por enabledModules({isOwner:false, permissions});
+   * ausente = owner (set completo). Prueba la capa de COMPOSICIÓN del agente
+   * (prompt+tools filtrados), no el enforcement del API. */
+  permissions?: Record<string, boolean>;
   /** WARN en vez de FAIL (redacción del modelo / datos vivos). */
   soft?: boolean;
   /** Estado de prod que el caso asume — si falla, revisar esto primero. */
@@ -102,6 +109,7 @@ async function main() {
 
   // Imports DESPUÉS de fijar el env (prisma lee DATABASE_URL al construirse).
   const { runAgendaAgentTurn } = await import('../src/lib/agenda-agent/run-turn');
+  const { enabledModules } = await import('../src/lib/agenda-agent/modules/registry');
   const { mintApiToken } = await import('../src/lib/agenda-agent/api-token');
   const { mxTodayKey } = await import('../src/lib/agenda-agent/dates');
   const { prisma } = await import('@healthcare/database');
@@ -887,6 +895,51 @@ async function main() {
         { kind: 'reply-not-match', pattern: 'esta es la clave exacta', flags: 'i' },
       ],
     },
+
+    // ——— NUEVOS USUARIOS PR C: agente de MEMBERS (módulos filtrados por permisos) ———
+    // Pasan `permissions` (toggles del member) → enabledModules recorta el set de
+    // módulos ANTES del turno. Prueban la capa de COMPOSICIÓN del agente (prompt +
+    // toolset filtrados), NO el enforcement del API (eso = mapa de rutas + curl).
+    // Corren sobre datos/token de dr-prueba; el punto es la conducta del agente
+    // cuando le faltan módulos. `{citas:true}` ⇒ solo el módulo agenda.
+    {
+      id: 'member-citas-agenda-funciona',
+      bitacora: 'PR C — member con solo `citas`: su módulo permitido (agenda) funciona igual que owner',
+      permissions: { citas: true },
+      message: '¿tengo citas vencidas?',
+      checks: [
+        { kind: 'tool-called', name: 'get_bookings', inputMatch: { vencidas: true } },
+      ],
+    },
+    {
+      id: 'member-citas-declina-facturas',
+      bitacora: 'PR C — member sin facturacion/sat: declina facturas sin inventar y sin culpar al dueño',
+      permissions: { citas: true },
+      soft: true, // redacción del modelo
+      message: '¿cuánto he facturado este mes?',
+      checks: [
+        { kind: 'no-proposals' },
+        // Las tools de facturas/fiscal no existen para este member (módulo recortado).
+        { kind: 'no-tool-called', names: ['get_sat_cfdis', 'get_resumen_fiscal', 'get_pendientes_factura', 'get_ppd_cobranza'] },
+        // Declina / dice que no está a su alcance en esta cuenta.
+        { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|gestiono|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance)|fuera de[^.]{0,20}alcance|esta cuenta)', flags: 'i' },
+        // NUNCA culpa al dueño / no menciona bloqueo/permisos administrativos.
+        { kind: 'reply-not-match', pattern: '(due[ñn]o|bloquea|te (dio|han dado)|administrador|no te (lo )?permit|sin permiso)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'member-citas-declina-flujo',
+      bitacora: 'PR C — member sin flujo: no accede a balance/ledger; declina limpio',
+      permissions: { citas: true },
+      soft: true,
+      message: '¿cuánto dinero me quedó en junio entre lo que entró y lo que salió?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'no-tool-called', names: ['get_balance', 'get_movimientos', 'get_flujo_status', 'get_conciliacion_bancaria'] },
+        { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|gestiono|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance)|fuera de[^.]{0,20}alcance|esta cuenta)', flags: 'i' },
+        { kind: 'reply-not-match', pattern: '(due[ñn]o|bloquea|te (dio|han dado)|administrador|no te (lo )?permit|sin permiso)', flags: 'i' },
+      ],
+    },
   ];
 
   // --- Runner secuencial ---
@@ -917,6 +970,10 @@ async function main() {
         message: c.message,
         conversationHistory: c.history ?? [],
         apiToken,
+        // Member cases: recorta el set de módulos por permisos ANTES del turno.
+        modules: c.permissions
+          ? enabledModules({ isOwner: false, permissions: c.permissions as any })
+          : undefined,
       });
     } catch (err: any) {
       hardFails++;
@@ -1003,6 +1060,12 @@ function evalCheck(
     }
     case 'tools-nonempty':
       return turn.toolsUsed.length > 0 ? null : 'esperaba ≥1 tool call (re-consulta); llamó 0';
+    case 'no-tool-called': {
+      const hit = turn.toolCalls.filter((tc) => check.names.includes(tc.name));
+      return hit.length === 0
+        ? null
+        : `llamó tools que no debía (módulo bloqueado): [${hit.map((t) => t.name).join(',')}]`;
+    }
     case 'no-proposals':
       return turn.proposals.length === 0
         ? null

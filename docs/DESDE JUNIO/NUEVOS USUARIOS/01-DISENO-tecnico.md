@@ -531,6 +531,24 @@ recortado paga su propio cache write frío la primera vez. Sin cambio de arquite
   sin inventar y sin nombrar "bloqueado por el dueño". Se corren con un flag de permisos en
   el runner (el runner mintea token propio — necesita poder simular member).
 
+**As-built (2026-07-22) — evals de member CONSTRUIDOS + CORRIDOS:** `scripts/agenda-agent-evals.ts`
+acepta `permissions` por caso → el runner llama `enabledModules({isOwner:false, permissions})` y
+pasa el set recortado a `runAgendaAgentTurn` (que ya tenía el param `modules`); nuevo check
+`no-tool-called`. 3 casos member (`{citas:true}` ⇒ solo agenda) corridos contra prod read-only vía
+`EVALS_ONLY` → **3/3 PASS**: (1) el módulo agenda funciona (`get_bookings`); (2) declina facturas y
+(3) declina flujo — sin invocar tools de módulos bloqueados (no existen para el member), sin
+inventar, y sin culpar al dueño ("no tengo habilitada **en esta cuenta**…"). **Hallazgo (sev. baja):**
+el agente member a veces SOBRE-DECLARA capacidades de módulos bloqueados en su lista "lo que sí
+puedo hacer" (caso flujo listó capacidades de facturas — `get_billing_status`/`create_cfdi`, que
+son del módulo facturas; el caso facturas del MISMO member las negó bien → inconsistencia del
+modelo, no enumeración hardcodeada). No puede EJECUTARLAS (tools ausentes); solo se describe mal
+→ cosmético. **Decisión 2026-07-22: DIFERIR, como ítem standalone (NO batchear con "card fantasma").**
+Blast radius distinto: el fix va en `MEMBER_SCOPE_NOTE` (solo prompt de member → owner byte-idéntico,
+re-eval = 3 casos member, barato); card-fantasma toca el prompt compartido (owner cambia → re-eval
+suite completa). Guardarraíl sugerido (sin enumerar lo bloqueado, consistente con §13): "deriva tu
+lista de capacidades SOLO de tus tools disponibles". Es failure mode conocido de LLMs → nudge lo
+reduce, no lo elimina. La suite completa de owner (~65) NO se corrió aún (gasto real; decisión del usuario).
+
 ---
 
 ## 8. Orden de PRs (cada uno deployable, prod-safe)
