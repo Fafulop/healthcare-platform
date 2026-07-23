@@ -36,6 +36,17 @@ export function addMinutesToTime(time: string, minutes: number): string {
   return `${hh}:${mm}`;
 }
 
+/** "YYYY-MM-DD" of the Monday that starts the CURRENT week in Mexico City.
+ * Week = Monday–Sunday MX — the assistant's usage cap is weekly (a day-less
+ * window averages out zero-use days). Same noon-UTC trick as the weekday math
+ * in the eval runner so the calendar day never shifts across the tz offset. */
+export function mxWeekStartKey(): string {
+  const d = new Date(mxTodayKey() + 'T12:00:00Z');
+  const daysSinceMonday = (d.getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+  d.setUTCDate(d.getUTCDate() - daysSinceMonday);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Normalize a "YYYY-MM-DD" key to the midnight-UTC Date the DB stores. */
 export function dateKeyToUtcDate(dateKey: string): Date {
   const d = new Date(dateKey + 'T12:00:00Z');

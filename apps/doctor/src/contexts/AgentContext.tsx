@@ -76,7 +76,7 @@ export interface AgentMessage {
   proposals?: AgendaProposal[];
 }
 
-/** Daily assistant budget (resets at midnight MX) — drives the panel widget. */
+/** Weekly assistant budget (resets Monday 00:00 MX) — drives the panel widget. */
 export interface AgentBudget {
   used: number;
   cap: number;

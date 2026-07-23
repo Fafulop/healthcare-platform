@@ -219,11 +219,17 @@ lo re-valida contra el token de todas formas).
 
 ## 8. Presupuesto, límites y telemetría
 
-- **Cap diario por doctor**: `AGENDA_AGENT_DAILY_TOKEN_CAP` (500k tokens — se subió a 2M para la
-  validación de PR 3 y **volvió a 500k el 2026-07-07** tras implementar prompt caching), corte a
-  medianoche MX (UTC-6 fijo — L3), medido en `llm_token_usage` (`endpoint='agenda-agent'`) → 429.
-  **Widget de uso**: el panel muestra una barra "Uso de hoy" (verde→ámbar ≥70%→rojo ≥90%) — la
-  alimenta `GET /api/agenda-agent` al abrir el panel y el campo `budget` de cada respuesta POST.
+- **Cap SEMANAL por doctor**: `AGENDA_AGENT_WEEKLY_TOKEN_CAP` (2M budget tokens ≈ $6/sem ≈
+  $26/mes peor caso). **Historia del cap**: diario 500k → subido a 2M para validar PR 3 → de vuelta
+  a 500k el 2026-07-07 tras prompt caching → **movido a SEMANAL 2M el 2026-07-23** (cost review
+  `OPTIMIZACION COSTOS`: un doctor real tiene días de cero uso; una ventana de 7 días los promedia
+  en vez de un techo por-día que un solo día ocupado revienta). El var viejo
+  `AGENDA_AGENT_DAILY_TOKEN_CAP` **ya no se lee** (un valor stale lo malaplicaría). Semana lun–dom,
+  corte **lunes 00:00 MX** (UTC-6 fijo — L3; `mxWeekStartKey()`), medido en `llm_token_usage`
+  (`endpoint='agenda-agent'`, `SUM(budget_tokens)` sobre la semana) → 429. Smoke read-only vs prod
+  2026-07-23: shape OK, dr-prueba 312,567/sem (15.6% del cap). **Widget de uso**: el panel muestra
+  una barra "Uso de la semana" (verde→ámbar ≥70%→rojo ≥90%) — la alimenta `GET /api/agenda-agent`
+  al abrir el panel y el campo `budget` de cada respuesta POST.
 - **⚖️ Cap ponderado por COSTO (desde 2026-07-08).** Historia y porqué: el cap nació contando
   **volumen crudo** de tokens, que era ≈ proporcional al costo… hasta que el prompt caching
   (2026-07-07) rompió esa equivalencia — un token leído de cache cuesta ~0.1× uno normal, pero

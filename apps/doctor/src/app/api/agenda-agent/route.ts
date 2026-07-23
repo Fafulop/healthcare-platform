@@ -29,33 +29,39 @@ import { isAnthropicConfigured } from '@/lib/agenda-agent/anthropic';
 import { runAgendaAgentTurn, MODEL } from '@/lib/agenda-agent/run-turn';
 import { enabledModules } from '@/lib/agenda-agent/modules/registry';
 import { mintApiToken } from '@/lib/agenda-agent/api-token';
-import { mxTodayKey } from '@/lib/agenda-agent/dates';
+import { mxWeekStartKey } from '@/lib/agenda-agent/dates';
 
-const DAILY_TOKEN_CAP = Number(process.env.AGENDA_AGENT_DAILY_TOKEN_CAP || 500_000);
+// The assistant's usage cap is WEEKLY (moved from daily 2026-07-23, cost review
+// in docs/DESDE JUNIO/AGENTES/OPTIMIZACION COSTOS): a real doctor has zero-use
+// days, so a 7-day window averages them out instead of a per-day ceiling that a
+// single busy day blows. 2,000k budget/week ≈ $6/week ≈ $26/mo worst case at
+// $3/M input — a fraction of the $37–50 subscription. Tune via env; the old
+// AGENDA_AGENT_DAILY_TOKEN_CAP is no longer read (a stale value would misapply).
+const WEEKLY_TOKEN_CAP = Number(process.env.AGENDA_AGENT_WEEKLY_TOKEN_CAP || 2_000_000);
 
-async function getTokensUsedToday(doctorId: string): Promise<number> {
+async function getTokensUsedThisWeek(doctorId: string): Promise<number> {
   // The cap counts COST-WEIGHTED tokens (budget_tokens, since 2026-07-08) —
-  // caching broke the volume≈cost equivalence the 500k cap was sized with.
-  // Rows without the column (pre-change) don't count; only matters on the
-  // transition day, the window resets at midnight.
-  // Day boundary in Mexico City (UTC-6 year-round since 2022), consistent with
-  // the agent's notion of "today" — not UTC midnight (~18:00 local).
-  const startOfDay = new Date(mxTodayKey() + 'T00:00:00-06:00');
+  // caching broke the volume≈cost equivalence the cap was sized with. Rows
+  // without the column (pre-change) don't count; irrelevant now (weeks-old).
+  // Week = Monday 00:00 Mexico City (UTC-6 year-round since 2022) through the
+  // aggregate window's open end — same MX boundary the daily cap used, just a
+  // 7-day span. Not UTC midnight (~18:00 local).
+  const startOfWeek = new Date(mxWeekStartKey() + 'T00:00:00-06:00');
   const agg = await prisma.llmTokenUsage.aggregate({
-    where: { doctorId, endpoint: 'agenda-agent', createdAt: { gte: startOfDay } },
+    where: { doctorId, endpoint: 'agenda-agent', createdAt: { gte: startOfWeek } },
     _sum: { budgetTokens: true },
   });
   return agg._sum.budgetTokens ?? 0;
 }
 
-/** GET — today's assistant budget for the session doctor (panel widget). */
+/** GET — this week's assistant budget for the session doctor (panel widget). */
 export async function GET(request: NextRequest) {
   try {
     const { doctorId } = await requireDoctorAuth(request);
-    const usedToday = await getTokensUsedToday(doctorId);
+    const usedThisWeek = await getTokensUsedThisWeek(doctorId);
     return NextResponse.json({
       success: true,
-      data: { used: usedToday, cap: DAILY_TOKEN_CAP },
+      data: { used: usedThisWeek, cap: WEEKLY_TOKEN_CAP },
     });
   } catch (error) {
     return handleApiError(error, 'GET /api/agenda-agent');
@@ -80,7 +86,7 @@ export async function POST(request: NextRequest) {
           reply: 'No tienes ningún módulo del asistente habilitado en esta cuenta. Pídele al dueño del consultorio que active al menos uno.',
           toolsUsed: [],
           proposals: [],
-          budget: { used: await getTokensUsedToday(doctorId), cap: DAILY_TOKEN_CAP },
+          budget: { used: await getTokensUsedThisWeek(doctorId), cap: WEEKLY_TOKEN_CAP },
         },
       });
     }
@@ -113,18 +119,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Daily budget (gap G6) + doctor slug — independent queries, run in parallel
-    const [usedToday, doctor] = await Promise.all([
-      getTokensUsedToday(doctorId),
+    // Weekly budget (gap G6) + doctor slug — independent queries, run in parallel
+    const [usedThisWeek, doctor] = await Promise.all([
+      getTokensUsedThisWeek(doctorId),
       prisma.doctor.findUnique({
         where: { id: doctorId },
         select: { slug: true },
       }),
     ]);
 
-    if (usedToday >= DAILY_TOKEN_CAP) {
+    if (usedThisWeek >= WEEKLY_TOKEN_CAP) {
       return NextResponse.json(
-        { success: false, error: { code: 'BUDGET_EXCEEDED', message: 'Se alcanzó el límite diario del asistente. Intenta mañana.' } },
+        { success: false, error: { code: 'BUDGET_EXCEEDED', message: 'Se alcanzó el límite semanal del asistente. Se reinicia el lunes.' } },
         { status: 429 }
       );
     }
@@ -183,11 +189,11 @@ export async function POST(request: NextRequest) {
         reply: turn.reply,
         toolsUsed: turn.toolsUsed,
         proposals: turn.proposals,
-        // usedToday was read BEFORE the turn — add this turn's cost-weighted
+        // usedThisWeek was read BEFORE the turn — add this turn's cost-weighted
         // spend so the widget updates without an extra query.
         budget: {
-          used: usedToday + turn.usage.budgetTokens,
-          cap: DAILY_TOKEN_CAP,
+          used: usedThisWeek + turn.usage.budgetTokens,
+          cap: WEEKLY_TOKEN_CAP,
         },
       },
     });

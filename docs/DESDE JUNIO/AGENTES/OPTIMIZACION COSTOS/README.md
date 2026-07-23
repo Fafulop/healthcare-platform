@@ -45,12 +45,23 @@ evals) + costo por pregunta:
 | [`00-ANALISIS-costos-y-hallazgos.md`](00-ANALISIS-costos-y-hallazgos.md) | **La medición**: a dónde va el dinero (read-only vs prod), la tabla de precios de todos los proveedores, el hallazgo de que thinking NO es la palanca | vivo |
 | [`01-PLAN-experimentos.md`](01-PLAN-experimentos.md) | El cap semanal (diseño), los levers de eficiencia, y la MATRIZ de modelos: qué probar, cómo, con qué métrica | vivo |
 | [`02-BITACORA-experimentos.md`](02-BITACORA-experimentos.md) | Log de resultados — se llena al correr cada experimento | vivo |
+| [`benchmarks/`](benchmarks/README.md) | **La regla**: el rig que corre las 65 evals, precia cada corrida (calidad + USD) y registra el Δ build-a-build en `ledger.csv` | vivo |
 
 ## Estado (2026-07-23)
 
-**ANÁLISIS HECHO, NADA CONSTRUIDO.** Los números están medidos (A4 + thinking-share, ambos
-2026-07-23, read-only vs prod). Siguiente: correr los experimentos del `01` (empezar por el cap
-semanal + TTL 1h, que son baratos y no tocan el modelo). Handoff a sesión nueva por límite de
-contexto.
+**ANÁLISIS HECHO · RIG CONSTRUIDO · LEVER 1 (CAP SEMANAL) SHIPPED · FALTA CORRER LA BASELINE.**
+Los números están medidos (A4 + thinking-share, read-only vs prod). El **benchmark de costo ya
+existe** ([`benchmarks/`](benchmarks/README.md)): el eval runner guarda el desglose de tokens por
+caso y `scripts/agent-cost-benchmark.ts` lo precia y registra el Δ build-a-build.
+
+**Lever 1 aplicado (2026-07-23):** el cap pasó de DIARIO 500k ($45/mes peor caso) a **SEMANAL 2M**
+(~$26/mes) — la exposición que motivó la carpeta. Detalle + smoke read-only en
+[`02-BITACORA`](02-BITACORA-experimentos.md). Se hizo ANTES que TTL-1h a propósito: TTL-1h es una
+apuesta al timing de doctor real que el rig (dr-prueba) no puede validar y que obliga a re-ponderar
+el costo (write ×2); el cap ataca la exposición directamente y no depende de datos que no tenemos.
+
+**Siguiente:** correr la **baseline** de calidad+USD (paso 1+2 del benchmark, `--label baseline` —
+requiere `railway run` + key de Anthropic; primer comando de la próxima sesión). Con la baseline en
+mano, evaluar los levers de eficiencia (TTL-1h 2a / poda 2b) con datos, no a ciegas.
 
 *Índice general: [`../README.md`](../README.md).*

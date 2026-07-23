@@ -141,8 +141,10 @@ propagó por varios docs (ver [`07-CONVENCIONES-docs.md`](07-CONVENCIONES-docs.m
 Si no tienes claro qué cuenta cada número de este doc (tools vs evals vs toggles), la
 desambiguación está en [`08-EMPIEZA-AQUI.md`](08-EMPIEZA-AQUI.md) §1.5.
 
-**Modelo y costos:** claude-sonnet-5 (`AGENDA_AGENT_MODEL`) · cap diario 500k budget tokens
-(~$1.50/doctor) ponderado por costo · caché 1 breakpoint estable + 2 móviles, TTL 5 min.
+**Modelo y costos:** claude-sonnet-5 (`AGENDA_AGENT_MODEL`) · cap **SEMANAL** 2M budget tokens
+(~$6/sem ≈ $26/mes peor caso) ponderado por costo, corte lunes 00:00 MX — movido de diario 500k
+el 2026-07-23 (cost review [`OPTIMIZACION COSTOS`](../OPTIMIZACION%20COSTOS/README.md): la ventana
+de 7 días promedia los días sin uso) · caché 1 breakpoint estable + 2 móviles, TTL 5 min.
 
 **Prefijo estático: ~24.7k tokens (re-medido 2026-07-23, A4).** Con los 39 tools actuales,
 +3.5k vs los ~21.2k de 2026-07-12/35 tools — dentro del presupuesto de ~2-3k/módulo. ⚠️ Es un

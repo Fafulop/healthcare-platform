@@ -24,8 +24,8 @@ import {
 import Link from 'next/link';
 import { useAgentActions, useAgentChat, type AgentMessage, type AgendaProposal, type AgentBudget } from '@/contexts/AgentContext';
 
-/** Daily-usage widget: slim bar + percentage. Green → amber (≥70%) → red (≥90%).
- * "Uso de hoy" because the cap resets at midnight (MX), not per conversation. */
+/** Weekly-usage widget: slim bar + percentage. Green → amber (≥70%) → red (≥90%).
+ * "Uso de la semana" because the cap resets Monday (MX), not per conversation. */
 function BudgetBar({ budget }: { budget: AgentBudget }) {
   if (!(budget.cap > 0)) return null; // misconfigured cap → no widget, not "NaN%"
   const pct = Math.min(100, Math.round((budget.used / budget.cap) * 100));
@@ -34,9 +34,9 @@ function BudgetBar({ budget }: { budget: AgentBudget }) {
   return (
     <div
       className="px-4 py-1.5 border-b border-gray-100 flex items-center gap-2"
-      title="El asistente tiene un límite diario de uso que se reinicia a medianoche."
+      title="El asistente tiene un límite semanal de uso que se reinicia el lunes."
     >
-      <span className="text-[10px] text-gray-400 flex-shrink-0">Uso de hoy</span>
+      <span className="text-[10px] text-gray-400 flex-shrink-0">Uso de la semana</span>
       <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
         <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
       </div>
