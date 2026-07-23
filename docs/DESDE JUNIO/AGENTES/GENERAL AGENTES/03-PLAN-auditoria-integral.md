@@ -6,7 +6,8 @@
 > [`02-CAPACIDADES`](02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4. Su valor hoy es el
 > **método** (cómo se audita) y los post-mortems: A3 sigue siendo la mejor descripción de la
 > clase de bug dominante (réplicas parciales de un WHERE), y A4 es el procedimiento a repetir
-> para re-medir el prefijo (re-medido 2026-07-23 al final de A4 — ~24.7k, nivel 0 se mantiene).
+> para re-medir el prefijo (re-medido 2026-07-23 al final de A4 — ~24.7k **estimado; ese mismo día
+> se midió exacto: 27,151, +10%** — ver §A4 y `../OPTIMIZACION COSTOS/`; nivel 0 se mantiene).
 >
 > Plan para verificar que el asistente es **correcto, consistente, seguro y
 > costo-óptimo** ahora que "F1 everywhere" está completo (5 módulos / 35 tools *(2026-07-12)*,
@@ -143,6 +144,14 @@ es un TOPE, el prefijo real es un poco menor; para el exacto, `count_tokens` sob
 | (b) p50 budget/turno | +20% | 10,256 → 10,826 (**+5.6%**) | ✅ no dispara |
 | (c) peor día real | cap corto | 40.7% → **61.2%** del cap (16 turnos) | ✅ headroom ~1.6× |
 | pregunta fría | ~33k proyectado | ≈33k budget → **~15 frías/día** en el cap | ✅ |
+
+> 📏 **Anotación 2026-07-23 (tarde) — dos filas de esta tabla quedaron cortas al MEDIR:** el
+> prefijo real es **27,151** (`count_tokens`, no el piso inferido de `prompt_tokens`: ~24.7k era
+> −10%) y la pregunta fría real cuesta **41,331 budget ($0.083)**, no ≈33k. Ninguna señal §5.3
+> dispara igual (27.2k sigue bajo el umbral de 35-40k), pero con **menos headroom** del que esta
+> tabla sugiere. El cap además pasó a **semanal 2M** ⇒ la cuenta vigente es ~48 frías/semana.
+> La tabla se conserva como el registro de A4; los números vigentes viven en `02-CAPACIDADES` §4
+> y en [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md).
 
 ⚠️ **Lo que SÍ subió (vigilar, no actuar):** el **p95 de budget 28,658 → 39,877 (+39%)** y el
 promedio +30% — los turnos de facturas (búsqueda de catálogo + emisión) corren más iteraciones,

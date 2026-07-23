@@ -146,17 +146,35 @@ desambiguación está en [`08-EMPIEZA-AQUI.md`](08-EMPIEZA-AQUI.md) §1.5.
 el 2026-07-23 (cost review [`OPTIMIZACION COSTOS`](../OPTIMIZACION%20COSTOS/README.md): la ventana
 de 7 días promedia los días sin uso) · caché 1 breakpoint estable + 2 móviles, TTL 5 min.
 
-**Prefijo estático: ~24.7k tokens (re-medido 2026-07-23, A4).** Con los 39 tools actuales,
-+3.5k vs los ~21.2k de 2026-07-12/35 tools — dentro del presupuesto de ~2-3k/módulo. ⚠️ Es un
-**tope**, no exacto: `llm_token_usage` no persiste el split de caché, así que se usó el PISO de
-`prompt_tokens` (24,745, que incluye un mensaje corto + historial mínimo); el prefijo real es
-un poco menor. Para el número exacto: `count_tokens` de Anthropic sobre
-`buildSystemPrompt(AGENT_MODULES)` + `ALL_TOOLS` (gratis).
+**Prefijo estático: 27,151 tokens — MEDIDO EXACTO con `count_tokens` (2026-07-23).**
+Reproducible: `npx tsx scripts/measure-agent-prefix.ts` (no toca la BD, no consume generación).
+Split: **system 12,126 (45%) · tools 15,025 (55%)** con los 39 tools.
+
+> ⚠️ **Corrige la estimación anterior de "~24.7k".** Ese número salía del PISO de `prompt_tokens`
+> en `llm_token_usage` y el doc asumía que el real sería *un poco menor*: es **+10% MAYOR** y en
+> la dirección contraria. Lección: el prefijo gobierna ~82% del costo de cada pregunta fría, así
+> que se mide, no se infiere.
+
+**Presupuesto por módulo (~2-3k) — 3 de 5 lo exceden** (medido 2026-07-23; señal de nivel 1 de
+`00-BLUEPRINT` §5.3, "si un módulo pide más, sus veredictos no están suficientemente server-side"):
+
+| Módulo | Total | tools | prompt | vs presupuesto |
+|---|---|---|---|---|
+| facturas | 8,706 | 5,796 (12) | 2,910 | ⚠️ ~3× |
+| agenda | 7,255 | 5,531 (18) | 1,724 | ⚠️ ~2.4× |
+| flujo | 3,032 | 1,889 (5) | 1,143 | ⚠️ apenas |
+| expediente | 1,598 | 792 (2) | 806 | ✅ |
+| fiscal | 1,590 | 663 (2) | 927 | ✅ |
+
+Suma de módulos 22,181; el resto (4,970) es prompt COMPARTIDO (intro/resilience/reglas globales)
++ overhead del bloque de tools (354). Tool más pesada: `propose_create_cfdi` (1,276); el top-10
+concentra el 46% de los tokens de tools. Detalle y consecuencias de costo:
+[`../OPTIMIZACION COSTOS/02-BITACORA`](../OPTIMIZACION%20COSTOS/02-BITACORA-experimentos.md).
 
 **Ninguna señal de escalamiento §5.3 disparada — nivel 0 se mantiene** (medición 2026-07-23,
 read-only vs prod, n=80 turnos con budget, TODOS dr-prueba — sin señal de doctores reales aún):
 - (b) p50 budget/turno **10,256 → 10,826 = +5.6%** (umbral +20%) ✅
-- prefijo **24.7k** (umbral nivel 2 = 35-40k) ✅
+- prefijo **27.2k medido** (umbral nivel 2 = 35-40k) ✅ — más cerca del umbral de lo que se creía
 - (c) peor día real **61.2% del cap** (2026-07-17, 16 turnos) ✅
 - ⚠️ **Lo que SÍ subió:** los turnos CAROS. p95 budget **28,658 → 39,877 (+39%)** y promedio
   +30% — es F2a/b/c (búsqueda de catálogo + emisión corren más iteraciones/turno). El turno

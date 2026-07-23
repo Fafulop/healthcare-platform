@@ -32,8 +32,43 @@ partida del usuario; ajustar con datos de doctores reales.
 | # | Experimento | Cómo | Métrica |
 |---|---|---|---|
 | 2a | **TTL de caché 1h** | cambiar `cache_control: {type:'ephemeral'}` → `{type:'ephemeral', ttl:'1h'}` en `anthropic.ts` (el prefijo estable). Write pasa a ×2 pero convierte preguntas frías esporádicas en cache-reads (×0.1). | costo por pregunta fría antes/después (re-correr A4) |
-| 2b | **Podar el prefijo** (~24.7k) | tensar descripciones de tools, mover reglas raras server-side. Blueprint §5.3 nivel 1 dice que hay "grasa". Cada token cortado se paga en cada pregunta fría. | prefijo medido (count_tokens sobre `buildSystemPrompt(AGENT_MODULES)`+`ALL_TOOLS`) |
+| 2b | **Podar el prefijo** (27,151 MEDIDO) | tensar descripciones de tools, mover reglas raras server-side. Cada token cortado se paga ×1.25 en cada pregunta fría. **Ya no es "hay grasa": hay blancos** (abajo). | `npx tsx scripts/measure-agent-prefix.ts` antes/después + suite completa + benchmark con la MISMA `--price` |
 | 2c | **Menos iteraciones/turno** | mejores descripciones para reducir tool-choice thrashing; ¿bajar el cap de 8 iteraciones? | avg iteraciones/turno (de los logs) |
+
+### 🎯 Blancos de poda del 2b (medidos 2026-07-23 — ya no se adivina)
+
+Prefijo **27,151** = system 12,126 (45%) + tools 15,025 (55%). Escribirlo es el **82%** del costo
+de cada pregunta fría, así que este es el lever con mejor relación esfuerzo/beneficio medida.
+
+| Módulo | Total | tools | prompt | vs presupuesto ~2-3k |
+|---|---|---|---|---|
+| **facturas** | 8,706 | 5,796 (12) | 2,910 | ⚠️ **~3×** |
+| **agenda** | 7,255 | 5,531 (18) | 1,724 | ⚠️ **~2.4×** |
+| flujo | 3,032 | 1,889 (5) | 1,143 | ⚠️ apenas |
+| expediente | 1,598 | 792 (2) | 806 | ✅ |
+| fiscal | 1,590 | 663 (2) | 927 | ✅ |
+
+Compartido (intro/resilience/reglas globales) 4,616 + overhead del bloque de tools 354.
+Tools más pesadas: `propose_create_cfdi` **1,276** · `propose_prepare_factura_borrador` 969 ·
+`get_movimientos` 807 · `propose_create_booking` 716 · `propose_create_range` 618 — el **top-10
+concentra el 46%** de los tokens de tools.
+
+**Orden sugerido de ataque** (mayor retorno primero, y el blueprint §5.3 dice que un módulo sobre
+presupuesto es señal de que *sus veredictos no están suficientemente server-side* — o sea, mirar
+arquitectura antes que prosa):
+1. **facturas** (8,706): el desvío más grande. Empezar por `propose_create_cfdi` (1,276, la tool
+   más pesada del sistema) y `propose_prepare_factura_borrador` (969).
+2. **agenda** (7,255): 18 tools es el set más grande — candidato a fusionar tools delgadas en el
+   compuesto del dominio (nivel 1 del blueprint).
+3. **Prompt compartido** (4,616): lo paga TODO doctor y todo member; revisar INTRO/RESILIENCE
+   (que además hardcodean el set completo de capacidades — ver blueprint §5.2 punto 6).
+
+**Aritmética:** cortar 5,000 tok (−18%) baja la pregunta fría de $0.083 a **~$0.070**
+(ahorro ≈ $0.0125 intro / $0.019 estándar por pregunta fría).
+
+⚠️ **Toca prompt/tools ⇒ riesgo de conducta.** Toda poda: `measure-agent-prefix.ts` antes/después
++ **suite completa de 65** + benchmark contra la baseline con la MISMA `--price`. Un ahorro que
+mueve el `63/65` no es un ahorro.
 
 ## Lever 3 — MATRIZ de modelos y proveedores
 

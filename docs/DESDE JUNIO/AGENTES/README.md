@@ -68,9 +68,15 @@ Conteos exactos (tools, evals, prefijo) y las fronteras completas:
   blast radius): **#24 over-claim del member** (member-only, owner intacto, 3/3 evals) y **#23
   card fantasma** (prompt compartido → owner cache invalidado → suite completa 63/65 · 0 FAIL).
   Bitácora en `AGENTE AGENDA/SESSION-REFRESCO`.
-- ~~Re-medir el prefijo (A4)~~ ✅ HECHO 2026-07-23: ~24.7k con 39 tools, ninguna señal §5.3
-  disparada (nivel 0). Vigilar: el p95 de turnos caros subió +39% y el headroom del cap bajó a
-  ~1.6×. Sigue midiéndose solo con dr-prueba — re-medir cuando haya doctores reales.
+- ~~Re-medir el prefijo (A4)~~ ✅ HECHO 2026-07-23. El A4 lo estimó en ~24.7k; el mismo día se
+  **midió exacto con `count_tokens`: 27,151** (+10%, la estimación se quedó corta). Ninguna señal
+  §5.3 dispara (nivel 0), pero con menos headroom del que se creía. Sigue siendo solo dr-prueba.
+- 💸 **COSTOS — trabajo nuevo (2026-07-23), carpeta [`OPTIMIZACION COSTOS/`](OPTIMIZACION%20COSTOS/README.md):**
+  cap movido de **diario 500k → semanal 2M** (~$45 → ~$26/mes peor caso); **benchmark de
+  calidad+USD** construido (`scripts/agent-cost-benchmark.ts` + `benchmarks/ledger.csv`) y
+  **baseline medida**: `63/65 · 0 FAIL` · $0.020 pregunta tibia vs **$0.083 fría**. El **82%** de
+  una pregunta fría es escribir el prefijo ⇒ el siguiente lever es **podar** (blancos medidos:
+  facturas 8,706 y agenda 7,255 exceden el presupuesto de ~2-3k/módulo).
 - **Deuda mapeada**: 8 endpoints `*-chat` en el patrón viejo que puede "mentir éxito"
   (`GENERAL AGENTES/06-MAPA` §2) · sin job de retención para `llm_token_usage` /
   `agent_tool_errors`.

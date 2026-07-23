@@ -11,7 +11,7 @@
 
 ## El problema en una frase
 
-El costo del agente es **~99% INPUT** (el loop re-manda el prefijo de ~24.7k tokens + tools +
+El costo del agente es **~99% INPUT** (el loop re-manda el prefijo de **27.2k tokens medidos** + tools +
 historial, hasta 8 iteraciones por turno). El OUTPUT/thinking NO es la palanca (medido: 18.7%
 del costo, output p50 = 515 tokens). Bajar costo = bajar cuánto input se re-manda y a qué precio.
 
@@ -61,14 +61,19 @@ apuesta al timing de doctor real que el rig (dr-prueba) no puede validar y que o
 el costo (write ×2); el cap ataca la exposición directamente y no depende de datos que no tenemos.
 
 **BASELINE MEDIDA (2026-07-23)** — `63/65 PASS · 0 FAIL` · **$1.436/corrida** · **$0.022/pregunta
-tibia** · **$0.083/pregunta fría** (piso). 🔑 El hallazgo: la pregunta fría cuesta **4.1×** la
-tibia y **~85% de ella es escribir caché** — de eso, **el prefijo estático es ~75%** del costo
-frío y ~10% son writes de la capa mensajes. Fila completa + los 4 caveats de fidelidad en
+tibia** · **$0.083/pregunta fría** (piso). 🔑 La pregunta fría cuesta **4.1×** la tibia, y
+**el 82% de ella es escribir el prefijo** en caché.
+
+**PREFIJO MEDIDO EXACTO: 27,151 tok** (system 12,126 · tools 15,025) con
+`scripts/measure-agent-prefix.ts` — **+10% sobre la estimación de ~24.7k que citaban los docs**.
+Y **3 de 5 módulos exceden** el presupuesto de ~2-3k del blueprint: **facturas 8,706 · agenda
+7,255** · flujo 3,032. Ambas entradas, con los blancos de poda tool por tool, en
 [`02-BITACORA`](02-BITACORA-experimentos.md).
 
-**Siguiente:** con la baseline en mano, el lever de eficiencia con mejor relación esfuerzo/beneficio
-*medida* es **podar el prefijo (2b)** — ataca ese ~75% y el benchmark puede validarlo sobre
-dr-prueba. TTL-1h (2a) sigue esperando una señal de uso real (su beneficio depende de la frecuencia
-de preguntas del doctor, que aún no existe).
+**Siguiente:** **podar el prefijo (lever 2b)** — es la palanca con mejor relación esfuerzo/beneficio
+*medida* (ataca el 82% del costo frío) y ahora tiene blancos concretos en vez de "hay grasa".
+Cortar ~5k tok (−18%) baja la pregunta fría de $0.083 a ~$0.070. Toca prompt/tools ⇒ **exige
+re-correr la suite completa** y comparar contra la baseline con la MISMA `--price`. TTL-1h (2a)
+sigue esperando una señal de uso real.
 
 *Índice general: [`../README.md`](../README.md).*

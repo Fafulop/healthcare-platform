@@ -21,8 +21,16 @@
 | turnos con >2k output (de ~85) | 3 |
 | input vs output CRUDO (todo el periodo) | 5.57M vs 96.6k → output = 1.7% |
 
-**Conclusión:** el costo es re-mandar el **prefijo estático ~24.7k** (system + 39 tools) +
-historial + resultados de tools, **hasta 8 iteraciones/turno**, cada iteración cuenta su input.
+**Conclusión:** el costo es re-mandar el **prefijo estático de 27,151 tokens** (system 12,126 +
+39 tools 15,025) + historial + resultados de tools, **hasta 8 iteraciones/turno**, cada iteración
+cuenta su input.
+
+> 📏 **El prefijo ya está MEDIDO exacto (2026-07-23), no estimado** — `count_tokens` vía
+> `apps/doctor/scripts/measure-agent-prefix.ts`. Corrige el "~24.7k" que se citaba antes (venía
+> del piso de `prompt_tokens`): el real es **+10% mayor**. Validado de forma independiente contra
+> el `cache_read` que reportó la API en la corrida de la baseline (27,257 — 0.39% de diferencia).
+> Es EL número que gobierna el costo: **82% de cada pregunta fría es escribir este prefijo.**
+> Desglose por módulo/tool y blancos de poda: [`02-BITACORA`](02-BITACORA-experimentos.md).
 
 ## 3. Hallazgo clave: thinking NO es la palanca
 
@@ -82,9 +90,14 @@ práctica el cap ACOTA el gasto y el modelo barato hace que se llegue menos al c
 ## 7. Lo que aún no sabemos (crítico)
 
 - **Uso de un doctor REAL** — todo es dr-prueba. Es la diferencia entre "$2/doctor, relax" y
-  "$15/doctor, actúa ya". Por eso el cap (lever 1) es el movimiento seguro: acota el downside
-  sin importar cuál resulte cierto.
+  "$15/doctor, actúa ya". Por eso el cap (lever 1) fue el movimiento seguro: acota el downside
+  sin importar cuál resulte cierto. **Sigue siendo el hueco #1** y es lo que bloquea decidir
+  TTL-1h (su beneficio depende de la frecuencia con que el doctor pregunta).
 - **Confirmación de precios oficiales** Moonshot/DeepSeek (los de arriba son de agregadores).
+- ~~Cuánto mide exactamente el prefijo~~ → ✅ **RESUELTO 2026-07-23: 27,151 tok medidos**
+  (`scripts/measure-agent-prefix.ts`), validado contra el `cache_read` de la API (0.39%).
+- ~~Si el costo real por corrida cuadra con la teoría~~ → ✅ **RESUELTO: baseline $1.436/corrida,
+  $0.022 tibia / $0.083 fría, calidad 63/65 · 0 FAIL** ([`02-BITACORA`](02-BITACORA-experimentos.md)).
 
 ## 8. Decisiones tomadas
 
@@ -96,5 +109,7 @@ práctica el cap ACOTA el gasto y el modelo barato hace que se llegue menos al c
 ---
 
 *Relacionado: `../GENERAL AGENTES/00-BLUEPRINT` §5 (escalera de escalamiento — niveles 0-3, ya
-anticipaba model-routing en nivel 2), `../GENERAL AGENTES/02-CAPACIDADES` §4 (prefijo ~24.7k, cap,
-modelo). Métrica del cap: `../AGENTE AGENDA/05-REFERENCIA-TECNICA` §8 (budget ponderado por costo).*
+anticipaba model-routing en nivel 2), `../GENERAL AGENTES/02-CAPACIDADES` §4 (prefijo 27,151
+medido, cap semanal, modelo). Métrica del cap: `../AGENTE AGENDA/05-REFERENCIA-TECNICA` §8
+(budget ponderado por costo). Herramientas: `scripts/measure-agent-prefix.ts` (prefijo exacto) ·
+`scripts/agent-cost-benchmark.ts` + [`benchmarks/`](benchmarks/README.md) (calidad + USD).*

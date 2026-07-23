@@ -14,15 +14,59 @@
 | | |
 |---|---|
 | Modelo | `claude-sonnet-5` (sin `thinking`, sin `effort` → adaptive por default) |
-| Prefijo estático | ~24.7k tokens (39 tools) |
+| Prefijo estático | **27,151 tok MEDIDO** (system 12,126 + 39 tools 15,025) |
 | Suite evals | **63/65 PASS · 2 WARN · 0 FAIL** |
+| **Costo/pregunta** | **tibia $0.020 (p50) · fría $0.083** (precio intro $2/$10) |
+| **Costo/corrida (65)** | **$1.436** · 717,880 budget · latencia p50 9.5 s |
 | Input/turno p50 | 39,706 tok · output p50 515 tok |
 | Output como % del costo | 18.7% |
-| Cap | 500k budget/día ≈ $1.50/día ≈ $45/mes peor caso |
+| Cap | **semanal 2M budget ≈ $17/mes (intro) · $26/mes (estándar)** — era diario 500k |
 | Caché | manual, TTL 5 min |
 | Costo real medido | $18.16 (Jul 3–23, dr-prueba, precio estándar sin descuento caché) |
 
+*Reproducir: `scripts/measure-agent-prefix.ts` (prefijo) · evals + `scripts/agent-cost-benchmark.ts
+--label <x> --price claude-sonnet-5-intro` (calidad + USD). Ledger: [`benchmarks/`](benchmarks/README.md).*
+
 ## Experimentos
+
+### 2026-07-23 — MEDICIÓN del prefijo con `count_tokens` (no es un experimento: es la regla del 2b)
+- Herramienta nueva: `apps/doctor/scripts/measure-agent-prefix.ts` (no toca BD, no consume
+  generación). Reproducible con solo `ANTHROPIC_API_KEY`.
+- **Prefijo REAL = 27,151 tok** (system 12,126 · tools 15,025). ⚠️ Los docs decían "~24.7k, y el
+  real es un poco MENOR": es **+10% MAYOR**. La estimación venía del piso de `prompt_tokens`;
+  medir la desmintió en magnitud y en dirección.
+- Consecuencia inmediata: el prefijo es el **82%** del costo de una pregunta fría (no 75%; ver la
+  corrección en la entrada de la baseline). Escribirlo cuesta **33,939 budget ≈ $0.068** (intro) /
+  **$0.102** (estándar) cada vez que un doctor pregunta en frío.
+- 🎯 **Blancos de poda (lever 2b), medidos:**
+  - **3 de 5 módulos exceden el presupuesto de ~2-3k** del blueprint §5.3: **facturas 8,706**
+    (~3×), **agenda 7,255** (~2.4×), flujo 3,032 (apenas). fiscal (1,590) y expediente (1,598) ✅.
+    El blueprint dice que un módulo sobre presupuesto = señal de que "sus veredictos no están
+    suficientemente server-side" → hay dónde mirar, no solo texto que apretar.
+  - Tools más pesadas: `propose_create_cfdi` **1,276** · `propose_prepare_factura_borrador` 969 ·
+    `get_movimientos` 807 · `propose_create_booking` 716 · `propose_create_range` 618. El
+    **top-10 concentra el 46%** de los 15,025 tok de tools.
+  - Prompt COMPARTIDO + overhead = 4,970 (intro/resilience/reglas globales; el overhead fijo del
+    bloque de tools es 354).
+- Aritmética del ahorro: cortar 5,000 tok del prefijo (−18%) ahorra 6,250 budget por pregunta
+  fría ≈ **$0.0125 (intro) / $0.019 (estándar)**, y baja el costo frío de $0.083 a ~$0.070.
+- ✅ **Verificación de la medición (bug hunt):**
+  1. **Validación CRUZADA e independiente:** `count_tokens` dice 27,151; el `cache_read` que
+     reportó la API en la corrida de la baseline (otra fuente, otro día del pipeline) dice
+     **27,257 — 0.39% de diferencia**, y el gap de 106 tok es exactamente la cola de mensajes de
+     la iteración 1. Esto NO es tautológico (a diferencia del cross-check budget↔USD).
+  2. **El desglose cuadra al token:** system 12,126 + tools 15,025 = 27,151; tools = 14,671
+     (módulos) + 354 (overhead); módulos 22,181 + resto 4,970 = compartido 4,616 + overhead 354.
+  3. **Supuesto del overhead constante — FALSIFICABLE y probado:** los pesos netos por tool
+     salen de despejar `OH` con 2 ecuaciones, asumiendo que `OH` no depende de cuántas tools se
+     manden. Se probó prediciendo el conteo de 2, 3 y 4 tools: **error 0 en los tres casos** ⇒
+     los pesos por tool son exactos, no aproximados.
+  - ⚠️ **Lo único aproximado:** el reparto prompt-por-módulo se mide con el texto del módulo EN
+    AISLAMIENTO (`domainModel`+`domainRules`), que puede diferir en unos pocos tokens de su
+    contribución dentro del prompt compuesto; el "compartido" (4,616) es un RESIDUO y absorbe
+    ese error. El total (27,151) y el split system/tools NO dependen de esto.
+- ⚠️ Nada podado todavía — esto es la MEDICIÓN. Cualquier poda vuelve a correr la suite completa
+  (toca prompt/tools ⇒ riesgo de conducta) y se compara contra la baseline con la MISMA `--price`.
 
 ### 2026-07-23 — BASELINE medida (Sonnet 5, TTL 5m, git f68ccb78) ⭐ la marca de referencia
 - Cambio: ninguno — primera corrida real del benchmark. Es contra ESTA fila que se comparan
@@ -35,15 +79,18 @@
 - 🔑 **HALLAZGO — la pregunta FRÍA cuesta 4.1× la tibia, y casi todo es escribir caché:**
   fría = **41,331 budget ($0.083)** vs tibia p50 = 10,059 ($0.020). Desglose exacto de los
   41,331: `uncached 4 + cacheWrite 35,156 + cacheRead 2,726 + output 3,445`.
-  ⚠️ **Precisión (corregido en review):** ese **85% es el WRITE TOTAL de caché**, NO solo el
-  prefijo. De los 28,125 tokens escritos, ~24,700 son el prefijo estático y **~3,425 son writes
-  de la capa MENSAJES** (los 2 breakpoints móviles). Entonces:
-  **prefijo ≈ 75% del costo frío · writes de mensajes ≈ 10% · output ≈ 8%.**
+  **Desglose definitivo** (con el prefijo ya MEDIDO — ver la entrada de abajo, 27,151 tok):
+  de los 28,125 tokens escritos a caché, **27,151 son el prefijo** y solo **974 son writes de la
+  capa MENSAJES**. Entonces del costo de una pregunta fría:
+  **prefijo 82.1% · writes de mensajes 2.9% · output 8.3% · lecturas de caché 6.6%.**
   El 99% del input de una pregunta tibia se sirve de caché.
-  → **Consecuencia para el plan:** podar el prefijo (lever 2b) ataca el **75%** (no el 85% —
-  los writes de mensajes no se podan tensando descripciones de tools). Cada token cortado del
-  prefijo se ahorra ×1.25 en CADA pregunta fría. Sigue siendo la palanca con mejor relación
-  esfuerzo/beneficio *medida*, pero el techo del ahorro es 75%, no 85%.
+  > 🔁 **Historial de esta cifra (dos correcciones, la 1ª mal):** se publicó "85% es el prefijo";
+  > el 1er review lo "corrigió" a 75% razonando sobre la estimación de ~24.7k de los docs; al
+  > MEDIR el prefijo resultó 27,151 → el número real es **82%**, o sea la 1ª cifra estaba más
+  > cerca que su corrección. **Lección: no se corrige un número medido con otro estimado.**
+  → **Consecuencia para el plan:** podar el prefijo (lever 2b) ataca el **82%** del costo frío.
+  Cada token cortado se ahorra ×1.25 en CADA pregunta fría. Es la palanca con mejor relación
+  esfuerzo/beneficio medida — y ahora con blancos concretos (abajo).
 - Capacidad al cap semanal 2M: **~198 preguntas tibias/sem** o **~48 frías/sem (~7/día)**.
   El techo de gasto al cap: **$17.4/mes** (intro) · **$26.1/mes** (estándar).
 - ⚠️ **Caveats de fidelidad (leer antes de comparar):**
