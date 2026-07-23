@@ -2,10 +2,11 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última actualización de ESTADO: **2026-07-23** — bitácora #24 (over-claim del agente member)
-> **CORREGIDO** (member-only, owner byte-idéntico, 3/3 member evals). Queda #23 "card fantasma"
-> pendiente. Antes: 2026-07-22 (suite de evals a 65 casos + path de MEMBER, corrida 62/65 · 0 FAIL);
-> 2026-07-21 (bitácora #23 — "card fantasma", pendiente de fix).
+> Última actualización de ESTADO: **2026-07-23** — bitácoras **#24 (over-claim member) y #23
+> (card fantasma) CORREGIDAS**, en pasadas separadas: #24 member-only (owner byte-idéntico, 3/3
+> member evals); #23 prompt compartido (owner cache invalidado → suite completa 63/65 · 0 FAIL ·
+> 0 disparos de card-fantasma). Antes: 2026-07-22 (suite a 65 casos + path de MEMBER, 62/65 · 0 FAIL);
+> 2026-07-21 (bitácora #23 abierta).
 
 ---
 
@@ -25,9 +26,10 @@ y los conteos vigentes en
 Este doc sigue siendo el **playbook + la bitácora** de todo el asistente (los fallos en vivo de
 cualquier módulo se registran aquí).
 
-**Qué falta (nada bloqueante):** el over-claim del member (#24) quedó **CORREGIDO 2026-07-23**
-(member-only, owner byte-idéntico, 3/3 member evals PASS). Queda **"card fantasma" (#23,
-PENDIENTE)** — su propia pasada, toca el prompt COMPARTIDO (owner cambia → suite completa).
+**Qué falta (nada bloqueante):** los dos bugs conocidos de conducta quedaron **CORREGIDOS
+2026-07-23** — over-claim del member (#24, member-only, 3/3 member evals) y **card fantasma
+(#23, prompt compartido → owner cache invalidado → suite completa 63/65 · 0 FAIL · 0 disparos)**.
+Se hicieron como pasadas SEPARADAS (blast radius distinto), como mandaba el diseño.
 
 ## Estado: qué está hecho
 
@@ -106,7 +108,7 @@ PENDIENTE)** — su propia pasada, toca el prompt COMPARTIDO (owner cambia → s
 | 20 | (2026-07-06, validación PR 3) "mueve test234 30 min más tarde" (el hueco lo ocupa ella misma) | El agente consultó availability, vio 08:30 ocupado y OFRECIÓ alternativas sin intentar la propuesta — y atribuyó mal el ocupante ("test123") | Conflicto de reglas del prompt: "el horario sale de get_availability" vs la capacidad GAP-2 (el server descuenta la cita que se mueve). El modelo obedeció la regla estricta y nunca llamó al tool; el fallback plan-aware NUNCA corrió | Excepción explícita en la regla del prompt: si el hueco lo ocupa la MISMA cita (o una que este plan cancela), proponer directo — el server valida. Al insistir el doctor, el tool corrió y el fallback funcionó perfecto ("solo se traslapa con la cita actual… se libera al moverla") | *(este commit)* |
 | 21 | (2026-07-06) Ejecución del reagendado de test234 → **RSC-3 REAL**: original CANCELADA, create falló con 500 | "Error al crear la reserva" (500 genérico) al crear la nueva | `patientEmail`/`patientPhone` son columnas NO NULAS (schema 567-568); la UI siempre manda al menos `""`. El payload del agente solo incluía contactos truthy → test234 (sin contacto) produjo un create SIN esos campos → Prisma lanzó. El pre-check de requisitos pasó correcto (settings en false) — el bug era shape del payload, no validación | Payloads de create/reschedule siempre mandan `patientEmail`/`patientPhone` como string (`?? ''`). **Lo positivo:** el manejo RSC-3 funcionó EXACTO al diseño — mensaje explícito "la original quedó CANCELADA… hay que reagendar YA" + re-plan inmediato del agente pidiendo el contacto. test234 era dato de prueba | *(este commit)* |
 | 8–9 | *(análisis de alineación vs `04-PERMUTACIONES`, 2026-07-04)* | **E6 fantasma:** el weekday nunca llegó al prompt aunque commit y docs lo daban por hecho. **E7 nuevo:** `extendedBlockMinutes` invisible al agente → "¿a qué hora me desocupo?" respondía con el fin nominal (prod tiene extensiones de 60–705 min) | Commit message ≠ diff (E6); campo faltante en `BOOKING_SELECT` (E7) | E6: `mxTodayWeekday()` en el prompt. E7: `bloqueExtendidoMinutos` + `ocupadoHasta` (fin real server-side) en toda cita con extensión + regla 9 del prompt. Smoke-tested contra prod (510 min → 18:30 ✓). **Lección:** verificar que el diff cumpla lo que el mensaje del commit promete | *(este commit)* |
-| 23 | **CARD FANTASMA** (2026-07-21, validación NUEVOS USUARIOS: un MEMBER completa una cita a futuro vía el agente) | El agente escribió *"He preparado la propuesta… revisa la tarjeta y confirma"* con TODO el detalle (Pepito López, $1,500, efectivo) en un turno donde SOLO llamó `get_bookings` — **la card no existía**. El usuario dijo "todo bien"; el agente (correcto) exigió confirmar en la card ("mi rol es proponer, no ejecutar por un simple 'todo bien'"); el usuario respondió "no hay tarjeta para confirmar"; recién ahí el agente llamó `propose_complete_booking` y apareció la card real. Terminó ejecutando bien (ingreso $1,500 registrado, verificado en BD) | Conducta del modelo: **narra/preanuncia la card de propuesta (incl. monto + forma de pago) ANTES de invocar el tool `propose_*` que la genera**. NO es fallo de código ni de seguridad — la propiedad dura se sostuvo (ejecución SOLO vía card; "todo bien" en chat NO ejecuta) y el agente se auto-recuperó. Es UX/confusión | **PENDIENTE (no crítico).** Guardarraíl de prompt: NUNCA decir "he preparado la propuesta / revisa la tarjeta" salvo que un `propose_*` haya corrido EN ESE turno; invocar el propose ANTES de describir la card. ⚠️ Cambia bytes del prompt → invalida el cache del owner + requiere correr la suite de evals (misma disciplina que PR C de NUEVOS USUARIOS) → hacerlo como pasada propia, no un one-liner. Contexto: `../../NUEVOS USUARIOS/01-DISENO §17` | *(pendiente)* |
+| 23 | **CARD FANTASMA** (2026-07-21, validación NUEVOS USUARIOS: un MEMBER completa una cita a futuro vía el agente) | El agente escribió *"He preparado la propuesta… revisa la tarjeta y confirma"* con TODO el detalle (Pepito López, $1,500, efectivo) en un turno donde SOLO llamó `get_bookings` — **la card no existía**. El usuario dijo "todo bien"; el agente (correcto) exigió confirmar en la card ("mi rol es proponer, no ejecutar por un simple 'todo bien'"); el usuario respondió "no hay tarjeta para confirmar"; recién ahí el agente llamó `propose_complete_booking` y apareció la card real. Terminó ejecutando bien (ingreso $1,500 registrado, verificado en BD) | Conducta del modelo: **narra/preanuncia la card de propuesta ANTES de invocar el tool `propose_*` que la genera**. NO es fallo de código ni de seguridad — la propiedad dura se sostuvo (ejecución SOLO vía card) y el agente se auto-recuperó. Es UX/confusión | ✅ **CORREGIDO 2026-07-23.** Guardarraíl en `HOW_TO_PROPOSE` (`prompt.ts`, sección COMPARTIDA): "la tarjeta la crea la tool, no tu texto — NUNCA digas 'he preparado la propuesta / revisa la tarjeta' a menos que un `propose_*` haya corrido EN ESTE turno; primero llamas propose_*, luego describes la card". + **check GLOBAL en el eval runner** (`card-fantasma`, DURO aunque el caso sea soft): falla si la respuesta anuncia una tarjeta con `proposals` vacío — aplica a los 65 casos, data-independiente. ⚠️ Cambió bytes del prompt del OWNER (26,799→27,394 chars, sha256 nuevo) → invalida su cache en prod al desplegar + exigió **suite completa**: corrida 2026-07-23 = **63/65 · 0 FAIL · 0 disparos de card-fantasma**; los happy-paths de propuesta siguen proponiendo. Contexto: `../../NUEVOS USUARIOS/01-DISENO §17` | *(este)* |
 
 **✅ Validación en vivo post-deploy `bc7e2610` (2026-07-04):** las 3 preguntas del plan de
 lectura pasaron: (1) *vencidas* = **16 exactas**, verificadas 1:1 contra la BD — de paso se

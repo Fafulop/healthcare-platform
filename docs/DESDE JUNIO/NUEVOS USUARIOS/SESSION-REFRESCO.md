@@ -169,9 +169,10 @@ tools disponibles"). Como se predijo, **solo tocó el prompt de members — el d
 byte-idéntico** (`gate:prompt` verde, cache intacto), y el re-eval fueron los 3 casos member
 (3/3 PASS · 0 WARN). Detalle canónico: `../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md` bitácora #24.
 ⚠️ Failure mode conocido de LLMs → el nudge lo reduce, no lo elimina (los checks quedaron `soft`).
-4. **Fix de la "card fantasma" del agente** (bug conocido, ver AGENTE AGENDA SESSION-REFRESCO
-   bitácora #23): guardarraíl de prompt para que el agente no anuncie una card antes de llamar
-   `propose_*`. Es su propia pasada (cambia bytes del prompt → cache + evals).
+4. ✅ **"Card fantasma" del agente — CORREGIDA 2026-07-23** (ver AGENTE AGENDA SESSION-REFRESCO
+   bitácora #23): guardarraíl en `HOW_TO_PROPOSE` (prompt compartido → owner cache invalidado →
+   suite completa 63/65 · 0 FAIL · 0 disparos) + check global `card-fantasma` en el eval runner.
+   Se hizo como pasada propia y separada del #24, como estaba previsto.
 5. **Fuera de alcance v1** (ver 00-REQUISITOS §7): multi-portal, caps de presupuesto IA por
    member, borradores de receta por members, transferencia de ownership.
 

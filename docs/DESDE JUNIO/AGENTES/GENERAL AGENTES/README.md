@@ -29,8 +29,8 @@
   bloqueos) y facturas (emisión de CFDI + borradores).
 - **Conteos vigentes**: ver `02-CAPACIDADES` §4 — es el único lugar que los declara en presente.
 - **Pendientes conocidos**: PR 4 (voz + retiro del ChatWidget v1 + limpieza `/v1` `/v2`) ·
-  F3 de facturas · el bug de conducta #23 card fantasma (el #24 over-claim se corrigió 2026-07-23) ·
-  la migración de los 8 `*-chat` heredados · re-medir el prefijo (A4).
+  F3 de facturas · la migración de los 8 `*-chat` heredados. (Los 2 bugs de conducta del agente
+  —#23 card fantasma y #24 over-claim— se corrigieron 2026-07-23; A4 prefijo re-medido 2026-07-23.)
 
 ## Las otras carpetas
 

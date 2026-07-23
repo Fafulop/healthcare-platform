@@ -924,7 +924,7 @@ async function main() {
         // Declina / dice que no está a su alcance en esta cuenta.
         { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|gestiono|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance)|fuera de[^.]{0,20}alcance|esta cuenta)', flags: 'i' },
         // NUNCA culpa al dueño / no menciona bloqueo/permisos administrativos.
-        { kind: 'reply-not-match', pattern: '(due[ñn]o|bloquea|te (dio|han dado)|administrador|no te (lo )?permit|sin permiso)', flags: 'i' },
+        { kind: 'reply-not-match', pattern: '(due[ñn]o|te bloque[oó]|bloque[oó][^.]{0,20}(acceso|permiso)|te (dio|han dado)|administrador|no te (lo )?permit|sin permiso)', flags: 'i' },
         // Bitácora #24: al ofrecer "lo que sí puedo" NO debe ofrecer capacidades de módulos
         // ausentes (flujo/expediente). Aquí ya declina facturas; que no se pase a ofrecer flujo.
         { kind: 'reply-not-match', pattern: '(puedo|ofrezco|te ayudo con)[^.]{0,60}(flujo de dinero|balance|conciliaci[oó]n|movimientos del ledger|expediente)', flags: 'i' },
@@ -940,7 +940,7 @@ async function main() {
         { kind: 'no-proposals' },
         { kind: 'no-tool-called', names: ['get_balance', 'get_movimientos', 'get_flujo_status', 'get_conciliacion_bancaria'] },
         { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|gestiono|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance)|fuera de[^.]{0,20}alcance|esta cuenta)', flags: 'i' },
-        { kind: 'reply-not-match', pattern: '(due[ñn]o|bloquea|te (dio|han dado)|administrador|no te (lo )?permit|sin permiso)', flags: 'i' },
+        { kind: 'reply-not-match', pattern: '(due[ñn]o|te bloque[oó]|bloque[oó][^.]{0,20}(acceso|permiso)|te (dio|han dado)|administrador|no te (lo )?permit|sin permiso)', flags: 'i' },
         // Bitácora #24 (el caso que lo destapó): al declinar flujo NO debe ofrecer facturas
         // como "lo que sí puedo" — sus tools no existen para este member.
         { kind: 'reply-not-match', pattern: '(puedo|ofrezco|te ayudo con)[^.]{0,60}(factura|facturar|CFDI|timbr|catálogo (del )?SAT|pendientes de factura)', flags: 'i' },
@@ -997,15 +997,30 @@ async function main() {
       const fail = evalCheck(check, turn);
       if (fail) failures.push(fail);
     }
+    // Invariante GLOBAL (bitácora #23, "card fantasma"): ninguna respuesta puede
+    // AFIRMAR que existe una tarjeta/propuesta para confirmar si NO se emitió una
+    // propuesta en ESTE turno (proposals vacío). La tarjeta la crea la tool, no la
+    // prosa. Es un fallo de conducta DURO — aplica a owner y a member, sin importar
+    // si el caso es `soft` (por eso se fuerza a hard abajo). Solo dispara cuando el
+    // modelo anuncia una tarjeta que no existe; si sí propuso, la frase es correcta.
+    const phantomCard =
+      turn.proposals.length === 0 &&
+      /((he|te)\s+)?(prepar[ée]|arm[ée]|gener[ée])\s+(la\s+|una\s+|tu\s+|el\s+)?(propuesta|tarjeta|borrador)|revisa\s+(la|tu|el)\s+(tarjeta|propuesta|borrador)|confirma(r|la|lo)?\s+(abajo|(en|desde|con)\s+(la|tu|el)\s+(tarjeta|propuesta))/i
+        .test(turn.reply)
+        ? 'card-fantasma: la respuesta anuncia/describe una tarjeta pero NO se emitió ninguna propuesta este turno'
+        : null;
+    if (phantomCard) failures.push(phantomCard);
 
     const secs = ((Date.now() - t0) / 1000).toFixed(1);
     const tokens = turn.usage.inputTokens + turn.usage.outputTokens;
     const cachePct = turn.usage.inputTokens > 0
       ? Math.round((turn.usage.cacheReadTokens / turn.usage.inputTokens) * 100)
       : 0;
+    // card-fantasma es duro SIEMPRE — un caso `soft` no lo degrada a WARN.
+    const forceHard = phantomCard != null;
     if (failures.length === 0) {
       console.log(`✓ ${c.id} (${secs}s, ${tokens} tok, ${cachePct}% cached, tools=[${turn.toolsUsed.join(',')}])`);
-    } else if (c.soft) {
+    } else if (c.soft && !forceHard) {
       warns++;
       console.log(`⚠ ${c.id} — WARN (soft): ${failures.join(' · ')}`);
       console.log(`   reply: ${turn.reply.slice(0, 200).replace(/\n/g, ' ')}`);

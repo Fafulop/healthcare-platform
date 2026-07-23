@@ -24,9 +24,9 @@ expediente) y a las capas transversales (panel copilot, capa de conocimiento, au
 **PR 4 (voz + retiro del ChatWidget v1 + limpieza de `/v1` `/v2`) sigue pendiente** y no tiene
 carpeta propia todavía.
 
-Bugs conocidos de conducta del modelo: **#24 over-claim del member — CORREGIDO 2026-07-23**
-(member-only, 3/3 evals); **#23 card fantasma — PENDIENTE** (toca el prompt compartido). Detalle
-en la bitácora del `SESSION-REFRESCO`.
+Bugs conocidos de conducta del modelo — ambos **CORREGIDOS 2026-07-23** en pasadas separadas:
+**#24 over-claim del member** (member-only, 3/3 evals) y **#23 card fantasma** (prompt compartido,
+suite completa 63/65 · 0 FAIL). Detalle en la bitácora del `SESSION-REFRESCO`.
 
 ## Archivos
 
