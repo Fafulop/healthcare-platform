@@ -1231,3 +1231,18 @@ nota de §7.1 que marcaba "exponer `AGENT_MODULE_REQUIREMENTS` al cliente = fuer
 importa el mapeo re-exportado) · `tsc` del doctor-app limpio (0 errores). Enforcement intacto:
 esto es solo ayuda visual sobre los mismos checkboxes; la frontera real sigue siendo server-side
 (§4) + el recorte de módulos del agente (§7.1).
+
+**Mini bug-hunt post-ship (2026-07-23) — familia correcta = consistencia, no authz.** La feature
+no tiene superficie de enforcement (no hay gate que evadir), así que el hunt de gates (02-METODO
+§3.2) no aplica; el riesgo real es que la UI MIENTA sobre lo que el agente hace. Verificado contra
+código:
+- **`asistente_ia` ES el master gate real**, en 3 puntos: `DashboardLayout` (monta el panel),
+  botón del agente en `appointments`, y **server-side en la ruta** (`route-permissions.ts`:
+  `{prefix:'agenda-agent', key:'asistente_ia'}`). La leyenda ("IA apagado ⇒ el panel no aparece")
+  es fiel.
+- **El "grupo completo" de la UI usa la MISMA lógica que `enabledModules`** (`required.every(
+  hasPermission)`) — el chip no puede decir "✓ activo" cuando el agente bloquearía, ni al revés.
+- **1 hallazgo (drift doc↔código introducido en el mismo ship, corregido `1d54384c`):** el §19
+  prometía "un módulo nuevo aparece solo con color por default", pero un grupo sin `GROUP_STYLE`
+  devolvía `null` (desaparecía). Fix: `groupStyleFor()` cae a gris + etiqueta derivada de los
+  toggles. Ahora la agrupación se auto-mantiene desde `AGENT_MODULE_REQUIREMENTS` de verdad.

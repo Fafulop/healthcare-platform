@@ -23,6 +23,7 @@ member real. Nada bloqueante abierto.
 | **Extensión B** — vista admin `/helpers` | ✅ `4403c6d3` + `64677f6f` |
 | **Cobertura de los 19 toggles** | ✅ auditada — 16/19 con ruta server-side, 3 sin ella por diseño |
 | **Evals del agente para members** | ✅ 3/3 · suite completa de owner 62/65 · 0 FAIL |
+| **UI de grupos del Asistente IA en Equipo** | ✅ SHIPPED 2026-07-23 (`f791fc5f` + `1d54384c`) — colores/chips por módulo que muestran EN VIVO qué toggles faltan para que el agente funcione en cada dominio (§19) |
 
 **Estado de los diferidos:** el guardarraíl del *over-claim* del agente member se **corrigió
 2026-07-23** (fix + evals en `../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md` bitácora #24). Sigue
@@ -35,7 +36,7 @@ diferida la sub-prueba B2 del checkbox de factura (opcional, no bloquea). Detall
 | Doc | Qué es |
 |---|---|
 | [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | **LÉEME PRIMERO** — estado, dónde quedó la validación en vivo, qué sigue, gotchas y el contexto de código para orientarse |
-| [`01-DISENO-tecnico.md`](01-DISENO-tecnico.md) | **La referencia técnica profunda** (1,200 líneas): modelo de datos, los 3 puntos de resolución, el mapa ruta→toggle, el as-built y el review de cada PR, los 9 bugs del bug hunt (§16), el fix del ingreso server-side (§17) y el cierre de la validación (§18) |
+| [`01-DISENO-tecnico.md`](01-DISENO-tecnico.md) | **La referencia técnica profunda**: modelo de datos, los 3 puntos de resolución, el mapa ruta→toggle, el as-built y el review de cada PR, los 9 bugs del bug hunt (§16), el fix del ingreso server-side (§17), el cierre de la validación (§18) y la UI de grupos del Asistente IA en Equipo (§19) |
 | [`02-METODO-review.md`](02-METODO-review.md) | **Cómo se revisa código de AUTORIZACIÓN.** Extiende el playbook general con 3 ángulos propios (bypass del matcher de rutas · escalación de privilegios · dirección de fallo) y con el método de bug hunt de "dos greps, no uno" |
 
 ### Snapshots (congelados — no se actualizan)
@@ -72,8 +73,10 @@ members. Una feature futura sin mapear no abre un hueco por olvido — lo cierra
 - **El asistente de IA y sus módulos:** [`../AGENTES/`](../AGENTES/README.md) — en particular el
   filtrado de módulos por permisos, en
   [`../AGENTES/GENERAL AGENTES/02-CAPACIDADES`](../AGENTES/GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §1.5.
-- **El código:** `packages/database/src/permissions.ts` (los 19 toggles) ·
+- **El código:** `packages/database/src/permissions.ts` (los 19 toggles, sus etiquetas, y
+  **`AGENT_MODULE_REQUIREMENTS`** = mapeo módulo del agente→toggles, fuente única compartida) ·
   `route-permissions.ts` (mapa ruta→toggle) · `membership.ts` (resolución) ·
   `apps/api/src/lib/auth.ts` + `apps/doctor/src/lib/medical-auth.ts` (los dos choke points) ·
-  `apps/doctor/src/lib/permissions-client.ts` (`usePermissions()`, cortesía de UI).
+  `apps/doctor/src/lib/permissions-client.ts` (`usePermissions()`, cortesía de UI) ·
+  `components/profile/TeamSection.tsx` (pestaña Equipo + la UI de grupos del agente §19).
 - **Convenciones de estos docs:** [`../AGENTES/GENERAL AGENTES/07-CONVENCIONES-docs.md`](../AGENTES/GENERAL%20AGENTES/07-CONVENCIONES-docs.md).
