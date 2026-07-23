@@ -53,8 +53,28 @@ interface CaseResult {
   toolCalls: { name: string; input: Record<string, unknown> }[];
   proposals: { type: string; orden: number; titulo: string }[];
   tokens: number;
+  /** Latencia de la corrida del caso (ms). Para el benchmark de costo. */
+  latencyMs: number;
+  /** Desglose completo de tokens del turno — lo consume scripts/agent-cost-benchmark.ts
+   * (USD por caso + agregados). Se guarda TAL CUAL lo devuelve run-turn; el
+   * benchmark aplica la tabla de precios y NO re-corre el loop. */
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    budgetTokens: number;
+  };
   error?: string;
 }
+
+const ZERO_USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  budgetTokens: 0,
+};
 
 interface EvalCase {
   id: string;
@@ -987,6 +1007,7 @@ async function main() {
       results.push({
         id: c.id, pass: false, soft: c.soft ?? false,
         failures: [], reply: '', toolCalls: [], proposals: [], tokens: 0,
+        latencyMs: Date.now() - t0, usage: { ...ZERO_USAGE },
         error: String(err?.message ?? err),
       });
       continue;
@@ -1046,6 +1067,8 @@ async function main() {
       toolCalls: turn.toolCalls,
       proposals: turn.proposals.map((p) => ({ type: p.type, orden: p.orden, titulo: p.titulo })),
       tokens,
+      latencyMs: Date.now() - t0,
+      usage: turn.usage,
     });
   }
   } finally {
