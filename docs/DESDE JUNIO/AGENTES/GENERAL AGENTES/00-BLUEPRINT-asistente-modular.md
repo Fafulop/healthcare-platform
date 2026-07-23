@@ -75,7 +75,8 @@ el prompt se edita en `prompt.ts` o `modules/<dominio>.ts`, NUNCA en `run-turn.t
 > actual de tools/módulos/evals y el estado del prefijo viven SOLO en
 > [`02-CAPACIDADES`](02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4
 > (regla en [`07-CONVENCIONES`](07-CONVENCIONES-docs.md) §2). Al 2026-07-23: **39 tools /
-> 5 módulos · suite 65 casos · prefijo STALE-UNMEASURED desde F2a/F2b/F2c.**
+> 5 módulos · suite 65 casos · prefijo ~24.7k (re-medido A4 2026-07-23; ninguna señal §5.3
+> disparada, nivel 0 se mantiene).**
 
 ### Telemetría y estado — base 2026-07-11, con anotaciones posteriores fechadas en línea
 
@@ -156,6 +157,10 @@ tokens estáticos. La trampa NO es el volumen sino el **patrón de uso frente al
   prefijo completo a ×1.25.** Piso de costo por pregunta fría ≈ prefijo × 1.25 + output × 5.
   Hoy: ~17k budget/pregunta fría. Con 30k de prefijo: **~38k budget/pregunta fría → 13
   preguntas esporádicas al día agotan el cap de 500k.** Este es el número que muerde primero.
+  > ✅ **Confirmado en la práctica (A4, 2026-07-23):** con el prefijo real ~24.7k, la pregunta
+  > fría medida ≈ 33k budget → **~15 preguntas frías/día** caben en el cap. La proyección de
+  > arriba acertó. Sigue siendo el número que muerde primero, y sigue midiéndose solo con
+  > dr-prueba (no hay patrón de doctor real todavía).
 
 **b) Errores — la clase que crece es "elección de tool" y "confusión de dominio".** Evidencia
 a favor: en la validación en vivo el modelo distinguió bien get_cfdis vs get_sat_cfdis (par
@@ -179,13 +184,17 @@ de cada push, y las secciones compartidas (INTRO/RESILIENCE) como único punto d
    `xdom-cita-a-factura`); regla: +2-3 por módulo nuevo. **El primero encontró un bug latente
    de prod EN SU PRIMERA CORRIDA** (mp_payment_preferences.status TEXT vs enum → filtros
    tronaban; migración aplicada) — evidencia directa de que esta clase de eval paga.
-4. ✅ **MEDIDO (A4, 2026-07-14)** — `llm_token_usage.budget_tokens` re-consultado tras
-   flujo+expediente: p50/turno +11.6% (no dispara el umbral de +20%), aperturas frías
-   24.4k–33.3k budget (como proyectaba §5.1a), peor día real 40.7% del cap → nivel 0 se
-   mantiene. Sigue siendo revisión a mano tras cada módulo nuevo; resultados y caveat
-   (todo es dr-prueba aún) en `03-PLAN-auditoria-integral.md` A4. Además **A2 shipped**
-   (`8a27e469`): los errores de tools ahora se persisten en `agent_tool_errors` — la
-   observabilidad que faltaba para que una tool rota no viva semanas invisible.
+4. ✅ **MEDIDO (A4, 2026-07-14; RE-MEDIDO 2026-07-23 tras F2a/b/c)** —
+   `llm_token_usage.budget_tokens` re-consultado. **2026-07-14** (tras flujo+expediente):
+   p50/turno +11.6%, frías 24.4k–33.3k, peor día 40.7% del cap → nivel 0. **2026-07-23** (tras
+   F2a/F2b/F2c, prefijo ~21.2k→24.7k): p50/turno +5.6%, prefijo dentro de presupuesto, peor día
+   61.2% → **nivel 0 sigue**, pero DOS cosas a vigilar: el p95 de budget subió +39% (los turnos
+   de facturas corren más iteraciones) y el headroom del cap bajó de 2.5× a 1.6×. Ninguna de
+   las 3 señales §5.3 disparó; la palanca si muerde con doctores reales es TTL 1h, no poda.
+   Todo sigue siendo dr-prueba. Resultados y método en `03-PLAN-auditoria-integral.md` A4.
+   Además **A2 shipped** (`8a27e469`): los errores de tools ahora se persisten en
+   `agent_tool_errors` — la observabilidad que faltaba para que una tool rota no viva semanas
+   invisible.
 5. ✅ **HECHO (2026-07-22)** — **evals del path de MEMBER (módulos filtrados por permisos).**
    NUEVOS USUARIOS recorta el set de módulos por permisos (`enabledModules`). El runner ahora
    acepta `permissions` por caso → simula un member; nuevo check `no-tool-called`. 3 casos

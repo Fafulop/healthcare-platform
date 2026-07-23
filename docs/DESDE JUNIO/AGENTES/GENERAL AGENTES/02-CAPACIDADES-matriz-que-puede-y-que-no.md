@@ -139,11 +139,25 @@ desambiguación está en [`08-EMPIEZA-AQUI.md`](08-EMPIEZA-AQUI.md) §1.5.
 
 **Modelo y costos:** claude-sonnet-5 (`AGENDA_AGENT_MODEL`) · cap diario 500k budget tokens
 (~$1.50/doctor) ponderado por costo · caché 1 breakpoint estable + 2 móviles, TTL 5 min.
-⚠️ **Prefijo estático: STALE-UNMEASURED.** La última medición real es **~21.2k tokens
-(2026-07-12, con 35 tools)**; después entraron F2a/F2b/F2c (+4 tools y varias secciones de
-prompt) y **nunca se re-midió**. No estimarlo: medirlo con el método de
-[`03-PLAN-auditoria-integral.md`](03-PLAN-auditoria-integral.md) A4 antes de usarlo para
-decidir escalamiento (blueprint §5.3).
+
+**Prefijo estático: ~24.7k tokens (re-medido 2026-07-23, A4).** Con los 39 tools actuales,
++3.5k vs los ~21.2k de 2026-07-12/35 tools — dentro del presupuesto de ~2-3k/módulo. ⚠️ Es un
+**tope**, no exacto: `llm_token_usage` no persiste el split de caché, así que se usó el PISO de
+`prompt_tokens` (24,745, que incluye un mensaje corto + historial mínimo); el prefijo real es
+un poco menor. Para el número exacto: `count_tokens` de Anthropic sobre
+`buildSystemPrompt(AGENT_MODULES)` + `ALL_TOOLS` (gratis).
+
+**Ninguna señal de escalamiento §5.3 disparada — nivel 0 se mantiene** (medición 2026-07-23,
+read-only vs prod, n=80 turnos con budget, TODOS dr-prueba — sin señal de doctores reales aún):
+- (b) p50 budget/turno **10,256 → 10,826 = +5.6%** (umbral +20%) ✅
+- prefijo **24.7k** (umbral nivel 2 = 35-40k) ✅
+- (c) peor día real **61.2% del cap** (2026-07-17, 16 turnos) ✅
+- ⚠️ **Lo que SÍ subió:** los turnos CAROS. p95 budget **28,658 → 39,877 (+39%)** y promedio
+  +30% — es F2a/b/c (búsqueda de catálogo + emisión corren más iteraciones/turno). El turno
+  mediano no cambió; los pesados sí. Y el headroom bajó de ~2.5× a ~1.6× (el peor día pasó de
+  40.7% a 61.2% del cap). Pregunta fría ≈ 33k budget ⇒ **~15 preguntas frías/día** caben en el
+  cap. Palanca si muerde con doctores reales: TTL de caché 1h (nivel 1), no poda. Detalle del
+  método en [`03-PLAN-auditoria-integral.md`](03-PLAN-auditoria-integral.md) A4.
 
 Nota F2a:
 search_catalogo_sat necesita `ToolContext.apiToken` (minteado por turno desde la sesión —

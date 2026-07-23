@@ -66,7 +66,9 @@ Conteos exactos (tools, evals, prefijo) y las fronteras completas:
 - **2 bugs de conducta del agente**, cada uno con su propia pasada (no batchear — distinto
   blast radius sobre el caché del prompt): **card fantasma** (#23) y **over-claim del member**
   (#24). Bitácora en `AGENTE AGENDA/SESSION-REFRESCO`.
-- **Re-medir el prefijo** (procedimiento A4) — está STALE-UNMEASURED desde F2a/b/c.
+- ~~Re-medir el prefijo (A4)~~ ✅ HECHO 2026-07-23: ~24.7k con 39 tools, ninguna señal §5.3
+  disparada (nivel 0). Vigilar: el p95 de turnos caros subió +39% y el headroom del cap bajó a
+  ~1.6×. Sigue midiéndose solo con dr-prueba — re-medir cuando haya doctores reales.
 - **Deuda mapeada**: 8 endpoints `*-chat` en el patrón viejo que puede "mentir éxito"
   (`GENERAL AGENTES/06-MAPA` §2) · sin job de retención para `llm_token_usage` /
   `agent_tool_errors`.

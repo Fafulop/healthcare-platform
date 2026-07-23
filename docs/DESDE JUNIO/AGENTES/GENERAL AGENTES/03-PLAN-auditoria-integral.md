@@ -6,7 +6,7 @@
 > [`02-CAPACIDADES`](02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4. Su valor hoy es el
 > **método** (cómo se audita) y los post-mortems: A3 sigue siendo la mejor descripción de la
 > clase de bug dominante (réplicas parciales de un WHERE), y A4 es el procedimiento a repetir
-> para re-medir el prefijo (hoy STALE-UNMEASURED).
+> para re-medir el prefijo (re-medido 2026-07-23 al final de A4 — ~24.7k, nivel 0 se mantiene).
 >
 > Plan para verificar que el asistente es **correcto, consistente, seguro y
 > costo-óptimo** ahora que "F1 everywhere" está completo (5 módulos / 35 tools *(2026-07-12)*,
@@ -130,6 +130,26 @@ Notas: p95 sí subió 26.1k → 32.5k (+24%) — es el write frío del prefijo m
 costo esperado del patrón esporádico; la palanca si muerde con doctores reales es TTL 1h
 (nivel 1), no poda. avg +4.4%. Volumen crudo p50 33.9k → 40.8k. **Decisión: nivel 0 se
 mantiene; nada que podar antes de F2. Re-medir cuando haya uso de doctores reales.**
+
+**RE-MEDICIÓN (2026-07-23, tras F2a/F2b/F2c — read-only vs prod, n=80 turnos con budget,
+TODOS dr-prueba).** Corte antes/después = 2026-07-16 (ship de F2a). Método: piso de
+`prompt_tokens` como proxy del prefijo (`llm_token_usage` no persiste el split de caché →
+es un TOPE, el prefijo real es un poco menor; para el exacto, `count_tokens` sobre
+`buildSystemPrompt(AGENT_MODULES)`+`ALL_TOOLS`).
+
+| Señal §5.3 | Umbral | Medido (antes → después de F2a) | Veredicto |
+|---|---|---|---|
+| prefijo estático | nivel 2 = 35-40k | ~21.2k → **~24.7k** (+3.5k, 4 tools nuevos) | ✅ dentro de presupuesto |
+| (b) p50 budget/turno | +20% | 10,256 → 10,826 (**+5.6%**) | ✅ no dispara |
+| (c) peor día real | cap corto | 40.7% → **61.2%** del cap (16 turnos) | ✅ headroom ~1.6× |
+| pregunta fría | ~33k proyectado | ≈33k budget → **~15 frías/día** en el cap | ✅ |
+
+⚠️ **Lo que SÍ subió (vigilar, no actuar):** el **p95 de budget 28,658 → 39,877 (+39%)** y el
+promedio +30% — los turnos de facturas (búsqueda de catálogo + emisión) corren más iteraciones,
+así que el turno CARO se encareció aunque el mediano casi no. Y el headroom del cap cayó de
+~2.5× a ~1.6×. Ninguna señal §5.3 disparó → **nivel 0 se mantiene**; si muerde con doctores
+reales, la palanca es TTL de caché 1h (nivel 1), no poda. **Sigue sin haber señal de doctor
+real — los 80 turnos son dr-prueba.** Query en scratchpad (`a4-prefix.cjs`), método TOOLING.
 
 ## A5 — Higiene de evals (soft-rot y el gate) — ✅ HECHO 2026-07-14 (43/43 PASS, 0 WARN)
 

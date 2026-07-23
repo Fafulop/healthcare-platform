@@ -95,7 +95,7 @@ fuera de rango se ECHAN en `filtrosAplicados` (nunca drop silencioso — lecció
   ~21.2k tokens (+~1.9k, dentro del presupuesto del blueprint). ⚠️ Conteo de su fecha — la
   serie F2 de facturas agregó tools después. **Vigente:
   [`../GENERAL AGENTES/02-CAPACIDADES`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4**
-  (donde además el prefijo está marcado STALE-UNMEASURED).
+  (el prefijo se re-midió el 2026-07-23: ~24.7k con 39 tools).
 - Pendiente al desplegar: validación en vivo (preguntas en SESSION-REFRESCO).
 
 ---
