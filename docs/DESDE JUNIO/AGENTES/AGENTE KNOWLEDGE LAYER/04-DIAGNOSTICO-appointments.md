@@ -1,5 +1,11 @@
 # 🔬 Diagnóstico — ¿el agente YA es experto en appointments? (evidencia)
 
+> 🔒 **SNAPSHOT — 2026-07-14.** No se actualiza. Es la EVIDENCIA (12 sondas al agente vivo) que
+> justificó el PR de `05` y que midió el hueco antes de autorar nada: 9/12 ya bien, la frontera
+> estado→tools intacta, y el único hueco real fue la navegación de UI — **inconsistente**, que
+> era el hallazgo. ⚠️ Refleja el comportamiento ANTES del guardarraíl; hoy la sonda que
+> improvisó (`ui-crear-horario-pasos`) ya no lo hace. Estado: [`README.md`](README.md).
+
 > **Qué es este doc.** El resultado de sondear al agente VIVO (read-only, dr-prueba) con 12
 > preguntas de appointments para medir empíricamente dónde YA es experto vs dónde improvisa vs
 > dónde declina — antes de autorar nada. Corrido 2026-07-14. Confirma el modelo de 2 dimensiones

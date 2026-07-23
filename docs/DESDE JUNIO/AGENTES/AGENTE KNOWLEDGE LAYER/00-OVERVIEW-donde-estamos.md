@@ -1,5 +1,10 @@
 # 🧠 AGENTE KNOWLEDGE LAYER — dónde estamos (inventario real)
 
+> 🔒 **SNAPSHOT — 2026-07-14.** No se actualiza. Es el resultado del paso **K1 (inventario)**:
+> el hallazgo de que NO hay un sistema de ayuda sino **cuatro superficies disjuntas**. Sigue
+> siendo válido como mapa del punto de partida; el estado de la capa está en
+> [`README.md`](README.md).
+
 > **Qué es este doc.** El mapa de la CAPA DE CONOCIMIENTO del asistente: qué existe HOY en el
 > código (no lo que dicen los planes), qué está vivo/muerto/desactualizado, y cómo se relaciona
 > con las otras carpetas de `AGENTES/`. Es el resultado del paso **K1 (inventario y verificación

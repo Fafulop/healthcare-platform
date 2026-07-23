@@ -4,13 +4,15 @@
 > documentan un dominio cada una; ésta documenta **el asistente como un todo**: la estrategia,
 > qué puede y qué no, cómo se revisa, y dónde vive cada superficie de IA del doctor-app.
 >
-> **Si tienes 5 minutos y una sesión fría:** lee `00-BLUEPRINT` (qué estamos construyendo) y
-> `02-CAPACIDADES` (qué puede hoy). Con eso puedes navegar el resto.
+> **Si tienes 5 minutos y una sesión fría:** lee
+> [`08-EMPIEZA-AQUI.md`](08-EMPIEZA-AQUI.md) — la estructura, dónde escribir y qué se verifica
+> solo. Después `00-BLUEPRINT` (qué construimos) y `02-CAPACIDADES` (qué puede hoy).
 
 ## Los docs
 
 | Doc | Qué responde | Tipo |
 |---|---|---|
+| [`08-EMPIEZA-AQUI.md`](08-EMPIEZA-AQUI.md) | **LA PUERTA DE ENTRADA.** La estructura de toda la carpeta, los 3 tipos de doc, la tabla "dónde escribir cuando termines", los gates automáticos, y la arquitectura de este sistema de docs | vivo |
 | [`00-BLUEPRINT-asistente-modular.md`](00-BLUEPRINT-asistente-modular.md) | **Qué estamos construyendo y por qué.** UN asistente con módulos de dominio; el playbook de 6 pasos con el que se construyó cada módulo; el modelo de confianza; y §5, el análisis honesto de escalamiento (los 3 costos que crecen + la escalera de opciones 0→3 + las 3 señales para subir de nivel) | vivo |
 | [`02-CAPACIDADES-matriz-que-puede-y-que-no.md`](02-CAPACIDADES-matriz-que-puede-y-que-no.md) | **Qué puede y qué NO puede el asistente**, módulo por módulo, con las fronteras duras y las reglas de desempate. **Es la fuente ÚNICA de los conteos en presente** (tools, módulos, evals, prefijo) y de qué módulos ve un usuario secundario | vivo |
 | [`05-METODO-code-review.md`](05-METODO-code-review.md) | **Cuándo un diff merece review completo y en qué modo correrlo.** La heurística validada (lógica replicada + contenido que afirma hechos = siempre completo) y los dos modos, con la lección de costo: el multi-agente local mata el límite de sesión | vivo |

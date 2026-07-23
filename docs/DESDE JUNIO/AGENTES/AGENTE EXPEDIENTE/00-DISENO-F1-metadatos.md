@@ -1,5 +1,13 @@
 # 🗂️ F1 expediente — metadatos sí, contenido clínico no (referencia técnica)
 
+> 🔒 **SNAPSHOT — 2026-07-12.** No se actualiza; sus conteos de tools son de esa fecha (los
+> globales viven en
+> [`../GENERAL AGENTES/02-CAPACIDADES`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4).
+> ⚠️ Lo de este doc que NO ha caducado y hay que respetar al tocar el módulo: **la frontera de
+> privacidad del §3** (estructural en los selects + tripwire en el smoke) y **la semántica de
+> "última visita" del §4** (la estampan los encounters, NO las citas).
+> Estado actual: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
 > Qué hace cada tool del módulo `expediente`, la frontera de privacidad y cómo se hace
 > cumplir, la semántica REAL de "última visita" (verificada contra el código), y los
 > hallazgos del review de privacidad. Construido y revisado 2026-07-12.

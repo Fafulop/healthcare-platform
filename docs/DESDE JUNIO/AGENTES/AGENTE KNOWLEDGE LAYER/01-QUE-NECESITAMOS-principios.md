@@ -1,5 +1,10 @@
 # 🎯 Qué necesitamos — desde primeros principios
 
+> 🔒 **SNAPSHOT — 2026-07-14.** No se actualiza. Fija el modelo mental que sigue rigiendo la
+> capa: **UN punto de contacto** y "experto" partido en **2 dimensiones** (conocimiento en
+> TODAS las secciones, tools solo en algunas), con la regla de default: toda sección arranca
+> solo-conocimiento. Estado de la capa: [`README.md`](README.md).
+
 > **Qué es este doc.** La definición de lo que queremos, reformulada desde cero (no heredada del
 > plan viejo). Fija el modelo mental que rige todo lo demás en este folder. Escrito con el usuario
 > 2026-07-14.

@@ -1,5 +1,11 @@
 # 🖥️ Plan — panel copilot persistente (side-by-side, sobrevive navegación)
 
+> 🔒 **SNAPSHOT — 2026-07-11. SHIPPED a prod y verificado en vivo.** No se actualiza. Valor hoy:
+> **§7** (cómo quedó vs el plan — incl. por qué hay DOS contexts y no uno), **§8** (los
+> follow-ups F1–F4, que siguen abiertos) y **§9** (las lecciones de Tailwind, que mordieron dos
+> veces el mismo día). Estado actual del asistente:
+> [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md).
+
 > **Qué es esto.** Diseño para convertir el panel del asistente de un popup atado a
 > `/appointments` en un **panel lateral acoplado (docked) a nivel del app shell** — el patrón
 > copilot (VS Code / Cursor / Notion AI): la pantalla del sistema se ENCOGE para hacerle lugar

@@ -1,6 +1,12 @@
 # NUEVOS USUARIOS — Auditoría de cobertura: bloqueo por los 19 toggles
 
-> **Estado:** AUDITORÍA 2026-07-22 (verificada contra código). Confirma que el bloqueo de members
+> 🔒 **SNAPSHOT — 2026-07-22, con condición de re-corrida.** Es una auditoría MANUAL: la
+> cobertura "cada RUTA está mapeada" sí es garantía de máquina (`pnpm gate:routes`, 235 rutas
+> + fail-closed), pero **"cada TOGGLE bloquea algo" NO lo es** — es esta tabla, a mano.
+> 👉 **Re-córrela si se agregan toggles, o cuando `contenido` deje de ser un placeholder**
+> (ver §"Los 3 sin ruta"). Mientras tanto, lo no-mapeado bloquea a members por default.
+>
+> **Estado original:** AUDITORÍA 2026-07-22 (verificada contra código). Confirma que el bloqueo de members
 > está cubierto para los 19 toggles. Fuentes: `packages/database/src/route-permissions.ts`
 > (`ROUTE_PERMISSION_MAP` = servidor, la frontera real; `PAGE_PERMISSION_MAP` = sidebar/PermissionGate),
 > `Sidebar.tsx`, `01-DISENO §4`.
@@ -14,6 +20,10 @@ lo no-mapeado = **fail-closed** (member → 403). Así, una feature futura sin m
 por default — no se puede dejar un hueco abierto por olvido.
 
 ## Matriz (19/19 cubiertos)
+
+<!-- Marcador verificado por scripts/check-docs-numbers.ts contra PERMISSION_KEYS.
+     El gate también asserta que cada key tenga su fila en la tabla de abajo. -->
+<!-- gate:toggles=19 -->
 
 | # | Toggle (key) | Enforcement server-side | UI |
 |---|---|---|---|

@@ -6,10 +6,13 @@
 > "hablar" (concepto/flujo) ya funciona y el destino "rutear" (CitasGuide) ya existe — falta solo
 > un guardarraíl + un puntero + evals. **Sin corpus nuevo, sin tool nueva.**
 >
-> **ESTADO 2026-07-14: CONSTRUIDO Y VALIDADO** (uncommitted al escribir esto). Ver §9. El
-> guardarraíl vive en `RESILIENCE` (`prompt.ts`), +3 evals `kl-*`, suite 48/49 PASS · 1 WARN
-> soft (no relacionado) · 0 FAIL. Comportamiento verificado en vivo: rutea/ofrece en vez de
-> improvisar; el concepto se sigue hablando.
+> 🔒 **SNAPSHOT — 2026-07-14. SHIPPED (`a9e57907` + `5ac3d4ca`) y VALIDADO EN VIVO EN PROD.**
+> No se actualiza (su "suite 49" es de esa fecha). Ver **§9** cómo quedó. El guardarraíl vive
+> en `RESILIENCE` (`prompt.ts`) + 3 evals `kl-*`.
+> ⚠️ **Lo más importante para no re-hacer trabajo está en §8:** el guardarraíl es GLOBAL (está
+> en una sección COMPARTIDA del prompt) → **ya aplica a todas las secciones en prod**; lo único
+> que varía por sección es si existe la guía destino en `/dashboard/ayuda`, que es trabajo de
+> UI, no de prompt. Estado de la capa: [`README.md`](README.md).
 
 ---
 

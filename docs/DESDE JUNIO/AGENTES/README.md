@@ -9,7 +9,13 @@
 
 ---
 
-## Si es tu primera vez (sesión fría, 10 minutos)
+## Si es tu primera vez (sesión fría)
+
+> 👉 **Lee [`GENERAL AGENTES/08-EMPIEZA-AQUI.md`](GENERAL%20AGENTES/08-EMPIEZA-AQUI.md).**
+> En ~5 minutos explica la estructura, los 3 tipos de doc, **dónde escribir al terminar** y qué
+> se verifica solo. Es el archivo que hay que mandar a leer a una sesión nueva.
+
+Después, según lo que vengas a hacer:
 
 1. [`GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md)
    — qué estamos construyendo, el playbook, y el análisis de escalamiento.
@@ -17,9 +23,8 @@
    — qué puede y qué NO puede hoy, módulo por módulo. **Los conteos vigentes viven solo aquí.**
 3. El `SESSION-REFRESCO.md` de la carpeta del dominio que vayas a tocar.
 
-**Si vas a escribir en estos docs**, lee además
-[`GENERAL AGENTES/07-CONVENCIONES-docs.md`](GENERAL%20AGENTES/07-CONVENCIONES-docs.md)
-(qué se actualiza, qué se congela, y de dónde sale cada número).
+**Si vas a escribir en estos docs**, el detalle de las reglas está en
+[`GENERAL AGENTES/07-CONVENCIONES-docs.md`](GENERAL%20AGENTES/07-CONVENCIONES-docs.md).
 
 ## Las tres reglas que gobiernan todo el sistema
 

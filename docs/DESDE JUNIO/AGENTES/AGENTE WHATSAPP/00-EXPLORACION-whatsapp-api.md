@@ -1,5 +1,10 @@
 # AGENTE WHATSAPP — exploración: API de WhatsApp (Meta) para conversación doctor↔paciente
 
+> 🔒 **SNAPSHOT — 2026-07-07.** Investigación congelada, nada construido. ⚠️ Es el único
+> snapshot de esta carpeta cuyo contenido puede caducar por causas EXTERNAS: precios, límites y
+> el rollout de "coexistence" de Meta cambian — **re-verificar contra la documentación vigente
+> de Meta antes de construir**. Índice y resumen: [`README.md`](README.md).
+
 > **Qué es esto.** Investigación inicial (2026-07-07, sesión de cierre de PR 3 del agente de
 > agenda) sobre si la plataforma puede: (1) enviar mensajes automáticos de WhatsApp a pacientes
 > en nombre del doctor, y (2) sostener una conversación abierta paciente↔agente sobre su

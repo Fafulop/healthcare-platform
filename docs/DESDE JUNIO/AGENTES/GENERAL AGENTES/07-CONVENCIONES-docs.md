@@ -1,11 +1,18 @@
 # 📐 Convenciones de esta documentación — qué se actualiza, qué se congela
 
-> **Qué es este doc.** Las reglas de mantenimiento de `docs/DESDE JUNIO/AGENTES/`. Existe porque
-> la carpeta creció a 40+ docs y empezó a contradecirse: números copiados hacia adelante a docs
-> que debían quedar congelados, y docs congelados leídos como si fueran el estado actual.
-> Creado 2026-07-23 tras una pasada de alineación completa de las 7 carpetas.
+> **Qué es este doc.** Las reglas de mantenimiento de `docs/DESDE JUNIO/AGENTES/` **y de su
+> carpeta hermana [`../../NUEVOS USUARIOS/`](../../NUEVOS%20USUARIOS/README.md)** (misma
+> convención, mismo gate). Existe porque AGENTES creció a 40+ docs y empezó a contradecirse:
+> números copiados hacia adelante a docs que debían quedar congelados, y docs congelados leídos
+> como si fueran el estado actual. Creado 2026-07-23 tras una pasada de alineación completa.
 >
 > **La regla de una línea:** cada doc es de UN tipo (§1); solo dos tipos se actualizan.
+>
+> 👉 **¿Sesión nueva?** Empieza por [`08-EMPIEZA-AQUI.md`](08-EMPIEZA-AQUI.md) — es la versión
+> corta y navegable (estructura + dónde escribir + gates). Este doc es el detalle de las reglas.
+>
+> ⚙️ **Parte de esto ya no depende de que lo leas:** `pnpm gate:docs` compara los conteos de
+> `02-CAPACIDADES` §4 contra el código y truena si no coinciden (§2).
 
 ---
 
@@ -36,6 +43,8 @@ los demás los citan CON FECHA.**
 | Módulo → permisos requeridos | `AGENT_MODULE_REQUIREMENTS` | `02-CAPACIDADES` §2 |
 | Prefijo estático (tokens) | medición real (A4) | `02-CAPACIDADES` §4 — **y si no se re-midió, se dice** |
 | Modelo, cap diario, TTL de caché | env + `run-turn.ts` | `02-CAPACIDADES` §4 |
+| Cantidad de toggles de permiso | `PERMISSION_KEYS` | `../../NUEVOS USUARIOS/05-COBERTURA` |
+| Cantidad de rutas clasificadas | `pnpm gate:routes` | `../../NUEVOS USUARIOS/05-COBERTURA` |
 
 **Reglas de uso:**
 1. En un SNAPSHOT, todo número va con su fecha: *"35 tools (2026-07-12)"*. Nunca a secas.

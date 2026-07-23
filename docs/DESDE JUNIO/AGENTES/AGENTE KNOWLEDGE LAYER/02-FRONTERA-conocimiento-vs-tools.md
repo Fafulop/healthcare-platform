@@ -1,5 +1,11 @@
 # 🚧 La frontera: ¿cómo sabe el agente cuándo usar CONOCIMIENTO y cuándo usar TOOLS?
 
+> 🔒 **SNAPSHOT — 2026-07-14.** No se actualiza (su "46 casos hoy" del §4 es de esa fecha).
+> ⚠️ **Pero su contenido NO ha caducado y es de los más importantes de la carpeta:** la regla
+> **"Estado → TOOLS · Cómo-funciona → CONOCIMIENTO"** y los 5 mecanismos que la sostienen
+> siguen gobernando el diseño. El diagnóstico (`04`) confirmó que la frontera se sostiene en
+> vivo. Estado de la capa: [`README.md`](README.md).
+
 > **Qué es este doc.** La preocupación #1 del usuario, y la decisión de diseño más importante de
 > toda la capa. Si esta frontera se difumina, el agente inventa números (alucinación) o responde
 > "cómo funciona" con datos viejos. La buena noticia: es la MISMA frontera que la industria

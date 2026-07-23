@@ -1,5 +1,12 @@
 # 🔬 Investigación de industria + el enfoque propuesto
 
+> 🔒 **SNAPSHOT — 2026-07-14.** No se actualiza. ⚠️ Es investigación de mercado con fuentes web
+> de esa fecha: **lo que hacen Agentforce/Copilot/Fin puede haber cambiado**; lo que NO caduca
+> es la conclusión propia (**por qué NO-RAG a nuestro tamaño de corpus**, §2) y la doctrina
+> robada de Agentforce **"control vs comportamiento"** (§1), que es nuestra regla 0 enunciada
+> como principio. La bifurcación del §4 quedó resuelta en `05` §6.1 (route-first).
+> Estado de la capa: [`README.md`](README.md).
+
 > **Qué es este doc.** Qué hacen los líderes (Salesforce Agentforce, Microsoft Copilot, Intercom
 > Fin, GitHub Copilot) para sistemas del mismo tipo, cómo respalda o corrige nuestro diseño, y el
 > enfoque que se recomienda — incluida la única bifurcación de arquitectura que falta decidir.

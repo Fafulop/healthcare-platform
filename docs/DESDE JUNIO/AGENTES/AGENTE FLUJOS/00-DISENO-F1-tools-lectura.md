@@ -1,5 +1,11 @@
 # 🛠️ F1 flujo de dinero — los 5 tools de lectura (referencia técnica)
 
+> 🔒 **SNAPSHOT — 2026-07-12** (+ post-mortem A3 del 2026-07-14). No se actualiza; sus conteos
+> de tools son de esa fecha. Los 5 tools siguen vivos tal cual — lo que cambia con el tiempo son
+> los conteos globales, que viven en
+> [`../GENERAL AGENTES/02-CAPACIDADES`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
+> Estado actual: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
 > Qué hace cada tool del módulo `flujo`, QUÉ ENDPOINT REPLICA (regla 0: los veredictos son
 > réplicas del código real, nunca inferencia del modelo), sus fronteras, y los hallazgos del
 > code-review. Construido y revisado 2026-07-12 contra el código citado.

@@ -112,6 +112,14 @@ de módulos que no tiene ("lo que sí puedo hacer"). No puede ejecutarlas — la
 
 ## 4. Números operativos (verificados contra el código 2026-07-23)
 
+<!-- Marcadores verificados por scripts/check-docs-numbers.ts contra el CÓDIGO.
+     Si el gate falla: NO edites el marcador a mano sin entender por qué cambió el código.
+     Actualiza el número Y el texto de esta sección juntos. -->
+<!-- gate:tools=39 -->
+<!-- gate:modules=5 -->
+<!-- gate:evals=65 -->
+<!-- gate:module-list=agenda,facturas,fiscal,flujo,expediente -->
+
 **39 tools / 5 módulos** — desglose real (conteo de `input_schema` por archivo): agenda 8 de
 lectura (`tools.ts`) + 10 de propuesta (`proposals.ts`) · facturas 12 (10 lectura + 2
 propuestas) · fiscal 2 · flujo 5 · expediente 2. El conteo válido es `ALL_TOOLS.length` del
