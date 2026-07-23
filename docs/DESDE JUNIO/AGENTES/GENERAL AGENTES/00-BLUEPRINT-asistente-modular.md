@@ -212,6 +212,10 @@ de cada push, y las secciones compartidas (INTRO/RESILIENCE) como único punto d
    REDUCE, no lo elimina** (los checks quedaron `soft`; garantía dura = post-procesar, más de lo
    que amerita algo cosmético). Bitácora #24 en AGENTE AGENDA SESSION-REFRESCO. *(Confirma la
    estrategia del punto 2: el fix de un problema del prompt member-only NO tocó al owner.)*
+   **🔎 Root confirmado (bug-hunt 2026-07-23):** el `MEMBER_SCOPE_NOTE` es un CONTRA-NUDGE — la
+   FUENTE de la over-declaración es que INTRO y RESILIENCE (compartidos) hardcodean el set
+   COMPLETO de capacidades, justo el drift que el punto 2 nombra. El root-fix real (componer esas
+   listas POR MÓDULO) toca el prompt del owner → otra suite completa, DIFERIDO por cosmético.
 
 ### 5.3 La escalera de opciones si "F1 everywhere" empieza a dar problemas
 
