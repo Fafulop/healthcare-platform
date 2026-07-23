@@ -1,6 +1,12 @@
 # NUEVOS USUARIOS — Plan: vista admin de helpers ligados a cada doctor
 
-> **Estado:** ✅ SHIPPED 2026-07-22 (as-built en §6, gates verdes, pusheado). Toca `@healthcare/api`
+> 🔒 **SNAPSHOT — 2026-07-22. Extensión B CERRADA** (verificada en vivo: `/helpers` muestra a
+> Andrea bajo dr-prueba). No se actualiza; estado en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+> ⚠️ Nota de as-built que cuesta re-descubrir: el link del Navbar **no bastó** — `/dashboard`
+> renderiza cards, no el Navbar, así que hizo falta el follow-up `64677f6f` para que la vista
+> fuera alcanzable.
+>
+> **Estado original:** ✅ SHIPPED 2026-07-22 (as-built en §6, gates verdes, pusheado). Toca `@healthcare/api`
 > + `@healthcare/admin`; sin migración, sin dependencia con doctor app.
 > Base v1: `00-REQUISITOS`, `01-DISENO`. Límite de 1 helper = doc hermano
 > `03-PLAN-limite-1-helper.md` (independiente). Todo lo citado verificado en código 2026-07-22.

@@ -5,9 +5,11 @@
 > en vivo, y qué sigue. Este doc (01-DISENO) es la referencia técnica profunda; el REFRESCO
 > es el resumen operativo.
 >
-> **Estado:** DISEÑO 2026-07-20, implementación EN CURSO. Requisitos cerrados en
-> [`00-REQUISITOS-usuarios-secundarios.md`](00-REQUISITOS-usuarios-secundarios.md).
-> Todo lo citado aquí (archivos, líneas, rutas) fue verificado en código el 2026-07-20.
+> **Estado: FEATURE COMPLETA Y EN PROD.** (Hasta 2026-07-23 esta cabecera decía "implementación
+> EN CURSO" mientras el párrafo de abajo decía "PR A-D SHIPPED" — se contradecía a sí misma.)
+> Requisitos cerrados en [`00-REQUISITOS-usuarios-secundarios.md`](00-REQUISITOS-usuarios-secundarios.md).
+> Lo citado aquí (archivos, líneas, rutas) fue verificado en código el 2026-07-20; las
+> referencias de línea envejecen — el código manda.
 >
 > **PR A-D SHIPPED** (`d6c48256`..`345b2a09`, 2026-07-20/21) — feature completa en prod.
 > `/code-review ultra` sobre B+C+D: 0 findings en B/C, 4 CONFIRMED en D (§15), corregidos
@@ -17,7 +19,7 @@
 > **Validación en vivo §9 COMPLETA 2026-07-22** (dr-prueba + member real
 > andreabarbagal@gmail.com): pasos 1-3+7 (2026-07-21), paso 4 = ingreso de cita server-side
 > (§17), pasos 5-6 = revoke/re-invite + audit log (§18) — todos confirmados en vivo (UI +
-> datos read-only en prod). Único pendiente: pushear los commits de docs (código ya vivo).
+> datos read-only en prod). **Sin pendientes: los commits de docs se pushearon en `dceaf9f4`.**
 >
 > Convenciones de BD según `docs/NEW.MD-GUIDES/database-architecture.md`: NO `prisma db push`;
 > migraciones SQL standalone idempotentes, aplicadas a Railway ANTES de pushear el código;

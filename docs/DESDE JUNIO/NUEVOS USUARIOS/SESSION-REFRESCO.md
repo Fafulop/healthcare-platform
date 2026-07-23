@@ -1,6 +1,9 @@
 # NUEVOS USUARIOS — SESSION REFRESCO
 
 > **Leer esto primero cada sesión.** Resumen operativo de estado + próximos pasos.
+> Índice de la carpeta: [`README.md`](README.md). Esta carpeta sigue las convenciones de docs
+> de su hermana AGENTES:
+> [`../AGENTES/GENERAL AGENTES/08-EMPIEZA-AQUI.md`](../AGENTES/GENERAL%20AGENTES/08-EMPIEZA-AQUI.md).
 > Para el porqué y el detalle técnico: `00-REQUISITOS-usuarios-secundarios.md` (requisitos,
 > CERRADOS), `01-DISENO-tecnico.md` (diseño + as-built + reviews de cada PR, incl. §16 con
 > los 9 bugs del bug hunt), `02-METODO-review.md` (cómo se revisa cada PR de esta feature).

@@ -1,6 +1,13 @@
 # NUEVOS USUARIOS — Plan: máximo 1 helper (member) activo por doctor
 
-> **Estado:** ✅ SHIPPED 2026-07-22 (commit `4666a9d1`, pusheado y desplegado en `@healthcare/doctor`).
+> 🔒 **SNAPSHOT — 2026-07-22. Extensión A CERRADA.** No se actualiza; estado en
+> [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+> ⚠️ **Lección reusable del §6 que trasciende esta feature:** el review inline atrapó un bug
+> en el propio fix G1 — ramificaba el mensaje de error por NOMBRE DE ÍNDICE, pero Prisma
+> `error.meta.target` devuelve nombres de **COLUMNA**. **Nunca ramifiques un P2002 por el
+> nombre del índice.**
+>
+> **Estado original:** ✅ SHIPPED 2026-07-22 (commit `4666a9d1`, pusheado y desplegado en `@healthcare/doctor`).
 > BD (2 índices parciales) + código (checks §3 + fixes G1/G2) live; enforcement confirmado en las
 > 3 capas (UI/app/BD) — detalle en §6. Decisión del usuario: enforce exactamente 1; G3 incluido.
 > Base v1: `00-REQUISITOS`, `01-DISENO`. Vista admin de helpers = doc hermano

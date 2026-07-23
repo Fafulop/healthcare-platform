@@ -1,7 +1,16 @@
 # NUEVOS USUARIOS — Requisitos: usuarios secundarios con permisos por bloque
 
-> **Estado:** REQUISITOS CERRADOS 2026-07-20 (sesión con el usuario; 5 decisiones finales aprobadas).
-> Ningún código escrito aún. Siguiente paso: diseño técnico (`01-DISENO-*.md`).
+> 🔒 **SNAPSHOT — 2026-07-20. REQUISITOS CERRADOS** (5 decisiones finales aprobadas en sesión
+> con el usuario). No se actualiza. La feature **ya se construyó y está en prod** — estado
+> actual en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+>
+> ⚠️ **Su valor hoy no es histórico: es el CONTRATO de la feature.** Las decisiones de aquí
+> siguen gobernando el código y NO se re-litigan — sobre todo §3.4 (zonas owner-only
+> permanentes), §3.5 (recetas = acto legal del doctor), §3.6 (la regla de dependencias
+> cross-block), §3.7 (registry único fail-closed) y §7 (lo explícitamente fuera de v1).
+> Si algo de aquí se quiere cambiar, es una decisión de producto, no un refactor.
+>
+> *(Redacción original: "Ningún código escrito aún. Siguiente paso: diseño técnico".)*
 >
 > **Qué es:** hoy cada cuenta de doctor permite UN solo usuario (Google OAuth, 1:1 vía
 > `User.doctorId @unique`). Esta feature permite que el usuario principal (dueño) invite a
