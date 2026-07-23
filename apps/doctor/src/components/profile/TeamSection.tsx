@@ -50,17 +50,25 @@ const GROUP_STYLE: Record<string, GroupStyle> = {
   "conciliacion,flujo,pagos": { label: "Flujo de dinero", dot: "bg-violet-500", text: "text-violet-700", chipBg: "bg-violet-50", chipBorder: "border-violet-200" },
 };
 const groupId = (keys: readonly string[]) => [...keys].sort().join(",");
+// Fallback: un módulo del agente que se agregue a AGENT_MODULE_REQUIREMENTS sin
+// estilo asignado aquí IGUAL aparece (gris, etiquetado por sus toggles) en vez
+// de desaparecer en silencio — así la agrupación se mantiene sola con la fuente.
+const groupStyleFor = (id: string, keys: readonly PermissionKey[]): GroupStyle =>
+  GROUP_STYLE[id] ?? {
+    label: keys.map((k) => PERMISSION_LABELS[k]).join(" + "),
+    dot: "bg-gray-400", text: "text-gray-700", chipBg: "bg-gray-50", chipBorder: "border-gray-200",
+  };
 
 // Grupos del agente presentes en el registro (dedupe por set de toggles).
 const AGENT_GROUPS = Array.from(
   new Map(
     Object.values(AGENT_MODULE_REQUIREMENTS).map((keys) => [groupId(keys), [...keys] as PermissionKey[]]),
   ).entries(),
-).map(([id, keys]) => ({ id, keys, style: GROUP_STYLE[id] }));
+).map(([id, keys]) => ({ id, keys, style: groupStyleFor(id, keys) }));
 
-// toggle -> id de su grupo del agente (para colorear cada checkbox).
-const KEY_GROUP: Partial<Record<PermissionKey, string>> = {};
-for (const g of AGENT_GROUPS) for (const k of g.keys) KEY_GROUP[k] = g.id;
+// toggle -> {id de grupo, estilo} (para colorear cada checkbox).
+const KEY_GROUP: Partial<Record<PermissionKey, { id: string; style: GroupStyle }>> = {};
+for (const g of AGENT_GROUPS) for (const k of g.keys) KEY_GROUP[k] = { id: g.id, style: g.style };
 
 /** Explica la regla "todos los toggles del grupo" + estado en vivo por módulo. */
 function AgentModuleLegend({ value }: { value: Partial<Record<PermissionKey, boolean>> }) {
@@ -80,7 +88,6 @@ function AgentModuleLegend({ value }: { value: Partial<Record<PermissionKey, boo
       )}
       <div className="flex flex-wrap gap-1.5 pt-0.5">
         {AGENT_GROUPS.map((g) => {
-          if (!g.style) return null;
           const missing = g.keys.filter((k) => value[k] !== true);
           const active = aiOn && missing.length === 0;
           return (
@@ -124,8 +131,7 @@ function PermissionToggles({
       <AgentModuleLegend value={value} />
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
         {PERMISSION_KEYS.map((key) => {
-          const gid = KEY_GROUP[key];
-          const style = gid ? GROUP_STYLE[gid] : undefined;
+          const style = KEY_GROUP[key]?.style;
           const isMaster = key === "asistente_ia";
           return (
             <label key={key} className="flex items-center gap-2 text-sm">
