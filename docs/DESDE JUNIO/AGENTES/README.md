@@ -45,6 +45,7 @@ Después, según lo que vengas a hacer:
 | [`AGENTE EXPEDIENTE/`](AGENTE%20EXPEDIENTE/README.md) | Metadatos de expedientes — **contenido clínico estructuralmente fuera** | 🟢 vivo · F1 validado |
 | [`AGENTE KNOWLEDGE LAYER/`](AGENTE%20KNOWLEDGE%20LAYER/README.md) | Qué conocimiento HABLA el agente vs qué RUTEA a la guía determinista | 🟡 su PR shippeó; K2-K4 sin retomar |
 | [`AGENTE WHATSAPP/`](AGENTE%20WHATSAPP/README.md) | Agente paciente-facing por WhatsApp | 🌱 exploración, nada construido |
+| [`OPTIMIZACION COSTOS/`](OPTIMIZACION%20COSTOS/README.md) | **Bajar el costo del LLM** para que quepa en la suscripción del doctor ($37–50/mes): análisis medido + matriz de experimentos (Anthropic/Haiku, DeepSeek, Kimi) + cap semanal | 🟡 análisis hecho, experimentos pendientes |
 
 ## Los 5 módulos vivos
 
