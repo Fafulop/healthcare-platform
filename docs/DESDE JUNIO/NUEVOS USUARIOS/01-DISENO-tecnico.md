@@ -754,8 +754,11 @@ SOLO cuando el set de módulos es un subconjunto propio; el path owner/set-compl
 incluye nunca (probado por el gate, no solo afirmado).
 
 **Piezas construidas:**
-- `modules/registry.ts`: `AGENT_MODULE_REQUIREMENTS` (mapeo módulo→toggles, regla ALL);
-  `enabledModules(access)` — owner devuelve `AGENT_MODULES` **por referencia** (no copia);
+- `AGENT_MODULE_REQUIREMENTS` (mapeo módulo→toggles, regla ALL) — **movido a
+  `@healthcare/database` (`permissions.ts`) el 2026-07-23** para que la UI de Equipo lo comparta
+  sin arrastrar código de agente/servidor al cliente (fuente única G9; ver §19); `registry.ts` lo
+  re-exporta. `enabledModules(access)` (en registry) — owner devuelve `AGENT_MODULES` **por
+  referencia** (no copia);
   `buildTools(modules)` generalizado, `ALL_TOOLS` sigue siendo el mismo valor top-level.
 - `prompt.ts`: `composePrompt(modules)` + `buildSystemPrompt(modules)` memoizado por firma
   de nombres de módulo; `STABLE_SYSTEM_PROMPT` sigue siendo la MISMA constante (mismo
@@ -770,7 +773,9 @@ incluye nunca (probado por el gate, no solo afirmado).
   llamar al modelo (cero tokens gastados) — simplificación de v1 vs el ideal del diseño
   ("el panel se esconde igual"): el panel SIGUE visible en ese caso raro, pero no revienta ni
   gasta presupuesto; ocultar el panel completo requeriría exponer `AGENT_MODULE_REQUIREMENTS`
-  al cliente, fuera de alcance v1.
+  al cliente. *(Nota 2026-07-23: exponer ese mapeo al cliente YA se hizo —vía el hoist a
+  `@healthcare/database`, §19— para la UI de grupos de Equipo; ocultar el panel en el caso raro
+  del set vacío se podría cerrar ahora reusándolo, pendiente menor.)*
 
 **Gate de identidad de bytes (`scripts/check-agent-prompt-identity.ts`, 12/12 checks):**
 sha256 del prompt owner impreso y estable; `buildSystemPrompt(AGENT_MODULES) ===
@@ -1193,3 +1198,36 @@ correcto, §6 audita SOLO writes de members). Desglose, `toggle_key` correcto en
 **Sub-pruebas de polish diferidas (no bloquean, respaldadas por el 403 server-side):** A3
 idempotencia, B1 gate SAT, B2 gate checkbox factura — difíciles de montar, verificadas por
 código+tsc, no en vivo (ver SESSION-REFRESCO paso 4).
+
+## 19. UI de grupos del Asistente IA en la pestaña Equipo (2026-07-23, SHIPPED)
+
+**Motivación (pedido del usuario):** al editar los permisos de un member no era obvio que el
+Asistente IA necesita **TODOS** los toggles de un módulo encendidos para funcionar en ese dominio
+(regla ALL de §7.1) — un dueño podía prender solo *Facturación* y esperar que el agente facturara,
+sin saber que también hace falta *Descarga SAT*.
+
+**Qué se construyó** (`components/profile/TeamSection.tsx`, solo UI — cero cambios de
+enforcement):
+- **Leyenda `AgentModuleLegend`**: explica la regla ("todos los del grupo") + el rol del
+  interruptor maestro `asistente_ia` (⚡), y muestra un **chip por módulo del agente con estado
+  EN VIVO** — ✓ activo / listo-falta-IA / faltan N — recalculado del `value` de toggles que el
+  dueño está editando en ese momento.
+- **Color/agrupación por módulo** en la lista de toggles: cada checkbox de un toggle que pertenece
+  a un grupo del agente lleva un punto de color; `asistente_ia` lleva el ⚡ y la etiqueta
+  "(maestro)". Los grupos que comparten set (facturas+fiscal → `[facturacion, sat]`) se colapsan
+  en un solo chip "Facturación y fiscal".
+
+**La pieza de arquitectura (lo importante):** la DATA de qué toggles necesita cada módulo sale de
+`AGENT_MODULE_REQUIREMENTS`, que para esto se **movió de `modules/registry.ts` a
+`@healthcare/database`** (`permissions.ts`, junto a `PERMISSION_KEYS`/`PERMISSION_LABELS`). Así
+la UI de cliente lo consume sin importar código de agente/servidor, y sigue habiendo **UNA sola
+fuente** del mapeo (G9) — la misma que el agente usa para recortar módulos. `registry.ts` lo
+re-exporta para no romper a sus consumidores (gate de docs incluido). Lo ÚNICO local en la UI es
+el color/etiqueta de cada grupo (presentación pura); si se agrega un módulo al mapeo, el grupo
+aparece solo (con un color por default si no se le asignó estilo). Esto cierra en la práctica la
+nota de §7.1 que marcaba "exponer `AGENT_MODULE_REQUIREMENTS` al cliente = fuera de alcance v1".
+
+**Verificación:** `pnpm gates` verde (el hoist no rompió `enabledModules` ni el gate de docs que
+importa el mapeo re-exportado) · `tsc` del doctor-app limpio (0 errores). Enforcement intacto:
+esto es solo ayuda visual sobre los mismos checkboxes; la frontera real sigue siendo server-side
+(§4) + el recorte de módulos del agente (§7.1).

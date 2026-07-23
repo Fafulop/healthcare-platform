@@ -2,8 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Loader2, UserPlus, Trash2, Mail, ShieldCheck, X } from "lucide-react";
-import { PERMISSION_KEYS, INVITE_DEFAULTS, type PermissionKey } from "@healthcare/database";
-import { PERMISSION_LABELS } from "@healthcare/database";
+import {
+  PERMISSION_KEYS,
+  INVITE_DEFAULTS,
+  PERMISSION_LABELS,
+  AGENT_MODULE_REQUIREMENTS,
+  type PermissionKey,
+} from "@healthcare/database";
 
 interface MemberRow {
   id: string;
@@ -31,6 +36,80 @@ async function api(url: string, options?: RequestInit) {
   return json;
 }
 
+// --- Asistente IA: agrupación de permisos por módulo ----------------------
+// La DATA (qué toggles necesita cada módulo) viene de AGENT_MODULE_REQUIREMENTS
+// (@healthcare/database), la MISMA fuente que usa el agente para recortar
+// módulos por permisos — así esta UI nunca driftea del comportamiento real.
+// Lo único local aquí es el color/etiqueta (presentación). Los módulos que
+// comparten el mismo set de toggles (facturas y fiscal) se colapsan en un grupo.
+type GroupStyle = { label: string; dot: string; text: string; chipBg: string; chipBorder: string };
+const GROUP_STYLE: Record<string, GroupStyle> = {
+  citas: { label: "Agenda", dot: "bg-indigo-500", text: "text-indigo-700", chipBg: "bg-indigo-50", chipBorder: "border-indigo-200" },
+  expedientes: { label: "Expedientes", dot: "bg-emerald-500", text: "text-emerald-700", chipBg: "bg-emerald-50", chipBorder: "border-emerald-200" },
+  "facturacion,sat": { label: "Facturación y fiscal", dot: "bg-amber-500", text: "text-amber-700", chipBg: "bg-amber-50", chipBorder: "border-amber-200" },
+  "conciliacion,flujo,pagos": { label: "Flujo de dinero", dot: "bg-violet-500", text: "text-violet-700", chipBg: "bg-violet-50", chipBorder: "border-violet-200" },
+};
+const groupId = (keys: readonly string[]) => [...keys].sort().join(",");
+
+// Grupos del agente presentes en el registro (dedupe por set de toggles).
+const AGENT_GROUPS = Array.from(
+  new Map(
+    Object.values(AGENT_MODULE_REQUIREMENTS).map((keys) => [groupId(keys), [...keys] as PermissionKey[]]),
+  ).entries(),
+).map(([id, keys]) => ({ id, keys, style: GROUP_STYLE[id] }));
+
+// toggle -> id de su grupo del agente (para colorear cada checkbox).
+const KEY_GROUP: Partial<Record<PermissionKey, string>> = {};
+for (const g of AGENT_GROUPS) for (const k of g.keys) KEY_GROUP[k] = g.id;
+
+/** Explica la regla "todos los toggles del grupo" + estado en vivo por módulo. */
+function AgentModuleLegend({ value }: { value: Partial<Record<PermissionKey, boolean>> }) {
+  const aiOn = value.asistente_ia === true;
+  return (
+    <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 space-y-2 text-xs">
+      <p className="text-gray-700 leading-relaxed">
+        <span className="font-semibold">🤖 Asistente IA.</span> Para que el Asistente IA ayude a esta
+        persona en un módulo, necesita <span className="font-semibold">TODOS los permisos de ese grupo</span>{" "}
+        (mismo color) activos. El interruptor <span className="font-semibold">Asistente IA</span> ⚡ es el
+        maestro: si está apagado, esta persona no verá el asistente, sin importar los grupos.
+      </p>
+      {!aiOn && (
+        <p className="text-amber-700 font-medium">
+          ⚠️ Asistente IA está APAGADO — el asistente no aparece para esta persona (los grupos de abajo no aplican todavía).
+        </p>
+      )}
+      <div className="flex flex-wrap gap-1.5 pt-0.5">
+        {AGENT_GROUPS.map((g) => {
+          if (!g.style) return null;
+          const missing = g.keys.filter((k) => value[k] !== true);
+          const active = aiOn && missing.length === 0;
+          return (
+            <span
+              key={g.id}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${g.style.chipBg} ${g.style.chipBorder} ${active ? "" : "opacity-70"}`}
+              title={
+                missing.length === 0
+                  ? aiOn ? "El agente ayuda en este módulo" : "Listo, pero falta encender Asistente IA"
+                  : `Falta activar: ${missing.map((k) => PERMISSION_LABELS[k]).join(", ")}`
+              }
+            >
+              <span className={`w-2 h-2 rounded-full ${g.style.dot}`} />
+              <span className={`font-medium ${g.style.text}`}>{g.style.label}</span>
+              {active ? (
+                <span className="text-emerald-600 font-medium">✓ activo</span>
+              ) : missing.length === 0 ? (
+                <span className="text-gray-400">listo (falta IA)</span>
+              ) : (
+                <span className="text-gray-400">{g.keys.length === 1 ? "apagado" : `faltan ${missing.length}`}</span>
+              )}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function PermissionToggles({
   value,
   onChange,
@@ -41,19 +120,37 @@ function PermissionToggles({
   disabled?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
-      {PERMISSION_KEYS.map((key) => (
-        <label key={key} className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={value[key] === true}
-            disabled={disabled}
-            onChange={(e) => onChange(key, e.target.checked)}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          {PERMISSION_LABELS[key]}
-        </label>
-      ))}
+    <div className="space-y-3">
+      <AgentModuleLegend value={value} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+        {PERMISSION_KEYS.map((key) => {
+          const gid = KEY_GROUP[key];
+          const style = gid ? GROUP_STYLE[gid] : undefined;
+          const isMaster = key === "asistente_ia";
+          return (
+            <label key={key} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={value[key] === true}
+                disabled={disabled}
+                onChange={(e) => onChange(key, e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              {isMaster ? (
+                <span className="text-amber-500" title="Interruptor maestro del Asistente IA">⚡</span>
+              ) : style ? (
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot}`} title={`Grupo: ${style.label}`} />
+              ) : (
+                <span className="w-2 h-2 flex-shrink-0" />
+              )}
+              <span className={isMaster ? "font-semibold text-gray-800" : style ? `font-medium ${style.text}` : "text-gray-600"}>
+                {PERMISSION_LABELS[key]}
+                {isMaster && <span className="ml-1 text-[10px] font-normal text-gray-400">(maestro)</span>}
+              </span>
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }

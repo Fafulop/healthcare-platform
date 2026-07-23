@@ -84,6 +84,25 @@ export const INVITE_DEFAULTS: Record<PermissionKey, boolean> = {
 };
 
 /**
+ * Which permission toggles an AI-assistant module needs — ALL must be ON for a
+ * member to get that module (conservative rule, 00-REQUISITOS §5.2). A module
+ * absent from this map is BLOCKED for members (fail-closed, G9).
+ *
+ * SINGLE SOURCE (G9): lives here so every consumer shares it without drift —
+ * the agent registry (member module filtering) AND the Equipo tab UI (which
+ * groups/colors the toggles by module) both read this exact object. Do not copy.
+ * `asistente_ia` is NOT here: it's the MASTER switch (panel on/off), enforced
+ * separately, not a per-module requirement.
+ */
+export const AGENT_MODULE_REQUIREMENTS: Record<string, PermissionKey[]> = {
+  agenda: ['citas'],
+  expediente: ['expedientes'],
+  flujo: ['flujo', 'pagos', 'conciliacion'],
+  facturas: ['facturacion', 'sat'],
+  fiscal: ['facturacion', 'sat'],
+};
+
+/**
  * FAIL-CLOSED permission check: only an explicit `true` grants access.
  * Absent keys, unknown keys, malformed values and null/undefined sets all deny
  * (G9 — future features are blocked for members until the owner enables them).

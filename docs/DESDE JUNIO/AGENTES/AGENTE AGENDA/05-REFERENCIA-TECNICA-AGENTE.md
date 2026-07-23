@@ -63,9 +63,10 @@ apps/doctor/src/
 │   ├── modules/                         ← registry de MÓDULOS por dominio (refactor 2026-07-11,
 │   │   │                                   byte-idéntico verificado por sha256)
 │   │   ├── types.ts                     ← contrato AgentModule (tools + executors + secciones)
-│   │   ├── registry.ts                  ← AGENT_MODULES · ALL_TOOLS · dispatch ·
-│   │   │                                   AGENT_MODULE_REQUIREMENTS + enabledModules (permisos
-│   │   │                                   de usuarios secundarios) — EL punto de enchufe
+│   │   ├── registry.ts                  ← AGENT_MODULES · ALL_TOOLS · dispatch · enabledModules
+│   │   │                                   (permisos de usuarios secundarios) — EL punto de enchufe.
+│   │   │                                   AGENT_MODULE_REQUIREMENTS vive en @healthcare/database
+│   │   │                                   (lo comparte la UI de Equipo); registry lo re-exporta
 │   │   ├── agenda.ts                    ← wirea tools.ts/proposals.ts + sus secciones
 │   │   ├── facturas.ts                  ← 12 tools (10 lectura + propose_create_cfdi y
 │   │   │                                   propose_prepare_factura_borrador) + GUIAS + domainRules

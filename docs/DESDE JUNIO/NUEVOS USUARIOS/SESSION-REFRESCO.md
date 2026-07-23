@@ -233,10 +233,12 @@ limpiar si estorban.
   `apps/doctor/src/lib/medical-auth.ts` (`requireDoctorAuth`/`requireOwnerAuth`/`requireAnyAuth`).
 - UI courtesy: `apps/doctor/src/lib/permissions-client.ts` (`usePermissions()` hook) — es
   el hook que TODOS los fixes de esta sesión usan para esconder botones/features.
-- Agente: `apps/doctor/src/lib/agenda-agent/modules/registry.ts` (`enabledModules`,
-  `AGENT_MODULE_REQUIREMENTS`) + `prompt.ts` (`buildSystemPrompt` memoizado).
+- Agente: `apps/doctor/src/lib/agenda-agent/modules/registry.ts` (`enabledModules`) +
+  `prompt.ts` (`buildSystemPrompt` memoizado). `AGENT_MODULE_REQUIREMENTS` (módulo→toggles)
+  vive en `@healthcare/database` (`permissions.ts`) desde 2026-07-23 — fuente única compartida
+  con la UI de Equipo; registry lo re-exporta.
 - Equipo/invitaciones: `apps/doctor/src/app/api/team/*` + `TeamSection.tsx` (pestaña Equipo
-  en mi-perfil) + `/invitacion` (pantalla de aceptar/rechazar).
+  en mi-perfil — con la UI de grupos del Asistente IA por color, §19) + `/invitacion`.
 - Scripts de gate (correr antes de cada push que toque este mapa):
   `scripts/check-route-permission-coverage.ts` (inventario de rutas) y
   `scripts/check-agent-prompt-identity.ts` (identidad de bytes del prompt del agente).

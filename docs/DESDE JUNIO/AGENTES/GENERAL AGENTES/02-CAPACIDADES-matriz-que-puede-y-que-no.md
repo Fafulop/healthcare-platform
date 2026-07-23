@@ -24,7 +24,10 @@
 
 El set de módulos NO es el mismo para todos: un **member** (usuario secundario, feature NUEVOS
 USUARIOS) recibe solo los módulos cuyos toggles de permiso tiene TODOS encendidos. El dueño
-recibe siempre los 5. Fuente: `AGENT_MODULE_REQUIREMENTS` en `modules/registry.ts`.
+recibe siempre los 5. Fuente ÚNICA: `AGENT_MODULE_REQUIREMENTS` en `@healthcare/database`
+(`packages/database/src/permissions.ts`) — la comparten el agente (`registry.ts` lo re-exporta)
+y la pestaña Equipo de mi-perfil, que agrupa/colorea los toggles por módulo desde ese mismo
+objeto (sin copiar la lista — G9).
 
 | Módulo | Toggles requeridos (TODOS) |
 |---|---|

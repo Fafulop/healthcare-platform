@@ -12,7 +12,7 @@ import type { AnthropicTool } from '../anthropic';
 import type { ToolContext } from '../tools';
 import type { ProposalContext } from '../proposals';
 import type { AgentModule } from './types';
-import { hasPermission, type PermissionKey, type PermissionSet } from '@healthcare/database';
+import { hasPermission, AGENT_MODULE_REQUIREMENTS, type PermissionKey, type PermissionSet } from '@healthcare/database';
 import { agendaModule } from './agenda';
 import { facturasModule } from './facturas';
 import { fiscalModule } from './fiscal';
@@ -40,18 +40,12 @@ export const ALL_TOOLS = buildTools(AGENT_MODULES);
 
 /**
  * Secondary users (NUEVOS USUARIOS PR C): which sidebar-permission toggles a
- * module requires — ALL must be ON (conservative rule, 00-REQUISITOS §5.2).
- * A module absent from this map is BLOCKED for members (fail-closed, G9) —
- * a future module must be added here explicitly to reach members at all.
+ * module requires — ALL must be ON. MOVED to @healthcare/database so the Equipo
+ * tab UI can share it without pulling agent/server code into the client bundle
+ * (single source, G9). Re-exported here for existing consumers (gates).
  * Design: docs/DESDE JUNIO/NUEVOS USUARIOS/01-DISENO-tecnico.md §7.1
  */
-export const AGENT_MODULE_REQUIREMENTS: Record<string, PermissionKey[]> = {
-  agenda: ['citas'],
-  expediente: ['expedientes'],
-  flujo: ['flujo', 'pagos', 'conciliacion'],
-  facturas: ['facturacion', 'sat'],
-  fiscal: ['facturacion', 'sat'],
-};
+export { AGENT_MODULE_REQUIREMENTS };
 
 export interface AgentAccess {
   isOwner: boolean;
