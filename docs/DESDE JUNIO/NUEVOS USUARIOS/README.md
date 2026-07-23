@@ -24,8 +24,9 @@ member real. Nada bloqueante abierto.
 | **Cobertura de los 19 toggles** | ✅ auditada — 16/19 con ruta server-side, 3 sin ella por diseño |
 | **Evals del agente para members** | ✅ 3/3 · suite completa de owner 62/65 · 0 FAIL |
 
-**Diferido (opcional, no bloquea):** el guardarraíl del *over-claim* del agente member
-(cosmético) y la sub-prueba B2 del checkbox de factura. Detalle en el REFRESCO.
+**Estado de los diferidos:** el guardarraíl del *over-claim* del agente member se **corrigió
+2026-07-23** (fix + evals en `../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md` bitácora #24). Sigue
+diferida la sub-prueba B2 del checkbox de factura (opcional, no bloquea). Detalle en el REFRESCO.
 
 ## Los docs
 

@@ -2,11 +2,10 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última edición: **2026-07-23** (pasada de alineación de docs: se reescribió "En una frase",
-> que llevaba semanas desfasada; contenido sin cambios).
-> Última actualización de ESTADO: **2026-07-22** (append: suite de evals a 65 casos + path de MEMBER
-> —corrida 62/65, 0 FAIL—; bitácora #24 — over-claim de capacidades del agente member, DIFERIDO).
-> Antes: 2026-07-21 (bitácora #23 — "card fantasma", pendiente de fix).
+> Última actualización de ESTADO: **2026-07-23** — bitácora #24 (over-claim del agente member)
+> **CORREGIDO** (member-only, owner byte-idéntico, 3/3 member evals). Queda #23 "card fantasma"
+> pendiente. Antes: 2026-07-22 (suite de evals a 65 casos + path de MEMBER, corrida 62/65 · 0 FAIL);
+> 2026-07-21 (bitácora #23 — "card fantasma", pendiente de fix).
 
 ---
 
@@ -26,9 +25,9 @@ y los conteos vigentes en
 Este doc sigue siendo el **playbook + la bitácora** de todo el asistente (los fallos en vivo de
 cualquier módulo se registran aquí).
 
-**Qué falta (nada bloqueante):** los dos bugs conocidos de conducta — "card fantasma" (#23,
-PENDIENTE) y over-claim del member (#24, DIFERIDO) — cada uno con su propia pasada, sin
-batchear (blast radius distinto sobre el caché del prompt).
+**Qué falta (nada bloqueante):** el over-claim del member (#24) quedó **CORREGIDO 2026-07-23**
+(member-only, owner byte-idéntico, 3/3 member evals PASS). Queda **"card fantasma" (#23,
+PENDIENTE)** — su propia pasada, toca el prompt COMPARTIDO (owner cambia → suite completa).
 
 ## Estado: qué está hecho
 
@@ -209,20 +208,30 @@ simular esos members, y la suite creció a 65 casos.
   módulos bloqueados (no existen para el member), sin inventar, y **sin culpar al dueño** ("no tengo
   habilitada **en esta cuenta**…").
 
-### ⚠️ Bitácora #24 (bug conocido, DIFERIDO) — over-claim de capacidades del agente member
+### ✅ Bitácora #24 — over-claim de capacidades del agente member — CORREGIDO 2026-07-23
 
-El agente member a veces **SOBRE-DECLARA** capacidades de módulos bloqueados en su lista "lo que sí
-puedo hacer": el caso `member-citas-declina-flujo` listó capacidades de facturas
-(`get_billing_status`/`create_cfdi`) que ese member NO tiene, mientras que `member-citas-declina-facturas`
-(MISMO member) las negó bien → **inconsistencia del modelo**, no enumeración hardcodeada del prompt.
-**No puede EJECUTARLAS** (las tools no existen para el member) → es cosmético, no un hueco de
-conducta/seguridad. **Decisión 2026-07-22: DIFERIR** (no vale una iteración de prompt por algo
-cosmético). **Cuando se retome — NO batchear con "card fantasma" (#23):** blast radius distinto —
-este fix vive en `MEMBER_SCOPE_NOTE` (solo prompt de member → owner byte-idéntico, re-eval = 3 casos
-member, barato); card-fantasma toca el prompt COMPARTIDO (owner cambia → re-eval suite completa).
-Guardarraíl sugerido (sin enumerar lo bloqueado): "deriva tu lista de capacidades SOLO de tus tools
-disponibles". Failure mode conocido de LLMs → un nudge lo reduce, no lo elimina. Ver
-`GENERAL AGENTES/00-BLUEPRINT §5.2` (método de evals de member) y NUEVOS USUARIOS `01-DISENO §7.3`.
+**El bug:** el agente member a veces SOBRE-DECLARABA capacidades de módulos bloqueados en su lista
+"lo que sí puedo hacer": el caso `member-citas-declina-flujo` listó capacidades de facturas
+(`get_billing_status`/`create_cfdi`) que ese member NO tiene, mientras que
+`member-citas-declina-facturas` (MISMO member) las negó bien → **inconsistencia del modelo**, no
+enumeración hardcodeada del prompt. No podía EJECUTARLAS (las tools no existen para el member) →
+cosmético, no un hueco de conducta/seguridad.
+
+**El fix (member-only, owner byte-idéntico):** guardarraíl en `MEMBER_SCOPE_NOTE` (`prompt.ts`) —
+la lista "lo que sí puedo hacer" sale ÚNICAMENTE de las tools que el member REALMENTE tiene; no
+ofrecer ni insinuar capacidades cuyo texto aparece en "Qué puedes hacer" pero cuyas tools no
+existen para esta cuenta. `gate:prompt` confirma que el prompt del owner quedó byte-idéntico
+(26,799 chars, sin el addendum). + 1 check `reply-not-match` (soft) por cada caso de decline
+member que falla si ofrece capacidades del módulo ausente.
+
+**Validación (2026-07-23, read-only vs prod, EVALS_ONLY de los 3 casos member): 3/3 PASS · 0 WARN.**
+Ambos declines ahora nombran la función bloqueada honesto y ofrecen SOLO agenda —
+`declina-facturas` no ofrece flujo, `declina-flujo` no ofrece facturas, ninguno culpa al dueño.
+
+⚠️ **Failure mode conocido de LLMs → el nudge lo REDUCE, no lo elimina.** Los checks son `soft`
+a propósito; una garantía dura exigiría post-procesar la respuesta (más de lo que amerita algo
+cosmético). Si reaparece, la última línea de defensa sería esa. Commit: *(este)*. Ver
+`GENERAL AGENTES/00-BLUEPRINT §5.2` y NUEVOS USUARIOS `01-DISENO §7.3`.
 
 ## Próximos pasos
 

@@ -203,17 +203,15 @@ de cada push, y las secciones compartidas (INTRO/RESILIENCE) como único punto d
    corrida 2026-07-22: 62/65 · 0 FAIL** (3 WARN soft por fixtures driftados). La misma corrida
    prueba que el filtrado no rompió el path owner (prompt byte-idéntico). Detalle: AGENTE AGENDA
    SESSION-REFRESCO (Evals G11, 2026-07-22) + NUEVOS USUARIOS `01-DISENO §7.3`.
-6. ⚠️ **BUG CONOCIDO, DIFERIDO — over-claim de capacidades en members.** Instancia CONCRETA del
-   riesgo del punto 2 (INTRO/RESILIENCE enumeran capacidades a mano): un member con módulos
-   recortados a veces SOBRE-DECLARA capacidades de módulos que NO tiene en su lista "lo que sí
-   puedo hacer" (visto: member solo-agenda ofreciendo facturas). No puede EJECUTARLAS (tools
-   ausentes) → cosmético. Inconsistente entre corridas → es el modelo improvisando la lista, no
-   el prompt hardcodeado. **Fix (diferido, standalone — NO batchear con cambios del prompt
-   COMPARTIDO):** vive en `MEMBER_SCOPE_NOTE` → solo prompt de member (owner byte-idéntico,
-   re-eval = solo casos member). Guardarraíl: "deriva tu lista de capacidades SOLO de tus tools
-   disponibles" (sin enumerar lo bloqueado). Failure mode conocido de LLMs → un nudge lo reduce,
-   no lo elimina; garantía dura = post-procesar la respuesta (más de lo que amerita). Bitácora
-   #24 en AGENTE AGENDA SESSION-REFRESCO.
+6. ✅ **CORREGIDO 2026-07-23 — over-claim de capacidades en members** (era instancia del riesgo
+   del punto 2). Un member con módulos recortados SOBRE-DECLARABA capacidades de módulos que NO
+   tiene en su lista "lo que sí puedo hacer" (visto: member solo-agenda ofreciendo facturas). Fix
+   en `MEMBER_SCOPE_NOTE` (solo prompt de member → owner byte-idéntico, verificado por
+   `gate:prompt`): "la lista de lo que sí puedo hacer sale SOLO de las tools que realmente tengo".
+   Validado read-only 3/3 member evals · 0 WARN. **⚠️ Failure mode conocido de LLMs → el nudge lo
+   REDUCE, no lo elimina** (los checks quedaron `soft`; garantía dura = post-procesar, más de lo
+   que amerita algo cosmético). Bitácora #24 en AGENTE AGENDA SESSION-REFRESCO. *(Confirma la
+   estrategia del punto 2: el fix de un problema del prompt member-only NO tocó al owner.)*
 
 ### 5.3 La escalera de opciones si "F1 everywhere" empieza a dar problemas
 

@@ -544,12 +544,13 @@ el agente member a veces SOBRE-DECLARA capacidades de módulos bloqueados en su 
 puedo hacer" (caso flujo listó capacidades de facturas — `get_billing_status`/`create_cfdi`, que
 son del módulo facturas; el caso facturas del MISMO member las negó bien → inconsistencia del
 modelo, no enumeración hardcodeada). No puede EJECUTARLAS (tools ausentes); solo se describe mal
-→ cosmético. **Decisión 2026-07-22: DIFERIR, como ítem standalone (NO batchear con "card fantasma").**
-Blast radius distinto: el fix va en `MEMBER_SCOPE_NOTE` (solo prompt de member → owner byte-idéntico,
-re-eval = 3 casos member, barato); card-fantasma toca el prompt compartido (owner cambia → re-eval
-suite completa). Guardarraíl sugerido (sin enumerar lo bloqueado, consistente con §13): "deriva tu
-lista de capacidades SOLO de tus tools disponibles". Es failure mode conocido de LLMs → nudge lo
-reduce, no lo elimina. La suite completa de owner (~65) NO se corrió aún (gasto real; decisión del usuario).
+→ cosmético. **CORREGIDO 2026-07-23 como ítem standalone (no se batcheó con "card fantasma").**
+Como se predijo, el fix fue en `MEMBER_SCOPE_NOTE` (solo prompt de member → owner byte-idéntico,
+verificado por `gate:prompt`; re-eval = los 3 casos member, 3/3 PASS · 0 WARN read-only vs prod).
+Guardarraíl aplicado (sin enumerar lo bloqueado, consistente con §13): "la lista de lo que sí puedo
+hacer sale SOLO de tus tools disponibles". Es failure mode conocido de LLMs → el nudge lo reduce, no
+lo elimina (los checks quedaron `soft`). Detalle canónico:
+`../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md` bitácora #24.
 
 ---
 

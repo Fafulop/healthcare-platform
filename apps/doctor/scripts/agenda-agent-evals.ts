@@ -925,6 +925,9 @@ async function main() {
         { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|gestiono|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance)|fuera de[^.]{0,20}alcance|esta cuenta)', flags: 'i' },
         // NUNCA culpa al dueño / no menciona bloqueo/permisos administrativos.
         { kind: 'reply-not-match', pattern: '(due[ñn]o|bloquea|te (dio|han dado)|administrador|no te (lo )?permit|sin permiso)', flags: 'i' },
+        // Bitácora #24: al ofrecer "lo que sí puedo" NO debe ofrecer capacidades de módulos
+        // ausentes (flujo/expediente). Aquí ya declina facturas; que no se pase a ofrecer flujo.
+        { kind: 'reply-not-match', pattern: '(puedo|ofrezco|te ayudo con)[^.]{0,60}(flujo de dinero|balance|conciliaci[oó]n|movimientos del ledger|expediente)', flags: 'i' },
       ],
     },
     {
@@ -938,6 +941,9 @@ async function main() {
         { kind: 'no-tool-called', names: ['get_balance', 'get_movimientos', 'get_flujo_status', 'get_conciliacion_bancaria'] },
         { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|gestiono|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance)|fuera de[^.]{0,20}alcance|esta cuenta)', flags: 'i' },
         { kind: 'reply-not-match', pattern: '(due[ñn]o|bloquea|te (dio|han dado)|administrador|no te (lo )?permit|sin permiso)', flags: 'i' },
+        // Bitácora #24 (el caso que lo destapó): al declinar flujo NO debe ofrecer facturas
+        // como "lo que sí puedo" — sus tools no existen para este member.
+        { kind: 'reply-not-match', pattern: '(puedo|ofrezco|te ayudo con)[^.]{0,60}(factura|facturar|CFDI|timbr|catálogo (del )?SAT|pendientes de factura)', flags: 'i' },
       ],
     },
   ];

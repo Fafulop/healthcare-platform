@@ -63,9 +63,9 @@ Conteos exactos (tools, evals, prefijo) y las fronteras completas:
 
 - **PR 4** — voz + retiro del ChatWidget v1 + limpieza de `/v1` `/v2`. Sin carpeta propia aún.
 - **F3 de facturas** — `propose_email_cfdi` / `propose_send_fiscal_form`.
-- **2 bugs de conducta del agente**, cada uno con su propia pasada (no batchear — distinto
-  blast radius sobre el caché del prompt): **card fantasma** (#23) y **over-claim del member**
-  (#24). Bitácora en `AGENTE AGENDA/SESSION-REFRESCO`.
+- **Bugs de conducta del agente** (no batchear — distinto blast radius sobre el caché): **#24
+  over-claim del member ✅ CORREGIDO 2026-07-23** (member-only, owner intacto); **#23 card
+  fantasma — PENDIENTE** (prompt compartido → owner cambia). Bitácora en `AGENTE AGENDA/SESSION-REFRESCO`.
 - ~~Re-medir el prefijo (A4)~~ ✅ HECHO 2026-07-23: ~24.7k con 39 tools, ninguna señal §5.3
   disparada (nivel 0). Vigilar: el p95 de turnos caros subió +39% y el headroom del cap bajó a
   ~1.6×. Sigue midiéndose solo con dr-prueba — re-medir cuando haya doctores reales.

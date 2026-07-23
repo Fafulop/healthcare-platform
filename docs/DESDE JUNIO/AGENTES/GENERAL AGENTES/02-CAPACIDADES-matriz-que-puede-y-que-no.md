@@ -41,9 +41,10 @@ no puede invocarlas ni por accidente ni a propósito. El prompt del dueño queda
 (caché intacto). Detalle y evals: `../../NUEVOS USUARIOS/01-DISENO-tecnico.md` §7 ·
 `../AGENTE AGENDA/SESSION-REFRESCO.md` (Evals G11 2026-07-22).
 
-⚠️ **Bug conocido DIFERIDO (cosmético):** un member a veces SOBRE-DECLARA en prosa capacidades
-de módulos que no tiene ("lo que sí puedo hacer"). No puede ejecutarlas — las tools no existen
-— solo las describe mal. Ver bitácora #24 y `00-BLUEPRINT` §5.2 punto 6.
+✅ **Over-claim del member — CORREGIDO 2026-07-23** (era: un member a veces SOBRE-DECLARABA en
+prosa capacidades de módulos que no tiene). Fix en `MEMBER_SCOPE_NOTE`, owner byte-idéntico,
+3/3 member evals. Failure mode de LLM → el nudge lo reduce, no lo elimina (checks `soft`). Ver
+bitácora #24 y `00-BLUEPRINT` §5.2 punto 6.
 
 ## 2. Matriz por módulo
 

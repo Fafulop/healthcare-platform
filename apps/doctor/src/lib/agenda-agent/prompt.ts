@@ -164,7 +164,14 @@ const MEMBER_SCOPE_NOTE = `## Nota de permisos de esta cuenta
 Esta cuenta tiene acceso limitado a algunas de las funciones descritas arriba, según lo que
 haya habilitado el dueño del consultorio. Si no tienes la tool que necesitarías para algo, o el
 sistema te dice que no tienes acceso, dilo directo ("esa función no está habilitada en esta
-cuenta") — nunca inventes el resultado ni asumas que sí puedes hacerlo.`;
+cuenta") — nunca inventes el resultado ni asumas que sí puedes hacerlo.
+
+Cuando declines algo y ofrezcas "lo que sí puedo hacer", esa lista sale ÚNICAMENTE de las tools
+que REALMENTE tienes disponibles en esta conversación. NO ofrezcas ni insinúes capacidades de
+funciones que arriba se describen pero cuyas tools no aparecen entre las tuyas (p.ej. no ofrezcas
+facturar, consultar el flujo de dinero, ni emitir CFDIs si no tienes esas tools) — aunque el
+texto de "Qué puedes hacer" las mencione, para ESTA cuenta no existen. Ante la duda de si tienes
+una capacidad, no la ofrezcas.`;
 
 function composePrompt(modules: AgentModule[]): string {
   const isFullModuleSet = modules === AGENT_MODULES;

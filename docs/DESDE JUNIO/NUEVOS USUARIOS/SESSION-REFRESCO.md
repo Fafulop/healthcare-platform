@@ -31,9 +31,9 @@ la próxima sesión:
 - **Evals del agente:** path de member CONSTRUIDO + suite completa CORRIDA 2026-07-22 →
   **62/65 · 0 FAIL** (baseline verde). Findings canónicos en **AGENTES** (ver abajo, §"Qué sigue").
 
-**Qué sigue = nada bloqueante.** Ítems abiertos/diferidos, todos opcionales, en la sección
-"Qué sigue" abajo (el más notable: guardarraíl del over-claim del agente member — diferido,
-standalone, prompt solo-member).
+**Qué sigue = nada bloqueante.** El guardarraíl del over-claim del agente member (el ítem más
+notable que estaba diferido) se **corrigió 2026-07-23** — ver §"Qué sigue". El resto de ítems
+abiertos son opcionales.
 
 **Ronda inicial de fixes — todo PUSHEADO Y DESPLEGADO Y VERIFICADO 2026-07-21 (`345b2a09..14b1872c`):**
 
@@ -161,20 +161,14 @@ Método: dr-prueba = OWNER (doctor de prueba, `cmni1bov90000mk0lyeztr3ad`), `and
    (canónico): `AGENTE AGENDA/SESSION-REFRESCO.md` (Evals G11 2026-07-22 + bitácora #24 over-claim) y
    `GENERAL AGENTES/00-BLUEPRINT §5.2` (método de evals de member + lección). Este doc solo resume.
 
-**⚠️ Known issue DIFERIDO — over-claim de capacidades del agente member (sev. baja):** el agente
-member a veces SOBRE-DECLARA capacidades de módulos bloqueados en su lista "lo que sí puedo hacer"
-(el caso flujo listó capacidades de facturas — `get_billing_status`/`create_cfdi` — que NO tiene; el
-caso facturas del MISMO member las negó bien → inconsistencia del modelo, no enumeración hardcodeada
-del prompt). **No puede EJECUTARLAS** (las tools no existen para el member); solo se describe mal —
-por eso es cosmético, no un hueco de conducta/seguridad. **Decisión 2026-07-22: DIFERIR** (no vale
-una iteración de prompt por algo cosmético). **Cuando se retome — NO batchear con "card fantasma"
-(§4):** blast radius distinto. Este fix vive en `MEMBER_SCOPE_NOTE` → **solo afecta el prompt de
-members, el de owner queda byte-idéntico** (cache intacto), y el re-eval son solo los 3 casos member
-(barato). Card-fantasma toca el prompt COMPARTIDO → rompe identidad de bytes del owner → exige
-re-eval de la suite completa. Guardarraíl sugerido (consistente con §13, sin enumerar lo bloqueado):
-*"deriva tu lista de 'lo que puedo hacer' SOLO de tus tools disponibles; no ofrezcas ni insinúes
-capacidades que no puedes ejecutar."* Ojo: es un failure mode conocido de LLMs → un nudge de prompt
-lo reduce, no lo elimina; garantía dura = post-procesar la respuesta (más de lo que amerita).
+**✅ over-claim de capacidades del agente member (sev. baja) — CORREGIDO 2026-07-23.** El agente
+member SOBRE-DECLARABA capacidades de módulos bloqueados en su lista "lo que sí puedo hacer" (el
+caso flujo listó capacidades de facturas que NO tiene). Cosmético (no podía ejecutarlas — las
+tools no existen), pero corregido: guardarraíl en `MEMBER_SCOPE_NOTE` ("la lista sale SOLO de tus
+tools disponibles"). Como se predijo, **solo tocó el prompt de members — el del owner quedó
+byte-idéntico** (`gate:prompt` verde, cache intacto), y el re-eval fueron los 3 casos member
+(3/3 PASS · 0 WARN). Detalle canónico: `../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md` bitácora #24.
+⚠️ Failure mode conocido de LLMs → el nudge lo reduce, no lo elimina (los checks quedaron `soft`).
 4. **Fix de la "card fantasma" del agente** (bug conocido, ver AGENTE AGENDA SESSION-REFRESCO
    bitácora #23): guardarraíl de prompt para que el agente no anuncie una card antes de llamar
    `propose_*`. Es su propia pasada (cambia bytes del prompt → cache + evals).
