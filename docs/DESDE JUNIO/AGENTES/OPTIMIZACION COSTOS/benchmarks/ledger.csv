@@ -1,0 +1,2 @@
+timestamp,label,priceKey,ttl,gitSha,total,pass,warn,fail,totalUsd,meanUsd,p50Usd,coldUsd,totalBudgetTokens,p50LatencyMs
+2026-07-23T21:20:34.635Z,baseline,claude-sonnet-5-intro,5m,f68ccb78,65,63,2,0,1.43575,0.022089,0.020117,0.082662,717880,9466

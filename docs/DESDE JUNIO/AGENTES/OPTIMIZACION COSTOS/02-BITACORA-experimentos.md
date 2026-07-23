@@ -24,6 +24,55 @@
 
 ## Experimentos
 
+### 2026-07-23 — BASELINE medida (Sonnet 5, TTL 5m, git f68ccb78) ⭐ la marca de referencia
+- Cambio: ninguno — primera corrida real del benchmark. Es contra ESTA fila que se comparan
+  todos los experimentos siguientes.
+- Evals: **63/65 PASS · 2 WARN · 0 FAIL** (WARNs soft por datos vivos: `reschedule-noop`,
+  `vencida-cancel-warning` — misma banda que el histórico).
+- Costo (precio intro $2/$10): **$1.436 la corrida completa** · media **$0.022/pregunta** ·
+  p50 $0.020 · p90 $0.035. Budget total 717,880 (≈$2.15 a estándar $3/M).
+- Latencia p50: 9.5 s/turno.
+- 🔑 **HALLAZGO — la pregunta FRÍA cuesta 4.1× la tibia, y casi todo es escribir caché:**
+  fría = **41,331 budget ($0.083)** vs tibia p50 = 10,059 ($0.020). Desglose exacto de los
+  41,331: `uncached 4 + cacheWrite 35,156 + cacheRead 2,726 + output 3,445`.
+  ⚠️ **Precisión (corregido en review):** ese **85% es el WRITE TOTAL de caché**, NO solo el
+  prefijo. De los 28,125 tokens escritos, ~24,700 son el prefijo estático y **~3,425 son writes
+  de la capa MENSAJES** (los 2 breakpoints móviles). Entonces:
+  **prefijo ≈ 75% del costo frío · writes de mensajes ≈ 10% · output ≈ 8%.**
+  El 99% del input de una pregunta tibia se sirve de caché.
+  → **Consecuencia para el plan:** podar el prefijo (lever 2b) ataca el **75%** (no el 85% —
+  los writes de mensajes no se podan tensando descripciones de tools). Cada token cortado del
+  prefijo se ahorra ×1.25 en CADA pregunta fría. Sigue siendo la palanca con mejor relación
+  esfuerzo/beneficio *medida*, pero el techo del ahorro es 75%, no 85%.
+- Capacidad al cap semanal 2M: **~198 preguntas tibias/sem** o **~48 frías/sem (~7/día)**.
+  El techo de gasto al cap: **$17.4/mes** (intro) · **$26.1/mes** (estándar).
+- ⚠️ **Caveats de fidelidad (leer antes de comparar):**
+  1. **La corrida salió con `AUTH_SECRET` vacío** — la cabecera del runner decía
+     `$vars.AUTH_SECRET` pero en Railway el secreto es **`NEXTAUTH_SECRET`**. Los 2 casos de
+     catálogo SAT corrieron sin token. Re-corridos con el secreto correcto: **2/2 PASS** (la
+     calidad no cambia) pero cuestan más → la baseline **subestima el costo ~1.4%**
+     ($1.436 → $1.456 corregida). No se re-corrió la suite entera por 1.4%. Cabecera ya
+     corregida en `agenda-agent-evals.ts` y en `benchmarks/README.md`.
+  2. Todo es **dr-prueba** con la suite corriendo en continuo (99% cache-hit). Un doctor real
+     pregunta esporádicamente → paga más veces el precio FRÍO. La media de $0.022 es el número
+     TIBIO; el que manda para un doctor real está más cerca de $0.083.
+  3. **El "cross-check" budget↔USD es una TAUTOLOGÍA a precio Sonnet-intro, no una validación
+     independiente.** `budgetTokens` se define con pesos (1 · 0.1 · 1.25 · 5) que son
+     exactamente los ratios del precio intro ($2 · $0.2 · $2.5 · $10 ÷ $2) → USD = budget ×
+     $2/M por construcción (717,880 × $2/M = $1.43576 vs $1.43575 reportado). Sirve para probar
+     que el benchmark NO tiene error de aritmética, pero no confirma el precio real. El valor
+     añadido del benchmark está en (a) el desglose por caso frío/tibio y (b) preciar OTROS
+     modelos, donde los ratios difieren y el número deja de ser derivable del budget.
+  4. La "pregunta fría" medida es el caso 1 (`vencidas-flag-server-side`, 1 tool). Una pregunta
+     fría con más iteraciones cuesta MÁS → $0.083 es piso del costo frío, no techo.
+- ✅ **Auditoría anti-vacío del 63/65 (2ª pasada de review):** se verificó que los PASS no fueran
+  triviales. Los **3 evals de inyección** tienen sus fixtures VIVAS y el agente rechazó los 3
+  payloads como dato (explícito en `inj-descripcion-banco`); los **16 casos sin tool calls** son
+  negativos/frontera donde declinar sin tocar datos ES lo correcto; **0 errores de tool**. Los 2
+  WARN son fixtures driftados con conducta REAL correcta (detalle en
+  `../AGENTE AGENDA/SESSION-REFRESCO`, corrida 2026-07-23). **El 63/65 es real, no vacío.**
+- Veredicto: baseline VÁLIDA (con los 4 caveats). Ledger: `benchmarks/ledger.csv`.
+
 ### 2026-07-23 — Lever 1: cap DIARIO 500k → SEMANAL 2M (business dial, no toca el modelo)
 - Cambio: `route.ts` pasa a `AGENDA_AGENT_WEEKLY_TOKEN_CAP` (default 2M) y agrega
   `budget_tokens` sobre la semana MX (lun–dom, corte lunes 00:00 MX) vía nuevo

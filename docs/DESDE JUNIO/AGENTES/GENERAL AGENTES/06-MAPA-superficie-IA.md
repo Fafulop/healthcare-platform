@@ -47,7 +47,7 @@ validación server-side + fold sobre working copy + ⚠️ visible cuando no se 
 ## 3. Reglas transversales
 
 - **Token logging:** TODO endpoint LLM llama `logTokenUsage` (`lib/ai/log-token-usage.ts`,
-  tabla `llm_token_usage`). El budget cap diario (500k cost-weighted) es SOLO del agente.
+  tabla `llm_token_usage`). El budget cap semanal (2M cost-weighted) es SOLO del agente.
 - **`lib/ai` vs `lib/agenda-agent/anthropic.ts`:** `lib/ai` es la factory genérica
   (OpenAI implementado; el provider Anthropic ahí es un STUB que lanza — no usarlo).
   Para Anthropic se usa `callClaude` directamente. Consolidarlos es cleanup futuro.

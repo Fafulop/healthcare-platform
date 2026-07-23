@@ -60,8 +60,15 @@ caso y `scripts/agent-cost-benchmark.ts` lo precia y registra el Δ build-a-buil
 apuesta al timing de doctor real que el rig (dr-prueba) no puede validar y que obliga a re-ponderar
 el costo (write ×2); el cap ataca la exposición directamente y no depende de datos que no tenemos.
 
-**Siguiente:** correr la **baseline** de calidad+USD (paso 1+2 del benchmark, `--label baseline` —
-requiere `railway run` + key de Anthropic; primer comando de la próxima sesión). Con la baseline en
-mano, evaluar los levers de eficiencia (TTL-1h 2a / poda 2b) con datos, no a ciegas.
+**BASELINE MEDIDA (2026-07-23)** — `63/65 PASS · 0 FAIL` · **$1.436/corrida** · **$0.022/pregunta
+tibia** · **$0.083/pregunta fría** (piso). 🔑 El hallazgo: la pregunta fría cuesta **4.1×** la
+tibia y **~85% de ella es escribir caché** — de eso, **el prefijo estático es ~75%** del costo
+frío y ~10% son writes de la capa mensajes. Fila completa + los 4 caveats de fidelidad en
+[`02-BITACORA`](02-BITACORA-experimentos.md).
+
+**Siguiente:** con la baseline en mano, el lever de eficiencia con mejor relación esfuerzo/beneficio
+*medida* es **podar el prefijo (2b)** — ataca ese ~75% y el benchmark puede validarlo sobre
+dr-prueba. TTL-1h (2a) sigue esperando una señal de uso real (su beneficio depende de la frecuencia
+de preguntas del doctor, que aún no existe).
 
 *Índice general: [`../README.md`](../README.md).*

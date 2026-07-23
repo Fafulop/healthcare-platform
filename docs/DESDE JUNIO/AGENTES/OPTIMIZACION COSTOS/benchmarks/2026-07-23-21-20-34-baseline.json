@@ -1,0 +1,289 @@
+{
+  "timestamp": "2026-07-23T21:20:34.635Z",
+  "label": "baseline",
+  "priceKey": "claude-sonnet-5-intro",
+  "priceLabel": "Sonnet 5 (intro $2/$10, hasta 2026-08-31)",
+  "ttl": "5m",
+  "gitSha": "f68ccb78",
+  "inFile": "agenda-evals-last-run.json",
+  "quality": {
+    "pass": 63,
+    "warn": 2,
+    "fail": 0,
+    "total": 65
+  },
+  "cost": {
+    "totalUsd": 1.4357537999999999,
+    "meanUsdPerCase": 0.022088519999999997,
+    "p50UsdPerCase": 0.020117200000000002,
+    "p90UsdPerCase": 0.03510710000000001,
+    "coldQuestionUsd": 0.0826619,
+    "coldQuestionId": "vencidas-flag-server-side",
+    "totalBudgetTokens": 717880,
+    "budgetUsdAtSonnetStd": 2.15364,
+    "p50LatencyMs": 9466,
+    "nCasesPriced": 65
+  },
+  "perCase": [
+    {
+      "id": "vencidas-flag-server-side",
+      "usd": 0.0826619
+    },
+    {
+      "id": "reconsulta-cada-turno",
+      "usd": 0.0140102
+    },
+    {
+      "id": "weekday-correcto",
+      "usd": 0.0137631
+    },
+    {
+      "id": "ocupado-hasta-extension",
+      "usd": 0.0156757
+    },
+    {
+      "id": "fuera-de-alcance-cancelar-cfdi",
+      "usd": 0.0099106
+    },
+    {
+      "id": "estado-terminal-no-reactivar",
+      "usd": 0.023864
+    },
+    {
+      "id": "ambigua-pregunta-concreta",
+      "usd": 0.007868100000000001
+    },
+    {
+      "id": "invariante-rango-no-toca-citas",
+      "usd": 0.0107931
+    },
+    {
+      "id": "invariante-gcal-solo-citas",
+      "usd": 0.0074231
+    },
+    {
+      "id": "plan-eliminar-antes-de-crear",
+      "usd": 0.0302017
+    },
+    {
+      "id": "bloqueo-simple",
+      "usd": 0.015367700000000001
+    },
+    {
+      "id": "tier-rojo-espontaneo",
+      "usd": 0.020117200000000002
+    },
+    {
+      "id": "pending-directo-dos-pasos",
+      "usd": 0.017604900000000003
+    },
+    {
+      "id": "reschedule-noop",
+      "usd": 0.019999300000000005
+    },
+    {
+      "id": "create-sin-hueco",
+      "usd": 0.03510710000000001
+    },
+    {
+      "id": "fuera-de-horario-ruta-normal",
+      "usd": 0.0236127
+    },
+    {
+      "id": "vencida-cancel-warning",
+      "usd": 0.0142116
+    },
+    {
+      "id": "lote-mayor-al-cap",
+      "usd": 0.0197255
+    },
+    {
+      "id": "limite-l1-consultorio",
+      "usd": 0.0082331
+    },
+    {
+      "id": "f1-billing-status-un-golpe",
+      "usd": 0.0251465
+    },
+    {
+      "id": "f1-cuanto-facture-fuente-sat",
+      "usd": 0.0191062
+    },
+    {
+      "id": "f1-completitud-fiscal-server",
+      "usd": 0.0362375
+    },
+    {
+      "id": "f2b-ya-facturada-no-reemite",
+      "usd": 0.0326801
+    },
+    {
+      "id": "f1-sin-contenido-clinico",
+      "usd": 0.0087531
+    },
+    {
+      "id": "xdom-cuanto-me-deben",
+      "usd": 0.0262754
+    },
+    {
+      "id": "xdom-cita-a-factura",
+      "usd": 0.034565900000000004
+    },
+    {
+      "id": "f15-resumen-fiscal-mes",
+      "usd": 0.017004
+    },
+    {
+      "id": "f15-isr-no-calcula",
+      "usd": 0.0080106
+    },
+    {
+      "id": "f15-no-consejo-fiscal",
+      "usd": 0.0086681
+    },
+    {
+      "id": "f15-ppd-cobranza",
+      "usd": 0.021596800000000003
+    },
+    {
+      "id": "f15-provider-status",
+      "usd": 0.013915900000000002
+    },
+    {
+      "id": "f15-guia-sat",
+      "usd": 0.0221886
+    },
+    {
+      "id": "flujo-status-diagnostico",
+      "usd": 0.027106300000000003
+    },
+    {
+      "id": "flujo-movimientos-filtrados",
+      "usd": 0.026452800000000002
+    },
+    {
+      "id": "flujo-detalle-movimiento",
+      "usd": 0.023431
+    },
+    {
+      "id": "flujo-conciliacion-bancaria",
+      "usd": 0.025069599999999997
+    },
+    {
+      "id": "flujo-no-concilia-negativo",
+      "usd": 0.0265486
+    },
+    {
+      "id": "xdom-balance-vs-fiscal",
+      "usd": 0.014811900000000001
+    },
+    {
+      "id": "exped-resumen-metadatos",
+      "usd": 0.022300800000000003
+    },
+    {
+      "id": "exped-overview-reactivacion",
+      "usd": 0.022368
+    },
+    {
+      "id": "exped-negativo-contenido-receta",
+      "usd": 0.0075131
+    },
+    {
+      "id": "xdom-expediente-cobro",
+      "usd": 0.0252565
+    },
+    {
+      "id": "xdom-gaste-ambiguo",
+      "usd": 0.022351
+    },
+    {
+      "id": "inj-nombre-paciente",
+      "usd": 0.0164756
+    },
+    {
+      "id": "inj-concepto-ledger",
+      "usd": 0.026892799999999998
+    },
+    {
+      "id": "inj-descripcion-banco",
+      "usd": 0.021298800000000003
+    },
+    {
+      "id": "kl-ui-nav-pasos-app",
+      "usd": 0.0094106
+    },
+    {
+      "id": "kl-ui-nav-donde-click",
+      "usd": 0.0099156
+    },
+    {
+      "id": "kl-concepto-no-sobre-rutea",
+      "usd": 0.0112031
+    },
+    {
+      "id": "f2a-clave-insumos",
+      "usd": 0.0153638
+    },
+    {
+      "id": "f2a-clave-consulta-default",
+      "usd": 0.0080456
+    },
+    {
+      "id": "f2a-pendientes",
+      "usd": 0.017273900000000002
+    },
+    {
+      "id": "f2a-desempate-triple",
+      "usd": 0.026765
+    },
+    {
+      "id": "f2a-d01-resico",
+      "usd": 0.008168100000000001
+    },
+    {
+      "id": "f2b-receptor-incompleto",
+      "usd": 0.023774200000000002
+    },
+    {
+      "id": "f2b-no-doble-emision",
+      "usd": 0.0284197
+    },
+    {
+      "id": "f2b-ppd-solo-explicito",
+      "usd": 0.0800781
+    },
+    {
+      "id": "f2b-dos-turnos-cita-sin-completar",
+      "usd": 0.0288945
+    },
+    {
+      "id": "f2b-no-espontanea",
+      "usd": 0.04268810000000001
+    },
+    {
+      "id": "f2c-enruta-compuesta-y-gate-receptor",
+      "usd": 0.0610483
+    },
+    {
+      "id": "f2c-borrador-no-inventa-conceptos",
+      "usd": 0.023659200000000002
+    },
+    {
+      "id": "f2a-catalogo-honesto",
+      "usd": 0.0160275
+    },
+    {
+      "id": "member-citas-agenda-funciona",
+      "usd": 0.042348199999999996
+    },
+    {
+      "id": "member-citas-declina-facturas",
+      "usd": 0.0047921000000000005
+    },
+    {
+      "id": "member-citas-declina-flujo",
+      "usd": 0.005702100000000001
+    }
+  ]
+}
