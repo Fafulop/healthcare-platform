@@ -24,6 +24,46 @@ las que no se negocian):
 | **Escrituras = propuesta → card → el doctor confirma → el CLIENTE ejecuta** | El servidor del agente jamás muta datos |
 | **Regla 0: los veredictos de negocio se resuelven SERVER-SIDE** | El modelo nunca reconstruye semántica contando campos |
 
+## 1.5 Los números que vas a ver (y cómo no confundirlos)
+
+Estos 5 números aparecen por todos lados y **cuentan cosas distintas**. Si los mezclas, vas a
+sacar conclusiones equivocadas sobre el tamaño o la salud del sistema:
+
+| Número | Qué cuenta | Fuente en el código |
+|---|---|---|
+| **39** | **Tools** — las cosas que el agente PUEDE HACER | `ALL_TOOLS` del registry |
+| **5** | **Módulos** de dominio (agenda · facturas · fiscal · flujo · expediente) | `AGENT_MODULES` |
+| **65** | **Casos de eval** — las PRUEBAS que verifican que se comporta bien | `scripts/agenda-agent-evals.ts` |
+| **19** | **Toggles de permiso** que el dueño prende/apaga a un member | `PERMISSION_KEYS` |
+| **235** | **Rutas de API** clasificadas en el mapa de permisos | gate de cobertura de rutas |
+
+**La confusión más fácil — tools vs evals.** Son ejes distintos, no dos conteos de lo mismo:
+
+- Un **tool es una capacidad**: `get_bookings` (leer la agenda), `propose_create_cfdi` (armar
+  una factura para que el doctor confirme). Hay **39**, repartidas: agenda 18 (8 lectura + 10
+  propuesta) · facturas 12 · flujo 5 · fiscal 2 · expediente 2.
+- Un **eval es una prueba**: "pregúntale *¿tengo citas vencidas?* y verifica que llame
+  `get_bookings` con el flag server-side en vez de contar a mano". Hay **65**.
+
+O sea: **39 cosas que sabe hacer, 65 pruebas que verifican que las hace bien.**
+
+> ⚠️ **Y el error que de verdad pasó: 62 NO es un tamaño, es un RESULTADO.**
+> La última corrida completa dio `62/65 PASS · 3 WARN · 0 FAIL`. Alguien escribió "suite 62"
+> en dos docs, y de ahí se copió hacia adelante como si la suite tuviera 62 casos. **El
+> puntaje de una corrida y el tamaño de la suite son cosas distintas** — al anotar un
+> resultado, escríbelo siempre como `X/Y`, nunca solo `X`.
+>
+> `pnpm gate:docs` ya impide que ese error se cuele otra vez (§5) — pero el gate atrapa el
+> síntoma; esta sección existe para que no lo cometas de entrada.
+
+**Los otros dos números son de la feature de permisos, no del agente** (carpeta hermana
+`NUEVOS USUARIOS`): 19 toggles y 235 rutas. El único punto donde se tocan con el agente es que
+los permisos recortan qué módulos ve un member (`02-CAPACIDADES` §1.5).
+
+**Dónde se declaran en presente:** los 3 primeros en `02-CAPACIDADES` §4; los 2 últimos en
+`../../NUEVOS USUARIOS/05-COBERTURA`. En cualquier OTRO doc van con fecha (§3, y
+`07-CONVENCIONES` §2).
+
 ## 2. La estructura, en una imagen
 
 ```
@@ -143,7 +183,8 @@ reglas para esa parte).
 - **La cabecera de un `SESSION-REFRESCO` se actualiza PRIMERO.** El fallo #1 encontrado en la
   auditoría fue tener 4 docs con el resumen de arriba semanas atrás del cuerpo — y el resumen
   es justo lo primero que lee una sesión fría.
-- **No confundas el resultado de una corrida con el tamaño de la suite** (62 ≠ 65).
+- **No confundas los 5 números del sistema** — sobre todo tools (39, capacidades) vs evals
+  (65, pruebas), ni un resultado de corrida con el tamaño de la suite. Explicado en **§1.5**.
 - **`prisma db push` revierte** el composite FK y los índices parciales que viven en prod.
 - **No hay staging:** `main` despliega a producción. Todo SQL crudo o query shape nuevo se
   smoke-testea read-only contra prod ANTES del push.

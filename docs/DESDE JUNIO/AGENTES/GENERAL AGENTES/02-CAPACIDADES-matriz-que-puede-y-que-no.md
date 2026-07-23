@@ -134,6 +134,8 @@ son guardas data-dependent justificadas).
 ⚠️ **La última corrida completa (2026-07-22) dio `62/65 PASS · 3 WARN · 0 FAIL`. Ese 62 es el
 RESULTADO de una corrida, NO el tamaño de la suite** — confundirlos fue un error real que se
 propagó por varios docs (ver [`07-CONVENCIONES-docs.md`](07-CONVENCIONES-docs.md) §2.3).
+Si no tienes claro qué cuenta cada número de este doc (tools vs evals vs toggles), la
+desambiguación está en [`08-EMPIEZA-AQUI.md`](08-EMPIEZA-AQUI.md) §1.5.
 
 **Modelo y costos:** claude-sonnet-5 (`AGENDA_AGENT_MODEL`) · cap diario 500k budget tokens
 (~$1.50/doctor) ponderado por costo · caché 1 breakpoint estable + 2 móviles, TTL 5 min.
