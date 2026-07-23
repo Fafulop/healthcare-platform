@@ -12,8 +12,13 @@
  * lockfile desalineado rompe el deploy con frozen-lockfile):
  *   $vars = railway variables --service "@healthcare/doctor" --json | ConvertFrom-Json
  *   $env:ANTHROPIC_API_KEY = $vars.ANTHROPIC_API_KEY
- *   $env:AUTH_SECRET = $vars.AUTH_SECRET   # F2a: search_catalogo_sat necesita mintear el token de API
+ *   $env:AUTH_SECRET = $vars.NEXTAUTH_SECRET   # F2a: search_catalogo_sat necesita mintear el token de API
  *   railway run --service pgvector -- npx tsx scripts/agenda-agent-evals.ts
+ *
+ * ⚠️ En Railway el secreto se llama NEXTAUTH_SECRET (no AUTH_SECRET). Esta cabecera decía
+ * `$vars.AUTH_SECRET` y la corrida del 2026-07-23 salió degradada: los 2 casos de catálogo SAT
+ * corrieron sin token (pasaron igual, pero costaron 1.4% menos de lo real). El código acepta
+ * AUTH_SECRET o NEXTAUTH_SECRET; lo que hay que leer de Railway es NEXTAUTH_SECRET.
  *
  * (pgvector aporta DATABASE_PUBLIC_URL; las keys viajan por env sin imprimirse.
  * Sin AUTH_SECRET la corrida sigue, pero los casos de catálogo verán el error

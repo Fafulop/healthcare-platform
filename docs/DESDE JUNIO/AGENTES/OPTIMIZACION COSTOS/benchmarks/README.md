@@ -17,7 +17,7 @@ re-ejecutable sobre el JSON que ya escribió el eval runner.
 #          CON el desglose de tokens por caso. (desde apps/doctor)
 $vars = railway variables --service "@healthcare/doctor" --json | ConvertFrom-Json
 $env:ANTHROPIC_API_KEY = $vars.ANTHROPIC_API_KEY
-$env:AUTH_SECRET       = $vars.AUTH_SECRET
+$env:AUTH_SECRET       = $vars.NEXTAUTH_SECRET   # ⚠️ en Railway se llama NEXTAUTH_SECRET
 railway run --service pgvector -- npx tsx scripts/agenda-agent-evals.ts
 
 # PASO 2 — priciar + registrar + comparar (sin credenciales, instantáneo)
@@ -27,6 +27,12 @@ npx tsx scripts/agent-cost-benchmark.ts --label baseline
 El paso 2 imprime calidad + costo total + media/caso + **pregunta fría** (la que reescribió
 el prefijo desde cero — el peor caso y el número que mueven TTL-1h y la poda), y el **Δ contra
 la corrida anterior**.
+
+> ⚠️ **Compara siempre con la MISMA `--price`.** El Δ mide `totalUsd` entre corridas; si una fue
+> con `claude-sonnet-5-intro` ($2/$10) y otra con `claude-sonnet-5` ($3/$15), el "+50%" es la tabla
+> de precios, no el experimento. El benchmark **avisa** cuando la `priceKey` cambia respecto a la
+> corrida anterior — no ignores ese aviso. La baseline 2026-07-23 se corrió con
+> **`--price claude-sonnet-5-intro`** (el precio vigente hasta 2026-08-31).
 
 ## Qué mide (y qué NO)
 

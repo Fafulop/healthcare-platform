@@ -66,6 +66,8 @@ interface CaseRecord {
   id: string;
   pass: boolean;
   soft: boolean;
+  /** Motivos del fallo — se inspeccionan para detectar `card-fantasma` (duro aunque sea soft). */
+  failures?: string[];
   latencyMs?: number;
   usage?: Usage;
   tokens?: number;
@@ -120,9 +122,13 @@ function main() {
   }
 
   // --- Calidad (el X/Y autoritativo lo imprime el eval runner; esto lo reconstruye) ---
+  // OJO: `card-fantasma` es un fallo DURO aunque el caso sea `soft` (el runner lo fuerza con
+  // forceHard). Sin replicar esa regla aquí, un FAIL real quedaría registrado como WARN en el
+  // ledger — justo el error que un log de resultados no puede permitirse.
+  const isPhantom = (r: CaseRecord) => (r.failures ?? []).some((f) => f.startsWith('card-fantasma'));
   const pass = records.filter((r) => r.pass).length;
-  const fail = records.filter((r) => !r.pass && !r.soft).length;
-  const warn = records.filter((r) => !r.pass && r.soft).length;
+  const fail = records.filter((r) => !r.pass && (!r.soft || isPhantom(r))).length;
+  const warn = records.filter((r) => !r.pass && r.soft && !isPhantom(r)).length;
 
   // --- Costo ---
   const perCase = withUsage.map((r) => ({ id: r.id, usd: caseUsd(r.usage!, price), u: r.usage! }));
@@ -237,7 +243,7 @@ function main() {
   console.log(`  latencia p50: ${(p50Latency / 1000).toFixed(1)}s`);
 
   if (prev) {
-    const [, pLabel, , , , , , , , pTotalUsd, pMeanUsd] = prev;
+    const [, pLabel, pPriceKey, , , , pPass, pWarn, pFail, pTotalUsd, pMeanUsd] = prev;
     const dTotal = totalUsd - Number(pTotalUsd);
     const dMean = meanUsd - Number(pMeanUsd);
     const pctChange = Number(pTotalUsd) > 0 ? (dTotal / Number(pTotalUsd)) * 100 : 0;
@@ -246,7 +252,16 @@ function main() {
       `  costo total : ${usd(Number(pTotalUsd))} → ${usd(totalUsd)}  (${dTotal >= 0 ? '+' : ''}${pctChange.toFixed(1)}%)`
     );
     console.log(`  media/caso  : ${usd(Number(pMeanUsd))} → ${usd(meanUsd)}  (${dMean >= 0 ? '+' : ''}${usd(dMean)})`);
-    console.log(`  (calidad: compara pass/warn/fail en ${ledgerPath})`);
+    // La CALIDAD se compara aquí, no "en el ledger": un ahorro que rompe evals no es un ahorro.
+    console.log(`  calidad     : ${pPass}/${pWarn}/${pFail} → ${pass}/${warn}/${fail}  (pass/warn/fail)`);
+    if (Number(pFail) === 0 && fail > 0) console.log(`  ⚠️  APARECIERON ${fail} FAIL — el ahorro no cuenta hasta resolverlos.`);
+    else if (pass < Number(pPass)) console.log(`  ⚠️  bajó el PASS (${pPass} → ${pass}) — verifica que no sea regresión de conducta.`);
+    // Comparar dos tablas de precios distintas mide el PRECIO, no el cambio. Con el mismo
+    // modelo (p.ej. intro $2/$10 vs estándar $3/$15) el Δ es un espejismo del 50%.
+    if (pPriceKey !== priceKey) {
+      console.log(`  ⚠️  PRECIOS DISTINTOS: "${pPriceKey}" → "${priceKey}". Si es el mismo modelo,`);
+      console.log(`      el Δ de costo NO es comparable (re-corre el benchmark con --price ${pPriceKey}).`);
+    }
   } else {
     console.log(`\n(primera corrida — es la BASELINE; las siguientes se comparan contra esta.)`);
   }
