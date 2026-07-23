@@ -2,22 +2,33 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última actualización: **2026-07-22** (append: suite de evals a 65 casos + path de MEMBER
+> Última edición: **2026-07-23** (pasada de alineación de docs: se reescribió "En una frase",
+> que llevaba semanas desfasada; contenido sin cambios).
+> Última actualización de ESTADO: **2026-07-22** (append: suite de evals a 65 casos + path de MEMBER
 > —corrida 62/65, 0 FAIL—; bitácora #24 — over-claim de capacidades del agente member, DIFERIDO).
 > Antes: 2026-07-21 (bitácora #23 — "card fantasma", pendiente de fix).
 
 ---
 
-## En una frase
+## En una frase (estado al 2026-07-22)
 
-Agente de IA conversacional para la agenda (`/appointments`), construido **desde cero con
-tool-calling nativo** (Claude, loop multi-paso server-side). **PR 1 (lecturas) y PR 2 (propuestas
-de rangos/bloqueos) VIVEN en prod, validados en vivo** (bitácora filas 1–19; referencia del
-sistema en [`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md)). **PR 3
-(propuestas de citas) quedó CONSTRUIDO Y REVISADO el 2026-07-06** (diseño D1–D6 + GAP-1..5 en
-[`06-PR3-DISENO-citas.md`](06-PR3-DISENO-citas.md); GAP-1 ya desplegado `b2b8d482`; code-review
-con 7 fixes aplicados; evals G11 18/19 + smoke 5/5). **Siguiente: push de PR 3 + validación en
-vivo** (TRX-6/ledger es LA crítica) — detalle en Próximos pasos.
+Agente de IA conversacional del doctor, construido **desde cero con tool-calling nativo**
+(Claude, loop multi-paso server-side). **PR 1 (lecturas), PR 2 (rangos/bloqueos) y PR 3
+(propuestas de citas) están TODOS vivos en prod y validados en vivo** — PR 3 se cerró el
+2026-07-06/07 con TRX-6 (el puente al ledger) confirmado en BD, bitácora fila 22.
+
+Desde entonces el agente de agenda dejó de ser un proyecto propio: se volvió **el módulo
+`agenda` de UN asistente modular con 5 módulos** (agenda · facturas · fiscal · flujo ·
+expediente). El mapa de arriba vive en
+[`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md)
+y los conteos vigentes en
+[`../GENERAL AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
+Este doc sigue siendo el **playbook + la bitácora** de todo el asistente (los fallos en vivo de
+cualquier módulo se registran aquí).
+
+**Qué falta (nada bloqueante):** los dos bugs conocidos de conducta — "card fantasma" (#23,
+PENDIENTE) y over-claim del member (#24, DIFERIDO) — cada uno con su propia pasada, sin
+batchear (blast radius distinto sobre el caché del prompt).
 
 ## Estado: qué está hecho
 

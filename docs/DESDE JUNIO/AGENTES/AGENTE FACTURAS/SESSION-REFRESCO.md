@@ -1,62 +1,102 @@
 # 🔄 Refresco de sesión — AGENTE FACTURAS / ASISTENTE — LÉEME PRIMERO
 
-> Snapshot del estado, decisiones y próximos pasos de la **expansión del asistente** (facturas +
-> expediente + pagos + SAT, sobre el agente de agenda). Para una sesión/LLM en frío: lee este
-> archivo, luego `00` → `02` → `03` → `04` según necesites profundidad.
+> **Qué es este doc.** El estado vivo de la **expansión del asistente** al dominio de facturas
+> (+ expediente, pagos y SAT), sobre el agente de agenda.
 >
-> **Última actualización: 2026-07-19 — MONEY-MODEL #5 SHIPPED + VALIDADO EN VIVO** (folio 10):
-> patrón de SEPARACIÓN (1 factura = 1 ingreso; extras en factura aparte — ver PRÓXIMOS PASOS
-> #4 ✅ y KB §7). Commits `6148e7ab` (feature) + `03025f41` (fixes de la validación: ingreso
-> sin area/subarea inventada; modal de evidencia resuelve CFDIs de plataforma con fallback a
-> cfdis_emitted + descarga PDF/XML) + `614173f2` (radar #6: tool del agente para facturas
-> SIN cita — decidido, sin diseñar). Los PRÓXIMOS PASOS 1 (cancelación = sandbox, no bug
-> nuestro), 2 (recetas COMPLETO, sesión aparte) y 4 (este) están ✅; **quedan F3 (#3),
-> semillas de evals (#5) y el radar (#6)**. Sesiones 2026-07-18 fuera de este dominio:
-> sistema de recetas/plantillas completo (`docs/NEW.MD-GUIDES/RECETA-TEMPLATES.md`),
-> form-builder-chat migrado a claude-sonnet-5 tool_use (`66d90b17`, validado), fix de emails
-> de recordatorio (fecha absoluta), mapa de superficie IA en
-> `../GENERAL AGENTES/06-MAPA-superficie-IA.md`.
+> **Cómo leerlo en frío:** (1) *En una frase* — dónde está todo hoy · (2) *Historial de
+> entregas* — qué se shippeó, cuándo y con qué commit · (3) *PRÓXIMOS PASOS* — lo único que
+> queda abierto. Para profundidad, el *Mapa de documentos* dice a cuál de los 10 docs ir.
 >
-> Actualización previa: **2026-07-16/17 (madrugada)** — **F2c CERRADO EN VIVO** (`09-DISENO`
-> §9): ciclo completo con datos reales — dos-turnos orgánico (crear+completar cita → ingreso
-> 1598) → borrador compuesta 3 conceptos → form hidratado → el doctor EDITÓ (D01→G03 + CP
-> tras rechazo real del SAT — causa #1 de la KB confirmada) → CFDI folio 9 $1,548 EXACTO,
-> draft emitted+ligado, pendientes correcto. **Follow-ups 1-4 CORREGIDOS en la misma sesión**
-> (`09-DISENO` §9 — plot twist: la card de datos fiscales YA existía, un gate la escondía;
-> claves+búsqueda de catálogo agregadas al form; guard uso×régimen en 3 capas; hints de
-> errores SAT; review inline: 1 CONFIRMED corregido; fixes SHIPPED `29ac72d7`).
-> **➡️ SIGUIENTE SESIÓN: ver "PRÓXIMOS PASOS" abajo** (investigar cancelación de facturas
-> en UI + feature recetas/plantillas + F3 + money-model #5). F2c SHIPPED `254d3a8b`
-> (`09-DISENO` §8): borrador de factura COMPUESTA —
-> propose_prepare_factura_borrador (card ligera sin 🧾) → CfdiDraft en BD (tabla APLICADA A
-> PROD y verificada) → botón "Abrir borrador" → form de Nueva Factura hidratado (`?draft=`)
-> → el doctor edita y emite → draft emitted+ligado; sección de borradores en el expediente;
-> reads draft-aware (borradorPendiente). Suite 62: 60 PASS + 2 soft-WARN documentados, 0
-> FAIL. Review inline PRE-commit (05-METODO modo B): 0 correctness, 3 cleanup aceptados
-> (`09-DISENO` §8). ⚠️ Validación en vivo de F2c PENDIENTE y requiere DATOS FRESCOS (el timbre de F2b
-> dejó a dr-prueba sin ingresos facturables — completar una cita de prueba primero).
-> Antes, mismo día: **F2b CERRADO EN VIVO** (`08-PLAN` §12):
-> timbrado sandbox del caso Gerardo A — CFDI folio 8, UUID `ac06da7d…`, PG/S01, $900, ligado
-> al ingreso 1570, `hasFactura=true`, pendientes 3/$2,110 → 2/$1,210 EXACTO. Ships del día:
-> F2a validado (`07-PLAN` §12) · F2b `d05e3d71` · fixes del review `3accb5b8` (guard 409 de
-> doble emisión en el endpoint; método en `../GENERAL AGENTES/05-METODO-code-review.md`) ·
-> suite 60 en verde. Bonus de la validación: guardrail emergente ENDOSADO — el agente rehusó
-> subfacturar ($10 sobre ingreso de $900) incluso "de prueba" (no sabe que Facturama es
-> sandbox — deliberado). **Siguiente: F3 (propose_email_cfdi) / propose_send_fiscal_form.**
-> El mapa de arriba de todos los agentes vive en
-> [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
+> **Estado de ESTADO: 2026-07-19** (último trabajo de dominio: money-model #5, folio 10).
+> *Última edición 2026-07-23: pasada de alineación de docs — se reescribió "En una frase",
+> se reestructuró esta cabecera en el "Historial de entregas" de abajo (sin perder ningún
+> dato) y se agregó el `README.md` de la carpeta. Ningún hecho de estado cambió.*
+>
+> Índice de esta carpeta: [`README.md`](README.md) · Mapa de todos los agentes:
+> [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md)
+> · Índice general: [`../README.md`](../README.md).
 
 ---
 
-## En una frase
+## En una frase (estado al 2026-07-19)
 
-El agente de agenda se expande a **UN asistente con módulos por dominio** (decisión de `00`,
+El agente de agenda se expandió a **UN asistente con módulos por dominio** (decisión de `00`,
 RE-CONFIRMADA 2026-07-15 en `05-ANALISIS` frente a la alternativa de un agente especializado).
-Sustrato cerrado, F1+F1.5 validados en vivo, **F2a SHIPPED + VALIDADO EN VIVO 2026-07-16**
-(5/5 PASS — `07-PLAN` §12), y **F2b (emisión: propose_create_cfdi + builder server-side +
-card 🧾 tier-máximo + Público en General vía RFC genérico del expediente) CONSTRUIDO el mismo
-día con suite 59 en verde** (`08-PLAN` §10). **Siguiente: commit/push de F2b → validación en
-vivo timbrando en SANDBOX (caso Gerardo A $900, sin prerequisito de datos).**
+**Todo el track de facturas está SHIPPED y VALIDADO EN VIVO:** sustrato cerrado (H1/H2/H7/H8/H10)
+· F1 + F1.5 (lectura) · **F2a** (experto lector: catálogo SAT grounded + barrido de pendientes +
+conocimiento) · **F2b** (EMISIÓN — `propose_create_cfdi`, la primera escritura fuera de agenda;
+CFDI folio 8 timbrado en vivo) · **F2c** (factura COMPUESTA vía borrador `CfdiDraft` + form
+hidratado; folio 9) · **money-model #5** (patrón de SEPARACIÓN, folio 10).
+
+**Qué sigue:** F3 (`propose_email_cfdi` / `propose_send_fiscal_form`), las semillas de evals
+data-blocked, y el radar de facturas SIN cita — detalle en **PRÓXIMOS PASOS** abajo.
+
+**Limitación en vigor:** Facturama apunta a **SANDBOX** en prod (intencional) — todo timbrado es
+de prueba, y **cancelar facturas seguirá fallando hasta salir de sandbox** (diagnosticado, no es
+bug nuestro).
+
+## Historial de entregas (más reciente primero)
+
+> Cada entrada = una sesión de trabajo cerrada, con sus commits y su evidencia de validación.
+> El detalle técnico completo vive en el doc que se cita en cada una.
+
+### 2026-07-19 · Money-model #5 — patrón de SEPARACIÓN ✅ validado en vivo (folio 10)
+
+**1 factura = 1 ingreso del mismo monto**; los extras (insumos/quirófano/resto) van en una
+factura APARTE. Detalle: `06-KNOWLEDGE-BASE` §7 y PRÓXIMOS PASOS #4 abajo.
+
+| Commit | Qué trae |
+|---|---|
+| `6148e7ab` | La feature (patrón de separación + `register-income` + Fix A: toda emisión ligada estampa `satCfdiUuid`) |
+| `03025f41` | Fixes salidos de la validación: el ingreso ya no nace con area/subarea inventada; el modal de evidencia resuelve CFDIs de plataforma con fallback a `cfdis_emitted` + descarga PDF/XML |
+| `614173f2` | Radar #6: tool del agente para facturas SIN cita — **decidido, sin diseñar** |
+
+### 2026-07-18 · Sesiones fuera de este dominio (contexto, no facturas)
+
+- Sistema de **recetas/plantillas** completo → `docs/NEW.MD-GUIDES/RECETA-TEMPLATES.md`
+- **form-builder-chat** migrado a claude-sonnet-5 tool_use (`66d90b17`, validado)
+- Fix de emails de recordatorio (fecha absoluta)
+- Nuevo **mapa de la superficie IA** → [`../GENERAL AGENTES/06-MAPA-superficie-IA.md`](../GENERAL%20AGENTES/06-MAPA-superficie-IA.md)
+
+### 2026-07-16/17 (madrugada) · F2c — factura COMPUESTA vía borrador ✅ cerrado en vivo (folio 9)
+
+**Shipped `254d3a8b`** (`09-DISENO` §8): `propose_prepare_factura_borrador` (card LIGERA, sin
+🧾 — no timbra nada) → `CfdiDraft` en BD (tabla **aplicada a prod y verificada**) → botón
+"Abrir borrador" → form de Nueva Factura hidratado (`?draft=`) → el doctor edita y emite →
+draft `emitted` + ligado. Además: sección de borradores en el expediente y reads draft-aware
+(`borradorPendiente`). Suite 62: **60 PASS + 2 soft-WARN documentados + 0 FAIL**.
+Review inline PRE-commit (`05-METODO` modo B): **0 correctness, 3 cleanup aceptados**.
+
+**Validación en vivo** (`09-DISENO` §9), ciclo completo con datos reales: dos-turnos orgánico
+(crear + completar cita → ingreso 1598) → borrador compuesto de 3 conceptos → form hidratado →
+**el doctor EDITÓ** (D01→G03, y el CP tras un rechazo REAL del SAT — la causa #1 de la KB
+confirmada en vivo) → **CFDI folio 9, $1,548 EXACTO** al estimado de la card, draft
+emitted+ligado, pendientes correcto. *Esa edición del doctor es la tesis del diseño probada
+dos veces: el form ES la capa de revisión.*
+
+**Follow-ups 1-4 corregidos la misma sesión** (`09-DISENO` §9, fixes shipped `29ac72d7`):
+plot twist — la card de datos fiscales YA existía y un gate la escondía justo para los
+pacientes sin datos · claves + búsqueda de catálogo agregadas al form · guard uso×régimen en
+3 capas · hints de errores del SAT. Review inline: 1 CONFIRMED corregido.
+
+⚠️ **Consecuencia que sigue viva:** el timbre de F2b dejó a dr-prueba sin ingresos facturables,
+así que los **caminos felices de emisión/borrador quedaron data-blocked en los evals** — hay
+que re-sembrar completando una cita de prueba (PRÓXIMOS PASOS #5).
+
+### 2026-07-16 · F2b — EMISIÓN ✅ cerrado en vivo (folio 8)
+
+La **primera escritura fuera de agenda**. Timbrado en sandbox del caso Gerardo A
+(`08-PLAN` §12): **CFDI folio 8**, UUID `ac06da7d…`, PG/S01, $900, ligado al ingreso 1570,
+`hasFactura=true`, y el barrido de pendientes pasó de **3/$2,110 → 2/$1,210 EXACTO**.
+
+Ships del día: F2a validado (`07-PLAN` §12) · F2b `d05e3d71` · fixes del review `3accb5b8`
+(guard 409 de doble emisión **en el endpoint**, que protege también a la UI; método en
+[`../GENERAL AGENTES/05-METODO-code-review.md`](../GENERAL%20AGENTES/05-METODO-code-review.md))
+· suite 60 en verde.
+
+**Bonus — guardrail emergente ENDOSADO:** el agente rehusó subfacturar ($10 sobre un ingreso
+de $900) incluso cuando se le dijo "es de prueba". No sabe que Facturama apunta a sandbox, y
+eso es **deliberado**: trata toda emisión como legalmente real.
 
 ## Mapa de documentos
 
@@ -74,7 +114,9 @@ vivo timbrando en SANDBOX (caso Gerardo A $900, sin prerequisito de datos).**
 | `09-DISENO-F2c-factura-compuesta-borrador.md` | F2c: factura COMPUESTA vía BORRADOR (CfdiDraft + form hidratado + expediente + tool card-ligera) — diseño (§1-6), re-chequeo de huecos (§7), CONSTRUIDO (§8); validación en vivo pendiente de datos frescos |
 
 Playbook heredado: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md)
-(método, bitácora, evals) y `05-REFERENCIA-TECNICA` (el sistema, incl. la estructura de módulos).
+(método, bitácora, evals) y
+[`../AGENTE AGENDA/05-REFERENCIA-TECNICA-AGENTE.md`](../AGENTE%20AGENDA/05-REFERENCIA-TECNICA-AGENTE.md)
+(el sistema, incl. la estructura de módulos). Índice de esta carpeta: [`README.md`](README.md).
 
 ## Estado: qué está hecho (todo desplegado en prod)
 
@@ -131,7 +173,13 @@ que el doctor teclea al completar). Un pago PARCIAL por link deja el ingreso en 
 completar no agrega el resto (sin reconciliación contra precio) — trade-off conocido, radar del
 money model.
 
-## Próximos pasos
+## Bitácora de los PRs F1 → F2c (histórico, con todo el detalle técnico)
+
+> ⚠️ **Esto NO son los próximos pasos** — es el registro, PR por PR, de cómo se construyó y
+> validó cada uno (se llamaba "Próximos pasos" cuando F1 era lo siguiente; los ítems se fueron
+> cerrando en su lugar). **Lo que queda abierto está en la sección "➡️ PRÓXIMOS PASOS
+> (handoff 2026-07-17)" más abajo.**
+> Se conserva completo: tiene los hallazgos de cada code-review y de cada validación en vivo.
 
 1. **PR F1 — HECHO Y DESPLEGADO (2026-07-11).** (Nota posterior: la suite creció a **26 casos**
    con 2 evals cross-dominio — commit `290094c3` — y el primero de ellos encontró un bug latente:

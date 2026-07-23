@@ -1,5 +1,11 @@
 # 🧾 Agente de Facturas — factibilidad y arquitectura (exploración 2026-07-08)
 
+> 🔒 **SNAPSHOT — 2026-07-08.** Documento histórico: la exploración que decidió la arquitectura.
+> No se actualiza (excepto correcciones marcadas ⚠️ y las respuestas del §8). **Su veredicto
+> —UN asistente con módulos, no A2A— sigue vigente y RE-CONFIRMADO** el 2026-07-15 en
+> [`05-ANALISIS`](05-ANALISIS-arquitectura-especializado-vs-modulo.md). Todo lo que aquí es
+> "propuesto" ya se construyó: estado en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
 > **Pregunta que responde este doc:** ¿qué tan factible es un agente que cree una factura (CFDI)
 > y la deje ligada al expediente del paciente — tocando agenda, expedientes y facturas — y cuál
 > es la arquitectura correcta: extender el agente de agenda, o un agente de facturas que hable
@@ -122,7 +128,16 @@ con nombres/alcance finales que superan esta tabla original:**
 | `propose_email_cfdi` | `cfdi/[id]/email` | entregar la factura al paciente |
 | `propose_cancel_cfdi` | `cfdi/[id]/cancel` | **tier máximo** — quizá NO dársela al agente en v1 (ver §6) |
 
-**Regla clase-E7 (la más importante del diseño):** el agente **NUNCA arma los impuestos**. La
+**Regla clase-E7 (la más importante del diseño):** el agente **NUNCA arma los impuestos**.
+
+> ⚠️ **CORREGIDO 2026-07-15:** la frase siguiente es **FALSA**. La fórmula NO vive en
+> `useBookings.emitCfdi` — ese hook manda los items **SIN taxes**. Vive en el **formulario de
+> Nueva Factura** (`dashboard/facturacion/page.tsx`), y desde F2b está replicada server-side en
+> `lib/agenda-agent/cfdi-builder.ts` (paridad 5/5 verificada). Detalle:
+> [`06-KNOWLEDGE-BASE-facturacion.md`](06-KNOWLEDGE-BASE-facturacion.md) §3 y su drift-log §8.
+> Se conserva el texto original porque explica la decisión que se tomó con esa creencia.
+
+La
 fórmula ISR/IVA por régimen vive hoy en la UI (`emitCfdi` arma `items[].taxes`). Dársela al
 modelo = re-implementar una fórmula fiscal en prompt (exactamente el error E7/fila 11). Opciones,
 en orden de preferencia: (1) endpoint helper server-side que arme los items desde
@@ -184,18 +199,23 @@ Pasos 1-2 ya existen en prod. Lo nuevo son 4 tools de lectura + 2-3 de propuesta
 **Prerrequisito organizativo:** ✅ HECHO 2026-07-11 — el refactor de módulos (ver §1) quedó
 byte-idéntico y con evals 19/19. PR F1 puede empezar directo sobre `modules/`.
 
-## 8. Preguntas abiertas (decidir antes de PR F1)
+## 8. Preguntas abiertas (decidir antes de PR F1) — TODAS RESUELTAS salvo la 3
 
-1. **¿dr-prueba puede timbrar?** ¿Tiene CSD/perfil Facturama activo, o hay sandbox? Sin esto no
-   hay validación en vivo del camino feliz. (Revisar `facturamaStatus` del perfil de dr-prueba.)
-2. **Opción A vs B** del link expediente↔factura (§3) — A alcanza para v1.
-3. **¿Dónde vive el panel?** Mismo botón "Asistente" en `/appointments` (recomendado: un
-   asistente) — pero el doctor también factura desde `/dashboard/facturacion`; ¿el panel se
-   monta también ahí (mismo componente, mismo endpoint)?
-4. **Orden vs PR 4 (voz):** independientes; facturas NO bloquea voz ni viceversa. El refactor
-   de módulos beneficia a ambos.
-5. IVA en servicios médicos: confirmar contra la UI actual qué taxes arma para honorarios
-   (exentos típicamente) — la fuente de la fórmula server-side del §4.
+> ✅ **Cerradas 2026-07-11/16.** Se conservan con su respuesta para no re-litigarlas.
+
+1. **¿dr-prueba puede timbrar?** → **SÍ** (verificado en prod 2026-07-11: `csdUploaded=true`,
+   `facturamaStatus='active'`, FIEL configurada) — pero contra el **SANDBOX** de Facturama, que
+   es intencional en prod (`06-KB` §1). Todo timbrado es de prueba.
+2. **Opción A vs B** del link expediente↔factura (§3) → **opción A** (cadena transitiva vía
+   `LedgerEntry`, cero migración); el agente SIEMPRE liga `ledgerEntryId`.
+3. **¿Dónde vive el panel?** → **PARCIALMENTE RESUELTA:** el panel copilot se montó en
+   `DashboardLayout`, así que vive en TODAS las pantallas (incluida `/dashboard/facturacion`).
+   Lo que sigue abierto es si conviene un chip/affordance específico de facturas ahí —
+   `05-ANALISIS` §4 lo propone como "un cerebro, dos puertas".
+4. **Orden vs PR 4 (voz)** → independientes, confirmado; PR 4 sigue pendiente.
+5. **IVA en servicios médicos** → **exentos por el TIPO DE PRESTADOR** (PF con título médico o
+   SC, Art. 15 frac. XIV LIVA); estéticos SIEMPRE 16%. La exención NO depende del cliente.
+   Fuente canónica: `06-KNOWLEDGE-BASE` §5.
 
 ---
 

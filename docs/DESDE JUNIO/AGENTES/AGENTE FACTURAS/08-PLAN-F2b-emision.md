@@ -1,8 +1,15 @@
 # 🧾 PLAN PR F2b — emisión de CFDI con aprobación (`propose_create_cfdi`)
 
-> **Estado: PLAN — pendiente de aprobación del usuario.** Creado 2026-07-16, mismo día del
-> cierre de F2a (`07-PLAN` §12). Construye sobre la base validada: lectura experta (catálogos
-> grounded, pendientes, conocimiento) + el sistema de propuestas de agenda (PR 2/3).
+> 🔒 **SNAPSHOT — F2b CONSTRUIDO, REVISADO, SHIPPEADO Y CERRADO EN VIVO el 2026-07-16.**
+> (La cabecera decía "PLAN — pendiente de aprobación" hasta 2026-07-23; el cuerpo ya
+> documentaba lo contrario.) Recorrido completo en este mismo doc: **§10** bitácora del build ·
+> **§11** code review inline (4 hallazgos, 4 aplicados) · **§12** validación en vivo — CFDI
+> **folio 8** timbrado en sandbox, ligado al ingreso 1570. Este doc no se actualiza; el estado
+> vive en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+>
+> Creado 2026-07-16, mismo día del cierre de F2a (`07-PLAN` §12). Construye sobre la base
+> validada: lectura experta (catálogos grounded, pendientes, conocimiento) + el sistema de
+> propuestas de agenda (PR 2/3).
 > Reglas heredadas que NO se re-litigan: E7 (el modelo NUNCA arma impuestos), receptor SOLO
 > del expediente o Público en General explícito (`00` §6), ledgerEntryId SIEMPRE ligado,
 > v1 SIN cancelación de CFDI, PPD solo a petición explícita.

@@ -1,13 +1,14 @@
 # 🧾 Matriz de capacidades — qué puede y qué NO puede el asistente
 
 > Referencia ÚNICA y transversal de los 5 módulos: tools, qué preguntas responde cada uno,
-> y las fronteras duras. Snapshot 2026-07-16 (**39 tools / 5 módulos** — `ALL_TOOLS.length`
-> del registry, la única fuente de conteo válida; el header decía 38 por no contar
-> propose_prepare_factura_borrador de F2c, corregido 2026-07-18 —, todo validado en
-> vivo incl. la PRIMERA escritura fuera de agenda: emisión de CFDI). La VERDAD es el código
-> (`apps/doctor/src/lib/agenda-agent/modules/` + `prompt.ts`);
-> este doc es el mapa. ⚠️ **Checklist del playbook: todo módulo o tool nuevo actualiza esta
-> matriz** (igual que INTRO/RESILIENCE).
+> y las fronteras duras. **Este es el ÚNICO doc que declara los conteos en presente**
+> (tools, módulos, evals, prefijo) — todos los demás los citan con fecha; ver
+> [`07-CONVENCIONES-docs.md`](07-CONVENCIONES-docs.md) §2. La VERDAD es el código
+> (`apps/doctor/src/lib/agenda-agent/modules/` + `prompt.ts`); este doc es el mapa.
+>
+> **Verificado contra el código 2026-07-23: 39 tools / 5 módulos · suite de evals 65 casos.**
+> ⚠️ **Checklist del playbook: todo módulo o tool nuevo actualiza esta matriz**
+> (checklist completo en `07-CONVENCIONES` §5).
 
 ---
 
@@ -18,6 +19,31 @@
 | **Lectura** | autónoma | El modelo consulta lo que necesite; un error de lectura es texto equivocado, no daño |
 | **Escritura** | propuesta → card → doctor CONFIRMA → el CLIENTE ejecuta el endpoint real con su token | El servidor del agente jamás muta datos; NADA se ejecuta solo |
 | **Veredictos de negocio** | server-side (regla 0) | "¿facturada?", "¿vencida?", "completitud fiscal", "conciliado" los decide el sistema, nunca el modelo contando campos |
+
+## 1.5 Quién ve cada módulo (usuarios secundarios)
+
+El set de módulos NO es el mismo para todos: un **member** (usuario secundario, feature NUEVOS
+USUARIOS) recibe solo los módulos cuyos toggles de permiso tiene TODOS encendidos. El dueño
+recibe siempre los 5. Fuente: `AGENT_MODULE_REQUIREMENTS` en `modules/registry.ts`.
+
+| Módulo | Toggles requeridos (TODOS) |
+|---|---|
+| agenda | `citas` |
+| expediente | `expedientes` |
+| facturas | `facturacion` + `sat` |
+| fiscal | `facturacion` + `sat` |
+| flujo | `flujo` + `pagos` + `conciliacion` |
+
+**Fail-closed:** un módulo que no esté en ese mapa queda BLOQUEADO para members — un módulo
+futuro debe agregarse explícitamente para llegar a ellos. El recorte ocurre ANTES del turno
+(`enabledModules`), así que las tools de un módulo bloqueado **no existen** para ese usuario:
+no puede invocarlas ni por accidente ni a propósito. El prompt del dueño queda byte-idéntico
+(caché intacto). Detalle y evals: `../../NUEVOS USUARIOS/01-DISENO-tecnico.md` §7 ·
+`../AGENTE AGENDA/SESSION-REFRESCO.md` (Evals G11 2026-07-22).
+
+⚠️ **Bug conocido DIFERIDO (cosmético):** un member a veces SOBRE-DECLARA en prosa capacidades
+de módulos que no tiene ("lo que sí puedo hacer"). No puede ejecutarlas — las tools no existen
+— solo las describe mal. Ver bitácora #24 y `00-BLUEPRINT` §5.2 punto 6.
 
 ## 2. Matriz por módulo
 
@@ -84,15 +110,32 @@
   de ayuda** (capa de conocimiento, `AGENTE KNOWLEDGE LAYER/`). NO aplica a CÓMO FUNCIONA un flujo
   (eso es concepto, SÍ lo explica).
 
-## 4. Números operativos (2026-07-16)
+## 4. Números operativos (verificados contra el código 2026-07-23)
 
-**39 tools / 5 módulos** (agenda 8+10 · facturas 10+2 · fiscal 2 · flujo 5 · expediente 2) ·
-prefijo estático ~21.2k + F2a/F2b/F2c (re-medir post-deploy, A4) · modelo
-claude-sonnet-5 · cap diario 500k budget tokens (~$1.50/doctor) cost-weighted · caché 1
-breakpoint estable + 2 móviles, TTL 5 min · suite de evals: **62 casos** (incl. 3 sondas de
-inyección `inj-*` con fixtures permanentes `A6INJ*`, 3 de capa de conocimiento `kl-*`, 7
-`f2a-*`, 5 `f2b-*` de emisión y 2 `f2c-*` de borrador), **baseline 0 WARN** (un WARN se
-investiga, ya no es "normal"; los soft son guardas data-dependent justificadas). Nota F2a:
+**39 tools / 5 módulos** — desglose real (conteo de `input_schema` por archivo): agenda 8 de
+lectura (`tools.ts`) + 10 de propuesta (`proposals.ts`) · facturas 12 (10 lectura + 2
+propuestas) · fiscal 2 · flujo 5 · expediente 2. El conteo válido es `ALL_TOOLS.length` del
+registry — nunca sumar a mano.
+
+**Suite de evals: 65 casos** (contados en `scripts/agenda-agent-evals.ts`). Por familia:
+6 `f2a-*` · 6 `f2b-*` · 2 `f2c-*` · 5 `flujo-*` · 5 `xdom-*` cross-dominio · 3 `exped-*` ·
+3 `kl-*` de capa de conocimiento · 3 `inj-*` sondas de inyección (fixtures permanentes
+`A6INJ*`) · 3 `member-*` del path de usuario secundario · 4 `f1-*` · 6 `f15-*` · el resto,
+casos core de agenda. **Baseline 0 WARN** (un WARN se investiga, ya no es "normal"; los soft
+son guardas data-dependent justificadas).
+⚠️ **La última corrida completa (2026-07-22) dio `62/65 PASS · 3 WARN · 0 FAIL`. Ese 62 es el
+RESULTADO de una corrida, NO el tamaño de la suite** — confundirlos fue un error real que se
+propagó por varios docs (ver [`07-CONVENCIONES-docs.md`](07-CONVENCIONES-docs.md) §2.3).
+
+**Modelo y costos:** claude-sonnet-5 (`AGENDA_AGENT_MODEL`) · cap diario 500k budget tokens
+(~$1.50/doctor) ponderado por costo · caché 1 breakpoint estable + 2 móviles, TTL 5 min.
+⚠️ **Prefijo estático: STALE-UNMEASURED.** La última medición real es **~21.2k tokens
+(2026-07-12, con 35 tools)**; después entraron F2a/F2b/F2c (+4 tools y varias secciones de
+prompt) y **nunca se re-midió**. No estimarlo: medirlo con el método de
+[`03-PLAN-auditoria-integral.md`](03-PLAN-auditoria-integral.md) A4 antes de usarlo para
+decidir escalamiento (blueprint §5.3).
+
+Nota F2a:
 search_catalogo_sat necesita `ToolContext.apiToken` (minteado por turno desde la sesión —
 `api-token.ts`).
 Nota F2b: Facturama apunta a SANDBOX en prod (intencional) y el agente NO lo sabe —

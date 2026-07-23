@@ -8,9 +8,12 @@
 > Diseñado 2026-07-15 contra el código real (anclas citadas). Fuente de conocimiento:
 > [`06-KNOWLEDGE-BASE-facturacion.md`](06-KNOWLEDGE-BASE-facturacion.md).
 >
-> **ESTADO 2026-07-15: CONSTRUIDO** — ver §10 (cómo quedó + los 2 hallazgos del smoke:
-> el reenvío de auth FUNCIONA vía token minteado, y los catálogos de Facturama estaban
-> ROTOS en prod por el path `/api-lite/catalogs/*` → corregido a `/catalogs/*`).
+> 🔒 **SNAPSHOT — F2a CONSTRUIDO, REVISADO Y CERRADO EN VIVO (2026-07-15/16).** No se
+> actualiza. Recorrido: **§10** cómo quedó (+ los 2 hallazgos del smoke: el auth funciona vía
+> token MINTEADO, y los catálogos de Facturama estaban ROTOS en prod por el path
+> `/api-lite/catalogs/*` → corregido a `/catalogs/*`) · **§11** review completo de 8 ángulos
+> (9 hallazgos, 7 aplicados) · **§12** validación en vivo 5/5. Estado actual:
+> [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
 
 ---
 

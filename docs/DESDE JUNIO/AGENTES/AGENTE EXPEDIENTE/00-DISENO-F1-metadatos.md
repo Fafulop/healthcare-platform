@@ -83,9 +83,11 @@ fuera de rango se ECHAN en `filtrosAplicados` (nunca drop silencioso — lecció
   Suite completa 43 casos: **41 PASS + 2 WARN soft (flakiness/datos de agenda) + 0 FAIL**;
   el cross-dominio tomó exactamente el camino esperado (find_patient → get_patient_profile
   + get_expediente_resumen).
-- Asistente tras este módulo: **35 tools / 5 módulos** (conteo real de `ALL_TOOLS` del
-  registry), prefijo ~21.2k tokens (+~1.9k,
-  dentro del presupuesto del blueprint).
+- Asistente tras este módulo: **35 tools / 5 módulos *(medición del 2026-07-12)***, prefijo
+  ~21.2k tokens (+~1.9k, dentro del presupuesto del blueprint). ⚠️ Conteo de su fecha — la
+  serie F2 de facturas agregó tools después. **Vigente:
+  [`../GENERAL AGENTES/02-CAPACIDADES`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4**
+  (donde además el prefijo está marcado STALE-UNMEASURED).
 - Pendiente al desplegar: validación en vivo (preguntas en SESSION-REFRESCO).
 
 ---

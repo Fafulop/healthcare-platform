@@ -1,5 +1,12 @@
 # Permutaciones de agenda — catálogo exhaustivo pre-PR 2
 
+> 🔒 **SNAPSHOT — 2026-07-04** (+ campaña CIT 2026-07-05). Documento histórico, no se actualiza;
+> los checkboxes quedan como el registro de qué se validó en vivo y qué no. Valor hoy: la
+> **matriz completa de transiciones de estado** (§2, la fuente de los pre-checks de todos los
+> `propose_*` de citas) y el descubrimiento **RNG-11/12** — hay DOS políticas de borrado de
+> rangos, y por eso `delete_range` usa SOLO el camino individual protegido, nunca el bulk.
+> Estado actual: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
 > **Qué es esto.** El mapa de **todas las permutaciones posibles** de la agenda (modelo de rangos):
 > cada acción × cada actor × cada orden posible, con su resultado esperado y efectos secundarios.
 > Es el equivalente agenda de

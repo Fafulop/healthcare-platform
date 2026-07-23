@@ -4,7 +4,13 @@
 > qué tools tiene y contra qué endpoints/tablas opera cada una, cómo fluye una petición de punta a
 > punta, y las reglas de seguridad que NO se negocian. Para entender el *estado del proyecto* lee
 > [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md); este doc describe el *sistema*.
-> Refleja el código a 2026-07-06 (PR 1+2 desplegados · PR 3 citas construido y revisado).
+>
+> **Estructura y catálogos actualizados 2026-07-23** contra el código. Las §2 (filosofía) y §8
+> (presupuesto/caché/economía) son las originales y siguen vigentes tal cual.
+> ⚠️ Este doc describe la **arquitectura del sistema**; el catálogo COMPLETO de tools de los 5
+> módulos (con sus fronteras y desempates) vive en
+> [`../GENERAL AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md);
+> aquí se detallan las tools del módulo **agenda** y se resume el resto.
 
 ---
 
@@ -46,40 +52,59 @@ server-side); el chat v1 (context-stuffing, slots) y el RAG de docs son antecede
 
 ```
 apps/doctor/src/
-├── app/api/agenda-agent/route.ts        ← wrapper delgado: auth, validación, presupuesto, logging
-│                                           (+ GET del budget diario para el widget del panel)
+├── app/api/agenda-agent/route.ts        ← wrapper delgado: auth, validación, presupuesto, logging,
+│                                           minteo del apiToken del turno (+ GET del budget diario)
 ├── lib/agenda-agent/
-│   ├── run-turn.ts                      ← EL LOOP (caps, caching, síntesis) — compartido ruta ↔ evals;
-│   │                                       NO cambia al agregar un módulo de dominio
-│   ├── prompt.ts                        ← secciones compartidas del prompt + composición con las
-│   │                                       secciones de cada módulo (UN solo bloque estable cacheado)
+│   ├── run-turn.ts                      ← EL LOOP (caps, caching, síntesis, toolErrors) — compartido
+│   │                                       ruta ↔ evals; NO cambia al agregar un módulo de dominio
+│   ├── prompt.ts                        ← secciones compartidas (INTRO, RESILIENCE, MEMBER_SCOPE_NOTE)
+│   │                                       + composición con las secciones de cada módulo
+│   │                                       (UN solo bloque estable cacheado)
 │   ├── modules/                         ← registry de MÓDULOS por dominio (refactor 2026-07-11,
-│   │   │                                   byte-idéntico verificado por sha256; prerequisito PR F1)
+│   │   │                                   byte-idéntico verificado por sha256)
 │   │   ├── types.ts                     ← contrato AgentModule (tools + executors + secciones)
-│   │   ├── registry.ts                  ← AGENT_MODULES, ALL_TOOLS, dispatch — EL punto de enchufe
-│   │   ├── agenda.ts                    ← módulo agenda: wirea tools/proposals + sus 2 secciones
-│   │   └── facturas.ts                  ← módulo facturas/pagos (PR F1): 6 tools de LECTURA
-│   │                                       (get_billing_status, perfil fiscal, cfdis plataforma/SAT,
-│   │                                       links de pago) + sus 2 secciones — autocontenido
-│   ├── anthropic.ts                     ← cliente raw-fetch del Messages API (tool use, timeout 60s)
+│   │   ├── registry.ts                  ← AGENT_MODULES · ALL_TOOLS · dispatch ·
+│   │   │                                   AGENT_MODULE_REQUIREMENTS + enabledModules (permisos
+│   │   │                                   de usuarios secundarios) — EL punto de enchufe
+│   │   ├── agenda.ts                    ← wirea tools.ts/proposals.ts + sus secciones
+│   │   ├── facturas.ts                  ← 12 tools (10 lectura + propose_create_cfdi y
+│   │   │                                   propose_prepare_factura_borrador) + GUIAS + domainRules
+│   │   ├── fiscal.ts                    ← 2 tools (resumen fiscal base-efectivo, cobranza PPD)
+│   │   ├── flujo.ts                     ← 5 tools de lectura del ledger/conciliación
+│   │   └── expediente.ts                ← 2 tools, SOLO metadatos (frontera de privacidad)
+│   ├── anthropic.ts                     ← cliente raw-fetch del Messages API (callClaude, tool use)
+│   ├── api-token.ts                     ← mintea el JWT HS256 para llamar a apps/api desde el loop
+│   │                                       (mismo minter que /api/auth/get-token)
+│   ├── cfdi-builder.ts                  ← réplica server-side de la fórmula de impuestos del form
+│   │                                       (regla E7: el modelo NUNCA arma impuestos)
 │   ├── dates.ts                         ← helpers de fecha/hora (TZ MX, weekday, addMinutes)
-│   ├── tools.ts                         ← 8 tools de LECTURA (definición + executor Prisma)
-│   └── proposals.ts                     ← 10 tools de PROPUESTA (pre-checks + collector)  [PR 2/3]
-├── hooks/useAgendaAgent.ts              ← estado del chat + EXECUTOR secuencial de propuestas
-├── app/appointments/
-│   ├── page.tsx                         ← monta el panel; refresca rangos/bloqueos tras ejecutar
-│   └── _components/AgendaAgentPanel.tsx ← UI: chat + cards de propuestas + barra "Uso de hoy"
+│   ├── tools.ts                         ← 8 tools de LECTURA de agenda (definición + executor Prisma)
+│   └── proposals.ts                     ← 10 tools de PROPUESTA de agenda (pre-checks + collector)
+├── contexts/AgentContext.tsx            ← estado del chat + EXECUTOR secuencial. DOS contexts:
+│                                           useAgentActions (isOpen/open/close/subscribe) y
+│                                           useAgentChat (messages/loading/budget — SOLO el panel)
+├── components/agent/AgendaAgentPanel.tsx← UI: chat + cards + barra "Uso de hoy". Montado UNA vez
+│                                           en DashboardLayout (panel acoplado, sobrevive navegación)
 └── (apps/doctor/scripts/)
-    └── agenda-agent-evals.ts            ← evals G11: 24 golden cases (19 agenda + 5 facturas PR F1),
-                                            corre run-turn contra prod
-                                            read-only ANTES de cada push (instrucciones en cabecera)
+    ├── agenda-agent-evals.ts            ← evals G11 (65 casos), corre run-turn contra prod
+    │                                       read-only ANTES de cada push (instrucciones en cabecera)
+    ├── expediente-smoke.ts              ← smoke + TRIPWIRE de privacidad del módulo expediente
+    └── flujo-smoke.ts                   ← smoke read-only del módulo flujo
 ```
 
-**Agregar un dominio nuevo (facturas/pagos/expediente)** = un archivo en `modules/` + una
-entrada en `AGENT_MODULES` (registry.ts). El prompt crece con las secciones del módulo pero
-sigue siendo UN bloque estable con UN breakpoint de cache; el loop no se toca. TODOs anotados
-en `prompt.ts` para cuando llegue facturas: la lista de capacidades del INTRO y el "fuera de
-tu alcance" del bloque de resiliencia hoy nombran agenda en específico.
+> ⚠️ **Cambios estructurales posteriores a la primera versión de este doc (2026-07-06):**
+> `hooks/useAgendaAgent.ts` **se ELIMINÓ** (su estado vive en `contexts/AgentContext.tsx`; el
+> panel lo consume directo — un wrapper sin consumidores era código muerto), el panel salió de
+> `app/appointments/_components/` a `components/agent/`, y el árbol `/appointments` se fusionó
+> bajo `/dashboard/appointments` con un 308 permanente. Detalle y desviaciones:
+> [`../GENERAL AGENTES/01-PLAN-panel-copilot-persistente.md`](../GENERAL%20AGENTES/01-PLAN-panel-copilot-persistente.md) §7.
+
+**Agregar un dominio nuevo** = un archivo en `modules/` + una entrada en `AGENT_MODULES`
+(registry.ts) + su entrada en `AGENT_MODULE_REQUIREMENTS` (sin ella queda bloqueado para
+usuarios secundarios — fail-closed). El prompt crece con las secciones del módulo pero sigue
+siendo UN bloque estable con UN breakpoint de cache; el loop no se toca. Checklist completo:
+[`../GENERAL AGENTES/07-CONVENCIONES-docs.md`](../GENERAL%20AGENTES/07-CONVENCIONES-docs.md) §5.
+⚠️ El punto de drift conocido: `INTRO` y `RESILIENCE` de `prompt.ts` se editan A MANO por módulo.
 
 Infra compartida que usa: `requireDoctorAuth` (sesión), `logTokenUsage`/`LlmTokenUsage`
 (telemetría y presupuesto), `authFetch` (ejecución client-side), Prisma de `@healthcare/database`.
@@ -110,7 +135,13 @@ UI: reply + cards ordenadas (#1, #2…) con detalle y advertencias
   → el agente verifica, explica fallos y propone el siguiente paso (turno de verificación)
 ```
 
-## 5. Tools de LECTURA (autónomas — PR 1)
+## 5. Tools de LECTURA del módulo AGENDA (autónomas — PR 1)
+
+> Las §5 y §6 detallan **solo el módulo agenda** (8 lectura + 10 propuestas). Los otros 4
+> módulos suman 21 tools más — su catálogo, fronteras y reglas de desempate están en
+> [`../GENERAL AGENTES/02-CAPACIDADES`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §2,
+> y su detalle técnico en la carpeta de cada dominio (`../AGENTE FACTURAS/`, `../AGENTE FLUJOS/`,
+> `../AGENTE EXPEDIENTE/`).
 
 | Tool | Qué devuelve | Fuente de datos |
 |---|---|---|
@@ -272,10 +303,17 @@ lo re-valida contra el token de todas formas).
   read-only contra prod ANTES de push** (`railway run`) — no hay staging; main despliega a prod.
 - **Bitácora**: cada fallo en vivo → fila en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) (fallo →
   causa raíz → fix → commit) → caso del set de evals.
-- **Evals G11** (construidos 2026-07-05): `apps/doctor/scripts/agenda-agent-evals.ts` — 12 golden
-  cases seedeados de la bitácora; corren `run-turn.ts` del **working tree** contra prod read-only
-  (no el endpoint desplegado) → se corren ANTES de cada push que toque prompt/tools. Casos
-  data-dependent son `soft` (WARN, no bloquean).
+- **Evals G11** (construidos 2026-07-05 con 12 casos): `apps/doctor/scripts/agenda-agent-evals.ts`
+  — golden cases seedeados de la bitácora; corren `run-turn.ts` del **working tree** contra prod
+  read-only (no el endpoint desplegado) → se corren ANTES de cada push que toque prompt/tools.
+  Casos data-dependent son `soft` (WARN, no bloquean). **Baseline esperado: 0 WARN** desde la
+  auditoría A5 — un WARN se investiga. El runner también simula **usuarios secundarios**
+  (`permissions` por caso → `enabledModules`) con el check `no-tool-called`. Tamaño vigente de
+  la suite: [`../GENERAL AGENTES/02-CAPACIDADES`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
+- **Smokes por módulo**: `expediente-smoke.ts` (incluye el **tripwire de privacidad**: escanea el
+  output por nombres de campos clínicos y truena si aparece uno) y `flujo-smoke.ts`.
+- **Observabilidad**: los errores de tools se persisten en `agent_tool_errors` (auditoría A2) —
+  antes un tool roto podía vivir semanas invisible porque el modelo se recuperaba con gracia.
 
 ## 11. Límites conocidos (el agente los admite, no los esquiva)
 

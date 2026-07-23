@@ -1,5 +1,10 @@
 # Research — estado actual de la agenda y su IA (verificado contra el código, 2026-07-03)
 
+> 🔒 **SNAPSHOT — 2026-07-03.** Documento histórico, no se actualiza. Describe el mundo **antes**
+> del asistente. Sigue siendo la mejor explicación de por qué se construyó desde cero y de por
+> qué `/v1` y `/v2` son deuda pendiente (retiro = PR 4). Estado actual:
+> [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
 > **Propósito.** Mapa de lo que YA existe en producción alrededor de `/appointments` (agenda de
 > pacientes) y de la IA que la toca (chat de agenda + asistente RAG), como base para diseñar el
 > **agente de agenda desde cero**. Los números de línea/rutas se desfasan — verificar contra el

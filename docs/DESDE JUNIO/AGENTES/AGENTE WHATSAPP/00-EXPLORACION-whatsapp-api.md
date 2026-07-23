@@ -83,4 +83,6 @@ Probar ahí la conversación, y decidir A vs B según la fricción que toleren l
 *Estado:* exploración 2026-07-07 — investigación capturada, nada construido. Prerequisito
 lógico: cerrar PR 4 del agente de agenda primero. Relacionado:
 [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md) (el agente cuya
-arquitectura se reusa), `05-REFERENCIA-TECNICA-AGENTE.md` (filosofía y reglas).
+arquitectura se reusa),
+[`../AGENTE AGENDA/05-REFERENCIA-TECNICA-AGENTE.md`](../AGENTE%20AGENDA/05-REFERENCIA-TECNICA-AGENTE.md)
+(filosofía y reglas), [`README.md`](README.md) (índice de esta carpeta).

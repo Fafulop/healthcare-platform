@@ -1,9 +1,17 @@
 # 🔍 Plan — Auditoría integral del asistente
 
+> 🔒 **SNAPSHOT — 2026-07-12/14 (auditoría COMPLETA A2-A6).** Documento histórico: es el plan
+> y sus resultados en esas fechas, y NO se actualiza. Sus conteos ("35 tools", "43 evals") son
+> de entonces — los vigentes están en
+> [`02-CAPACIDADES`](02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4. Su valor hoy es el
+> **método** (cómo se audita) y los post-mortems: A3 sigue siendo la mejor descripción de la
+> clase de bug dominante (réplicas parciales de un WHERE), y A4 es el procedimiento a repetir
+> para re-medir el prefijo (hoy STALE-UNMEASURED).
+>
 > Plan para verificar que el asistente es **correcto, consistente, seguro y
-> costo-óptimo** ahora que "F1 everywhere" está completo (5 módulos / 35 tools, todo validado
-> en vivo). Diseñado 2026-07-12. Es el paso previo recomendado antes de F2 (las propuestas
-> suben el riesgo — auditar la base primero).
+> costo-óptimo** ahora que "F1 everywhere" está completo (5 módulos / 35 tools *(2026-07-12)*,
+> todo validado en vivo). Diseñado 2026-07-12. Es el paso previo recomendado antes de F2 (las
+> propuestas suben el riesgo — auditar la base primero).
 >
 > **ESTADO 2026-07-14: AUDITORÍA COMPLETA** — orden re-acordado **A2 → A4 → A3+A5 → A6**
 > (A4 promovido: barato y su resultado puede reordenar el resto). **A2 ✅ shipped**

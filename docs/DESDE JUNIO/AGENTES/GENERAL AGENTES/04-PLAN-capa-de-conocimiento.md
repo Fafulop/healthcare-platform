@@ -1,5 +1,13 @@
 # 📚 Plan — Capa de conocimiento: el asistente como EXPERTO del sistema
 
+> 🔒 **SNAPSHOT — 2026-07-12.** Documento histórico, no se actualiza. **SUPERSEDIDO en lo
+> táctico por [`../AGENTE KNOWLEDGE LAYER/`](../AGENTE%20KNOWLEDGE%20LAYER/00-OVERVIEW-donde-estamos.md)**
+> (leer esa carpeta primero): el inventario real encontró 4 superficies disjuntas, no 1, y la
+> arquitectura final fue **route-first** — el agente NO lee guías (`KL/05` §6.1 descartó la
+> fuente-única por riesgo de alucinación por volumen). Lo que SIGUE vigente de este doc: la
+> decisión **NO-RAG** con sus razones (§2) y la secuencia K1-K4. El "35 tools" del §1 es de su
+> fecha; los conteos vigentes en [`02-CAPACIDADES`](02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
+>
 > Plan (nada construido) para la tercera capa del asistente: además de LEER datos (F1) y
 > PROPONER acciones (F2), que el asistente **sepa cómo funciona el sistema** — sus partes,
 > sus flujos paso a paso, sus reglas — para guiar al doctor. Diseñado 2026-07-12.

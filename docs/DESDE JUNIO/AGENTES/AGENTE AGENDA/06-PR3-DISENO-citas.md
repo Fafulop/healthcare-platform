@@ -1,5 +1,13 @@
 # PR 3 — Diseño: propuestas de citas (create/confirm/cancel/reschedule/complete/no-show)
 
+> 🔒 **SNAPSHOT — 2026-07-06. PR 3 SHIPPEÓ Y SE VALIDÓ EN VIVO** el 2026-07-06/07 (bitácora
+> fila 22 del [`SESSION-REFRESCO`](SESSION-REFRESCO.md): TRX-6/ledger confirmado en BD, la
+> primera misión real —16 vencidas a NO_SHOW— ejecutada sin ingresos falsos). No se actualiza.
+> Valor hoy: **las decisiones D1–D6 y los gaps GAP-1..5** explican por qué cada tool de citas
+> es como es. Los hardening diferidos del §5 ya están HECHOS (ver las marcas ✅ en el propio
+> doc). Nota: el §2 cita `hooks/useAgendaAgent.ts`, que después se eliminó — el estado del chat
+> vive hoy en `contexts/AgentContext.tsx` (ver `05-REFERENCIA-TECNICA` §3).
+
 > **Qué es esto.** Diseño de PR 3 del agente de agenda: las propuestas que tocan **citas** — la
 > primera capa con efectos hacia el paciente (SMS/email/GCal = no reversibles). Escrito 2026-07-06
 > con los contratos **verificados contra el código** (regla de bitácora 19: los docs alucinan; el

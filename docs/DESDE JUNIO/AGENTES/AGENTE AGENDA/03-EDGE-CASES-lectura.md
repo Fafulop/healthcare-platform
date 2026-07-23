@@ -1,5 +1,12 @@
 # Edge cases del agente (fase lectura) — catálogo y estado
 
+> 🔒 **SNAPSHOT — 2026-07-03/04.** Documento histórico, no se actualiza. Los 7 edge cases
+> (E1–E7) están arreglados y los límites L1–L5 siguen vigentes (el agente los ADMITE en vez de
+> adivinar). Valor hoy: **E7 es la lección canónica del proyecto** — un campo derivado de otro
+> dominio se calcula con la fórmula del motor canónico, nunca con una interpretación; y **E6 es
+> la otra** — el commit decía que estaba arreglado pero el diff no lo incluía.
+> Estado actual: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
 > **Qué es esto.** Análisis sistemático (2026-07-03) de dónde el agente puede **confundirse o no
 > traer todos los datos** de la agenda: cada tool contra el modelo de datos, con hechos de prod
 > donde importaba. Los arreglados aplican la **regla 0** de [`02`](02-DISENO-tools-y-arquitectura.md)

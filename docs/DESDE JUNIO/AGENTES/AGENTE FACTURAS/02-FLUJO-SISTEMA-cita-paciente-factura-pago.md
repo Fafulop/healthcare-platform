@@ -1,5 +1,12 @@
 # Flujo del sistema: cita → paciente → factura → pago (definición pre-PR F1)
 
+> 🔒 **SNAPSHOT — 2026-07-10.** Documento histórico, no se actualiza. **Sigue siendo la mejor
+> descripción del GRAFO de datos** (§1 `origin`, §2 el flujo canónico, §3 la matriz de 6
+> preguntas que ES el spec de `get_billing_status`, §7 la decisión del tier de privacidad que
+> heredó el módulo expediente). Los huecos H1–H5 del §5 **ya se cerraron** — ver
+> [`04-FIXES`](04-FIXES-links-de-pago-ligados.md) y [`03-PERMUTACIONES`](03-PERMUTACIONES-paciente-dinero-factura.md) §7.
+> Estado actual: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
 > **Qué es esto.** Antes de darle al asistente tools de lectura sobre expedientes, facturación,
 > SAT y pagos, este doc define **el flujo canónico que conecta esas piezas** y **qué tan
 > interconectadas están HOY en el código** — qué liga existe, quién la escribe, y dónde hay

@@ -1,5 +1,13 @@
 # Diseño del agente de agenda — tools, arquitectura y plan de build
 
+> 🔒 **SNAPSHOT — 2026-07-03.** Documento histórico, no se actualiza. El plan de build de 4 PRs
+> se ejecutó (PR 1-3 vivos; **PR 4 voz sigue pendiente**). El catálogo de tools del §2 es el
+> PROPUESTO — el real está en
+> [`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md) §5-§6. Valor hoy: **§5,
+> los 11 gaps G1–G11** y su resolución, que explican decisiones que siguen vigentes (sobre todo
+> G1: el LedgerEntry se creaba desde el frontend).
+> Estado actual: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
 > **Propósito.** El diseño concreto para construir el agente (post-auditoría `01`, sustrato ya
 > endurecido). Decisiones tomadas como **recomendación con rationale** — revisar antes de codificar.
 > Lee primero [`00-RESEARCH-estado-actual.md`](00-RESEARCH-estado-actual.md).

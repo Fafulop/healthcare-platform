@@ -69,7 +69,15 @@ prompt/tools tocados → suite de evals completa antes de push; nunca commit/pus
 recibir OK; verificación en vivo = usuario actúa en prod, LLM verifica read-only (TOOLING);
 el prompt se edita en `prompt.ts` o `modules/<dominio>.ts`, NUNCA en `run-turn.ts`.
 
-## 3. Dónde estamos (2026-07-11, números reales de prod)
+## 3. Dónde estamos — MEDICIONES CON FECHA (no son el estado actual)
+
+> ⚠️ **Los números de esta sección son mediciones fechadas, no el conteo vigente.** El conteo
+> actual de tools/módulos/evals y el estado del prefijo viven SOLO en
+> [`02-CAPACIDADES`](02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4
+> (regla en [`07-CONVENCIONES`](07-CONVENCIONES-docs.md) §2). Al 2026-07-23: **39 tools /
+> 5 módulos · suite 65 casos · prefijo STALE-UNMEASURED desde F2a/F2b/F2c.**
+
+### Telemetría y estado — base 2026-07-11, con anotaciones posteriores fechadas en línea
 
 **Construido y validado:**
 - Agenda: PR 1+2+3 vivos, prompt caching, 4 hardening items, evals 19→24→65 casos (incl. path de member, 2026-07-22).
@@ -124,7 +132,8 @@ cazados: G03 mal atribuido, umbral de $2,000 en efectivo).
    **39 tools / 5 módulos**, suite 62. Detalle y decisiones: `AGENTE FACTURAS/07-PLAN`
    (F2a), `08-PLAN` (F2b), `09-DISENO` (F2c) + SESSION-REFRESCO. Siguen en el radar:
    F3 (propose_email_cfdi / propose_send_fiscal_form), propose_payment_link,
-   propose_create_patient.
+   propose_create_patient. (El "suite 62" de la redacción original era el resultado de una
+   corrida, no el tamaño: la suite es **65** — ver `02-CAPACIDADES` §4.)
 4. **PR 4 voz** — independiente, no bloquea ni es bloqueado.
 
 **Regla de review consolidada (2026-07-11, evidencia de 3 reviews el mismo día):** lógica
@@ -244,7 +253,11 @@ real no-de-prueba. Sin una de esas tres, quedarse en el nivel actual.
 
 ---
 
-*Relacionado: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md)
+*Relacionado: [`../README.md`](../README.md) (índice de toda la carpeta),
+[`07-CONVENCIONES-docs.md`](07-CONVENCIONES-docs.md) (qué doc se actualiza y cuál se congela),
+[`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md)
 (playbook + bitácora), [`../AGENTE FACTURAS/SESSION-REFRESCO.md`](../AGENTE%20FACTURAS/SESSION-REFRESCO.md)
-(estado facturas), `modules/registry.ts` (el enchufe), memoria `project_agentes_por_bloque`.
-Mantener §3 (números) actualizado cuando cambie el prefijo o el patrón de uso.*
+(estado facturas), `modules/registry.ts` (el enchufe), memoria `project_agentes_por_bloque`.*
+
+*⚠️ §3 son mediciones FECHADAS — no actualizarlas aquí. Los conteos vigentes viven en
+`02-CAPACIDADES` §4; una nueva medición de costo se agrega como fila fechada, no sobreescribe.*

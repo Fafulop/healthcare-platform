@@ -1,41 +1,72 @@
 # AGENTE AGENDA — carpeta de trabajo
 
-> **Qué es esto.** Carpeta de trabajo para diseñar y construir el **agente de IA de la agenda**
-> (`https://doctor.tusalud.pro/appointments`). Es el **primer bloque** de la estrategia de agentes
-> por módulo: *agente de agenda* → *agente de flujo de dinero* → *agente de expediente médico* →
-> merge final en un solo agente.
+> **Qué es esto.** La carpeta donde nació **el asistente**. Empezó como "el agente de la agenda"
+> (primer bloque de la estrategia de agentes por módulo) y terminó siendo el tronco común: el
+> loop, el sistema de propuestas, el método de verificación y la bitácora de fallos en vivo que
+> hoy usan los 5 módulos. Por eso esta carpeta contiene tanto lo específico de agenda como el
+> **playbook compartido**.
 >
 > Decisión de arranque (2026-07-03): **se construye desde cero** con tecnología de agentes actual
 > (tool-calling), no sobre el chat existente (`appointments-chat`, context-stuffing + gpt-4o) ni
 > sobre el asistente RAG de docs — ambos se estudian como antecedente, no como base.
 
-> 🔄 **Cada sesión, lee primero [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md)** (estado, decisiones
-> y próximos pasos actualizados).
+> 🔄 **Cada sesión, lee primero [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md)** (estado, bitácora
+> y próximos pasos). El mapa de TODOS los agentes está en
+> [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md);
+> los conteos vigentes (tools/módulos/evals) en
+> [`../GENERAL AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
+
+## Estado (2026-07-22)
+
+**PR 1 (lecturas) · PR 2 (rangos/bloqueos) · PR 3 (citas) — los tres VIVOS en prod y validados
+en vivo.** Después de PR 3, el trabajo se movió a los otros módulos (facturas, fiscal, flujo,
+expediente) y a las capas transversales (panel copilot, capa de conocimiento, auditoría).
+**PR 4 (voz + retiro del ChatWidget v1 + limpieza de `/v1` `/v2`) sigue pendiente** y no tiene
+carpeta propia todavía.
+
+Bugs conocidos abiertos (conducta del modelo, no de código): **#23 card fantasma** (PENDIENTE) y
+**#24 over-claim del member** (DIFERIDO) — bitácora del `SESSION-REFRESCO`.
 
 ## Archivos
 
+### Vivos (se actualizan)
+
 | Archivo | Qué es |
 |---|---|
-| [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | **Estado vivo del proyecto** — qué está construido (PR 1 read-only ✅), bloqueadores (API key + push), decisiones y próximos pasos. |
-| [`00-RESEARCH-estado-actual.md`](00-RESEARCH-estado-actual.md) | **Investigación del código** (verificada 2026-07-03): qué existe en producción de agenda (modelos, endpoints, UI) y qué IA ya hay (appointments-chat, RAG). Punto de partida del diseño. |
-| [`01-AUDIT-agenda-rangos.md`](01-AUDIT-agenda-rangos.md) | **Auditoría del código de rangos** (2026-07-03): 4 hallazgos (cross-tenant en range-bookings, carrera de doble-booking, buffer no aplicado al crear, startTime sin retícula) + lo que sí está sólido. F1/F2 arreglar ANTES del agente. |
-| [`02-DISENO-tools-y-arquitectura.md`](02-DISENO-tools-y-arquitectura.md) | **Diseño del agente:** decisiones de arquitectura (tool-calling nativo, Claude, propone→doctor confirma), catálogo de tools de lectura/acción con tiers, reglas duras, y plan de build en 4 PRs. |
-| [`03-EDGE-CASES-lectura.md`](03-EDGE-CASES-lectura.md) | **Catálogo de edge cases** (fase lectura): 6 arreglados (E1–E6, disponibilidad sin servicio, conteos, próxima cita, acentos, precio, weekday) + límites reales que el agente debe admitir (L1–L5). |
-| [`04-PERMUTACIONES-agenda.md`](04-PERMUTACIONES-agenda.md) | **Catálogo exhaustivo de permutaciones + resultados de la validación en vivo** (2026-07-04): matriz actor×acción, matriz completa de transiciones, checklist por acción (BLK/EDT completos ✅, RNG casi ✅, CIT pendiente de buffer>0), permutaciones de orden, efectos secundarios, y requisitos §7 para PR 2 (incl. las dos políticas de borrado de rangos RNG-11/12). |
-| [`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md) | **Referencia técnica del sistema**: filosofía (regla 0, propone→confirma), estructura de archivos, flujo punta a punta, catálogo de tools (lectura + propuestas) con sus endpoints/pre-checks, ciclo de vida de propuestas, presupuesto/límites, prompt, método de verificación. |
-| [`06-PR3-DISENO-citas.md`](06-PR3-DISENO-citas.md) | **Diseño de PR 3** (2026-07-06, contratos verificados contra código): decisiones D1–D6 (CIT-6 = ruta normal, reschedule en una card, complete con doble-call de ledger, tier 🔴), catálogo de 6 tools de citas con pre-checks, cambios por archivo, reglas de prompt y evals nuevos. |
-| [`TOOLING-acceso-railway-db-agenda.md`](TOOLING-acceso-railway-db-agenda.md) | **Herramienta de verificación:** consultar la BD de prod (Railway, solo lectura) para verificar datos de agenda durante las pruebas — el equivalente al TOOLING de flujo de dinero. |
+| [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | **LÉEME PRIMERO** — estado, decisiones, **la bitácora de fallos en vivo de TODO el asistente** (numerada hasta #24; #24 vive en su propia sección, no en la tabla) y próximos pasos. |
+| [`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md) | **Referencia del SISTEMA**: filosofía (regla 0, propone→confirma), estructura de archivos, flujo punta a punta, catálogo de tools, ciclo de vida de propuestas, presupuesto/caché, límites conocidos. |
+| [`TOOLING-acceso-railway-db-agenda.md`](TOOLING-acceso-railway-db-agenda.md) | **Método de verificación:** consultar la BD de prod (Railway, solo lectura) durante las pruebas. Tablas y queries de agenda. |
+
+### Snapshots históricos (congelados — no se actualizan)
+
+| Archivo | Qué capturó, y para qué sirve hoy |
+|---|---|
+| [`00-RESEARCH-estado-actual.md`](00-RESEARCH-estado-actual.md) | 2026-07-03 · El mapa de lo que existía antes del agente (dos modelos de agenda conviviendo, el chat v1 huérfano en `/v1`, la infra IA compartida). Sigue siendo la mejor explicación de **por qué** se construyó desde cero y por qué `/v1` `/v2` son deuda. |
+| [`01-AUDIT-agenda-rangos.md`](01-AUDIT-agenda-rangos.md) | 2026-07-03 · Auditoría del sustrato: 4 hallazgos (cross-tenant, carrera de doble-booking, buffer no aplicado, retícula) + las 2 rondas de fixes. F1/F2/F3 cerrados; **F4 sigue abierto** (neutralizado por diseño del tool). |
+| [`02-DISENO-tools-y-arquitectura.md`](02-DISENO-tools-y-arquitectura.md) | 2026-07-03 · El diseño original + la revisión con 11 gaps (G1–G11). Valor hoy: los gaps y su resolución — G1 (el ledger se crea desde el frontend) explica decisiones que siguen vivas. |
+| [`03-EDGE-CASES-lectura.md`](03-EDGE-CASES-lectura.md) | 2026-07-03 · Los 7 edge cases de la fase lectura (E1–E7) + los límites que el agente ADMITE (L1–L5). E7 es la lección canónica: un campo derivado se calcula con la fórmula del motor canónico, nunca con una interpretación. |
+| [`04-PERMUTACIONES-agenda.md`](04-PERMUTACIONES-agenda.md) | 2026-07-04 · Catálogo exhaustivo actor×acción + matriz completa de transiciones + resultados de la campaña de validación. El descubrimiento RNG-11/12 (dos políticas de borrado de rangos) sigue gobernando `delete_range`. |
+| [`06-PR3-DISENO-citas.md`](06-PR3-DISENO-citas.md) | 2026-07-06 · Diseño de PR 3: decisiones D1–D6, GAP-1..5, los contratos verificados y los dos code-reviews. PR 3 shippeó y se validó — el doc queda como el registro de por qué cada tool de citas es como es. |
 
 ## Relación con otras carpetas
 
-- `../../flujo de dinero permutaciones/` — el bloque hermano (Flujo de Dinero). Su
-  [`06-agente-motor4-diseno.md`](../../flujo%20de%20dinero%20permutaciones/06-agente-motor4-diseno.md)
-  define los principios compartidos de los agentes (niveles de autonomía, propuestas, seguridad) que
-  este bloque también seguirá.
-- `../../flujo de dinero permutaciones/TOOLING-acceso-railway-db.md` — el método base de acceso a
-  la BD (mismo mecanismo, distintas tablas).
+- [`../GENERAL AGENTES/`](../GENERAL%20AGENTES/) — el mapa de arriba: blueprint, matriz de
+  capacidades, método de review, mapa de la superficie IA, convenciones de estos docs.
+- [`../AGENTE FACTURAS/`](../AGENTE%20FACTURAS/) · [`../AGENTE FLUJOS/`](../AGENTE%20FLUJOS/) ·
+  [`../AGENTE EXPEDIENTE/`](../AGENTE%20EXPEDIENTE/) — los otros módulos, construidos con el
+  playbook de esta carpeta.
+- [`../AGENTE KNOWLEDGE LAYER/`](../AGENTE%20KNOWLEDGE%20LAYER/) — la capa de conocimiento
+  (qué HABLA el agente vs qué RUTEA a la guía).
+- [`../../flujo de dinero permutaciones/`](../../flujo%20de%20dinero%20permutaciones/) — el
+  sustrato del dominio dinero, y en particular
+  [`06-agente-motor4-diseno.md`](../../flujo%20de%20dinero%20permutaciones/06-agente-motor4-diseno.md),
+  que es el diseño **F2+ del dominio flujo** (propuestas/autonomía sobre el ledger). Nota
+  histórica: ese doc definió los principios de agentes ANTES de que existiera el blueprint —
+  hoy los principios compartidos viven en `GENERAL AGENTES/00-BLUEPRINT`.
+- [`../../flujo de dinero permutaciones/TOOLING-acceso-railway-db.md`](../../flujo%20de%20dinero%20permutaciones/TOOLING-acceso-railway-db.md)
+  — el método base de acceso a la BD (mismo mecanismo, distintas tablas).
 
-*Estado:* carpeta creada 2026-07-03. **PR 1 y PR 2 en prod, validados en vivo. PR 3 (citas)
-construido y revisado el 2026-07-06** (diseño en `06-PR3-DISENO-citas.md`; fix de sustrato GAP-1
-desplegado; code-review 7 fixes; evals G11 18/19 + smoke 5/5). Siguiente: **push de PR 3 +
-validación en vivo** (TRX-6/ledger crítica) — `SESSION-REFRESCO` → Próximos pasos.
+---
+
+*⬆️ Índice general de todos los agentes: [`../README.md`](../README.md) · Convenciones de estos
+docs (qué se actualiza, qué se congela): [`../GENERAL AGENTES/07-CONVENCIONES-docs.md`](../GENERAL%20AGENTES/07-CONVENCIONES-docs.md).*

@@ -1,5 +1,12 @@
 # Auditoría del código de agenda por rangos (2026-07-03)
 
+> 🔒 **SNAPSHOT — 2026-07-03.** Documento histórico, no se actualiza. **F1, F2 y F3 quedaron
+> CERRADOS** (ver las secciones ✅ al final, incluida la ronda 2 del code-review); **F4
+> (retícula de `startTime`) sigue abierto**, neutralizado por diseño del tool del agente.
+> Su valor hoy: el razonamiento de por qué el sustrato se endurece ANTES de construir el
+> agente, y el helper `booking-overlap.ts` que salió de aquí.
+> Estado actual: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
 > **Propósito.** Antes de construir el agente encima, revisar la correctitud del núcleo que el
 > agente va a usar: cálculo de disponibilidad, creación de citas, bloqueos, transiciones de estado
 > y autorización. **Alcance:** solo el modelo de rangos (lo vivo); no UI/estética, no el modelo
