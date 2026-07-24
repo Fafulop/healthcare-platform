@@ -32,7 +32,18 @@ cuenta su input.
 > Es EL número que gobierna el costo: **82% de cada pregunta fría es escribir este prefijo.**
 > Desglose por módulo/tool y blancos de poda: [`02-BITACORA`](02-BITACORA-experimentos.md).
 
-## 3. Hallazgo clave: thinking NO es la palanca
+## 3. Hallazgo clave: thinking NO es la palanca *(de COSTO — y solo en Sonnet)*
+
+> ⚠️ **CORRECCIÓN 2026-07-23 (misma fecha, más tarde) — este § es correcto pero se leyó de más.**
+> Lo medido aquí es que **desactivar** thinking no ahorra gran cosa **en Sonnet 5**. De ahí se
+> saltó a "thinking no importa", y eso resultó FALSO al cambiar de modelo: **thinking es la
+> variable que decide si Haiku 4.5 sirve o no** (59/65 · 1 FAIL sin él → 64/65 · 0 FAIL con él).
+> La causa es que el parámetro NO es uniforme entre modelos — Sonnet 5 corre adaptativo al
+> OMITIRLO, Haiku 4.5 corre con cero razonamiento — y `callClaude` nunca lo mandaba. Detalle,
+> tabla de `/v1/models` y el hecho de que los dos shapes son mutuamente excluyentes (mandar el
+> equivocado = 400): [`02-BITACORA`](02-BITACORA-experimentos.md), entrada Haiku+thinking.
+> **Regla que deja:** "no es palanca" siempre lleva pegado *para qué* y *en qué modelo*.
+
 
 Hipótesis inicial (2026-07-23): "Sonnet 5 corre thinking adaptativo por default (no se pasa el
 param `thinking` en `anthropic.ts`) → puede estar quemando output ×5". **MEDIDO: FALSO.** El
@@ -65,7 +76,7 @@ Como el costo es ~99% input, importa la columna de input. Fuentes: agregadores d
 |---|---|---|---|---|---|
 | **Sonnet 5** — hoy (intro) | $2 | $10 | ~$0.20 | manual, TTL 5m/1h | baseline (el que corre) |
 | **Sonnet 5** — desde 2026-09-01 | **$3** | **$15** | ~$0.30 | — | **+50% automático** |
-| Haiku 4.5 | $1 | $5 | ~$0.10 | igual que Sonnet | más débil; ok para lecturas |
+| Haiku 4.5 | $1 | $5 | ~$0.10 | igual, pero **mínimo cacheable 4096 tok** (Sonnet 2048) | ✅ **MEDIDO: 64/65 · 0 FAIL** con thinking (2026-07-23) — el "más débil, ok para lecturas" que decía aquí era una suposición, y de hecho falló una LECTURA y aprobó las escrituras. Contexto 200K (no 1M) |
 | **Kimi K2.6** (Moonshot) | ~$0.60–0.95 | ~$2.50–4.00 | ~$0.15 | auto, ~85% off | fuerte (hecho para agentic) |
 | **DeepSeek V4 Flash** | **$0.14** | $0.28 | **$0.0028** | auto, ~98% off | bueno; menos probado en loops complejos |
 | DeepSeek V4 Pro | $0.435 | $0.87 | $0.0036 | auto | intermedio |
@@ -83,7 +94,7 @@ práctica el cap ACOTA el gasto y el modelo barato hace que se llegue menos al c
 |---|---|---|
 | Sonnet 5 (Sept) | ~$26 | baseline caro |
 | Sonnet 5 (intro) | ~$17 | vence 2026-08-31 |
-| Haiku 4.5 | ~$9 | 3× input |
+| **Haiku 4.5** | **~$8.7 ✅ MEDIDO** | corrida real 2026-07-23, con thinking: 64/65 · 0 FAIL |
 | Kimi K2.6 | ~$5–9 | 3–5× |
 | DeepSeek V4 Flash | ~$1–2 | 15–20× |
 
@@ -102,7 +113,9 @@ práctica el cap ACOTA el gasto y el modelo barato hace que se llegue menos al c
 ## 8. Decisiones tomadas
 
 - **Compliance NO es issue (usuario, 2026-07-23)** — datos de paciente a proveedor chino aprobado.
-- **Thinking NO se toca** como palanca de costo (medido, §3).
+- ~~**Thinking NO se toca** como palanca de costo (medido, §3).~~ → **REVISADO 2026-07-23:** sigue
+  siendo cierto que apagarlo no ahorra en Sonnet, pero **thinking sí se toca — como palanca de
+  CALIDAD al bajar de modelo**. Es lo que hace viable a Haiku (ver la corrección del §3).
 - **Emisión de CFDI (tier legal)** — mantener en un modelo confiable pase lo que pase; no es
   donde se ahorra (decisión de diseño; validar duro cualquier modelo ahí).
 

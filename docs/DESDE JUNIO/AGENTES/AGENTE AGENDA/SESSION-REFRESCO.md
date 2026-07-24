@@ -2,7 +2,23 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última actualización de ESTADO: **2026-07-23** — (a) **cap del asistente movido a SEMANAL**
+> Última actualización de ESTADO: **2026-07-23 (2ª pasada)** — **bitácora #25: el prompt le pedía
+> al modelo CALCULAR fechas** (regla 0 sin aplicar al tiempo); ahora el servidor emite el
+> calendario de 14 días resuelto. Salió al medir **Haiku 4.5** (experimento de costo).
+> 🎲 **OJO — ese experimento NO está cerrado y la suite resultó MUY ruidosa:** tres corridas de la
+> misma config de Haiku dieron **64, 63 y 58 de 65**, y **ningún fallo se reprodujo** al
+> re-correrlo solo. El costo de Haiku sí está probado (−52%); **su calidad no**. La varianza de
+> Sonnet nunca se midió, así que hoy no se puede decir qué modelo es más estable — detalle y plan
+> en [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md) (caja 🛑).
+> ⚠️ **Consecuencia para CUALQUIER trabajo de agente, no solo para costos: una corrida de evals
+> no distingue regresión de ruido.** Re-corre el caso solo antes de declarar una regresión — y
+> aplica el mismo escepticismo a los resultados BUENOS.
+> Además el timeout de llamada subió a **90s cuando hay thinking**
+> (razonar tarda ANTES del primer token; a 60s reventaba).
+> Vive en la rama `agent/haiku-viability` (sin commitear, sin mergear, sin desplegar); tag de rollback
+> `agent-sonnet-known-good-2026-07-23`. Números y decisión de rollout en
+> [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md).
+> Antes, 2026-07-23 (1ª pasada) — (a) **cap del asistente movido a SEMANAL**
 > (2M budget, corte lunes MX; era diario 500k) + **baseline de costo medida**: corrida completa
 > `63/65 · 2 WARN · 0 FAIL`, $0.022/pregunta tibia vs $0.083 fría — ver
 > [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md); (b) bitácoras **#24 (over-claim
@@ -235,6 +251,46 @@ Corrida completa como **baseline del benchmark de costo**
   pasaron sin llamar tools** son todos negativos/frontera donde declinar SIN tocar datos ES la
   conducta correcta (contenido clínico, ISR, consejo fiscal, nav de UI, declines de member) — son
   además inmunes al drift de fixtures. Conclusión: el 63/65 es real, no vacío.
+
+### ✅ Bitácora #25 — el prompt le pedía al modelo CALCULAR las fechas — CORREGIDO 2026-07-23
+
+**El bug:** el bloque "Contexto temporal" daba UN ancla (hoy) y ordenaba *"calcula los demás días
+de la semana a partir de este dato"*. Pidiéndole "agenda del martes", el modelo consultó
+**2026-07-29** (miércoles) y tituló la respuesta **"Martes 29 de julio"** — fecha mal Y etiqueta
+mal, con total seguridad. Eval `weekday-correcto`.
+
+**Dónde apareció:** midiendo **Haiku 4.5** (carpeta `../OPTIMIZACION COSTOS/`). Sonnet 5 pasaba
+el caso, así que el defecto llevaba tiempo latente: el prompt siempre estuvo pidiendo aritmética
+al modelo; solo que un modelo más fuerte la acertaba. **El eval no lo cazó antes porque el
+modelo tapaba el hueco del prompt** — bajar de modelo lo destapó.
+
+**Causa raíz:** **regla 0 sin aplicar al tiempo.** "¿Qué fecha es el martes?" es un veredicto
+determinista del servidor, igual que "¿está vencida?" o "¿está facturada?"; delegarlo al modelo
+es exactamente lo que la regla 0 prohíbe. Ya existía el precedente y se dejó a medias: E6
+(fila 2–7) creó `mxTodayWeekday()` porque *"los LLMs calculan mal el día de la semana desde una
+fecha"* — pero **solo para HOY**.
+
+**El fix (server-side, no prosa):** `mxUpcomingDays(14)` en `dates.ts` + el bloque temporal de
+`run-turn.ts` ahora emite la tabla `día→fecha` YA RESUELTA de 14 días, con la instrucción de
+tomarla de ahí en vez de calcular. Va en el bloque **VOLÁTIL** ⇒ ~230 tok, **no invalida el
+caché** y `STABLE_SYSTEM_PROMPT` queda intacto (`gate:prompt` OK).
+
+**Validación:** tabla verificada **14/14 contra un cómputo independiente** (incluido el cruce de
+mes) ANTES de correr la suite — para que un fallo posterior no fuera ambiguo. Suite completa en
+Haiku: **64/65 · 1 WARN · 0 FAIL**, `weekday-correcto` PASA. *(En rama `agent/haiku-viability`,
+pendiente de merge — commit al mergear.)*
+
+⚠️ **Hallazgo del review del propio fix — hueco de cobertura que sigue abierto.** La primera
+versión del fix cambió una instrucción **simétrica** ("calcula a partir de hoy", servía hacia
+atrás y hacia adelante) por una que solo miraba hacia ADELANTE ("cuenta desde el último día de la
+tabla"), y la tabla cubre hoy→+13. Para fechas **PASADAS** — resumen fiscal mensual, movimientos
+del ledger, vencidas, "los rangos de oct-nov" de la fila #18 — eso desorientaba. Corregido antes
+de mergear. **Lo que NO se cerró: la suite tiene UN solo caso de día de la semana
+(`weekday-correcto`) y es hacia adelante** ⇒ ninguna corrida cubre fechas pasadas. Candidato claro
+a eval nuevo: *"¿qué facturé el mes pasado?"* / *"¿qué tuve el martes pasado?"*.
+
+**Lección:** un prompt que dice "calcula", "deduce" o "infiere" es deuda de regla 0 esperando a
+que baje la calidad del modelo. Al abaratar el modelo, **el sustrato es lo que se paga**.
 
 ### ✅ Bitácora #24 — over-claim de capacidades del agente member — CORREGIDO 2026-07-23
 

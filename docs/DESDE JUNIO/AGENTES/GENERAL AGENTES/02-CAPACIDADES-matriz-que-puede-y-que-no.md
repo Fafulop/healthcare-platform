@@ -145,6 +145,12 @@ desambiguación está en [`08-EMPIEZA-AQUI.md`](08-EMPIEZA-AQUI.md) §1.5.
 (~$6/sem ≈ $26/mes peor caso) ponderado por costo, corte lunes 00:00 MX — movido de diario 500k
 el 2026-07-23 (cost review [`OPTIMIZACION COSTOS`](../OPTIMIZACION%20COSTOS/README.md): la ventana
 de 7 días promedia los días sin uso) · caché 1 breakpoint estable + 2 móviles, TTL 5 min.
+*El modelo declarado arriba es el que corre HOY en prod y no ha cambiado.* 📌 **Candidato 2026-07-23:
+Haiku 4.5 + thinking, a ~la mitad del costo — pero el experimento NO está cerrado**: tres corridas
+de la misma config dieron 64, 63 y 58 de 65 (ningún fallo reproducible), así que la calidad no está
+establecida. Vive en la rama `agent/haiku-viability`, sin desplegar. Cuando (y si) se mergee, este
+renglón es el que se actualiza. Estado real y plan:
+[`OPTIMIZACION COSTOS`](../OPTIMIZACION%20COSTOS/README.md) (caja 🛑).
 
 **Prefijo estático: 27,151 tokens — MEDIDO EXACTO con `count_tokens` (2026-07-23).**
 Reproducible: `npx tsx scripts/measure-agent-prefix.ts` (no toca la BD, no consume generación).

@@ -271,7 +271,18 @@ lo re-valida contra el token de todas formas).
   `cacheReadTokens`/`cacheWriteTokens` en el usage exponen el detalle (log de la ruta y evals los
   imprimen). TTL: 5 min — sesiones activas lo mantienen solas.
 - **Por request**: máx 8 iteraciones de loop; síntesis forzada al agotarse; resultados de tool
-  capados a 8KB; `max_tokens` 4096/llamada con mensaje honesto de truncado; timeout 60s/llamada.
+  capados a 8KB; `max_tokens` 4096/llamada con mensaje honesto de truncado; timeout **60s/llamada
+  — 90s si el modelo lleva thinking explícito** (`anthropic.ts`, 2026-07-23: razonar ocurre ANTES
+  del primer token de salida, así que casos de ~4s pasaron a 20–33s y una llamada reventó los 60s;
+  un timeout le llega al doctor como ERROR, no como respuesta lenta).
+  ⚠️ Con thinking encendido esos 4096 se **reparten** entre razonamiento (budget 2048) y respuesta
+  — alcanza de sobra (output p50 ≈ 515 tok), pero es el mismo techo, no uno adicional.
+  🔭 **WATCH-ITEM (preexistente, agravado por el 90s): no hay deadline de TURNO completo.** Solo
+  existen el cap de 8 iteraciones y el timeout POR LLAMADA, así que el peor caso teórico pasó de
+  8×60s = 8 min a **8×90s = 12 min** en UN request HTTP. Nadie espera eso: algo aguas arriba
+  (proxy/navegador) corta antes y el doctor se queda sin respuesta. El fix correcto es un
+  presupuesto de tiempo por turno (deadline compartido que las llamadas restantes respeten), no
+  bajar el timeout por llamada. No se hizo aquí para no mezclarlo con el experimento de modelo.
 - **Historial**: client-side por sesión, últimos 12 turnos (G10 — sin persistencia aún).
 - **Modelo**: `AGENDA_AGENT_MODEL` (default `claude-sonnet-5`), key `ANTHROPIC_API_KEY` en el
   servicio `@healthcare/doctor` de Railway; sin key → 503 amable.

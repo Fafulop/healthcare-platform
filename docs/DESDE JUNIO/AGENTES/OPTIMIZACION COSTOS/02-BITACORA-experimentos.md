@@ -29,6 +29,191 @@
 
 ## Experimentos
 
+> 🛑 **LEE ESTA ENTRADA PRIMERO — invalida conclusiones de las de abajo.**
+
+### 2026-07-23 — 🎲 VARIANZA: la conclusión "Haiku gana en calidad" NO se sostiene
+
+**Qué pasó.** Se corrió la suite completa 3 veces sobre la MISMA config de Haiku (thinking +
+fechas server-side). Resultados: **`64/1W/0F`**, **`63/0W/2F`**, **`58/5W/2F`**.
+Ningún fallo individual se reprodujo: cada caso que falló y se re-corrió solo, **pasó**.
+
+**Por qué importa más que los números.** La baseline de Sonnet es **UNA corrida** (`63/65`). La
+primera de Haiku fue **UNA corrida** (`64/65`). Con eso se escribió "Haiku le gana a Sonnet".
+Después la misma config de Haiku dio 58. **La diferencia declarada ganadora (63 vs 64) es más
+chica que el ruido de la propia suite (58–64).** No hay evidencia de que Haiku sea mejor NI peor
+en calidad; lo único sólido es el costo (−52%), que sale de contar tokens, no de juzgar respuestas.
+
+**De dónde sale el ruido (hipótesis, no verificado):** los evals corren contra **datos VIVOS de
+dr-prueba** y el modelo no es determinista; muchos checks son `soft` (regex sobre prosa libre).
+Casos flaky identificados: `create-sin-hueco`, `f1-completitud-fiscal-server`,
+`f2b-dos-turnos-cita-sin-completar` (el runner lo anota *data-dependent*),
+`plan-eliminar-antes-de-crear`, `kl-ui-nav-pasos-app`.
+
+**🚧 EL HUECO QUE BLOQUEA LA DECISIÓN: nunca se midió la varianza de SONNET.** Sin eso no se puede
+distinguir entre (a) la suite es ruidosa para CUALQUIER modelo — entonces Haiku no es peor y el
+ahorro manda — y (b) Haiku es específicamente más inestable — entonces el ahorro no alcanza.
+**Es la pregunta #1 y cuesta ~$4.3 contestarla** (2–3 corridas de Sonnet con el prompt de la rama).
+
+#### Sub-experimento A/B — ¿el bloque de fechas empujaba al agente a PREGUNTAR en vez de actuar?
+
+- **Hipótesis:** 5 de 7 no-PASS de la corrida `58/65` compartían forma ("el agente pregunta en vez
+  de actuar"), y el bloque temporal nuevo (917 chars, al final del system prompt) terminaba con
+  *"…escribe la fecha completa **para que el doctor pueda corregirte si te equivocaste**"* — un
+  empujón explícito a hedgear.
+- **Diseño:** 3 casos de esa forma (`kl-ui-nav-pasos-app`, `create-sin-hueco`,
+  `f1-completitud-fiscal-server`), 2 iteraciones CON la frase y 2 SIN ella.
+- **Resultado: NULO.** Con la frase 4/6 casos-pase; sin ella 5/6. **Un WARN de diferencia en 6
+  corridas-caso = ruido, no señal.** La hipótesis NO se sostiene.
+- **Lo que sí quedó probado:** `kl-ui-nav-pasos-app` pasó **4 de 4** entre ambos brazos ⇒ el FAIL
+  de **card-fantasma** de la corrida `58/65` **NO se reproduce**; era ruido, no una tendencia de
+  Haiku a anunciar tarjetas inexistentes (que era el miedo serio, porque el doctor confirma cards).
+- Se dejó la frase en su versión corta (conserva el fix de fechas pasadas, sin el hedge). **Es
+  juicio, no evidencia** — el A/B no mostró diferencia.
+
+#### ⚠️ Correcciones a lo que este mismo doc afirmó antes (se conservan, no se borran)
+
+| Se dijo | Realidad |
+|---|---|
+| "Haiku **GANA** a Sonnet en calidad" (título de la entrada de abajo) | No probado: `n=1` vs `n=1`, y la misma config luego dio 58. |
+| "banda 63–64, comparar por banda" | Inventada con 2 puntos. La 3ª corrida dio 58. **No hay banda establecida.** |
+| El WARN de `plan-eliminar` es "una divergencia REAL, no fixture driftada" | Insostenible con una corrida: después pasó sin tocar nada. |
+| El timeout de 60s "reventó" ⇒ el fix de 90s lo arregló | El mismo caso tardó 14.8s al re-correrlo: habría pasado con 60s. El fix es **margen justificado**, no causa demostrada. |
+
+**Lección transferible: una corrida de evals no distingue regresión de ruido.** Antes de calificar
+un caso como regresión —o una config como ganadora— hay que **re-correr**. Aplica igual a los
+números buenos: el `64/65` que abrió esta carpeta merecía el mismo escepticismo que el `58/65`.
+
+### 2026-07-23 — Haiku 4.5 + thinking + fechas resueltas server-side (⚠️ título original: "GANA A SONNET" — ver la entrada de VARIANZA arriba)
+- Rama `agent/haiku-viability`. Cambio: (1) `anthropic.ts` manda `thinking` **según el modelo**;
+  (2) `dates.ts`/`run-turn.ts` resuelven server-side el calendario de 14 días.
+- Evals: **64/65 PASS · 1 WARN · 0 FAIL** — **mejor que la baseline de Sonnet** (63/65 · 2 WARN).
+- Costo REAL Haiku: **$0.688 la corrida** · **$0.0345 la pregunta fría** · $0.0097 tibia p50.
+  → **−52% corrida / −58% fría vs Sonnet**, con MÁS calidad. Latencia p50 9.0 s (Sonnet 9.5 s).
+- Techo al cap semanal 2M: **~$8.70/mes** (vs $17.4 intro / $26.1 estándar con Sonnet).
+- 📐 **Cómo se obtuvo el USD real sin una segunda corrida:** el benchmark se corrió con
+  `--price claude-sonnet-5-intro` (para que el Δ vs las filas anteriores sea comparable en
+  TOKENS). El vector de precios de Haiku es **exactamente 0.5×** el de Sonnet-intro en los
+  cuatro pesos ($1/$5/$0.1/$1.25 vs $2/$10/$0.2/$2.5) ⇒ **USD real = lo impreso ÷ 2, exacto**.
+  Por eso esta corrida deja UNA sola fila en el ledger (la de la corrida anterior se duplicó por
+  re-preciar; se borró — el ledger es una fila por EXPERIMENTO, no por preciado).
+
+- 🔑 **HALLAZGO 1 — la primera corrida de Haiku no medía Haiku: medía Haiku SIN RAZONAR.**
+  `callClaude` nunca mandaba `thinking`. Contra `/v1/models` (2026-07-23):
+
+  | | Sonnet 5 | Haiku 4.5 |
+  |---|---|---|
+  | `thinking.adaptive` | ✅ | ❌ |
+  | `thinking.enabled` (`budget_tokens`) | ❌ | ✅ |
+  | `effort` | ✅ low→max | ❌ (ninguno) |
+  | contexto | 1M | 200K |
+
+  Sonnet 5 corre adaptativo **al omitir** el parámetro; Haiku 4.5 corre con **CERO** razonamiento.
+  La comparación 59/65 vs 63/65 era Sonnet-con-thinking vs Haiku-sin-thinking.
+  ⚠️ **Los dos shapes son MUTUAMENTE EXCLUYENTES: mandar el equivocado es un 400.** Por eso el
+  fix es un branch por modelo y NO "agregar el parámetro"; con `AGENDA_AGENT_MODEL` siendo un
+  env var, sin ese branch el flip de modelo revienta en prod.
+  Se manda thinking **solo a Haiku**: el request de Sonnet queda byte-idéntico (baseline sigue
+  comparable y `form-builder-chat`, que comparte `callClaude`, no se toca).
+- 🔑 **HALLAZGO 2 — el único FAIL era arquitectura, no capacidad del modelo.** El bloque temporal
+  decía *"calcula los demás días de la semana a partir de este dato"* → Haiku resolvió "el martes"
+  al 2026-07-29 y lo tituló "Martes" (era miércoles). Es **regla 0 aplicada al tiempo**: el
+  veredicto lo resuelve el servidor. Ahora emite la tabla `día→fecha` de 14 días ya calculada.
+  Verificado 14/14 contra un cómputo independiente antes de correr la suite (incluye el cruce de
+  mes). `weekday-correcto` PASA. Va en el bloque VOLÁTIL ⇒ **no invalida el caché** (el
+  `STABLE_SYSTEM_PROMPT` quedó intacto — `gate:prompt` OK).
+  *Ya existía el precedente:* `mxTodayWeekday()` se creó por E6 ("los LLMs calculan mal el día de
+  la semana desde una fecha") — pero solo para HOY. Esto termina el mismo fix.
+- Costo de pensar: +31% de budget vs Haiku-sin-thinking (525k → 688k) a cambio de +5 PASS y −1
+  FAIL. Sigue por DEBAJO de Sonnet (718k) y con mejor calidad.
+- ⚠️ **El WARN que queda es una divergencia REAL, no fixture driftada.**
+  `plan-eliminar-antes-de-crear`: Haiku vio 2 citas vivas dentro del rango, **avisó bien** y se
+  detuvo sin emitir las propuestas delete→create. `HOW_TO_PROPOSE` pide avisar *"junto a la
+  propuesta"*: hizo la mitad del aviso y se saltó la de proponer. Sonnet pasa este caso. Es un
+  check `soft` y la conducta es la más cautelosa, pero es un miss — blanco del trabajo de
+  descripciones de tools (lever 2d/2c).
+  *En cambio los 2 WARN de la baseline de Sonnet (`reschedule-noop`, `vencida-cancel-warning`)
+  PASAN en Haiku.*
+- ⚠️ **Caveats vigentes:** todo es dr-prueba (hueco #1 sin cerrar) · Haiku tiene **200K** de
+  contexto vs 1M · el mínimo cacheable de Haiku es **4096 tok** (Sonnet 2048) ⇒ si algún día se
+  poda hasta dejar un prompt de member por debajo, el caché deja de funcionar **en silencio**.
+- ⚠️ **Al desplegar (NO hecho — esto vive en una rama):** `form-builder-chat` hereda
+  `AGENDA_AGENT_MODEL` (`route.ts:30-33`) ⇒ poner esa var en Railway **también mueve el
+  form-builder a Haiku**, y esa superficie tiene **0 cobertura** en la suite de 65. Fijar
+  `FORM_BUILDER_CHAT_MODEL=claude-sonnet-5` en la misma pasada.
+- 🔍 **Review del diff (modo INLINE, `05-METODO` §2B — sesión larga ⇒ nunca 8 forks al final del
+  día). Clasificación: MIXTO ⇒ completo, scopeado** (lógica de fechas replicada + comentarios que
+  afirman capacidades de modelos = los dos renglones de "review completo sin preguntar").
+  **4 hallazgos aplicados · 2 refutados:**
+  1. **CONFIRMED (correctness) — la instrucción nueva era SOLO hacia adelante.** La línea borrada
+     ("calcula los demás días a partir de este dato") era **simétrica**; la nueva decía "cuenta a
+     partir del ÚLTIMO día de la tabla", y la tabla solo cubre hoy→+13. Para fechas **pasadas**
+     (resumen fiscal mensual, movimientos, vencidas, "los rangos de oct-nov" de la bitácora #18)
+     eso desorienta. ⚠️ **La suite NO puede cazarlo: hay UN solo caso de weekday
+     (`weekday-correcto`) y es hacia adelante** ⇒ el 64/65 no da cobertura aquí. Salió del ángulo
+     2 ("¿qué invariante sostenía la línea borrada?"). Fix: fallback simétrico, nombra las fechas
+     pasadas y obliga a escribir la fecha completa para que el doctor pueda corregir.
+  2. **CONFIRMED (reuse)** — `mxUpcomingDays` re-implementaba `d.toISOString().split('T')[0]`, que
+     es `utcDateToKey()` **cuatro líneas más abajo en el mismo archivo**. Ahora la usa.
+  3. **PLAUSIBLE (correctness) — contradicción a medianoche.** `buildSystem` llamaba `mxTodayKey`,
+     `mxTodayWeekday` y `mxUpcomingDays` haciendo cada uno su propio `new Date()`: cruzando la
+     medianoche MX podía imprimir "Hoy es jueves 23" encima de una tabla cuya fila "(hoy)" dijera
+     24. La carrera ya existía; este cambio la volvía **visible**. Fix: un solo ancla threadeada.
+  4. **PLAUSIBLE (latente) — un modelo desconocido se queda SIN razonar en silencio.**
+     `thinkingFor` devolvía null para todo lo que no fuera `haiku-4-5`. Es exactamente el fallo
+     que costó una corrida completa hoy. Fix: dos listas explícitas
+     (`ADAPTIVE_BY_DEFAULT` / `NEEDS_EXPLICIT_THINKING`) y **warning ruidoso** si el modelo no
+     está clasificado.
+  - **REFUTADOS:** (a) los bloques `thinking` NO rompen `form-builder-chat` — itera y solo matchea
+    `text`/`tool_use` (`route.ts:291-294`), los ignora; (b) `setMessageCacheBreakpoints` NO muta un
+    bloque thinking — solo escribe en el ÚLTIMO bloque (que es el `tool_use`) y borrar un
+    `cache_control` inexistente es no-op.
+  - ⚠️ **Limitación honesta del modo inline:** sin ojos frescos (el mismo autor revisó su código).
+    Segunda capa opcional = `/code-review ultra` contra la rama (lo dispara el usuario).
+- ⏱️ **Hallazgo POST-review — el timeout de 60s/llamada quedó corto con thinking.** La 2ª corrida
+  completa (ya con los 4 fixes) dio **63/65 · 0 WARN · 2 FAIL**, y uno de los FAIL fue
+  `f2a-desempate-triple` reventando el `AbortSignal.timeout` de 60s. **Razonar ocurre ANTES del
+  primer token de salida**: casos que corrían en ~4s pasaron a 20–33s (el más lento completado:
+  32.9s, 4 casos >20s), o sea el margen de los 60s casi se agotó. En prod un timeout le llega al
+  doctor como **ERROR**, no como respuesta lenta. Fix: `THINKING_TIMEOUT_MS = 90s` **solo** cuando
+  se manda thinking (el path de Sonnet sigue en 60s). *Honestidad: al re-correr, ese caso tardó
+  14.8s — o sea habría pasado también con 60s. El timeout que se vio NO era determinista; el fix
+  es margen justificado, no una causa demostrada.*
+- 🎲 **Hallazgo metodológico — HAY VARIANZA ENTRE CORRIDAS; no leer ±1 como movimiento.**
+  La MISMA config dio `64/65 · 1 WARN · 0 FAIL`, luego `63/65 · 0 WARN · 2 FAIL`, y los 2 FAIL
+  pasaron al re-correrlos solos (`2/2`). Casos flaky identificados:
+  `plan-eliminar-antes-de-crear` (WARN en una corrida, PASS en otra sin tocar nada) y
+  `f2b-dos-turnos-cita-sin-completar` (el propio runner lo anota *data-dependent*; 3 de 4 corridas
+  PASS). Los evals corren contra **datos vivos de dr-prueba** y el modelo no es determinista.
+  📏 **Regla para leer el ledger: comparar por FAILs duros y por BANDA de PASS (63–64), no por el
+  número exacto.** Un WARN que aparece y desaparece sin cambio de código es ruido, no señal.
+  ⚠️ Corolario incómodo: en la 1ª corrida se documentó ese WARN como *"divergencia REAL, no fixture
+  driftada"* — con una sola corrida esa afirmación no era sostenible. **Una corrida no distingue
+  regresión de ruido; hace falta re-correr el caso solo antes de calificarlo.**
+- 🧪 **Re-runs baratos (los usó este experimento):** `EVALS_ONLY="id1,id2"` corre un subconjunto.
+  ⚠️ **Pasar también `EVALS_OUT=otro.json`**: por default el runner escribe
+  `agenda-evals-last-run.json` y un subset de 2 casos **PISA** el JSON de la corrida completa que
+  el benchmark necesita para preciar.
+- Veredicto: **Haiku es viable y hoy domina a Sonnet en calidad Y costo** sobre este rig.
+  Nota: el camino de Sonnet quedó byte-idéntico ⇒ **mergear esto NO compromete el modelo**; la
+  tabla de fechas mejora a Sonnet igual, y el modelo sigue siendo un flip de env var.
+
+### 2026-07-23 — Haiku 4.5 "tal cual" (flip del env var, sin tocar nada) — SUPERADA por la de arriba
+- Cambio: solo `AGENDA_AGENT_MODEL=claude-haiku-4-5`. Cero código. Ledger: fila `haiku-4-5`.
+- Evals: **59/65 PASS · 5 WARN · 1 FAIL** (baseline 63/65 · 2 WARN · 0 FAIL).
+- Costo real: $0.525 corrida · $0.0338 fría. Latencia p50 **5.5 s** (la más rápida de las tres).
+- **Lectura correcta de esta fila: NO mide a Haiku, mide a Haiku sin razonar** (ver el hallazgo 1
+  de la entrada de arriba). Se conserva porque es la evidencia de cuánto aporta el thinking:
+  59→64 PASS y 1→0 FAIL por +31% de budget.
+- Hipótesis registrada ANTES de correr (para no racionalizar después): *"aguanta lecturas y
+  frontera; lo probable es que se degraden escrituras multi-paso y los `inj-*`"*. **Acertó a
+  medias:** las escrituras multi-paso sí se degradaron (`plan-eliminar`, `f2c-enruta`), pero
+  **los 3 `inj-*` PASARON** y el único FAIL duro fue una LECTURA (aritmética de fechas) — justo
+  donde la hipótesis decía que aguantaba. La sorpresa fue arquitectónica, no de "fuerza" del modelo.
+- 3 de los 5 WARN eran artefactos de fixture, no regresiones: `create-sin-hueco` (respondió "no
+  tiene horarios disponibles"; el regex `soft` pedía otras palabras), `f2b-ppd-solo-explicito`
+  (el `bookingId "test123"` de la fixture ya no existe) y `f1-completitud-fiscal-server` (paró a
+  desambiguar 2 homónimos, que es lo que manda RESILIENCE).
+
 ### 2026-07-23 — MEDICIÓN del prefijo con `count_tokens` (no es un experimento: es la regla del 2b)
 - Herramienta nueva: `apps/doctor/scripts/measure-agent-prefix.ts` (no toca BD, no consume
   generación). Reproducible con solo `ANTHROPIC_API_KEY`.

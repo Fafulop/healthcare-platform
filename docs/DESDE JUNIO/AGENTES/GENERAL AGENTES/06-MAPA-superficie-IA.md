@@ -16,6 +16,16 @@
 | **B. Chat single-shot con tool_use** (canvas/form manipulado por tools con schema, envelope `{message, actions[]}`, validación server-side, cliente honesto) | `form-builder-chat` (migrado 2026-07-18, `66d90b17`) | `claude-sonnet-5` (`FORM_BUILDER_CHAT_MODEL \|\| AGENDA_AGENT_MODEL`) | el mismo `callClaude` |
 | **C. Chat single-shot jsonMode** (el modelo devuelve UN JSON `{message, action, ...}`; sin validación del payload; el mensaje de éxito se escribe ANTES de aplicar) | la familia `*-chat` heredada (abajo) | `gpt-4o` / `gpt-4o-mini` | `lib/ai` (`getChatProvider`, `LLM_PROVIDER`, default openai) |
 
+> ⚠️ **ACOPLE A vs B — leer antes de cambiar el modelo del agente (hallazgo 2026-07-23).**
+> B **hereda** `AGENDA_AGENT_MODEL` cuando `FORM_BUILDER_CHAT_MODEL` no está puesta
+> (`form-builder-chat/route.ts:30-33`). O sea: poner `AGENDA_AGENT_MODEL` en Railway para mover
+> **el agente** mueve **también el form-builder** — y el form-builder tiene **0 casos** en la
+> suite de 65, así que el cambio viajaría sin medir. Al cambiar el modelo del agente, fijar
+> `FORM_BUILDER_CHAT_MODEL` explícitamente en la MISMA pasada.
+> Segundo acople, del mismo `callClaude` compartido: **todo parámetro nuevo del request llega a
+> las dos superficies**. Por eso el branch de `thinking` (rama `agent/haiku-viability`) se aplica
+> **solo** a los modelos que lo necesitan y deja el request de Sonnet byte-idéntico.
+
 ⚠️ **La debilidad conocida de C** (probada en vivo en form-builder-chat): el modelo puede
 aplanar shapes anidados o inventar nombres y el cliente aplica NADA mientras el chat dice
 "listo". **La migración B es la plantilla para arreglar cualquiera de estos** — ver el

@@ -34,6 +34,28 @@ partida del usuario; ajustar con datos de doctores reales.
 | 2a | **TTL de caché 1h** | cambiar `cache_control: {type:'ephemeral'}` → `{type:'ephemeral', ttl:'1h'}` en `anthropic.ts` (el prefijo estable). Write pasa a ×2 pero convierte preguntas frías esporádicas en cache-reads (×0.1). | costo por pregunta fría antes/después (re-correr A4) |
 | 2b | **Podar el prefijo** (27,151 MEDIDO) | tensar descripciones de tools, mover reglas raras server-side. Cada token cortado se paga ×1.25 en cada pregunta fría. **Ya no es "hay grasa": hay blancos** (abajo). | `npx tsx scripts/measure-agent-prefix.ts` antes/después + suite completa + benchmark con la MISMA `--price` |
 | 2c | **Menos iteraciones/turno** | mejores descripciones para reducir tool-choice thrashing; ¿bajar el cap de 8 iteraciones? | avg iteraciones/turno (de los logs) |
+| 2d | 🆕 **Carga DIFERIDA de tools** (tool search) | En vez de mandar las 39 definiciones siempre, mandar un tool de búsqueda + las de uso constante y marcar el resto `defer_loading: true`; el modelo pide las que necesita y sus schemas se **APENDIZAN** (no se sustituyen) ⇒ el prefijo cacheado sobrevive | prefijo antes/después + suite completa + **avg iteraciones/turno** (aquí sí es la métrica que manda) |
+
+### 🆕 Lever 2d — por qué puede valer MÁS que podar (anotado 2026-07-23)
+
+Origen: el doc de *tool calling* de Kimi (K3) — su consejo central es no declarar el inventario
+completo por request sino exponer un `search_tools` y cargar bajo demanda. **No es específico de
+Kimi:** Anthropic tiene el equivalente nativo (`tool_search_tool_regex_20251119` /
+`..._bm25_20251119` + `defer_loading: true` en las demás).
+
+Por qué encaja aquí: **las tools son el 55% del prefijo** (15,025 de 27,151 en Sonnet; 12,988 de
+22,141 en Haiku) repartidas en 39 definiciones — y las corridas de evals muestran que un turno
+real usa **entre 0 y 3**. O sea se paga escribir ~13k tokens de schemas para usar uno. Podar
+(2b) recupera ~16% del costo frío; esto ataca una porción mucho mayor del mismo 55%.
+
+⚠️ **El trade-off que hay que medir, no asumir:** la búsqueda mete un **viaje extra** y el
+presupuesto cobra input en CADA iteración (cap 8). Baja el prefijo, sube el número de
+iteraciones. Si sale positivo o no es empírico — justo lo que mide el benchmark.
+⚠️ **Sin verificar:** si tool search corre en **Haiku 4.5**. No aparece en el árbol de
+`capabilities` de `/v1/models` para NINGUNO de los dos modelos, así que ese endpoint no lo
+contesta. **Probar antes de apostarle.**
+⚠️ Reglas duras del feature: el tool de búsqueda NO puede llevar `defer_loading`, y al menos una
+tool debe quedar sin diferir, o la API tira 400.
 
 ### 🎯 Blancos de poda del 2b (medidos 2026-07-23 — ya no se adivina)
 
@@ -108,9 +130,20 @@ mueve el `63/65` no es un ahorro.
 
 ### Secuencia sugerida
 
-1. **Haiku 4.5** primero (cero integración): flip `AGENDA_AGENT_MODEL`, corre la suite, mide.
-   Decide si Haiku-para-lecturas + Sonnet-para-propuestas (routing) vale la pena.
+1. ~~**Haiku 4.5** primero (cero integración): flip `AGENDA_AGENT_MODEL`, corre la suite, mide.~~
+   ✅ **HECHO 2026-07-23 — y GANÓ: 64/65 · 0 FAIL a −52% del costo** (mejor calidad que Sonnet).
+   ⚠️ **"Cero integración" resultó FALSO** y es la lección de este paso: el flip a secas corre
+   Haiku **sin razonar** (Sonnet 5 es adaptativo al omitir `thinking`; Haiku 4.5 queda en cero,
+   y `effort` ni existe ahí). Hizo falta un branch por modelo en `anthropic.ts` — los dos shapes
+   son mutuamente excluyentes y mandar el equivocado es un **400**. Detalle en
+   [`02-BITACORA`](02-BITACORA-experimentos.md).
+   → El **routing** (Haiku lecturas / Sonnet escrituras) que este paso iba a decidir **ya no hace
+   falta por calidad**: Haiku aprobó las escrituras (incluida emisión de CFDI) y el único FAIL
+   fue una LECTURA, ya arreglada server-side. Si se retoma, que sea por otra razón, no por esta.
 2. **Kimi K2.6** y **DeepSeek V4 Flash**: construir el adaptador OpenAI-compat, correr la suite.
+   ⚠️ Ojo con la lección del paso 1: **cada proveedor tiene su propio shape de razonamiento**
+   (Kimi K3 usa `reasoning_effort: low|high|max`). Verificar el default de cada uno ANTES de
+   comparar, o se repite la medición sesgada.
 3. Comparar en la bitácora. Decidir arquitectura final (¿un solo modelo? ¿routing por tier?
    emisión CFDI se queda en el más confiable).
 

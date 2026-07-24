@@ -71,12 +71,25 @@ Conteos exactos (tools, evals, prefijo) y las fronteras completas:
 - ~~Re-medir el prefijo (A4)~~ ✅ HECHO 2026-07-23. El A4 lo estimó en ~24.7k; el mismo día se
   **midió exacto con `count_tokens`: 27,151** (+10%, la estimación se quedó corta). Ninguna señal
   §5.3 dispara (nivel 0), pero con menos headroom del que se creía. Sigue siendo solo dr-prueba.
-- 💸 **COSTOS — trabajo nuevo (2026-07-23), carpeta [`OPTIMIZACION COSTOS/`](OPTIMIZACION%20COSTOS/README.md):**
-  cap movido de **diario 500k → semanal 2M** (~$45 → ~$26/mes peor caso); **benchmark de
-  calidad+USD** construido (`scripts/agent-cost-benchmark.ts` + `benchmarks/ledger.csv`) y
-  **baseline medida**: `63/65 · 0 FAIL` · $0.020 pregunta tibia vs **$0.083 fría**. El **82%** de
-  una pregunta fría es escribir el prefijo ⇒ el siguiente lever es **podar** (blancos medidos:
-  facturas 8,706 y agenda 7,255 exceden el presupuesto de ~2-3k/módulo).
+- 💸 **COSTOS — carpeta [`OPTIMIZACION COSTOS/`](OPTIMIZACION%20COSTOS/README.md):** cap movido de
+  **diario 500k → semanal 2M**; **benchmark de calidad+USD** construido y **baseline medida**
+  (`63/65 · 0 FAIL` · $0.083 la pregunta fría, de la cual el **82% es escribir el prefijo**).
+- 🧪 **Haiku 4.5 — EXPERIMENTO ABIERTO, no concluido (2026-07-23).** El **costo** está probado
+  (**−52%**, ~$8.70/mes al cap vs $17–26). La **calidad NO**: tres corridas de la misma config
+  dieron **64, 63 y 58 de 65**, y ningún fallo se reprodujo al re-correrlo. La comparación que
+  decía "Haiku gana" era `n=1` contra `n=1` y **no se sostiene**; la varianza de Sonnet nunca se
+  midió. **Antes de decidir nada, lee la caja 🛑 de
+  [`OPTIMIZACION COSTOS/`](OPTIMIZACION%20COSTOS/README.md).**
+  En rama `agent/haiku-viability`, **sin commitear, sin mergear, sin desplegar**; tag de rollback
+  `agent-sonnet-known-good-2026-07-23`.
+  Hallazgos sólidos del experimento (independientes del veredicto): `thinking` **no es uniforme
+  entre modelos** (Sonnet es adaptativo al omitirlo, Haiku queda en CERO; los dos shapes son
+  mutuamente excluyentes y mandar el equivocado es un 400) y el prompt le pedía al modelo
+  **calcular fechas**, ya resuelto server-side (bitácora #25).
+  ⚠️ Si algún día se despliega: fijar `FORM_BUILDER_CHAT_MODEL` o el form-builder se va también.
+- 🆕 **Siguiente lever de costo: carga DIFERIDA de tools** (tool search). Las tools son el **55%**
+  del prefijo en 39 definiciones y un turno usa **0–3** ⇒ ataca más que podar (~16%).
+  Sin verificar en Haiku. Ver `OPTIMIZACION COSTOS/01-PLAN` §2d.
 - **Deuda mapeada**: 8 endpoints `*-chat` en el patrón viejo que puede "mentir éxito"
   (`GENERAL AGENTES/06-MAPA` §2) · sin job de retención para `llm_token_usage` /
   `agent_tool_errors`.

@@ -1,2 +1,4 @@
 timestamp,label,priceKey,ttl,gitSha,total,pass,warn,fail,totalUsd,meanUsd,p50Usd,coldUsd,totalBudgetTokens,p50LatencyMs
 2026-07-23T21:20:34.635Z,baseline,claude-sonnet-5-intro,5m,f68ccb78,65,63,2,0,1.43575,0.022089,0.020117,0.082662,717880,9466
+2026-07-24T00:05:09.553Z,haiku-4-5,claude-sonnet-5-intro,5m,5ed49c51,65,59,5,1,1.05048,0.016161,0.014708,0.067684,525241,5538
+2026-07-24T00:51:35.919Z,haiku-thinking-dates,claude-sonnet-5-intro,5m,5ed49c51,65,64,1,0,1.37540,0.021160,0.019313,0.068939,687699,8973

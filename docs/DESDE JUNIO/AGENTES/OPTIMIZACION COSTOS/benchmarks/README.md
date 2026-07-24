@@ -34,6 +34,35 @@ la corrida anterior**.
 > corrida anterior — no ignores ese aviso. La baseline 2026-07-23 se corrió con
 > **`--price claude-sonnet-5-intro`** (el precio vigente hasta 2026-08-31).
 
+> 💡 **Truco para el USD real de OTRO modelo sin re-correr ni ensuciar el ledger (2026-07-23).**
+> Corre el paso 2 **una sola vez** con `--price claude-sonnet-5-intro` (así el Δ vs las filas
+> anteriores compara TOKENS, que es lo que mueve un experimento) y convierte a mano si el vector
+> de precios del otro modelo es un múltiplo exacto. **Haiku 4.5 es exactamente 0.5× Sonnet-intro
+> en los cuatro pesos** ($1/$5/$0.1/$1.25 vs $2/$10/$0.2/$2.5) ⇒ **USD real = lo impreso ÷ 2**,
+> exacto, no aproximado.
+> ⚠️ Correr el paso 2 dos veces sobre el MISMO JSON escribe **dos filas** en el ledger para UNA
+> corrida, y la segunda muestra un Δ que es puro cambio de tabla de precios. El ledger es **una
+> fila por EXPERIMENTO**, no por preciado — si pasa, borra la fila de más.
+
+> 🎲 **La suite tiene VARIANZA GRANDE y SIN CARACTERIZAR — una corrida NO es un resultado.**
+> La MISMA config (Haiku + thinking) dio **`64/1W/0F`, `63/0W/2F` y `58/5W/2F`** en tres corridas,
+> y **ningún fallo se reprodujo** al re-correr el caso solo. Los evals golpean **datos vivos** de
+> dr-prueba con un modelo no determinista y muchos checks `soft` (regex sobre prosa libre).
+>
+> **Consecuencias operativas:**
+> - **No declares un ganador con `n=1` por config.** Es el error que se cometió al comparar la
+>   baseline de Sonnet (1 corrida) contra la 1ª de Haiku (1 corrida): la diferencia "ganadora"
+>   (63 vs 64) es más chica que el ruido medido (58–64).
+> - **Antes de llamar regresión a un caso, re-córrelo solo** (`EVALS_ONLY`). Vale igual para los
+>   números buenos: un `64/65` merece el mismo escepticismo que un `58/65`.
+> - ⚠️ **La varianza de Sonnet NUNCA se midió** (la baseline es 1 corrida), así que hoy no se
+>   puede decir si un modelo es más inestable que otro. Ese control es lo primero que falta.
+>
+> 🧪 **Re-run barato de casos sueltos:** `EVALS_ONLY="id1,id2"`.
+> ⚠️ **Pasa también `EVALS_OUT=otro.json`** — por default el runner escribe
+> `agenda-evals-last-run.json`, así que un subset **PISA** el JSON de la corrida completa que el
+> paso 2 necesita para preciar (y el ledger quedaría con una "corrida" de 2 casos).
+
 ## Qué mide (y qué NO)
 
 - **Calidad:** `X/65 PASS · WARN · FAIL` (el X/Y autoritativo lo imprime el eval runner; el
