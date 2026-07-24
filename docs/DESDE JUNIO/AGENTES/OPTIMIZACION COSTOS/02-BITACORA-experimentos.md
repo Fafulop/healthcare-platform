@@ -29,7 +29,57 @@
 
 ## Experimentos
 
-> 🛑 **LEE ESTA ENTRADA PRIMERO — invalida conclusiones de las de abajo.**
+### 2026-07-24 — 🎯 VARIANZA CONTESTADA + fixes de calidad: cero fallos ESTABLES en ambos modelos
+
+**Qué se hizo (rama `agent/haiku-viability`, sin commitear):**
+1. **El instrumento primero:** `agenda-agent-evals.ts` re-corre solo cada caso no-PASS (hasta 2
+   veces, `EVALS_RETRIES`) y clasifica **estable** (falla siempre = señal) vs **flaky** (pasa al
+   re-correr = ruido). El `X/65` canónico sigue siendo el 1er intento (ledger comparable; el costo
+   de los reintentos NO se suma al preciado); el exit code gatea sobre FAILs estables.
+2. **Fix del miss real** (`plan-eliminar-antes-de-crear`): la descripción de
+   `propose_delete_range` decía *"esos serán RECHAZADOS al ejecutar"* — un modelo literal (Haiku)
+   leía eso como "no propongas" y se detenía tras avisar. Ahora dice explícito: **propón igual,
+   transmite la advertencia, el veredicto es del servidor y el doctor decide en la tarjeta** (+ el
+   patrón reemplazo = eliminar→crear en el mismo turno). La prosa del domain model de agenda se
+   alineó (decía "se RECHAZA" a secas — contradecía la tool tras el fix). Es regla 0 aplicada al
+   LENGUAJE de las tools: no invitar al modelo a pre-empatar veredictos del servidor.
+3. `THINKING_BUDGET_TOKENS` 2048 → **4096** (la forma de fallo del 58/65 era "pregunta en vez de
+   actuar" en planes multi-paso; thinking es donde un modelo chico planea). Costo: +4.5% de budget.
+4. Regex de `create-sin-hueco` ensanchado ("no tiene horarios disponibles" era conducta correcta
+   flaggeada como WARN — drift del fixture, no del agente).
+
+**Resultados (misma config, mismo prompt en ambos modelos, precio `claude-sonnet-5-intro`):**
+
+| Corrida | 1er intento | flaky | **estables** | Costo real |
+|---|---|---|---|---|
+| Haiku fix3 R1 | 60/65 · 4W · 1F | 5 | **0** | **$0.719** |
+| Haiku fix3 R2 | 62/65 · 3W · 0F | 3 | **0** | **$0.710** |
+| Sonnet 5 (control, prompt de la rama) | 64/65 · 1W · 0F | 1 | **0** | $1.538 |
+
+- **La pregunta #1 del handoff quedó contestada: Sonnet TAMBIÉN flakea** — su único WARN fue
+  `vencida-cancel-warning` (el WARN histórico de su propia baseline) y **pasó al re-correrlo**.
+  El ruido es de la SUITE (datos vivos + modelo no determinista), no de un modelo.
+- **Ningún fallo estable en NINGUNA corrida.** Los 8 no-PASS de Haiku y el 1 de Sonnet pasaron
+  todos al re-correr — incluido el card-fantasma de `f2c-enruta` (FAIL duro en R1, PASS al
+  reintento y en R2: consistente con que nunca se ha reproducido).
+- **La diferencia real Haiku↔Sonnet no es capacidad estable, es TASA de flake al 1er intento**
+  (5 y 3 vs 1). Para el doctor eso es una respuesta subóptima ocasional, no una conducta
+  equivocada consistente.
+- `plan-eliminar-antes-de-crear` **PASA 2/2** con `delete_range→create_range` completo — el único
+  miss real conocido de Haiku vs Sonnet quedó cerrado con el fix (2).
+- Sobre el thinking 4096: la suite no puede atribuirle el cambio (ruido > señal); lo medible es
+  que cuesta +4.5% y no empeoró nada. Latencia p50 Haiku 9.8/9.0 s (Sonnet 10.4 s).
+- 🔎 **Hallazgo de research (cierra la pregunta abierta #3):** tool search + `defer_loading` es
+  **GA en Haiku 4.5** (docs oficiales, tabla de compatibilidad; regex y bm25, sin beta header).
+  Los schemas diferidos se apendizan sin invalidar el caché, y Anthropic documenta que la
+  precisión de selección se degrada pasando 30–50 tools (tenemos 39) ⇒ el lever 2d puede mejorar
+  calidad además de costo. Reglas duras en README §B.
+- Veredicto: **la medición ya no bloquea nada** — con cero fallos estables en ambos modelos y
+  −50%+ de costo, el merge/flip es una decisión de riesgo/negocio del usuario (ver README §A).
+- ⚠️ Método: cada corrida nueva usa el runner CON reintentos; comparar corridas viejas solo por
+  el 1er intento. Gates + type-check OK tras los cambios.
+
+> 🛑 **LEE LA ENTRADA DE ARRIBA Y LUEGO ESTA — invalidan conclusiones de las de abajo.**
 
 ### 2026-07-23 — 🎲 VARIANZA: la conclusión "Haiku gana en calidad" NO se sostiene
 

@@ -60,6 +60,15 @@ interface CaseResult {
   tokens: number;
   /** Latencia de la corrida del caso (ms). Para el benchmark de costo. */
   latencyMs: number;
+  /** Reintentos automáticos de un caso no-PASS (lección VARIANZA 2026-07-23:
+   * una corrida no distingue regresión de ruido). Solo presentes si el primer
+   * intento no pasó y EVALS_RETRIES > 0. El resultado canónico (pass/usage de
+   * arriba) SIGUE siendo el 1er intento — el benchmark precia eso y el ledger
+   * queda comparable; los reintentos solo clasifican estable vs flaky. */
+  retries?: { pass: boolean; failures: string[]; error?: string }[];
+  /** true si algún reintento pasó — el no-PASS del 1er intento es ruido de la
+   * suite (datos vivos + modelo no determinista), no una regresión estable. */
+  flaky?: boolean;
   /** Desglose completo de tokens del turno — lo consume scripts/agent-cost-benchmark.ts
    * (USD por caso + agregados). Se guarda TAL CUAL lo devuelve run-turn; el
    * benchmark aplica la tabla de precios y NO re-corre el loop. */
@@ -333,7 +342,9 @@ async function main() {
       dataDependent: 'CIT2 ocupa 2026-08-10 09:00–09:45 (+ext) → el pre-check debe rechazar y ofrecer alternativas',
       checks: [
         { kind: 'no-proposal-of-type', types: ['create_booking'] },
-        { kind: 'reply-match', pattern: '(ocupad|no está disponible|no hay|alternativ|libre)', flags: 'i' },
+        // "no está disponible" era muy angosto: la corrida 2026-07-23 respondió
+        // "no tiene horarios disponibles" (conducta correcta) y salió WARN.
+        { kind: 'reply-match', pattern: '(ocupad|no.{0,40}disponib|no hay|alternativ|libre)', flags: 'i' },
       ],
     },
     {
@@ -990,8 +1001,29 @@ async function main() {
 
   console.log(`G11 evals — ${toRun.length}/${CASES.length} casos · hoy=${today} · doctor=${doctor.slug}\n`);
 
-  try {
-  for (const c of toRun) {
+  // Reintentos automáticos (lección VARIANZA 2026-07-23: "una corrida de evals
+  // no distingue regresión de ruido; antes de calificar un caso hay que
+  // re-correr"). El runner lo hace solo en vez de depender de que alguien se
+  // acuerde: cada caso no-PASS se re-corre hasta EVALS_RETRIES veces (default
+  // 2, 0 = comportamiento viejo). El resultado CANÓNICO — el que se imprime
+  // como X/Y, se guarda en `results` y precia el benchmark — sigue siendo el
+  // PRIMER intento (comparable con el ledger histórico; el costo de los
+  // reintentos NO se suma al usage canónico, así que el gasto real de la
+  // corrida es un poco mayor que el preciado). Los reintentos solo CLASIFICAN:
+  // un no-PASS que pasa al re-correr es ruido de la suite (flaky); uno que
+  // falla siempre es la señal estable que sí bloquea.
+  const MAX_RETRIES = Math.max(0, Number(process.env.EVALS_RETRIES ?? 2) || 0);
+
+  interface Attempt {
+    turn: Awaited<ReturnType<typeof runAgendaAgentTurn>> | null;
+    failures: string[];
+    /** card-fantasma es duro SIEMPRE — un caso `soft` no lo degrada a WARN. */
+    forceHard: boolean;
+    latencyMs: number;
+    error?: string;
+  }
+
+  const attemptCase = async (c: EvalCase): Promise<Attempt> => {
     const t0 = Date.now();
     let turn;
     try {
@@ -1007,15 +1039,13 @@ async function main() {
           : undefined,
       });
     } catch (err: any) {
-      hardFails++;
-      console.log(`✗ ${c.id} — ERROR del loop: ${err?.message ?? err}`);
-      results.push({
-        id: c.id, pass: false, soft: c.soft ?? false,
-        failures: [], reply: '', toolCalls: [], proposals: [], tokens: 0,
-        latencyMs: Date.now() - t0, usage: { ...ZERO_USAGE },
+      return {
+        turn: null,
+        failures: [],
+        forceHard: true,
+        latencyMs: Date.now() - t0,
         error: String(err?.message ?? err),
-      });
-      continue;
+      };
     }
 
     const failures: string[] = [];
@@ -1037,43 +1067,97 @@ async function main() {
         : null;
     if (phantomCard) failures.push(phantomCard);
 
-    const secs = ((Date.now() - t0) / 1000).toFixed(1);
-    const tokens = turn.usage.inputTokens + turn.usage.outputTokens;
-    const cachePct = turn.usage.inputTokens > 0
-      ? Math.round((turn.usage.cacheReadTokens / turn.usage.inputTokens) * 100)
-      : 0;
-    // card-fantasma es duro SIEMPRE — un caso `soft` no lo degrada a WARN.
-    const forceHard = phantomCard != null;
-    if (failures.length === 0) {
-      console.log(`✓ ${c.id} (${secs}s, ${tokens} tok, ${cachePct}% cached, tools=[${turn.toolsUsed.join(',')}])`);
-    } else if (c.soft && !forceHard) {
-      warns++;
-      console.log(`⚠ ${c.id} — WARN (soft): ${failures.join(' · ')}`);
-      console.log(`   reply: ${turn.reply.slice(0, 200).replace(/\n/g, ' ')}`);
-    } else {
+    return { turn, failures, forceHard: phantomCard != null, latencyMs: Date.now() - t0 };
+  };
+
+  const attemptPassed = (a: Attempt) => a.error == null && a.failures.length === 0;
+
+  let flakyCount = 0;
+  let stableWarns = 0;
+  let stableHardFails = 0;
+
+  try {
+  for (const c of toRun) {
+    const first = await attemptCase(c);
+    const { turn } = first;
+
+    if (first.error != null) {
       hardFails++;
-      console.log(`✗ ${c.id} — FAIL: ${failures.join(' · ')}`);
-      if (c.dataDependent) console.log(`   (data-dependent: ${c.dataDependent})`);
-      console.log(`   reply: ${turn.reply.slice(0, 300).replace(/\n/g, ' ')}`);
+      console.log(`✗ ${c.id} — ERROR del loop: ${first.error}`);
+    } else if (turn) {
+      const secs = (first.latencyMs / 1000).toFixed(1);
+      const tokens = turn.usage.inputTokens + turn.usage.outputTokens;
+      const cachePct = turn.usage.inputTokens > 0
+        ? Math.round((turn.usage.cacheReadTokens / turn.usage.inputTokens) * 100)
+        : 0;
+      if (first.failures.length === 0) {
+        console.log(`✓ ${c.id} (${secs}s, ${tokens} tok, ${cachePct}% cached, tools=[${turn.toolsUsed.join(',')}])`);
+      } else if (c.soft && !first.forceHard) {
+        warns++;
+        console.log(`⚠ ${c.id} — WARN (soft): ${first.failures.join(' · ')}`);
+        console.log(`   reply: ${turn.reply.slice(0, 200).replace(/\n/g, ' ')}`);
+      } else {
+        hardFails++;
+        console.log(`✗ ${c.id} — FAIL: ${first.failures.join(' · ')}`);
+        if (c.dataDependent) console.log(`   (data-dependent: ${c.dataDependent})`);
+        console.log(`   reply: ${turn.reply.slice(0, 300).replace(/\n/g, ' ')}`);
+      }
+      // Tool failures the model recovered from gracefully (a PASS can hide a
+      // broken tool — the mp status enum bug did exactly that). Same records the
+      // route persists to agent_tool_errors in prod (audit A2).
+      for (const te of turn.toolErrors) {
+        console.log(`   ⚠ tool error: ${te.tool} — ${te.errorName ?? '?'}${te.errorCode ? ` [${te.errorCode}]` : ''}: ${(te.message ?? '').slice(0, 160).replace(/\n/g, ' ')}`);
+      }
     }
-    // Tool failures the model recovered from gracefully (a PASS can hide a
-    // broken tool — the mp status enum bug did exactly that). Same records the
-    // route persists to agent_tool_errors in prod (audit A2).
-    for (const te of turn.toolErrors) {
-      console.log(`   ⚠ tool error: ${te.tool} — ${te.errorName ?? '?'}${te.errorCode ? ` [${te.errorCode}]` : ''}: ${(te.message ?? '').slice(0, 160).replace(/\n/g, ' ')}`);
+
+    // Re-correr los no-PASS para separar señal de ruido. Se detiene al primer
+    // PASS: con que pase UNA vez ya no es una regresión estable.
+    const retries: { pass: boolean; failures: string[]; error?: string }[] = [];
+    let flaky = false;
+    const firstPassed = attemptPassed(first);
+    if (!firstPassed && MAX_RETRIES > 0) {
+      for (let r = 1; r <= MAX_RETRIES; r++) {
+        const again = await attemptCase(c);
+        const againPassed = attemptPassed(again);
+        retries.push({
+          pass: againPassed,
+          failures: again.failures,
+          ...(again.error != null ? { error: again.error } : {}),
+        });
+        console.log(
+          `   ↻ reintento ${r}/${MAX_RETRIES}: ${
+            againPassed
+              ? 'PASS — el no-PASS de arriba es flaky (ruido de la suite, no regresión)'
+              : `no-PASS (${(again.error ?? again.failures.join(' · ')).slice(0, 160).replace(/\n/g, ' ')})`
+          }`
+        );
+        if (againPassed) {
+          flaky = true;
+          break;
+        }
+      }
+      if (flaky) {
+        flakyCount++;
+      } else if (first.error == null && c.soft && !first.forceHard) {
+        stableWarns++;
+      } else {
+        stableHardFails++;
+      }
     }
 
     results.push({
       id: c.id,
-      pass: failures.length === 0,
+      pass: firstPassed,
       soft: c.soft ?? false,
-      failures,
-      reply: turn.reply,
-      toolCalls: turn.toolCalls,
-      proposals: turn.proposals.map((p) => ({ type: p.type, orden: p.orden, titulo: p.titulo })),
-      tokens,
-      latencyMs: Date.now() - t0,
-      usage: turn.usage,
+      failures: first.failures,
+      reply: turn?.reply ?? '',
+      toolCalls: turn?.toolCalls ?? [],
+      proposals: (turn?.proposals ?? []).map((p) => ({ type: p.type, orden: p.orden, titulo: p.titulo })),
+      tokens: turn ? turn.usage.inputTokens + turn.usage.outputTokens : 0,
+      latencyMs: first.latencyMs,
+      usage: turn ? turn.usage : { ...ZERO_USAGE },
+      ...(first.error != null ? { error: first.error } : {}),
+      ...(retries.length > 0 ? { retries, flaky } : {}),
     });
   }
   } finally {
@@ -1082,7 +1166,19 @@ async function main() {
   }
 
   const passed = results.filter((r) => r.pass).length;
-  console.log(`\n${passed}/${toRun.length} PASS · ${warns} WARN · ${hardFails} FAIL — detalle en ${outPath}`);
+  console.log(`\n${passed}/${toRun.length} PASS · ${warns} WARN · ${hardFails} FAIL (1er intento — el número comparable con el ledger) — detalle en ${outPath}`);
+  if (MAX_RETRIES > 0) {
+    if (warns + hardFails > 0) {
+      console.log(
+        `Reintentos (hasta ${MAX_RETRIES}): ${flakyCount} flaky (pasaron al re-correr = ruido) · ` +
+          `${stableWarns} WARN estables · ${stableHardFails} FAIL estables — lo ESTABLE es la señal.`
+      );
+    }
+    // El exit code gatea sobre la señal ESTABLE: un FAIL que pasó al re-correr
+    // es exactamente lo que la bitácora documentó como ruido. Con
+    // EVALS_RETRIES=0 se conserva el gate viejo (todo FAIL del 1er intento).
+    process.exit(stableHardFails > 0 ? 1 : 0);
+  }
   process.exit(hardFails > 0 ? 1 : 0);
 }
 

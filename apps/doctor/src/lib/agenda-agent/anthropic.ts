@@ -87,8 +87,13 @@ export function isAnthropicConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
 
-/** Extended-thinking budget for models that need it declared explicitly. */
-const THINKING_BUDGET_TOKENS = 2048;
+/** Extended-thinking budget for models that need it declared explicitly.
+ * 4096 since 2026-07-24: the failure shape of the noisy 58/65 Haiku run was
+ * "asks instead of acting" on multi-step plans, and thinking is where a small
+ * model plans them; output+thinking is only ~19% of turn cost, so headroom
+ * here is cheap. The model uses what it needs — the budget is a ceiling, not
+ * a target. */
+const THINKING_BUDGET_TOKENS = 4096;
 /** Per-call ceiling. Reasoning happens BEFORE the first output token, so a
  * thinking call needs more headroom than the 60s that was sized for
  * non-thinking calls — and blowing it surfaces to the doctor as an error, not a

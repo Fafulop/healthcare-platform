@@ -47,53 +47,42 @@ evals) + costo por pregunta:
 | [`02-BITACORA-experimentos.md`](02-BITACORA-experimentos.md) | Log de resultados — se llena al correr cada experimento | vivo |
 | [`benchmarks/`](benchmarks/README.md) | **La regla**: el rig que corre las 65 evals, precia cada corrida (calidad + USD) y registra el Δ build-a-build en `ledger.csv` | vivo |
 
-## 🔄 HANDOFF — estado al 2026-07-23 (2ª sesión)
+## 🔄 HANDOFF — estado al 2026-07-24 (3ª sesión)
 
-**En una frase:** el **COSTO de Haiku 4.5 está probado (−52%, sólido)**; su **CALIDAD NO está
-establecida** — tres corridas completas de la MISMA config dieron **64, 63 y 58 de 65**, y ningún
-fallo individual se reprodujo al re-correrlo. Todo vive en la rama **`agent/haiku-viability`**,
-**sin commitear, sin mergear, sin desplegar**.
+**En una frase:** el **COSTO de Haiku está probado (−50%+)** y la pregunta de calidad **cambió de
+forma**: con el runner que ahora RE-CORRE cada caso no-PASS, **ni Haiku ni Sonnet tienen UN solo
+fallo ESTABLE** sobre la config de la rama — todo lo que falla pasa al re-correrlo (es ruido de la
+suite, medido en los DOS modelos). Lo que queda es una decisión de RIESGO del usuario, no una
+medición pendiente. Todo vive en la rama **`agent/haiku-viability`** (2 commits + cambios sin
+commitear de esta sesión), **sin mergear, sin desplegar**.
 
 > # 🛑 SI LLEGAS EN FRÍO, LEE ESTO ANTES QUE NADA
 >
-> **El experimento NO está cerrado, aunque partes de estos docs suenen concluyentes.** Esta caja
-> resume lo que de verdad se sabe al 2026-07-23:
+> Esta caja resume lo que de verdad se sabe al 2026-07-24:
 >
 > | | Estado |
 > |---|---|
-> | Costo de Haiku (−52% corrida, −58% fría, ~$8.70/mes al cap) | ✅ **Sólido.** Sale de conteos de tokens, no de juicio del modelo. |
-> | "Haiku ≥ Sonnet en calidad" | ⚠️ **NO probado.** Se afirmó comparando **UNA corrida contra UNA corrida**. |
-> | Estabilidad de la suite | ❌ **Sin caracterizar.** Misma config: 64, 63, 58. |
-> | Fallos concretos de Haiku | ✅ **Ninguno reproducible.** Todo lo re-corrido pasó. |
+> | Costo de Haiku (−50% corrida, −59% fría, ~$8.9/mes al cap) | ✅ **Sólido.** Conteos de tokens, no juicio del modelo. |
+> | Varianza de SONNET (la pregunta #1 del handoff anterior) | ✅ **MEDIDA.** Sonnet también flakea (su WARN histórico `vencida-cancel-warning` pasó al re-correrlo). El ruido es de la SUITE, no de un modelo. |
+> | Fallos ESTABLES de Haiku (fallan siempre, aun re-corridos) | ✅ **CERO** en 2 corridas completas de la config con fixes (60/65 y 62/65 al 1er intento; los 8 no-PASS pasaron todos al re-correr). |
+> | Diferencia real Haiku vs Sonnet | ⚠️ Haiku flakea MÁS al 1er intento (5 y 3 casos vs 1 de Sonnet). No es un fallo de capacidad estable; es más varianza por-respuesta. |
+> | El miss real conocido (`plan-eliminar-antes-de-crear`) | ✅ **ARREGLADO** (descripción de tool que invitaba a pre-empatar el veredicto del servidor): PASA 2/2 con delete→create completo. |
 >
-> ### El error metodológico que hay que entender antes de tocar nada
+> ### El instrumento cambió (leer antes de comparar con corridas viejas)
 >
-> La baseline de Sonnet (`63/65`) es **UNA sola corrida**. La primera de Haiku fue **UNA sola
-> corrida** (`64/65`). De ahí se concluyó "Haiku le gana a Sonnet". Después la MISMA config de
-> Haiku dio `58/65`. O sea: **la diferencia que se declaró ganadora (63 vs 64) es más chica que
-> el ruido que la propia suite produce (58–64).** Esa conclusión no se sostiene con los datos que
-> hay, y este doc ya no la afirma.
->
-> ⚠️ **Nunca se midió la varianza de SONNET** — la baseline también podría oscilar. Sin eso no se
-> puede decir si Haiku es *más inestable* o si la suite es ruidosa **para cualquier modelo**.
-> **Esa es la pregunta abierta #1** y la que decide el rollout.
->
-> ### Qué hacer con esto (lo más barato primero)
->
-> 1. **Correr la suite completa en Haiku 2–3 veces más** (~$0.69 c/u) y anotar cada resultado.
->    Da la varianza real de Haiku en vez de una banda inventada.
-> 2. **Correr la suite completa en SONNET 2–3 veces** (~$1.44 c/u) **con el mismo prompt de la
->    rama**. Es el control que falta: si Sonnet también oscila, el ruido es de la SUITE (datos
->    vivos de dr-prueba + modelo no determinista) y Haiku no es peor; si Sonnet queda plano en 63,
->    entonces Haiku SÍ es más inestable y eso pesa más que el ahorro.
-> 3. Recién con (1) y (2) se decide el merge. **No repetir el error de concluir con n=1.**
+> `agenda-agent-evals.ts` ahora **re-corre automáticamente cada caso no-PASS hasta 2 veces**
+> (`EVALS_RETRIES`, 0 = comportamiento viejo) y separa **estable** (falla siempre = señal) de
+> **flaky** (pasa al re-correr = ruido). El número `X/65` sigue siendo el 1er intento (comparable
+> con el ledger histórico y es lo que precia el benchmark); el exit code ahora gatea sobre FAILs
+> **estables**. Esto implementa la lección de VARIANZA ("una corrida no distingue regresión de
+> ruido") en el runner, en vez de depender de que alguien se acuerde.
 >
 > ### Trampa documental de esta carpeta
 >
-> Las entradas de [`02-BITACORA`](02-BITACORA-experimentos.md) están en orden cronológico y las
-> primeras **afirman cosas que después se desmintieron** (se conservan a propósito: la convención
-> del repo es anotar la corrección, no borrar el error). **Lee la entrada de VARIANZA antes de
-> citar cualquier número de las entradas anteriores.**
+> Las entradas de [`02-BITACORA`](02-BITACORA-experimentos.md) están en orden cronológico inverso y
+> algunas viejas **afirman cosas que después se desmintieron** (se conservan a propósito: la
+> convención del repo es anotar la corrección, no borrar el error). **Lee las entradas de
+> 2026-07-24 y VARIANZA antes de citar números de las anteriores.**
 
 ### Lo que SHIPPEÓ a `main` (4 commits, desplegados)
 
@@ -106,24 +95,37 @@ fallo individual se reprodujo al re-correrlo. Todo vive en la rama **`agent/haik
 
 ### Lo que está EN RAMA, medido, sin mergear (`agent/haiku-viability`)
 
+Commiteado (`f914813a`):
 - `anthropic.ts`: `thinking` **por modelo** (Haiku `enabled`+`budget_tokens`; Sonnet intacto).
 - `dates.ts` + `run-turn.ts`: calendario de 14 días **resuelto server-side** (bloque volátil).
+
+Sin commitear (sesión 2026-07-24):
+- `agenda-agent-evals.ts`: **reintentos automáticos** de casos no-PASS (estable vs flaky — ver la
+  caja 🛑) + regex de `create-sin-hueco` ensanchado (flaggeaba una respuesta correcta).
+- `proposals.ts` + `modules/agenda.ts`: **fix del miss real** — la descripción de
+  `propose_delete_range` decía "serán RECHAZADOS al ejecutar" y Haiku (literal) se detenía sin
+  proponer; ahora dice explícito "propón igual con la advertencia, el veredicto es del servidor"
+  y la prosa del domain model quedó alineada (regla 0 aplicada al lenguaje de las tools).
+- `anthropic.ts`: `THINKING_BUDGET_TOKENS` 2048 → **4096** (la forma de fallo del 58/65 era
+  "pregunta en vez de actuar" en planes multi-paso; +4.5% de budget, sigue −50% vs Sonnet).
+- Gates ✅ · type-check apps/doctor ✅ (2026-07-24).
 - 🔖 Tag de rollback: **`agent-sonnet-known-good-2026-07-23`** (runtime verificado
   byte-idéntico al de la baseline `63/65`).
 - 🟢 **Mergear NO compromete el modelo:** el request de Sonnet quedó byte-idéntico y la tabla de
   fechas le sirve igual; el modelo sigue siendo un flip de env var.
 
-### Los números vigentes (todos medidos, no estimados)
+### Los números vigentes (2026-07-24, config de la rama CON fixes, mismo prompt en ambos)
 
-| | Sonnet 5 (prod) | **Haiku 4.5 + thinking (rama)** |
+| | Sonnet 5 (control, prompt de la rama) | **Haiku 4.5 + thinking 4096 (rama)** |
 |---|---|---|
-| Calidad | `63/65 · 2W · 0F` — ⚠️ **n=1, varianza desconocida** | ⚠️ **NO CONCLUYENTE**: `64/1W/0F`, `63/0W/2F`, `58/5W/2F` (n=3). **Ningún fallo se reprodujo al re-correrlo solo.** |
-| Pregunta fría | $0.083 | **$0.0345** (−58%) |
-| Pregunta tibia p50 | $0.020 | **$0.0097** |
-| Corrida completa (65) | $1.436 | **$0.688** (−52%) |
-| Latencia p50 | 9.5 s | 9.0 s |
+| Calidad 1er intento | `64/65 · 1W · 0F` (n=1; histórico 63–64) | `60/65 · 4W · 1F` y `62/65 · 3W · 0F` (n=2; histórico 58–64) |
+| **Fallos ESTABLES (re-corridos)** | **0** (su único WARN pasó al re-correr) | **0 en ambas corridas** (los 8 no-PASS pasaron todos) |
+| Flaky por corrida | 1 | 5 y 3 — flakea más, pero nada estable |
+| Pregunta fría | $0.0835 | **$0.0345** (−59%) |
+| Corrida completa (65) | $1.538 | **$0.719 / $0.710** (−53%) |
+| Latencia p50 | 10.4 s | 9.8 / 9.0 s |
 | Prefijo estático | 27,151 tok | 22,141 tok (otro tokenizer) |
-| Techo al cap 2M/sem | $17/mes (intro) · $26 (estándar) | **~$8.70/mes** |
+| Techo al cap 2M/sem | $17/mes (intro) · $26 (estándar) | **~$8.9/mes** |
 
 De una pregunta fría, **82% es escribir el prefijo** (por eso el lever 2d, abajo).
 
@@ -151,26 +153,27 @@ tabla de precios el Δ es un espejismo — el benchmark avisa, no ignores el avi
 > el cap ya acota el peor caso. Dicho eso, hay un reloj real: **el 2026-09-01 Sonnet 5 pasa de
 > $2/$10 a $3/$15 (+50% automático)** — que es precisamente el riesgo que Haiku desactiva.
 
-**A) ⭐ CARACTERIZAR LA VARIANZA — bloquea todo lo demás** (ver la caja 🛑 de arriba)
-- **No se puede decidir el rollout con los datos actuales.** No porque falte criterio de riesgo,
-  sino porque la comparación que sustentaba "Haiku gana" era `n=1` contra `n=1`, y después la
-  misma config dio 58. Se necesitan 2–3 corridas de Haiku **y** 2–3 de Sonnet con el mismo prompt.
-- Costo de cerrar la pregunta: ~$2 de Haiku + ~$4.3 de Sonnet ≈ **$6.30 y una hora**. Es barato
-  comparado con desplegar a prod una conclusión que no se sostiene.
-- Si Sonnet oscila igual ⇒ el ruido es de la suite, Haiku no es peor, **y entonces sí** la
-  decisión pasa a ser de riesgo (dr-prueba, no doctores reales; cap acotado; rollback por env var).
+**A) ⭐ DECIDIR el merge/rollout — ya es decisión de RIESGO del usuario, no medición pendiente**
+- La varianza ya se caracterizó (caja 🛑): **cero fallos estables en ambos modelos**; Haiku solo
+  flakea más al 1er intento (una respuesta subóptima ocasional, no una conducta equivocada
+  estable). Contexto de riesgo: dr-prueba (no hay doctores reales), cap semanal acotado,
+  rollback = flip de env var, y el 2026-09-01 Sonnet sube +50% de precio.
 - ⚠️ **Al poner `AGENDA_AGENT_MODEL` en Railway, fijar `FORM_BUILDER_CHAT_MODEL=claude-sonnet-5`
   en la MISMA pasada** — `form-builder-chat` hereda esa var (`route.ts:30-33`) y tiene **0
   cobertura** en la suite. Y verificar el `commitHash` por servicio: un push puede saltarse el
   auto-deploy de UNO.
 - Alternativa de menor riesgo: mergear solo la parte server-side (tabla de fechas + branch de
-  thinking) **sin** cambiar el modelo. Mejora a Sonnet, deja Haiku listo para un flip posterior.
+  thinking + fixes de tools/runner) **sin** cambiar el modelo default. Mejora a Sonnet igual
+  (64/65 con el prompt de la rama), deja Haiku listo para un flip posterior.
 
-**B) 🆕 Carga DIFERIDA de tools (lever 2d)** — probablemente el mayor ahorro que queda.
-Las tools son el **55% del prefijo** en 39 definiciones y un turno real usa **0–3**. Podar (2b)
-daba ~16% del costo frío; esto ataca una porción mucho mayor del mismo 55%.
-⚠️ Mete un viaje extra por turno (y el presupuesto cobra input en cada iteración) y **está sin
-verificar en Haiku**. Detalle y reglas duras en [`01-PLAN`](01-PLAN-experimentos.md) §2d.
+**B) 🆕 Carga DIFERIDA de tools (lever 2d)** — el mayor ahorro que queda, y quizá TAMBIÉN calidad.
+Las tools son el **55% del prefijo** en 39 definiciones y un turno real usa **0–3**.
+✅ **Verificado 2026-07-24 (docs oficiales): tool search corre en Haiku 4.5** (regex y bm25, GA,
+sin beta header), los schemas diferidos se APENDIZAN sin invalidar el caché, y Anthropic documenta
+que la precisión de selección de tools **se degrada pasando 30–50 tools** — tenemos 39, así que
+diferir puede MEJORAR a Haiku, no solo abaratarlo. Reglas duras: el tool de búsqueda no puede
+llevar `defer_loading`; ≥1 tool sin diferir; un tool diferido no puede llevar `cache_control`.
+⚠️ Sigue pendiente medir el viaje extra por turno. Detalle en [`01-PLAN`](01-PLAN-experimentos.md) §2d.
 
 **C) Podar el prefijo** (lever 2b) — blancos medidos: **facturas 8,706** (~3× presupuesto),
 **agenda 7,255** (~2.4×), compartido 4,616; tool más pesada `propose_create_cfdi` (1,276).
@@ -178,9 +181,10 @@ Hoy queda por detrás de (B): menos ahorro y ediciones permanentes de prompt/too
 legal del CFDI. El blueprint §5.3 dice que un módulo sobre presupuesto = señal de que **sus
 veredictos no están suficientemente server-side** ⇒ mirar arquitectura antes que prosa.
 
-**D) El WARN que queda** — `plan-eliminar-antes-de-crear`: Haiku avisa del conflicto pero no
-emite las propuestas delete→create (Sonnet sí). Es `soft` y la conducta es la cautelosa, pero es
-un miss real; se arregla con descripciones de tools, o sea **sale junto con (B) o (C)**.
+**D) ~~El WARN que queda~~ — ✅ ARREGLADO 2026-07-24.** `plan-eliminar-antes-de-crear`: la causa
+era la DESCRIPCIÓN de `propose_delete_range` ("serán RECHAZADOS al ejecutar") que invitaba a un
+modelo literal a detenerse en vez de proponer con advertencia. Corregida (+ prosa del domain model
+alineada): PASA 2/2 con la secuencia delete→create completa.
 
 **E) Parar aquí.** Nada está roto y la medición no caduca.
 
@@ -188,8 +192,8 @@ un miss real; se arregla con descripciones de tools, o sea **sale junto con (B) 
 1. **Uso de un doctor REAL** — hueco #1. Decide si TTL-1h sirve y si 2M/semana es el número
    correcto. Sin eso, TTL-1h es una apuesta (depende de ≥2 preguntas frías/hora).
 2. **Precios oficiales** Moonshot/DeepSeek (los de la tabla son de agregadores).
-3. 🆕 **Si tool search corre en Haiku 4.5** — no aparece en `capabilities` de `/v1/models` para
-   ningún modelo, así que ese endpoint no lo contesta. Probar antes de planear sobre (B).
+3. ~~Si tool search corre en Haiku 4.5~~ — ✅ **CONTESTADO 2026-07-24: SÍ** (docs oficiales de
+   tool search, tabla de compatibilidad de modelos — regex y bm25, GA). Ver (B).
 4. 🆕 **El techo de 200K de contexto de Haiku** (Sonnet: 1M) no se ha topado en evals, pero una
    sesión larga real es otra cosa. Haiku sí soporta `clear_tool_uses_20250919` si hiciera falta.
 

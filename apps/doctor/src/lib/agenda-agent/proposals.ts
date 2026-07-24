@@ -299,7 +299,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_delete_range',
     description:
-      'PROPONE eliminar rango(s) de disponibilidad por id (los ids salen de get_day_schedule o get_ranges de ESTE turno — para varios días usa get_ranges, UNA llamada). El servidor te avisa qué rangos tienen citas activas dentro: esos serán RECHAZADOS al ejecutar. IMPORTANTE: eliminar un rango NUNCA afecta las citas — no sugieras cancelar/reagendar citas como requisito para borrar rangos.',
+      'PROPONE eliminar rango(s) de disponibilidad por id (los ids salen de get_day_schedule o get_ranges de ESTE turno — para varios días usa get_ranges, UNA llamada). Si un rango tiene citas activas dentro, PROPÓN IGUAL y transmite la advertencia que la tool te devuelva: el veredicto lo da el servidor al ejecutar y el doctor decide en la tarjeta — no te detengas tú. Para REEMPLAZAR un rango propón eliminar y LUEGO crear, en el mismo turno. IMPORTANTE: eliminar un rango NUNCA afecta las citas — no sugieras cancelar/reagendar citas como requisito para borrar rangos.',
     input_schema: {
       type: 'object',
       properties: {
