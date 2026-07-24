@@ -29,6 +29,56 @@
 
 ## Experimentos
 
+### 2026-07-24 — ✂️ Roadmap #2 (2ª pasada): trim del prompt de facturas + fixtures re-sembrados
+
+**Cambios:**
+1. **FACTURAS_RULES comprimido** (prompt del módulo 3,049 → 2,705 tok; system total 12,630 →
+   12,286): solo peso de prosa — TODOS los triggers conductuales siguen (cada uno tiene eval).
+   Con tool search vivo, el prompt es ~83% del prefijo real ⇒ −344 tok en CADA pregunta fría.
+2. **borradorPendiente ahora instruye desde el SERVIDOR**: la nota del resultado dice completa
+   la conducta ("DILO y NO propongas otro…") y la frase equivalente salió del prompt — el patrón
+   blueprint §5.3: la instrucción contextual viaja en el RESULTADO (se paga solo al usarse).
+3. **Fixtures re-sembrados por el usuario en la UI** (2 acciones aprobadas): (a) completó CIT2 ⇒
+   **ingreso #1621 ($777, sin factura)** — el camino feliz de EMISIÓN volvió a ser evaluable tras
+   8 días data-blocked: caso `f2b-emision-camino-feliz` RESTAURADO (era `f2b-ya-facturada-no-
+   reemite`; la conducta ya-facturada la cubre `f2b-ppd-solo-explicito`), pasa con el flujo
+   canónico find_patient→get_billing_status→propose_create_cfdi; (b) cita "genaro" CONFIRMED
+   2026-08-10 09:00 +180 min de bloque ⇒ `create-sin-hueco` y `ocupado-hasta-extension`
+   (ahora espera 12:00) re-apuntados — completar CIT2 había matado sus premisas.
+   `f2b-dos-turnos` re-apuntado a la cita Diki Perez (CONFIRMED sin ingreso).
+
+**Validación (suite completa, precio sonnet-5-intro, DOS puntos):** `58/65` (r3) y `61/65` (r4)
+al 1er intento, **0 ESTABLES en ambas** — 8 corridas completas consecutivas del día sin fallos
+estables. La banda 58–61 cae dentro del ruido medido todo el día (58–64 en TODAS las configs,
+incluida la pre-trim), así que el 58 fue un mal sorteo, no el trim. Confirmado por composición:
+el fixture crónico `f2b-ppd` (falló 5 de 6 corridas previas) PASÓ en r4, mientras `plan-eliminar`
+volvió a flaquear (3ª corrida seguida CON tool search) — el trim no aparece en ningún fallo.
+Pregunta fría **$0.0385–0.0403** (la más barata del día — trim + tool search apilados). ⚠️ Dos
+corridas intermedias quedaron inválidas: una corrió mientras el usuario re-sembraba datos, y otra
+murió a media corrida porque **la API key de prod se quedó sin créditos** (40 casos ERROR; el
+usuario recargó — OJO: los créditos de la cuenta Anthropic son ahora un punto de fallo operativo
+del agente en prod, vigilarlo, idealmente con alerta de saldo bajo).
+
+**Análisis cruzado de 6 corridas (qué falla y con qué tools) — clasificó los flakes en 3 grupos:**
+1. **Fixture crónico `f2b-ppd-solo-explicito`** (5/6 previas): distinto tool-path cada vez, misma
+   causa — re-verifica el ingreso de $900, cae en ambigüedad de datos y pregunta en vez de reportar
+   "ya facturada". ~⅓ de TODO el ruido del día. Fix de MEDICIÓN pendiente: restaurar el `patientId`
+   en el history del caso (el repoint de esta sesión lo quitó y devolvió la ambigüedad).
+2. **Costo conductual de tool search** (`plan-eliminar` 3/3 con tool search + card-fantasma de
+   `f2c`/`kl-concepto`): trace idéntico — lee, arma el plan en prosa, NO busca la propose_* diferida
+   y termina el turno (o narra una card inexistente). Nunca estable, pero es la palanca real de #2:
+   con las propose_* fuera de contexto sube la energía de activación para PLANES de escritura. Fix
+   de PROMPT propuesto: puente en HOW_TO_PROPOSE ("las propose_* están tras tool search; si tu plan
+   necesita proponer, BÚSCALA y llámala este turno; describir sin llamar = card fantasma prohibida").
+3. **Regex driftado `limite-l1-consultorio`** (3/6): respuestas CORRECTAS ("no está registrado") que
+   el regex no acepta (pide "no se registra"). Fix de MEDICIÓN: ensanchar el regex.
+   El resto son one-offs 1/6 con tools y formas variadas = ruido puro. `f2a-clave-insumos` solo
+   aparece en las 2 corridas PRE-fix y cero desde ⇒ el fix search-first quedó confirmado.
+
+**Watch-item vigente:** los card-fantasma de `f2c-*` reaparecen como flaky (narra la tarjeta en
+vez de buscar la tool diferida del borrador) — nunca estable, pero es la forma de flake más
+repetida bajo tool search. Candidato de la próxima pasada de #2.
+
 ### 2026-07-24 — 🎯 Roadmap #2 (1ª pasada): trigger "busca PRIMERO" en la regla de claves SAT
 
 **El miss:** con tool search, `f2a-clave-insumos` fallaba el 1er intento en las 2 corridas — el

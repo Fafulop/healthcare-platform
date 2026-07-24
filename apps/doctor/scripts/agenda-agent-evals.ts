@@ -210,11 +210,11 @@ async function main() {
     },
     {
       id: 'ocupado-hasta-extension',
-      bitacora: 'E7 / CIT-12',
+      bitacora: 'E7 / CIT-12 (fixture re-sembrado 2026-07-24: CIT2 se completó para el ingreso #1621; la sustituye la cita "genaro" con bloque extendido 180)',
       message: '¿a qué hora me desocupo el lunes 10 de agosto?',
       soft: true, // depende de datos vivos de prod — WARN, no bloquea deploy
-      dataDependent: 'CIT2 (2026-08-10 09:00–09:45 +165 min ext) debe seguir viva → 11:45',
-      checks: [{ kind: 'reply-match', pattern: '11:45' }],
+      dataDependent: 'cita cmrzhzwiz (genaro, CONFIRMED 2026-08-10 09:00–09:45 +180 min ext) viva → ocupado hasta 12:00 (fin dice 09:45 — el probe E7 es justo que use ocupadoHasta, no fin)',
+      checks: [{ kind: 'reply-match', pattern: '12:00' }],
     },
     {
       // Era 'fuera-de-alcance-factura' (emitir era F2) — F2b movió EMITIR a
@@ -339,7 +339,7 @@ async function main() {
       message:
         'agéndame a Pedro Gómez (tel 5511122233) una Consulta de Seguimiento el lunes 10 de agosto a las 09:00',
       soft: true,
-      dataDependent: 'CIT2 ocupa 2026-08-10 09:00–09:45 (+ext) → el pre-check debe rechazar y ofrecer alternativas',
+      dataDependent: 'la cita "genaro" (cmrzhzwiz, CONFIRMED) ocupa 2026-08-10 09:00 (+180 ext, hasta 12:00) → el pre-check debe rechazar y ofrecer alternativas',
       checks: [
         { kind: 'no-proposal-of-type', types: ['create_booking'] },
         // "no está disponible" era muy angosto: la corrida 2026-07-23 respondió
@@ -427,42 +427,26 @@ async function main() {
       ],
     },
     {
-      // Era 'f1-no-emite-solo-consulta' — su premisa murió con F2b (emitir SÍ
-      // está en alcance): ahora es EL camino feliz de la emisión.
-      // Camino feliz PG (decisión del usuario 2026-07-16: el RFC genérico en
-      // el expediente emite a PÚBLICO EN GENERAL con la receta de la UI —
-      // S01/616 — en vez de rechazarse): la propuesta SÍ se registra.
-      // ⚠️ RE-APUNTADO post-validación-en-vivo F2b (2026-07-16): el entry 1570
-      // se TIMBRÓ de verdad (folio 8) — el camino feliz de emisión quedó SIN
-      // datos evaluables (ningún ingreso listo sin factura). Este caso ahora
-      // valida la reacción correcta a esa realidad: hasFactura=true ⇒ CERO
-      // propuestas + "ya está facturada". Cuando exista un ingreso de prueba
-      // nuevo, restaurar el caso feliz (checks en el historial de git).
-      id: 'f2b-ya-facturada-no-reemite',
-      bitacora: 'F2b — el ingreso ya timbrado (folio 8, validación en vivo): el agente reporta YA facturada y no re-propone',
-      // SOFT por flake de datos (no de conducta): la regla "reconsulta cada
-      // turno" hace que a veces el modelo re-verifique por NOMBRE, no vea la
-      // cita walk-in "test123" y se retracte honesto SIN llegar a la tool —
-      // conducta correcta con datos rotos (expedientes duplicados + cita
-      // fantasma del 27-may).
+      // Era 'f1-no-emite-solo-consulta' → luego 'f2b-ya-facturada-no-reemite'
+      // (el entry 1570 se timbró en vivo, folio 8, y el camino feliz quedó
+      // data-blocked). RESTAURADO 2026-07-24: el usuario re-sembró el ingreso
+      // de prueba (completó CIT2 en la UI ⇒ ingreso #1621, $777, sin factura,
+      // expediente Genaro Lopez con RFC genérico ⇒ receta PG S01/616 de la
+      // decisión 2026-07-16). Vuelve a ser EL camino feliz de la emisión.
+      // La conducta ya-facturada sigue cubierta por f2b-ppd-solo-explicito.
+      id: 'f2b-emision-camino-feliz',
+      bitacora: 'F2b — camino feliz RESTAURADO (ingreso #1621 re-sembrado): petición explícita ⇒ get_billing_status + propose_create_cfdi (PG/S01 por RFC genérico)',
       soft: true,
-      message: 'sí, esa misma — emítela',
-      // La cita del entry 1570 se agendó como walk-in "test123" y se ligó
-      // después al expediente Gerardo A — por nombre no se encuentra; el
-      // turno anterior (real, corrida 2026-07-16) ya la había aislado.
-      history: [
-        { role: 'user', content: 'emítele la factura de su consulta de $900 a Gerardo Lopez' },
-        {
-          role: 'assistant',
-          content:
-            'Hay dos expedientes "Gerardo Lopez". La única consulta de $900 con ingreso registrado y sin facturar es la del **8 de julio de 2026** — OJO: la cita se agendó como "test123" y está ligada al expediente Gerardo Lopez (patientId cmpnbah010005ro0lqss8i033), por eso no aparece buscando citas por nombre; el diagnóstico sale con get_billing_status sobre ese patientId (ingreso #1570, COMPLETADA, pagada en efectivo, datos fiscales completos). ¿Es esa la que quieres facturar? Propondría: Consulta de Medicina Interna $900, sin IVA (servicio médico exento), sin retención, PUE, forma efectivo.',
-        },
-      ],
+      // OJO fixture: la cita se agendó con patient_name denormalizado "CIT2",
+      // así que buscar CITAS por nombre+fecha no la encuentra — el mensaje
+      // enruta por el INGRESO del paciente (find_patient → get_billing_status),
+      // que es además el camino que la regla (2) de EMITIR exige.
+      message: 'emítele la factura del ingreso de $777 que tiene registrado Genaro Lopez',
       dataDependent:
-        'entry 1570 de dr-prueba ($900) — TIMBRADO en vivo 2026-07-16 (folio 8, hasFactura=true)',
+        'ingreso #1621 ($777, cita CIT2 cmr85s169 COMPLETADA 2026-08-10, SIN factura) vivo en dr-prueba; expediente Genaro Lopez (cmpnbah010005ro0lqss8i033) con RFC genérico. Si este caso truena, verifica primero que el ingreso siga sin facturar.',
       checks: [
-        { kind: 'no-proposals' },
-        { kind: 'reply-match', pattern: '(ya.{0,80}factur|folio)', flags: 'i' },
+        { kind: 'tool-called', name: 'get_billing_status' },
+        { kind: 'proposal-types-in-order', types: ['create_cfdi'] },
       ],
     },
     {
@@ -880,8 +864,11 @@ async function main() {
       // respalda: el ingreso simplemente no existe aún).
       id: 'f2b-dos-turnos-cita-sin-completar',
       bitacora: 'F2b — cita CONFIRMADA sin ingreso: NO propone create_cfdi (no hay ledgerEntryId); explica que primero se completa (y la factura va después)',
-      message: 'emítele la factura a la cita de CIT2 del 10 de agosto',
-      dataDependent: 'cita cmr85s169 (CIT2, CONFIRMED 2026-08-10 09:00, sin ingreso, sin expediente) en dr-prueba',
+      // 2026-07-24: CIT2 se COMPLETÓ en la UI para re-sembrar el ingreso del
+      // camino feliz (#1621) — esta premisa se re-apuntó a otra cita CONFIRMED
+      // sin ingreso de dr-prueba.
+      message: 'emítele la factura a la cita de Diki Perez del 27 de julio',
+      dataDependent: 'cita cmrxvqck8 (Diki Perez, CONFIRMED 2026-07-27 07:00, sin ingreso) en dr-prueba',
       checks: [
         { kind: 'no-proposal-of-type', types: ['create_cfdi'] },
         { kind: 'reply-match', pattern: '(complet|ingreso)', flags: 'i' },

@@ -178,8 +178,10 @@ alineada): PASA 2/2 con la secuencia delete→create completa.
 conducta a lenguaje de TRIGGER explícito donde el modelo lo lee — **1ª pasada HECHA**:
 `f2a-clave-insumos` arreglado con "busca PRIMERO, no contestes de memoria" en FACTURAS_RULES
 (4/4 al 1er intento; con tools DIFERIDAS el lugar es el prompt, no la descripción — no está en
-contexto). Queda: los módulos sobre presupuesto de (C) y re-sembrar el ingreso de prueba de
-F2b/F2c (el fixture de `f2b-ya-facturada` está doblemente driftado); **(#3)** ✅ HECHO — fixtures flaky de dr-prueba
+contexto). **2ª pasada HECHA**: FACTURAS_RULES −344 tok (triggers intactos), borradorPendiente
+instruye desde el resultado del servidor, y el usuario re-sembró los fixtures (ingreso #1621 ⇒
+camino feliz de emisión RESTAURADO tras 8 días data-blocked). Queda: agenda/flujo sobre
+presupuesto y los card-fantasma flaky de `f2c-*` bajo tool search; **(#3)** ✅ HECHO — fixtures flaky de dr-prueba
 limpiados (el duplicado "Gerardo Lopez" ahora es "Genaro Lopez", 1 UPDATE aprobado; historia de
 `f2b-ppd-solo-explicito` re-apuntada): 3 casos pasan al 1er intento, 5ª corrida consecutiva con
 0 fallos estables; **(#4)** uso de doctor REAL — no es código: ya está todo instrumentado

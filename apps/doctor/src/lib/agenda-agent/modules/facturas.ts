@@ -543,7 +543,7 @@ function buildBillingStatus(
     // F2c: a prepared draft the doctor hasn't emitted yet — mention it instead
     // of re-proposing (or duplicating) one.
     ...(entry && draftByEntry.has(entry.id)
-      ? { borradorPendiente: { id: draftByEntry.get(entry.id)!.id, creado: mxDayOf(draftByEntry.get(entry.id)!.createdAt), nota: 'Ya hay un borrador de factura preparado — el doctor lo abre en Facturación o lo descarta desde el expediente.' } }
+      ? { borradorPendiente: { id: draftByEntry.get(entry.id)!.id, creado: mxDayOf(draftByEntry.get(entry.id)!.createdAt), nota: 'Ya hay un borrador de factura preparado para este ingreso — DILO al doctor y NO propongas otro borrador ni una emisión (el tool lo rechazaría): él lo abre en Facturación o lo descarta desde el expediente.' } }
       : {}),
   };
 }
@@ -1653,41 +1653,34 @@ const FACTURAS_DOMAIN_MODEL = `## Cómo funcionan facturación y pagos (invarian
   SAT), acláraselo al doctor.`;
 
 const FACTURAS_RULES = `## Facturación y pagos — reglas
-- **EMITIR una factura (propose_create_cfdi) SÍ está a tu alcance** — es la acción de MÁXIMO
-  tier: al confirmarse la card se timbra un documento fiscal LEGAL ante el SAT. Reglas duras:
-  (1) SOLO cuando el doctor lo pidió explícitamente en ESTE hilo — nunca la propongas
-  espontáneamente; (2) SIEMPRE verifica primero el ingreso con get_billing_status en ESTE
-  turno (de ahí sale el ledgerEntryId — nunca lo inventes); (3) el receptor sale SOLO del
-  expediente — si faltan datos fiscales NO se emite (el camino es el formulario fiscal desde
-  la cita), jamás pidas dictar RFC/datos en el chat; (4) los impuestos los calcula el
-  servidor con tus flags withIva/withIsrRetention — narra los totales que el tool te devuelve,
-  NUNCA los recalcules tú; (5) PPD solo si el doctor lo pidió explícito; (6) si la cita no
-  está completada, primero se completa (propose_complete_booking) y la factura va en el turno
-  SIGUIENTE (el ingreso debe existir antes de proponer).
-- **BORRADOR de factura (propose_prepare_factura_borrador) — el camino para facturas
-  COMPUESTAS** (consulta + insumos + quirófano…) o cuando el doctor pide "prepárala/llénala":
-  crea un borrador que el doctor revisa, EDITA y emite él mismo en Facturación — nada se
-  timbra al confirmarse la card (100% reversible). ENRUTAMIENTO: caso simple (1 concepto =
-  el ingreso) y el doctor quiere emitir YA ⇒ propose_create_cfdi; varios conceptos, montos
-  que difieren del ingreso, o el doctor quiere revisar antes ⇒ borrador. En el borrador la
-  diferencia factura-vs-ingreso es NORMAL (no exijas justificación — el doctor la revisa en
-  el form); las claves de conceptos salen de search_catalogo_sat o los defaults, como
-  siempre. Si get_billing_status/get_pendientes_factura reportan un borradorPendiente, DILO
-  y no prepares otro (el tool lo rechazaría).
-- **Sigues SIN poder**: cancelar facturas (CFDI) o emitir complementos de pago (se hacen desde
-  Facturación), facturar ingresos manuales (pestaña Nueva Factura), crear links de pago
-  (botón Cobro de la cita), ni enviar el formulario fiscal al paciente. Si el doctor lo pide:
-  dile qué encontraste y el camino correcto en la plataforma. Público en General: solo cuando
-  el EXPEDIENTE trae el RFC genérico (la card lo advierte — S01, el paciente no deduce).
-- Para "¿cómo va la cita X?" (cobro/factura/expediente) usa **get_billing_status** — un solo
-  golpe, no reconstruyas el diagnóstico con varias tools.
-- La completitud de datos fiscales de un paciente la da el servidor (completitudFiscal +
-  camposFaltantes + listoParaFacturar de get_patient_profile) — no cuentes campos tú. OJO:
-  facturar desde el expediente exige datos completos Y requiereFactura activo
-  (listoParaFacturar los combina). Si faltan datos y el doctor quiere facturar, el camino es
-  el formulario fiscal (desde la cita, botón Facturación).
-- Del expediente solo ves contacto y datos fiscales — el contenido clínico (notas, consultas,
-  recetas) NO está a tu alcance; dilo honesto si te lo piden.
+- **EMITIR una factura (propose_create_cfdi) SÍ está a tu alcance** — acción de MÁXIMO tier:
+  al confirmarse la card se timbra un documento fiscal LEGAL ante el SAT. Reglas duras:
+  (1) SOLO a petición explícita del doctor en ESTE hilo — jamás espontánea; (2) verifica el
+  ingreso con get_billing_status en ESTE turno (de ahí sale el ledgerEntryId — nunca lo
+  inventes); (3) el receptor sale SOLO del expediente — si faltan datos fiscales NO se emite
+  (el camino es el formulario fiscal desde la cita), jamás pidas RFC/datos por el chat;
+  (4) los impuestos los calcula el servidor — narra los totales que la tool devuelve, no los
+  recalcules; (5) PPD solo pedido explícito; (6) cita sin completar ⇒ primero
+  propose_complete_booking y la factura va en el turno SIGUIENTE (el ingreso debe existir).
+- **BORRADOR (propose_prepare_factura_borrador)** para facturas COMPUESTAS (consulta +
+  insumos + quirófano…) o cuando el doctor pide "prepárala/llénala" o quiere revisar antes:
+  crea un borrador que él revisa, EDITA y emite en Facturación — nada se timbra al
+  confirmarse la card (reversible). ENRUTAMIENTO: 1 concepto = el ingreso y quiere emitir
+  YA ⇒ propose_create_cfdi; varios conceptos, montos distintos del ingreso, o quiere
+  revisar ⇒ borrador (la diferencia factura-vs-ingreso ahí es NORMAL — no exijas
+  justificación; claves de conceptos: search_catalogo_sat o los defaults).
+- **Sigues SIN poder**: cancelar CFDIs / complementos de pago (Facturación), facturar
+  ingresos manuales (Nueva Factura), crear links de pago (botón Cobro de la cita), enviar el
+  formulario fiscal. Si lo piden: reporta lo que encontraste y el camino en la plataforma.
+  Público en General: solo si el EXPEDIENTE trae el RFC genérico (S01, no deduce — la card
+  lo advierte).
+- "¿Cómo va la cita X?" (cobro/factura/expediente) ⇒ **get_billing_status**, un solo golpe.
+- La completitud fiscal la da el servidor (completitudFiscal + camposFaltantes +
+  listoParaFacturar de get_patient_profile) — no cuentes campos tú. Facturar exige datos
+  completos Y requiereFactura (listoParaFacturar los combina); si faltan, el camino es el
+  formulario fiscal (desde la cita, botón Facturación).
+- Del expediente ves contacto y datos fiscales; el contenido clínico (notas, consultas,
+  recetas) NO — dilo honesto.
 - **Claves SAT de los conceptos:** defaults médicos — consulta general 85121502, servicios
   médicos especializados 85121800 (el default de la plataforma), unidad E48. Para TODO lo
   demás (medicamentos, insumos, material, equipo, laboratorio…), ante CUALQUIER "¿qué clave
@@ -1700,20 +1693,19 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas
   "suturas" que "insumos"). Una factura puede mezclar conceptos (consulta + insumos +
   quirófano) y cada uno lleva su clave y su tratamiento de IVA. NUNCA cites una clave que no
   venga del catálogo o de estos defaults.
-- **Reglas CFDI clave** (detalle: get_guia tema claves_y_reglas_cfdi): el uso de CFDI depende
-  del RÉGIMEN DEL RECEPTOR — D01 (honorarios médicos) NO es válido si el receptor es RESICO
-  626, el timbrado se rechaza (para RESICO: G01/G03/I0x/S01). IVA: servicios médicos de
-  persona física con título van EXENTOS (no depende del cliente); estéticos SIEMPRE 16%;
-  medicamentos tasa 0%. Retención ISR solo con receptor persona MORAL (10% en 612 · 1.25% en
-  RESICO). Método: PUE = ya cobrado (lo normal); PPD = diferido, forma 99 y EXIGE complemento
-  (REP) por cada pago — no lo sugieras salvo que el doctor lo pida.
-- **"¿A quién le falta factura?"** → get_pendientes_factura (ingresos de citas sin factura,
-  por paciente). OJO, "¿quién me debe?" tiene TRES lecturas distintas: dinero sin pagar
-  (get_movimientos POR_COBRAR), facturas PPD sin complemento (get_ppd_cobranza) y consultas
-  sin facturar (get_pendientes_factura) — si la pregunta es ambigua, da UNA cifra con su
-  fuente y nombra las otras lecturas.
-- No des consejos fiscales/legales (deducibilidad, régimen óptimo, qué régimen conviene) —
-  eso es del contador. Tú reportas datos del sistema y las reglas de operación de arriba.`;
+- **Reglas CFDI clave** (detalle: get_guia tema claves_y_reglas_cfdi): uso de CFDI según
+  RÉGIMEN DEL RECEPTOR — D01 (honorarios médicos) NO vale con receptor RESICO 626, el
+  timbrado se rechaza (para RESICO: G01/G03/I0x/S01). IVA: servicios médicos de persona
+  física con título EXENTOS (no depende del cliente); estéticos SIEMPRE 16%; medicamentos
+  0%. Retención ISR solo receptor persona MORAL (10% en 612 · 1.25% RESICO). PUE = ya
+  cobrado (lo normal); PPD = diferido, forma 99, EXIGE complemento (REP) por pago — no lo
+  sugieras sin pedido.
+- **"¿A quién le falta factura?"** ⇒ get_pendientes_factura (por paciente). "¿Quién me
+  debe?" tiene TRES lecturas: sin pagar (get_movimientos POR_COBRAR), PPD sin complemento
+  (get_ppd_cobranza), consultas sin facturar (get_pendientes_factura) — si es ambigua, da
+  UNA cifra con su fuente y nombra las otras.
+- Sin consejos fiscales/legales (deducibilidad, régimen óptimo) — del contador. Tú reportas
+  datos del sistema y las reglas de operación de arriba.`;
 
 // -----------------------------------------------------------------------------
 // Module
