@@ -38,9 +38,17 @@ import {
 } from './modules/registry';
 import type { AgentModule } from './modules/types';
 import { STABLE_SYSTEM_PROMPT, buildSystemPrompt } from './prompt';
-import { mxNowString, mxTodayKey, mxTodayWeekday } from './dates';
+import { mxNowString, mxTodayKey, mxUpcomingDays } from './dates';
 
-export const MODEL = process.env.AGENDA_AGENT_MODEL || 'claude-sonnet-5';
+/** Default model. Haiku 4.5 since 2026-07-23: measured BETTER than Sonnet 5 on the
+ * 65-eval suite (band 63–64/65, 0 hard FAIL) at ~half the cost — see
+ * `docs/DESDE JUNIO/AGENTES/OPTIMIZACION COSTOS/`. Changing the default here rather
+ * than setting AGENDA_AGENT_MODEL in Railway is deliberate: it ships the model in the
+ * SAME commit as the thinking branch and the resolved-date block it depends on (a
+ * Railway var could otherwise land first and run Haiku WITHOUT them — the 59/65
+ * config), and it leaves `form-builder-chat` on its own Sonnet default instead of
+ * dragging it along. The env var still overrides for an instant rollback. */
+export const MODEL = process.env.AGENDA_AGENT_MODEL || 'claude-haiku-4-5';
 const MAX_ITERATIONS = 8;
 const MAX_TOKENS_PER_CALL = 4096;
 // Tool results are re-sent as input tokens on EVERY subsequent iteration — cap
@@ -74,13 +82,29 @@ function extractText(content: { type: string }[]): string {
  * must live in the volatile block — never in the stable prompt. */
 function buildSystem(modules: AgentModule[]): SystemBlock[] {
   const promptText = modules === AGENT_MODULES ? STABLE_SYSTEM_PROMPT : buildSystemPrompt(modules);
+  // ONE anchor for the header AND the table: each mx* helper calls new Date()
+  // on its own, so building them independently could straddle midnight MX and
+  // print "Hoy es jueves 23" above a table whose "(hoy)" row says the 24th.
+  // The weekday is read off row 0 rather than from mxTodayWeekday() for the same
+  // reason — that helper would be a third independent clock read.
+  const todayKey = mxTodayKey();
+  const upcoming = mxUpcomingDays(14, todayKey);
   return [
     { type: 'text', text: promptText, cache_control: { type: 'ephemeral' } },
     {
       type: 'text',
       text: `## Contexto temporal
-Ahora mismo es ${mxNowString()} (America/Mexico_City). Hoy es ${mxTodayWeekday()} ${mxTodayKey()} —
-calcula los demás días de la semana a partir de este dato, no lo deduzcas tú.`,
+Ahora mismo es ${mxNowString()} (America/Mexico_City). Hoy es ${upcoming[0].weekday} ${todayKey}.
+
+### Calendario ya resuelto (próximos 14 días)
+El servidor ya calculó qué fecha le toca a cada día. Cuando el doctor diga "el martes",
+"mañana", "el próximo viernes" o similar, TOMA la fecha de esta tabla — no la calcules tú:
+${upcoming
+  .map(({ key, weekday }, i) => `• ${weekday} ${key}${i === 0 ? ' (hoy)' : i === 1 ? ' (mañana)' : ''}`)
+  .join('\n')}
+Esta tabla solo va hacia ADELANTE y 14 días. Para cualquier fecha fuera de ella —**incluidas las
+PASADAS** ("el martes pasado", "el mes pasado", "octubre")— calcula a partir de **Hoy** y di la
+fecha completa al mencionarla.`,
     },
   ];
 }
@@ -254,6 +278,10 @@ export async function runAgendaAgentTurn({
     // SEQUENTIAL on purpose: proposal registration order = the model's call
     // order = execution order of the plan. Promise.all raced the collector
     // (whichever query finished first got orden 1) and shuffled the cards.
+    // NOTE: pushes the WHOLE content array verbatim. On models with extended
+    // thinking on (anthropic.ts thinkingFor), that array also carries thinking
+    // blocks, which the API requires echoed back UNCHANGED alongside the
+    // tool_use they preceded. Don't filter this to tool_use/text.
     messages.push({ role: 'assistant', content: response.content });
 
     const results = [];

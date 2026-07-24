@@ -27,6 +27,36 @@ export function mxTodayWeekday(): string {
   });
 }
 
+/** The next `days` calendar days in Mexico City as {key, weekday}, starting TODAY.
+ *
+ * Generalizes the mxTodayWeekday() fix (E6: "LLMs miscompute day-of-week from a
+ * bare date") from today to the whole planning window. The prompt used to hand
+ * over ONE anchor and tell the model to derive the rest; a weaker model then
+ * resolved "el martes" to the wrong date and still labelled it "Martes"
+ * (eval `weekday-correcto`). Resolving server-side deletes the failure class
+ * instead of hoping the model does the arithmetic right — same spirit as
+ * regla 0 (verdicts resolve server-side, the model never recomputes them).
+ *
+ * Noon-UTC anchor so the calendar day never shifts with the tz offset (same
+ * trick as mxWeekStartKey). */
+export function mxUpcomingDays(
+  days: number,
+  /** Anchor ("YYYY-MM-DD"). Pass the SAME key the caller prints elsewhere so a
+   * midnight rollover can't make the header and the table disagree. */
+  todayKey: string = mxTodayKey()
+): { key: string; weekday: string }[] {
+  const start = new Date(todayKey + 'T12:00:00Z');
+  return Array.from({ length: days }, (_, i) => {
+    const d = new Date(start);
+    d.setUTCDate(start.getUTCDate() + i);
+    return {
+      key: utcDateToKey(d),
+      // Format in UTC: the anchor IS noon UTC of the intended MX calendar day.
+      weekday: d.toLocaleDateString('es-MX', { weekday: 'long', timeZone: 'UTC' }),
+    };
+  });
+}
+
 /** "HH:MM" plus N minutes, clamped to 23:59 (same clamp as booking-overlap). */
 export function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number);
