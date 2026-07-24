@@ -175,9 +175,11 @@ modelo literal a detenerse en vez de proponer con advertencia. Corregida (+ pros
 alineada): PASA 2/2 con la secuencia delete→create completa.
 
 **E) 🆕 Roadmap acordado con el usuario (2026-07-24), en orden:** **(#2)** mover reglas de
-conducta a DESCRIPCIONES de tools / campos server-side — primer blanco: `f2a-clave-insumos`
-(en las 2 corridas con tool search el modelo no buscó la tool diferida del catálogo SAT al 1er
-intento) y los módulos sobre presupuesto de (C); **(#3)** ✅ HECHO — fixtures flaky de dr-prueba
+conducta a lenguaje de TRIGGER explícito donde el modelo lo lee — **1ª pasada HECHA**:
+`f2a-clave-insumos` arreglado con "busca PRIMERO, no contestes de memoria" en FACTURAS_RULES
+(4/4 al 1er intento; con tools DIFERIDAS el lugar es el prompt, no la descripción — no está en
+contexto). Queda: los módulos sobre presupuesto de (C) y re-sembrar el ingreso de prueba de
+F2b/F2c (el fixture de `f2b-ya-facturada` está doblemente driftado); **(#3)** ✅ HECHO — fixtures flaky de dr-prueba
 limpiados (el duplicado "Gerardo Lopez" ahora es "Genaro Lopez", 1 UPDATE aprobado; historia de
 `f2b-ppd-solo-explicito` re-apuntada): 3 casos pasan al 1er intento, 5ª corrida consecutiva con
 0 fallos estables; **(#4)** uso de doctor REAL — no es código: ya está todo instrumentado

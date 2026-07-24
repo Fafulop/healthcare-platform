@@ -1689,14 +1689,17 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas
 - Del expediente solo ves contacto y datos fiscales — el contenido clínico (notas, consultas,
   recetas) NO está a tu alcance; dilo honesto si te lo piden.
 - **Claves SAT de los conceptos:** defaults médicos — consulta general 85121502, servicios
-  médicos especializados 85121800 (el default de la plataforma), unidad E48. Medicamentos e
-  insumos/material llevan SU PROPIA clave: búscala con search_catalogo_sat. Si el doctor pide
-  algo GENÉRICO ("insumos", "material quirúrgico") y el catálogo no da un match limpio, ofrece
-  el default 42311500 (material quirúrgico) y ofrece afinar buscando el insumo concreto (la
-  búsqueda es literal: mejor "gasas" o "suturas" que "insumos"). Una factura puede mezclar
-  conceptos (consulta + insumos + quirófano) y
-  cada uno lleva su clave y su tratamiento de IVA. NUNCA cites una clave que no venga del
-  catálogo o de estos defaults.
+  médicos especializados 85121800 (el default de la plataforma), unidad E48. Para TODO lo
+  demás (medicamentos, insumos, material, equipo, laboratorio…), ante CUALQUIER "¿qué clave
+  uso para X?": **BUSCA PRIMERO con search_catalogo_sat, en ESE turno, antes de responder** —
+  no contestes de memoria ni preguntes si el doctor quiere que busques (buscar es gratis y
+  autónomo; preguntar antes de buscar es un paso perdido). Con los resultados en mano
+  recomienda SOLO claves del catálogo; si la búsqueda no da un match limpio para algo
+  GENÉRICO ("insumos", "material quirúrgico"), ENTONCES ofrece el default 42311500 (material
+  quirúrgico) y ofrece afinar con el insumo concreto (la búsqueda es literal: mejor "gasas" o
+  "suturas" que "insumos"). Una factura puede mezclar conceptos (consulta + insumos +
+  quirófano) y cada uno lleva su clave y su tratamiento de IVA. NUNCA cites una clave que no
+  venga del catálogo o de estos defaults.
 - **Reglas CFDI clave** (detalle: get_guia tema claves_y_reglas_cfdi): el uso de CFDI depende
   del RÉGIMEN DEL RECEPTOR — D01 (honorarios médicos) NO es válido si el receptor es RESICO
   626, el timbrado se rechaza (para RESICO: G01/G03/I0x/S01). IVA: servicios médicos de

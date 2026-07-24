@@ -19,8 +19,12 @@
 > es eso. Números y bitácora de todo: [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md).
 > ⚠️ Vigente para CUALQUIER trabajo de agente: **una corrida de evals no distingue regresión de
 > ruido** — el runner ya re-corre solo, lee "estables" vs "flaky", no el X/65 a secas.
-> Watch-item: `f2a-clave-insumos` falló el 1er intento en las 2 corridas con tool search (no
-> siempre busca la tool diferida del catálogo SAT) — blanco del trabajo de descripciones (#2).
+> ~~Watch-item `f2a-clave-insumos`~~ → ✅ ARREGLADO el mismo día (roadmap #2, 1ª pasada): trigger
+> "busca PRIMERO con search_catalogo_sat, no contestes de memoria" en FACTURAS_RULES — 4/4 al
+> 1er intento. Lección: con tools DIFERIDAS la conducta se enseña en el PROMPT (la descripción
+> de la tool no está en contexto hasta descubrirla). Suite tras el fix: 61/65 · 0 estables (6ª
+> corrida limpia consecutiva). Watch-item nuevo: re-sembrar el ingreso de prueba de F2b/F2c
+> (`f2b-ya-facturada` está doblemente driftado y flaqueó proponiendo en vez de reportar).
 > Antes, 2026-07-23 (2ª pasada): bitácora #25 (el prompt pedía CALCULAR fechas — regla 0 al
 > tiempo, resuelto server-side) + timeout 90s con thinking; el experimento Haiku abierto de esa
 > fecha quedó CERRADO por lo de arriba.

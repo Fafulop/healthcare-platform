@@ -29,6 +29,34 @@
 
 ## Experimentos
 
+### 2026-07-24 — 🎯 Roadmap #2 (1ª pasada): trigger "busca PRIMERO" en la regla de claves SAT
+
+**El miss:** con tool search, `f2a-clave-insumos` fallaba el 1er intento en las 2 corridas — el
+modelo contestaba la clave de MEMORIA (el default 42311500 que la propia regla le da) y OFRECÍA
+buscar en vez de buscar. Leído con cuidado, cumplía la LETRA de la regla vieja ("si pide algo
+genérico… ofrece el default"): el orden buscar-primero estaba implícito, y un modelo literal +
+una tool DIFERIDA (su descripción no está en contexto) lo saltaba.
+
+**Fix (FACTURAS_RULES, regla de claves):** trigger explícito — ante cualquier "¿qué clave uso
+para X?" (fuera de consulta general/especializada): **BUSCA PRIMERO con search_catalogo_sat en
+ESE turno, no contestes de memoria ni preguntes si quiere que busques** (buscar es autónomo y
+gratis); el default 42311500 pasa a ser el fallback DESPUÉS de buscar sin match limpio. Mismo
+patrón que el fix de `propose_delete_range`: la conducta se enseña con lenguaje de trigger
+explícito donde el modelo lo LEE — y con tools diferidas ese lugar es el prompt/regla, no la
+descripción de la tool (que no está en contexto hasta descubrirla).
+
+**Verificación:** `f2a-clave-insumos` **4/4 al 1er intento** (3 corridas solo + suite completa),
+buscando de inmediato. Suite completa: **61/65 · 4W · 0F al 1er intento · 4 flaky · 0 ESTABLES**
+— 6ª corrida completa consecutiva del día sin fallos estables. Costo en banda ($1.56 preciado
+Sonnet-intro ≈ $0.78 real Haiku; la fría de esta corrida salió alta porque el caso ancla cambió
+— artefacto del orden, no regresión).
+
+**Anotado para después:** `f2b-ya-facturada-no-reemite` flaqueó en dirección interesante (propuso
+un CFDI en vez de reportar "ya facturada"; pasó al reintento). No se saltó ningún guardarraíl (el
+ingreso que encontró no tenía factura y nada se ejecuta sin card), pero el fixture quedó DOBLEMENTE
+driftado desde el timbre en vivo (folio 8) — necesita el ingreso de prueba re-sembrado que su
+propio comentario ya pide. Es el mismo hueco del "camino feliz F2b/F2c data-blocked".
+
 ### 2026-07-24 — 🧹 Limpieza de fixtures flaky (roadmap #3): el ruido por DATOS quedó cerrado
 
 **Diagnóstico (read-only, método TOOLING):** el ÚNICO nombre duplicado en todo dr-prueba era
