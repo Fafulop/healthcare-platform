@@ -852,12 +852,19 @@ async function main() {
       id: 'f2b-ppd-solo-explicito',
       bitacora: 'F2b — PPD explícito sobre ingreso ya facturado: cero propuestas + narración honesta (caso PPD real data-blocked hasta re-sembrar)',
       message: 'sí — pero hazla PPD, el paciente paga después',
+      // 2026-07-24: la historia decía "a Gerardo Lopez" y empujaba al modelo a
+      // buscar POR NOMBRE — con los nombres denormalizados de dr-prueba eso
+      // encontraba varias citas de $900 y el caso flaqueaba por datos, no por
+      // conducta (WARN estable en 3 corridas). El nombre no es esencial al
+      // caso (lo que se prueba es PPD sobre un ingreso YA facturado): ahora la
+      // historia identifica la cita por fecha/ingreso, como haría un turno real
+      // que ya la había identificado.
       history: [
-        { role: 'user', content: 'emítele la factura de su consulta de $900 a Gerardo Lopez' },
+        { role: 'user', content: 'emítele la factura de la consulta de $900 del 8 de julio' },
         {
           role: 'assistant',
           content:
-            'La consulta de $900 del 8 de julio (cita "test123", ingreso #1570) es la que identifiqué. ¿Confirmo la emisión?',
+            'La consulta de $900 del 8 de julio (la cita completada de ese día, ingreso #1570) es la que identifiqué. ¿Confirmo la emisión?',
         },
       ],
       soft: true,

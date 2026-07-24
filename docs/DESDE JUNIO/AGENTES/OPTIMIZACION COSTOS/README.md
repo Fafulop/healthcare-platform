@@ -145,18 +145,14 @@ tabla de precios el Δ es un espejismo — el benchmark avisa, no ignores el avi
 > el cap ya acota el peor caso. Dicho eso, hay un reloj real: **el 2026-09-01 Sonnet 5 pasa de
 > $2/$10 a $3/$15 (+50% automático)** — que es precisamente el riesgo que Haiku desactiva.
 
-**A) ⭐ DECIDIR el merge/rollout — ya es decisión de RIESGO del usuario, no medición pendiente**
-- La varianza ya se caracterizó (caja 🛑): **cero fallos estables en ambos modelos**; Haiku solo
-  flakea más al 1er intento (una respuesta subóptima ocasional, no una conducta equivocada
-  estable). Contexto de riesgo: dr-prueba (no hay doctores reales), cap semanal acotado,
-  rollback = flip de env var, y el 2026-09-01 Sonnet sube +50% de precio.
-- ⚠️ **Al poner `AGENDA_AGENT_MODEL` en Railway, fijar `FORM_BUILDER_CHAT_MODEL=claude-sonnet-5`
-  en la MISMA pasada** — `form-builder-chat` hereda esa var (`route.ts:30-33`) y tiene **0
-  cobertura** en la suite. Y verificar el `commitHash` por servicio: un push puede saltarse el
-  auto-deploy de UNO.
-- Alternativa de menor riesgo: mergear solo la parte server-side (tabla de fechas + branch de
-  thinking + fixes de tools/runner) **sin** cambiar el modelo default. Mejora a Sonnet igual
-  (64/65 con el prompt de la rama), deja Haiku listo para un flip posterior.
+**A) ✅ Merge/rollout — DECIDIDO Y EJECUTADO 2026-07-24 (opción "todo").** El usuario aprobó
+mergear: Haiku default + fixes (`a5d95fad`) y luego tool search (`0daeed21`), ambos desplegados y
+verificados por `commitHash` en `@healthcare/doctor`. El modelo default vive en CÓDIGO (no hay
+env var puesta en Railway), así que `form-builder-chat` conserva su propio default Sonnet.
+⚠️ Sigue vigente para cualquier flip FUTURO por env var: poner `AGENDA_AGENT_MODEL` en Railway
+también arrastra a `form-builder-chat` (`route.ts:30-33`, 0 cobertura en la suite) — fijar
+`FORM_BUILDER_CHAT_MODEL=claude-sonnet-5` en la MISMA pasada, y verificar `commitHash` por
+servicio.
 
 **B) ✅ Carga DIFERIDA de tools (lever 2d) — SHIPPED 2026-07-24.**
 35/39 tools diferidas tras `tool_search_tool_regex`; quedan calientes las 4 lecturas top + la
@@ -178,7 +174,15 @@ era la DESCRIPCIÓN de `propose_delete_range` ("serán RECHAZADOS al ejecutar") 
 modelo literal a detenerse en vez de proponer con advertencia. Corregida (+ prosa del domain model
 alineada): PASA 2/2 con la secuencia delete→create completa.
 
-**E) Parar aquí.** Nada está roto y la medición no caduca.
+**E) 🆕 Roadmap acordado con el usuario (2026-07-24), en orden:** **(#2)** mover reglas de
+conducta a DESCRIPCIONES de tools / campos server-side — primer blanco: `f2a-clave-insumos`
+(en las 2 corridas con tool search el modelo no buscó la tool diferida del catálogo SAT al 1er
+intento) y los módulos sobre presupuesto de (C); **(#3)** ✅ HECHO — fixtures flaky de dr-prueba
+limpiados (el duplicado "Gerardo Lopez" ahora es "Genaro Lopez", 1 UPDATE aprobado; historia de
+`f2b-ppd-solo-explicito` re-apuntada): 3 casos pasan al 1er intento, 5ª corrida consecutiva con
+0 fallos estables; **(#4)** uso de doctor REAL — no es código: ya está todo instrumentado
+(`llm_token_usage` por turno, cap semanal, `agent_tool_errors`), los datos se acumulan solos
+cuando haya un doctor real.
 
 ### Lo que sigue sin saberse (bloquea decisiones, no lo inventes)
 1. **Uso de un doctor REAL** — hueco #1. Decide si TTL-1h sirve y si 2M/semana es el número

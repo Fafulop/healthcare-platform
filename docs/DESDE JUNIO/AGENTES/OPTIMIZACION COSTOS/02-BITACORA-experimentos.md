@@ -29,6 +29,30 @@
 
 ## Experimentos
 
+### 2026-07-24 — 🧹 Limpieza de fixtures flaky (roadmap #3): el ruido por DATOS quedó cerrado
+
+**Diagnóstico (read-only, método TOOLING):** el ÚNICO nombre duplicado en todo dr-prueba era
+"Gerardo Lopez" ×2 (mismo email; el 2º creado 2026-05-27 es el duplicado accidental documentado).
+Era la raíz de los 3 casos más flaky: `f1-completitud-fiscal-server`, `f2b-ya-facturada-no-reemite`
+y `f2b-ppd-solo-explicito` desviaban a "¿cuál de los dos?" (conducta CORRECTA de RESILIENCE sobre
+datos rotos).
+
+**Fixes (con OK del usuario para el write a prod):**
+1. `UPDATE medical_records.patients SET first_name='Genaro' WHERE id='cmpnbah010005ro0lqss8i033'`
+   (1 fila, dr-prueba, reversible). Las citas NO se tocaron — `bookings.patient_name` es
+   denormalizado y varias citas viejas siguen diciendo "Gerardo Lopez" (anotado, no bloquea).
+2. `f2b-ppd-solo-explicito`: la HISTORIA del caso empujaba búsqueda por nombre y citaba una cita
+   ("test123") que ya no existe por id — se re-apuntó a la identidad real (fecha + ingreso #1570).
+   El caso prueba PPD-sobre-ya-facturado; el nombre no era esencial.
+
+**Verificación:** los 3 casos PASAN al 1er intento re-corridos solos. Corrida completa post-fix
+(Haiku + tool search): `60/65 · 2W · 3F` al 1er intento, **5 flaky, 0 ESTABLES** — 5ª corrida
+completa consecutiva del día con cero fallos estables. Los flakes restantes ya no son de datos:
+son regex `soft` sensibles a redacción + varianza del modelo.
+⚠️ **Patrón a vigilar (blanco del roadmap #2):** `f2a-clave-insumos` falló el 1er intento en las
+DOS corridas con tool search — el modelo no siempre busca la tool DIFERIDA `search_catalogo_sat`.
+Se arregla con descripciones/nota de búsqueda, no con datos.
+
 ### 2026-07-24 — 🔍 Lever 2d: carga DIFERIDA de tools (tool search) — pregunta FRÍA −43%, calidad en banda
 
 **Cambio (rama de trabajo, sin commitear):** `tool_search_tool_regex_20251119` + `defer_loading:

@@ -2,22 +2,28 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última actualización de ESTADO: **2026-07-23 (2ª pasada)** — **bitácora #25: el prompt le pedía
-> al modelo CALCULAR fechas** (regla 0 sin aplicar al tiempo); ahora el servidor emite el
-> calendario de 14 días resuelto. Salió al medir **Haiku 4.5** (experimento de costo).
-> 🎲 **OJO — ese experimento NO está cerrado y la suite resultó MUY ruidosa:** tres corridas de la
-> misma config de Haiku dieron **64, 63 y 58 de 65**, y **ningún fallo se reprodujo** al
-> re-correrlo solo. El costo de Haiku sí está probado (−52%); **su calidad no**. La varianza de
-> Sonnet nunca se midió, así que hoy no se puede decir qué modelo es más estable — detalle y plan
-> en [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md) (caja 🛑).
-> ⚠️ **Consecuencia para CUALQUIER trabajo de agente, no solo para costos: una corrida de evals
-> no distingue regresión de ruido.** Re-corre el caso solo antes de declarar una regresión — y
-> aplica el mismo escepticismo a los resultados BUENOS.
-> Además el timeout de llamada subió a **90s cuando hay thinking**
-> (razonar tarda ANTES del primer token; a 60s reventaba).
-> Vive en la rama `agent/haiku-viability` (sin commitear, sin mergear, sin desplegar); tag de rollback
-> `agent-sonnet-known-good-2026-07-23`. Números y decisión de rollout en
-> [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md).
+> Última actualización de ESTADO: **2026-07-24** — DÍA GRANDE, tres cosas EN PROD:
+> **(1) Haiku 4.5 es el modelo default** (`a5d95fad`) con thinking 4096, fechas server-side y el
+> fix de `propose_delete_range` (la descripción invitaba a pre-empatar el veredicto del servidor —
+> regla 0 aplicada al LENGUAJE de las tools). **(2) Tool search / carga diferida** (`0daeed21`):
+> 35/39 tools con `defer_loading`; pregunta fría −43% adicional (−76% apilado vs Sonnet); el
+> prompt ganó la sección "Tools bajo demanda" — sin ella el modelo preguntaba en vez de proponer.
+> **(3) El runner de evals RE-CORRE cada caso no-PASS** (`EVALS_RETRIES`, default 2) y separa
+> fallos ESTABLES (señal, gatea el exit code) de flaky (ruido): con eso se midió que **ni Haiku ni
+> Sonnet tienen fallos estables** (5 corridas completas, 0 estables) — la vieja duda "¿Haiku es
+> peor?" era ruido de la suite. Rollbacks por env var: `AGENDA_AGENT_MODEL=claude-sonnet-5` ·
+> `AGENDA_AGENT_TOOL_SEARCH=0`; tag `agent-sonnet-known-good-2026-07-23`.
+> 🧹 **Datos de dr-prueba:** el expediente duplicado "Gerardo Lopez" (27-may) ahora se llama
+> **"Genaro Lopez"** (UPDATE aprobado, 1 fila) y la historia de `f2b-ppd-solo-explicito` ya no
+> depende del nombre — los 3 casos más flaky pasan al 1er intento. Si ves "Genaro" en dr-prueba,
+> es eso. Números y bitácora de todo: [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md).
+> ⚠️ Vigente para CUALQUIER trabajo de agente: **una corrida de evals no distingue regresión de
+> ruido** — el runner ya re-corre solo, lee "estables" vs "flaky", no el X/65 a secas.
+> Watch-item: `f2a-clave-insumos` falló el 1er intento en las 2 corridas con tool search (no
+> siempre busca la tool diferida del catálogo SAT) — blanco del trabajo de descripciones (#2).
+> Antes, 2026-07-23 (2ª pasada): bitácora #25 (el prompt pedía CALCULAR fechas — regla 0 al
+> tiempo, resuelto server-side) + timeout 90s con thinking; el experimento Haiku abierto de esa
+> fecha quedó CERRADO por lo de arriba.
 > Antes, 2026-07-23 (1ª pasada) — (a) **cap del asistente movido a SEMANAL**
 > (2M budget, corte lunes MX; era diario 500k) + **baseline de costo medida**: corrida completa
 > `63/65 · 2 WARN · 0 FAIL`, $0.022/pregunta tibia vs $0.083 fría — ver
