@@ -22,7 +22,24 @@ export interface AnthropicTool {
     properties: Record<string, unknown>;
     required?: string[];
   };
+  /** Tool search (lever 2d): the full definition still travels in `tools` on
+   * every request, but a deferred tool is EXCLUDED from the context prefix
+   * until the model discovers it via the search tool — the API appends the
+   * schema without invalidating the cached prefix. Hard rules (docs): the
+   * search tool itself never carries this; ≥1 tool must stay non-deferred; a
+   * deferred tool cannot carry cache_control. */
+  defer_loading?: boolean;
 }
+
+/** Anthropic's server-side tool search (regex variant, GA — verified available
+ * on Haiku 4.5 and Sonnet 5, 2026-07-24). The search runs on Anthropic's
+ * servers inside the same request; the client never executes it. */
+export interface ToolSearchToolDef {
+  type: 'tool_search_tool_regex_20251119';
+  name: 'tool_search_tool_regex';
+}
+
+export type AgentToolParam = AnthropicTool | ToolSearchToolDef;
 
 export interface TextBlock {
   type: 'text';
@@ -38,7 +55,25 @@ export interface ToolUseBlock {
   cache_control?: CacheControl;
 }
 
-export type ContentBlock = TextBlock | ToolUseBlock;
+/** The model's call to a SERVER-side tool (tool search). Executed by the API
+ * within the same request — never dispatch it client-side and never send a
+ * tool_result for its `srvtoolu_...` id (the API rejects that). */
+export interface ServerToolUseBlock {
+  type: 'server_tool_use';
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+/** Result of a server-side tool search — pass it back verbatim in history so
+ * the API can keep expanding the discovered tool references. */
+export interface ToolSearchToolResultBlock {
+  type: 'tool_search_tool_result';
+  tool_use_id: string;
+  content: unknown;
+}
+
+export type ContentBlock = TextBlock | ToolUseBlock | ServerToolUseBlock | ToolSearchToolResultBlock;
 
 export interface ToolResultBlock {
   type: 'tool_result';
@@ -60,7 +95,9 @@ export type SystemBlock = TextBlock;
 
 export interface AnthropicResponse {
   content: ContentBlock[];
-  stop_reason: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence';
+  /** `pause_turn`: the server-side tool loop paused (tool search runs in a
+   * server loop) — re-send history as-is and call again to resume. */
+  stop_reason: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | 'pause_turn';
   usage: {
     input_tokens: number;
     output_tokens: number;
@@ -75,7 +112,7 @@ export interface CallClaudeParams {
   model: string;
   system: string | SystemBlock[];
   messages: AnthropicMessage[];
-  tools: AnthropicTool[];
+  tools: AgentToolParam[];
   maxTokens?: number;
   /** 'none' forces a text answer (used for the final synthesis call). */
   toolChoice?: 'auto' | 'none';

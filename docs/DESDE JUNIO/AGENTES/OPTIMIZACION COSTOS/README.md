@@ -49,12 +49,11 @@ evals) + costo por pregunta:
 
 ## 🔄 HANDOFF — estado al 2026-07-24 (3ª sesión)
 
-**En una frase:** el **COSTO de Haiku está probado (−50%+)** y la pregunta de calidad **cambió de
-forma**: con el runner que ahora RE-CORRE cada caso no-PASS, **ni Haiku ni Sonnet tienen UN solo
-fallo ESTABLE** sobre la config de la rama — todo lo que falla pasa al re-correrlo (es ruido de la
-suite, medido en los DOS modelos). Lo que queda es una decisión de RIESGO del usuario, no una
-medición pendiente. Todo vive en la rama **`agent/haiku-viability`** (2 commits + cambios sin
-commitear de esta sesión), **sin mergear, sin desplegar**.
+**En una frase:** **Haiku 4.5 está EN PRODUCCIÓN** (mergeado y desplegado 2026-07-24, `a5d95fad`)
+con cero fallos ESTABLES medidos en ambos modelos, y encima se construyó y midió el **lever 2d**
+(tool search / carga diferida): **pregunta fría −43% adicional** ⇒ $0.083 (Sonnet prod de ayer) →
+**$0.0196** (−76% apilado). Rollbacks: `AGENDA_AGENT_MODEL=claude-sonnet-5` (modelo) ·
+`AGENDA_AGENT_TOOL_SEARCH=0` (tool search) · tag `agent-sonnet-known-good-2026-07-23`.
 
 > # 🛑 SI LLEGAS EN FRÍO, LEE ESTO ANTES QUE NADA
 >
@@ -93,22 +92,15 @@ commitear de esta sesión), **sin mergear, sin desplegar**.
 | `0ed55f1b` | **Baseline medida** + hallazgos + auditoría anti-vacío |
 | `a3146927` | **Prefijo medido exacto** (`measure-agent-prefix.ts`) + blancos de poda |
 
-### Lo que está EN RAMA, medido, sin mergear (`agent/haiku-viability`)
+### Lo que SHIPPEÓ el 2026-07-24 (además de los 4 commits de la tabla de arriba)
 
-Commiteado (`f914813a`):
-- `anthropic.ts`: `thinking` **por modelo** (Haiku `enabled`+`budget_tokens`; Sonnet intacto).
-- `dates.ts` + `run-turn.ts`: calendario de 14 días **resuelto server-side** (bloque volátil).
-
-Sin commitear (sesión 2026-07-24):
-- `agenda-agent-evals.ts`: **reintentos automáticos** de casos no-PASS (estable vs flaky — ver la
-  caja 🛑) + regex de `create-sin-hueco` ensanchado (flaggeaba una respuesta correcta).
-- `proposals.ts` + `modules/agenda.ts`: **fix del miss real** — la descripción de
-  `propose_delete_range` decía "serán RECHAZADOS al ejecutar" y Haiku (literal) se detenía sin
-  proponer; ahora dice explícito "propón igual con la advertencia, el veredicto es del servidor"
-  y la prosa del domain model quedó alineada (regla 0 aplicada al lenguaje de las tools).
-- `anthropic.ts`: `THINKING_BUDGET_TOKENS` 2048 → **4096** (la forma de fallo del 58/65 era
-  "pregunta en vez de actuar" en planes multi-paso; +4.5% de budget, sigue −50% vs Sonnet).
-- Gates ✅ · type-check apps/doctor ✅ (2026-07-24).
+- **`a5d95fad` (mergeado a main, desplegado y verificado por commitHash):** Haiku 4.5 como
+  default + thinking por modelo (budget 4096) + fechas server-side + reintentos estable-vs-flaky
+  en el runner + fix de `propose_delete_range` (regla 0 en el lenguaje de tools).
+- **Lever 2d (tool search)** — el commit siguiente a este doc: `run-turn.ts`/`anthropic.ts`
+  (defer_loading en 35/39 tools, `pause_turn`, breakpoints seguros) + `prompt.ts`
+  (`TOOL_SEARCH_NOTE`: sin ella el modelo preguntaba en vez de proponer — miss estable cazado
+  por los reintentos). ⚠️ El sha del prompt cambió ⇒ una invalidación de caché al desplegar.
 - 🔖 Tag de rollback: **`agent-sonnet-known-good-2026-07-23`** (runtime verificado
   byte-idéntico al de la baseline `63/65`).
 - 🟢 **Mergear NO compromete el modelo:** el request de Sonnet quedó byte-idéntico y la tabla de
@@ -166,14 +158,14 @@ tabla de precios el Δ es un espejismo — el benchmark avisa, no ignores el avi
   thinking + fixes de tools/runner) **sin** cambiar el modelo default. Mejora a Sonnet igual
   (64/65 con el prompt de la rama), deja Haiku listo para un flip posterior.
 
-**B) 🆕 Carga DIFERIDA de tools (lever 2d)** — el mayor ahorro que queda, y quizá TAMBIÉN calidad.
-Las tools son el **55% del prefijo** en 39 definiciones y un turno real usa **0–3**.
-✅ **Verificado 2026-07-24 (docs oficiales): tool search corre en Haiku 4.5** (regex y bm25, GA,
-sin beta header), los schemas diferidos se APENDIZAN sin invalidar el caché, y Anthropic documenta
-que la precisión de selección de tools **se degrada pasando 30–50 tools** — tenemos 39, así que
-diferir puede MEJORAR a Haiku, no solo abaratarlo. Reglas duras: el tool de búsqueda no puede
-llevar `defer_loading`; ≥1 tool sin diferir; un tool diferido no puede llevar `cache_control`.
-⚠️ Sigue pendiente medir el viaje extra por turno. Detalle en [`01-PLAN`](01-PLAN-experimentos.md) §2d.
+**B) ✅ Carga DIFERIDA de tools (lever 2d) — SHIPPED 2026-07-24.**
+35/39 tools diferidas tras `tool_search_tool_regex`; quedan calientes las 4 lecturas top + la
+búsqueda. **Pregunta FRÍA −43%** ($0.0343 → $0.0196 en Haiku; apilado vs Sonnet prod: −76%);
+tibia NEUTRA (la suite corre cacheada — el beneficio vive en el uso esporádico real); latencia
+p50 +1.6 s; calidad en banda con **0 FAILs estables**. Lección clave: hubo que decirle al modelo
+en el prompt que las tools diferidas EXISTEN (sección `TOOL_SEARCH_NOTE`) — sin eso, describía y
+preguntaba en vez de proponer (miss estable, cazado por los reintentos del runner). Rollback:
+`AGENDA_AGENT_TOOL_SEARCH=0`. Detalle en la entrada 2026-07-24 de [`02-BITACORA`](02-BITACORA-experimentos.md).
 
 **C) Podar el prefijo** (lever 2b) — blancos medidos: **facturas 8,706** (~3× presupuesto),
 **agenda 7,255** (~2.4×), compartido 4,616; tool más pesada `propose_create_cfdi` (1,276).

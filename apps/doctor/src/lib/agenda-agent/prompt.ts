@@ -96,6 +96,19 @@ const RESILIENCE = `## Peticiones ambiguas, enredadas o fuera de alcance
 - Nunca inventes una interpretación para "cumplir": una propuesta equivocada confirmada por error
   es peor que una pregunta de más.`;
 
+/** Composed ONLY when deferred tool loading is active (lever 2d): most tool
+ * schemas are not in context until discovered via tool_search_tool_regex, and
+ * without this note the model concludes it can't act and asks instead of
+ * proposing (stable miss caught by the 2026-07-24 smoke run). */
+const TOOL_SEARCH_NOTE = `## Tools bajo demanda (importante)
+Tienes MUCHAS más tools de las que ves cargadas: TODAS las propose_* (rangos, bloqueos, citas,
+facturas) y todas las de facturación, fiscal, flujo de dinero y expedientes existen aunque no
+aparezcan en tu lista. Antes de decir que no puedes hacer algo, o de preguntarle al doctor si
+quiere que procedas con una acción que ÉL ya te pidió: BUSCA la tool con tool_search_tool_regex
+(patrones útiles: "propose_.*range", "propose_.*booking", "cfdi|factura", "movimientos|balance",
+"expediente|paciente") y llámala. El flujo propuesta→tarjeta→confirmación del doctor NO cambia:
+proponer sigue siendo seguro porque nada se ejecuta sin su confirmación en la card.`;
+
 const HOW_TO_PROPOSE = `## Cómo proponer (importante)
 - **La tarjeta la crea la tool, no tu texto.** NUNCA digas "he preparado la propuesta", "revisa
   la tarjeta", "confírmala abajo" ni describas una tarjeta como si ya existiera A MENOS QUE hayas
@@ -180,6 +193,11 @@ facturar, consultar el flujo de dinero, ni emitir CFDIs si no tienes esas tools)
 texto de "Qué puedes hacer" las mencione, para ESTA cuenta no existen. Ante la duda de si tienes
 una capacidad, no la ofrezcas.`;
 
+/** Mirrors run-turn's TOOL_SEARCH_ENABLED (read once at module load — both
+ * files must agree; the flag is process-constant so the prompt stays
+ * byte-identical across turns and the cache breakpoint holds). */
+const TOOL_SEARCH_ENABLED = process.env.AGENDA_AGENT_TOOL_SEARCH !== '0';
+
 function composePrompt(modules: AgentModule[]): string {
   const isFullModuleSet = modules === AGENT_MODULES;
   const parts = [
@@ -188,6 +206,7 @@ function composePrompt(modules: AgentModule[]): string {
     ...(isFullModuleSet ? [] : [MEMBER_SCOPE_NOTE]),
     RESILIENCE,
     ...modules.flatMap((m) => (m.prompt.domainRules ? [m.prompt.domainRules] : [])),
+    ...(TOOL_SEARCH_ENABLED ? [TOOL_SEARCH_NOTE] : []),
     HOW_TO_PROPOSE,
     RULES,
     FORMAT,

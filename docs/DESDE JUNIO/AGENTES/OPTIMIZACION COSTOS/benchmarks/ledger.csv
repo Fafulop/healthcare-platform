@@ -5,3 +5,4 @@ timestamp,label,priceKey,ttl,gitSha,total,pass,warn,fail,totalUsd,meanUsd,p50Usd
 2026-07-24T19:03:26.642Z,haiku-fix3-r1,claude-sonnet-5-intro,5m,79ff468b,65,60,4,1,1.43759,0.022117,0.021203,0.069341,718794,9764
 2026-07-24T19:18:13.386Z,sonnet5-branch-r1,claude-sonnet-5-intro,5m,79ff468b,65,64,1,0,1.53778,0.023658,0.022806,0.083469,768886,10388
 2026-07-24T19:32:37.617Z,haiku-fix3-r2,claude-sonnet-5-intro,5m,79ff468b,65,62,3,0,1.41942,0.021837,0.021263,0.068693,709713,9006
+2026-07-24T20:21:15.942Z,haiku-toolsearch-r1,claude-sonnet-5-intro,5m,a5d95fad,65,61,2,2,1.41880,0.022169,0.019771,0.072350,709401,10602

@@ -29,6 +29,50 @@
 
 ## Experimentos
 
+### 2026-07-24 — 🔍 Lever 2d: carga DIFERIDA de tools (tool search) — pregunta FRÍA −43%, calidad en banda
+
+**Cambio (rama de trabajo, sin commitear):** `tool_search_tool_regex_20251119` + `defer_loading:
+true` en 35 de las 39 tools; quedan CARGADAS las 4 calientes (`get_day_schedule`, `get_bookings`,
+`get_availability`, `find_patient`) + el tool de búsqueda. Flag de rollback:
+**`AGENDA_AGENT_TOOL_SEARCH=0`** restaura el toolset completo (código y prompt). El loop ganó
+manejo de `pause_turn` (el server-loop de búsqueda puede pausar) y los breakpoints de caché de
+mensajes ya no caen en bloques `server_tool_use`/`tool_search_tool_result` (no aceptan
+`cache_control`). Los schemas diferidos VIAJAN completos en cada request pero no entran al
+contexto hasta que el modelo los descubre — se APENDIZAN sin invalidar el prefijo cacheado.
+
+**El hallazgo de conducta que costó el primer smoke:** con las propose_* diferidas, el modelo no
+VE que proponer es posible ⇒ describe y PREGUNTA en vez de actuar (`plan-eliminar` falló 3/3 —
+**estable**, cazado por el runner con reintentos). Las descripciones de tools no pueden enseñar
+conducta si no están en contexto. Fix: sección `TOOL_SEARCH_NOTE` en el prompt (solo se compone
+con el flag activo): "tienes MÁS tools de las que ves; BUSCA antes de decir que no puedes o de
+pedir permiso". Con la nota: smoke 3/3 y la corrida completa en banda.
+
+**Números (misma metodología, precio `claude-sonnet-5-intro`, Haiku real = ÷2):**
+
+| | Sin 2d (fix3 R2) | **Con 2d (r1)** |
+|---|---|---|
+| Calidad 1er intento | 62/65 · 3W · 0F | 61/65 · 2W · 2F |
+| Estables (re-corridos) | 0 | **0 FAIL estables** · 1 WARN estable (`f2b-ppd`: dato de dr-prueba — homónimos "Gerardo Lopez", desambiguar ES la conducta de RESILIENCE; también flaqueó sin 2d) |
+| Corrida completa (tibia) | $0.710 | $0.709 — **NEUTRO en tibio** (92–99% cached: el prefijo chico casi no ahorra y la búsqueda mete iteraciones) |
+| **Pregunta FRÍA (budget)** | 34,347 ($0.0343) | **19,585 ($0.0196) — −43%** |
+| Latencia p50 | 9.0 s | 10.6 s (+18%, el hop de búsqueda) |
+
+**Lectura correcta:** la suite corre TIBIA y por eso el total no se mueve — el beneficio vive en
+la pregunta FRÍA, que es lo que paga un doctor real (uso esporádico). Apilado con el cambio de
+modelo: $0.083 (Sonnet prod) → **$0.0196** por pregunta fría ≈ **−76%**. El costo: +1.6 s de
+latencia p50 y algo más de varianza al 1er intento en flujos de escritura (el modelo tiene que
+decidir buscar; `plan-eliminar` pasó 1/3 aquí vs 2/2 sin 2d — con n=1 no es concluyente).
+`f2a-clave-insumos` falló el 1er intento (no buscó el catálogo) y pasó al reintento.
+
+- ⚠️ El prompt CAMBIÓ (nota nueva ⇒ sha `d2d329fa…`, 28,214 chars): al desplegar se invalida el
+  caché UNA vez. gate:prompt/gates OK; type-check OK.
+- ⚠️ La fila del ledger de esta corrida precia 64 casos (el caso ancla `vencidas` tuvo un `fetch
+  failed` de red al 1er intento — pasó al reintento; el frío de arriba sale del smoke, mismas
+  condiciones de caché que la medición sin 2d).
+- Veredicto: **funciona y es shippeable** — 0 FAILs estables, calidad en banda (58–64), frío −43%,
+  rollback por env var. La palanca que queda para la varianza de escrituras es el punto (2) del
+  roadmap (mover reglas a descripciones/campos server-side) y afinar la nota.
+
 ### 2026-07-24 — 🎯 VARIANZA CONTESTADA + fixes de calidad: cero fallos ESTABLES en ambos modelos
 
 **Qué se hizo (rama `agent/haiku-viability`, sin commitear):**

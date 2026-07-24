@@ -118,6 +118,10 @@ Doctor escribe → POST /api/agenda-agent { message, conversationHistory (≤12 
   2. Presupuesto diario (LlmTokenUsage, corte medianoche MX) → 429 si excedido
   3. Loop (máx 8 iteraciones):
        Claude (system prompt + historial + tools) →
+         (tools: desde 2026-07-24 van 35/39 con defer_loading tras tool_search_tool_regex —
+          server-side, mismo request; el loop maneja stop_reason pause_turn re-enviando el
+          historial tal cual. Calientes: get_day_schedule/get_bookings/get_availability/
+          find_patient. Rollback: AGENDA_AGENT_TOOL_SEARCH=0)
          tool_use de lectura   → executor Prisma / endpoint de availability → resultado (≤8KB)
          tool_use propose_*    → pre-checks server-side → registra propuesta ordenada → preview
        (los tool_use de una respuesta se ejecutan SECUENCIALMENTE: orden de registro = orden de

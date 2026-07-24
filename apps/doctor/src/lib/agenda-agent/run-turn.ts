@@ -17,7 +17,10 @@
 
 import {
   callClaude,
+  type AgentToolParam,
   type AnthropicMessage,
+  type AnthropicTool,
+  type CacheControl,
   type SystemBlock,
   type ToolUseBlock,
 } from './anthropic';
@@ -51,6 +54,41 @@ import { mxNowString, mxTodayKey, mxUpcomingDays } from './dates';
 export const MODEL = process.env.AGENDA_AGENT_MODEL || 'claude-haiku-4-5';
 const MAX_ITERATIONS = 8;
 const MAX_TOKENS_PER_CALL = 4096;
+
+/** Lever 2d — deferred tool loading via server-side tool search.
+ *
+ * The 39 tool schemas are 55% of the 27k-token prefix and a real turn uses
+ * 0–3 of them; Anthropic also documents that tool-SELECTION accuracy degrades
+ * past 30–50 tools. So: the hot agenda reads stay loaded, everything else is
+ * `defer_loading: true` behind `tool_search_tool_regex` — the full definitions
+ * still travel in the request, but deferred schemas enter the context only
+ * when the model discovers them, APPENDED without invalidating the cached
+ * prefix. GA on Haiku 4.5 + Sonnet 5 (verified 2026-07-24), no beta header.
+ *
+ * Rollback: AGENDA_AGENT_TOOL_SEARCH=0 restores the full-toolset request. */
+const TOOL_SEARCH_ENABLED = process.env.AGENDA_AGENT_TOOL_SEARCH !== '0';
+
+/** Non-deferred tools — the docs' "3–5 most frequently used". These are the
+ * top read tools across the eval suite and cover the first hop of most
+ * turns; everything else (incl. all propose_*) is one search away. */
+const HOT_TOOL_NAMES = new Set(['get_day_schedule', 'get_bookings', 'get_availability', 'find_patient']);
+
+const TOOL_SEARCH_TOOL = {
+  type: 'tool_search_tool_regex_20251119',
+  name: 'tool_search_tool_regex',
+} as const;
+
+function withDeferredLoading(tools: AnthropicTool[]): AgentToolParam[] {
+  return [
+    TOOL_SEARCH_TOOL,
+    ...tools.map((t) => (HOT_TOOL_NAMES.has(t.name) ? t : { ...t, defer_loading: true })),
+  ];
+}
+
+/** Owner toolset with deferral applied — computed ONCE so every request sends
+ * byte-identical JSON (object identity isn't what caching keys on, but a
+ * stable array avoids rebuilding 39 defs per turn). */
+const ALL_TOOLS_DEFERRED: AgentToolParam[] = withDeferredLoading(ALL_TOOLS);
 // Tool results are re-sent as input tokens on EVERY subsequent iteration — cap
 // each serialized payload so one busy day doesn't grow the loop cost superlinearly.
 const MAX_TOOL_RESULT_CHARS = 8_000;
@@ -128,7 +166,17 @@ function setMessageCacheBreakpoints(messages: AnthropicMessage[]): void {
     if (typeof m.content === 'string') {
       m.content = [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }];
     } else if (m.content.length > 0) {
-      m.content[m.content.length - 1].cache_control = { type: 'ephemeral' };
+      // Walk back to the last block that ACCEPTS cache_control — the docs list
+      // text/tool_use/tool_result (and image/document); the tool-search blocks
+      // (server_tool_use / tool_search_tool_result) are not in that list, and
+      // an assistant turn resumed after pause_turn can END in one of them.
+      for (let i = m.content.length - 1; i >= 0; i--) {
+        const b = m.content[i];
+        if (b.type === 'text' || b.type === 'tool_use' || b.type === 'tool_result') {
+          (b as { cache_control?: CacheControl }).cache_control = { type: 'ephemeral' };
+          break;
+        }
+      }
     }
   }
 }
@@ -215,7 +263,14 @@ export async function runAgendaAgentTurn({
   ];
 
   const system: SystemBlock[] = buildSystem(modules);
-  const tools = modules === AGENT_MODULES ? ALL_TOOLS : buildTools(modules);
+  const baseTools = modules === AGENT_MODULES ? ALL_TOOLS : buildTools(modules);
+  // Member sets get the same deferral per-request; if a member lacks the hot
+  // agenda tools entirely, the search tool itself satisfies the API's
+  // "≥1 non-deferred tool" rule.
+  const tools: AgentToolParam[] =
+    !TOOL_SEARCH_ENABLED ? baseTools
+    : modules === AGENT_MODULES ? ALL_TOOLS_DEFERRED
+    : withDeferredLoading(baseTools);
   const toolsUsed: string[] = [];
   const toolCalls: { name: string; input: Record<string, unknown> }[] = [];
   const toolErrors: ToolErrorRecord[] = [];
@@ -258,6 +313,15 @@ export async function runAgendaAgentTurn({
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const response = await callModel();
+
+    // Server-side tool loop (tool search) paused mid-work: append the partial
+    // assistant turn as-is and call again — the API resumes where it left off.
+    // No user message goes in between; the trailing server_tool_use tells the
+    // API to continue. Counts against MAX_ITERATIONS so it can't spin forever.
+    if (response.stop_reason === 'pause_turn') {
+      messages.push({ role: 'assistant', content: response.content });
+      continue;
+    }
 
     const toolUses = response.content.filter((b): b is ToolUseBlock => b.type === 'tool_use');
 
