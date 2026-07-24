@@ -180,8 +180,12 @@ conducta a lenguaje de TRIGGER explícito donde el modelo lo lee — **1ª pasad
 (4/4 al 1er intento; con tools DIFERIDAS el lugar es el prompt, no la descripción — no está en
 contexto). **2ª pasada HECHA**: FACTURAS_RULES −344 tok (triggers intactos), borradorPendiente
 instruye desde el resultado del servidor, y el usuario re-sembró los fixtures (ingreso #1621 ⇒
-camino feliz de emisión RESTAURADO tras 8 días data-blocked). Queda: agenda/flujo sobre
-presupuesto y los card-fantasma flaky de `f2c-*` bajo tool search; **(#3)** ✅ HECHO — fixtures flaky de dr-prueba
+camino feliz de emisión RESTAURADO tras 8 días data-blocked). **3ª pasada HECHA**: puente
+propose↔tool-search en `TOOL_SEARCH_NOTE` (si el plan ya está armado, BUSCA la propose_* y
+llámala — no la narres) + 2 fixes de medición (`f2b-ppd` patientId, `limite-l1` regex) ⇒ suite
+**63/65 · 0 estables**, el mejor 1er intento del día. `plan-eliminar` mejoró 0/3→2/3 pero no se
+eliminó (costo conductual real de diferir escrituras). Queda: agenda/flujo sobre presupuesto, y
+—si molesta el flake residual— des-diferir las `propose_*` (tradeoff a medir); **(#3)** ✅ HECHO — fixtures flaky de dr-prueba
 limpiados (el duplicado "Gerardo Lopez" ahora es "Genaro Lopez", 1 UPDATE aprobado; historia de
 `f2b-ppd-solo-explicito` re-apuntada): 3 casos pasan al 1er intento, 5ª corrida consecutiva con
 0 fallos estables; **(#4)** uso de doctor REAL — no es código: ya está todo instrumentado

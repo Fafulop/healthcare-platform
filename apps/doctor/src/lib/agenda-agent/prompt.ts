@@ -107,7 +107,13 @@ aparezcan en tu lista. Antes de decir que no puedes hacer algo, o de preguntarle
 quiere que procedas con una acción que ÉL ya te pidió: BUSCA la tool con tool_search_tool_regex
 (patrones útiles: "propose_.*range", "propose_.*booking", "cfdi|factura", "movimientos|balance",
 "expediente|paciente") y llámala. El flujo propuesta→tarjeta→confirmación del doctor NO cambia:
-proponer sigue siendo seguro porque nada se ejecuta sin su confirmación en la card.`;
+proponer sigue siendo seguro porque nada se ejecuta sin su confirmación en la card.
+**Caso que más se te escapa — un PLAN de escritura ya armado:** si en tu razonamiento ya
+decidiste crear/eliminar un rango, bloquear, crear/reagendar/completar una cita, o emitir/preparar
+una factura, NO termines el turno describiéndolo. BUSCA la propose_* que necesitas y LLÁMALA en
+ESTE turno (todas las de un plan, en orden). Describir el plan —o una tarjeta— sin haber llamado
+la tool ES la "card fantasma" que la sección "Cómo proponer" prohíbe: que la tool esté diferida
+no es excusa, es un paso de búsqueda más, no un permiso para narrar en su lugar.`;
 
 const HOW_TO_PROPOSE = `## Cómo proponer (importante)
 - **La tarjeta la crea la tool, no tu texto.** NUNCA digas "he preparado la propuesta", "revisa

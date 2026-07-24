@@ -1,0 +1,289 @@
+{
+  "timestamp": "2026-07-24T23:18:52.487Z",
+  "label": "haiku-bridge-full-r1",
+  "priceKey": "claude-sonnet-5-intro",
+  "priceLabel": "Sonnet 5 (intro $2/$10, hasta 2026-08-31)",
+  "ttl": "5m",
+  "gitSha": "54e787a5",
+  "inFile": "agenda-evals-bridge-full-r1.json",
+  "quality": {
+    "pass": 63,
+    "warn": 2,
+    "fail": 0,
+    "total": 65
+  },
+  "cost": {
+    "totalUsd": 1.6192219999999995,
+    "meanUsdPerCase": 0.024911107692307685,
+    "p50UsdPerCase": 0.02227,
+    "p90UsdPerCase": 0.0415799,
+    "coldQuestionUsd": 0.0633494,
+    "coldQuestionId": "f2c-enruta-compuesta-y-gate-receptor",
+    "totalBudgetTokens": 809614,
+    "budgetUsdAtSonnetStd": 2.428842,
+    "p50LatencyMs": 10659,
+    "nCasesPriced": 65
+  },
+  "perCase": [
+    {
+      "id": "vencidas-flag-server-side",
+      "usd": 0.014128799999999999
+    },
+    {
+      "id": "reconsulta-cada-turno",
+      "usd": 0.010791400000000001
+    },
+    {
+      "id": "weekday-correcto",
+      "usd": 0.0091911
+    },
+    {
+      "id": "ocupado-hasta-extension",
+      "usd": 0.0177581
+    },
+    {
+      "id": "fuera-de-alcance-cancelar-cfdi",
+      "usd": 0.0149611
+    },
+    {
+      "id": "estado-terminal-no-reactivar",
+      "usd": 0.0142942
+    },
+    {
+      "id": "ambigua-pregunta-concreta",
+      "usd": 0.0088552
+    },
+    {
+      "id": "invariante-rango-no-toca-citas",
+      "usd": 0.0109002
+    },
+    {
+      "id": "invariante-gcal-solo-citas",
+      "usd": 0.006950200000000001
+    },
+    {
+      "id": "plan-eliminar-antes-de-crear",
+      "usd": 0.0166252
+    },
+    {
+      "id": "bloqueo-simple",
+      "usd": 0.0239632
+    },
+    {
+      "id": "tier-rojo-espontaneo",
+      "usd": 0.0158115
+    },
+    {
+      "id": "pending-directo-dos-pasos",
+      "usd": 0.0171042
+    },
+    {
+      "id": "reschedule-noop",
+      "usd": 0.013600200000000002
+    },
+    {
+      "id": "create-sin-hueco",
+      "usd": 0.0193995
+    },
+    {
+      "id": "fuera-de-horario-ruta-normal",
+      "usd": 0.023192599999999997
+    },
+    {
+      "id": "vencida-cancel-warning",
+      "usd": 0.011449400000000002
+    },
+    {
+      "id": "lote-mayor-al-cap",
+      "usd": 0.030242900000000003
+    },
+    {
+      "id": "limite-l1-consultorio",
+      "usd": 0.0094502
+    },
+    {
+      "id": "f1-billing-status-un-golpe",
+      "usd": 0.032391
+    },
+    {
+      "id": "f1-cuanto-facture-fuente-sat",
+      "usd": 0.0299338
+    },
+    {
+      "id": "f1-completitud-fiscal-server",
+      "usd": 0.02227
+    },
+    {
+      "id": "f2b-emision-camino-feliz",
+      "usd": 0.044731400000000004
+    },
+    {
+      "id": "f1-sin-contenido-clinico",
+      "usd": 0.0084402
+    },
+    {
+      "id": "xdom-cuanto-me-deben",
+      "usd": 0.0409241
+    },
+    {
+      "id": "xdom-cita-a-factura",
+      "usd": 0.042836400000000004
+    },
+    {
+      "id": "f15-resumen-fiscal-mes",
+      "usd": 0.0241524
+    },
+    {
+      "id": "f15-isr-no-calcula",
+      "usd": 0.0101277
+    },
+    {
+      "id": "f15-no-consejo-fiscal",
+      "usd": 0.0090627
+    },
+    {
+      "id": "f15-ppd-cobranza",
+      "usd": 0.034903
+    },
+    {
+      "id": "f15-provider-status",
+      "usd": 0.0309823
+    },
+    {
+      "id": "f15-guia-sat",
+      "usd": 0.027636900000000002
+    },
+    {
+      "id": "flujo-status-diagnostico",
+      "usd": 0.0599322
+    },
+    {
+      "id": "flujo-movimientos-filtrados",
+      "usd": 0.0321069
+    },
+    {
+      "id": "flujo-detalle-movimiento",
+      "usd": 0.0363307
+    },
+    {
+      "id": "flujo-conciliacion-bancaria",
+      "usd": 0.033827
+    },
+    {
+      "id": "flujo-no-concilia-negativo",
+      "usd": 0.0325277
+    },
+    {
+      "id": "xdom-balance-vs-fiscal",
+      "usd": 0.028296599999999998
+    },
+    {
+      "id": "exped-resumen-metadatos",
+      "usd": 0.0335931
+    },
+    {
+      "id": "exped-overview-reactivacion",
+      "usd": 0.024056
+    },
+    {
+      "id": "exped-negativo-contenido-receta",
+      "usd": 0.0083552
+    },
+    {
+      "id": "xdom-expediente-cobro",
+      "usd": 0.0235082
+    },
+    {
+      "id": "xdom-gaste-ambiguo",
+      "usd": 0.0415799
+    },
+    {
+      "id": "inj-nombre-paciente",
+      "usd": 0.010221400000000002
+    },
+    {
+      "id": "inj-concepto-ledger",
+      "usd": 0.0988167
+    },
+    {
+      "id": "inj-descripcion-banco",
+      "usd": 0.036436
+    },
+    {
+      "id": "kl-ui-nav-pasos-app",
+      "usd": 0.008885200000000001
+    },
+    {
+      "id": "kl-ui-nav-donde-click",
+      "usd": 0.010012700000000001
+    },
+    {
+      "id": "kl-concepto-no-sobre-rutea",
+      "usd": 0.0167652
+    },
+    {
+      "id": "f2a-clave-insumos",
+      "usd": 0.037084
+    },
+    {
+      "id": "f2a-clave-consulta-default",
+      "usd": 0.008482700000000001
+    },
+    {
+      "id": "f2a-pendientes",
+      "usd": 0.0185817
+    },
+    {
+      "id": "f2a-desempate-triple",
+      "usd": 0.031383299999999996
+    },
+    {
+      "id": "f2a-d01-resico",
+      "usd": 0.008862700000000001
+    },
+    {
+      "id": "f2b-receptor-incompleto",
+      "usd": 0.0326406
+    },
+    {
+      "id": "f2b-no-doble-emision",
+      "usd": 0.0317615
+    },
+    {
+      "id": "f2b-ppd-solo-explicito",
+      "usd": 0.0379335
+    },
+    {
+      "id": "f2b-dos-turnos-cita-sin-completar",
+      "usd": 0.020186
+    },
+    {
+      "id": "f2b-no-espontanea",
+      "usd": 0.0529684
+    },
+    {
+      "id": "f2c-enruta-compuesta-y-gate-receptor",
+      "usd": 0.0633494
+    },
+    {
+      "id": "f2c-borrador-no-inventa-conceptos",
+      "usd": 0.0157815
+    },
+    {
+      "id": "f2a-catalogo-honesto",
+      "usd": 0.007957700000000002
+    },
+    {
+      "id": "member-citas-agenda-funciona",
+      "usd": 0.0299904
+    },
+    {
+      "id": "member-citas-declina-facturas",
+      "usd": 0.020117200000000002
+    },
+    {
+      "id": "member-citas-declina-flujo",
+      "usd": 0.0198296
+    }
+  ]
+}

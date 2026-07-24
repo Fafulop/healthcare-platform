@@ -19,12 +19,18 @@
 > es eso. Números y bitácora de todo: [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md).
 > ⚠️ Vigente para CUALQUIER trabajo de agente: **una corrida de evals no distingue regresión de
 > ruido** — el runner ya re-corre solo, lee "estables" vs "flaky", no el X/65 a secas.
-> ~~Watch-item `f2a-clave-insumos`~~ → ✅ ARREGLADO el mismo día (roadmap #2, 1ª pasada): trigger
-> "busca PRIMERO con search_catalogo_sat, no contestes de memoria" en FACTURAS_RULES — 4/4 al
-> 1er intento. Lección: con tools DIFERIDAS la conducta se enseña en el PROMPT (la descripción
-> de la tool no está en contexto hasta descubrirla). Suite tras el fix: 61/65 · 0 estables (6ª
-> corrida limpia consecutiva). Watch-item nuevo: re-sembrar el ingreso de prueba de F2b/F2c
-> (`f2b-ya-facturada` está doblemente driftado y flaqueó proponiendo en vez de reportar).
+> ~~Watch-item `f2a-clave-insumos`~~ → ✅ ARREGLADO (roadmap #2, 1ª pasada): trigger "busca PRIMERO
+> con search_catalogo_sat, no contestes de memoria" en FACTURAS_RULES. Lección transferible: con
+> tools DIFERIDAS la conducta se enseña en el PROMPT (la descripción de la tool no está en contexto
+> hasta descubrirla) — mismo principio que el puente propose↔tool-search de la 3ª pasada.
+> ~~Watch-item re-sembrar ingreso F2b/F2c~~ → ✅ HECHO (usuario completó CIT2 ⇒ ingreso #1621; el
+> camino feliz de emisión está evaluable otra vez). Roadmap #2 (2ª+3ª pasada): trim de
+> FACTURAS_RULES −344 tok, puente propose↔tool-search, y 2 fixes de medición ⇒ suite **63/65 · 0
+> estables**, el mejor 1er intento del día.
+> **Watch-item VIGENTE:** `plan-eliminar` (plan de escritura multi-paso) sigue flaqueando ~1/3 bajo
+> tool search — el puente lo bajó de 0/3 a 2/3 pero no lo cerró; es el costo conductual de diferir
+> las `propose_*`. Nunca estable. Palanca si molesta: des-diferir las `propose_*` (tradeoff prefijo
+> vs conducta, a medir). Detalle: [`../OPTIMIZACION COSTOS/02-BITACORA`](../OPTIMIZACION%20COSTOS/02-BITACORA-experimentos.md).
 > Antes, 2026-07-23 (2ª pasada): bitácora #25 (el prompt pedía CALCULAR fechas — regla 0 al
 > tiempo, resuelto server-side) + timeout 90s con thinking; el experimento Haiku abierto de esa
 > fecha quedó CERRADO por lo de arriba.

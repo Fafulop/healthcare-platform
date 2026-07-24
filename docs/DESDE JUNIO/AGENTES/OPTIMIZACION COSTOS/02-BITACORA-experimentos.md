@@ -29,6 +29,40 @@
 
 ## Experimentos
 
+### 2026-07-24 — 🌉 Roadmap #2 (3ª pasada): puente propose↔tool-search + 2 fixes de medición
+
+Los tres blancos que el análisis cruzado de 6 corridas había aislado, atacados juntos:
+
+1. **Puente de conducta (PROMPT, la palanca de agente):** `plan-eliminar` y los card-fantasma de
+   `f2c` compartían mecanismo — con las `propose_*` DIFERIDAS el modelo arma el plan de escritura
+   en prosa y termina el turno sin buscar/llamar la tool. Se añadió a `TOOL_SEARCH_NOTE` la cláusula
+   del caso "PLAN de escritura ya armado": si tu razonamiento ya decidió crear/eliminar/bloquear/
+   reagendar/emitir, BUSCA la propose_* y LLÁMALA este turno; describir el plan o una tarjeta sin
+   llamar la tool ES la card fantasma que "Cómo proponer" prohíbe — que esté diferida no es excusa,
+   es un paso de búsqueda más. Va en la sección gated por el flag (solo aparece con tool search on).
+2. **Fix de MEDICIÓN `f2b-ppd-solo-explicito`** (fallaba 5/6): el history se re-ancló en el
+   `patientId` EXACTO en vez de nombre/fecha, para que la re-consulta del turno sea determinista
+   (get_billing_status sobre ese id → hasFactura → "ya facturada"). No cambia la conducta que se
+   prueba; elimina la ambigüedad de datos de dr-prueba que la disparaba.
+3. **Fix de MEDICIÓN `limite-l1-consultorio`** (flaky 3/6): el regex exigía "no" pegado al verbo, así
+   que respuestas CORRECTAS ("no ESTÁ registrado", "no PUEDO filtrar") no matcheaban. Ensanchado.
+
+**Verificación por caso (3 corridas del subset):** `limite-l1` 3/3 (era 3/6 flaky) · `f2b-ppd` 3/3
+(era 5/6 fallo) · `plan-eliminar` **2/3** (era **0/3** con tool search) — el puente lo MEJORA
+claramente pero no lo elimina; planear escrituras multi-paso con las tools diferidas sigue siendo
+más duro para un modelo chico (nunca estable — pasa al re-correr).
+
+**Suite completa:** **`63/65 · 2W · 0F` al 1er intento · 2 flaky · 0 ESTABLES** — el MEJOR puntaje
+de 1er intento del día y el MENOR conteo de flakes (bajó de 4–7 a 2: solo `plan-eliminar` residual
+y `reschedule-noop`, un regex viejo de redacción). Los dos fixes de medición desaparecieron del
+todo de la lista de flakes. Budget total 809k (subió ~8% vs r4: el puente agregó prosa al prompt y
+`plan-eliminar` hizo el trabajo completo delete→create cuando propuso); sigue −50%+ vs Sonnet.
+
+**Watch-item honesto que queda:** el flake residual de `plan-eliminar` es el costo conductual real
+de tool search sobre planes de escritura. Si algún día molesta, la palanca es DES-diferir el puñado
+de `propose_*` (dejarlas calientes) — recupera la conducta a cambio de ~parte del ahorro de prefijo;
+es un tradeoff a MEDIR aparte, no una urgencia (0 estables, y el doctor confirma toda card).
+
 ### 2026-07-24 — ✂️ Roadmap #2 (2ª pasada): trim del prompt de facturas + fixtures re-sembrados
 
 **Cambios:**

@@ -386,9 +386,18 @@ async function main() {
       bitacora: 'L1 / regla 8',
       message: '¿qué citas tengo en el consultorio Polanco?',
       soft: true,
+      // 2026-07-24: el regex viejo exigía "no" pegado al verbo, así que
+      // "no ESTÁ registrado" / "no PUEDO filtrar" (respuestas CORRECTAS) no
+      // matcheaban (flaky 3/6). Ensanchado a las formas reales: el consultorio
+      // no se registra/guarda en las citas, o no se puede filtrar por él, o
+      // solo aplica a los rangos.
       checks: [
         { kind: 'no-proposals' },
-        { kind: 'reply-match', pattern: 'no (se )?(registra|guarda|existe|puede|tienen)', flags: 'i' },
+        {
+          kind: 'reply-match',
+          pattern: '(no\\b[^.]{0,25}(registr|guard|almacen|filtr)|no (existe|aplica)|solo aplica|citas no (registran|guardan|tienen))',
+          flags: 'i',
+        },
       ],
     },
     // --- PR F1: módulo facturas/pagos (lectura) ---
@@ -836,19 +845,20 @@ async function main() {
       id: 'f2b-ppd-solo-explicito',
       bitacora: 'F2b — PPD explícito sobre ingreso ya facturado: cero propuestas + narración honesta (caso PPD real data-blocked hasta re-sembrar)',
       message: 'sí — pero hazla PPD, el paciente paga después',
-      // 2026-07-24: la historia decía "a Gerardo Lopez" y empujaba al modelo a
-      // buscar POR NOMBRE — con los nombres denormalizados de dr-prueba eso
-      // encontraba varias citas de $900 y el caso flaqueaba por datos, no por
-      // conducta (WARN estable en 3 corridas). El nombre no es esencial al
-      // caso (lo que se prueba es PPD sobre un ingreso YA facturado): ahora la
-      // historia identifica la cita por fecha/ingreso, como haría un turno real
-      // que ya la había identificado.
+      // 2026-07-24 (análisis cruzado de 6 corridas): este caso flaqueó 5/6 — la
+      // causa era el history, no la conducta. Identificar por NOMBRE/FECHA hacía
+      // que el modelo re-verificara y cayera en la ambigüedad de datos de
+      // dr-prueba (varias citas de $900). El fix: anclar el history en el
+      // patientId EXACTO, para que la re-consulta de este turno sea determinista
+      // (get_billing_status sobre ese id → hasFactura=true → reporta "ya
+      // facturada", cero propuestas). Es como llegaría un turno real que ya
+      // aisló al paciente en el turno anterior.
       history: [
         { role: 'user', content: 'emítele la factura de la consulta de $900 del 8 de julio' },
         {
           role: 'assistant',
           content:
-            'La consulta de $900 del 8 de julio (la cita completada de ese día, ingreso #1570) es la que identifiqué. ¿Confirmo la emisión?',
+            'La consulta de $900 del 8 de julio está ligada al expediente patientId cmpnbah010005ro0lqss8i033 (ingreso #1570, COMPLETADA, pagada en efectivo). El diagnóstico sale con get_billing_status sobre ESE patientId, no buscando por nombre. ¿Confirmo la emisión?',
         },
       ],
       soft: true,
