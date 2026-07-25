@@ -35,9 +35,28 @@ paralelo.
   tool `get_conciliacion_bancaria`, en vez de perder el módulo entero (§5.2).
 - **Administración:** el tier se fija desde el **admin app** (no self-serve). §7.
 
-## Estado
+## Estado (2026-07-24)
 
-📋 **DISEÑO — sin implementar.** Este doc es el plan; nada shippeado. Secuencia de PRs en §8.
+🟢 **T1 + T2 SHIPPED a prod y probados en vivo** (`c639a0ca`, `8e7097e1`). El gating YA enforcea
+en los 3 sitios (2 choke points owner+member + public/cron), pero es **NO-OP: los 11 doctores son
+FULL** y `tierAllows(FULL,*)=true`, así que nadie está gateado todavía. Test en vivo pasó
+(dr-prueba→CORE: facturación+SAT dieron 403 `TIER_EXCLUDED`, flujo 200; revertido→FULL). Detalle
+y secuencia de PRs en [`01-DISENO`](01-DISENO-tecnico.md) §8.
+
+### ⏭️ Qué sigue (para la próxima sesión)
+
+- **PR T3 — agente tier-aware (EL SIGUIENTE, es prerrequisito).** El agente NO lee tier todavía,
+  así que un doctor CORE tendría su asistente intentando tools de facturas/flujo y chocando con
+  los 403 nuevos. **NO pongas a NINGÚN doctor real en CORE hasta T3.** T3 = gating a nivel de tool
+  (CORE conserva el módulo flujo sin `get_conciliacion_bancaria`, dropea facturas/fiscal) — y de
+  paso ABARATA el agente CORE. Diseño en `01-DISENO` §5.2.
+- **T4** show-locked UI (usa el marcador `TIER_EXCLUDED` del 403, ya verificado) · **T5** selector
+  de tier en admin (⚠️ el write DEBE validar contra `DOCTOR_TIERS` con case canónico — `tierAllows`
+  es case-sensitive + fail-open) · **T6** degradación de cruces de flujo + audit de fuga read-only.
+- Lo que YA existe y hay que reusar (no reinventar): `tierAllows`, `tierRouteDecision`
+  (nearest-feature-key), `tiersExcluding`, `doctorTierAllows` en `@healthcare/database`;
+  `Doctor.tier` (String, default FULL); el gate de cobertura de tier en
+  `scripts/check-route-permission-coverage.ts`.
 
 ## Relación con otras carpetas
 
