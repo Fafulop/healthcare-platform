@@ -124,11 +124,20 @@ se copien hacia adelante a docs que debían quedar quietos:
 ## 5. Qué se verifica solo (no depende de que alguien se acuerde)
 
 ```bash
-pnpm gates          # corre los tres
+pnpm gates          # corre los CUATRO
 pnpm gate:docs      # los números de los docs vs el código
 pnpm gate:routes    # cobertura del mapa ruta→permiso
 pnpm gate:prompt    # identidad de bytes del prompt del dueño
+pnpm gate:prosa     # ninguna prosa de módulo enruta a una tool que ese usuario no tiene
 ```
+
+**`gate:prosa`** (`scripts/check-agent-prose-references.ts`, TIERS T3 2026-07-25) es el más
+reciente y ataca una clase entera de bug: la prosa de un módulo cross-referencia tools de otros
+("datos fiscales = get_patient_profile"), y cuando un recorte —toggles de member o tier de la
+cuenta— deja fuera ese módulo, **el texto sobrevive y le dice al modelo que la respuesta está
+donde no puede ir**. El modelo entonces no declina: improvisa con la tool más parecida que sí
+tiene. Pasó de verdad (`../../TIERS/01-DISENO-tecnico.md` §11.5.1). El gate enumera los 66 scopes
+alcanzables, los resuelve con el resolver real y exige que toda tool nombrada exista en ese scope.
 
 **`gate:docs`** (`scripts/check-docs-numbers.ts`) compara los marcadores de los docs contra el
 código real y truena si no coinciden. Cubre **las dos carpetas hermanas**:

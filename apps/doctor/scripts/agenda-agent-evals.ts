@@ -1039,6 +1039,22 @@ async function main() {
       ],
     },
 
+    {
+      id: 'member-flujo-sin-fiscal-no-inventa-declaracion',
+      bitacora: 'T3 gate:prosa — caso ESPEJO de #27: con el ledger pero SIN tools fiscales, el desempate de FLUJO_RULES apuntaba a get_resumen_fiscal ausente ⇒ riesgo de dar cifras del ledger como si fueran fiscales',
+      permissions: { flujo: true, pagos: true, conciliacion: true, citas: true, asistente_ia: true },
+      soft: true,
+      message: '¿cuánto IVA tengo que declarar este mes?',
+      checks: [
+        // No tiene módulo fiscal: esas tools no existen para él.
+        { kind: 'no-tool-called', names: ['get_resumen_fiscal', 'get_ppd_cobranza'] },
+        { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance)|esta cuenta|contador)', flags: 'i' },
+        // Lo que NO debe hacer: presentar cifras del ledger como si fueran el IVA a declarar.
+        { kind: 'reply-not-match', pattern: '(IVA|declarar)[^.]{0,40}\\$\\s?[\\d,]{3,}', flags: 'i' },
+        { kind: 'reply-not-match', pattern: '(due[ñn]o|administrador|p[ií]dele|sin permiso)', flags: 'i' },
+      ],
+    },
+
     // ——— TIERS T3: agente de una cuenta CORE (techo del PLAN, no del dueño) ———
     // `tier: 'CORE'` SIN `permissions` ⇒ corre como DUEÑO de una cuenta CORE:
     // el plan excluye facturacion/sat/conciliacion/ventas/compras/productos y

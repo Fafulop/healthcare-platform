@@ -301,8 +301,10 @@ sección "Cómo proponer" prohíbe: que la tool esté diferida no es excusa.`
 const TOOL_SEARCH_ENABLED = process.env.AGENDA_AGENT_TOOL_SEARCH !== '0';
 
 /** A module trimmed by the tier uses its `partial` sections — the full ones
- * describe tools this account no longer has (modules/types.ts). */
-function sectionsFor(module: AgentModule, scope: AgentScope): AgentModulePrompt {
+ * describe tools this account no longer has (modules/types.ts).
+ * Exported for the cross-reference gate, which must inspect exactly the prose
+ * this composer renders — re-deriving it there would drift. */
+export function sectionsFor(module: AgentModule, scope: AgentScope): AgentModulePrompt {
   const partial = scope.partialModules.has(module.name) ? module.prompt.partial : undefined;
   return partial ?? module.prompt;
 }

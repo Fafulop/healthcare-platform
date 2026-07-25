@@ -34,6 +34,14 @@ paralelo.
 - **G2 (agente):** gating a **nivel de TOOL** — CORE conserva el módulo `flujo` del agente sin la
   tool `get_conciliacion_bancaria`, en vez de perder el módulo entero (§5.2).
 - **Administración:** el tier se fija desde el **admin app** (no self-serve). §7.
+- **CORE SÍ incluye el asistente de IA** (usuario, 2026-07-25). Se preguntó explícitamente si
+  convenía excluirlo —sería el corte MÁS BARATO: elimina de un plumazo toda la coherencia de
+  prosa que T3 tuvo que construir (§11.5)— y la respuesta fue **no: el asistente va en el plan
+  base**. Consecuencia asumida: **el límite del tier atraviesa POR DENTRO del asistente**, que es
+  el único subsistema que *habla de sí mismo*; cada módulo, toggle o tier nuevo tiene que revisar
+  su prosa contra los scopes alcanzables. Ese costo recurrente es justo lo que `gate:prosa`
+  automatiza. Regla general que deja la experiencia: *el corte de tier barato excluye subsistemas
+  completos; el caro carva dentro de uno que se describe a sí mismo.*
 
 ## Estado (2026-07-25)
 
@@ -58,12 +66,12 @@ las 4 correcciones al diseño y lo que queda abierto: [`01-DISENO`](01-DISENO-te
 
 > 🚧 **TRIPWIRE — antes de mover al PRIMER doctor real a CORE** (no bloquea el push de T3, que es
 > NO-OP mientras todos sean FULL; sí bloquea el primer downgrade real):
-> 1. **Gate de referencias cruzadas en prosa**: escanear la prosa y las descripciones de cada
->    módulo buscando nombres `get_*`/`propose_*`, y assertar que cada uno viva en ESE módulo o
->    esté declarado en `prompt.prosaDependsOn`. Hoy la clase "el texto que sobrevive sigue
->    vendiendo lo que el plan quitó" se previene por DISCIPLINA (acordarse de declarar la
->    dependencia); esto la vuelve imposible por construcción — el espíritu de
->    `../AGENTES/GENERAL AGENTES/08-EMPIEZA-AQUI.md` §6.
+> 1. ✅ **HECHO 2026-07-25 — `pnpm gate:prosa`** (`scripts/check-agent-prose-references.ts`).
+>    Enumera los **66 scopes alcanzables** (cada combinación de módulos × cada tier), los resuelve
+>    con el resolver REAL y lee la prosa que el composer REAL renderiza (`sectionsFor`, respetando
+>    la variante `partial`): toda tool nombrada ahí debe existir en ese scope. La clase pasó de
+>    prevenirse por DISCIPLINA a ser **imposible por construcción** (`08-EMPIEZA-AQUI` §6).
+>    Encontró **7 cross-references**, una de ellas un **bug real** (ver §11.5.2).
 > 2. **Eval `tier-core-completar-cita`**: el flujo MÁS común de una cuenta CORE sigue sin
 >    ejercitarse de punta a punta (es justo donde vivían 3 de los 6 sitios del bug hunt §11.5).
 > *(El 3er ítem —"`prosaDependsOn` solo mira el TIER"— se **CERRÓ** el 2026-07-25: ahora se evalúa

@@ -488,6 +488,43 @@ caso; chequear lo que el scope provee, no. Hay gate dedicado para esa combinaci�
 ⇒ Con esto, el defecto de `prosaDependsOn` queda cerrado en AMBOS ejes (tier y member), no solo
 en el del tier.
 
+### 11.5.2 `gate:prosa` — la clase, cerrada por construcción (2026-07-25)
+
+`prompt.partial` + `prosaDependsOn` arreglan INSTANCIAS. Este gate cierra la CATEGORÍA:
+`scripts/check-agent-prose-references.ts` (`pnpm gate:prosa`, ya dentro de `pnpm gates`).
+
+**Cómo, sin heurísticas:** enumera los **66 scopes alcanzables** (cada subconjunto de módulos
+concedible por toggles × cada tier de `DOCTOR_TIERS`, más el dueño), los resuelve con
+`resolveAgentScope` REAL, y para cada módulo vivo lee la prosa que el composer REAL le daría —
+`sectionsFor`, exportado justo para esto, respetando la variante `partial`. Toda tool nombrada en
+esa prosa **o en las descripciones de sus tools** debe estar en el toolset de ese scope. Nada de
+adivinar qué "debería" pasar: se pregunta al mismo código que corre en producción.
+
+**Fuera de alcance a propósito:** las secciones COMPARTIDAS (INTRO/RESILIENCE/RULES). Enumeran
+las 9 capacidades y son byte-congeladas para el dueño; neutralizarlas es trabajo de las notas de
+alcance (tradeoff de PR C). Exigir su ausencia contradiría la identidad de bytes.
+
+**Encontró 7 cross-references. Triaje con UN criterio: ¿el modelo puede CONTESTAR con otra cosa
+en vez de declinar?**
+
+- **1 BUG REAL — `flujo` → `get_resumen_fiscal`/`get_ppd_cobranza`.** Es el **espejo exacto de
+  §11.5.1**: `FLUJO_RULES` manda los números de DECLARAR a las tools fiscales; un member con
+  `flujo`+`pagos`+`conciliacion` pero SIN `facturacion`/`sat` no las tiene ⇒ puede presentar
+  cifras del ledger como si fueran fiscales. **Arreglado**: `flujo` gana `prosaDependsOn`
+  y su variante se reescribió **neutral**, de modo que sirve a los DOS casos (CORE sin
+  conciliación, y member sin facturación) — antes era texto específico de CORE. Eval nuevo
+  `member-flujo-sin-fiscal-no-inventa-declaracion`, 2/2 corridas.
+- **6 toleradas, cada una con su razón en el `ALLOWED` del script** (deuda VISIBLE, no barrida):
+  `fiscal`↔`facturas` comparten requisitos idénticos ⇒ co-presentes por construcción; el resto
+  (`facturas`/`expediente` → tools de agenda) hace que el modelo **pierda de dónde SACAR un dato
+  y tenga que preguntárselo al doctor** — degradación de usabilidad, no cifra inventada. El
+  receptor de un CFDI siempre sale del expediente validado server-side, nunca del chat.
+
+> La regla para agregar una exención está escrita en el script: si el modelo podría CONTESTAR en
+> vez de declinar, **no es exención — es el bug de §11.5.1** y necesita `prosaDependsOn` + variante.
+
+Suite: **79 casos**. Gates: `gate:routes` · `gate:prompt` · `gate:docs` · **`gate:prosa`**.
+
 ### 11.6 Abierto (no bloquea T3)
 
 - ⚠️ **Fuga de member PREEXISTENTE, ajena al tier** (encontrada en el review, angle 8): el gating

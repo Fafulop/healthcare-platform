@@ -864,22 +864,24 @@ const FLUJO_DOMAIN_MODEL_PARTIAL = `## Cómo funciona el Flujo de Dinero (invari
 - El **origen** dice por cuál puerta nació: cita, venta, compra, pago en línea (webhook_pago) o
   manual; comision es interno.
 - Movimientos **por realizar** son proyecciones, no dinero real: los balances los separan.
-- El plan de esta cuenta NO incluye Conciliación Bancaria ni Facturación: los movimientos NO traen
-  estado bancario ni de factura, y **esos campos simplemente no vienen en el resultado**. No los
-  menciones, no los supongas y NUNCA los deduzcas de otros campos (categorizados, comprobante,
-  origen, alertas): ninguno de ellos dice si algo está conciliado o facturado. Si te preguntan por
-  conciliación bancaria o por facturas, di que esa función no está incluida en el plan.
-- Algunos movimientos históricos nacieron de orígenes que el plan ya no incluye (sat_emitido,
-  sat_recibido). Siguen siendo dinero real del doctor y cuentan en los totales, pero NO son una
-  función de facturación disponible: repórtalos como movimientos del ledger y nada más.`;
+- **Esta cuenta no tiene todas las funciones de dinero.** Los ejes de evidencia que no estén
+  disponibles (🧾 factura, 🏦 banco) **simplemente NO vienen en el resultado del tool**: si un campo
+  no está, no lo menciones, no lo supongas y NUNCA lo deduzcas de otros (categorizados,
+  comprobante, origen, alertas — ninguno dice si algo está conciliado o facturado). Si te
+  preguntan por conciliación bancaria o por facturas y no tienes esa tool, dilo directo.
+- Algunos movimientos históricos nacieron de orígenes de funciones que esta cuenta ya no tiene
+  (sat_emitido, sat_recibido). Siguen siendo dinero real del doctor y cuentan en los totales, pero
+  NO son una función de facturación disponible: repórtalos como movimientos del ledger y nada más.`;
 
 const FLUJO_RULES_PARTIAL = `## Flujo de dinero — reglas (SOLO CONSULTA)
 - "¿Cuánto tengo/gané/gasté?", "¿cuánto entró y salió?" = **get_balance/get_movimientos** (el
-  ledger: TODO el dinero registrado). Esta cuenta no tiene los números fiscales del SAT
-  (declaraciones, IVA, retenciones): si te los piden, dilo directo — no los estimes desde el
-  ledger, miden cosas distintas.
+  ledger: TODO el dinero registrado, con o sin factura).
+- **Los números para DECLARAR son OTRA COSA** (base de efectivo del SAT: IVA, retenciones,
+  deducciones). Si no tienes la tool que los da, **dilo y NO los estimes desde el ledger** — dar
+  cifras del ledger como si fueran fiscales es un error grave, aunque se parezcan.
 - **"¿Quién me debe?"**: ingresos del ledger pendientes de cobro = get_movimientos con
-  estatusPago "POR_COBRAR".
+  estatusPago "POR_COBRAR". (La otra lectura —facturas PPD sin complemento— requiere una tool
+  fiscal que esta cuenta puede no tener; si no la tienes, no la ofrezcas.)
 - Para contar usa SIEMPRE "totalEncontradas" (las listas vienen capadas) — nunca cuentes los
   elementos mostrados.
 - NO puedes crear, editar, fusionar ni ignorar movimientos — eso se hace en la UI. Consultar y
@@ -894,6 +896,11 @@ export const flujoModule: AgentModule = {
   prompt: {
     domainModel: FLUJO_DOMAIN_MODEL,
     domainRules: FLUJO_RULES,
+    // El desempate de FLUJO_RULES manda los números de DECLARAR a las tools
+    // fiscales. Sin ellas, el modelo puede presentar cifras del ledger como
+    // fiscales — el caso ESPEJO de §11.5.1. La variante es neutral a propósito:
+    // sirve tanto a CORE (sin conciliación) como a un member sin facturación.
+    prosaDependsOn: ['facturacion'],
     partial: {
       domainModel: FLUJO_DOMAIN_MODEL_PARTIAL,
       domainRules: FLUJO_RULES_PARTIAL,
