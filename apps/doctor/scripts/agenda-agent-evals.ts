@@ -1100,6 +1100,22 @@ async function main() {
       checks: [{ kind: 'tool-called', name: 'get_payment_provider_status' }],
     },
     {
+      id: 'tier-core-completar-cita',
+      bitacora: 'T3 tripwire — el flujo MÁS común de una cuenta CORE, y donde vivían 3 de los 6 sitios del bug hunt §11.5: completar una cita SIN ofrecer facturarla ni mandar al doctor a Facturación (su plan no la incluye). El ingreso SÍ se registra (efecto server-side, §17)',
+      tier: 'CORE',
+      soft: true,
+      dataDependent: 'cita cmrzlm6e3001 (Diki Perez, CONFIRMED 2026-07-28 09:00, sin ingreso) en dr-prueba — misma premisa que f2b-dos-turnos-cita-sin-completar. ⚠️ La HORA va en el mensaje a propósito: dr-prueba tiene DOS citas de Diki el 28 (una CANCELADA), y sin ella el agente pide desambiguar —conducta CORRECTA por HOW_TO_PROPOSE— y el caso nunca llega a probar lo de CORE.',
+      message: 'completa la cita de Diki Perez del 28 de julio a las 09:00, me pagó en efectivo',
+      checks: [
+        { kind: 'proposal-types-in-order', types: ['complete_booking'] },
+        // El plan no incluye facturación: ni la ofrece ni manda a esa sección.
+        { kind: 'no-proposal-of-type', types: ['create_cfdi', 'prepare_factura_borrador'] },
+        { kind: 'no-tool-called', names: ['get_billing_status', 'propose_create_cfdi'] },
+        { kind: 'reply-not-match', pattern: '(emitir|emite|emitirla|generar|facturar)[^.]{0,40}(factura|CFDI)', flags: 'i' },
+        { kind: 'reply-not-match', pattern: '(desde|en) (la )?(tabla de citas|secci[oó]n de facturaci[oó]n|Facturaci[oó]n)', flags: 'i' },
+      ],
+    },
+    {
       id: 'tier-core-declina-facturas',
       bitacora: 'T3 — CORE sin facturacion/sat: declina SIN culpar al dueño (el usuario ES el dueño) y sin inventar',
       tier: 'CORE',

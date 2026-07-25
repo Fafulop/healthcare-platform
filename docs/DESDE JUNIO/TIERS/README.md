@@ -72,8 +72,13 @@ las 4 correcciones al diseño y lo que queda abierto: [`01-DISENO`](01-DISENO-te
 >    la variante `partial`): toda tool nombrada ahí debe existir en ese scope. La clase pasó de
 >    prevenirse por DISCIPLINA a ser **imposible por construcción** (`08-EMPIEZA-AQUI` §6).
 >    Encontró **7 cross-references**, una de ellas un **bug real** (ver §11.5.2).
-> 2. **Eval `tier-core-completar-cita`**: el flujo MÁS común de una cuenta CORE sigue sin
->    ejercitarse de punta a punta (es justo donde vivían 3 de los 6 sitios del bug hunt §11.5).
+> 2. ✅ **HECHO 2026-07-25 — eval `tier-core-completar-cita`** (el flujo más común de CORE, donde
+>    vivían 3 de los 6 sitios del bug hunt). 2/3 al 1er intento; el WARN es la sobre-declaración
+>    conocida (#24), check `soft`. Ver §11.5.2.
+>
+> ⇒ **El tripwire quedó CUMPLIDO.** Lo que falta para un downgrade real ya no es seguridad del
+> agente sino producto: **T5** (poder fijar el tier sin SQL a mano) y **T4** (que el doctor VEA por
+> qué algo está bloqueado). Ver "Qué sigue".
 > *(El 3er ítem —"`prosaDependsOn` solo mira el TIER"— se **CERRÓ** el 2026-07-25: ahora se evalúa
 > contra lo que el toolset PROVEE, así que cubre también la ausencia por toggles de member.
 > Ver §11.5.1.)*

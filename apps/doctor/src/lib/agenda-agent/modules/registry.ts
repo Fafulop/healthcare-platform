@@ -188,6 +188,10 @@ export interface AgentScope {
   /** The account tier, forwarded to ToolContext so a KEPT tool can strip
    * fields belonging to an excluded feature (T3 finding 4). */
   tier: string | null | undefined;
+  /** Capabilities this scope's FINAL toolset actually provides. Drives the
+   * `prosaDependsOn` check, and lets gate:prosa ask the same question the
+   * resolver asks instead of re-deriving it (which would drift). */
+  providedKeys: ReadonlySet<PermissionKey>;
 }
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
@@ -202,6 +206,8 @@ export const FULL_SCOPE: AgentScope = {
   memberLimited: false,
   partialModules: EMPTY_SET,
   tier: null,
+  // The full set provides every capability the agent composes with.
+  providedKeys: new Set(AGENT_FEATURE_KEYS),
 };
 
 /**
@@ -293,6 +299,7 @@ export function resolveAgentScope(access: AgentAccess): AgentScope {
     memberLimited: !access.isOwner,
     partialModules,
     tier: access.tier,
+    providedKeys,
   };
 }
 

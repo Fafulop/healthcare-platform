@@ -523,7 +523,32 @@ en vez de declinar?**
 > La regla para agregar una exención está escrita en el script: si el modelo podría CONTESTAR en
 > vez de declinar, **no es exención — es el bug de §11.5.1** y necesita `prosaDependsOn` + variante.
 
-Suite: **79 casos**. Gates: `gate:routes` · `gate:prompt` · `gate:docs` · **`gate:prosa`**.
+**Segunda clase, agregada el mismo día: redirects a una SECCIÓN.** El chequeo de tools no ve
+frases como *"se emite desde la tabla de citas"* o *"entra a Flujo de Dinero"* — y ahí vivían los
+PEORES hallazgos, porque mandar al doctor a una puerta cerrada se siente producto roto, no una
+pista perdida. Se agregó un léxico `FEATURE_PHRASES` (sección → `PermissionKey`) que solo dispara
+con una **pista de ruteo** delante ("en la página X", "entra a X", "se emite desde X"): nombrar
+una función para NEGARLA es honesto y no se persigue. Encontró 1 caso, y resultó **falso
+positivo conservado a propósito**: *"El ingreso se registra EN Flujo de Dinero automáticamente"*
+es un HECHO cierto incluso para un member sin `flujo` (efecto server-side, `../NUEVOS
+USUARIOS/01-DISENO` §17) — callarlo sería peor.
+
+**Prueba NEGATIVA del gate** (un gate que pasa no prueba nada si nunca podría fallar): se quitó
+temporalmente el `prosaDependsOn` de `fiscal` y el gate **disparó** con
+`fiscal → get_balance` + `get_movimientos`, es decir, caza exactamente el bug de §11.5.1. Restaurado, verde.
+
+**Tripwire ítem 2 — CERRADO:** eval `tier-core-completar-cita` (el flujo más común de CORE).
+2/3 corridas al 1er intento; el WARN es la sobre-declaración conocida de la bitácora #24 (ofreció
+"si necesitas emitir factura después, avísame" pese a la prohibición explícita del prompt) — check
+`soft`, mismo criterio que #24. Nota de fixture: la HORA va en el mensaje porque dr-prueba tiene
+DOS citas de Diki el 28; sin ella el agente pide desambiguar (conducta CORRECTA) y el caso nunca
+llega a probar lo de CORE.
+
+Suite: **80 casos**. Gates: `gate:routes` · `gate:prompt` · `gate:docs` · **`gate:prosa`**.
+
+> 🔭 **Observación fuera de alcance (para otra sesión):** en una corrida el agente emitió
+> `propose_complete_booking` **3 veces** para UNA cita ⇒ 3 cards para la misma acción. No es de
+> tiers ni lo introdujo T3, y el check de tipos pasa igual; queda anotado porque es UX confusa.
 
 ### 11.6 Abierto (no bloquea T3)
 
