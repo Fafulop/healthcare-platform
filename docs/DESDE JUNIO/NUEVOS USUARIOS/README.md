@@ -29,6 +29,11 @@ member real. Nada bloqueante abierto.
 2026-07-23** (fix + evals en `../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md` bitácora #24). Sigue
 diferida la sub-prueba B2 del checkbox de factura (opcional, no bloquea). Detalle en el REFRESCO.
 
+⚠️ **Hueco ABIERTO desde 2026-07-25 (documentado, no arreglado):** el módulo `facturas` del agente
+empaqueta dos tools de **`pagos`**, así que un member con `facturacion`+`sat` pero `pagos` OFF
+igual las recibe por el camino del agente (las rutas/páginas sí lo bloquean). Vivo en prod con el
+member real. Ficha completa en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) §"HUECO ABIERTO".
+
 ## Los docs
 
 ### Vivos (se actualizan)

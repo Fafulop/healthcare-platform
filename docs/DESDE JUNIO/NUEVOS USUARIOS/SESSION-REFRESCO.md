@@ -182,6 +182,36 @@ byte-idéntico** (`gate:prompt` verde, cache intacto), y el re-eval fueron los 3
 varias citas COMPLETADAS de prueba con sus ingresos (Pepito López $1,500, y las de A1/A2) —
 limpiar si estorban.
 
+## ⚠️ HUECO ABIERTO — el módulo `facturas` del agente entrega tools de `pagos` (2026-07-25)
+
+**Documentado a propósito, NO arreglado** (decisión del usuario 2026-07-25: dejarlo anotado).
+Encontrado en el review de TIERS T3, pero **no lo introdujo T3**: existe desde PR C.
+
+**Qué pasa.** El gating de member es por **MÓDULO**: conceder `facturacion`+`sat` entrega el
+módulo `facturas` COMPLETO. Pero ese módulo empaqueta dos tools que son de **`pagos`**, no de
+facturación: `get_payment_links` y `get_payment_provider_status`. Resultado: un member SIN el
+toggle `pagos` igual puede preguntarle al asistente por los links de pago — cuáles están
+pagados/pendientes/expirados, a qué cita corresponden, y si las pasarelas están conectadas.
+
+**Está VIVO en prod ahora mismo.** `andreabarbagal` tiene `facturacion` ✓ `sat` ✓ y **`pagos` OFF**
+— o sea justo la forma que lo dispara. Las **páginas y rutas** de Pagos sí la bloquean server-side
+(mapa de rutas, `05-COBERTURA` #11); la fuga es **solo por el camino del agente**, porque ahí el
+corte es por módulo y no por tool.
+
+**Alcance del daño:** metadatos de cobro (estado de un link, cita ligada, si la pasarela está
+conectada). Read-only; nada clínico y ninguna escritura. Pero el dueño apagó ese toggle a
+propósito, así que es una violación real de su intención.
+
+**Cómo se cierra (≈1 línea).** TIERS T3 ya dejó la pieza: `TOOL_FEATURE_KEY` en
+`modules/registry.ts` declara la capacidad REAL de esas dos tools (`pagos`). Hoy solo se aplica al
+eje de TIER; aplicarlo también al eje de MEMBER (dropear una tool cuya key propia el member no
+tiene) cierra el hueco. **No se hizo porque cambia conducta de members** (Andrea perdería dos
+tools que hoy usa) y eso es decisión de permisos, no refactor.
+
+**Al retomarlo:** correr los evals de member (`member-*`, 6 casos) después del cambio — y ojo con
+la simetría: revisar si algún otro módulo empaqueta tools de una key que no está en su
+`AGENT_MODULE_REQUIREMENTS` (el método de los "dos greps" de `02-METODO` §3.2).
+
 ## Gotchas para la próxima sesión
 
 - **⚠️ El push a `main` NO garantiza que TODOS los servicios de Railway se desplieguen.**

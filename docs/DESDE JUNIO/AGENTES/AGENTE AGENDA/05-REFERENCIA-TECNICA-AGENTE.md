@@ -350,6 +350,7 @@ lo re-valida contra el token de todas formas).
 | — | Dependencias entre pasos del plan son ADVISORIAS | El executor corta la cadena solo ante fallo total de un paso; un delete parcialmente exitoso o una card rechazada deja correr al paso dependiente, que falla **seguro y visible** en el endpoint (409). Aristas de dependencia reales = post-v1 |
 | — | Sin streaming/estado progresivo (G9) | El panel muestra spinner; mejorar si la latencia molesta |
 | — | Estados terminales | COMPLETED/NO_SHOW/CANCELLED no se revierten jamás — el camino es cita nueva |
+| L6 | **Propuestas DUPLICADAS en un turno** (visto 2026-07-25, sin arreglar por decisión) | `ProposalCollector.add()` **no deduplica**: capa a 10 por turno pero no revisa si ya existe una propuesta idéntica (mismo `type` + mismo `bookingId`). En 1 de 3 corridas el modelo llamó `propose_complete_booking` **3 veces** para UNA cita ⇒ 3 cards. **Daño acotado: confusión, no datos malos** — al confirmar, la 1ª completa y las otras 2 chocan con el estado terminal, y el ingreso NO se duplica (idempotente por `bookingId @unique` + catch P2002, `../../NUEVOS USUARIOS/01-DISENO` §17). Conducta no determinista del modelo, **anterior a TIERS y ajena a permisos**: cualquier dueño puede toparla. Fix candidato: dedupe en `add()` por (type, params clave) — antes hay que confirmar que ningún flujo legítimo necesite dos propuestas del mismo tipo sobre la misma entidad |
 
 ---
 

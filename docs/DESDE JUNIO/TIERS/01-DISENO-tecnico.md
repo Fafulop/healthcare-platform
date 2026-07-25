@@ -556,8 +556,16 @@ Suite: **80 casos**. Gates: `gate:routes` · `gate:prompt` · `gate:docs` · **`
   de member es por MÓDULO, así que un member con `facturacion`+`sat` pero **`pagos` OFF** recibe
   igualmente `get_payment_links`/`get_payment_provider_status`, porque viven dentro del módulo
   `facturas`. Existe desde PR C; T3 no lo empeora, pero `TOOL_FEATURE_KEY` ya da la pieza para
-  cerrarlo (aplicar la key propia de la tool también al eje de member). **Decisión del usuario
-  pendiente** — cerrarlo cambia conducta de members, así que no se hizo dentro de T3.
+  cerrarlo (aplicar la key propia de la tool también al eje de member).
+  **DECISIÓN 2026-07-25: se documenta, NO se arregla por ahora.** Está VIVO en prod (andreabarbagal
+  tiene esa forma exacta). Ficha completa —alcance del daño, cómo cerrarlo, qué re-correr— en el
+  doc canónico de esa feature: [`../NUEVOS USUARIOS/SESSION-REFRESCO.md`](../NUEVOS%20USUARIOS/SESSION-REFRESCO.md)
+  §"HUECO ABIERTO". Aquí solo se referencia (regla de reparto de `08-EMPIEZA-AQUI` §2).
+- ⚠️ **Propuestas duplicadas en un turno** (visto en los evals de T3, ajeno a tiers): el modelo
+  llamó `propose_complete_booking` 3 veces para una cita ⇒ 3 cards; `ProposalCollector` no
+  deduplica. Confusión, no datos malos (el ingreso es idempotente). **DECISIÓN 2026-07-25: se
+  documenta, NO se arregla.** Ficha en `../AGENTES/AGENTE AGENDA/05-REFERENCIA-TECNICA-AGENTE.md`
+  §11 límite **L6**.
 - `porOrigen` de `get_flujo_status` sigue mostrando agregados de origen `sat_emitido`/
   `sat_recibido` en CORE. Se dejó A PROPÓSITO: son movimientos reales del ledger (una función que
   CORE SÍ tiene) y quitarlos descuadraría los totales del propio doctor — "downgrade = gating,
