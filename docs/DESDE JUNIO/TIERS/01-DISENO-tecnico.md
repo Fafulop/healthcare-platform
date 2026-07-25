@@ -271,8 +271,8 @@ Cada PR con su verificación; todo cambio de agente ⇒ suite de 65 evals (regla
    (`fiscal-form` GET+POST, `sat-auto-sync` filtra por tier). Fix: `TIER_EXCLUDED` → 403 en el
    error handler del doctor-app (habría sido 500). Gate de cobertura de tier agregado. **NO-OP
    en el deploy** (todos FULL); probado 20/20 offline + downgrade dr-prueba→CORE→revert en vivo.
-3. ✅ **PR T3 — agente tier-aware — CONSTRUIDO 2026-07-25** (gates verdes, tsc limpio, evals de
-   frontera corridos; ver §11 para el as-built y las 4 correcciones al diseño).
+3. ✅ **PR T3 — agente tier-aware — SHIPPED 2026-07-25** (`b26898f5`, desplegado). Ver §11 para el
+   as-built, las 4 correcciones al diseño, el bug hunt (§11.5) y el gate `gate:prosa` (§11.5.2).
 4. **PR T4 — cliente show-locked.** `usePermissions` con `lockedByTier`, sidebar con candado,
    pantalla/CTA de upgrade, ruta de contacto.
 5. **PR T5 — admin.** Selector de tier + columna + ruta admin-guarded.
@@ -306,7 +306,10 @@ Cada PR con su verificación; todo cambio de agente ⇒ suite de 65 evals (regla
 
 ---
 
-## 11. PR T3 — as-built (2026-07-25) · CONSTRUIDO, pendiente de push
+## 11. PR T3 — as-built (2026-07-25) · ✅ SHIPPED Y DESPLEGADO
+
+> Commits: **`b26898f5`** (T3) · **`cddecc19`** + **`a47bc4c9`** (`gate:prosa`) · **`dd8964d8`**
+> (docs de los huecos abiertos). Deploy `@healthcare/doctor` verificado SUCCESS.
 
 Construido según §5.2 con **cuatro correcciones al diseño**, todas encontradas leyendo el código
 o corriendo los evals — ninguna era visible desde el diseño en papel.

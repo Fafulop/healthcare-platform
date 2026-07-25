@@ -14,6 +14,20 @@ Usuarios secundarios (staff/asistentes) por portal de doctor, con 19 toggles de 
 granulares (18 secciones del sidebar + "Asistente IA"), invitación explícita por email,
 enforcement server-side en ambos apps (doctor + api).
 
+## ⚡ Actualización 2026-07-25 (léela antes del estado de abajo)
+
+La feature sigue COMPLETA y en prod; nada de lo de abajo cambió. Dos cosas nuevas que sí importan
+para esta carpeta, ambas del trabajo de **TIERS T3** (`b26898f5`):
+
+1. ⚠️ **Hueco ABIERTO y VIVO en prod:** el módulo `facturas` del agente entrega dos tools de
+   **`pagos`**, así que un member con `facturacion`+`sat` y `pagos` **OFF** igual las recibe por el
+   camino del agente. Andrea tiene exactamente esa forma. **Documentado, NO arreglado** (decisión
+   del usuario). Ficha completa abajo, en §"HUECO ABIERTO".
+2. 🔧 **El punto de entrada de la composición del agente CAMBIÓ**: ahora es `resolveAgentScope`
+   (toggles de member **+** tier de la cuenta). `enabledModules` sigue existiendo pero **ya no se
+   exporta**. Además hay un gate nuevo, `pnpm gate:prosa`. Contexto en
+   [`../TIERS/01-DISENO-tecnico.md`](../TIERS/01-DISENO-tecnico.md) §11.
+
 ## Estado ahora mismo (fin de día 2026-07-22)
 
 **TODO PUSHEADO Y DESPLEGADO — `origin/main` en `dceaf9f4`, working tree limpio.** Resumen para

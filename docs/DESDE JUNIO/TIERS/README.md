@@ -50,49 +50,64 @@ en los 3 sitios (2 choke points owner+member + public/cron), pero es **NO-OP: lo
 FULL** y `tierAllows(FULL,*)=true`, así que nadie está gateado todavía. Test en vivo pasó
 (dr-prueba→CORE: facturación+SAT dieron 403 `TIER_EXCLUDED`, flujo 200; revertido→FULL).
 
-🟡 **T3 — agente tier-aware — CONSTRUIDO 2026-07-25, PENDIENTE DE PUSH.** El agente ya compone
-módulos **y tools** por plan: CORE conserva `flujo` sin `get_conciliacion_bancaria`, dropea
-`fiscal`, y **rescata las tools de `pagos`** del módulo `facturas` que se cae (corrección al
-diseño — CORE paga `pagos`). Prefijo CORE **−21%** y 26 tools vs 39. El prompt del owner FULL
-quedó **byte-idéntico** (sha256 sin cambio) ⇒ cero invalidación de cache en prod. Gates verdes,
-tsc limpio, **14/14 evals de frontera** al 1er intento (la suite pasa a **76** casos). As-built,
-las 4 correcciones al diseño y lo que queda abierto: [`01-DISENO`](01-DISENO-tecnico.md) §11.
+🟢 **T3 — agente tier-aware — SHIPPED Y DESPLEGADO 2026-07-25** (`b26898f5`; gate en `cddecc19`
++`a47bc4c9`; docs en `dd8964d8`). El agente compone módulos **y tools** por plan: CORE conserva
+`flujo` sin `get_conciliacion_bancaria`, dropea `fiscal`, y **rescata las tools de `pagos`** del
+módulo `facturas` que se cae (corrección al diseño — CORE paga `pagos`). Prefijo CORE **−21%**
+(26 tools vs 39). Prompt del owner FULL **byte-idéntico** (sha256 `4a66a438…`) ⇒ **cero
+invalidación de cache**, y **NO-OP** mientras los 11 doctores sean FULL. Suite **80 casos**;
+`pnpm gates` ahora corre **CUATRO** (nuevo `gate:prosa`). As-built completo, las 4 correcciones al
+diseño, el bug hunt y el gate: [`01-DISENO`](01-DISENO-tecnico.md) §11.
 
 ### ⏭️ Qué sigue
 
-- **Pushear T3** (explicación + OK del usuario, regla del repo). **Hasta que T3 esté DESPLEGADO,
-  no pongas a ningún doctor real en CORE**: sin él, el asistente de un CORE intentaría tools de
-  facturas/fiscal y chocaría con los 403 de T2.
+> 🧭 **Si eres una sesión nueva: empieza aquí.** T1→T3 están EN PROD y el gating es **NO-OP**
+> (los 11 doctores son FULL). Lo que falta para que un tier sirva de algo NO es seguridad del
+> agente —eso quedó cerrado y con gates— sino **poder fijar el tier (T5) y que el doctor vea por
+> qué algo está bloqueado (T4)**. El orden recomendado es el de abajo.
 
-> 🚧 **TRIPWIRE — antes de mover al PRIMER doctor real a CORE** (no bloquea el push de T3, que es
-> NO-OP mientras todos sean FULL; sí bloquea el primer downgrade real):
-> 1. ✅ **HECHO 2026-07-25 — `pnpm gate:prosa`** (`scripts/check-agent-prose-references.ts`).
->    Enumera los **66 scopes alcanzables** (cada combinación de módulos × cada tier), los resuelve
->    con el resolver REAL y lee la prosa que el composer REAL renderiza (`sectionsFor`, respetando
->    la variante `partial`): toda tool nombrada ahí debe existir en ese scope. La clase pasó de
->    prevenirse por DISCIPLINA a ser **imposible por construcción** (`08-EMPIEZA-AQUI` §6).
->    Encontró **7 cross-references**, una de ellas un **bug real** (ver §11.5.2).
-> 2. ✅ **HECHO 2026-07-25 — eval `tier-core-completar-cita`** (el flujo más común de CORE, donde
->    vivían 3 de los 6 sitios del bug hunt). 2/3 al 1er intento; el WARN es la sobre-declaración
->    conocida (#24), check `soft`. Ver §11.5.2.
->
-> ⇒ **El tripwire quedó CUMPLIDO.** Lo que falta para un downgrade real ya no es seguridad del
-> agente sino producto: **T5** (poder fijar el tier sin SQL a mano) y **T4** (que el doctor VEA por
-> qué algo está bloqueado). Ver "Qué sigue".
-> *(El 3er ítem —"`prosaDependsOn` solo mira el TIER"— se **CERRÓ** el 2026-07-25: ahora se evalúa
-> contra lo que el toolset PROVEE, así que cubre también la ausencia por toggles de member.
-> Ver §11.5.1.)*
-- **Decisión pendiente del usuario (no bloquea):** cerrar o no la fuga PREEXISTENTE de member que
-  destapó el review — un member con `facturacion`+`sat` pero `pagos` OFF igual recibe las tools de
-  links de pago, porque el gating de member es por MÓDULO. Detalle en `01-DISENO` §11.6.
-- **T4** show-locked UI (usa el marcador `TIER_EXCLUDED` del 403, ya verificado) · **T5** selector
-  de tier en admin (⚠️ el write DEBE validar contra `DOCTOR_TIERS` con case canónico — `tierAllows`
-  es case-sensitive + fail-open) · **T6** degradación de cruces de flujo + audit de fuga read-only
-  (incluye la política de `porOrigen` sat_emitido/sat_recibido, ver §11.6).
-- Lo que YA existe y hay que reusar (no reinventar): `tierAllows`, `tierRouteDecision`
-  (nearest-feature-key), `tiersExcluding`, `doctorTierAllows` en `@healthcare/database`;
-  `Doctor.tier` (String, default FULL); el gate de cobertura de tier en
-  `scripts/check-route-permission-coverage.ts`.
+**El siguiente paso concreto es T5**, y va ANTES que T4 por una razón práctica: hoy mover a un
+doctor a CORE exige **SQL escrito a mano contra prod**, que es la peor forma de hacer el primer
+downgrade. T5 es pequeño y es lo que vuelve T3 probable de punta a punta.
+
+✅ **El TRIPWIRE del agente quedó CUMPLIDO el 2026-07-25** (los 3 ítems: `gate:prosa`, el eval
+`tier-core-completar-cita`, y `prosaDependsOn` extendido al eje de member). Detalle en
+[`01-DISENO`](01-DISENO-tecnico.md) §11.5.1–§11.5.2. **Ya nada del agente bloquea un downgrade.**
+
+**En orden:**
+
+1. **T5 — selector de tier en el admin.** El siguiente. Pequeño.
+   > ⚠️ **REQUISITO DURO:** el write DEBE validar contra `DOCTOR_TIERS` con el **case canónico**
+   > (`'FULL'`/`'CORE'`). `tierAllows` es **case-sensitive Y fail-open**: un `'core'` en minúsculas
+   > no matchea `TIER_EXCLUDED_KEYS` y **desactiva el gating EN SILENCIO** — la cuenta queda FULL
+   > de facto mientras la UI dice CORE. Es el peor modo de fallo de esta feature porque *parece
+   > que funcionó*. El write es la única barrera (§7).
+2. **Prueba controlada en dr-prueba**: downgrade → verificar (rutas 403 `TIER_EXCLUDED` + el
+   asistente sin facturas/fiscal y con `flujo` sin conciliación) → revertir. Mismo formato que el
+   test en vivo de T2.
+3. **T4 — show-locked UI** (usa el marcador `TIER_EXCLUDED` del 403, ya verificado). **Antes de
+   cualquier cliente REAL en CORE**: sin esto el doctor ve funciones bloqueadas sin saber por qué.
+4. **T6 — degradación de cruces de flujo + auditoría de fuga read-only.** Que decida de una sola
+   vez la política de `porOrigen` (sat_emitido/sat_recibido) Y la de reportes/analytics, en vez de
+   caso por caso. Ver §11.6.
+
+**Deuda anotada a propósito (no bloquea, decisión de 2026-07-25 de documentar y no arreglar):**
+la fuga de `pagos` por el camino del agente —VIVA en prod con el member real— en
+[`../NUEVOS USUARIOS/SESSION-REFRESCO.md`](../NUEVOS%20USUARIOS/SESSION-REFRESCO.md)
+§"HUECO ABIERTO"; y las cards duplicadas (límite **L6**) en
+`../AGENTES/AGENTE AGENDA/05-REFERENCIA-TECNICA-AGENTE.md` §11.
+
+**Idea de fondo para cuando esto crezca** (no ahora): las cross-references de la prosa siguen
+siendo texto escrito a mano; **generarlas desde el registry** —que solo puedan nombrar tools
+presentes en el scope— mataría la clase entera por construcción en AMBOS ejes, sin duplicar nada.
+Se evaluó separar suites de agente por tier y se DESCARTÓ: arregla el eje de tier (2 valores) y
+deja intacto el de member (33 formas), que es justo donde vivió el peor bug de la sesión.
+
+**Lo que YA existe y hay que reusar (no reinventar):** `tierAllows`, `tierRouteDecision`
+(nearest-feature-key), `tiersExcluding`, `doctorTierAllows` en `@healthcare/database` ·
+`Doctor.tier` (String, default FULL) · `resolveAgentScope` + `TOOL_FEATURE_KEY` +
+`prompt.partial`/`prosaDependsOn` en el registry del agente · los gates
+`check-route-permission-coverage.ts` y `check-agent-prose-references.ts`.
 
 ## Relación con otras carpetas
 
