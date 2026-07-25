@@ -1,13 +1,18 @@
 /**
- * Route→toggle map + matcher for secondary-user enforcement (PR B).
+ * Route→toggle map + matcher for secondary-user enforcement (PR B) AND the
+ * account-tier ceiling (TIERS T2).
  *
  * Consumed by the TWO auth choke points only:
  *  - apps/api validateAuthToken (after effective-access resolution)
  *  - apps/doctor medical-auth requireDoctorAuth
- * Owners and ADMINs never reach the check. For MEMBERS the map is FAIL-CLOSED:
- * an authenticated route that matches no rule is blocked (403), so future
- * routes are member-blocked until someone maps them (G9). Public/webhook/cron
- * endpoints never call these helpers, so they are unaffected by design.
+ * Two DIFFERENT reads of this one map (see the functions below):
+ *  - checkRoutePermission (MEMBER toggles): owners and ADMINs never reach it;
+ *    FAIL-CLOSED — an authenticated route matching no rule is blocked (403), so
+ *    future routes stay member-blocked until someone maps them (G9).
+ *  - tierRouteDecision (TIER ceiling, TIERS T2): applies to OWNER and MEMBER
+ *    (ADMINs bypass); resolves by nearest-FEATURE-key, not most-specific-rule.
+ * Public/webhook/cron endpoints never call these, so they are unaffected here;
+ * their tier gating is a separate explicit call (doctorTierAllows / tiersExcluding).
  *
  * Matching rules:
  *  - prefixes are segment-bounded ('medical-records' does NOT match
@@ -20,7 +25,7 @@
  * Design: docs/DESDE JUNIO/NUEVOS USUARIOS/01-DISENO-tecnico.md §4.3
  */
 
-import { hasPermission, type PermissionKey, type PermissionSet } from './permissions';
+import { hasPermission, tierAllows, type PermissionKey, type PermissionSet } from './permissions';
 
 export type RouteAccessKey = PermissionKey | 'NEUTRAL' | 'OWNER_ONLY';
 
@@ -226,6 +231,23 @@ export function nearestFeatureKey(pathname: string, method: string): PermissionK
     }
   }
   return best?.key ?? null;
+}
+
+/**
+ * Decisión del TECHO del tier para una ruta (TIERS T2). Aplica a OWNER Y MEMBER
+ * (admin nunca llega). `blocked` ⇒ la CUENTA no tiene esta función en su plan,
+ * sin importar los toggles del member. Resuelve por nearest-feature-key (§4.3),
+ * así que caza también los OWNER_ONLY bajo una función excluida.
+ * Diseño: docs/DESDE JUNIO/TIERS/01-DISENO-tecnico.md §4.2.
+ */
+export function tierRouteDecision(
+  pathname: string,
+  method: string,
+  tier: string | null | undefined
+): { blocked: boolean; featureKey: PermissionKey | null } {
+  const featureKey = nearestFeatureKey(pathname, method);
+  const blocked = featureKey != null && !tierAllows(tier, featureKey);
+  return { blocked, featureKey };
 }
 
 /** Toggle governing a dashboard page, or null if the page is ungated (home). */

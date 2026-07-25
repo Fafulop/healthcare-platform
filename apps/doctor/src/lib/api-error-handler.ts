@@ -37,6 +37,16 @@ export function handleApiError(error: unknown, context: string = 'API request'):
         { status: 403 }
       );
     }
+
+    // Account tier doesn't include this feature (medical-auth TIERS T2). Distinct
+    // marker so the UI shows the upgrade prompt, not the member "sin permiso"
+    // screen. Without this the throw would fall through to a generic 500.
+    if (error.message === 'TIER_EXCLUDED') {
+      return NextResponse.json(
+        { error: 'TIER_EXCLUDED' },
+        { status: 403 }
+      );
+    }
   }
 
   // Prisma errors

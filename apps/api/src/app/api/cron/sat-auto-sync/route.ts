@@ -10,7 +10,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, tiersExcluding } from '@healthcare/database';
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization');
@@ -31,7 +31,10 @@ export async function POST(request: Request) {
 
   const recentWindow = new Date(Date.now() - 20 * 60 * 60 * 1000); // 20 hours
 
-  // Find doctors with auto-sync enabled, FIEL uploaded, and not expired
+  // TIERS G3 (3er sitio de enforcement): el worker/cron no pasa por los choke
+  // points. Saltar los doctores cuyo plan NO incluye Descarga SAT — o pagas
+  // sync de una función que no tienen. Filtro en BD; correcto al agregar tiers.
+  const tiersBlockingSat = tiersExcluding('sat'); // ['CORE'] en v1
   const profiles = await prisma.doctorFiscalProfile.findMany({
     where: {
       fielUploaded: true,
@@ -40,6 +43,7 @@ export async function POST(request: Request) {
         { fielValidUntil: null },
         { fielValidUntil: { gt: new Date() } },
       ],
+      ...(tiersBlockingSat.length ? { doctor: { tier: { notIn: tiersBlockingSat } } } : {}),
     },
     select: {
       id: true,

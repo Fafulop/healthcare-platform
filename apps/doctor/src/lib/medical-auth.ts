@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { auth } from '@healthcare/auth';
-import { prisma, checkRoutePermission, type PermissionSet } from '@healthcare/database';
+import { prisma, checkRoutePermission, tierRouteDecision, type PermissionSet } from '@healthcare/database';
 
 export interface MedicalAuthContext {
   userId: string;
@@ -12,6 +12,8 @@ export interface MedicalAuthContext {
   isOwner: boolean;
   /** null for owners (= everything). Members: toggle set (fail-closed reads). */
   permissions: PermissionSet | null;
+  /** Account tier (Doctor.tier), fresh via database sessions. TIERS. */
+  tier: string;
   /** For minting API tokens server-side (agenda-agent tools) — must match the
    * user's current sessionVersion or apps/api rejects the token. */
   sessionVersion: number;
@@ -49,31 +51,46 @@ export async function requireDoctorAuth(
 
   const isOwner = (user.isOwner as boolean | undefined) ?? true; // legacy sessions = owner
   const permissions = (user.permissions as PermissionSet | null | undefined) ?? null;
+  // Account tier — FRESH via database sessions (resolved every request in the
+  // session callback). Legacy/absent ⇒ FULL. TIERS T2.
+  const tier = (user.tier as string | undefined) ?? 'FULL';
 
-  // MEMBER enforcement (PR B): owners/admins bypass entirely. Fail-closed for
-  // members — an internal route missing from the map is blocked.
-  if (!isOwner && user.role !== 'ADMIN') {
+  // Enforcement (owners/members; admins bypass all). TIERS T2: the tier ceiling
+  // applies to OWNER and MEMBER; the member toggle check stays members-only.
+  if (user.role !== 'ADMIN') {
     const pathname = request.nextUrl.pathname;
     const method = request.method.toUpperCase();
-    const decision = checkRoutePermission(pathname, method, permissions);
 
-    if (!decision.allowed) {
-      throw new Error('PERMISSION_BLOCKED');
+    // TIER ceiling (owner + member): the account's plan doesn't include this
+    // feature. Blocks regardless of toggles; nearest-feature-key catches
+    // OWNER_ONLY sub-routes. No-op while the account is FULL.
+    if (tierRouteDecision(pathname, method, tier).blocked) {
+      throw new Error('TIER_EXCLUDED');
     }
 
-    // Fire-and-forget audit of member WRITES (route identity only, never body).
-    if (MUTATING_METHODS.has(method)) {
-      prisma.memberAuditLog
-        .create({
-          data: {
-            doctorId,
-            userId: user.id as string,
-            method,
-            path: pathname.slice(0, 300),
-            toggleKey: decision.toggle,
-          },
-        })
-        .catch((e) => console.error('[medical-auth] member audit write failed:', e));
+    // MEMBER toggles (members only). Fail-closed: an internal route missing
+    // from the map is blocked for members.
+    if (!isOwner) {
+      const decision = checkRoutePermission(pathname, method, permissions);
+
+      if (!decision.allowed) {
+        throw new Error('PERMISSION_BLOCKED');
+      }
+
+      // Fire-and-forget audit of member WRITES (route identity only, never body).
+      if (MUTATING_METHODS.has(method)) {
+        prisma.memberAuditLog
+          .create({
+            data: {
+              doctorId,
+              userId: user.id as string,
+              method,
+              path: pathname.slice(0, 300),
+              toggleKey: decision.toggle,
+            },
+          })
+          .catch((e) => console.error('[medical-auth] member audit write failed:', e));
+      }
     }
   }
 
@@ -84,6 +101,7 @@ export async function requireDoctorAuth(
     doctorId,
     isOwner,
     permissions,
+    tier,
     sessionVersion: (user.sessionVersion as number | undefined) ?? 0
   };
 }

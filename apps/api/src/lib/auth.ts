@@ -7,11 +7,30 @@ import {
   prisma,
   computeEffectiveAccess,
   checkRoutePermission,
+  tierRouteDecision,
   type PermissionSet,
 } from '@healthcare/database';
 import jwt from 'jsonwebtoken';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * TIER ceiling enforcement (TIERS T2). Applies to OWNER **and** MEMBER (non-admin):
+ * if the account's tier excludes the feature this route belongs to, block with
+ * 403 regardless of member toggles. Uses nearest-feature-key so OWNER_ONLY
+ * sub-routes under an excluded feature (facturacion/csd, sat-descarga/fiel) are
+ * caught too. Admins never reach it. Tier is FULL by default ⇒ no-op until an
+ * account is downgraded.
+ */
+function enforceTier(request: Request, tier: string): void {
+  const { pathname } = new URL(request.url);
+  const decision = tierRouteDecision(pathname, request.method.toUpperCase(), tier);
+  if (decision.blocked) {
+    const err = new AuthError('TIER_EXCLUDED', 403);
+    (err as AuthError & { toggle?: string | null }).toggle = decision.featureKey;
+    throw err;
+  }
+}
 
 /**
  * MEMBER route enforcement + cheap audit (PR B). Called from validateAuthToken
@@ -178,16 +197,20 @@ export async function validateAuthToken(
     // this return, so members are scoped to their portal here and nowhere else.
     const access = computeEffectiveAccess(user.memberships, user.doctorId, user.doctor?.tier);
 
-    // MEMBER enforcement: owners and admins bypass entirely (no-op deploy for
-    // every current user); members are checked against the route→toggle map.
-    // Gated on access.doctorId: a fully unlinked user (no membership, no
-    // legacy doctorId — mid-onboarding before an admin links them) has no
-    // portal to scope permissions against. Let that fall through to the
-    // existing doctorId-based checks (getAuthenticatedDoctor etc.), which
-    // already produce their own clear 403 — don't invent a new blocking path
-    // ahead of them for an ambiguous case (02-METODO angle 9).
-    if (!access.isOwner && user.role !== 'ADMIN' && access.doctorId) {
-      enforceMemberRoute(request, access, user.id);
+    // Enforcement (ADMINs bypass all). TIERS T2: the tier ceiling applies to
+    // OWNER **and** MEMBER — a no-op while every account is FULL, and the only
+    // thing owners are now subject to (they still bypass member TOGGLES). The
+    // member route→toggle check stays members-only (PR B).
+    // Gated on access.doctorId: a fully unlinked user (no membership, no legacy
+    // doctorId — mid-onboarding before an admin links them) has no portal to
+    // scope against; let it fall through to the existing doctorId-based checks
+    // (getAuthenticatedDoctor etc.), which produce their own 403 — don't invent
+    // a new blocking path ahead of them for an ambiguous case (02-METODO angle 9).
+    if (user.role !== 'ADMIN' && access.doctorId) {
+      enforceTier(request, access.tier);
+      if (!access.isOwner) {
+        enforceMemberRoute(request, access, user.id);
+      }
     }
 
     return {

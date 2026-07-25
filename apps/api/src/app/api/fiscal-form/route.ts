@@ -3,7 +3,7 @@
 // No authentication required — called by patients from apps/public.
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, tierAllows } from '@healthcare/database';
 import { UTApi } from 'uploadthing/server';
 
 const FISCAL_TEMPLATE_ID = 'FISCAL';
@@ -64,6 +64,7 @@ export async function GET(request: Request) {
           select: {
             doctorFullName: true,
             primarySpecialty: true,
+            tier: true, // TIERS G3: gatear el form público por el plan del doctor
           },
         },
         patient: {
@@ -93,6 +94,16 @@ export async function GET(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Este enlace no corresponde a un formulario fiscal' },
         { status: 400 }
+      );
+    }
+
+    // TIERS G3 (3er sitio de enforcement): flujo PÚBLICO fuera de los choke
+    // points. Si el plan del doctor no incluye facturación, el form no aplica
+    // (defensa en profundidad: un link creado en FULL y luego un downgrade).
+    if (!tierAllows(formLink.doctor.tier, 'facturacion')) {
+      return NextResponse.json(
+        { success: false, error: 'La facturación no está disponible para este consultorio.' },
+        { status: 404 }
       );
     }
 
@@ -194,7 +205,7 @@ export async function POST(request: Request) {
     const formLink = await prisma.appointmentFormLink.findUnique({
       where: { token },
       include: {
-        doctor: { select: { telegramChatId: true, telegramNotifyForm: true } },
+        doctor: { select: { telegramChatId: true, telegramNotifyForm: true, tier: true } },
       },
     });
 
@@ -209,6 +220,14 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Este enlace no corresponde a un formulario fiscal' },
         { status: 400 }
+      );
+    }
+
+    // TIERS G3: no aceptar el submit si el plan del doctor no incluye facturación.
+    if (!tierAllows(formLink.doctor.tier, 'facturacion')) {
+      return NextResponse.json(
+        { success: false, error: 'La facturación no está disponible para este consultorio.' },
+        { status: 404 }
       );
     }
 

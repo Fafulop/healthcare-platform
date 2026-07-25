@@ -156,3 +156,14 @@ export function tierAllows(tier: string | null | undefined, key: PermissionKey):
   if (!excluded) return true; // tier desconocido ⇒ fail-open
   return !excluded.includes(key);
 }
+
+/**
+ * Los tiers CONOCIDOS que EXCLUYEN esta key — para filtrar en la BD (Prisma
+ * `tier: { notIn: tiersExcluding(key) }`) los flujos de FONDO que no pueden
+ * llamar tierAllows por fila (worker SAT, G3). Vacío ⇒ ningún tier la excluye
+ * (no filtres; `notIn: []` es problemático en SQL). Se mantiene correcto al
+ * agregar tiers porque deriva de TIER_EXCLUDED_KEYS.
+ */
+export function tiersExcluding(key: PermissionKey): DoctorTier[] {
+  return DOCTOR_TIERS.filter((t) => TIER_EXCLUDED_KEYS[t].includes(key));
+}

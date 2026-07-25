@@ -259,12 +259,15 @@ ocultan). El gating de MEMBER sigue **ocultando**. Requiere distinguir el PORQU�
 
 Cada PR con su verificación; todo cambio de agente ⇒ suite de 65 evals (regla del repo).
 
-1. **PR T1 — fundación (database).** Campo `Doctor.tier` (SQL manual), `DOCTOR_TIERS`,
-   `TIER_EXCLUDED_KEYS`, `tierAllows`, `nearestFeatureKey`, `doctorTierAllows`; `EffectiveAccess`
-   gana `tier` (lectura fresca). Sin cambio de conducta aún (nadie es CORE). Smoke read-only vs
-   prod del nuevo query shape (regla dura).
-2. **PR T2 — enforcement server.** Aplicar el techo en los 2 choke points (owner+member) con
-   nearest-feature-key; helper para public/cron (fiscal-form + worker SAT). Gates de cobertura.
+1. ✅ **PR T1 — fundación (database) — SHIPPED 2026-07-24 (`c639a0ca`).** Campo `Doctor.tier`
+   (SQL manual aplicado a prod), `DOCTOR_TIERS`, `TIER_EXCLUDED_KEYS`, `tierAllows`,
+   `tiersExcluding`, `nearestFeatureKey`, `doctorTierAllows`; `EffectiveAccess` gana `tier`
+   (string crudo, lectura fresca). Cero conducta (todos FULL). Smoke read-only OK.
+2. ✅ **PR T2 — enforcement server — SHIPPED 2026-07-24.** Techo en los 2 choke points
+   (owner+member) vía `tierRouteDecision`/nearest-feature-key; 3er sitio public/cron
+   (`fiscal-form` GET+POST, `sat-auto-sync` filtra por tier). Fix: `TIER_EXCLUDED` → 403 en el
+   error handler del doctor-app (habría sido 500). Gate de cobertura de tier agregado. **NO-OP
+   en el deploy** (todos FULL); probado 20/20 offline + downgrade dr-prueba→CORE→revert en vivo.
 3. **PR T3 — agente tier-aware.** `enabledModules` + filtro de tools (G2a), `TOOL_FEATURE_KEY`.
    Suite 65 evals corrida como FULL (sin cambios) y como CORE (facturas/fiscal fuera, flujo sin
    conciliacion). Verifica que el prefijo CORE baja y que gate:prompt (FULL) sigue OK.

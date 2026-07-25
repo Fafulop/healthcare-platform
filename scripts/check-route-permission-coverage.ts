@@ -17,7 +17,9 @@ import {
   ROUTE_PERMISSION_MAP,
   UNMAPPED_PUBLIC_PREFIXES,
   checkRoutePermission,
+  nearestFeatureKey,
 } from '../packages/database/src/route-permissions';
+import { TIER_EXCLUDED_KEYS, DOCTOR_TIERS } from '../packages/database/src/permissions';
 
 // Routes that authenticate via requireAdminAuth/other means and are
 // intentionally outside the member permission model (not just "public").
@@ -87,3 +89,24 @@ if (unmapped.length > 0) {
 }
 
 console.log('\nAll routes covered. OK.');
+
+// ── TIERS: cada key excluida por un tier debe resolver a ≥1 ruta real vía
+// nearest-feature-key; si no, la exclusión del plan no muerde nada (bug). Cubre
+// las rutas de apps/api Y apps/doctor que ya recorrimos arriba. Diseño §7.
+const apiFilePaths: string[] = [];
+for (const { dir } of roots) for (const f of findRouteFiles(dir)) apiFilePaths.push(`/api/${toApiPath(f, dir)}`);
+const excludedKeys = [...new Set(DOCTOR_TIERS.flatMap((t) => TIER_EXCLUDED_KEYS[t]))];
+const uncovered: string[] = [];
+for (const key of excludedKeys) {
+  // ¿alguna ruta real resuelve a esta key por nearest-feature-key (con GET o POST)?
+  const hit = apiFilePaths.some(
+    (p) => nearestFeatureKey(p, 'GET') === key || nearestFeatureKey(p, 'POST') === key
+  );
+  if (!hit) uncovered.push(key);
+}
+console.log(`\nTIERS: keys excluibles por tier: ${excludedKeys.join(', ')}`);
+if (uncovered.length > 0) {
+  console.error(`TIERS FAIL — keys excluidas sin ruta que las gatee (la exclusión no muerde): ${uncovered.join(', ')}`);
+  process.exit(1);
+}
+console.log('TIERS: todas las keys excluibles tienen cobertura de ruta. OK.');
