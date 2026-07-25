@@ -461,6 +461,27 @@ const FISCAL_RULES = `## Números fiscales — reglas (SOLO CONSULTA)
 - Estos números dependen de la frescura del sync del SAT — si get_sat_cfdis reporta datos
   posiblemente desactualizados, adviértelo también aquí.`;
 
+/**
+ * Used when the scope has NO ledger tools (module `flujo` absent — a member
+ * without all three of flujo/pagos/conciliacion, or a future tier that drops
+ * it). The full rule above sends "los gastos del día a día" to
+ * get_balance/get_movimientos; with those tools gone it tells the model the
+ * answer lives somewhere it cannot reach, and the model answers "¿cuánto me
+ * quedó este mes?" with SAT cash-basis figures instead — a number for a
+ * DIFFERENT question, stated confidently. Measured 0/3 on the real member's
+ * toggle shape (TIERS 01-DISENO §11.5.1).
+ */
+const FISCAL_RULES_SIN_LEDGER = FISCAL_RULES.replace(
+  `los gastos del día a día (todo el dinero que salió, con o sin
+  factura) viven en el ledger (get_balance/get_movimientos — regla de desempate del módulo
+  de flujo).`,
+  `El Flujo de Dinero (el ledger: todo el dinero que entró y salió, con o sin
+  factura) NO está disponible en esta cuenta, así que NO tienes cómo responder "¿cuánto me quedó
+  este mes?", "¿cuánto entró y salió?" ni el balance del periodo: **dilo, y NO lo respondas con
+  get_resumen_fiscal** — ese mide lo FACTURADO en base de efectivo para declarar, que es otra
+  cosa.`
+);
+
 export const fiscalModule: AgentModule = {
   name: 'fiscal',
   readTools: FISCAL_TOOLS,
@@ -470,5 +491,13 @@ export const fiscalModule: AgentModule = {
   prompt: {
     domainModel: FISCAL_DOMAIN_MODEL,
     domainRules: FISCAL_RULES,
+    // The ledger tools live in `flujo`; without them this module's tie-break
+    // points nowhere. Checked against what the scope PROVIDES, so it also fires
+    // for a member holding `flujo` without `pagos`/`conciliacion`.
+    prosaDependsOn: ['flujo'],
+    partial: {
+      domainModel: FISCAL_DOMAIN_MODEL,
+      domainRules: FISCAL_RULES_SIN_LEDGER,
+    },
   },
 };

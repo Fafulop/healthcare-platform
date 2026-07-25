@@ -17,7 +17,7 @@
  * fiscal ya viven en find_patient y get_patient_profile — no se duplican.
  */
 
-import { prisma } from '@healthcare/database';
+import { prisma, tierAllows } from '@healthcare/database';
 import type { AnthropicTool } from '../anthropic';
 import type { ToolContext } from '../tools';
 import { mxTodayKey } from '../dates';
@@ -269,8 +269,10 @@ async function getExpedienteResumen(ctx: ToolContext, input: { patientId?: strin
       ultimaActualizacion: lastNota ? dayOf(lastNota.updatedAt) : null,
     },
     formulariosPreConsulta: Object.fromEntries(formsByStatus.map((g) => [g.status, g._count.id])),
-    alcance:
-      'Metadatos del expediente (conteos/fechas/estatus). El contenido clínico, los datos fiscales (get_patient_profile) y el dinero (get_billing_status) van por otros caminos.',
+    // TIERS T3: don't route to tools this account's plan removed.
+    alcance: tierAllows(ctx.tier, 'facturacion')
+      ? 'Metadatos del expediente (conteos/fechas/estatus). El contenido clínico, los datos fiscales (get_patient_profile) y el dinero (get_billing_status) van por otros caminos.'
+      : 'Metadatos del expediente (conteos/fechas/estatus). El contenido clínico va por otro camino; los datos fiscales y el dinero del paciente NO están incluidos en el plan de esta cuenta.',
   };
 }
 
@@ -411,6 +413,25 @@ const EXPEDIENTE_RULES = `## Expedientes — reglas (SOLO METADATOS)
 - Al reportar un expediente menciona pendientes accionables si existen (borradores sin
   cerrar, seguimientos vencidos o próximos sin cita, formularios PENDING).`;
 
+/**
+ * TIERS T3 — the "reparto con otros tools" bullet routes to get_patient_profile
+ * and get_billing_status, both of which live in the `facturas` module and are
+ * gone on a plan without Facturación. Pointing the model at tools that don't
+ * exist wastes a tool-search hop and invites it to promise the data anyway.
+ * Reachable via `prosaDependsOn` — no tier trims expediente's own tools.
+ */
+const EXPEDIENTE_RULES_SIN_FACTURACION = EXPEDIENTE_RULES.replace(
+  `- **Reparto con otros tools**: identidad/búsqueda = find_patient; datos FISCALES y contacto =
+  get_patient_profile; dinero/facturas del paciente = get_billing_status; historial
+  administrativo-clínico (conteos/fechas) = get_expediente_resumen; preguntas de cartera
+  ("¿cuántos activos?", "¿quién no ha vuelto?") = get_pacientes_overview.`,
+  `- **Reparto con otros tools**: identidad/búsqueda = find_patient; historial
+  administrativo-clínico (conteos/fechas) = get_expediente_resumen; preguntas de cartera
+  ("¿cuántos activos?", "¿quién no ha vuelto?") = get_pacientes_overview. En esta cuenta NO tienes
+  facturación disponible: no tienes los datos fiscales ni el estado de cobro/factura del
+  paciente — dilo si te los piden, no los busques.`
+);
+
 export const expedienteModule: AgentModule = {
   name: 'expediente',
   readTools: EXPEDIENTE_TOOLS,
@@ -420,5 +441,11 @@ export const expedienteModule: AgentModule = {
   prompt: {
     domainModel: EXPEDIENTE_DOMAIN_MODEL,
     domainRules: EXPEDIENTE_RULES,
+    prosaDependsOn: ['facturacion'],
+    partial: {
+      // Reused by reference — the domain model says nothing about invoicing.
+      domainModel: EXPEDIENTE_DOMAIN_MODEL,
+      domainRules: EXPEDIENTE_RULES_SIN_FACTURACION,
+    },
   },
 };

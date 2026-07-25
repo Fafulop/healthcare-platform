@@ -24,6 +24,13 @@ export interface ToolContext {
    * trust boundary as the client's authFetch. Absent in contexts without a
    * session secret; tools that need it must degrade with a clear error. */
   apiToken?: string | null;
+  /** Account tier (Doctor.tier). TIERS T3: a tool that SURVIVES the tier
+   * filter may still return fields belonging to an EXCLUDED feature — e.g.
+   * get_flujo_status is a `flujo` tool (CORE keeps it) whose payload includes
+   * bank-reconciliation aggregates (`conciliacion`, CORE excludes it). Tools
+   * that mix features check with tierAllows(ctx.tier, key) and omit those
+   * FIELDS. Absent/unknown ⇒ FULL (fail-open), same as everywhere else. */
+  tier?: string | null;
 }
 
 // -----------------------------------------------------------------------------

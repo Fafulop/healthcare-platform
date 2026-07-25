@@ -63,7 +63,7 @@ apps/doctor/src/
 │   ├── modules/                         ← registry de MÓDULOS por dominio (refactor 2026-07-11,
 │   │   │                                   byte-idéntico verificado por sha256)
 │   │   ├── types.ts                     ← contrato AgentModule (tools + executors + secciones)
-│   │   ├── registry.ts                  ← AGENT_MODULES · ALL_TOOLS · dispatch · enabledModules
+│   │   ├── registry.ts                  ← AGENT_MODULES · ALL_TOOLS · dispatch · resolveAgentScope
 │   │   │                                   (permisos de usuarios secundarios) — EL punto de enchufe.
 │   │   │                                   AGENT_MODULE_REQUIREMENTS vive en @healthcare/database
 │   │   │                                   (lo comparte la UI de Equipo); registry lo re-exporta
@@ -330,7 +330,8 @@ lo re-valida contra el token de todas formas).
   read-only (no el endpoint desplegado) → se corren ANTES de cada push que toque prompt/tools.
   Casos data-dependent son `soft` (WARN, no bloquean). **Baseline esperado: 0 WARN** desde la
   auditoría A5 — un WARN se investiga. El runner también simula **usuarios secundarios**
-  (`permissions` por caso → `enabledModules`) con el check `no-tool-called`. Tamaño vigente de
+  (`permissions` por caso) y **planes de cuenta** (`tier` por caso, TIERS T3) → ambos van a
+  `resolveAgentScope`, con el check `no-tool-called`. Tamaño vigente de
   la suite: [`../GENERAL AGENTES/02-CAPACIDADES`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
 - **Smokes por módulo**: `expediente-smoke.ts` (incluye el **tripwire de privacidad**: escanea el
   output por nombres de campos clínicos y truena si aparece uno) y `flujo-smoke.ts`.

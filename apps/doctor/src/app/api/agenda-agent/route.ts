@@ -27,7 +27,7 @@ import { logToolErrors } from '@/lib/ai/log-tool-errors';
 import { prisma } from '@healthcare/database';
 import { isAnthropicConfigured } from '@/lib/agenda-agent/anthropic';
 import { runAgendaAgentTurn, MODEL } from '@/lib/agenda-agent/run-turn';
-import { enabledModules } from '@/lib/agenda-agent/modules/registry';
+import { resolveAgentScope } from '@/lib/agenda-agent/modules/registry';
 import { mintApiToken } from '@/lib/agenda-agent/api-token';
 import { mxWeekStartKey } from '@/lib/agenda-agent/dates';
 
@@ -73,13 +73,22 @@ export async function POST(request: NextRequest) {
     const authCtx = await requireDoctorAuth(request);
     const { doctorId } = authCtx;
 
-    // NUEVOS USUARIOS PR C: module set for THIS caller. Owners get every
-    // module (byte-identical prompt/tools to before this feature existed).
-    const modules = enabledModules({ isOwner: authCtx.isOwner, permissions: authCtx.permissions });
-    if (modules.length === 0) {
+    // What this caller may use: modules by their toggles (NUEVOS USUARIOS PR C)
+    // and tools by the account's plan (TIERS T3). An owner on a FULL account
+    // gets FULL_SCOPE by reference — byte-identical prompt/tools to before
+    // either feature existed. `tier` comes off the auth context, which reads it
+    // FRESH from the Doctor row every request (T2/G4), so a downgrade applies
+    // without a re-login.
+    const scope = resolveAgentScope({
+      isOwner: authCtx.isOwner,
+      permissions: authCtx.permissions,
+      tier: authCtx.tier,
+    });
+    if (scope.modules.length === 0) {
       // Reachable only if an owner grants asistente_ia without any domain
       // toggle — the panel is supposed to hide itself in that case (client),
       // this is the server-side fail-safe. No model call, no tokens spent.
+      // (A plan alone can't empty the set: every tier keeps agenda.)
       return NextResponse.json({
         success: true,
         data: {
@@ -146,7 +155,7 @@ export async function POST(request: NextRequest) {
       doctorSlug: doctor.slug,
       message,
       conversationHistory,
-      modules,
+      scope,
       // Bearer for tools that call apps/api authenticated endpoints (catálogos
       // SAT) — minted from THIS doctor's session, same trust boundary as the
       // client's authFetch. Null if the secret is missing; the tool degrades.

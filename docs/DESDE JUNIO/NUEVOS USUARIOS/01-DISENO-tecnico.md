@@ -493,6 +493,14 @@ export const AGENT_MODULE_REQUIREMENTS: Record<string, PermissionKey[]> = {
 
 Cambios en `lib/agenda-agent/`:
 
+> ⚠️ **Actualización 2026-07-25 (TIERS T3) — esta sección describe PR C tal como se construyó; la
+> composición ganó una segunda capa encima.** El punto de entrada ya NO es `enabledModules` sino
+> **`resolveAgentScope(access)`**, que aplica los toggles del member (por MÓDULO, tal como se
+> describe abajo, sin cambios) y encima el **tier de la cuenta** (por TOOL, y aplica también al
+> DUEÑO). `enabledModules` quedó **sin exportar** para que nadie se salte el segundo techo por
+> accidente, y `buildSystemPrompt` recibe el scope, no la lista de módulos. Lo de abajo sigue
+> siendo la verdad del eje de MEMBER. Detalle: `../TIERS/01-DISENO-tecnico.md` §11.
+
 - `modules/registry.ts`: nueva `enabledModules(access): AgentModule[]` — owner devuelve
   `AGENT_MODULES` **por referencia** (idéntico); member filtra por requirements. `ALL_TOOLS`
   y colisión de nombres siguen calculándose sobre el total (invariante de build).

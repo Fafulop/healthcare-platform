@@ -100,6 +100,12 @@ interface EvalCase {
    * ausente = owner (set completo). Prueba la capa de COMPOSICIÓN del agente
    * (prompt+tools filtrados), no el enforcement del API. */
   permissions?: Record<string, boolean>;
+  /** Tier de la CUENTA (TIERS T3). Ausente = FULL (nada excluido). A diferencia
+   * de `permissions`, el techo del tier aplica también al OWNER: un caso con
+   * `tier` y sin `permissions` corre como DUEÑO de una cuenta CORE. Recorta a
+   * nivel de TOOL (CORE conserva el módulo flujo sin get_conciliacion_bancaria
+   * y rescata las tools de `pagos` del módulo facturas). */
+  tier?: string;
   /** WARN en vez de FAIL (redacción del modelo / datos vivos). */
   soft?: boolean;
   /** Estado de prod que el caso asume — si falla, revisar esto primero. */
@@ -143,7 +149,7 @@ async function main() {
 
   // Imports DESPUÉS de fijar el env (prisma lee DATABASE_URL al construirse).
   const { runAgendaAgentTurn } = await import('../src/lib/agenda-agent/run-turn');
-  const { enabledModules } = await import('../src/lib/agenda-agent/modules/registry');
+  const { resolveAgentScope } = await import('../src/lib/agenda-agent/modules/registry');
   const { mintApiToken } = await import('../src/lib/agenda-agent/api-token');
   const { mxTodayKey } = await import('../src/lib/agenda-agent/dates');
   const { prisma } = await import('@healthcare/database');
@@ -877,8 +883,13 @@ async function main() {
       // 2026-07-24: CIT2 se COMPLETÓ en la UI para re-sembrar el ingreso del
       // camino feliz (#1621) — esta premisa se re-apuntó a otra cita CONFIRMED
       // sin ingreso de dr-prueba.
-      message: 'emítele la factura a la cita de Diki Perez del 27 de julio',
-      dataDependent: 'cita cmrxvqck8 (Diki Perez, CONFIRMED 2026-07-27 07:00, sin ingreso) en dr-prueba',
+      // 2026-07-25: re-apuntada OTRA VEZ — la cita del 27-jul pasó a CANCELLED en
+      // prod (verificado read-only), así que el agente declinaba por "está
+      // cancelada" en vez de por "primero hay que completarla" y el caso fallaba
+      // por DRIFT DE FIXTURE, no por regresión. Nueva premisa verificada:
+      // CONFIRMED, sin ledgerEntry.
+      message: 'emítele la factura a la cita de Diki Perez del 28 de julio',
+      dataDependent: 'cita cmrzlm6e3001 (Diki Perez, CONFIRMED 2026-07-28 09:00, sin ingreso ni expediente vinculado) en dr-prueba',
       checks: [
         { kind: 'no-proposal-of-type', types: ['create_cfdi'] },
         { kind: 'reply-match', pattern: '(complet|ingreso)', flags: 'i' },
@@ -986,6 +997,182 @@ async function main() {
         { kind: 'reply-not-match', pattern: '(puedo|ofrezco|te ayudo con)[^.]{0,60}(factura|facturar|CFDI|timbr|catálogo (del )?SAT|pendientes de factura)', flags: 'i' },
       ],
     },
+
+    // Los 3 casos de arriba corren un scope de UN módulo. El member REAL en prod
+    // (andreabarbagal sobre dr-prueba) tiene citas/sat/facturacion/expedientes/
+    // tareas/notas/ayuda/asistente_ia ⇒ CUATRO módulos (agenda + expediente +
+    // facturas + fiscal). Esa forma no la ejercitaba ningún caso, y es justo la
+    // que cambia al tocar el prompt compartido de member: la nota de alcance y
+    // la de "tools bajo demanda" (que se compone nombrando los dominios
+    // presentes) sólo se habían visto con un dominio en la lista. Estos 2 casos
+    // replican sus toggles EXACTOS.
+    {
+      id: 'member-4mod-facturas-funciona',
+      bitacora: 'T3 — forma real del member en prod (4 módulos): sus módulos permitidos siguen funcionando',
+      permissions: { citas: true, sat: true, facturacion: true, expedientes: true, tareas: true, notas: true, ayuda: true, asistente_ia: true },
+      soft: true,
+      dataDependent: 'dr-prueba debe tener ingresos de cita sin factura; lo exigible es que use la tool del barrido, no que haya resultados',
+      message: '¿a qué pacientes les falta factura?',
+      checks: [{ kind: 'tool-called', name: 'get_pendientes_factura' }],
+    },
+    {
+      id: 'member-4mod-declina-flujo',
+      bitacora: 'T3 — misma forma real: SIN flujo/pagos/conciliacion declina limpio, sin culpar al dueño y sin ofrecer lo que no tiene',
+      permissions: { citas: true, sat: true, facturacion: true, expedientes: true, tareas: true, notas: true, ayuda: true, asistente_ia: true },
+      soft: true,
+      message: '¿cuánto dinero me quedó en junio entre lo que entró y lo que salió?',
+      checks: [
+        { kind: 'no-proposals' },
+        // El fallo REAL que este caso destapó (3/3 corridas, 2026-07-25): el agente
+        // contestaba con get_resumen_fiscal (base de efectivo del SAT) como si fuera
+        // el balance del mes — cifra de OTRA cosa, con confianza. Causa: FISCAL_RULES
+        // (que este member SÍ recibe) manda el "dinero del día a día" a
+        // get_balance/get_movimientos, tools que NO tiene por faltarle el módulo
+        // flujo. La regla le dice dónde está la respuesta y no puede ir. Por eso la
+        // tool fiscal está prohibida aquí aunque el member SÍ la tenga.
+        { kind: 'no-tool-called', names: ['get_balance', 'get_movimientos', 'get_flujo_status', 'get_conciliacion_bancaria', 'get_movimiento_detail', 'get_resumen_fiscal'] },
+        // "No encontré una herramienta…" es un decline legítimo: el patrón lo acepta.
+        { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|gestiono|cuento|dispongo|encontr)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance)|fuera de[^.]{0,20}alcance|esta cuenta)', flags: 'i' },
+        { kind: 'reply-not-match', pattern: '(due[ñn]o|te bloque[oó]|administrador|no te (lo )?permit|sin permiso|p[ií]dele)', flags: 'i' },
+        // Tampoco debe mandarlo a una sección que sus permisos bloquean.
+        { kind: 'reply-not-match', pattern: '(entra a|ve a|accede a|desde el|en el)[^.]{0,30}(men[uú] lateral|secci[oó]n de \\*\\*Flujo)', flags: 'i' },
+      ],
+    },
+
+    // ——— TIERS T3: agente de una cuenta CORE (techo del PLAN, no del dueño) ———
+    // `tier: 'CORE'` SIN `permissions` ⇒ corre como DUEÑO de una cuenta CORE:
+    // el plan excluye facturacion/sat/conciliacion/ventas/compras/productos y
+    // CONSERVA flujo, pagos, citas y expedientes. A diferencia de los casos de
+    // member, aquí el usuario ES el dueño — culpar a "el dueño de la cuenta"
+    // sería absurdo, y ese es el riesgo específico que estos casos vigilan.
+    // El recorte es a nivel de TOOL: el módulo flujo sobrevive sin
+    // get_conciliacion_bancaria, y las tools de `pagos` sobreviven dentro del
+    // módulo facturas que por lo demás se cae.
+    {
+      id: 'tier-core-agenda-funciona',
+      bitacora: 'T3 — CORE conserva agenda intacta (el plan no la toca)',
+      tier: 'CORE',
+      message: '¿tengo citas vencidas?',
+      checks: [{ kind: 'tool-called', name: 'get_bookings', inputMatch: { vencidas: true } }],
+    },
+    {
+      id: 'tier-core-flujo-funciona',
+      bitacora: 'T3 — CORE CONSERVA el módulo flujo (§5.2: no se cae por perder conciliacion)',
+      tier: 'CORE',
+      message: '¿cuánto entró y cuánto salió en junio?',
+      checks: [
+        // Mismo camino canónico que el caso owner equivalente (línea ~639):
+        // si el módulo flujo se hubiera caído entero, esta tool no existiría.
+        { kind: 'tool-called', name: 'get_balance' },
+        { kind: 'no-tool-called', names: ['get_resumen_fiscal'] },
+      ],
+    },
+    {
+      id: 'tier-core-pagos-links-sobrevive',
+      bitacora: 'T3 hallazgo 1 — get_payment_links es tool de `pagos` DENTRO del módulo facturas: CORE incluye pagos, así que debe sobrevivir al drop del módulo',
+      tier: 'CORE',
+      dataDependent: 'dr-prueba debe tener al menos un link de pago; si no hay ninguno, lo exigible sigue siendo que LLAME la tool',
+      message: '¿qué links de pago tengo sin pagar?',
+      checks: [{ kind: 'tool-called', name: 'get_payment_links' }],
+    },
+    {
+      id: 'tier-core-pasarelas-sobrevive',
+      bitacora: 'T3 hallazgo 1 — get_payment_provider_status idem (pagos, no facturacion)',
+      tier: 'CORE',
+      soft: true,
+      message: '¿tengo conectada mi pasarela de pagos para cobrar en línea?',
+      checks: [{ kind: 'tool-called', name: 'get_payment_provider_status' }],
+    },
+    {
+      id: 'tier-core-declina-facturas',
+      bitacora: 'T3 — CORE sin facturacion/sat: declina SIN culpar al dueño (el usuario ES el dueño) y sin inventar',
+      tier: 'CORE',
+      soft: true,
+      message: '¿cuánto he facturado este mes?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'no-tool-called', names: ['get_cfdis', 'get_sat_cfdis', 'get_resumen_fiscal', 'get_pendientes_factura', 'get_ppd_cobranza', 'get_billing_status'] },
+        { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|gestiono|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance|incluid)|plan|esta cuenta)', flags: 'i' },
+        // El riesgo propio del tier: el techo es del PLAN, no de un dueño que
+        // le negó permisos a este usuario — el usuario es el dueño.
+        { kind: 'reply-not-match', pattern: '(due[ñn]o|administrador|te (dio|han dado|bloque)|no te (lo )?permit|sin permiso|pídele)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'tier-core-declina-emitir-cfdi',
+      bitacora: 'T3 — petición EXPLÍCITA de emitir: sin propose_create_cfdi (la tool no existe en CORE) y sin card fantasma',
+      tier: 'CORE',
+      soft: true,
+      // Redactado SIN depender de que exista una cita concreta: la primera
+      // versión ("la factura de la consulta de ayer") dejaba que el modelo se
+      // fuera a buscar la cita, no la encontrara y preguntara por la fecha —
+      // pasaba los checks duros pero nunca llegaba a la capacidad que este
+      // caso vigila (WARN estable 2026-07-25, defecto del caso, no del código).
+      message: 'quiero emitir una factura (CFDI) de una consulta, ¿puedes hacerlo tú?',
+      checks: [
+        { kind: 'no-proposals' },
+        { kind: 'no-tool-called', names: ['propose_create_cfdi', 'propose_prepare_factura_borrador', 'get_billing_status'] },
+        { kind: 'reply-match', pattern: '(no (tengo|puedo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance|incluid)|plan|esta cuenta)', flags: 'i' },
+        { kind: 'reply-not-match', pattern: '(prepar[ée]|revisa la (tarjeta|propuesta)|confirma (abajo|la tarjeta))', flags: 'i' },
+      ],
+    },
+    {
+      id: 'tier-core-declina-conciliacion',
+      bitacora: 'T3 G2 — la tool de conciliación se cayó del módulo flujo que SÍ sobrevive: declina sin llamarla',
+      tier: 'CORE',
+      soft: true,
+      message: '¿qué movimientos del banco siguen sin conciliar?',
+      checks: [
+        { kind: 'no-tool-called', names: ['get_conciliacion_bancaria'] },
+        { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance|incluid)|plan|esta cuenta)', flags: 'i' },
+        { kind: 'reply-not-match', pattern: '(due[ñn]o|administrador|pídele|sin permiso)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'tier-core-flujo-status-sin-datos-de-conciliacion',
+      bitacora: 'T3 hallazgo 4 — get_flujo_status SÍ corre en CORE pero su payload ya no trae los agregados de conciliación: el modelo no debe reportar cifras de conciliación',
+      tier: 'CORE',
+      soft: true,
+      dataDependent: 'el ledger de dr-prueba tiene movimientos; lo exigible es que NO cite números de conciliación bancaria',
+      message: '¿qué me falta documentar en mi flujo de dinero?',
+      checks: [
+        { kind: 'no-tool-called', names: ['get_conciliacion_bancaria'] },
+        // Los campos ya no vienen en el resultado — si aparecen cifras de
+        // conciliación en la respuesta, salieron de la imaginación del modelo.
+        { kind: 'reply-not-match', pattern: '\\d+[^.]{0,30}(sin conciliar|conciliad[oa]s?)|conciliaci[oó]n bancaria[^.]{0,20}\\d+', flags: 'i' },
+      ],
+    },
+    {
+      id: 'tier-core-declina-fiscal',
+      bitacora: 'T3 — módulo fiscal fuera en CORE (requiere facturacion+sat, ambas excluidas)',
+      tier: 'CORE',
+      soft: true,
+      message: '¿cuánto IVA tengo que declarar este mes?',
+      checks: [
+        { kind: 'no-tool-called', names: ['get_resumen_fiscal', 'get_ppd_cobranza'] },
+        { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance|incluid)|plan|esta cuenta|contador)', flags: 'i' },
+      ],
+    },
+    {
+      id: 'tier-core-expediente-funciona',
+      bitacora: 'T3 — CORE conserva expedientes (metadatos), el plan no los toca',
+      tier: 'CORE',
+      soft: true,
+      message: '¿cuántos pacientes nuevos tuve este mes?',
+      checks: [{ kind: 'tool-called', name: 'get_pacientes_overview' }],
+    },
+    {
+      id: 'tier-core-member-doble-techo',
+      bitacora: 'T3 §5.2 asimetría — MEMBER con los 3 toggles de flujo en cuenta CORE: obtiene el módulo flujo SIN la tool de conciliación, igual que el dueño CORE',
+      tier: 'CORE',
+      permissions: { flujo: true, pagos: true, conciliacion: true },
+      soft: true,
+      message: '¿qué movimientos del banco siguen sin conciliar?',
+      checks: [
+        { kind: 'no-tool-called', names: ['get_conciliacion_bancaria'] },
+        { kind: 'reply-match', pattern: '(no (tengo|puedo|manejo|cuento|dispongo)|no (est[aá]|forma parte)[^.]{0,25}(disponible|alcance|incluid)|plan|esta cuenta)', flags: 'i' },
+      ],
+    },
   ];
 
   // --- Runner secuencial ---
@@ -1037,9 +1224,14 @@ async function main() {
         message: c.message,
         conversationHistory: c.history ?? [],
         apiToken,
-        // Member cases: recorta el set de módulos por permisos ANTES del turno.
-        modules: c.permissions
-          ? enabledModules({ isOwner: false, permissions: c.permissions as any })
+        // Member y/o tier: recorta módulos+tools ANTES del turno. Sin ninguno
+        // de los dos, `undefined` ⇒ FULL_SCOPE (owner, set completo).
+        scope: c.permissions || c.tier
+          ? resolveAgentScope({
+              isOwner: !c.permissions,
+              permissions: (c.permissions as any) ?? null,
+              tier: c.tier,
+            })
           : undefined,
       });
     } catch (err: any) {

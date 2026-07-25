@@ -205,7 +205,9 @@ de cada push, y las secciones compartidas (INTRO/RESILIENCE) como único punto d
    `agent_tool_errors` — la observabilidad que faltaba para que una tool rota no viva semanas
    invisible.
 5. ✅ **HECHO (2026-07-22)** — **evals del path de MEMBER (módulos filtrados por permisos).**
-   NUEVOS USUARIOS recorta el set de módulos por permisos (`enabledModules`). El runner ahora
+   NUEVOS USUARIOS recorta el set de módulos por permisos (entonces vía `enabledModules`; desde
+   TIERS T3, 2026-07-25, el punto de entrada es `resolveAgentScope` y el tier recorta además a
+   nivel de TOOL — ver `02-CAPACIDADES` §1.5.1). El runner ahora
    acepta `permissions` por caso → simula un member; nuevo check `no-tool-called`. 3 casos
    (`{citas:true}`) → 3/3: el módulo permitido funciona, y declina los dominios ausentes sin
    invocar sus tools (no existen), sin inventar, sin culpar al dueño. **Suite completa 65 casos,

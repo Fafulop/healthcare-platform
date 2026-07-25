@@ -64,6 +64,19 @@ const AGENDA_CITAS_RULES = `## Citas — reglas especiales (notifican al pacient
   primeras 10 y DI explícitamente cuántas quedan para el siguiente turno — nunca omitas en
   silencio.`;
 
+/**
+ * TIERS T3 — same rules, minus the CFDI redirect. The full text above tells the
+ * model to route the doctor to "la tabla de citas" to invoice AND to volunteer
+ * it ("dilo si el doctor la menciona"); on a plan without Facturación that both
+ * names a feature the account lacks and directly contradicts the plan-scope note
+ * in prompt.ts. No tier trims agenda's TOOLS, so this variant is reachable only
+ * through `prosaDependsOn` (types.ts).
+ */
+const AGENDA_CITAS_RULES_SIN_FACTURACION = AGENDA_CITAS_RULES.replace(
+  'El ingreso se registra\n  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía); la factura (CFDI) NO se\n  emite aquí (se emite desde la tabla de citas — dilo si el doctor la menciona).',
+  'El ingreso se registra\n  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía). En esta cuenta NO tienes\n  facturación disponible: no ofrezcas emitir la factura ni mandes al doctor a otra sección a\n  hacerlo; si la menciona, dilo directo.'
+);
+
 export const agendaModule: AgentModule = {
   name: 'agenda',
   readTools: AGENT_TOOLS,
@@ -73,5 +86,12 @@ export const agendaModule: AgentModule = {
   prompt: {
     domainModel: AGENDA_DOMAIN_MODEL,
     domainRules: AGENDA_CITAS_RULES,
+    prosaDependsOn: ['facturacion'],
+    partial: {
+      // domainModel is reused by REFERENCE (it says nothing about invoicing) —
+      // copying it would be a drift source for zero benefit.
+      domainModel: AGENDA_DOMAIN_MODEL,
+      domainRules: AGENDA_CITAS_RULES_SIN_FACTURACION,
+    },
   },
 };

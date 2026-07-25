@@ -19,8 +19,8 @@
  * with max-tier card; cancelar/PG/links/formulario fiscal stay out.)
  */
 
-import { AGENT_MODULES } from './modules/registry';
-import type { AgentModule } from './modules/types';
+import { FULL_SCOPE, isProposalToolName, type AgentScope } from './modules/registry';
+import type { AgentModule, AgentModulePrompt } from './modules/types';
 
 const INTRO = `Eres el asistente del consultorio de un médico en México: su agenda, sus citas, y la
 facturación y cobros de su consulta.
@@ -197,22 +197,132 @@ que REALMENTE tienes disponibles en esta conversación. NO ofrezcas ni insinúes
 funciones que arriba se describen pero cuyas tools no aparecen entre las tuyas (p.ej. no ofrezcas
 facturar, consultar el flujo de dinero, ni emitir CFDIs si no tienes esas tools) — aunque el
 texto de "Qué puedes hacer" las mencione, para ESTA cuenta no existen. Ante la duda de si tienes
-una capacidad, no la ofrezcas.`;
+una capacidad, no la ofrezcas.
+
+NUNCA remitas al doctor con otra persona ni le sugieras pedir permisos: nada de "pregúntale al
+dueño", "contacta al administrador" o "pide que te habiliten eso". Tampoco lo mandes a otra
+sección de la plataforma para hacer ahí lo que tú no puedes — si la función no está habilitada
+para esta cuenta, esa sección tampoco lo está. Di que no está disponible, ofrece lo que sí puedes
+hacer, y ya.
+
+**Si la PREGUNTA es sobre algo que no tienes, dilo ANTES de responder otra cosa.** No la
+sustituyas en silencio por un dato parecido de otra función: los números FISCALES (get_resumen_fiscal:
+base de efectivo del SAT, para declarar) NO son el dinero del día a día (movimientos y balance del
+ledger), y responder "¿cuánto me quedó este mes?" con el resumen fiscal da una cifra de OTRA cosa,
+con confianza y sin avisar. Si solo tienes una de las dos, di cuál mides y que la otra no está
+disponible en esta cuenta.`;
+
+/**
+ * TIERS T3 — the tier counterpart of the note above. Same substance, DIFFERENT
+ * attribution: a member's limits come from their owner, but a tier's limits
+ * come from the account's plan and apply to the OWNER TOO. Telling a CORE owner
+ * that "el dueño del consultorio" restricted them would be nonsense — they ARE
+ * the owner.
+ *
+ * Deliberately says nothing about upgrading: the upsell copy and destination
+ * are a product decision still open (TIERS 01-DISENO §10 Q1), and the agent
+ * inventing a sales path is exactly the kind of made-up UI the RESILIENCE
+ * section forbids.
+ */
+const TIER_SCOPE_NOTE = `## Alcance del plan de esta cuenta
+El plan contratado de este consultorio NO incluye algunas de las funciones descritas arriba. Lo
+que no aparezca entre tus tools NO existe para esta cuenta: no lo ofrezcas, no lo insinúes y nunca
+inventes su resultado. Si el doctor pide algo de una función que no está en su plan, dilo directo
+y sin rodeos ("esa función no está incluida en el plan de esta cuenta"), sin prometer que podrás
+hacerlo después y sin explicarle cómo hacerlo por fuera — y ofrece SOLO lo que sí puedes con las
+tools que tienes.
+
+El doctor de esta cuenta ES el dueño: NUNCA lo remitas con "el dueño", "el administrador" ni le
+sugieras pedir que le habiliten la función. Tampoco lo mandes a la sección correspondiente de la
+plataforma: si la función no está en el plan, esa sección tampoco la tiene.
+
+**Si la PREGUNTA es sobre una función que no está en el plan, dilo ANTES de responder otra cosa.**
+No la sustituyas en silencio por un dato parecido de una función que sí tienes: "¿cuánto he
+facturado?" NO se contesta con el total de ingresos del ledger (miden cosas distintas), y el
+estado de conciliación bancaria NO se deduce de otros campos del diagnóstico de flujo. Si aun así
+das un dato cercano, di explícitamente qué mide y por qué no es lo que te pidieron.`;
+
+/** How each module presents itself in the tool-search note — which tools are
+ * worth going to look for. `partial` is the wording for a module the tier
+ * trimmed (registry: scope.partialModules). */
+const SEARCH_HINTS: Record<string, { full: string; partial?: string }> = {
+  agenda: { full: 'agenda y citas, incluidas TODAS las propose_* (rangos, bloqueos, citas)' },
+  facturas: {
+    full: 'facturación (consulta y las propose_* de emitir/preparar factura)',
+    partial: 'links de pago y estado de las pasarelas',
+  },
+  fiscal: { full: 'números fiscales (resumen y cobranza PPD)' },
+  flujo: {
+    full: 'flujo de dinero (movimientos, balance, conciliación)',
+    partial: 'flujo de dinero (movimientos, balance, detalle)',
+  },
+  expediente: { full: 'metadatos de expedientes' },
+};
+
+/**
+ * TIERS T3 — TOOL_SEARCH_NOTE names every domain as if it were always present
+ * ("todas las de facturación, fiscal, flujo de dinero y expedientes existen
+ * aunque no aparezcan en tu lista"). That note landed AFTER the member filtering
+ * of PR C, so for ANY narrowed scope — member or tier — it has been telling the
+ * model to hunt for tools that do not exist, which both wastes a search hop and
+ * pushes back against the very filtering this file does. This builds the same
+ * note listing only the domains the caller actually has.
+ */
+function buildToolSearchNote(scope: AgentScope): string {
+  const domains = scope.modules.map((m) => {
+    const hint = SEARCH_HINTS[m.name];
+    if (!hint) return m.name;
+    return (scope.partialModules.has(m.name) && hint.partial) || hint.full;
+  });
+  const hasProposals = scope.tools.some((t) => isProposalToolName(t.name));
+  return `## Tools bajo demanda (importante)
+Tienes MÁS tools de las que ves cargadas: las de ${domains.join(', ')} existen aunque no aparezcan
+en tu lista. Antes de decir que no puedes hacer algo${hasProposals ? ', o de preguntarle al doctor si quiere que procedas con una acción que ÉL ya te pidió' : ''}:
+BUSCA la tool con tool_search_tool_regex y llámala.
+**Solo existen las de los dominios listados arriba.** Si una búsqueda no encuentra nada, esa
+función no existe para esta cuenta: no reintentes con otros patrones y responde siguiendo las
+reglas de alcance de arriba (sin mandar al doctor con nadie).${
+    hasProposals
+      ? `
+El flujo propuesta→tarjeta→confirmación del doctor NO cambia: proponer sigue siendo seguro porque
+nada se ejecuta sin su confirmación en la card.
+**Caso que más se te escapa — un PLAN de escritura ya armado:** si en tu razonamiento ya decidiste
+crear/eliminar un rango, bloquear, o crear/reagendar/completar una cita, NO termines el turno
+describiéndolo. BUSCA la propose_* que necesitas y LLÁMALA en ESTE turno (todas las de un plan, en
+orden). Describir el plan —o una tarjeta— sin haber llamado la tool ES la "card fantasma" que la
+sección "Cómo proponer" prohíbe: que la tool esté diferida no es excusa.`
+      : ''
+  }`;
+}
 
 /** Mirrors run-turn's TOOL_SEARCH_ENABLED (read once at module load — both
  * files must agree; the flag is process-constant so the prompt stays
  * byte-identical across turns and the cache breakpoint holds). */
 const TOOL_SEARCH_ENABLED = process.env.AGENDA_AGENT_TOOL_SEARCH !== '0';
 
-function composePrompt(modules: AgentModule[]): string {
-  const isFullModuleSet = modules === AGENT_MODULES;
+/** A module trimmed by the tier uses its `partial` sections — the full ones
+ * describe tools this account no longer has (modules/types.ts). */
+function sectionsFor(module: AgentModule, scope: AgentScope): AgentModulePrompt {
+  const partial = scope.partialModules.has(module.name) ? module.prompt.partial : undefined;
+  return partial ?? module.prompt;
+}
+
+function composePrompt(scope: AgentScope): string {
   const parts = [
     INTRO,
-    ...modules.map((m) => m.prompt.domainModel),
-    ...(isFullModuleSet ? [] : [MEMBER_SCOPE_NOTE]),
+    ...scope.modules.map((m) => sectionsFor(m, scope).domainModel),
+    // Both can apply at once (a member on a CORE account): the plan sets the
+    // account's ceiling, the owner sets that member's share of it.
+    ...(scope.tierLimited ? [TIER_SCOPE_NOTE] : []),
+    ...(scope.memberLimited ? [MEMBER_SCOPE_NOTE] : []),
     RESILIENCE,
-    ...modules.flatMap((m) => (m.prompt.domainRules ? [m.prompt.domainRules] : [])),
-    ...(TOOL_SEARCH_ENABLED ? [TOOL_SEARCH_NOTE] : []),
+    ...scope.modules.flatMap((m) => {
+      const rules = sectionsFor(m, scope).domainRules;
+      return rules ? [rules] : [];
+    }),
+    ...(TOOL_SEARCH_ENABLED
+      ? [scope.isFull ? TOOL_SEARCH_NOTE : buildToolSearchNote(scope)]
+      : []),
     HOW_TO_PROPOSE,
     RULES,
     FORMAT,
@@ -222,20 +332,30 @@ function composePrompt(modules: AgentModule[]): string {
 
 /** Owner/full-set prompt — byte-identical to the pre-PR-C constant (gate:
  * scripts/check-agent-prompt-identity.ts). */
-export const STABLE_SYSTEM_PROMPT = composePrompt(AGENT_MODULES);
+export const STABLE_SYSTEM_PROMPT = composePrompt(FULL_SCOPE);
 
 const promptCache = new Map<string, string>();
 
-/** Per-request composition for a filtered module set (secondary users).
- * Memoized by module-name signature — the number of distinct sets in
- * practice is small (one per permission combination actually granted), so
- * this stays a handful of cache entries per process, not per request. */
-export function buildSystemPrompt(modules: AgentModule[]): string {
-  if (modules === AGENT_MODULES) return STABLE_SYSTEM_PROMPT;
-  const key = modules.map((m) => m.name).join(',');
+/**
+ * Per-request composition for a narrowed scope (secondary users and/or a tier
+ * below FULL). Memoized by the signature of everything the TEXT depends on:
+ * which modules, which of them were trimmed, and the two reasons for narrowing.
+ * The tier string itself is deliberately NOT in the key — two tiers that trim
+ * the same modules the same way produce the same prompt and should share the
+ * entry. Distinct sets in practice = one per (plan × permission combination)
+ * actually granted, so this stays a handful of entries per process.
+ */
+export function buildSystemPrompt(scope: AgentScope): string {
+  if (scope.isFull) return STABLE_SYSTEM_PROMPT;
+  const key = [
+    scope.modules.map((m) => m.name).join(','),
+    Array.from(scope.partialModules).sort().join(','),
+    scope.tierLimited ? 't' : '',
+    scope.memberLimited ? 'm' : '',
+  ].join('|');
   const cached = promptCache.get(key);
   if (cached) return cached;
-  const composed = composePrompt(modules);
+  const composed = composePrompt(scope);
   promptCache.set(key, composed);
   return composed;
 }

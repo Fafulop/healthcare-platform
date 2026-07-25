@@ -16,7 +16,7 @@
  * - Money rounds to cents; lists are capped (8KB tool-result budget).
  */
 
-import { prisma, Prisma } from '@healthcare/database';
+import { prisma, Prisma, tierAllows } from '@healthcare/database';
 import type { AnthropicTool } from '../anthropic';
 import type { ToolContext } from '../tools';
 import type { AgentModule } from './types';
@@ -131,6 +131,31 @@ export function dateWhere(startDate?: string, endDate?: string) {
 const trunc = (s: string | null | undefined, n: number) =>
   !s ? null : s.length <= n ? s : s.slice(0, n - 1) + '…';
 
+/**
+ * TIERS T3 — the flujo tools survive in CORE, but their payloads carry two
+ * evidence axes that belong to OTHER features: 🧾 fiscal (`facturacion`) and
+ * 🏦 bank (`conciliacion`), both CORE-excluded. Dropping only the
+ * get_conciliacion_bancaria TOOL would still leave the same data reachable
+ * field-by-field here (TIERS 01-DISENO §10 Q2).
+ *
+ * This omits FIELDS from the response — it never re-derives or recomputes a
+ * verdict, so regla 0 is untouched: what remains is byte-for-byte what the
+ * replica already produced. The QUERIES are left alone on purpose (a few extra
+ * counts, no correctness risk) so the replica logic stays one code path that
+ * matches the endpoint it mirrors.
+ *
+ * Input SCHEMAS never vary by tier either — a tool whose shape changed per
+ * account would fork the tools-prefix cache for no benefit; a filter the
+ * account can't act on simply returns rows without the hidden fields.
+ */
+function evidenceScope(ctx: ToolContext) {
+  const banco = tierAllows(ctx.tier, 'conciliacion');
+  const fiscal = tierAllows(ctx.tier, 'facturacion');
+  // The auto-linker matches against bank movements AND SAT CFDIs, so its
+  // review queue only means something when both axes are in the plan.
+  return { banco, fiscal, autoLink: banco && fiscal };
+}
+
 // -----------------------------------------------------------------------------
 // get_flujo_status — REPLICA of GET /practice-management/ledger/completeness
 // (apps/api/.../ledger/completeness/route.ts). Divergence here would make the
@@ -219,34 +244,45 @@ async function getFlujoStatus(ctx: ToolContext) {
   const pctBankReconciled =
     bankReconcilableCount > 0 ? Math.round((bankMatchedCount / bankReconcilableCount) * 100) : 100;
 
+  const scope = evidenceScope(ctx);
+
   return {
     alcance: 'TODO el historial del ledger (la pestaña no filtra por fecha aquí; para un período usa get_movimientos/get_balance).',
     totalMovimientos: total,
     evidencia: {
       conComprobante: withComprobante,
-      conFactura: withFactura,
+      ...(scope.fiscal ? { conFactura: withFactura } : {}),
       categorizados: withArea,
       pctComprobante: pct(withComprobante),
-      pctFactura: pct(withFactura),
+      ...(scope.fiscal ? { pctFactura: pct(withFactura) } : {}),
       pctCategorizados: pct(withArea),
     },
-    conciliacionBancaria: {
-      conciliables: bankReconcilableCount,
-      conciliados: bankMatchedCount,
-      sinConciliar: bankUnmatched,
-      pctConciliado: pctBankReconciled,
-      excluidosEfectivo: cashCount,
-      excluidosPagoOnline: webhookCount,
-      nota:
-        'Efectivo no deja huella bancaria y los pagos online (webhook) ya están auto-probados — por eso se excluyen. OJO: estos agregados (réplica de la pestaña) solo cuentan la conciliación 1:1 — los movimientos pagados vía liquidación "Varios" NO suman aquí aunque SÍ están conciliados; su estado real lo dan get_movimientos/get_movimiento_detail (bancoConciliado).',
-    },
-    matrizIngresos: {
-      facturadoYConciliado: matrixFullyReconciled,
-      facturadoSinBanco: matrixInvoicedUnmatched,
-      conciliadoSinFactura: matrixMatchedNoInvoice,
-      sinDocumentar: matrixUndocumented,
-    },
-    porRevisar: needsReviewCount,
+    ...(scope.banco
+      ? {
+          conciliacionBancaria: {
+            conciliables: bankReconcilableCount,
+            conciliados: bankMatchedCount,
+            sinConciliar: bankUnmatched,
+            pctConciliado: pctBankReconciled,
+            excluidosEfectivo: cashCount,
+            excluidosPagoOnline: webhookCount,
+            nota:
+              'Efectivo no deja huella bancaria y los pagos online (webhook) ya están auto-probados — por eso se excluyen. OJO: estos agregados (réplica de la pestaña) solo cuentan la conciliación 1:1 — los movimientos pagados vía liquidación "Varios" NO suman aquí aunque SÍ están conciliados; su estado real lo dan get_movimientos/get_movimiento_detail (bancoConciliado).',
+          },
+        }
+      : {}),
+    // The matrix crosses BOTH axes — it needs both features in the plan.
+    ...(scope.fiscal && scope.banco
+      ? {
+          matrizIngresos: {
+            facturadoYConciliado: matrixFullyReconciled,
+            facturadoSinBanco: matrixInvoicedUnmatched,
+            conciliadoSinFactura: matrixMatchedNoInvoice,
+            sinDocumentar: matrixUndocumented,
+          },
+        }
+      : {}),
+    ...(scope.autoLink ? { porRevisar: needsReviewCount } : {}),
     porOrigen: byOrigin.map((g) => ({
       origen: g.origin || 'sin_origen',
       movimientos: g._count.id,
@@ -260,10 +296,10 @@ async function getFlujoStatus(ctx: ToolContext) {
     alertas: [
       ...(total - withArea > 0 ? [`${total - withArea} movimiento(s) sin área asignada`] : []),
       ...(unpaidIngresos > 0 ? [`${unpaidIngresos} ingreso(s) pendiente(s) de cobro`] : []),
-      ...(bankUnmatched > 0
+      ...(scope.banco && bankUnmatched > 0
         ? [`${bankUnmatched} movimiento(s) sin conciliar con banco (excluye efectivo y pagos online)`]
         : []),
-      ...(needsReviewCount > 0
+      ...(scope.autoLink && needsReviewCount > 0
         ? [`${needsReviewCount} movimiento(s) vinculado(s) automáticamente por revisar`]
         : []),
     ],
@@ -299,7 +335,18 @@ async function getMovimientos(ctx: ToolContext, input: MovimientosInput) {
   const start = asDay(input.startDate);
   const end = asDay(input.endDate);
   Object.assign(where, dateWhere(start, end));
-  if (typeof input.hasFactura === 'boolean') where.hasFactura = input.hasFactura;
+  const scope = evidenceScope(ctx);
+  // TIERS T3: hiding a FIELD is pointless if the matching FILTER still works —
+  // "movimientos sin factura" would hand back the exact evidence signal that
+  // was stripped from the rows, via totalEncontradas. So an excluded filter is
+  // DROPPED and echoed back (same contract as a malformed date below), never
+  // applied silently: a silently-ignored filter makes the model report
+  // whole-history sums as if they were the filtered subset.
+  const filtrosNoDisponibles: string[] = [];
+  if (typeof input.hasFactura === 'boolean') {
+    if (scope.fiscal) where.hasFactura = input.hasFactura;
+    else filtrosNoDisponibles.push('hasFactura');
+  }
   if (typeof input.hasComprobante === 'boolean') where.hasComprobante = input.hasComprobante;
   // Additive filter beyond the ledger endpoint (read-only, same column the
   // completeness alert counts): POR_COBRAR = the alert's EXACT set (see the
@@ -314,7 +361,10 @@ async function getMovimientos(ctx: ToolContext, input: MovimientosInput) {
   } else if (typeof input.estatusPago === 'string' && ['PENDING', 'PARTIAL', 'PAID'].includes(input.estatusPago)) {
     where.paymentStatus = input.estatusPago;
   }
-  if (typeof input.needsReview === 'boolean') where.needsReview = input.needsReview;
+  if (typeof input.needsReview === 'boolean') {
+    if (scope.autoLink) where.needsReview = input.needsReview;
+    else filtrosNoDisponibles.push('needsReview');
+  }
   if (typeof input.porRealizar === 'boolean') where.porRealizar = input.porRealizar;
   if (typeof input.search === 'string' && input.search.trim()) {
     where.OR = [
@@ -372,6 +422,14 @@ async function getMovimientos(ctx: ToolContext, input: MovimientosInput) {
     // sees "todo el historial" instead of misreporting whole-history sums as
     // the requested month's (review finding).
     periodo: start || end ? `${start ?? 'inicio'} a ${end ?? 'hoy'}` : 'todo el historial (sin filtro de fechas)',
+    ...(filtrosNoDisponibles.length
+      ? {
+          filtrosNoDisponibles: {
+            filtros: filtrosNoDisponibles,
+            nota: 'Ese filtro corresponde a una función que el plan de esta cuenta no incluye, así que NO se aplicó: los resultados de abajo NO están filtrados por él. Dilo así al doctor; no presentes estos totales como si lo estuvieran.',
+          },
+        }
+      : {}),
     totalEncontradas: total,
     mostradas: Math.min(total, MOVS_LIST_CAP),
     sumas: { ingresos: sumOf('ingreso', false), egresos: sumOf('egreso', false) },
@@ -390,14 +448,18 @@ async function getMovimientos(ctx: ToolContext, input: MovimientosInput) {
       monto: money(e.amount),
       concepto: trunc(e.concept, 60),
       origen: e.origin ?? 'manual',
-      evidenciaFiscal: e.hasFactura,
-      bancoConciliado:
-        (e.bankMovement != null &&
-          ['matched_auto', 'matched_confirmed'].includes(e.bankMovement.matchStatus)) ||
-        e.settlementItem != null,
+      ...(scope.fiscal ? { evidenciaFiscal: e.hasFactura } : {}),
+      ...(scope.banco
+        ? {
+            bancoConciliado:
+              (e.bankMovement != null &&
+                ['matched_auto', 'matched_confirmed'].includes(e.bankMovement.matchStatus)) ||
+              e.settlementItem != null,
+          }
+        : {}),
       ...(e.hasComprobante ? { comprobante: true } : {}),
       ...(e.porRealizar ? { porRealizar: true } : {}),
-      ...(e.needsReview ? { porRevisar: true } : {}),
+      ...(scope.autoLink && e.needsReview ? { porRevisar: true } : {}),
       ...(e.paymentStatus && e.paymentStatus !== 'PAID' ? { estatusPago: e.paymentStatus } : {}),
       ...(e.counterpartyName ? { contraparte: trunc(e.counterpartyName, 40) } : {}),
     })),
@@ -569,6 +631,7 @@ async function getMovimientoDetail(ctx: ToolContext, input: { internalId?: strin
   }
 
   const onlinePayment = await resolveOnlinePayment(doctorId, entry);
+  const scope = evidenceScope(ctx);
 
   const bankMov = entry.bankMovement ?? entry.settlementItem?.bankMovement ?? null;
   const viaSettlement = entry.bankMovement == null && entry.settlementItem != null;
@@ -603,20 +666,27 @@ async function getMovimientoDetail(ctx: ToolContext, input: { internalId?: strin
       ...(entry.supplier ? { proveedor: entry.supplier.businessName || entry.supplier.contactName } : {}),
       ...(entry.patientId ? { expedienteVinculado: true } : {}),
     },
-    evidenciaFiscal: {
-      tieneFactura: entry.hasFactura,
-      cfdiVinculado: entry.satCfdiUuid ?? null,
-      pdfsSubidos: entry.facturas.map((f) => f.fileName),
-      xmlsSubidos: entry.facturasXml.map((f) => f.fileName),
-      ...(entry.satCfdiUuid
-        ? { nota: 'Para el detalle/vigencia del CFDI usa get_sat_cfdis o get_cfdis.' }
-        : {}),
-    },
+    ...(scope.fiscal
+      ? {
+          evidenciaFiscal: {
+            tieneFactura: entry.hasFactura,
+            cfdiVinculado: entry.satCfdiUuid ?? null,
+            pdfsSubidos: entry.facturas.map((f) => f.fileName),
+            xmlsSubidos: entry.facturasXml.map((f) => f.fileName),
+            ...(entry.satCfdiUuid
+              ? { nota: 'Para el detalle/vigencia del CFDI usa get_sat_cfdis o get_cfdis.' }
+              : {}),
+          },
+        }
+      : {}),
     evidenciaBancaria: {
-      conciliado: bancoConciliado,
+      // `conciliado` and the statement detail are conciliación data; the
+      // receipt/attachments and the online payment (pagos — CORE keeps it)
+      // are not, so the block itself survives.
+      ...(scope.banco ? { conciliado: bancoConciliado } : {}),
       tieneComprobante: entry.hasComprobante,
       adjuntos: entry.attachments.map((a) => a.fileName),
-      ...(bankMov
+      ...(scope.banco && bankMov
         ? {
             movimientoBancario: {
               ...(viaSettlement ? { viaLiquidacion: 'este movimiento se pagó junto con otros ("Varios")' } : {}),
@@ -629,13 +699,17 @@ async function getMovimientoDetail(ctx: ToolContext, input: { internalId?: strin
         : {}),
       ...(onlinePayment ? { pagoEnLinea: onlinePayment } : {}),
     },
-    autoVinculacion: {
-      porRevisar: entry.needsReview,
-      ...(entry.autoLinkedConfidence != null
-        ? { confianza: Number(entry.autoLinkedConfidence) }
-        : {}),
-      ...(entry.mergedFromId != null ? { fusionadoDeOtroMovimiento: true } : {}),
-    },
+    ...(scope.autoLink
+      ? {
+          autoVinculacion: {
+            porRevisar: entry.needsReview,
+            ...(entry.autoLinkedConfidence != null
+              ? { confianza: Number(entry.autoLinkedConfidence) }
+              : {}),
+            ...(entry.mergedFromId != null ? { fusionadoDeOtroMovimiento: true } : {}),
+          },
+        }
+      : {}),
   };
 }
 
@@ -774,6 +848,43 @@ const FLUJO_RULES = `## Flujo de dinero — reglas (SOLO CONSULTA)
   estados de cuenta — eso se hace en la UI (y las acciones asistidas llegarán después). Consultar
   y diagnosticar SÍ es tu trabajo.`;
 
+/**
+ * TIERS T3 — the variant used when the account's plan keeps Flujo de Dinero but
+ * NOT Facturación/Descarga SAT/Conciliación Bancaria (CORE). The full text
+ * above is written as fact: two evidence axes, bank reconciliation, and
+ * tie-breaks against get_resumen_fiscal/get_ppd_cobranza — none of which this
+ * account has tools for. Left in place, the model would confidently offer
+ * reconciliation reads it cannot perform.
+ */
+const FLUJO_DOMAIN_MODEL_PARTIAL = `## Cómo funciona el Flujo de Dinero (invariantes)
+- **Una tabla es la verdad**: cada ingreso/egreso real del doctor es UN movimiento del ledger;
+  todo lo demás (citas, ventas, compras) se ADJUNTA a él. El mismo hecho económico nunca debe
+  existir dos veces — el sistema deduplica al registrar (match-before-create).
+- Cada movimiento puede tener **comprobante** adjunto (el recibo o archivo que lo respalda).
+- El **origen** dice por cuál puerta nació: cita, venta, compra, pago en línea (webhook_pago) o
+  manual; comision es interno.
+- Movimientos **por realizar** son proyecciones, no dinero real: los balances los separan.
+- El plan de esta cuenta NO incluye Conciliación Bancaria ni Facturación: los movimientos NO traen
+  estado bancario ni de factura, y **esos campos simplemente no vienen en el resultado**. No los
+  menciones, no los supongas y NUNCA los deduzcas de otros campos (categorizados, comprobante,
+  origen, alertas): ninguno de ellos dice si algo está conciliado o facturado. Si te preguntan por
+  conciliación bancaria o por facturas, di que esa función no está incluida en el plan.
+- Algunos movimientos históricos nacieron de orígenes que el plan ya no incluye (sat_emitido,
+  sat_recibido). Siguen siendo dinero real del doctor y cuentan en los totales, pero NO son una
+  función de facturación disponible: repórtalos como movimientos del ledger y nada más.`;
+
+const FLUJO_RULES_PARTIAL = `## Flujo de dinero — reglas (SOLO CONSULTA)
+- "¿Cuánto tengo/gané/gasté?", "¿cuánto entró y salió?" = **get_balance/get_movimientos** (el
+  ledger: TODO el dinero registrado). Esta cuenta no tiene los números fiscales del SAT
+  (declaraciones, IVA, retenciones): si te los piden, dilo directo — no los estimes desde el
+  ledger, miden cosas distintas.
+- **"¿Quién me debe?"**: ingresos del ledger pendientes de cobro = get_movimientos con
+  estatusPago "POR_COBRAR".
+- Para contar usa SIEMPRE "totalEncontradas" (las listas vienen capadas) — nunca cuentes los
+  elementos mostrados.
+- NO puedes crear, editar, fusionar ni ignorar movimientos — eso se hace en la UI. Consultar y
+  diagnosticar SÍ es tu trabajo.`;
+
 export const flujoModule: AgentModule = {
   name: 'flujo',
   readTools: FLUJO_TOOLS,
@@ -783,5 +894,9 @@ export const flujoModule: AgentModule = {
   prompt: {
     domainModel: FLUJO_DOMAIN_MODEL,
     domainRules: FLUJO_RULES,
+    partial: {
+      domainModel: FLUJO_DOMAIN_MODEL_PARTIAL,
+      domainRules: FLUJO_RULES_PARTIAL,
+    },
   },
 };

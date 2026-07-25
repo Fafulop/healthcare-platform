@@ -233,8 +233,11 @@ limpiar si estorban.
   `apps/doctor/src/lib/medical-auth.ts` (`requireDoctorAuth`/`requireOwnerAuth`/`requireAnyAuth`).
 - UI courtesy: `apps/doctor/src/lib/permissions-client.ts` (`usePermissions()` hook) — es
   el hook que TODOS los fixes de esta sesión usan para esconder botones/features.
-- Agente: `apps/doctor/src/lib/agenda-agent/modules/registry.ts` (`enabledModules`) +
-  `prompt.ts` (`buildSystemPrompt` memoizado). `AGENT_MODULE_REQUIREMENTS` (módulo→toggles)
+- Agente: `apps/doctor/src/lib/agenda-agent/modules/registry.ts` — **entra por
+  `resolveAgentScope(access)`**, que compone los DOS techos: toggles del member (por módulo) y
+  tier de la cuenta (por TOOL, TIERS T3 2026-07-25). ⚠️ `enabledModules` sigue existiendo pero
+  **ya no se exporta**: responde solo la mitad (toggles) y saltárselo dejaría pasar el plan de la
+  cuenta. + `prompt.ts` (`buildSystemPrompt(scope)` memoizado). `AGENT_MODULE_REQUIREMENTS` (módulo→toggles)
   vive en `@healthcare/database` (`permissions.ts`) desde 2026-07-23 — fuente única compartida
   con la UI de Equipo; registry lo re-exporta.
 - Equipo/invitaciones: `apps/doctor/src/app/api/team/*` + `TeamSection.tsx` (pestaña Equipo

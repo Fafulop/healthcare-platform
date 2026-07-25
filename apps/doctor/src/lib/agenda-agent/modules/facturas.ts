@@ -1711,6 +1711,29 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas
 // Module
 // -----------------------------------------------------------------------------
 
+/**
+ * TIERS T3 — this module packages `pagos` tools (get_payment_links,
+ * get_payment_provider_status) alongside the CFDI ones, but a plan can include
+ * Pagos WITHOUT Facturación/Descarga SAT (CORE does — TIERS 01-DISENO §10 Q3).
+ * When that happens only the two payment tools survive, so the module keeps its
+ * slot with this section INSTEAD of the two above — which are almost entirely
+ * about emitting and reading CFDIs the account cannot touch (and ~8.7k tokens
+ * of prefix it would pay for on every turn).
+ */
+const FACTURAS_PAGOS_ONLY_PROMPT = `## Cómo funcionan los pagos en línea (invariantes)
+- Los **links de pago** (Stripe / Mercado Pago) requieren una cita con expediente vinculado; una
+  cita admite UN link pagado o activo entre ambos proveedores. Un link suelto (sin cita) genera un
+  ingreso huérfano en el Flujo de Dinero.
+- El **ingreso** es el hub: nace al COMPLETAR la cita o al pagarse el link — lo que ocurra primero;
+  el sistema nunca lo duplica. "Pagada" ≠ "completada". Para "¿ya me pagaron?" manda el estado del
+  INGRESO; el link es la evidencia de CÓMO se pagó.
+- get_payment_provider_status da el estado CACHEADO de las pasarelas; el detalle vivo (requisitos
+  pendientes, depósitos) está en la página Pagos.
+- **NO puedes crear links de pago** (se hacen con el botón Cobro de la cita) — solo consultarlos.
+- El plan de esta cuenta NO incluye Facturación ni Descarga SAT: no consultas ni emites CFDIs, no
+  tienes los catálogos del SAT ni los números fiscales. Si te los piden, dilo directo y ofrece lo
+  que sí ves (citas, pagos, flujo de dinero).`;
+
 export const facturasModule: AgentModule = {
   name: 'facturas',
   readTools: FACTURAS_TOOLS,
@@ -1720,5 +1743,8 @@ export const facturasModule: AgentModule = {
   prompt: {
     domainModel: FACTURAS_DOMAIN_MODEL,
     domainRules: FACTURAS_RULES,
+    partial: {
+      domainModel: FACTURAS_PAGOS_ONLY_PROMPT,
+    },
   },
 };

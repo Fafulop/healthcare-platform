@@ -167,7 +167,10 @@ CORE conserva `flujo` pero excluye `conciliacion` ⇒ un intersect a nivel de m�
    del tier dropea las tools cuya feature key esté tier-excluida. En CORE el módulo `flujo` pierde
    `get_conciliacion_bancaria` y conserva `get_flujo_status`, `get_movimientos`,
    `get_movimiento_detail`, `get_balance`.
-3. **Dónde:** `enabledModules(access)` en `modules/registry.ts` gana el `tier` y aplica (1); un
+3. **Dónde:** *(⚠️ el as-built difiere — ver §11.2: la composición quedó en
+   **`resolveAgentScope(access)`**, y `enabledModules` se dejó SIN EXPORTAR como la regla de
+   toggles sola, para que nadie se salte el techo del tier. Lo de abajo es el diseño original.)*
+   `enabledModules(access)` en `modules/registry.ts` gana el `tier` y aplica (1); un
    nuevo filtro de tools aplica (2) al construir el toolset. `buildTools`/`ALL_TOOLS` ya componen
    por módulo — el filtro se inserta ahí.
 
@@ -268,9 +271,8 @@ Cada PR con su verificación; todo cambio de agente ⇒ suite de 65 evals (regla
    (`fiscal-form` GET+POST, `sat-auto-sync` filtra por tier). Fix: `TIER_EXCLUDED` → 403 en el
    error handler del doctor-app (habría sido 500). Gate de cobertura de tier agregado. **NO-OP
    en el deploy** (todos FULL); probado 20/20 offline + downgrade dr-prueba→CORE→revert en vivo.
-3. **PR T3 — agente tier-aware.** `enabledModules` + filtro de tools (G2a), `TOOL_FEATURE_KEY`.
-   Suite 65 evals corrida como FULL (sin cambios) y como CORE (facturas/fiscal fuera, flujo sin
-   conciliacion). Verifica que el prefijo CORE baja y que gate:prompt (FULL) sigue OK.
+3. ✅ **PR T3 — agente tier-aware — CONSTRUIDO 2026-07-25** (gates verdes, tsc limpio, evals de
+   frontera corridos; ver §11 para el as-built y las 4 correcciones al diseño).
 4. **PR T4 — cliente show-locked.** `usePermissions` con `lockedByTier`, sidebar con candado,
    pantalla/CTA de upgrade, ruta de contacto.
 5. **PR T5 — admin.** Selector de tier + columna + ruta admin-guarded.
@@ -301,3 +303,201 @@ Cada PR con su verificación; todo cambio de agente ⇒ suite de 65 evals (regla
    links de pago (Stripe/MP) están en el tier base; `pagos` NO va en `TIER_EXCLUDED_KEYS.CORE`.
    Consistente con que el módulo `flujo` del agente (requiere flujo+pagos+conciliacion) sobrevive
    en CORE con [flujo, pagos] tras restar la conciliacion excluida (§5.2).
+
+---
+
+## 11. PR T3 — as-built (2026-07-25) · CONSTRUIDO, pendiente de push
+
+Construido según §5.2 con **cuatro correcciones al diseño**, todas encontradas leyendo el código
+o corriendo los evals — ninguna era visible desde el diseño en papel.
+
+### 11.1 Las cuatro correcciones
+
+**C1 — el diseño perdía capacidad que CORE SÍ paga.** §5.2 detectó `get_conciliacion_bancaria`
+(tool de `conciliacion`) dentro del módulo `flujo` que CORE CONSERVA, pero no el caso espejo:
+`get_payment_links` y `get_payment_provider_status` son tools de **`pagos`** dentro del módulo
+`facturas` que CORE **dropea**. Como CORE incluye `pagos` (§10 Q3), la regla "si TODAS las keys
+del módulo están excluidas ⇒ dropea el módulo" le quitaba al doctor CORE consultas de su propio
+plan. **Decisión del usuario: rescatarlas.** La regla quedó:
+
+- Requisito BASE del módulo = sobrevive si **al menos UNA** de sus keys sigue en el plan.
+- Una tool con `TOOL_FEATURE_KEY` propia se decide **por esa key sola** — lo que a la vez rescata
+  una tool de `pagos` de un módulo caído y tira una de `conciliacion` de un módulo vivo.
+- Módulo con **cero tools vivas ⇒ se dropea** entero.
+
+`get_guia` se dejó FUERA de CORE a propósito: 3 de sus 4 temas son funciones excluidas y gatear
+por VALOR DE ARGUMENTO es un patrón que el repo no tiene. La UI de Guía no se toca.
+
+**C2 — la nota de alcance culpaba al dueño.** `MEMBER_SCOPE_NOTE` dice "según lo que haya
+habilitado el dueño del consultorio". Un OWNER de cuenta CORE recibe por primera vez un set
+recortado ⇒ le habríamos dicho que su dueño lo limitó. Nuevo `TIER_SCOPE_NOTE` con encuadre de
+PLAN. Los dos conviven (member sobre cuenta CORE = doble techo).
+
+**C3 — "Tools bajo demanda" peleaba contra el filtrado (bug PREEXISTENTE de members).** Esa
+sección (2026-07-24, POSTERIOR a PR C) afirma que "todas las de facturación, fiscal, flujo de
+dinero y expedientes existen aunque no aparezcan en tu lista". Para **cualquier** scope recortado
+—member desde hace días, tier desde hoy— era falso: mandaba al modelo a buscar tools inexistentes.
+Ahora se compone por scope, nombrando solo los dominios presentes. El path FULL usa la constante
+original, byte a byte.
+
+**C4 — el recorte de TOOLS no tapaba el recorte de DATOS.** Decisión del usuario: arreglarlo aquí
+en vez de diferirlo a T6. Dropear `get_conciliacion_bancaria` no impedía que `get_flujo_status`
+siguiera devolviendo el bloque `conciliacionBancaria` completo, ni que cada fila de
+`get_movimientos` trajera `bancoConciliado`/`evidenciaFiscal`. `evidenceScope(ctx)` (flujo.ts)
+omite ahora, según `tierAllows`: el bloque de conciliación y su alerta, la matriz factura×banco
+(cruza DOS ejes: necesita ambos), los porcentajes de factura, `autoVinculacion` y los campos por
+fila. **Omite CAMPOS, nunca recalcula un veredicto** ⇒ regla 0 intacta, y las QUERIES quedan como
+estaban (unas cuantas cuentas de más) para no forkear la lógica réplica. Los **input schemas NO
+varían por tier** — un schema por cuenta forkearía el cache del prefijo de tools sin ganancia.
+
+### 11.2 Lo construido
+
+| Pieza | Qué |
+|---|---|
+| `modules/registry.ts` | `TOOL_FEATURE_KEY` (3 entradas), `AgentScope`, `FULL_SCOPE` (por REFERENCIA), `resolveAgentScope(access)`. `enabledModules` se queda como la regla de **toggles sola** — las dos capas nunca se enredan |
+| `modules/types.ts` | `prompt.partial` opcional: secciones alternativas para un módulo que el tier recortó |
+| `modules/flujo.ts` | `evidenceScope` (C4) + variante `partial` sin la prosa de conciliación ni los desempates contra tools fiscales ausentes |
+| `modules/facturas.ts` | Variante `partial` "solo pagos en línea" (~700 chars) en lugar de ~8.7k de reglas CFDI |
+| `prompt.ts` | `buildSystemPrompt(scope)`; `TIER_SCOPE_NOTE`; `buildToolSearchNote(scope)` (C3); memo key = módulos + parciales + los dos motivos de recorte |
+| `run-turn.ts` / `route.ts` | `scope` sustituye a `modules`; `ctx.tier` llega a las tools; el `allowedToolNames` de defensa en profundidad ahora corta a nivel de TOOL |
+| `tools.ts` | `ToolContext.tier` |
+
+### 11.3 Verificación
+
+- **`gate:prompt` — 39 checks verdes**, incluidos 21 nuevos de tier. El owner FULL sigue en
+  **sha256 `4a66a438…`** (sin cambio) y `git diff` confirma que ninguna línea de
+  INTRO/RESILIENCE/TOOL_SEARCH_NOTE/HOW_TO_PROPOSE/RULES/FORMAT se tocó ⇒ **cero invalidación de
+  cache en prod al desplegar**. El gate también asserta que todo nombre de `TOOL_FEATURE_KEY` es
+  una tool real (un rename dejaría una entrada muerta filtrando nada) y que ningún módulo queda
+  vivo con cero tools.
+- **`pnpm gates` verde · `tsc` limpio** en apps/doctor.
+- **Evals de frontera** (11 casos `tier-core-*` nuevos + los 3 `member-*`, read-only contra prod;
+  la suite pasa de 65 a **76** casos): **14/14 al 1er intento** en la corrida final. Los 3 casos
+  que destaparon conducta se re-corrieron **3 veces cada uno** tras el fix (lección de varianza:
+  una corrida no distingue regresión de ruido).
+- **Prefijo CORE: 22,137 chars vs 28,200 (−21%) y 26 tools vs 39** ⇒ el agente CORE es
+  efectivamente más barato, como anticipaba §5.2.
+
+### 11.4 Hallazgos de conducta (canónicos en AGENTES)
+
+Los tres fallos de conducta que destaparon los evals —redirigir al "administrador", sustituir en
+silencio la pregunta por un dato parecido, e **inventar una sección de conciliación a partir de
+campos ajenos** cuando el payload ya venía recortado— viven en
+[`../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTES/AGENTE%20AGENDA/SESSION-REFRESCO.md)
+bitácora **#25**, con la medición antes/después. Aquí solo se resumen (regla de reparto de
+`08-EMPIEZA-AQUI` §2).
+
+**La lección que generaliza:** recortar tools NO basta. El prompt que sobrevive sigue afirmando
+capacidades, y el modelo rellena el hueco con lo que tenga a mano — sustituyendo la pregunta o
+deduciendo el dato faltante de campos que no lo dicen. Cada recorte de tools necesita su recorte
+de PROSA y una regla explícita de "nombra la frontera antes de responder otra cosa".
+
+### 11.5 Bug hunt dirigido (2026-07-25) — 3 bugs + el defecto de diseño que los causaba
+
+Hecho DESPUÉS de que los evals estuvieran verdes, con el método de `02-METODO` §3.2 (dos
+criterios, no uno). El primer filtrado fue por **empaquetado de módulos**, así que el punto ciego
+era el simétrico: **tools que SOBREVIVEN pero cuyo texto o payload habla de una función excluida**
+— la misma clase que C4, que solo se había cazado en `flujo`.
+
+**B1 — módulos vivos mandaban al doctor CORE a usar funciones que no tiene.** Cuatro sitios:
+`AGENDA_CITAS_RULES` ("la factura NO se emite aquí — se emite desde la tabla de citas… **dilo si
+el doctor la menciona**", o sea INSTRUYE el redirect), la descripción de
+`propose_complete_booking`, el `nota` en tiempo de ejecución de esa misma propuesta (llega a la
+card), y `EXPEDIENTE_RULES` + la descripción y el `alcance` de `get_expediente_resumen`, que
+enrutan a `get_billing_status`/`get_patient_profile` (tools DROPEADAS en CORE). El prompt CORE
+quedaba con órdenes **contradictorias**: `TIER_SCOPE_NOTE` dice "no lo mandes a otra sección",
+agenda decía "dilo". Y pegaba en el flujo MÁS común de CORE (completar una cita), que los evals
+no cubrían.
+
+**B2 — se ocultó el CAMPO pero quedó el FILTRO.** `get_movimientos` conservaba `hasFactura` y
+`needsReview` en su schema (los schemas se congelaron a propósito). Un doctor CORE preguntando
+"¿qué movimientos no tienen factura?" recibía el filtro aplicado y `totalEncontradas` — o sea,
+**exactamente la señal de evidencia fiscal que C4 había quitado de las filas**. El recorte era
+evitable a través de sus propios filtros. Ahora el filtro excluido se DESCARTA y se ECHOA
+(`filtrosNoDisponibles`, mismo contrato que una fecha malformada) — descartarlo en silencio sería
+peor: el modelo reportaría sumas de todo el historial como si fueran el subconjunto pedido.
+
+**B3 — `ProposalContext` no llevaba `tier`** (solo `ToolContext`), así que el `nota` de B1 no podía
+ser tier-aware. Plomería agregada.
+
+**El defecto de diseño detrás de B1:** `partialModules` se derivaba del **filtrado de TOOLS**.
+`agenda` y `expediente` conservan TODAS sus tools en CORE, así que **nunca** podían recibir una
+variante `partial`, por más que su prosa dependiera de una función caída. El mecanismo no sabía
+expresar *"la prosa necesita adaptarse aunque las tools no"*. Corregido con
+`prompt.prosaDependsOn: PermissionKey[]` (types.ts): la variante se activa si se filtraron tools
+**o** si una key de la que depende la prosa está excluida.
+
+Para las DESCRIPCIONES de tools (que viajan en el prefijo cacheado) se agregó
+`TOOL_DESCRIPTION_OVERRIDES`, aplicado **solo a scopes recortados** — el array del owner se
+comparte por referencia y debe seguir byte-idéntico, así que reescribir el texto compartido habría
+invalidado el cache de TODOS los doctores por un caso que no les aplica.
+
+**Guardas nuevas en `gate:prompt`** (los fixes son text-matching: un reword aguas arriba los
+convertiría en no-ops silenciosos y ningún test fallaría):
+todo módulo `partial` tiene variante · ninguna variante es copia idéntica de la completa (caza un
+`.replace()` que no encontró nada) · todo `from` de un override sigue matcheando su tool real · la
+prosa y las descripciones de CORE no enrutan a las tools dropeadas · **y el path FULL CONSERVA el
+texto original** (que ningún fix se derrame al owner).
+
+> ⚠️ Lo que estas guardas NO pueden exigir: `INTRO` es **compartido y byte-congelado** y enumera
+> las 9 capacidades, así que el prompt CORE sí menciona `get_billing_status` ahí. Neutralizarlo es
+> trabajo de las notas de alcance (tradeoff de PR C, `../NUEVOS USUARIOS/01-DISENO` §13);
+> exigir su ausencia contradiría la identidad de bytes. El check apunta a la prosa de MÓDULO.
+
+**Re-verificación:** `gate:prompt` (46 checks) · `pnpm gates` · tsc limpio · **14/14 evals al 1er
+intento, 0 WARN**. sha256 del owner **sin cambio**.
+
+### 11.5.1 El eval de la forma REAL del member — encontró un bug PREEXISTENTE
+
+Los 3 casos `member-*` corrían un scope de UN módulo, pero el member real en prod
+(andreabarbagal) resuelve a **CUATRO** (agenda + expediente + facturas + fiscal). Se agregaron 2
+casos con sus toggles EXACTOS, y el de decline falló **0/3**:
+
+- El agente contestó *"¿cuánto me quedó en junio?"* con **`get_resumen_fiscal`** — base de efectivo
+  del SAT — presentado como el balance del mes. **Cifra de OTRA cosa, con confianza y sin avisar.**
+- **Causa raíz — ⚠️ corregida 2026-07-25 tras verificarla contra el código.** La primera redacción
+  de esta sección decía que el desempate vive solo en `FLUJO_RULES` y que al member "le falta la
+  regla". **Es FALSO y no se verificó antes de escribirlo:** `FISCAL_RULES` (fiscal.ts) TIENE su
+  propio desempate, y este member SÍ lo recibe. El problema real es peor que una ausencia: esa
+  regla **apunta a tools que él no tiene** — dice que los gastos del día a día "viven en el ledger
+  (get_balance/get_movimientos — regla de desempate del módulo de flujo)". Al modelo se le dice
+  dónde está la respuesta y no puede ir; improvisa con la tool fiscal que sí tiene.
+  ⇒ **NO es una clase nueva: es exactamente el defecto de `prosaDependsOn` (§11.5) en el eje de
+  MEMBER** — prosa de un módulo vivo que cross-referencia un módulo ausente. `fiscal` necesita
+  variante `partial` cuando falta `flujo`, y `partialModules` debe mirar también la ausencia por
+  toggles, no solo por tier.
+  (La regla anti-sustitución sí faltaba en `MEMBER_SCOPE_NOTE`; eso es cierto y se corrigió.)
+- **NO lo introdujo T3**: cualquier member con `fiscal` y sin `flujo` lo tenía desde PR C. Lo que
+  T3 aporta es el eval que lo DETECTA.
+- **Fix en dos pasos, y el primero NO bastó** (vale la pena para la próxima vez):
+  1. *Mitigación de prompt* — el desempate + "di la frontera antes de contestar otra cosa" en
+     `MEMBER_SCOPE_NOTE`. Midió **0/3 → 2/3**: mejor, pero seguía contestando mal 1 de cada 3.
+  2. *Fix ESTRUCTURAL* — se cerró el defecto real: `fiscal` gana variante `partial` +
+     `prosaDependsOn: ['flujo']`, y `partialModules` pasa a evaluarse contra **lo que el scope
+     PROVEE**, no contra el tier. Midió **3/3 en 3 corridas.**
+
+  La lección: cuando la prosa apunta a tools ausentes, agregar MÁS prosa que lo contradiga es un
+  parche; quitar la prosa equivocada lo resuelve.
+
+**⚠️ Cómo se evalúa `prosaDependsOn` (importante, y no es obvio):** contra las capacidades que el
+toolset FINAL provee, **no** contra el toggle ni contra el tier. Un member con `flujo: true` pero
+sin `pagos`/`conciliacion` **no tiene módulo flujo** (su requisito es ALL), así que `get_balance`
+no existe para él aunque la key `flujo` se vea concedida. Chequear la key habría dejado pasar ese
+caso; chequear lo que el scope provee, no. Hay gate dedicado para esa combinación.
+
+⇒ Con esto, el defecto de `prosaDependsOn` queda cerrado en AMBOS ejes (tier y member), no solo
+en el del tier.
+
+### 11.6 Abierto (no bloquea T3)
+
+- ⚠️ **Fuga de member PREEXISTENTE, ajena al tier** (encontrada en el review, angle 8): el gating
+  de member es por MÓDULO, así que un member con `facturacion`+`sat` pero **`pagos` OFF** recibe
+  igualmente `get_payment_links`/`get_payment_provider_status`, porque viven dentro del módulo
+  `facturas`. Existe desde PR C; T3 no lo empeora, pero `TOOL_FEATURE_KEY` ya da la pieza para
+  cerrarlo (aplicar la key propia de la tool también al eje de member). **Decisión del usuario
+  pendiente** — cerrarlo cambia conducta de members, así que no se hizo dentro de T3.
+- `porOrigen` de `get_flujo_status` sigue mostrando agregados de origen `sat_emitido`/
+  `sat_recibido` en CORE. Se dejó A PROPÓSITO: son movimientos reales del ledger (una función que
+  CORE SÍ tiene) y quitarlos descuadraría los totales del propio doctor — "downgrade = gating,
+  nunca borrado" (§9). El `partial` de flujo le dice al modelo que los reporte como movimientos y
+  nada más. Si se quiere otra política, es parte de la auditoría de fuga read-only de **T6**.

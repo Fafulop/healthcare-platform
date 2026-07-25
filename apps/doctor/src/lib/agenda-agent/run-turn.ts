@@ -32,14 +32,13 @@ import { ProposalCollector, type AgendaProposal } from './proposals';
 // ALL_TOOLS is one definition for BOTH callsites (loop + synthesis): a
 // divergent toolset would go unnoticed and also split the tools-prefix cache.
 import {
-  AGENT_MODULES,
   ALL_TOOLS,
-  buildTools,
+  FULL_SCOPE,
   isProposalToolName,
   dispatchReadTool,
   dispatchProposalTool,
+  type AgentScope,
 } from './modules/registry';
-import type { AgentModule } from './modules/types';
 import { STABLE_SYSTEM_PROMPT, buildSystemPrompt } from './prompt';
 import { mxNowString, mxTodayKey, mxUpcomingDays } from './dates';
 
@@ -118,8 +117,8 @@ function extractText(content: { type: string }[]): string {
  * carries the cache breakpoint; the breakpoint also covers `tools`, which
  * render before system. Anything interpolated per-turn (date, time, weekday)
  * must live in the volatile block — never in the stable prompt. */
-function buildSystem(modules: AgentModule[]): SystemBlock[] {
-  const promptText = modules === AGENT_MODULES ? STABLE_SYSTEM_PROMPT : buildSystemPrompt(modules);
+function buildSystem(scope: AgentScope): SystemBlock[] {
+  const promptText = scope.isFull ? STABLE_SYSTEM_PROMPT : buildSystemPrompt(scope);
   // ONE anchor for the header AND the table: each mx* helper calls new Date()
   // on its own, so building them independently could straddle midnight MX and
   // print "Hoy es jueves 23" above a table whose "(hoy)" row says the 24th.
@@ -188,12 +187,12 @@ export interface AgendaTurnInput {
   conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
   /** Bearer for apps/api authenticated endpoints — see ToolContext.apiToken. */
   apiToken?: string | null;
-  /** Module set for THIS caller (NUEVOS USUARIOS PR C). Defaults to
-   * AGENT_MODULES (full/owner set, byte-identical prompt+tools) so the eval
-   * runner and any caller that doesn't pass this keep testing owner behavior
-   * unchanged. Secondary users: apps/doctor's route computes this via
-   * modules/registry.ts enabledModules(access) before calling in. */
-  modules?: AgentModule[];
+  /** What this caller's account and user may use — modules AND tools
+   * (NUEVOS USUARIOS PR C, narrowed further by TIERS T3). Defaults to
+   * FULL_SCOPE (owner on a tier that excludes nothing: byte-identical
+   * prompt+tools) so any caller that doesn't pass it keeps testing owner
+   * behavior unchanged. Callers build it with resolveAgentScope(access). */
+  scope?: AgentScope;
 }
 
 /** A tool that threw during the turn (audit A2). The model only sees a generic
@@ -243,16 +242,20 @@ export async function runAgendaAgentTurn({
   message,
   conversationHistory = [],
   apiToken = null,
-  modules = AGENT_MODULES,
+  scope = FULL_SCOPE,
 }: AgendaTurnInput): Promise<AgendaTurnResult> {
-  const ctx: ToolContext = { doctorId, doctorSlug, apiToken };
+  // tier reaches the tools so a KEPT tool can omit fields belonging to a
+  // feature the plan excludes (TIERS T3 — see flujo.ts evidenceScope).
+  const ctx: ToolContext = { doctorId, doctorSlug, apiToken, tier: scope.tier };
   const collector = new ProposalCollector();
-  const proposalCtx = { doctorId, doctorSlug, collector };
+  const proposalCtx = { doctorId, doctorSlug, collector, tier: scope.tier };
   // Defense in depth (01-DISENO §7.1): a blocked module's tools don't exist
   // for dispatch, not just hidden from the prompt/tools list — even though
   // the model can only ever REQUEST tools present in `tools` below, so this
-  // is belt-and-suspenders against a future bug that desyncs the two.
-  const allowedToolNames = modules === AGENT_MODULES ? null : new Set(buildTools(modules).map((t) => t.name));
+  // is belt-and-suspenders against a future bug that desyncs the two. TIERS
+  // T3 widened this from module- to TOOL-level: a tier can remove one tool
+  // from a module the account otherwise keeps.
+  const allowedToolNames = scope.isFull ? null : new Set(scope.tools.map((t) => t.name));
 
   const messages: AnthropicMessage[] = [
     ...conversationHistory
@@ -262,14 +265,14 @@ export async function runAgendaAgentTurn({
     { role: 'user' as const, content: message },
   ];
 
-  const system: SystemBlock[] = buildSystem(modules);
-  const baseTools = modules === AGENT_MODULES ? ALL_TOOLS : buildTools(modules);
-  // Member sets get the same deferral per-request; if a member lacks the hot
+  const system: SystemBlock[] = buildSystem(scope);
+  const baseTools = scope.isFull ? ALL_TOOLS : scope.tools;
+  // Narrowed sets get the same deferral per-request; if a caller lacks the hot
   // agenda tools entirely, the search tool itself satisfies the API's
   // "≥1 non-deferred tool" rule.
   const tools: AgentToolParam[] =
     !TOOL_SEARCH_ENABLED ? baseTools
-    : modules === AGENT_MODULES ? ALL_TOOLS_DEFERRED
+    : scope.isFull ? ALL_TOOLS_DEFERRED
     : withDeferredLoading(baseTools);
   const toolsUsed: string[] = [];
   const toolCalls: { name: string; input: Record<string, unknown> }[] = [];

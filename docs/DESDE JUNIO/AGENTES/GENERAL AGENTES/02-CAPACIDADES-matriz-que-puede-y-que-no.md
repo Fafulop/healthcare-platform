@@ -6,7 +6,7 @@
 > [`07-CONVENCIONES-docs.md`](07-CONVENCIONES-docs.md) §2. La VERDAD es el código
 > (`apps/doctor/src/lib/agenda-agent/modules/` + `prompt.ts`); este doc es el mapa.
 >
-> **Verificado contra el código 2026-07-23: 39 tools / 5 módulos · suite de evals 65 casos.**
+> **Verificado contra el código 2026-07-25: 39 tools / 5 módulos · suite de evals 78 casos.**
 > ⚠️ **Checklist del playbook: todo módulo o tool nuevo actualiza esta matriz**
 > (checklist completo en `07-CONVENCIONES` §5).
 
@@ -38,11 +38,36 @@ objeto (sin copiar la lista — G9).
 | flujo | `flujo` + `pagos` + `conciliacion` |
 
 **Fail-closed:** un módulo que no esté en ese mapa queda BLOQUEADO para members — un módulo
-futuro debe agregarse explícitamente para llegar a ellos. El recorte ocurre ANTES del turno
-(`enabledModules`), así que las tools de un módulo bloqueado **no existen** para ese usuario:
-no puede invocarlas ni por accidente ni a propósito. El prompt del dueño queda byte-idéntico
-(caché intacto). Detalle y evals: `../../NUEVOS USUARIOS/01-DISENO-tecnico.md` §7 ·
+futuro debe agregarse explícitamente para llegar a ellos. El recorte ocurre ANTES del turno, así
+que las tools de un módulo bloqueado **no existen** para ese usuario: no puede invocarlas ni por
+accidente ni a propósito. El prompt del dueño queda byte-idéntico (caché intacto). Detalle y
+evals: `../../NUEVOS USUARIOS/01-DISENO-tecnico.md` §7 ·
 `../AGENTE AGENDA/SESSION-REFRESCO.md` (Evals G11 2026-07-22).
+
+### 1.5.1 El SEGUNDO techo: el TIER de la cuenta (TIERS T3, 2026-07-25)
+
+Los toggles de member no son el único recorte. El **plan** de la cuenta (`Doctor.tier`) es un techo
+que aplica **también al DUEÑO**, y corta más fino: **a nivel de TOOL**, no de módulo. En CORE el
+módulo `flujo` SOBREVIVE pero sin `get_conciliacion_bancaria`, y del módulo `facturas` —que se
+cae— se RESCATAN sus tools de `pagos`, porque CORE incluye Pagos.
+
+| | Gating de MEMBER | Gating de TIER |
+|---|---|---|
+| Granularidad | módulo | **tool** |
+| A quién aplica | solo members | **dueño Y member** |
+| Regla | TODOS los toggles del módulo | key propia de la tool, o el requisito del módulo menos lo excluido |
+
+> ⚠️ **La función que compone es `resolveAgentScope(access)`** (`modules/registry.ts`), NO
+> `enabledModules` — esa quedó **sin exportar** a propósito: responde solo la mitad de la pregunta
+> (toggles) y su nombre suena a la respuesta completa, así que un llamador externo se saltaría el
+> plan de la cuenta en silencio.
+
+**Y el recorte de tools NO basta**: la prosa, las DESCRIPCIONES de tools, los payloads y hasta los
+FILTROS de entrada siguen hablando de la función que se fue. Por eso un módulo puede declarar
+`prompt.partial` (sección alternativa) y `prompt.prosaDependsOn` (de qué capacidades depende su
+texto), evaluado contra **lo que el toolset PROVEE** — no contra el toggle ni el tier. Detalle
+completo y los bugs que lo motivaron: `../../TIERS/01-DISENO-tecnico.md` §11.5 y §11.5.1 ·
+bitácora `../AGENTE AGENDA/SESSION-REFRESCO.md` #25–#27.
 
 ✅ **Over-claim del member — CORREGIDO 2026-07-23** (era: un member a veces SOBRE-DECLARABA en
 prosa capacidades de módulos que no tiene). Fix en `MEMBER_SCOPE_NOTE`, owner byte-idéntico,
@@ -121,7 +146,7 @@ bitácora #24 y `00-BLUEPRINT` §5.2 punto 6.
      Actualiza el número Y el texto de esta sección juntos. -->
 <!-- gate:tools=39 -->
 <!-- gate:modules=5 -->
-<!-- gate:evals=65 -->
+<!-- gate:evals=78 -->
 <!-- gate:module-list=agenda,facturas,fiscal,flujo,expediente -->
 
 **39 tools / 5 módulos** — desglose real (conteo de `input_schema` por archivo): agenda 8 de
@@ -129,12 +154,16 @@ lectura (`tools.ts`) + 10 de propuesta (`proposals.ts`) · facturas 12 (10 lectu
 propuestas) · fiscal 2 · flujo 5 · expediente 2. El conteo válido es `ALL_TOOLS.length` del
 registry — nunca sumar a mano.
 
-**Suite de evals: 65 casos** (contados en `scripts/agenda-agent-evals.ts`). Por familia:
+**Suite de evals: 78 casos** (contados en `scripts/agenda-agent-evals.ts`). Por familia:
 6 `f2a-*` · 6 `f2b-*` · 2 `f2c-*` · 5 `flujo-*` · 5 `xdom-*` cross-dominio · 3 `exped-*` ·
 3 `kl-*` de capa de conocimiento · 3 `inj-*` sondas de inyección (fixtures permanentes
-`A6INJ*`) · 3 `member-*` del path de usuario secundario · 4 `f1-*` · 6 `f15-*` · el resto,
-casos core de agenda. **Baseline 0 WARN** (un WARN se investiga, ya no es "normal"; los soft
-son guardas data-dependent justificadas).
+`A6INJ*`) · 5 `member-*` del path de usuario secundario (3 de un módulo + 2 con la forma REAL de 4 módulos del member en prod) · **11 `tier-core-*` del techo de plan
+CORE (TIERS T3, 2026-07-25)** · 4 `f1-*` · 6 `f15-*` · el resto, casos core de agenda.
+**Baseline 0 WARN** (un WARN se investiga, ya no es "normal"; los soft son guardas
+data-dependent justificadas).
+
+Los `tier-core-*` corren con `tier: 'CORE'` en el caso: sin `permissions` corren como **dueño**
+de una cuenta CORE (el techo del plan aplica al dueño, a diferencia de los toggles de member).
 ⚠️ **La última corrida completa (2026-07-22) dio `62/65 PASS · 3 WARN · 0 FAIL`. Ese 62 es el
 RESULTADO de una corrida, NO el tamaño de la suite** — confundirlos fue un error real que se
 propagó por varios docs (ver [`07-CONVENCIONES-docs.md`](07-CONVENCIONES-docs.md) §2.3).

@@ -22,7 +22,7 @@
  *   does not create the LedgerEntry — the executor must POST it too).
  */
 
-import { prisma } from '@healthcare/database';
+import { prisma, tierAllows } from '@healthcare/database';
 import type { AnthropicTool } from './anthropic';
 import {
   dateKeyToUtcDate,
@@ -130,6 +130,10 @@ export interface ProposalContext {
   doctorId: string;
   doctorSlug: string;
   collector: ProposalCollector;
+  /** Account tier — same contract as ToolContext.tier (TIERS T3). A proposal
+   * result can name another feature ("emítela desde la tabla de citas"), which
+   * is false on a plan that excludes it; absent/unknown ⇒ FULL (fail-open). */
+  tier?: string | null;
 }
 
 /** GAP-5: on cap overflow the model must NARRATE the remainder, never drop it.
@@ -1302,7 +1306,10 @@ async function proposeCompleteBooking(
     orden: proposal.orden,
     cita: bookingLabel(b),
     ingreso: `$${price} (${input.formaDePago})`,
-    nota: 'La factura (CFDI) no se emite aquí — el doctor puede emitirla desde la tabla de citas.',
+    // TIERS T3: don't point at Facturación on a plan that doesn't include it.
+    nota: tierAllows(ctx.tier, 'facturacion')
+      ? 'La factura (CFDI) no se emite aquí — el doctor puede emitirla desde la tabla de citas.'
+      : 'La factura (CFDI) no se emite aquí; el plan de esta cuenta no incluye facturación.',
   };
 }
 
