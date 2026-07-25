@@ -87,6 +87,9 @@ export const authConfig: NextAuthConfig = {
       session.user.isOwner = access.isOwner;
       session.user.permissions = access.permissions;
       session.user.membershipRevoked = access.membershipRevoked;
+      // Account tier (fresh via database sessions). Threaded for TIERS T2 —
+      // client courtesy only; no consumer enforces it yet.
+      session.user.tier = access.tier;
 
       // Expose session row id so /api/auth/sessions can identify the current session
       session.sessionId = session.id;

@@ -243,6 +243,11 @@ ocultan). El gating de MEMBER sigue **ocultando**. Requiere distinguir el PORQU�
   (`/api/admin/...`, `requireAdminAuth`). Es la "administración desde el admin app" pedida. **No**
   hay billing self-serve; el tier es un atributo que fija el admin (billing puede manejarlo
   después sin tocar este diseño).
+  - ⚠️ **REQUISITO DURO del write (surgido en el review de T1):** la ruta que escribe `Doctor.tier`
+    DEBE validar contra `DOCTOR_TIERS` con el CASE canónico (`'FULL'`/`'CORE'`). `tierAllows` es
+    **case-sensitive y fail-open**: un `'core'` en minúsculas no matchearía `TIER_EXCLUDED_KEYS`
+    y **desactivaría el gating en silencio** (la cuenta quedaría FULL de facto). El write es la
+    única barrera; rechaza cualquier valor fuera de `DOCTOR_TIERS`.
 - **Gates nuevos** (espíritu del `check-route-permission-coverage.ts` existente):
   - Toda key en `TIER_EXCLUDED_KEYS[*]` debe resolver a ≥1 ruta vía `nearestFeatureKey` (si no, la
     exclusión no muerde nada = bug).

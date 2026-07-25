@@ -196,6 +196,38 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; key: PermissionKey }> 
   { prefix: '/dashboard/ayuda', key: 'ayuda' },
 ];
 
+/**
+ * TIER resolution (distinta de la de MEMBER) — "nearest feature key".
+ *
+ * El check de MEMBER usa la regla MÁS ESPECÍFICA (leaf), pero algunas rutas
+ * dentro de una función tier-able tienen leaf key OWNER_ONLY, no la key de la
+ * función: `facturacion/csd`, `sat-descarga/fiel` POST/DELETE. Para el TIER
+ * necesitamos la FUNCIÓN a la que pertenece la ruta, así que resolvemos a la
+ * regla más larga cuya key sea una PermissionKey real (ignorando OWNER_ONLY/
+ * NEUTRAL). Así `facturacion/csd` → `facturacion` y el techo del tier lo caza.
+ * Hueco G1 del diseño (01-DISENO §4.3). NEUTRAL/OWNER_ONLY sin key de función
+ * por encima ⇒ null (el tier no aplica; lo decide el check normal).
+ */
+export function nearestFeatureKey(pathname: string, method: string): PermissionKey | null {
+  const clean = pathname.split('?')[0].replace(/\/+$/, '');
+  const apiIdx = clean.indexOf('/api/');
+  const rel = apiIdx >= 0 ? clean.slice(apiIdx + 5) : clean.replace(/^\/+/, '');
+  const pathSegs = segments(rel);
+  const upperMethod = method.toUpperCase();
+
+  let best: { key: PermissionKey; len: number } | null = null;
+  for (const rule of ROUTE_PERMISSION_MAP) {
+    if (rule.key === 'NEUTRAL' || rule.key === 'OWNER_ONLY') continue; // solo keys de función
+    if (rule.methods && !rule.methods.includes(upperMethod)) continue;
+    const prefixSegs = segments(rule.prefix);
+    if (!prefixMatches(prefixSegs, pathSegs)) continue;
+    if (!best || prefixSegs.length > best.len) {
+      best = { key: rule.key as PermissionKey, len: prefixSegs.length };
+    }
+  }
+  return best?.key ?? null;
+}
+
 /** Toggle governing a dashboard page, or null if the page is ungated (home). */
 export function pagePermissionKey(pathname: string): PermissionKey | null {
   const clean = pathname.replace(/\/+$/, '');

@@ -89,6 +89,8 @@ export async function validateAuthToken(
   isOwner: boolean;
   /** null for owners (= everything). Members: toggle set — read via hasPermission() (fail-closed). */
   permissions: PermissionSet | null;
+  /** Account tier (Doctor.tier), fresh. Threaded for TIERS T2 — no consumer yet. */
+  tier: string;
 }> {
   const authHeader = request.headers.get('authorization');
 
@@ -127,8 +129,17 @@ export async function validateAuthToken(
           role: true,
           doctorId: true,
           sessionVersion: true,
+          // doctor.tier (legacy owner link) + memberships.doctor.tier: techo del
+          // tier leído FRESCO (TIERS G4) en la misma query — nadie lo ENFORCE aún.
+          doctor: { select: { tier: true } },
           memberships: {
-            select: { doctorId: true, role: true, status: true, permissions: true },
+            select: {
+              doctorId: true,
+              role: true,
+              status: true,
+              permissions: true,
+              doctor: { select: { tier: true } },
+            },
           },
         },
       });
@@ -140,7 +151,10 @@ export async function validateAuthToken(
         console.error('[auth] doctor_members missing — legacy fallback:', error);
         const legacy = await prisma.user.findUnique({
           where: { email: payload.email },
-          select: { id: true, email: true, role: true, doctorId: true, sessionVersion: true },
+          select: {
+            id: true, email: true, role: true, doctorId: true, sessionVersion: true,
+            doctor: { select: { tier: true } },
+          },
         });
         user = legacy ? { ...legacy, memberships: [] } : null;
       } else {
@@ -162,7 +176,7 @@ export async function validateAuthToken(
     // Effective doctor (secondary users): membership-first, legacy column as
     // owner fail-open fallback. Every downstream helper reads doctorId from
     // this return, so members are scoped to their portal here and nowhere else.
-    const access = computeEffectiveAccess(user.memberships, user.doctorId);
+    const access = computeEffectiveAccess(user.memberships, user.doctorId, user.doctor?.tier);
 
     // MEMBER enforcement: owners and admins bypass entirely (no-op deploy for
     // every current user); members are checked against the route→toggle map.
@@ -183,6 +197,8 @@ export async function validateAuthToken(
       doctorId: access.doctorId,
       isOwner: access.isOwner,
       permissions: access.permissions,
+      // Threaded for TIERS T2 enforcement; no consumer applies it yet.
+      tier: access.tier,
     };
   } catch (error) {
     if (error instanceof AuthError) throw error;

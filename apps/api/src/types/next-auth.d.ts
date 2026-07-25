@@ -13,6 +13,8 @@ declare module "next-auth" {
       isOwner: boolean;
       permissions: Partial<Record<string, boolean>> | null;
       membershipRevoked: boolean;
+      /** Account tier (Doctor.tier). TIERS — threaded, not yet enforced. */
+      tier: string;
     } & DefaultSession["user"];
   }
 

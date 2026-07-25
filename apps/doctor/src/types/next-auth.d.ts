@@ -14,6 +14,8 @@ declare module "next-auth" {
       permissions: Partial<Record<string, boolean>> | null;
       /** No ACTIVE membership but a REVOKED one exists → show "acceso revocado", never onboarding. */
       membershipRevoked: boolean;
+      /** Account tier (Doctor.tier), fresh via database sessions. TIERS — client courtesy. */
+      tier: string;
       privacyConsentAt: Date | string | null; // Date from DB, string when serialized to client
       sessionVersion: number;
     } & DefaultSession["user"];

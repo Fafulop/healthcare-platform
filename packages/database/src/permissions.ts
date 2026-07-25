@@ -114,3 +114,45 @@ export function hasPermission(perms: unknown, key: PermissionKey): boolean {
     (perms as Record<string, unknown>)[key] === true
   );
 }
+
+// ---------------------------------------------------------------------------
+// TIERS (planes del producto) — feature-gating por CUENTA, apilado sobre los
+// permisos por-member de arriba. Un tier = TECHO a nivel de cuenta sobre el
+// MISMO vocabulario de PermissionKey (las 6 funciones que CORE excluye YA son
+// keys). Diseño: docs/DESDE JUNIO/TIERS/01-DISENO-tecnico.md
+//
+// Acceso efectivo(key) = tierAllows(tier, key) AND (isOwner ? true : hasPermission(perms, key)).
+// El techo aplica a owner Y member; el check de toggles sigue siendo de members.
+// ---------------------------------------------------------------------------
+
+/** Tiers del producto. String (no enum de Postgres) para agregar tiers futuros
+ * sin migración de BD — ver 01-DISENO §3.1. */
+export const DOCTOR_TIERS = ['FULL', 'CORE'] as const;
+export type DoctorTier = (typeof DOCTOR_TIERS)[number];
+
+/** El tier por defecto de toda cuenta (columna default; fail-open target). */
+export const DEFAULT_TIER: DoctorTier = 'FULL';
+
+/**
+ * Keys que un tier EXCLUYE de toda la cuenta (owner incluido). Fuente única —
+ * las 6 de CORE mapean 1:1 a las funciones del plan base (01-DISENO §1). CORE
+ * CONSERVA flujo, pagos, citas, expedientes, etc.; solo pierde estas.
+ */
+export const TIER_EXCLUDED_KEYS: Record<DoctorTier, readonly PermissionKey[]> = {
+  FULL: [],
+  CORE: ['facturacion', 'sat', 'conciliacion', 'ventas', 'compras', 'productos'],
+};
+
+/**
+ * ¿La cuenta con este tier tiene acceso a esta key?
+ * FAIL-OPEN a permitido si el tier es null/ausente/desconocido — nunca bloquear
+ * por un dato faltante (mismo espíritu que el fallback owner de membership.ts;
+ * la columna default es FULL de todos modos). Contrasta con hasPermission, que
+ * es fail-closed: un member sin toggle se DENIEGA, pero una cuenta sin tier se
+ * trata como FULL.
+ */
+export function tierAllows(tier: string | null | undefined, key: PermissionKey): boolean {
+  const excluded = TIER_EXCLUDED_KEYS[(tier ?? DEFAULT_TIER) as DoctorTier];
+  if (!excluded) return true; // tier desconocido ⇒ fail-open
+  return !excluded.includes(key);
+}
