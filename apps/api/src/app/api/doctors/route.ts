@@ -6,10 +6,15 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireAdminAuth } from '@/lib/auth';
 import { createDoctorSchema } from '@healthcare/types';
+import { DOCTOR_PRIVATE_FIELDS } from '@/lib/doctor-public-fields';
 
+// NOTE: this GET is intentionally unauthenticated (public site + sitemap).
+// `omit` keeps credentials and commercial data out of the response — without it
+// every scalar column ships to anonymous callers. See doctor-public-fields.ts.
 export async function GET() {
   try {
     const doctors = await prisma.doctor.findMany({
+      omit: DOCTOR_PRIVATE_FIELDS,
       include: {
         services: true,
         educationItems: true,

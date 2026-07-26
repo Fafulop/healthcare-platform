@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import { DOCTOR_PRIVATE_FIELDS } from '@/lib/doctor-public-fields';
 
 export async function GET(
   request: Request,
@@ -12,8 +13,11 @@ export async function GET(
   try {
     const { slug } = await params;
 
+    // Unauthenticated by design (public profile pages). `omit` keeps credentials
+    // and commercial data out of the response — see doctor-public-fields.ts.
     const doctor = await prisma.doctor.findUnique({
       where: { slug },
+      omit: DOCTOR_PRIVATE_FIELDS,
       include: {
         services: true,
         educationItems: true,
