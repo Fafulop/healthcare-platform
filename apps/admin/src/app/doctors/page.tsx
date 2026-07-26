@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import ColorPaletteSelector from "@/components/ColorPaletteSelector";
+import {
+  DOCTOR_TIERS,
+  DEFAULT_TIER,
+  TIER_EXCLUDED_KEYS,
+  PERMISSION_LABELS,
+  type DoctorTier,
+} from "@healthcare/database";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
@@ -19,8 +26,31 @@ interface Doctor {
   heroImage: string;
   colorPalette: string;
   googleAdsId: string | null;
+  /** Optional on purpose: an API build older than TIERS T1 omits it entirely.
+   * That is a DIFFERENT problem from a corrupt value — see tierState(). */
+  tier?: string;
   createdAt: string;
 }
+
+// What each tier takes away, derived from the single source of truth
+// (TIER_EXCLUDED_KEYS) — never a hand-written list, so a new tier or a changed
+// exclusion shows up here on its own.
+const tierExclusionLabels = (tier: DoctorTier): string[] =>
+  (TIER_EXCLUDED_KEYS[tier] ?? []).map((k) => PERMISSION_LABELS[k]);
+
+/**
+ * Three distinct states, kept apart so the UI never points at the wrong cause:
+ * - 'missing'  → the API response had no `tier` field at all. Almost always a
+ *                stale @healthcare/api deploy, NOT bad data. (This repo has been
+ *                bitten by one service silently not redeploying.)
+ * - 'unknown'  → a value IS stored but is not in DOCTOR_TIERS. Real alarm:
+ *                tierAllows fails OPEN, so the account behaves as FULL.
+ * - 'known'    → canonical value.
+ */
+const tierState = (tier: string | undefined): "missing" | "unknown" | "known" => {
+  if (tier === undefined || tier === null) return "missing";
+  return (DOCTOR_TIERS as readonly string[]).includes(tier) ? "known" : "unknown";
+};
 
 export default function DoctorsListPage() {
   const router = useRouter();
@@ -34,6 +64,10 @@ export default function DoctorsListPage() {
   const [adsDoctor, setAdsDoctor] = useState<Doctor | null>(null);
   const [adsIdInput, setAdsIdInput] = useState("");
   const [updatingAds, setUpdatingAds] = useState(false);
+  const [tierModalOpen, setTierModalOpen] = useState(false);
+  const [tierDoctor, setTierDoctor] = useState<Doctor | null>(null);
+  const [tierSelection, setTierSelection] = useState<DoctorTier>(DEFAULT_TIER);
+  const [updatingTier, setUpdatingTier] = useState(false);
 
   useEffect(() => {
     fetchDoctors();
@@ -41,14 +75,43 @@ export default function DoctorsListPage() {
 
   const fetchDoctors = async () => {
     try {
-      const response = await authFetch(`${API_URL}/api/doctors`);
+      // Two sources on purpose: the doctor list is the PUBLIC payload (no tier —
+      // it is stripped as commercial data), so the plan comes from the
+      // admin-only tier endpoint and is merged in by doctor id.
+      // The tier call is made non-throwing BEFORE Promise.all: authFetch rejects
+      // on a missing session or a network error, and a rejection here would take
+      // the whole Promise.all down and blank a page whose main data loaded fine.
+      const [response, tierResponse] = await Promise.all([
+        authFetch(`${API_URL}/api/doctors`),
+        authFetch(`${API_URL}/api/admin/doctor-tier`).catch((tierErr) => {
+          console.error("Error fetching tiers:", tierErr);
+          return null;
+        }),
+      ]);
       const result = await response.json();
 
-      if (result.success) {
-        setDoctors(result.data);
-      } else {
+      if (!result.success) {
         setError("Error al cargar los doctores");
+        return;
       }
+
+      // A failure here must NOT blank the page — the tier column degrades to
+      // "—" (its "no data from the API" state) and everything else still works.
+      let tierById: Record<string, string> = {};
+      try {
+        const tierResult = tierResponse ? await tierResponse.json() : null;
+        if (tierResult?.success) {
+          tierById = Object.fromEntries(
+            tierResult.data.map((d: { id: string; tier: string }) => [d.id, d.tier])
+          );
+        }
+      } catch (tierErr) {
+        console.error("Error parsing tiers:", tierErr);
+      }
+
+      setDoctors(
+        result.data.map((d: Doctor) => ({ ...d, tier: tierById[d.id] }))
+      );
     } catch (err) {
       console.error("Error fetching doctors:", err);
       setError("Error de conexión con el servidor");
@@ -314,6 +377,60 @@ export default function DoctorsListPage() {
     }
   };
 
+  const handleOpenTierModal = (doctor: Doctor) => {
+    setTierDoctor(doctor);
+    // An unrecognized (or absent) value is treated as FULL by tierAllows
+    // (fail-open), so that is what we preselect — and the modal says why.
+    setTierSelection(
+      tierState(doctor.tier) === "known" ? (doctor.tier as DoctorTier) : DEFAULT_TIER
+    );
+    setTierModalOpen(true);
+  };
+
+  const handleCloseTierModal = () => {
+    setTierModalOpen(false);
+    setTierDoctor(null);
+  };
+
+  const handleUpdateTier = async () => {
+    if (!tierDoctor) return;
+
+    setUpdatingTier(true);
+    try {
+      // Dedicated admin-only route — NOT the profile PUT, which an owning
+      // doctor can also call. Sends the canonical-case value verbatim; the
+      // server rejects anything outside DOCTOR_TIERS (TIERS §7).
+      const response = await authFetch(`${API_URL}/api/admin/doctor-tier`, {
+        method: "PATCH",
+        body: JSON.stringify({ doctorId: tierDoctor.id, tier: tierSelection }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || result.error || "Failed to update tier");
+      }
+
+      const savedTier: string = result.data.tier;
+      setDoctors((prev) =>
+        prev.map((d) => (d.id === tierDoctor.id ? { ...d, tier: savedTier } : d))
+      );
+      // `changed:false` means the row already held this tier (a stale list —
+      // someone else set it). Say so instead of claiming a change we didn't make.
+      alert(
+        result.data.changed
+          ? `Plan actualizado a ${savedTier} para ${tierDoctor.doctorFullName}`
+          : `${tierDoctor.doctorFullName} ya estaba en ${savedTier} — sin cambios`
+      );
+      handleCloseTierModal();
+    } catch (err) {
+      console.error("Error updating tier:", err);
+      alert(`Error al actualizar el plan: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setUpdatingTier(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
@@ -402,6 +519,9 @@ export default function DoctorsListPage() {
                       Ciudad
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Plan
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Paleta
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -440,6 +560,43 @@ export default function DoctorsListPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{doctor.city}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {(() => {
+                          const state = tierState(doctor.tier);
+                          const isFull = doctor.tier === "FULL";
+                          const style =
+                            state === "missing"
+                              ? "bg-gray-100 hover:bg-gray-200 text-gray-500"
+                              : state === "unknown"
+                                ? "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200"
+                                : isFull
+                                  ? "bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
+                                  : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200";
+                          const title =
+                            state === "missing"
+                              ? "El API no devolvió el plan — revisa el deploy de @healthcare/api"
+                              : state === "unknown"
+                                ? `Valor no reconocido — la cuenta se comporta como ${DEFAULT_TIER}`
+                                : isFull
+                                  ? "Plan completo"
+                                  : `Sin: ${tierExclusionLabels(doctor.tier as DoctorTier).join(", ")}`;
+                          return (
+                            <button
+                              onClick={() => handleOpenTierModal(doctor)}
+                              title={title}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-semibold transition ${style}`}
+                            >
+                              {state === "missing"
+                                ? "—"
+                                : state === "unknown"
+                                  ? `⚠ ${doctor.tier || "(vacío)"}`
+                                  : isFull
+                                    ? "FULL"
+                                    : `🔒 ${doctor.tier}`}
+                            </button>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
@@ -497,6 +654,122 @@ export default function DoctorsListPage() {
             </div>
           )}
         </div>
+
+        {/* Tier (plan) Modal */}
+        {tierModalOpen && tierDoctor && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Plan del producto</h2>
+                    <p className="text-sm text-gray-600 mt-1">{tierDoctor.doctorFullName}</p>
+                  </div>
+                  <button
+                    onClick={handleCloseTierModal}
+                    disabled={updatingTier}
+                    className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {tierState(tierDoctor.tier) === "missing" && (
+                  <div className="bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-gray-700">
+                      El API no devolvió el plan de este doctor, así que <strong>no sabemos cuál
+                      tiene</strong>. Suele ser un deploy desatendido de <code>@healthcare/api</code>,
+                      no un dato corrupto — verifícalo antes de guardar, porque guardar aquí
+                      sobrescribe el valor real.
+                    </p>
+                  </div>
+                )}
+
+                {tierState(tierDoctor.tier) === "unknown" && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-red-800">
+                      El valor guardado (<code className="bg-red-100 px-1 rounded">{tierDoctor.tier || "vacío"}</code>)
+                      no es un plan conocido. La cuenta se comporta como <strong>{DEFAULT_TIER}</strong> (fail-open).
+                      Guardar aquí lo corrige.
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {DOCTOR_TIERS.map((tier) => {
+                    const excluded = tierExclusionLabels(tier);
+                    const selected = tierSelection === tier;
+                    return (
+                      <label
+                        key={tier}
+                        className={`block border rounded-lg p-4 cursor-pointer transition ${
+                          selected ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:bg-gray-50"
+                        } ${updatingTier ? "opacity-60 pointer-events-none" : ""}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            name="tier"
+                            value={tier}
+                            checked={selected}
+                            onChange={() => setTierSelection(tier)}
+                            disabled={updatingTier}
+                            className="mt-1"
+                          />
+                          <div>
+                            <div className="font-semibold text-gray-900">
+                              {tier}
+                              {tierDoctor.tier === tier && (
+                                <span className="ml-2 text-xs font-normal text-gray-500">(actual)</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 mt-0.5">
+                              {excluded.length === 0
+                                ? "Todas las funciones."
+                                : `Sin: ${excluded.join(" · ")}.`}
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+                  <p className="text-xs text-amber-900">
+                    Un downgrade <strong>bloquea, nunca borra</strong>: los datos de las funciones
+                    excluidas siguen ahí y reaparecen al volver a subir de plan. Aplica de inmediato
+                    (el servidor lee el plan fresco en cada request, sin re-login).
+                  </p>
+                  <p className="text-xs text-amber-900 mt-2">
+                    ⚠️ Mientras no exista la UI de candados, el doctor <strong>seguirá viendo</strong>{" "}
+                    esas secciones en su menú y recibirá un error al usarlas — sin explicación de que
+                    es por su plan.
+                  </p>
+                </div>
+
+                <div className="flex gap-3 mt-5">
+                  <button
+                    onClick={handleUpdateTier}
+                    disabled={updatingTier || tierSelection === tierDoctor.tier}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
+                  >
+                    {updatingTier ? "Guardando..." : "Guardar"}
+                  </button>
+                  <button
+                    onClick={handleCloseTierModal}
+                    disabled={updatingTier}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Google Ads Modal */}
         {adsModalOpen && adsDoctor && (

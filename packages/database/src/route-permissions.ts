@@ -106,7 +106,13 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
 
   { prefix: 'auth', key: 'NEUTRAL' },
   { prefix: 'users', key: 'NEUTRAL' }, // admin-guarded by requireAdminAuth on top
-  { prefix: 'admin', key: 'NEUTRAL' }, // admin-guarded by requireAdminAuth on top (helpers view etc.)
+  // OWNER_ONLY, not NEUTRAL: requireAdminAuth in each handler is still the real
+  // gate (ADMINs bypass enforcement entirely and never reach this rule), but
+  // NEUTRAL let a MEMBER's write PASS the member check and get logged to
+  // member_audit_log before the handler's 403 — breaking the documented
+  // invariant "ningún 403 logueado" (NUEVOS USUARIOS 01-DISENO §18). Blocking
+  // members here rejects them earlier and writes no audit row.
+  { prefix: 'admin', key: 'OWNER_ONLY' },
   { prefix: 'uploadthing', key: 'NEUTRAL' },
 
   // ── apps/doctor internal ────────────────────────────────────────────────
