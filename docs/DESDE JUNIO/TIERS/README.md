@@ -59,16 +59,20 @@ invalidación de cache**, y **NO-OP** mientras los 11 doctores sean FULL. Suite 
 `pnpm gates` ahora corre **CUATRO** (nuevo `gate:prosa`). As-built completo, las 4 correcciones al
 diseño, el bug hunt y el gate: [`01-DISENO`](01-DISENO-tecnico.md) §11.
 
+🟢 **T5 — selector de tier en el admin — SHIPPED 2026-07-26** (`b5414a19`). Columna "Plan" + modal
+en `/doctors` y una ruta **admin-only** para escribirlo (NO el wizard de edición: su PUT lo puede
+llamar el propio doctor, ver [`01-DISENO`](01-DISENO-tecnico.md) §12.1). Ya **no hace falta SQL a
+mano** para mover a alguien a CORE. Revisando por qué `tier` salía en el payload público se destapó
+un hallazgo de seguridad ajeno a tiers — credenciales en `GET /api/doctors` — corregido en
+`faa7e829` con el gate `pnpm gate:payload`; ficha en §12.3.
+
 ### ⏭️ Qué sigue
 
-> 🧭 **Si eres una sesión nueva: empieza aquí.** T1→T3 están EN PROD y el gating es **NO-OP**
-> (los 11 doctores son FULL). Lo que falta para que un tier sirva de algo NO es seguridad del
-> agente —eso quedó cerrado y con gates— sino **poder fijar el tier (T5) y que el doctor vea por
-> qué algo está bloqueado (T4)**. El orden recomendado es el de abajo.
+> 🧭 **Si eres una sesión nueva: empieza aquí.** T1→T3 y T5 están EN PROD y el gating sigue siendo
+> **NO-OP** (los 11 doctores son FULL). Ya se puede fijar el tier desde el admin; lo que falta para
+> poner a un cliente REAL en CORE es que el doctor **vea por qué** algo está bloqueado (T4).
 
-**El siguiente paso concreto es T5**, y va ANTES que T4 por una razón práctica: hoy mover a un
-doctor a CORE exige **SQL escrito a mano contra prod**, que es la peor forma de hacer el primer
-downgrade. T5 es pequeño y es lo que vuelve T3 probable de punta a punta.
+**El siguiente paso concreto es la prueba en vivo de T5** (abajo), y luego **T4**.
 
 ✅ **El TRIPWIRE del agente quedó CUMPLIDO el 2026-07-25** (los 3 ítems: `gate:prosa`, el eval
 `tier-core-completar-cita`, y `prosaDependsOn` extendido al eje de member). Detalle en
@@ -76,17 +80,17 @@ downgrade. T5 es pequeño y es lo que vuelve T3 probable de punta a punta.
 
 **En orden:**
 
-1. **T5 — selector de tier en el admin.** El siguiente. Pequeño.
-   > ⚠️ **REQUISITO DURO:** el write DEBE validar contra `DOCTOR_TIERS` con el **case canónico**
-   > (`'FULL'`/`'CORE'`). `tierAllows` es **case-sensitive Y fail-open**: un `'core'` en minúsculas
-   > no matchea `TIER_EXCLUDED_KEYS` y **desactiva el gating EN SILENCIO** — la cuenta queda FULL
-   > de facto mientras la UI dice CORE. Es el peor modo de fallo de esta feature porque *parece
-   > que funcionó*. El write es la única barrera (§7).
-2. **Prueba controlada en dr-prueba**: downgrade → verificar (rutas 403 `TIER_EXCLUDED` + el
-   asistente sin facturas/fiscal y con `flujo` sin conciliación) → revertir. Mismo formato que el
-   test en vivo de T2.
+1. ✅ **T5 — selector de tier en el admin — SHIPPED** (`b5414a19`). El requisito duro del write se
+   cumplió: valida contra `DOCTOR_TIERS` con case canónico y **rechaza** lo demás en vez de
+   normalizarlo (§12.2).
+2. **Prueba controlada en dr-prueba — PENDIENTE, es el siguiente paso**: downgrade desde el modal
+   nuevo → verificar (rutas 403 `TIER_EXCLUDED` + el asistente sin facturas/fiscal y con `flujo`
+   sin conciliación) → revertir. Mismo formato que el test en vivo de T2.
+   > ⚠️ Es además el **primer clic real** sobre la UI de T5: se entregó con gates, tsc y smokes
+   > contra prod, pero nadie había abierto el modal todavía.
 3. **T4 — show-locked UI** (usa el marcador `TIER_EXCLUDED` del 403, ya verificado). **Antes de
-   cualquier cliente REAL en CORE**: sin esto el doctor ve funciones bloqueadas sin saber por qué.
+   cualquier cliente REAL en CORE**: sin esto el doctor ve funciones bloqueadas sin saber por qué
+   — el propio modal de T5 lo advierte al hacer un downgrade.
 4. **T6 — degradación de cruces de flujo + auditoría de fuga read-only.** Que decida de una sola
    vez la política de `porOrigen` (sat_emitido/sat_recibido) Y la de reportes/analytics, en vez de
    caso por caso. Ver §11.6.

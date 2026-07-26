@@ -1,7 +1,12 @@
 # 01 · Diseño técnico — TIERS (planes del producto)
 
 > Feature-gating por CUENTA (doctor), apilado sobre el sistema de permisos de `NUEVOS USUARIOS`.
-> Estado: **DISEÑO, sin implementar.** Este doc es la fuente de verdad del plan.
+> Estado: **T1–T3 y T5 SHIPPED a prod; falta T4 (candados en el cliente) y T6.** El gating sigue
+> siendo **NO-OP** mientras los 11 doctores sean FULL — lo que T5 cambia es que ahora se puede
+> dejar de serlo sin SQL a mano. Este doc es la fuente de verdad del plan (§1–§10) y el as-built
+> de lo construido (§11 = T3, §12 = T5).
+>
+> *(Hasta 2026-07-26 esta cabecera decía "DISEÑO, sin implementar" con cuatro PRs ya en producción.)*
 
 ---
 
@@ -275,7 +280,9 @@ Cada PR con su verificación; todo cambio de agente ⇒ suite de 65 evals (regla
    as-built, las 4 correcciones al diseño, el bug hunt (§11.5) y el gate `gate:prosa` (§11.5.2).
 4. **PR T4 — cliente show-locked.** `usePermissions` con `lockedByTier`, sidebar con candado,
    pantalla/CTA de upgrade, ruta de contacto.
-5. **PR T5 — admin.** Selector de tier + columna + ruta admin-guarded.
+5. ✅ **PR T5 — admin — SHIPPED 2026-07-26** (`b5414a19`). Selector de tier + columna + ruta
+   admin-guarded. Ver §12 para el as-built, la desviación del §7 y el hallazgo de seguridad que
+   destapó (`faa7e829`).
 6. **PR T6 — degradación de cruces flujo.** Pasada por el ledger: entradas ligadas a
    factura/venta/compra se RENDERIZAN sin error en CORE, ocultando solo las ACCIONES de cruce
    (no borrar datos). Audit de funciones conservadas que puedan filtrar datos de funciones
@@ -574,3 +581,93 @@ Suite: **80 casos**. Gates: `gate:routes` · `gate:prompt` · `gate:docs` · **`
   CORE SÍ tiene) y quitarlos descuadraría los totales del propio doctor — "downgrade = gating,
   nunca borrado" (§9). El `partial` de flujo le dice al modelo que los reporte como movimientos y
   nada más. Si se quiere otra política, es parte de la auditoría de fuga read-only de **T6**.
+
+---
+
+## 12. PR T5 — as-built (2026-07-26) · ✅ SHIPPED
+
+> Commits: **`b5414a19`** (T5) · **`faa7e829`** (el hallazgo de seguridad que T5 destapó, ver §12.3).
+> Sin migración: la columna `Doctor.tier` existe desde T1.
+
+Lo que T5 resuelve: hasta ahora mover a un doctor a CORE exigía **SQL a mano contra prod**, que es
+la peor forma de hacer el primer downgrade.
+
+### 12.1 La desviación del §7 (deliberada)
+
+El diseño apuntaba al wizard de edición del admin. **No se hizo ahí.** Ese formulario guarda con
+`PUT /api/doctors/[slug]`, y esa ruta la puede llamar un **DOCTOR dueño para su propio perfil**
+(`route.ts:111-126`): meter el tier en ese payload lo habría vuelto auto-asignable — el doctor se
+sube de plan solo. El tier tiene entonces su **propia ruta admin-only**, y el PUT de perfil no lo
+toca (verificado: `tier` no aparece en su mapeo de campos, y ninguno de los 20 call sites de
+`doctor.update` hace spread del body).
+
+**Lección reusable:** antes de agregar un campo a un formulario existente, preguntar *quién más
+puede llamar al endpoint que lo guarda*. "Es la pantalla de admin" no implica "es una ruta de admin".
+
+### 12.2 Lo construido
+
+| Pieza | Qué |
+|---|---|
+| `PATCH /api/admin/doctor-tier` | `requireAdminAuth`. Valida contra `DOCTOR_TIERS` con **case canónico y RECHAZA** lo demás en vez de normalizarlo (§7): `tierAllows` es case-sensitive Y fail-open, así que un `'core'` guardado desactivaría el gating EN SILENCIO. Loguea admin + tier previo + nuevo |
+| `GET /api/admin/doctor-tier` | El tier ya NO viaja en el payload público (§12.3) ⇒ la UI de admin lo lee aquí. Mismo split que `/helpers` |
+| `/doctors` (admin) | Columna "Plan" + modal (patrón de los modales de Paleta/Ads). Exclusiones derivadas de `TIER_EXCLUDED_KEYS` + `PERMISSION_LABELS`, nunca escritas a mano |
+| `route-permissions.ts` | `{prefix:'admin'}` NEUTRAL → **OWNER_ONLY** (§12.4) |
+
+**Tres estados en la columna, para no señalar la causa equivocada:** valor ausente ("el API no
+devolvió el plan" — deploy viejo, gris) vs valor presente pero no canónico (alarma roja real:
+fail-open a FULL) vs canónico. La primera versión los mezclaba: un `@healthcare/api` desactualizado
+habría pintado a los 11 doctores en rojo como si la columna estuviera corrupta.
+
+El modal advierte que **mientras no exista T4** el doctor SEGUIRÁ viendo las secciones excluidas y
+solo recibirá un error al usarlas. Verificado que la promesa "aplica sin re-login" es cierta:
+`membership.ts:115` relee `Doctor.tier` por request en los dos choke points.
+
+### 12.3 ⚠️ El hallazgo de seguridad que destapó (`faa7e829`)
+
+Revisando por qué `tier` aparecía en el payload de `GET /api/doctors` se encontró la causa raíz:
+**esa ruta y `GET /api/doctors/[slug]` son públicas y consultaban con `include` y sin `select`** —
+Prisma devuelve TODOS los escalares, así que **cada columna nueva del modelo se sumaba sola a la
+respuesta anónima**. Verificado con curl sin token contra prod, salían:
+
+| Qué | Alcance real |
+|---|---|
+| `mpAccessToken` + `mpRefreshToken`, `stripeAccountId` | **dr-prueba** (cuenta de pruebas) |
+| `prescriptionSignatureUrl` | 4 doctores, **3 reales** — la firma vive en storage público, así que publicar la URL publica la firma; va junto a la cédula, que es justo el par con el que se timbra una receta (00-REQUISITOS §3.5) |
+| `googleCalendarId` (8), `telegramChatId` (7) | doctores reales; el chatId solo es explotable con el bot token, que NO estaba expuesto |
+| `tier` | el hilo del que se jaló |
+
+**Fix:** `DOCTOR_PRIVATE_FIELDS` + `omit` en las dos rutas. Se CONSERVAN preferencias de
+notificación, ajustes de PDF y booleanos de estado de conexión (no son credenciales y sí tienen
+consumidores vivos), y `cedulaProfesional`/`prescriptionCredentials` (dato profesional que el perfil
+público ya muestra).
+
+**`pnpm gate:payload` cierra la CATEGORÍA, no el caso** — el default de este endpoint es "todo es
+público", así que la próxima columna sensible se filtraría en silencio y ningún test fallaría. El
+gate asserta: todo campo sensible omitido o justificado CON razón · las dos rutas siguen aplicando
+el `omit` · sin entradas muertas por un rename · y **al revés**, que no se omita de más lo que el
+sitio público necesita. **Probado en NEGATIVO** en los dos sentidos (columna falsa
+`stripeSecretKey` ⇒ falla; quitar un `omit:` ⇒ falla).
+
+⚠️ **El fix corta la exposición futura, no la pasada.** Las URLs de firma ya servidas siguen vivas
+(remediarlas = re-subir esas firmas para que las viejas dejen de resolver) y el token de MP se rota
+**después** de desplegar — rotarlo antes solo republica el nuevo.
+
+### 12.4 `admin` de NEUTRAL a OWNER_ONLY
+
+`requireAdminAuth` en cada handler sigue siendo el gate real (los ADMIN saltan el enforcement y
+nunca llegan a esta regla), pero con NEUTRAL el write de un MEMBER **pasaba** el check de ruta y se
+escribía en `member_audit_log` ANTES del 403 del handler — rompiendo el invariante *"ningún 403
+logueado"* que 01-DISENO §18 de NUEVOS USUARIOS verificó en prod. Con OWNER_ONLY el member se
+rechaza antes y no deja fila. Verificado que solo el admin app llama `/api/admin/*`.
+
+*(Nota: `{prefix:'users'}` tiene la MISMA forma y también es admin-only en la práctica. Se dejó
+como estaba — apretarlo es correcto pero excede lo que este hallazgo justificaba.)*
+
+### 12.5 Verificación
+
+- Smoke read-only contra prod de las query shapes nuevas, incluido un **write-probe del `update`
+  dentro de una transacción revertida a propósito** (cero filas comiteadas, tier de dr-prueba
+  intacto) y de las dos shapes con `omit` (0 campos privados, relaciones y campos públicos intactos).
+- `tsc` limpio en `apps/admin` y `apps/api` · **5 gates** verdes (nuevo `gate:payload`) · 236 rutas.
+- **Pendiente al momento de escribir esto:** nadie había hecho clic en el modal todavía, y falta la
+  prueba en vivo dr-prueba ⇒ CORE ⇒ revertir.
