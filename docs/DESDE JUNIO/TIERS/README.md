@@ -43,7 +43,74 @@ paralelo.
   automatiza. Regla general que deja la experiencia: *el corte de tier barato excluye subsistemas
   completos; el caro carva dentro de uno que se describe a sí mismo.*
 
-## Estado (2026-07-25)
+## 🔴 HANDOFF — lee esto primero (cierre de sesión 2026-07-26)
+
+**Todo lo de hoy está PUSHEADO y DESPLEGADO** (`main` en `529c5748`; `@healthcare/api` y
+`@healthcare/admin` en SUCCESS sobre `b5414a19`, verificado por servicio). `pnpm gates` = 5 verdes.
+**Nada quedó a medias en el código.** Lo que falta es *probarlo con las manos* y dos acciones
+humanas.
+
+| # | Pendiente | Quién |
+|---|---|---|
+| 1 | **Probar la UI de T5** — nadie ha abierto el modal todavía. Runbook A abajo | próxima sesión + usuario |
+| 2 | **Prueba en vivo dr-prueba → CORE → revertir.** Runbook B | próxima sesión + usuario |
+| 3 | **Rotar las credenciales de MercadoPago de dr-prueba** (estuvieron públicas). El fix YA está desplegado, así que rotar ahora sí es seguro | **usuario** (UI de la app) |
+| 4 | **Re-subir las firmas** de 3 doctores reales para invalidar las URLs viejas — o decidir aceptar el riesgo | **usuario** (decisión) |
+| 5 | Luego: **T4** (candados en el cliente). Bloquea poner a un cliente REAL en CORE | próxima sesión |
+
+⚠️ **No asumas que 3 y 4 ya se hicieron** — son acciones fuera del repo y no dejan rastro en git.
+Pregúntale al usuario antes de darlas por cerradas.
+
+### ▶️ Runbook A — la UI de T5 (5 min, sin tocar datos)
+
+1. Entrar al admin → **`/doctors`**. Debe aparecer una columna **"Plan"** entre Ciudad y Paleta.
+2. **Esperado:** los 11 doctores con un chip azul **`FULL`**. Interpretación de los otros estados:
+   - chip gris **`—`** ⇒ el admin NO recibió los tiers: el API no desplegó, o `GET
+     /api/admin/doctor-tier` está fallando. NO es dato corrupto.
+   - chip rojo **`⚠ <valor>`** ⇒ hay un valor NO canónico guardado (p.ej. `core` en minúsculas).
+     Es la alarma real: `tierAllows` es fail-open, así que esa cuenta se comporta como FULL aunque
+     la UI diga otra cosa. Se corrige guardando desde el mismo modal.
+3. Clic en el chip → modal con FULL/CORE, la lista de lo que CORE excluye (derivada del registry),
+   y dos avisos (downgrade = gating no borrado; y que sin T4 el doctor verá las secciones igual).
+   **Cancelar** cierra sin escribir. "Guardar" queda deshabilitado si eliges el plan actual.
+
+### ▶️ Runbook B — downgrade en vivo (dr-prueba, revertir al final)
+
+> Formato idéntico al test en vivo de T2. **Solo dr-prueba**; ningún doctor real.
+
+1. En `/doctors`, poner **dr-prueba en CORE** desde el modal. El chip debe volverse ámbar `🔒 CORE`.
+2. **Rutas** (token real desde el doctor-app: `GET /api/auth/get-token` estando logueado como
+   dr-prueba; ver `01-DISENO` de NUEVOS USUARIOS §9 para el método):
+   - `GET /api/facturacion/profile` → **403 `TIER_EXCLUDED`**
+   - `GET /api/sat-descarga/metadata` → **403 `TIER_EXCLUDED`**
+   - `GET /api/practice-management/ledger` → **200** (CORE conserva flujo)
+3. **Agente** (panel del doctor, cuenta dr-prueba):
+   - "¿cuánto llevo este mes?" → responde con flujo (`get_balance`/`get_movimientos`).
+   - "hazme una factura" → **declina por PLAN** (no por permisos del dueño, y sin mandarlo a otra
+     sección). El módulo `facturas`/`fiscal` no existe en CORE.
+   - "¿cómo va mi conciliación bancaria?" → declina; `get_conciliacion_bancaria` se cae en CORE
+     aunque el módulo `flujo` siga vivo.
+   - "¿tengo links de pago pendientes?" → **SÍ funciona** (CORE paga `pagos`; T3 rescata esas dos
+     tools del módulo caído).
+4. **REVERTIR a FULL** desde el mismo modal y confirmar que 2 y 3 vuelven a la conducta normal.
+5. Anotar el resultado en `01-DISENO` §12.5 (que hoy dice "pendiente").
+
+### ▶️ Runbook C — re-verificar el fix de seguridad (30 s, sin token)
+
+```bash
+U=https://healthcareapi-production-fb70.up.railway.app
+for k in mpAccessToken mpRefreshToken stripeAccountId googleCalendarId telegramChatId \
+         prescriptionSignatureUrl tier; do
+  echo "$k: $(curl -s $U/api/doctors | grep -o "\"$k\":" | wc -l)"   # TODOS deben dar 0
+done
+curl -s $U/api/doctors | grep -o '"slug":' | wc -l                    # debe dar 11
+curl -s -o /dev/null -w "%{http_code}\n" https://tusalud.pro/doctores/dra-adriana-michelle  # 200
+```
+
+Ya se corrió al desplegar y dio 0/0/0…, 11 y 200. `pnpm gate:payload` lo protege de aquí en
+adelante. Regla general: `docs/NEW.MD-GUIDES/PUBLIC-API-PAYLOADS.md`.
+
+## Estado (2026-07-25 · actualizado 2026-07-26)
 
 🟢 **T1 + T2 SHIPPED a prod y probados en vivo** (`c639a0ca`, `8e7097e1`). El gating YA enforcea
 en los 3 sitios (2 choke points owner+member + public/cron), pero es **NO-OP: los 11 doctores son
