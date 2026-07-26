@@ -35,7 +35,7 @@ sacar conclusiones equivocadas sobre el tamaño o la salud del sistema:
 | **5** | **Módulos** de dominio (agenda · facturas · fiscal · flujo · expediente) | `AGENT_MODULES` |
 | **65** | **Casos de eval** — las PRUEBAS que verifican que se comporta bien | `scripts/agenda-agent-evals.ts` |
 | **19** | **Toggles de permiso** que el dueño prende/apaga a un member | `PERMISSION_KEYS` |
-| **235** | **Rutas de API** clasificadas en el mapa de permisos | gate de cobertura de rutas |
+| **236** | **Rutas de API** clasificadas en el mapa de permisos | gate de cobertura de rutas |
 
 **La confusión más fácil — tools vs evals.** Son ejes distintos, no dos conteos de lo mismo:
 
@@ -57,7 +57,7 @@ O sea: **39 cosas que sabe hacer, 65 pruebas que verifican que las hace bien.**
 > síntoma; esta sección existe para que no lo cometas de entrada.
 
 **Los otros dos números son de la feature de permisos, no del agente** (carpeta hermana
-`NUEVOS USUARIOS`): 19 toggles y 235 rutas. El único punto donde se tocan con el agente es que
+`NUEVOS USUARIOS`): 19 toggles y 236 rutas. El único punto donde se tocan con el agente es que
 los permisos recortan qué módulos ve un member (`02-CAPACIDADES` §1.5).
 
 **Dónde se declaran en presente:** los 3 primeros en `02-CAPACIDADES` §4; los 2 últimos en

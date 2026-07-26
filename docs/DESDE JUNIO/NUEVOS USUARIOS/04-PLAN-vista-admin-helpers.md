@@ -6,6 +6,14 @@
 > renderiza cards, no el Navbar, así que hizo falta el follow-up `64677f6f` para que la vista
 > fuera alcanzable.
 >
+> 🔄 **SUPERSEDED 2026-07-26 — no copies el §4 G1 de este doc.** Recomendaba mapear el prefijo
+> nuevo como `{ prefix: 'admin', key: 'NEUTRAL' }`; hoy es **`OWNER_ONLY`**. Con NEUTRAL el write
+> de un MEMBER *pasaba* el check de ruta y se escribía en `member_audit_log` **antes** del 403 de
+> `requireAdminAuth`, rompiendo el invariante "ningún 403 logueado" (`01-DISENO §18`). El gate real
+> sigue siendo `requireAdminAuth` (los ADMIN nunca llegan a la regla); OWNER_ONLY solo rechaza al
+> member antes y sin dejar fila. Contexto: [`../TIERS/01-DISENO-tecnico.md`](../TIERS/01-DISENO-tecnico.md) §12.4.
+> (Los conteos de rutas de abajo — "235" — son del 2026-07-22 y no se actualizan: es un snapshot.)
+>
 > **Estado original:** ✅ SHIPPED 2026-07-22 (as-built en §6, gates verdes, pusheado). Toca `@healthcare/api`
 > + `@healthcare/admin`; sin migración, sin dependencia con doctor app.
 > Base v1: `00-REQUISITOS`, `01-DISENO`. Límite de 1 helper = doc hermano

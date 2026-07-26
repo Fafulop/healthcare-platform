@@ -1,7 +1,7 @@
 # NUEVOS USUARIOS — Auditoría de cobertura: bloqueo por los 19 toggles
 
 > 🔒 **SNAPSHOT — 2026-07-22, con condición de re-corrida.** Es una auditoría MANUAL: la
-> cobertura "cada RUTA está mapeada" sí es garantía de máquina (`pnpm gate:routes`, 235 rutas
+> cobertura "cada RUTA está mapeada" sí es garantía de máquina (`pnpm gate:routes`, 236 rutas
 > + fail-closed), pero **"cada TOGGLE bloquea algo" NO lo es** — es esta tabla, a mano.
 > 👉 **Re-córrela si se agregan toggles, o cuando `contenido` deje de ser un placeholder**
 > (ver §"Los 3 sin ruta"). Mientras tanto, lo no-mapeado bloquea a members por default.
@@ -15,7 +15,7 @@
 
 La **frontera real es server-side** (`ROUTE_PERMISSION_MAP`, chequeada en los dos choke points de
 auth). La UI (sidebar + PermissionGate) es cortesía encima. Garantía estructural: el gate
-`scripts/check-route-permission-coverage.ts` asserta que las **235 rutas** están clasificadas, y
+`scripts/check-route-permission-coverage.ts` asserta que las **236 rutas** están clasificadas, y
 lo no-mapeado = **fail-closed** (member → 403). Así, una feature futura sin mapear bloquea a members
 por default — no se puede dejar un hueco abierto por olvido.
 
@@ -65,7 +65,7 @@ por default — no se puede dejar un hueco abierto por olvido.
 2. Los OWNER_ONLY quirúrgicos dentro de bloques permitidos (subida de CSD/FIEL, connect de
    pagos, emisión de receta, superficies IA legacy, Equipo/Integraciones) están cubiertos aparte
    (`01-DISENO §4.3`), no son parte de los 19 toggles de member.
-3. La cobertura "cada RUTA está mapeada" es garantía de máquina (gate de 235 rutas). La cobertura
+3. La cobertura "cada RUTA está mapeada" es garantía de máquina (gate de 236 rutas). La cobertura
    "cada TOGGLE bloquea algo" NO es de máquina — es esta auditoría manual (3 toggles legítimamente
    sin ruta). Re-correr esta auditoría si se agregan toggles o features.
 

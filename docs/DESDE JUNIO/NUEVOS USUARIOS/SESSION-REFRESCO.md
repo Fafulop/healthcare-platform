@@ -14,6 +14,31 @@ Usuarios secundarios (staff/asistentes) por portal de doctor, con 19 toggles de 
 granulares (18 secciones del sidebar + "Asistente IA"), invitación explícita por email,
 enforcement server-side en ambos apps (doctor + api).
 
+## ⚡ Actualización 2026-07-26 — el prefijo `admin` pasó a OWNER_ONLY
+
+Trabajo de **TIERS T5** (`b5414a19`), pero toca ESTE mapa de permisos, así que se anota aquí.
+
+`{prefix:'admin'}` era **NEUTRAL** (04-PLAN §4 G1, con el argumento "el gate real es
+`requireAdminAuth`"). Cierto, pero incompleto: con NEUTRAL el write de un MEMBER **pasaba** el
+check de ruta, se escribía su fila en `member_audit_log`, y solo DESPUÉS el handler devolvía 403 —
+o sea el log registraba una acción que nunca ocurrió, rompiendo el invariante **"ningún 403
+logueado"** que el paso 6 de la validación (§18) verificó en prod con 22 filas. Ahora es
+**OWNER_ONLY**: el member se rechaza en el choke point y no deja fila. Los ADMIN saltan el
+enforcement y nunca llegan a la regla, así que el acceso no cambia para nadie. El gate de rutas
+pasa de 235 a **236**.
+
+⚠️ **Al agregar una ruta nueva bajo `/api/admin/*`**: ya queda cubierta por el prefijo, pero el
+handler DEBE seguir llamando `requireAdminAuth` — OWNER_ONLY frena members, no doctores dueños.
+
+*(`{prefix:'users'}` tiene la misma forma y también es admin-only en la práctica; se dejó NEUTRAL
+a propósito — apretarlo es correcto pero excedía lo que el hallazgo justificaba.)*
+
+📌 En la misma sesión se encontró y corrigió un hallazgo de seguridad **ajeno a esta feature**: el
+payload público de `GET /api/doctors` devolvía TODAS las columnas del modelo (credenciales de MP de
+dr-prueba, URLs de firma de 3 doctores reales, calendar/telegram ids). Ficha completa en
+[`../TIERS/01-DISENO-tecnico.md`](../TIERS/01-DISENO-tecnico.md) §12.3 y la regla general en
+`docs/NEW.MD-GUIDES/PUBLIC-API-PAYLOADS.md`.
+
 ## ⚡ Actualización 2026-07-25 (léela antes del estado de abajo)
 
 La feature sigue COMPLETA y en prod; nada de lo de abajo cambió. Dos cosas nuevas que sí importan
@@ -41,7 +66,7 @@ la próxima sesión:
 - **Extensión B — vista admin `/helpers` — SHIPPED + verificada en vivo** (endpoint admin-only que
   lee `doctor_members`; página doctor-céntrica; link en Navbar y dashboard). Detalle: `04-PLAN §6`.
 - **Cobertura de bloqueo de los 19 toggles — AUDITADA** (`05-COBERTURA-19-toggles.md`): 16/19 con
-  enforcement server-side, 3 sin ruta por diseño; gate de 235 rutas + fail-closed.
+  enforcement server-side, 3 sin ruta por diseño; gate de 236 rutas + fail-closed.
 - **Evals del agente:** path de member CONSTRUIDO + suite completa CORRIDA 2026-07-22 →
   **62/65 · 0 FAIL** (baseline verde). Findings canónicos en **AGENTES** (ver abajo, §"Qué sigue").
 

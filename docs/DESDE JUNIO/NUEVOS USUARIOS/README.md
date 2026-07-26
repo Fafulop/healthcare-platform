@@ -56,7 +56,7 @@ member real. Ficha completa en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) §"H
 ## Lo que está garantizado por máquina (no por disciplina)
 
 ```bash
-pnpm gate:routes   # las 235 rutas están clasificadas + fail-closed
+pnpm gate:routes   # las 236 rutas están clasificadas + fail-closed
 pnpm gate:docs     # los 19 toggles del doc == PERMISSION_KEYS, y cada uno tiene fila en la auditoría
 pnpm gates         # los tres gates del repo
 ```
