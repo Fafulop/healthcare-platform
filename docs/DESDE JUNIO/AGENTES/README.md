@@ -60,7 +60,17 @@ Después, según lo que vengas a hacer:
 Conteos exactos (tools, evals, prefijo) y las fronteras completas:
 [`GENERAL AGENTES/02-CAPACIDADES`](GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
 
-## Qué sigue (2026-07-23)
+## Qué sigue (2026-07-23 · actualizado 2026-07-27)
+
+- 🔴 **ABIERTO, SIN FIX, REPRODUCIBLE — bitácora #28 (2026-07-27): recortar tools y prosa no basta,
+  falta recortar el PAYLOAD.** Primera prueba en vivo de una cuenta **CORE** (dr-prueba degradado y
+  revertido): *"¿cómo va mi conciliación bancaria?"* falla **4/4 corridas** — sustituye la pregunta
+  por un volcado de `get_flujo_status`, 2/4 enruta a una sección que el plan no incluye, y 1/4
+  **fabrica** un análisis a partir de los buckets `sat_emitido`/`sat_recibido` que sobrevivieron en
+  `porOrigen`. **`gate:prosa` no puede cazarlo** (la prosa está bien; el modelo compone el redirect
+  en runtime), así que a diferencia de #25–#27 esta clase **no tiene garantía de máquina**. Ficha:
+  [`AGENTE AGENDA/SESSION-REFRESCO`](AGENTE%20AGENDA/SESSION-REFRESCO.md) bitácora #28 · fix
+  propuesto y decisión en `../TIERS/01-DISENO-tecnico.md` §11.6 (T6).
 
 - **PR 4** — voz + retiro del ChatWidget v1 + limpieza de `/v1` `/v2`. Sin carpeta propia aún.
 - **F3 de facturas** — `propose_email_cfdi` / `propose_send_fiscal_form`.

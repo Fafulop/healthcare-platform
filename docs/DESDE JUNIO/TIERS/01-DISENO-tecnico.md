@@ -581,6 +581,13 @@ Suite: **80 casos**. Gates: `gate:routes` · `gate:prompt` · `gate:docs` · **`
   CORE SÍ tiene) y quitarlos descuadraría los totales del propio doctor — "downgrade = gating,
   nunca borrado" (§9). El `partial` de flujo le dice al modelo que los reporte como movimientos y
   nada más. Si se quiere otra política, es parte de la auditoría de fuga read-only de **T6**.
+  > 🔴 **La prueba en vivo del 2026-07-27 le puso evidencia (§12.6, bitácora #28): esa instrucción
+  > PERDIÓ las 4 corridas.** El modelo usó los buckets SAT para narrar historia de la cuenta
+  > ("en algún momento tuvo habilitada la emisión de CFDIs") y, en una corrida, para **fabricar**
+  > un análisis de conciliación. Decir "repórtalos y nada más" no basta cuando el payload invita
+  > la narrativa. Forma de fix que encaja con el precedente **C4** (omitir CAMPOS, nunca recalcular
+  > un veredicto): **colapsar los buckets `sat_*` en una etiqueta histórica neutral solo en CORE** —
+  > los totales siguen cuadrando (gating, no borrado) y desaparece el gancho semántico. Decidir en T6.
 
 ---
 
@@ -669,5 +676,48 @@ como estaba — apretarlo es correcto pero excede lo que este hallazgo justifica
   dentro de una transacción revertida a propósito** (cero filas comiteadas, tier de dr-prueba
   intacto) y de las dos shapes con `omit` (0 campos privados, relaciones y campos públicos intactos).
 - `tsc` limpio en `apps/admin` y `apps/api` · **5 gates** verdes (nuevo `gate:payload`) · 236 rutas.
-- **Pendiente al momento de escribir esto:** nadie había hecho clic en el modal todavía, y falta la
-  prueba en vivo dr-prueba ⇒ CORE ⇒ revertir.
+- ✅ **PRUEBA EN VIVO EJECUTADA 2026-07-27 (Runbooks A y B del README) — T5 CERRADO.**
+
+### 12.6 La prueba en vivo (2026-07-27) — A y B
+
+**Runbook A (UI, sin escribir).** Columna "Plan" presente; los 11 doctores en chip azul `FULL`
+(coincide con el baseline read-only tomado antes: 11 filas, todas `FULL`, cero valores no
+canónicos); modal con las 6 exclusiones y los dos avisos; "Guardar" deshabilitado con el plan
+actual. **Cancelar no escribió**: re-query read-only tras cerrar el modal = 11 FULL sin cambios.
+
+**Precondición verificada antes de empezar** (para no interpretar mal un chip gris): `railway
+status --json` per-service → `@healthcare/api` y `@healthcare/admin` ambos SUCCESS en `b5414a19`.
+
+**Runbook B (downgrade real de dr-prueba, revertido al final).**
+
+| Paso | Resultado |
+|---|---|
+| Downgrade desde el modal | ✅ escribió `CORE` **en case canónico** (10 FULL + 1 CORE, cero no canónicos) — primer ejercicio real del write path de §12.2 |
+| `GET /api/facturacion/profile` | ✅ **403 `TIER_EXCLUDED`** |
+| `GET /api/sat-descarga/metadata` | ✅ **403 `TIER_EXCLUDED`** |
+| `GET /api/practice-management/ledger` | ✅ **200** (CORE conserva flujo) |
+| Agente | ⚠️ **3/4** — ver abajo |
+| Revertir a FULL | ✅ 11 FULL; las TRES rutas vuelven a **200** |
+
+**"Aplica sin re-login" queda probado más fuerte de lo que pedía el runbook, y por estructura, no
+por observación:** el JWT de dr-prueba contiene solo `email`/`sub`/`sessionVersion`/`iat`/`exp` —
+**no hay claim de `tier`**. Con EL MISMO token las rutas dieron 403 bajo CORE y 200 tras revertir,
+así que el techo solo pudo salir de la lectura fresca de `Doctor.tier` por request
+(`membership.ts:115`). No existe copia stale que pudiera haberse leído.
+
+**Agente — 3 de 4 pasan.** `get_balance` responde el mes (flujo vivo); *"hazme una factura"*
+declina **por PLAN**, sin culpar al dueño y sin mandar a otra sección (C2 + los fixes de B1
+funcionando en vivo); *"¿tengo links de pago pendientes?"* responde con `get_payment_links` —
+confirma en vivo el rescate C1 (§11.1), la tool sobrevive a la caída de su módulo porque CORE
+paga `pagos`.
+
+⚠️ **El 4º falla y es REPRODUCIBLE (4 corridas, no varianza): "¿cómo va mi conciliación
+bancaria?"** Ficha canónica en
+[`../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTES/AGENTE%20AGENDA/SESSION-REFRESCO.md)
+bitácora **#28** (regla de reparto de `08-EMPIEZA-AQUI` §2). Resumen: 4/4 sustituyó la pregunta
+por un volcado de `get_flujo_status` en vez de nombrar la frontera primero; 2/4 mandó al doctor a
+la sección **Conciliación** (puerta cerrada en CORE) encuadrando el límite como *faltan estados de
+cuenta* y no como *plan*; 1/4 **no nombró la frontera en absoluto** y fabricó un análisis de
+conciliación a partir de los buckets `sat_emitido`/`sat_recibido` de `porOrigen`. **No lo
+introdujo T5** — es conducta de la era T3 que esta primera prueba en vivo de CORE destapó. Es
+evidencia directa para la decisión de `porOrigen` que §11.6 parquea en **T6**.

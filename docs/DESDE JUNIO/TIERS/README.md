@@ -52,11 +52,11 @@ humanas.
 
 | # | Pendiente | Quién |
 |---|---|---|
-| 1 | **Probar la UI de T5** — nadie ha abierto el modal todavía. Runbook A abajo | próxima sesión + usuario |
-| 2 | **Prueba en vivo dr-prueba → CORE → revertir.** Runbook B | próxima sesión + usuario |
-| 3 | **Rotar las credenciales de MercadoPago de dr-prueba** (estuvieron públicas). El fix YA está desplegado, así que rotar ahora sí es seguro | **usuario** (UI de la app) |
+| 1 | ✅ **HECHO 2026-07-27 — Runbook A ejecutado.** Columna, chips, modal y "Guardar" deshabilitado OK; Cancelar no escribió (verificado read-only). `01-DISENO` §12.6 | — |
+| 2 | ✅ **HECHO 2026-07-27 — Runbook B ejecutado.** Downgrade real → rutas 403 `TIER_EXCLUDED` → revertido a FULL. **Agente 3/4**: falla reproducible en conciliación (bitácora **#28**, sin fix, va a T6). `01-DISENO` §12.6 | — |
+| 3 | **Rotar las credenciales de MercadoPago de dr-prueba** (estuvieron públicas). El fix YA está desplegado, así que rotar ahora sí es seguro. **Pospuesto a propósito el 2026-07-27** para no interrumpir la prueba en vivo — sigue abierto | **usuario** (UI de la app) |
 | 4 | **Re-subir las firmas** de 3 doctores reales para invalidar las URLs viejas — o decidir aceptar el riesgo | **usuario** (decisión) |
-| 5 | Luego: **T4** (candados en el cliente). Bloquea poner a un cliente REAL en CORE | próxima sesión |
+| 5 | **T4** (candados en el cliente) — **ahora es el siguiente paso de código.** Bloquea poner a un cliente REAL en CORE | próxima sesión |
 
 ⚠️ **No asumas que 3 y 4 ya se hicieron** — son acciones fuera del repo y no dejan rastro en git.
 Pregúntale al usuario antes de darlas por cerradas.
@@ -139,7 +139,9 @@ un hallazgo de seguridad ajeno a tiers — credenciales en `GET /api/doctors` �
 > **NO-OP** (los 11 doctores son FULL). Ya se puede fijar el tier desde el admin; lo que falta para
 > poner a un cliente REAL en CORE es que el doctor **vea por qué** algo está bloqueado (T4).
 
-**El siguiente paso concreto es la prueba en vivo de T5** (abajo), y luego **T4**.
+**La prueba en vivo de T5 se ejecutó el 2026-07-27** (`01-DISENO` §12.6): A y B completos, con la
+UI, el write path y las rutas OK, y **un fallo reproducible del agente** en conciliación que NO
+bloquea T4 (bitácora #28 → decisión en T6). **El siguiente paso concreto es ahora T4.**
 
 ✅ **El TRIPWIRE del agente quedó CUMPLIDO el 2026-07-25** (los 3 ítems: `gate:prosa`, el eval
 `tier-core-completar-cita`, y `prosaDependsOn` extendido al eje de member). Detalle en
@@ -150,17 +152,24 @@ un hallazgo de seguridad ajeno a tiers — credenciales en `GET /api/doctors` �
 1. ✅ **T5 — selector de tier en el admin — SHIPPED** (`b5414a19`). El requisito duro del write se
    cumplió: valida contra `DOCTOR_TIERS` con case canónico y **rechaza** lo demás en vez de
    normalizarlo (§12.2).
-2. **Prueba controlada en dr-prueba — PENDIENTE, es el siguiente paso**: downgrade desde el modal
-   nuevo → verificar (rutas 403 `TIER_EXCLUDED` + el asistente sin facturas/fiscal y con `flujo`
-   sin conciliación) → revertir. Mismo formato que el test en vivo de T2.
-   > ⚠️ Es además el **primer clic real** sobre la UI de T5: se entregó con gates, tsc y smokes
-   > contra prod, pero nadie había abierto el modal todavía.
+2. ✅ **Prueba controlada en dr-prueba — EJECUTADA 2026-07-27** (`01-DISENO` §12.6). Downgrade
+   desde el modal → 403 `TIER_EXCLUDED` en facturación y SAT, 200 en ledger → revertido a FULL
+   (las 3 rutas vuelven a 200 **con el mismo token**: el JWT no lleva claim de `tier`, así que la
+   lectura fresca de §5.4/G4 queda probada por estructura, no por observación). Agente **3/4**;
+   el 4º —conciliación— falla reproducible (4 corridas): bitácora **#28**, sin fix, evidencia para
+   la decisión de `porOrigen` de T6.
 3. **T4 — show-locked UI** (usa el marcador `TIER_EXCLUDED` del 403, ya verificado). **Antes de
    cualquier cliente REAL en CORE**: sin esto el doctor ve funciones bloqueadas sin saber por qué
    — el propio modal de T5 lo advierte al hacer un downgrade.
 4. **T6 — degradación de cruces de flujo + auditoría de fuga read-only.** Que decida de una sola
    vez la política de `porOrigen` (sat_emitido/sat_recibido) Y la de reportes/analytics, en vez de
    caso por caso. Ver §11.6.
+   > 🔴 **Ya NO es hipotético: hay un fallo REPRODUCIBLE en prod esperando esta decisión.** La
+   > prueba en vivo del 2026-07-27 midió 4/4 corridas en las que el modelo usa esos buckets para
+   > inventar conciliación o narrar historia de la cuenta (bitácora **#28**). Y ojo con el alcance
+   > al retomarlo: **`gate:prosa` no cubre esta clase** — mira prosa y descripciones, no payloads,
+   > así que aquí no hay red de seguridad automática. Es el ítem de T6 con evidencia, no el de
+   > política abstracta.
 
 **Deuda anotada a propósito (no bloquea, decisión de 2026-07-25 de documentar y no arreglar):**
 la fuga de `pagos` por el camino del agente —VIVA en prod con el member real— en
