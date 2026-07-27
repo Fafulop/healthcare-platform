@@ -2,8 +2,23 @@
 
 > Snapshot del estado del **módulo flujo de dinero** del asistente. Para una sesión/LLM en
 > frío: lee este archivo, luego [`00-DISENO-F1-tools-lectura.md`](00-DISENO-F1-tools-lectura.md)
-> para el detalle de los tools. Última actualización: **2026-07-12**.
+> para el detalle de los tools. Última actualización: **2026-07-27**.
 > El mapa de todos los agentes: [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
+>
+> ⚡ **2026-07-27 — el payload de este módulo cambia según el PLAN (bitácora #28).** En una cuenta
+> **CORE** los buckets `sat_emitido`/`sat_recibido` de `porOrigen` colapsan a UNO neutral
+> (`historico`), el mismo relabel aplica a la fila de `get_movimientos` y a
+> `get_movimiento_detail`, y el filtro `origin: 'sat_*'` se DROPEA + ECHOA (contrato B2). Motivo:
+> el modelo usaba esos nombres para **fabricar un diagnóstico de conciliación** y narrar la
+> historia de la cuenta — medido 4/4 en la primera prueba en vivo de CORE. Ficha completa:
+> [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md) bitácora #28.
+>
+> ⚠️ **Divergencia DELIBERADA vs la pestaña, y hay que saberla:** la página **Flujo de Dinero SÍ
+> está en CORE** y sigue mostrando los chips ámbar "SAT Emitido"/"SAT Recibido" y su filtro. O sea
+> el doctor CORE ve en pantalla un desglose que el agente ya no ve. **No es fuga** (el dato es suyo
+> y la UI se lo muestra): lo que se quitó es el GANCHO de alucinación, no información. El `nota` del
+> payload le dice al modelo que si el doctor menciona ese desglose, el doctor tiene razón. Si algún
+> día se quiere coherencia total, el cambio es en la UI (relabelar por tier), no aquí.
 
 ---
 

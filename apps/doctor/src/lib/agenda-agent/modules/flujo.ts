@@ -156,6 +156,72 @@ function evidenceScope(ctx: ToolContext) {
   return { banco, fiscal, autoLink: banco && fiscal };
 }
 
+/**
+ * TIERS bitácora #28 — the `origin` column NAMES the SAT gate
+ * (sat_emitido/sat_recibido) even on a plan without Facturación/Descarga SAT.
+ * C4 trimmed the evidence FIELDS but left this one, and the live CORE test
+ * (2026-07-27, `../../TIERS/01-DISENO-tecnico.md` §12.6) measured **4/4 runs**
+ * where the model used those bucket names to narrate account history ("en algún
+ * momento esta cuenta tuvo habilitada la emisión de CFDIs") or to fabricate a
+ * reconciliation analysis out of them. The `partial` prose told it to report
+ * them as movements and nothing more; it lost every run. A surviving field is an
+ * invitation, and prose does not beat what the model can see.
+ *
+ * So the PAYLOAD gets trimmed, following C4's rule: relabel/omit, NEVER
+ * recompute a verdict (regla 0 intact). Movements are never dropped — counts and
+ * per-type totals stay exact, so the doctor's own totals still reconcile
+ * ("downgrade = gating, nunca borrado", §9).
+ */
+const SAT_ORIGINS = ['sat_emitido', 'sat_recibido'] as const;
+const HISTORIC_ORIGIN = 'historico';
+const isSatOrigin = (o: string | null | undefined): boolean =>
+  o != null && (SAT_ORIGINS as readonly string[]).includes(o);
+/** Neutral label for a SAT-born movement when the plan lacks Facturación. */
+const originLabel = (o: string | null | undefined, fiscal: boolean): string =>
+  !fiscal && isSatOrigin(o) ? HISTORIC_ORIGIN : (o ?? 'manual');
+
+interface OrigenBucket {
+  origen: string;
+  movimientos: number;
+  total?: number;
+}
+
+/**
+ * `porOrigen` for get_flujo_status. On a plan WITH Facturación it is the raw
+ * groupBy, unchanged. Without it, the SAT buckets merge into one neutral
+ * `historico` bucket.
+ *
+ * The merged bucket carries `movimientos` but **no `total`, on purpose**:
+ * sat_emitido are ingresos and sat_recibido egresos, so a summed amount would be
+ * a number that means nothing — inventing it is exactly the "recompute a
+ * verdict" move C4 forbids, while omitting a field is the move it sanctions. The
+ * per-type money lives in `porTipo`, which is untouched, so nothing the doctor
+ * reads as a total changes.
+ */
+function porOrigenBlock(
+  byOrigin: Array<{ origin: string | null; _count: { id: number }; _sum: { amount: Prisma.Decimal | null } }>,
+  fiscal: boolean
+): { porOrigen: OrigenBucket[]; porOrigenNota?: string } {
+  const rows: OrigenBucket[] = byOrigin.map((g) => ({
+    origen: g.origin || 'sin_origen',
+    movimientos: g._count.id,
+    total: money(g._sum.amount),
+  }));
+  if (fiscal) return { porOrigen: rows };
+
+  const sat = rows.filter((r) => isSatOrigin(r.origen));
+  if (sat.length === 0) return { porOrigen: rows };
+
+  return {
+    porOrigen: [
+      ...rows.filter((r) => !isSatOrigin(r.origen)),
+      { origen: HISTORIC_ORIGIN, movimientos: sat.reduce((n, r) => n + r.movimientos, 0) },
+    ],
+    porOrigenNota:
+      'El bucket "historico" agrupa movimientos antiguos cuya puerta de entrada ya no es una función de esta cuenta. Son dinero real y cuentan en los totales, pero NO tienes su desglose por origen ni ninguna función asociada: repórtalos solo como movimientos del ledger y no deduzcas de ellos qué funciones tuvo o tiene la cuenta. ⚠️ "historico" NO trae "total" (agrupa ingresos y egresos, sumarlos daría un número sin sentido): **NUNCA sumes los "total" de porOrigen para dar un total** — quedaría cortísimo. Los totales de dinero salen de "porTipo" o de get_balance. Y si el doctor menciona que en su pantalla de Flujo de Dinero ve orígenes con más detalle, tiene razón: la página muestra el desglose completo; tú solo no lo tienes en esta cuenta.',
+  };
+}
+
 // -----------------------------------------------------------------------------
 // get_flujo_status — REPLICA of GET /practice-management/ledger/completeness
 // (apps/api/.../ledger/completeness/route.ts). Divergence here would make the
@@ -283,11 +349,7 @@ async function getFlujoStatus(ctx: ToolContext) {
         }
       : {}),
     ...(scope.autoLink ? { porRevisar: needsReviewCount } : {}),
-    porOrigen: byOrigin.map((g) => ({
-      origen: g.origin || 'sin_origen',
-      movimientos: g._count.id,
-      total: money(g._sum.amount),
-    })),
+    ...porOrigenBlock(byOrigin, scope.fiscal),
     porTipo: byEntryType.map((g) => ({
       tipo: g.entryType,
       movimientos: g._count.id,
@@ -331,7 +393,6 @@ async function getMovimientos(ctx: ToolContext, input: MovimientosInput) {
   if (input.entryType && ['ingreso', 'egreso'].includes(input.entryType)) {
     where.entryType = input.entryType;
   }
-  if (typeof input.origin === 'string' && input.origin) where.origin = input.origin;
   const start = asDay(input.startDate);
   const end = asDay(input.endDate);
   Object.assign(where, dateWhere(start, end));
@@ -348,6 +409,20 @@ async function getMovimientos(ctx: ToolContext, input: MovimientosInput) {
     else filtrosNoDisponibles.push('hasFactura');
   }
   if (typeof input.hasComprobante === 'boolean') where.hasComprobante = input.hasComprobante;
+  // Same rule as hasFactura, on the `origin` axis (bitácora #28): hiding the SAT
+  // buckets from porOrigen/rows is pointless if `origin: 'sat_emitido'` still
+  // filters — that hands back the exact subset, with real counts and sums, that
+  // the relabel just removed. The synthetic `historico` label IS filterable, so
+  // the model can act on what it read instead of getting a silent zero.
+  if (typeof input.origin === 'string' && input.origin) {
+    if (input.origin === HISTORIC_ORIGIN) {
+      where.origin = { in: [...SAT_ORIGINS] };
+    } else if (!scope.fiscal && isSatOrigin(input.origin)) {
+      filtrosNoDisponibles.push('origin');
+    } else {
+      where.origin = input.origin;
+    }
+  }
   // Additive filter beyond the ledger endpoint (read-only, same column the
   // completeness alert counts): POR_COBRAR = the alert's EXACT set (see the
   // unpaidIngresos count above): realized INGRESOS awaiting payment. Without
@@ -447,7 +522,7 @@ async function getMovimientos(ctx: ToolContext, input: MovimientosInput) {
       tipo: e.entryType,
       monto: money(e.amount),
       concepto: trunc(e.concept, 60),
-      origen: e.origin ?? 'manual',
+      origen: originLabel(e.origin, scope.fiscal),
       ...(scope.fiscal ? { evidenciaFiscal: e.hasFactura } : {}),
       ...(scope.banco
         ? {
@@ -646,7 +721,7 @@ async function getMovimientoDetail(ctx: ToolContext, input: { internalId?: strin
     monto: money(entry.amount),
     fecha: dayOf(entry.transactionDate),
     concepto: entry.concept,
-    origen: entry.origin ?? 'manual',
+    origen: originLabel(entry.origin, scope.fiscal),
     porRealizar: entry.porRealizar,
     area: entry.area ?? null,
     subarea: entry.subarea ?? null,
@@ -862,16 +937,21 @@ const FLUJO_DOMAIN_MODEL_PARTIAL = `## Cómo funciona el Flujo de Dinero (invari
   existir dos veces — el sistema deduplica al registrar (match-before-create).
 - Cada movimiento puede tener **comprobante** adjunto (el recibo o archivo que lo respalda).
 - El **origen** dice por cuál puerta nació: cita, venta, compra, pago en línea (webhook_pago) o
-  manual; comision es interno.
+  manual; comision es interno. Los movimientos antiguos cuya puerta ya no es una función de esta
+  cuenta aparecen agrupados como **historico** — ese es TODO el detalle disponible.
 - Movimientos **por realizar** son proyecciones, no dinero real: los balances los separan.
 - **Esta cuenta no tiene todas las funciones de dinero.** Los ejes de evidencia que no estén
   disponibles (🧾 factura, 🏦 banco) **simplemente NO vienen en el resultado del tool**: si un campo
   no está, no lo menciones, no lo supongas y NUNCA lo deduzcas de otros (categorizados,
   comprobante, origen, alertas — ninguno dice si algo está conciliado o facturado). Si te
-  preguntan por conciliación bancaria o por facturas y no tienes esa tool, dilo directo.
-- Algunos movimientos históricos nacieron de orígenes de funciones que esta cuenta ya no tiene
-  (sat_emitido, sat_recibido). Siguen siendo dinero real del doctor y cuentan en los totales, pero
-  NO son una función de facturación disponible: repórtalos como movimientos del ledger y nada más.`;
+  preguntan por conciliación bancaria o por facturas y no tienes esa tool, **dilo en la PRIMERA
+  línea, antes de cualquier otro dato**: no encabeces la respuesta con otro diagnóstico ni pongas
+  cifras de otra cosa bajo un título de "conciliación". Ofrecer después lo que SÍ tienes está bien;
+  presentarlo como si contestara lo que te preguntaron, no.
+- El bucket **historico** son movimientos reales del doctor y cuentan en los totales, pero no
+  tienes su desglose ni función asociada. **No deduzcas de él qué funciones tuvo o tiene la
+  cuenta**, no narres su historia y no lo uses para armar un diagnóstico (de conciliación o de
+  cualquier otra función que no esté en tu lista de tools): repórtalo como movimientos y nada más.`;
 
 const FLUJO_RULES_PARTIAL = `## Flujo de dinero — reglas (SOLO CONSULTA)
 - "¿Cuánto tengo/gané/gasté?", "¿cuánto entró y salió?" = **get_balance/get_movimientos** (el

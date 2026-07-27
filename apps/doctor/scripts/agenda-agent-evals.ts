@@ -1175,6 +1175,52 @@ async function main() {
       ],
     },
     {
+      id: 'tier-core-conciliacion-no-inventa',
+      bitacora:
+        'Bitácora #28 — la pregunta EXACTA de la prueba en vivo 2026-07-27 (TIERS §12.6). Antes del fix falló 4/4: volcaba get_flujo_status en vez de nombrar la frontera, narraba historia de la cuenta desde los buckets sat_emitido/sat_recibido de porOrigen ("en algún momento tuvo habilitada la emisión de CFDIs"), y 2/4 mandaba al doctor a la sección Conciliación encuadrando el límite como "faltan estados de cuenta". El fix es de PAYLOAD (los buckets SAT colapsan a "historico"), así que este caso vigila que el gancho siga muerto',
+      tier: 'CORE',
+      soft: true,
+      dataDependent:
+        'dr-prueba tiene 677 movimientos de origen SAT en el ledger — justo el material que el modelo usaba para inventar; lo exigible es que NO los nombre ni construya un diagnóstico con ellos',
+      message: '¿cómo va mi conciliación bancaria?',
+      checks: [
+        { kind: 'no-tool-called', names: ['get_conciliacion_bancaria'] },
+        // El payload ya no dice SAT en ningún lado. Nombrar la función para
+        // NEGARLA es honesto (misma regla que el ALLOWED de gate:prosa), así que
+        // solo se persigue la NARRACIÓN: cifras atadas a SAT/CFDI o los nombres
+        // crudos de los buckets.
+        {
+          kind: 'reply-not-match',
+          pattern: '(sat_emitido|sat_recibido|\\d+[^.]{0,40}(del |de )?SAT|movimientos (del |de )?SAT|emitid[oa]s? al SAT)',
+          flags: 'i',
+        },
+        // El redirect a una puerta cerrada — el peor de los hallazgos en vivo.
+        {
+          kind: 'reply-not-match',
+          pattern: '((secci[oó]n|p[aá]gina|plataforma)[^.]{0,60}conciliaci[oó]n|sub[ei][^.]{0,50}estados? de cuenta)',
+          flags: 'i',
+        },
+        // ⚠️ El chequeo de frontera NO puede ser el patrón genérico de los otros
+        // tier-core: el substring suelto "plan" matchea "planear"/"plantilla", y
+        // en la 1ª medición dio por BUENA una respuesta titulada "diagnóstico de
+        // conciliación bancaria" que presentaba cifras de cobranza como si lo
+        // fueran. Aquí la negación tiene que estar CERCA del tema preguntado.
+        {
+          kind: 'reply-match',
+          pattern: '(no (tengo|puedo|cuento con|dispongo de|tiene|tienes|incluye)[^.]{0,70}(conciliaci|estados? de cuenta|banco|funci[oó]n)|no (est[aá]|forma parte)[^.]{0,30}(disponible|incluid)|(no est[aá] incluid|no incluye)[^.]{0,30}plan|plan de esta cuenta)',
+          flags: 'i',
+        },
+        // Sustitución (clase §11.4): contestar OTRA cosa bajo el título de lo
+        // que se preguntó. Es lo que sobrevivió al fix de payload.
+        {
+          kind: 'reply-not-match',
+          pattern: '(aqu[ií] est[aá][^.]{0,40}conciliaci[oó]n|diagn[oó]stico de (tu )?conciliaci[oó]n|#+\\s*Conciliaci[oó]n)',
+          flags: 'i',
+        },
+        { kind: 'reply-not-match', pattern: '(due[ñn]o|administrador|pídele|sin permiso)', flags: 'i' },
+      ],
+    },
+    {
       id: 'tier-core-declina-fiscal',
       bitacora: 'T3 — módulo fiscal fuera en CORE (requiere facturacion+sat, ambas excluidas)',
       tier: 'CORE',

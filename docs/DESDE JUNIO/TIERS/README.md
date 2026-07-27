@@ -53,7 +53,7 @@ humanas.
 | # | Pendiente | Quién |
 |---|---|---|
 | 1 | ✅ **HECHO 2026-07-27 — Runbook A ejecutado.** Columna, chips, modal y "Guardar" deshabilitado OK; Cancelar no escribió (verificado read-only). `01-DISENO` §12.6 | — |
-| 2 | ✅ **HECHO 2026-07-27 — Runbook B ejecutado.** Downgrade real → rutas 403 `TIER_EXCLUDED` → revertido a FULL. **Agente 3/4**: falla reproducible en conciliación (bitácora **#28**, sin fix, va a T6). `01-DISENO` §12.6 | — |
+| 2 | ✅ **HECHO 2026-07-27 — Runbook B ejecutado.** Downgrade real → rutas 403 `TIER_EXCLUDED` → revertido a FULL. **Agente 3/4**: falla reproducible en conciliación (bitácora **#28**) — **fix de payload aplicado el mismo día**, residuo de sustitución/redirect VIVO (~50%, 3 de 6 corridas). `01-DISENO` §12.6 | — |
 | 3 | **Rotar las credenciales de MercadoPago de dr-prueba** (estuvieron públicas). El fix YA está desplegado, así que rotar ahora sí es seguro. **Pospuesto a propósito el 2026-07-27** para no interrumpir la prueba en vivo — sigue abierto | **usuario** (UI de la app) |
 | 4 | **Re-subir las firmas** de 3 doctores reales para invalidar las URLs viejas — o decidir aceptar el riesgo | **usuario** (decisión) |
 | 5 | **T4** (candados en el cliente) — **ahora es el siguiente paso de código.** Bloquea poner a un cliente REAL en CORE | próxima sesión |
@@ -93,7 +93,7 @@ Pregúntale al usuario antes de darlas por cerradas.
    - "¿tengo links de pago pendientes?" → **SÍ funciona** (CORE paga `pagos`; T3 rescata esas dos
      tools del módulo caído).
 4. **REVERTIR a FULL** desde el mismo modal y confirmar que 2 y 3 vuelven a la conducta normal.
-5. Anotar el resultado en `01-DISENO` §12.5 (que hoy dice "pendiente").
+5. Anotar el resultado en `01-DISENO` §12.6. *(Ejecutado el 2026-07-27 — el as-run ya está ahí.)*
 
 ### ▶️ Runbook C — re-verificar el fix de seguridad (30 s, sin token)
 
@@ -156,15 +156,16 @@ bloquea T4 (bitácora #28 → decisión en T6). **El siguiente paso concreto es 
    desde el modal → 403 `TIER_EXCLUDED` en facturación y SAT, 200 en ledger → revertido a FULL
    (las 3 rutas vuelven a 200 **con el mismo token**: el JWT no lleva claim de `tier`, así que la
    lectura fresca de §5.4/G4 queda probada por estructura, no por observación). Agente **3/4**;
-   el 4º —conciliación— falla reproducible (4 corridas): bitácora **#28**, sin fix, evidencia para
-   la decisión de `porOrigen` de T6.
+   el 4º —conciliación— falla reproducible (4 corridas): bitácora **#28**. **Fix de payload aplicado
+   el mismo día** (narración SAT: 0 de 6 corridas); queda VIVO el residuo de sustitución/redirect (~50%, 3 de 6).
 3. **T4 — show-locked UI** (usa el marcador `TIER_EXCLUDED` del 403, ya verificado). **Antes de
    cualquier cliente REAL en CORE**: sin esto el doctor ve funciones bloqueadas sin saber por qué
    — el propio modal de T5 lo advierte al hacer un downgrade.
 4. **T6 — degradación de cruces de flujo + auditoría de fuga read-only.** Que decida de una sola
    vez la política de `porOrigen` (sat_emitido/sat_recibido) Y la de reportes/analytics, en vez de
    caso por caso. Ver §11.6.
-   > 🔴 **Ya NO es hipotético: hay un fallo REPRODUCIBLE en prod esperando esta decisión.** La
+   > 🟡 **La parte de `porOrigen` YA se decidió y se implementó el 2026-07-27** (bitácora #28); lo que
+   > T6 hereda es reportes/analytics + el residuo de conducta. La
    > prueba en vivo del 2026-07-27 midió 4/4 corridas en las que el modelo usa esos buckets para
    > inventar conciliación o narrar historia de la cuenta (bitácora **#28**). Y ojo con el alcance
    > al retomarlo: **`gate:prosa` no cubre esta clase** — mira prosa y descripciones, no payloads,

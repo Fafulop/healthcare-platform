@@ -587,7 +587,13 @@ Suite: **80 casos**. Gates: `gate:routes` · `gate:prompt` · `gate:docs` · **`
   > un análisis de conciliación. Decir "repórtalos y nada más" no basta cuando el payload invita
   > la narrativa. Forma de fix que encaja con el precedente **C4** (omitir CAMPOS, nunca recalcular
   > un veredicto): **colapsar los buckets `sat_*` en una etiqueta histórica neutral solo en CORE** —
-  > los totales siguen cuadrando (gating, no borrado) y desaparece el gancho semántico. Decidir en T6.
+  > los totales siguen cuadrando (gating, no borrado) y desaparece el gancho semántico.
+  > ✅ **HECHO el 2026-07-27, el mismo día** (bitácora #28): buckets → `historico` sin total mezclado,
+  > el mismo relabel en filas y detalle, el eje de FILTRO cerrado con el contrato B2, y la prosa del
+  > `partial` deja de nombrar los buckets. Conservación verificada contra prod (692=692, 371+306→677)
+  > y sha256 del dueño sin cambio. ⚠️ **Residuo:** la SUSTITUCIÓN sobrevive ~50% de las veces (3 de 6 corridas) (redirect de
+  > despedida a la sección Conciliación) — eso sí sigue abierto. **Lo que T6 hereda ya NO es la
+  > política de `porOrigen`** (decidida), sino reportes/analytics + ese residuo de conducta.
 
 ---
 
@@ -719,5 +725,10 @@ por un volcado de `get_flujo_status` en vez de nombrar la frontera primero; 2/4 
 la sección **Conciliación** (puerta cerrada en CORE) encuadrando el límite como *faltan estados de
 cuenta* y no como *plan*; 1/4 **no nombró la frontera en absoluto** y fabricó un análisis de
 conciliación a partir de los buckets `sat_emitido`/`sat_recibido` de `porOrigen`. **No lo
-introdujo T5** — es conducta de la era T3 que esta primera prueba en vivo de CORE destapó. Es
-evidencia directa para la decisión de `porOrigen` que §11.6 parquea en **T6**.
+introdujo T5** — es conducta de la era T3 que esta primera prueba en vivo de CORE destapó.
+
+✅ **Corregido el mismo día (fix de PAYLOAD, §11.6):** los buckets `sat_*` colapsan a `historico`
+en CORE y el eje de filtro se cerró con el contrato B2. La narración SAT desapareció (**0 de 6
+corridas**) y el prompt del dueño sigue byte-idéntico. ⚠️ **Residuo abierto (~50%, 3 de 6 corridas):** la
+sustitución/redirect a la sección Conciliación — familia B1, inventada en runtime, con el eval
+`tier-core-conciliacion-no-inventa` como tripwire `soft`.
