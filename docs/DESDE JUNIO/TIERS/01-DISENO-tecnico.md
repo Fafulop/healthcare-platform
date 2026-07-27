@@ -749,7 +749,7 @@ sustitución/redirect a la sección Conciliación — familia B1, inventada en r
 | `TierUpgradeNotice.tsx` (nuevo) | La pantalla de upsell: nombra la función (derivada de `PERMISSION_LABELS`, nunca escrita a mano), dice que **los datos siguen intactos** (§9 "gating, nunca borrado") y ofrece contacto |
 | `PermissionGate.tsx` | El chequeo de tier va **ANTES del bypass de owner** (ver §13.2) |
 | `Sidebar.tsx` | Item tier-excluido = **link atenuado con candado**; item sin toggle de member = oculto, como siempre |
-| `.env.local.example` | `NEXT_PUBLIC_SALES_EMAIL` — sin él la pantalla explica igual pero **no renderiza botón** (un CTA muerto es peor que ninguno) |
+| `.env.local.example` | `NEXT_PUBLIC_SALES_EMAIL` (**valor: `hola@tusalud.pro`**, decidido 2026-07-27) — sin él la pantalla explica igual pero **no renderiza botón** (un CTA muerto es peor que ninguno) |
 
 ### 13.2 Las dos decisiones que importan
 
@@ -811,5 +811,8 @@ Método de `../NUEVOS USUARIOS/02-METODO` §3.2 (dos greps, no uno). El primer b
 - ⏳ **PENDIENTE — prueba en vivo** (mismo formato que el Runbook B de T5): desplegar → dr-prueba a
   CORE → confirmar sidebar con candado en las 6 secciones, la pantalla de upsell y el CTA →
   revertir. **Nadie ha visto esta UI todavía.**
-- ⏳ **PENDIENTE — `NEXT_PUBLIC_SALES_EMAIL` en Railway** (`@healthcare/doctor`). Sin esa variable
-  el botón no aparece; el resto de la pantalla sí.
+- ⏳ **PENDIENTE — poner `NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro` en Railway** (servicio
+  `@healthcare/doctor`). Es acción de USUARIO en el dashboard de Railway y **no deja rastro en git**,
+  así que no la des por hecha: sin esa variable el botón no aparece (el resto de la pantalla sí).
+  ⚠️ Es `NEXT_PUBLIC_*`, o sea se **inyecta en el build**: hay que redeployar el servicio DESPUÉS de
+  ponerla, no basta con guardarla.

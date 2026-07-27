@@ -328,6 +328,11 @@ bitácora #28.
   `apps/doctor/src/lib/medical-auth.ts` (`requireDoctorAuth`/`requireOwnerAuth`/`requireAnyAuth`).
 - UI courtesy: `apps/doctor/src/lib/permissions-client.ts` (`usePermissions()` hook) — es
   el hook que TODOS los fixes de esta sesión usan para esconder botones/features.
+  ⚡ **Desde TIERS T4 (2026-07-27) `can()` compone los DOS techos** (tier + toggles), no solo los
+  toggles, y existe `lockedByTier()` para distinguir el motivo: plan ⇒ candado + upgrade, dueño ⇒
+  ocultar. Para un member la conducta NO cambia. Hay **TRES** navs que consumen `pagePermissionKey`
+  (`Sidebar`, `MobileDrawer`, `BottomNav`) — si tocas uno, revisa los tres: el review de T4 cazó
+  justo ahí un bug (el drawer móvil se quedó sin candado). Ver `../TIERS/01-DISENO-tecnico.md` §13.
 - Agente: `apps/doctor/src/lib/agenda-agent/modules/registry.ts` — **entra por
   `resolveAgentScope(access)`**, que compone los DOS techos: toggles del member (por módulo) y
   tier de la cuenta (por TOOL, TIERS T3 2026-07-25). ⚠️ `enabledModules` sigue existiendo pero

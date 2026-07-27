@@ -331,6 +331,14 @@ y muestra "El dueño de la cuenta no te ha dado acceso a esta sección".
 
 ### 5.1 Sidebar y páginas
 
+> ⚡ **Actualización 2026-07-27 (TIERS T4) — `usePermissions()` cambió de forma.** `can(key)` ahora
+> compone **LOS DOS techos** (tier de la cuenta **y** toggles del member); antes solo miraba los
+> toggles. Y hay un `lockedByTier(key)` nuevo, porque los dos techos se pintan **al revés**: lo que
+> el PLAN excluye se muestra con **candado + CTA de upgrade**, lo que el DUEÑO no concedió se
+> **oculta** (como describe esta sección, sin cambios). `lockedByTier` es false a propósito cuando
+> ambos aplican, así que **el member sigue viendo exactamente lo de siempre** y nunca recibe un
+> upsell que no puede accionar. Detalle: [`../TIERS/01-DISENO-tecnico.md`](../TIERS/01-DISENO-tecnico.md) §13.
+
 - `Sidebar.tsx`: cada `NavItem` gana `permissionKey`; se filtra con `session.user.permissions`
   (owner = todo). Deriva del registry, no de una lista local.
 - Guard de página: componente `PermissionGate` en el layout del dashboard que mapea
