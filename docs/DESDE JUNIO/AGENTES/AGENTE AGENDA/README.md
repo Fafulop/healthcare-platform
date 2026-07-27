@@ -34,7 +34,7 @@ suite completa 63/65 · 0 FAIL). Detalle en la bitácora del `SESSION-REFRESCO`.
 
 | Archivo | Qué es |
 |---|---|
-| [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | **LÉEME PRIMERO** — estado, decisiones, **la bitácora de fallos en vivo de TODO el asistente** (numerada hasta #24; #24 vive en su propia sección, no en la tabla) y próximos pasos. |
+| [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | **LÉEME PRIMERO** — estado, decisiones, **la bitácora de fallos en vivo de TODO el asistente** (numerada hasta **#28**, 2026-07-27; #24 vive en su propia sección, no en la tabla) y próximos pasos. |
 | [`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md) | **Referencia del SISTEMA**: filosofía (regla 0, propone→confirma), estructura de archivos, flujo punta a punta, catálogo de tools, ciclo de vida de propuestas, presupuesto/caché, límites conocidos. |
 | [`TOOLING-acceso-railway-db-agenda.md`](TOOLING-acceso-railway-db-agenda.md) | **Método de verificación:** consultar la BD de prod (Railway, solo lectura) durante las pruebas. Tablas y queries de agenda. |
 

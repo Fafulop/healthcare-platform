@@ -43,6 +43,7 @@ los demás los citan CON FECHA.**
 | Módulo → permisos requeridos | `AGENT_MODULE_REQUIREMENTS` | `02-CAPACIDADES` §2 |
 | Prefijo estático (tokens) | medición real (A4) | `02-CAPACIDADES` §4 — **y si no se re-midió, se dice** |
 | Modelo, cap diario, TTL de caché | env + `run-turn.ts` | `02-CAPACIDADES` §4 |
+| Último número de la bitácora de fallos | la tabla de `AGENTE AGENDA/SESSION-REFRESCO` | `AGENTE AGENDA/SESSION-REFRESCO` — los índices lo citan CON FECHA (drifteó a #24 mientras la tabla iba en #28) |
 | Cantidad de toggles de permiso | `PERMISSION_KEYS` | `../../NUEVOS USUARIOS/05-COBERTURA` |
 | Cantidad de rutas clasificadas | `pnpm gate:routes` | `../../NUEVOS USUARIOS/05-COBERTURA` |
 

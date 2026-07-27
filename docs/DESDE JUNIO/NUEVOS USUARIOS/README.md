@@ -32,7 +32,7 @@ diferida la sub-prueba B2 del checkbox de factura (opcional, no bloquea). Detall
 ⚠️ **Hueco ABIERTO desde 2026-07-25 (documentado, no arreglado):** el módulo `facturas` del agente
 empaqueta dos tools de **`pagos`**, así que un member con `facturacion`+`sat` pero `pagos` OFF
 igual las recibe por el camino del agente (las rutas/páginas sí lo bloquean). Vivo en prod con el
-member real. Ficha completa en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) §"HUECO ABIERTO".
+member real. Ficha completa en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) §"HUECO ABIERTO" — que desde el 2026-07-27 incluye además su **hermano en el eje del PAYLOAD** (`evidenceScope` mira el tier pero NO los toggles del member; alcanzable, no vivo hoy).
 
 ## Los docs
 

@@ -4,7 +4,11 @@
 > ledger y la conciliación bancaria). Cuarto módulo del asistente modular
 > (agenda → facturas → fiscal → **flujo**). Creado 2026-07-12.
 
-## Estado (2026-07-12)
+## Estado (2026-07-12 · nota de plan 2026-07-27)
+
+> ⚡ **El payload de estos tools varía según el PLAN de la cuenta** (bitácora #28, 2026-07-27): en
+> CORE los buckets `sat_*` de `porOrigen` colapsan a `historico` y el filtro `origin` gemelo se
+> cierra. Detalle y la divergencia deliberada vs la pestaña: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
 
 **F1 SHIPPED y validado en vivo 5/5.** Solo lectura: conciliar/vincular/fusionar/ignorar siguen
 siendo de la UI — las acciones asistidas son **F2+ (Motor 4)** y su diseño ya existe

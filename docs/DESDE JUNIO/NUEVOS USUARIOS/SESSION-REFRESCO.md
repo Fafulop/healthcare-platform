@@ -251,6 +251,32 @@ tools que hoy usa) y eso es decisión de permisos, no refactor.
 la simetría: revisar si algún otro módulo empaqueta tools de una key que no está en su
 `AGENT_MODULE_REQUIREMENTS` (el método de los "dos greps" de `02-METODO` §3.2).
 
+### Hermano del mismo hueco, en el eje del PAYLOAD (encontrado 2026-07-27, NO vivo hoy)
+
+Mismo patrón, otra capa. `evidenceScope(ctx)` (`modules/flujo.ts`) —el que decide qué campos de
+evidencia trae `get_flujo_status`/`get_movimientos`— se resuelve **SOLO con `ctx.tier`**, nunca con
+los toggles del member:
+
+```ts
+const fiscal = tierAllows(ctx.tier, 'facturacion');   // ← no mira permissions
+```
+
+Consecuencia: un member con `flujo`+`pagos`+`conciliacion` ON y **`facturacion` OFF** en una cuenta
+**FULL** recibe igual `conFactura`, `pctFactura`, la matriz factura×banco y los buckets
+`sat_emitido`/`sat_recibido` — agregados de una función que el dueño le apagó. Es **read-only y
+agregado** (cuántos movimientos tienen factura, no cuáles), así que el daño es menor que el hueco de
+`pagos` de arriba.
+
+⚠️ **NO está vivo en prod:** requiere `flujo`+`pagos`+`conciliacion` ON con `facturacion` OFF, y
+`andreabarbagal` tiene exactamente lo contrario (`facturacion` ON, los tres de flujo OFF). Es
+alcanzable, no actual.
+
+**Cómo se cierra:** que `evidenceScope` componga los DOS techos —`tierAllows(tier,k) && (isOwner ||
+hasPermission(perms,k))`— igual que hace el resto del sistema. Requiere que `ToolContext` lleve los
+permisos del member, que hoy no lleva (solo `tier`). **Documentado, no arreglado**, misma decisión
+que su hermano. Contexto del recorte de payload por tier: `../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md`
+bitácora #28.
+
 ## Gotchas para la próxima sesión
 
 - **⚠️ El push a `main` NO garantiza que TODOS los servicios de Railway se desplieguen.**

@@ -39,7 +39,7 @@ Después, según lo que vengas a hacer:
 | Carpeta | Qué es | Estado |
 |---|---|---|
 | [`GENERAL AGENTES/`](GENERAL%20AGENTES/README.md) | **La capa que pega todo**: blueprint, matriz de capacidades, método de code review, mapa de TODA la superficie IA del doctor-app, convenciones de estos docs | 🟢 vivo |
-| [`AGENTE AGENDA/`](AGENTE%20AGENDA/README.md) | **El tronco.** Donde nació el asistente; tiene el playbook y **la bitácora de fallos en vivo de todos los módulos** (numerada hasta #24). Módulo: horarios, citas, disponibilidad + propuestas | 🟢 vivo · PR 1-3 validados |
+| [`AGENTE AGENDA/`](AGENTE%20AGENDA/README.md) | **El tronco.** Donde nació el asistente; tiene el playbook y **la bitácora de fallos en vivo de todos los módulos** (numerada hasta **#28**, 2026-07-27). Módulo: horarios, citas, disponibilidad + propuestas | 🟢 vivo · PR 1-3 validados |
 | [`AGENTE FACTURAS/`](AGENTE%20FACTURAS/README.md) | El módulo más grande: CFDIs, catálogos SAT, conocimiento fiscal, y la **emisión** (la primera escritura fuera de agenda) | 🟢 vivo · F1→F2c validados |
 | [`AGENTE FLUJOS/`](AGENTE%20FLUJOS/README.md) | Lectura del ledger, balance, evidencia y conciliación bancaria | 🟢 vivo · F1 validado |
 | [`AGENTE EXPEDIENTE/`](AGENTE%20EXPEDIENTE/README.md) | Metadatos de expedientes — **contenido clínico estructuralmente fuera** | 🟢 vivo · F1 validado |
