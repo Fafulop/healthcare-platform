@@ -777,6 +777,31 @@ de otras páginas siguen usando `can()`, que ahora también respeta el tier ⇒ 
 en vez de mostrar candado. Es consistente con §6 (que solo especifica sidebar + `PermissionGate`) y
 evita sembrar CTAs de upgrade por toda la app.
 
+### 13.4.1 Review del propio T4 — 1 bug REAL y 1 asimetría anotada
+
+Método de `../NUEVOS USUARIOS/02-METODO` §3.2 (dos greps, no uno). El primer barrido fue por
+`can(` (call sites de la semántica que cambió); el segundo, el que valió, por **`pagePermissionKey`**
+— los consumidores del MISMO mapa de páginas.
+
+- 🐛 **BUG REAL, corregido: `MobileDrawer.tsx` no tenía el candado.** Tiene su PROPIO `NavItem`, copia
+  del de `Sidebar`, con el mismo `if (!can(key)) return null`. Como `can()` ahora respeta el tier, un
+  doctor CORE **en el celular** habría visto las 6 secciones DESAPARECER en vez de aparecer con
+  candado — y la pantalla de upgrade queda inalcanzable desde un teléfono. Es exactamente la familia
+  del §16 hallazgo 2 de NUEVOS USUARIOS (*gateas el concepto en un lado y se te escapa el hermano*).
+  Corregido con la misma rama, espejo del desktop.
+- ⚠️ **Asimetría DELIBERADA, anotada en el código: `BottomNav.tsx` NO lleva candado.** Sus 4 tabs
+  (dashboard/expedientes/citas/pendientes) están **todos incluidos en CORE**, así que la rama sería
+  código muerto y un candado en una barra de 4 iconos es mala UX. **Pero es un hueco latente:** si
+  un tier futuro excluye `citas`, `expedientes` o `tareas`, el tab desaparecería en el celular sin
+  ruta al upgrade. El comentario en el archivo nombra la condición exacta que lo activa.
+- ✅ Verificado limpio: los 6 features excluidos SÍ tienen entrada en `PAGE_PERMISSION_MAP` (si
+  faltara una, esa sección no mostraría candado y el doctor volvería al 403 pelón) · el mapa de
+  PÁGINAS no tiene entradas `OWNER_ONLY`/`NEUTRAL`, así que el hueco **G1** (§4.3) —que obligó a
+  `nearestFeatureKey` en el mapa de RUTAS— no tiene gemelo aquí · `PermissionGate` envuelve a TODAS
+  las páginas del dashboard (`DashboardLayout:50`), así que ninguna se salta el upsell.
+- 📎 Efecto secundario bueno del cambio de `can()`: `dashboard/page.tsx:53` decide con `can("ventas")`
+  si **hace el fetch**. Un dueño CORE ahora se lo salta en vez de comerse un 403 garantizado.
+
 ### 13.5 Verificación
 
 - `tsc` limpio en `apps/doctor` · **5 gates verdes** · sha256 del dueño `4a66a438…` sin cambio

@@ -27,6 +27,7 @@ import {
   Receipt,
   Download,
   Landmark,
+  Lock,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -40,8 +41,28 @@ interface NavItemProps {
 function NavItem({ icon: Icon, label, href, active = false, onClick }: NavItemProps) {
   // Secondary users: hide sections their toggles don't allow (same registry
   // derivation as the desktop Sidebar).
-  const { can } = usePermissions();
+  const { can, lockedByTier } = usePermissions();
   const permKey = pagePermissionKey(href);
+
+  // TIERS T4 — must mirror the desktop Sidebar exactly: a section excluded by
+  // PLAN stays visible with a padlock, one the owner didn't grant disappears.
+  // Without this the mobile drawer would HIDE tier-locked sections, and the
+  // upgrade screen would be unreachable on a phone.
+  if (permKey && lockedByTier(permKey)) {
+    return (
+      <Link
+        href={href}
+        onClick={onClick}
+        title={`${label} — no incluido en tu plan`}
+        className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:bg-gray-50 transition-colors"
+      >
+        <Icon className="w-5 h-5" />
+        <span className="text-sm font-medium">{label}</span>
+        <Lock className="w-3.5 h-3.5 ml-auto" />
+      </Link>
+    );
+  }
+
   if (permKey && !can(permKey)) return null;
 
   return (

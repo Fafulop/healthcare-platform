@@ -22,6 +22,15 @@ interface NavItemProps {
 
 function NavItem({ icon: Icon, label, href, active = false, onClick }: NavItemProps) {
   // Secondary users: hide tabs their toggles don't allow (registry-derived).
+  //
+  // ⚠️ TIERS T4 — this is the ONE nav that does NOT show the padlock that
+  // Sidebar and MobileDrawer do, and it is deliberate: every tab here
+  // (dashboard/expedientes/citas/pendientes) is INCLUDED in CORE, so the branch
+  // would be dead code, and a padlock in a 4-icon bottom bar is bad UX.
+  // If a future tier ever excludes `citas`, `expedientes` or `tareas`, this
+  // becomes a real hole — a doctor on a phone would see the tab VANISH with no
+  // way to reach the upgrade screen. Copy the `lockedByTier` branch from
+  // MobileDrawer if that day comes.
   const { can } = usePermissions();
   const permKey = pagePermissionKey(href);
   if (permKey && !can(permKey)) return null;
