@@ -56,7 +56,7 @@ humanas.
 | 2 | ✅ **HECHO 2026-07-27 — Runbook B ejecutado.** Downgrade real → rutas 403 `TIER_EXCLUDED` → revertido a FULL. **Agente 3/4**: falla reproducible en conciliación (bitácora **#28**) — **fix de payload aplicado el mismo día**, residuo de sustitución/redirect VIVO (~50%, 3 de 6 corridas). `01-DISENO` §12.6 | — |
 | 3 | **Rotar las credenciales de MercadoPago de dr-prueba** (estuvieron públicas). El fix YA está desplegado, así que rotar ahora sí es seguro. **Pospuesto a propósito el 2026-07-27** para no interrumpir la prueba en vivo — sigue abierto | **usuario** (UI de la app) |
 | 4 | **Re-subir las firmas** de 3 doctores reales para invalidar las URLs viejas — o decidir aceptar el riesgo | **usuario** (decisión) |
-| 5 | ✅ **T4 CONSTRUIDO 2026-07-27** (sin desplegar). Sidebar con candado + pantalla de upsell; `usePermissions` compone los dos techos. As-built `01-DISENO` §13. **Falta:** desplegar, poner `NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro` en Railway (`@healthcare/doctor`; es `NEXT_PUBLIC_*` ⇒ **redeploy después**) y la prueba en vivo (nadie ha visto esta UI) | próxima sesión + usuario |
+| 5 | ✅ **T4 SHIPPED, DESPLEGADO Y PROBADO EN VIVO 2026-07-27** (`b5b54b65`; dr-prueba→CORE→revertido; candados OK en desktop **y móvil**). Sidebar con candado + pantalla de upsell; `usePermissions` compone los dos techos. As-built `01-DISENO` §13. **Único pendiente:** `NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro` en Railway (`@healthcare/doctor`; es `NEXT_PUBLIC_*` ⇒ **redeploy después**), o el botón de contacto no aparece | próxima sesión + usuario |
 
 ⚠️ **No asumas que 3 y 4 ya se hicieron** — son acciones fuera del repo y no dejan rastro en git.
 Pregúntale al usuario antes de darlas por cerradas.
@@ -139,7 +139,7 @@ un hallazgo de seguridad ajeno a tiers — credenciales en `GET /api/doctors` �
 > **NO-OP** (los 11 doctores son FULL). Ya se puede fijar el tier desde el admin; lo que falta para
 > poner a un cliente REAL en CORE es que el doctor **vea por qué** algo está bloqueado (T4).
 
-**T4 construido el 2026-07-27** (§13; falta desplegarlo y probarlo en vivo). **La prueba en vivo de T5 se ejecutó el 2026-07-27** (`01-DISENO` §12.6): A y B completos, con la
+**T4 SHIPPED y probado en vivo el 2026-07-27** (§13). Con eso, lo que bloqueaba poner a un cliente REAL en CORE queda cubierto; falta solo la variable del CTA. **La prueba en vivo de T5 se ejecutó el 2026-07-27** (`01-DISENO` §12.6): A y B completos, con la
 UI, el write path y las rutas OK, y **un fallo reproducible del agente** en conciliación que NO
 bloquea T4 (bitácora #28 → decisión en T6). **El siguiente paso concreto es ahora T4.**
 
@@ -158,10 +158,10 @@ bloquea T4 (bitácora #28 → decisión en T6). **El siguiente paso concreto es 
    lectura fresca de §5.4/G4 queda probada por estructura, no por observación). Agente **3/4**;
    el 4º —conciliación— falla reproducible (4 corridas): bitácora **#28**. **Fix de payload aplicado
    el mismo día** (narración SAT: 0 de 6 corridas); queda VIVO el residuo de sustitución/redirect (~50%, 3 de 6).
-3. ✅ **T4 — show-locked UI — CONSTRUIDO 2026-07-27** (`01-DISENO` §13). Sidebar con candado (link,
+3. ✅ **T4 — show-locked UI — SHIPPED Y PROBADO EN VIVO 2026-07-27** (`01-DISENO` §13). Sidebar con candado (link,
    no item muerto: si no, el CTA solo se alcanza escribiendo la URL), pantalla de upsell derivada de
    `PERMISSION_LABELS`, y el chequeo de tier ANTES del bypass de owner (el techo acota al dueño).
-   **Pendiente: desplegar + `NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro` en Railway (redeploy después, es build-time) + prueba en vivo.**
+   **Único pendiente: `NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro` en Railway (redeploy después, es build-time).**
 4. **T6 — degradación de cruces de flujo + auditoría de fuga read-only.** Que decida de una sola
    vez la política de `porOrigen` (sat_emitido/sat_recibido) Y la de reportes/analytics, en vez de
    caso por caso. Ver §11.6.

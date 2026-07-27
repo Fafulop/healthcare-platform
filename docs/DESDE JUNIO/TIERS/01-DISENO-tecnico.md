@@ -808,9 +808,15 @@ Método de `../NUEVOS USUARIOS/02-METODO` §3.2 (dos greps, no uno). El primer b
   (T4 no toca el agente).
 - **NO-OP mientras los 11 doctores sean FULL**: `tierAllows(FULL,*)=true` ⇒ `lockedByTier` siempre
   false ⇒ el sidebar y el gate se comportan exactamente como antes.
-- ⏳ **PENDIENTE — prueba en vivo** (mismo formato que el Runbook B de T5): desplegar → dr-prueba a
-  CORE → confirmar sidebar con candado en las 6 secciones, la pantalla de upsell y el CTA →
-  revertir. **Nadie ha visto esta UI todavía.**
+- ✅ **PRUEBA EN VIVO PASADA 2026-07-27** (formato Runbook B). Desplegado en `b5b54b65`
+  (`@healthcare/doctor` SUCCESS), dr-prueba a **CORE** → UI verificada por el usuario → **revertido
+  a FULL** (confirmado read-only: 11 FULL, cero valores no canónicos).
+  - **Desktop:** las 6 secciones con candado, la pantalla de upsell renderiza.
+  - **Móvil:** candados presentes en el drawer — **es el punto que el review había roto** y el único
+    que ningún test automático cubría. Vale como validación del fix de `MobileDrawer` (§13.4.1).
+  - Nota de método: se verificó contra la BD *durante* la prueba que dr-prueba estuviera realmente
+    en CORE, para no confundir "la UI se ve bien" con el NO-OP de una cuenta FULL — con los 11
+    doctores en FULL, T4 es invisible por construcción y "se ve bien" no probaría nada.
 - ⏳ **PENDIENTE — poner `NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro` en Railway** (servicio
   `@healthcare/doctor`). Es acción de USUARIO en el dashboard de Railway y **no deja rastro en git**,
   así que no la des por hecha: sin esa variable el botón no aparece (el resto de la pantalla sí).
