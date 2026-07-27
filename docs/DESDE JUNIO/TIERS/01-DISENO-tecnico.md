@@ -817,8 +817,10 @@ Método de `../NUEVOS USUARIOS/02-METODO` §3.2 (dos greps, no uno). El primer b
   - Nota de método: se verificó contra la BD *durante* la prueba que dr-prueba estuviera realmente
     en CORE, para no confundir "la UI se ve bien" con el NO-OP de una cuenta FULL — con los 11
     doctores en FULL, T4 es invisible por construcción y "se ve bien" no probaría nada.
-- ⏳ **PENDIENTE — poner `NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro` en Railway** (servicio
-  `@healthcare/doctor`). Es acción de USUARIO en el dashboard de Railway y **no deja rastro en git**,
-  así que no la des por hecha: sin esa variable el botón no aparece (el resto de la pantalla sí).
-  ⚠️ Es `NEXT_PUBLIC_*`, o sea se **inyecta en el build**: hay que redeployar el servicio DESPUÉS de
-  ponerla, no basta con guardarla.
+- ⏳ **PENDIENTE, y CONFIRMADO NO HECHO al cierre del 2026-07-27** (el usuario lo dijo explícito):
+  poner `NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro` en Railway (servicio `@healthcare/doctor`).
+  Sin esa variable la pantalla de plan explica el límite pero **no renderiza el botón de contacto**
+  — que es justo la mitad de conversión de T4. La prueba en vivo de arriba se hizo SIN la variable,
+  así que **el botón no está verificado**; todo lo demás sí.
+  ⚠️ Es `NEXT_PUBLIC_*`, o sea se **inyecta en el BUILD**: guardarla en Railway NO basta, hay que
+  **redeployar** `@healthcare/doctor` después. Es acción de usuario y no deja rastro en git.

@@ -43,23 +43,57 @@ paralelo.
   automatiza. Regla general que deja la experiencia: *el corte de tier barato excluye subsistemas
   completos; el caro carva dentro de uno que se describe a sí mismo.*
 
-## 🔴 HANDOFF — lee esto primero (cierre de sesión 2026-07-26)
+## 🔴 HANDOFF — lee esto primero (cierre de sesión 2026-07-27)
 
-**Todo lo de hoy está PUSHEADO y DESPLEGADO** (`main` en `529c5748`; `@healthcare/api` y
-`@healthcare/admin` en SUCCESS sobre `b5414a19`, verificado por servicio). `pnpm gates` = 5 verdes.
-**Nada quedó a medias en el código.** Lo que falta es *probarlo con las manos* y dos acciones
-humanas.
+**TIERS está COMPLETO salvo T6.** T1–T5 shipped, desplegados y **probados en vivo**. Lo que
+bloqueaba poner a un cliente REAL en CORE (que el doctor viera POR QUÉ algo está bloqueado) quedó
+cubierto hoy con T4. El gating sigue siendo **NO-OP**: los 11 doctores son FULL.
 
-| # | Pendiente | Quién |
+### Qué pasó hoy (2026-07-27)
+
+| | |
+|---|---|
+| **Runbooks A y B** (prueba en vivo de T5) | ✅ Ejecutados. UI, write path y rutas OK; agente **3/4**. As-run en [`01-DISENO`](01-DISENO-tecnico.md) §12.6 |
+| **Bitácora #28** — el agente FABRICABA conciliación | ✅ Fix de payload shipped (`762070bb`). Narración SAT **0 de 6 corridas**. ⚠️ Residuo ~50%, ver abajo |
+| **T4** — candados + pantalla de plan | ✅ Shipped, desplegado y **probado en vivo** (`b5b54b65`), desktop **y móvil**. §13 |
+
+### ⚠️ Acciones de USUARIO pendientes — NO dejan rastro en git, pregúntale antes de darlas por hechas
+
+| # | Qué | Consecuencia si no se hace |
 |---|---|---|
-| 1 | ✅ **HECHO 2026-07-27 — Runbook A ejecutado.** Columna, chips, modal y "Guardar" deshabilitado OK; Cancelar no escribió (verificado read-only). `01-DISENO` §12.6 | — |
-| 2 | ✅ **HECHO 2026-07-27 — Runbook B ejecutado.** Downgrade real → rutas 403 `TIER_EXCLUDED` → revertido a FULL. **Agente 3/4**: falla reproducible en conciliación (bitácora **#28**) — **fix de payload aplicado el mismo día**, residuo de sustitución/redirect VIVO (~50%, 3 de 6 corridas). `01-DISENO` §12.6 | — |
-| 3 | **Rotar las credenciales de MercadoPago de dr-prueba** (estuvieron públicas). El fix YA está desplegado, así que rotar ahora sí es seguro. **Pospuesto a propósito el 2026-07-27** para no interrumpir la prueba en vivo — sigue abierto | **usuario** (UI de la app) |
-| 4 | **Re-subir las firmas** de 3 doctores reales para invalidar las URLs viejas — o decidir aceptar el riesgo | **usuario** (decisión) |
-| 5 | ✅ **T4 SHIPPED, DESPLEGADO Y PROBADO EN VIVO 2026-07-27** (`b5b54b65`; dr-prueba→CORE→revertido; candados OK en desktop **y móvil**). Sidebar con candado + pantalla de upsell; `usePermissions` compone los dos techos. As-built `01-DISENO` §13. **Único pendiente:** `NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro` en Railway (`@healthcare/doctor`; es `NEXT_PUBLIC_*` ⇒ **redeploy después**), o el botón de contacto no aparece | próxima sesión + usuario |
+| 1 | **`NEXT_PUBLIC_SALES_EMAIL=hola@tusalud.pro`** en Railway (`@healthcare/doctor`) + **REDEPLOY** (es `NEXT_PUBLIC_*` ⇒ se inyecta en el BUILD; guardarla no basta) | La pantalla de plan explica el límite pero **no ofrece botón de contacto**. Confirmado NO hecho al cierre |
+| 2 | **Rotar credenciales de MercadoPago de dr-prueba** (estuvieron públicas; el fix ya está desplegado, rotar ahora es seguro) | Tokens viejos siguen válidos |
+| 3 | **Re-subir las firmas de 3 doctores reales** — o decidir aceptar el riesgo | Las URLs viejas siguen resolviendo |
 
-⚠️ **No asumas que 3 y 4 ya se hicieron** — son acciones fuera del repo y no dejan rastro en git.
-Pregúntale al usuario antes de darlas por cerradas.
+### ⏭️ Lo que sigue en código: **T6**, y ya no es abstracto
+
+Dos partes, ambas con evidencia real detrás:
+
+1. **El residuo de conducta de #28 (~50%, 3 de 6 corridas).** Tras el fix de payload el agente ya NO
+   inventa cifras de conciliación, pero la mitad de las veces **sustituye** (contesta con un volcado
+   de flujo bajo el título de lo preguntado) o cierra con un **redirect a la sección Conciliación**,
+   que en CORE es una puerta cerrada. Ficha canónica: `../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md`
+   bitácora **#28**. ⚠️ **No hay fix limpio por prompt** — no se puede probar que un LLM nunca diga
+   una frase; el eval `tier-core-conciliacion-no-inventa` queda como tripwire `soft`. La opción
+   determinista (filtro post-generación que borre referencias a secciones excluidas) existe pero es
+   un patrón NUEVO para este repo: decidirlo, no improvisarlo.
+2. **La auditoría de fuga read-only** (reportes/analytics con cifras de CFDI/SAT) — lo que T6 siempre
+   fue. La política de `porOrigen` **ya se decidió y se implementó** hoy; T6 hereda el resto.
+
+### 🧭 Si eres una sesión nueva
+
+1. Lee `01-DISENO-tecnico.md` §1–§2 (la decisión de arquitectura) y luego §13 (T4, lo último).
+2. Para cualquier cosa del AGENTE, la ficha viva es la bitácora **#28** en
+   `../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md` — y su lección generaliza: recortar tools necesita
+   recortar **prosa Y payload Y filtros**; `gate:prosa` cubre los dos primeros, el payload **no tiene
+   garantía de máquina**.
+3. **Ojo con la suite de evals:** la última corrida completa dio **74/81 al 1er intento**; tras
+   reintentos quedaron 5 flaky, 1 WARN estable (el caso nuevo de #28, esperado) y **1 FAIL estable
+   AJENO**: `f2b-receptor-incompleto`, que es **drift de fixture** (el paciente Prueba1 ya no tiene
+   citas), no un bug del agente. No lo persigas creyendo que es regresión.
+4. **Al probar cualquier cosa de tiers: verifica en la BD que la cuenta esté REALMENTE en CORE.** Con
+   los 11 doctores en FULL todo el feature es invisible por construcción, y "se ve bien" en una
+   cuenta FULL no prueba absolutamente nada.
 
 ### ▶️ Runbook A — la UI de T5 (5 min, sin tocar datos)
 
