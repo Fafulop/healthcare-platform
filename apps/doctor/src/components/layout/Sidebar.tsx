@@ -29,6 +29,7 @@ import {
   Landmark,
   PanelLeftClose,
   PanelLeftOpen,
+  Lock,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -42,8 +43,32 @@ function NavItem({ icon: Icon, label, href, active = false }: NavItemProps) {
   // Secondary users: hide sections their toggles don't allow (UI courtesy —
   // the API check is the real boundary). Key derives from the href via the
   // shared PAGE_PERMISSION_MAP, so no per-item wiring.
-  const { can } = usePermissions();
+  const { can, lockedByTier } = usePermissions();
   const permKey = pagePermissionKey(href);
+
+  // TIERS T4 — the two ceilings render OPPOSITE ways (01-DISENO §6): a section
+  // the PLAN excludes stays visible with a padlock (the account can buy it), a
+  // section the OWNER didn't grant disappears. `lockedByTier` is already false
+  // when both apply, so a member never gets an upsell they can't act on.
+  if (permKey && lockedByTier(permKey)) {
+    // Deviation from §6.2 ("item deshabilitado"), deliberate: a dead item makes
+    // the upgrade CTA reachable only by typing the URL, which defeats the point
+    // of T4. It stays a LINK — muted and padlocked so it reads as unavailable —
+    // and the destination renders TierUpgradeNotice via PermissionGate. The
+    // server still returns 403 TIER_EXCLUDED for the data, so nothing leaks.
+    return (
+      <Link
+        href={href}
+        title={`${label} — no incluido en tu plan`}
+        className="flex items-center gap-3 px-3 py-2 rounded-md text-gray-400 hover:bg-gray-50 transition-colors group-data-[collapsed]:justify-center group-data-[collapsed]:px-2"
+      >
+        <Icon className="w-5 h-5 shrink-0" />
+        <span className="text-sm font-medium group-data-[collapsed]:hidden">{label}</span>
+        <Lock className="w-3.5 h-3.5 shrink-0 ml-auto group-data-[collapsed]:hidden" />
+      </Link>
+    );
+  }
+
   if (permKey && !can(permKey)) return null;
 
   return (

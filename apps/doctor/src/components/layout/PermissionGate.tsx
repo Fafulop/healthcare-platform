@@ -12,15 +12,26 @@ import { usePathname } from "next/navigation";
 import { ShieldOff } from "lucide-react";
 import { pagePermissionKey } from "@healthcare/database";
 import { usePermissions } from "@/lib/permissions-client";
+import { TierUpgradeNotice } from "./TierUpgradeNotice";
 
 export default function PermissionGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { loading, isOwner, can } = usePermissions();
+  const { loading, isOwner, can, lockedByTier } = usePermissions();
 
-  // Owners (and while loading — owner is the default) render everything.
-  if (loading || isOwner) return <>{children}</>;
+  if (loading) return <>{children}</>;
 
   const key = pagePermissionKey(pathname ?? "");
+
+  // TIERS T4 — the tier ceiling is checked BEFORE the owner bypass, because it
+  // applies to the OWNER too (01-DISENO §2: "el owner queda acotado por el
+  // tier"). Putting this after `isOwner` would leave the owner of a CORE
+  // account — the person who would actually buy the upgrade — staring at the
+  // section and getting a bare 403.
+  if (key && lockedByTier(key)) return <TierUpgradeNotice permissionKey={key} />;
+
+  // Owners render everything else.
+  if (isOwner) return <>{children}</>;
+
   if (!key || can(key)) return <>{children}</>;
 
   return (

@@ -1,10 +1,11 @@
 # 01 · Diseño técnico — TIERS (planes del producto)
 
 > Feature-gating por CUENTA (doctor), apilado sobre el sistema de permisos de `NUEVOS USUARIOS`.
-> Estado: **T1–T3 y T5 SHIPPED a prod; falta T4 (candados en el cliente) y T6.** El gating sigue
-> siendo **NO-OP** mientras los 11 doctores sean FULL — lo que T5 cambia es que ahora se puede
-> dejar de serlo sin SQL a mano. Este doc es la fuente de verdad del plan (§1–§10) y el as-built
-> de lo construido (§11 = T3, §12 = T5).
+> Estado: **T1–T3 y T5 SHIPPED a prod · T4 CONSTRUIDO (2026-07-27, sin desplegar) · falta T6.** El
+> gating sigue siendo **NO-OP** mientras los 11 doctores sean FULL — lo que T5 cambia es que ahora
+> se puede dejar de serlo sin SQL a mano, y lo que T4 agrega es que el doctor VEA por qué. Este doc
+> es la fuente de verdad del plan (§1–§10) y el as-built de lo construido (§11 = T3, §12 = T5,
+> §13 = T4).
 >
 > *(Hasta 2026-07-26 esta cabecera decía "DISEÑO, sin implementar" con cuatro PRs ya en producción.)*
 
@@ -278,8 +279,8 @@ Cada PR con su verificación; todo cambio de agente ⇒ suite de 65 evals (regla
    en el deploy** (todos FULL); probado 20/20 offline + downgrade dr-prueba→CORE→revert en vivo.
 3. ✅ **PR T3 — agente tier-aware — SHIPPED 2026-07-25** (`b26898f5`, desplegado). Ver §11 para el
    as-built, las 4 correcciones al diseño, el bug hunt (§11.5) y el gate `gate:prosa` (§11.5.2).
-4. **PR T4 — cliente show-locked.** `usePermissions` con `lockedByTier`, sidebar con candado,
-   pantalla/CTA de upgrade, ruta de contacto.
+4. ✅ **PR T4 — cliente show-locked — CONSTRUIDO 2026-07-27.** `usePermissions` con `lockedByTier`,
+   sidebar con candado, pantalla de upsell con CTA de contacto. As-built en **§13**.
 5. ✅ **PR T5 — admin — SHIPPED 2026-07-26** (`b5414a19`). Selector de tier + columna + ruta
    admin-guarded. Ver §12 para el as-built, la desviación del §7 y el hallazgo de seguridad que
    destapó (`faa7e829`).
@@ -732,3 +733,58 @@ en CORE y el eje de filtro se cerró con el contrato B2. La narración SAT desap
 corridas**) y el prompt del dueño sigue byte-idéntico. ⚠️ **Residuo abierto (~50%, 3 de 6 corridas):** la
 sustitución/redirect a la sección Conciliación — familia B1, inventada en runtime, con el eval
 `tier-core-conciliacion-no-inventa` como tripwire `soft`.
+
+---
+
+## 13. PR T4 — as-built (2026-07-27) · CONSTRUIDO, sin desplegar al escribir esto
+
+> Lo que T4 resuelve: hasta ahora un doctor CORE **veía** las secciones excluidas y solo recibía un
+> error al usarlas. El propio modal de T5 lo advertía. Con esto, el límite se explica.
+
+### 13.1 Lo construido
+
+| Pieza | Qué |
+|---|---|
+| `permissions-client.ts` | `usePermissions()` devuelve `tier`, y ahora **`can()` compone los DOS techos** (antes solo miraba los toggles del member). Nuevo `lockedByTier(key)` = el motivo, no un booleano |
+| `TierUpgradeNotice.tsx` (nuevo) | La pantalla de upsell: nombra la función (derivada de `PERMISSION_LABELS`, nunca escrita a mano), dice que **los datos siguen intactos** (§9 "gating, nunca borrado") y ofrece contacto |
+| `PermissionGate.tsx` | El chequeo de tier va **ANTES del bypass de owner** (ver §13.2) |
+| `Sidebar.tsx` | Item tier-excluido = **link atenuado con candado**; item sin toggle de member = oculto, como siempre |
+| `.env.local.example` | `NEXT_PUBLIC_SALES_EMAIL` — sin él la pantalla explica igual pero **no renderiza botón** (un CTA muerto es peor que ninguno) |
+
+### 13.2 Las dos decisiones que importan
+
+**El techo del tier se evalúa ANTES que `isOwner`.** `PermissionGate` hacía
+`if (loading || isOwner) return children` — correcto para toggles (son solo de members), fatal para
+el tier, que **acota también al dueño** (§2). Puesto después, el owner de una cuenta CORE —la
+persona que compraría el upgrade— se habría quedado mirando la sección y recibiendo un 403 pelón.
+
+**`lockedByTier` es FALSE cuando el member además no tiene el toggle.** Si ambos techos aplican,
+gana el de member (ocultar): el member no puede comprar un plan, no tendría acceso ni tras el
+upgrade, y decirle "mejora tu plan" además de mentirle **expone qué le apagó su dueño**. Así, un
+member nunca ve un upsell sobre el que no puede actuar.
+
+### 13.3 Desviación deliberada del §6.2
+
+El diseño pedía el item de sidebar **deshabilitado**. Se dejó como **link** (atenuado + candado):
+un item muerto deja la pantalla de upgrade alcanzable **solo escribiendo la URL**, que es justo lo
+que T4 venía a arreglar. El destino renderiza `TierUpgradeNotice`; el servidor sigue devolviendo
+403 `TIER_EXCLUDED` para los datos, así que no se filtra nada.
+
+### 13.4 Alcance: qué NO se tocó
+
+El candado vive en el **sidebar** y en la **pantalla de página**. Botones y widgets sueltos dentro
+de otras páginas siguen usando `can()`, que ahora también respeta el tier ⇒ **se ocultan** en CORE
+en vez de mostrar candado. Es consistente con §6 (que solo especifica sidebar + `PermissionGate`) y
+evita sembrar CTAs de upgrade por toda la app.
+
+### 13.5 Verificación
+
+- `tsc` limpio en `apps/doctor` · **5 gates verdes** · sha256 del dueño `4a66a438…` sin cambio
+  (T4 no toca el agente).
+- **NO-OP mientras los 11 doctores sean FULL**: `tierAllows(FULL,*)=true` ⇒ `lockedByTier` siempre
+  false ⇒ el sidebar y el gate se comportan exactamente como antes.
+- ⏳ **PENDIENTE — prueba en vivo** (mismo formato que el Runbook B de T5): desplegar → dr-prueba a
+  CORE → confirmar sidebar con candado en las 6 secciones, la pantalla de upsell y el CTA →
+  revertir. **Nadie ha visto esta UI todavía.**
+- ⏳ **PENDIENTE — `NEXT_PUBLIC_SALES_EMAIL` en Railway** (`@healthcare/doctor`). Sin esa variable
+  el botón no aparece; el resto de la pantalla sí.
