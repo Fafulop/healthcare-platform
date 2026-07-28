@@ -507,6 +507,12 @@ function ExtendedBlockControl({
 
   const isCustom = booking.extendedBlockMinutes != null && booking.extendedBlockMinutes !== slotDuration;
 
+  // Mismo criterio que handleSave, pero expuesto en el botón: rechazar en silencio
+  // se lee como "la app no me deja hacer clic" (pasó en la prueba en vivo). El guard
+  // de handleSave se queda igual — esto es la versión visible, no el reemplazo.
+  const draftEndMin = timeToMins(value);
+  const isDraftValid = Number.isFinite(draftEndMin) && draftEndMin > startMin;
+
   return (
     <div className="flex items-center gap-1 mt-1.5 w-full flex-wrap">
       <Clock className="w-3 h-3 text-indigo-400 shrink-0" />
@@ -519,13 +525,21 @@ function ExtendedBlockControl({
             onChange={(e) => setValue(e.target.value)}
             className="text-xs border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="text-xs px-1.5 py-0.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+          {/* El title va en el wrapper, no en el <button>: un control deshabilitado
+              no dispara eventos de mouse en Chrome/Safari, así que su tooltip nativo
+              nunca aparecería — justo la explicación que hace falta. */}
+          <span
+            className="inline-flex"
+            title={!isDraftValid ? `La hora de fin debe ser posterior a ${startTime}` : undefined}
           >
-            {saving ? "..." : "OK"}
-          </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || !isDraftValid}
+              className="text-xs px-1.5 py-0.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {saving ? "..." : "OK"}
+            </button>
+          </span>
           <button
             onClick={() => { setEditing(false); setValue(blockEndTime); }}
             className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
