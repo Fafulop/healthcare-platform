@@ -89,6 +89,8 @@ export function BookingsSection({
           </span>
           <button
             onClick={() => setBookingsCollapsed(!bookingsCollapsed)}
+            aria-label={bookingsCollapsed ? "Expandir todas las citas" : "Contraer todas las citas"}
+            aria-expanded={!bookingsCollapsed}
             className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
           >
             <ChevronDown
@@ -241,10 +243,12 @@ export function BookingsSection({
                             {booking.patientEmail}
                           </span>
                         )}
-                        <span className="flex items-center gap-1">
+                        {/* div, not span: PriceCell renders a <div> while editing, and a
+                            <div> inside a <span> is invalid nesting (validateDOMNesting) */}
+                        <div className="flex items-center gap-1">
                           <DollarSign className="w-3 h-3 shrink-0" />
                           <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
-                        </span>
+                        </div>
                       </div>
 
                       {/* Row 5: expediente */}
@@ -333,12 +337,18 @@ export function BookingsSection({
                             <p className="flex items-center gap-1 text-xs text-gray-600 mt-1">
                               <Phone className="w-3 h-3" /> {booking.patientPhone}
                             </p>
-                            {/* break-all: a long email is one unbreakable word and would
+                            {/* Guarded like the mobile card: patientEmail is NOT NULL in the
+                                schema but empty when the doctor doesn't require it (see
+                                emailRequired in bookings/instant) — ~40% of rows in prod.
+                                Unguarded, those render a mail icon pointing at nothing.
+                                break-all: a long email is one unbreakable word and would
                                 dictate the merged column's min width otherwise */}
-                            <p className="flex items-start gap-1 text-xs text-gray-500 mt-0.5">
-                              <Mail className="w-3 h-3 shrink-0 mt-0.5" />
-                              <span className="break-all">{booking.patientEmail}</span>
-                            </p>
+                            {booking.patientEmail && (
+                              <p className="flex items-start gap-1 text-xs text-gray-500 mt-0.5">
+                                <Mail className="w-3 h-3 shrink-0 mt-0.5" />
+                                <span className="break-all">{booking.patientEmail}</span>
+                              </p>
+                            )}
                           </td>
                           <td className="py-3 px-3">
                             <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
@@ -457,11 +467,17 @@ function ExtendedBlockControl({
   booking: Booking;
   onUpdate: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
 }) {
+  // Hooks must run before the "no start time" bail-out below. A component that
+  // returns null on one render and calls hooks on the next throws "Rendered more
+  // hooks than during the previous render", and with no error.tsx anywhere in this
+  // app that blanks the whole page, not one row.
+  // Today it cannot fire: this only renders for CONFIRMED bookings, and the 21
+  // prod rows with slot_id + start_time both null are all terminal
+  // (CANCELLED/NO_SHOW/COMPLETED). But those 21 prove nothing enforces
+  // "freeform => start_time is set", so the guard stays and the hooks stay above it.
   const rawStartTime = booking.slot?.startTime ?? booking.startTime ?? null;
-  if (!rawStartTime) return null;
-  const startTime = rawStartTime;
   const slotDuration = booking.slot?.duration ?? booking.duration ?? 60;
-  const startMin = timeToMins(startTime);
+  const startMin = rawStartTime ? timeToMins(rawStartTime) : 0;
   const currentBlockMins = booking.extendedBlockMinutes ?? slotDuration;
   const blockEndTime = minsToTime(startMin + currentBlockMins);
 
@@ -475,12 +491,19 @@ function ExtendedBlockControl({
 
   const handleSave = async () => {
     const endMin = timeToMins(value);
-    if (endMin <= startMin) return;
+    // NaN guard: an emptied <input type="time"> yields NaN, and `NaN <= startMin`
+    // is false — it would slip through and PATCH extendedBlockMinutes as null,
+    // silently wiping the doctor's custom block instead of rejecting the input.
+    if (!Number.isFinite(endMin) || endMin <= startMin) return;
     setSaving(true);
     await onUpdate(booking.id, endMin - startMin);
     setSaving(false);
     setEditing(false);
   };
+
+  // Bail-out moved below the hooks — see the note above.
+  if (!rawStartTime) return null;
+  const startTime = rawStartTime;
 
   const isCustom = booking.extendedBlockMinutes != null && booking.extendedBlockMinutes !== slotDuration;
 
