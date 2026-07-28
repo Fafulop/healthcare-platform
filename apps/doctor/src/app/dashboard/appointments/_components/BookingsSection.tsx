@@ -797,18 +797,45 @@ function StatusActions({
     setIsSendingEmail(false);
   };
 
+  // COMPLETADA significa "el doctor ya vio al paciente", no "el asunto se cerró": el dinero y
+  // el papeleo siguen abiertos. Por eso Cobro y Documentos sobreviven a completar, y Estado /
+  // Comunicación / Horario no (estado terminal sin vuelta atrás, no hay confirmación que
+  // reenviar, no hay agenda futura que bloquear).
+  //
+  // Además el prompt del agente YA daba esto por hecho en dos sitios, y no era cierto:
+  //   · facturas.ts get_payment_links → "el flujo recomendado es crearlos desde la cita
+  //     (botón Cobro)" — el botón desaparecía justo al completar.
+  //   · agenda.ts AGENDA_CITAS_RULES → "la factura se emite desde la tabla de citas" — para eso
+  //     hace falta el botón de Datos fiscales, que vivía en Documentos y también desaparecía.
+  // Misma familia que bitácora #26/#27 (prosa que enruta a algo inalcanzable) pero en el eje de
+  // ESTADO, que `gate:prosa` no mira: ese gate razona por scope, no por estado de la cita.
+  const isCompleted = booking.status === "COMPLETED";
   const showStatusGroup = booking.status === "PENDING" || booking.status === "CONFIRMED";
   const showCommsGroup = booking.status === "CONFIRMED";
-  const showDocsGroup = booking.status === "CONFIRMED";
   const showScheduleGroup = booking.status === "CONFIRMED";
-  // Cobro: citas activas siempre; terminales solo con link PAGADO o ACTIVO (un link viejo
-  // desactivado y no pagado NO debe reabrir el botón de crear sobre una cita terminal)
+
+  // El formulario es PREVIO a la consulta: en una cita ya completada "Crear formulario"
+  // mandaría un enlace que isFormLinkExpired marca vencido de inmediato (la fecha del slot ya
+  // pasó). Se conserva solo el estado SUBMITTED, que es un enlace de LECTURA al formulario
+  // que el paciente ya contestó.
+  const showFormularioButton =
+    booking.status === "CONFIRMED" || booking.formLink?.status === "SUBMITTED";
+  // Espeja el guard interno de FiscalFormButton (`if (!booking.patientId) return null`): sin
+  // expediente vinculado ese botón no rinde nada, y el grupo quedaría como un encabezado
+  // "Documentos" vacío. Si aquel guard cambia, este tiene que cambiar con él.
+  const hasFiscalButton = !!booking.patientId;
+  const showDocsGroup =
+    booking.status === "CONFIRMED" ||
+    (isCompleted && (hasFiscalButton || booking.formLink?.status === "SUBMITTED"));
+  // Cobro: citas activas y COMPLETADAS siempre; canceladas/no-asistió solo con link PAGADO o
+  // ACTIVO (un link viejo desactivado y no pagado NO debe reabrir el botón de crear sobre una
+  // cita que nunca ocurrió). Ese guard se conserva tal cual para esos dos estados.
   const hasRelevantPaymentLink =
     booking.paymentLink?.status === "PAID" ||
     booking.mpPaymentPreference?.status === "PAID" ||
     booking.paymentLink?.isActive ||
     booking.mpPaymentPreference?.isActive;
-  const showCobroGroup = !isTerminal || !!hasRelevantPaymentLink;
+  const showCobroGroup = !isTerminal || isCompleted || !!hasRelevantPaymentLink;
 
   const modal = completeModalOpen && (
     <CompleteBookingModal
@@ -962,11 +989,13 @@ function StatusActions({
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Documentos</span>
           <div className="flex gap-1 flex-wrap">
-            <FormularioStatusButton
-              booking={booking}
-              onCreateForm={() => onOpenFormLinkModal(booking)}
-              onDeleteForm={() => onDeleteFormLink(booking.id)}
-            />
+            {showFormularioButton && (
+              <FormularioStatusButton
+                booking={booking}
+                onCreateForm={() => onOpenFormLinkModal(booking)}
+                onDeleteForm={() => onDeleteFormLink(booking.id)}
+              />
+            )}
             <FiscalFormButton booking={booking} />
           </div>
         </div>
