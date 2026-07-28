@@ -2,6 +2,7 @@
 
 import { User, Phone } from 'lucide-react';
 import Link from 'next/link';
+import { calculateAge, formatPatientDate, formatSex } from './patient-display';
 
 export interface Patient {
   id: string;
@@ -22,34 +23,6 @@ interface PatientCardProps {
 }
 
 export function PatientCard({ patient }: PatientCardProps) {
-  const calculateAge = (dateOfBirth: string): number => {
-    const today = new Date();
-    const birth = new Date(dateOfBirth);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const formatDate = (dateString: string): string => {
-    try {
-      const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
-      if (year && month && day) {
-        const date = new Date(year, month - 1, day); // month is 0-indexed
-        return date.toLocaleDateString('es-MX', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        });
-      }
-      return dateString;
-    } catch {
-      return dateString;
-    }
-  };
-
   return (
     <Link href={`/dashboard/medical-records/patients/${patient.id}`}>
       <div className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-4 cursor-pointer">
@@ -75,7 +48,7 @@ export function PatientCard({ patient }: PatientCardProps) {
               {patient.firstName} {patient.lastName}
             </h3>
             <p className="text-sm text-gray-500">
-              ID: {patient.internalId} • {calculateAge(patient.dateOfBirth)} años • {patient.sex}
+              ID: {patient.internalId} • {calculateAge(patient.dateOfBirth)} años • {formatSex(patient.sex)}
             </p>
 
             {/* Contact */}
@@ -89,7 +62,7 @@ export function PatientCard({ patient }: PatientCardProps) {
             {/* Last Visit */}
             {patient.lastVisitDate && (
               <p className="text-sm text-gray-500 mt-1">
-                Última visita: {formatDate(patient.lastVisitDate)}
+                Última visita: {formatPatientDate(patient.lastVisitDate)}
               </p>
             )}
 

@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Users, Loader2, FileText } from 'lucide-react';
+import { Plus, Users, Loader2, FileText, List, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { PatientCard, type Patient } from '@/components/medical-records/PatientCard';
+import { PatientRow, PatientRowHeader } from '@/components/medical-records/PatientRow';
 import { PatientSearchBar } from '@/components/medical-records/PatientSearchBar';
+
+const VIEW_STORAGE_KEY = 'medicalRecordsViewMode';
 
 export default function PatientsPage() {
   const { status } = useSession({
@@ -22,6 +25,19 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const initialFetchDone = useRef(false);
+  // Rows are the default; the doctor can switch to cards. Same persistence
+  // pattern as sidebarCollapsed / widgetsCollapsed.
+  const [viewMode, setViewMode] = useState<'rows' | 'cards'>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(VIEW_STORAGE_KEY) === 'cards' ? 'cards' : 'rows';
+    }
+    return 'rows';
+  });
+
+  const changeViewMode = (next: 'rows' | 'cards') => {
+    setViewMode(next);
+    localStorage.setItem(VIEW_STORAGE_KEY, next);
+  };
 
   const fetchPatients = useCallback(async (searchValue: string, statusValue: string) => {
     setLoading(true);
@@ -105,24 +121,67 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* Count */}
-      {!loading && patients.length > 0 && (
-        <p className="text-sm text-gray-500 mb-3">
-          {patients.length} paciente{patients.length !== 1 ? 's' : ''}
-        </p>
+      {/* Count + view toggle. Not gated on `loading`: a search refetch keeps the
+          previous results in `patients`, so gating here would make the toggle
+          blink out of existence on every debounced keystroke. */}
+      {patients.length > 0 && (
+        <div className="flex items-center gap-3 mb-3">
+          {!loading && (
+            <p className="text-sm text-gray-500">
+              {patients.length} paciente{patients.length !== 1 ? 's' : ''}
+            </p>
+          )}
+          <div className="flex gap-1 flex-shrink-0 ml-auto">
+            <button
+              onClick={() => changeViewMode('rows')}
+              aria-pressed={viewMode === 'rows'}
+              aria-label="Ver como filas"
+              className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors ${
+                viewMode === 'rows'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <List className="w-4 h-4" />
+              <span className="hidden sm:inline">Filas</span>
+            </button>
+            <button
+              onClick={() => changeViewMode('cards')}
+              aria-pressed={viewMode === 'cards'}
+              aria-label="Ver como tarjetas"
+              className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors ${
+                viewMode === 'cards'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="hidden sm:inline">Tarjetas</span>
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* Patient Grid */}
+      {/* Patient list */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
         </div>
       ) : patients.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {patients.map((patient) => (
-            <PatientCard key={patient.id} patient={patient} />
-          ))}
-        </div>
+        viewMode === 'cards' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {patients.map((patient) => (
+              <PatientCard key={patient.id} patient={patient} />
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <PatientRowHeader />
+            {patients.map((patient) => (
+              <PatientRow key={patient.id} patient={patient} />
+            ))}
+          </div>
+        )
       ) : (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
