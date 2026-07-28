@@ -40,6 +40,11 @@ interface Props {
   onSort: (column: SortColumn) => void;
 }
 
+/** Estados con botón propio en la barra de filtros — se excluyen del desplegable. */
+const STATUS_BUTTONS = ["ACTIVE", "COMPLETED"];
+/** Valor centinela del desplegable cuando el estado lo controla un botón. */
+const BUTTON_OWNED = "__button__";
+
 /**
  * Envuelve los controles que viven en la fila COLAPSADA (precio, expediente) para
  * que su clic no burbujee al toggle de la fila. Sin esto, editar un precio o buscar
@@ -129,7 +134,11 @@ export function BookingsSection({
         <>
           {/* Filters */}
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-            <div className="flex items-center gap-1">
+            {/* flex-wrap en los grupos: en móvil el contenedor es flex-col, así que
+                cada grupo ocupa el ancho del teléfono. ‹ + fecha + › + "Todas las
+                fechas" (etiqueta más larga que la anterior "Todas") no cabe en 360px
+                sin envolver, y lo mismo el trío Activas/Completada/desplegable. */}
+            <div className="flex items-center flex-wrap gap-1">
               <button
                 onClick={() => shiftBookingFilterDate(-1)}
                 className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
@@ -148,22 +157,22 @@ export function BookingsSection({
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
+              {/* Limpia SOLO la fecha. Antes también reseteaba estado y paciente,
+                  pero con "Activas"/"Completada" al lado eso rompería la consulta
+                  más útil: completadas + todas las fechas. */}
               <button
-                onClick={() => {
-                  setBookingFilterDate("");
-                  setBookingFilterStatus("ACTIVE");
-                  setBookingFilterPatient("");
-                }}
+                onClick={() => setBookingFilterDate("")}
+                aria-pressed={!bookingFilterDate}
                 className={`text-sm font-medium px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${
-                  !bookingFilterDate && bookingFilterStatus === "ACTIVE" && !bookingFilterPatient
+                  !bookingFilterDate
                     ? "bg-blue-600 text-white"
                     : "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200"
                 }`}
               >
-                Todas
+                Todas las fechas
               </button>
             </div>
-            <div className="flex-1 relative">
+            <div className="relative w-full sm:w-44">
               <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
               <input
                 type="text"
@@ -173,19 +182,46 @@ export function BookingsSection({
                 className="w-full text-xs sm:text-sm border border-gray-200 rounded pl-7 pr-3 py-1.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
-            <select
-              value={bookingFilterStatus}
-              onChange={(e) => setBookingFilterStatus(e.target.value)}
-              className="text-xs sm:text-sm border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-            >
-              <option value="ACTIVE">Activas</option>
-              <option value="">Todos los estados</option>
-              <option value="PENDING">Pendiente</option>
-              <option value="CONFIRMED">Agendada</option>
-              <option value="COMPLETED">Completada</option>
-              <option value="NO_SHOW">No asistió</option>
-              <option value="CANCELLED">Cancelada</option>
-            </select>
+            <div className="flex items-center flex-wrap gap-1">
+              <button
+                onClick={() => setBookingFilterStatus("ACTIVE")}
+                aria-pressed={bookingFilterStatus === "ACTIVE"}
+                className={`text-sm font-medium px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${
+                  bookingFilterStatus === "ACTIVE"
+                    ? "bg-blue-600 text-white"
+                    : "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200"
+                }`}
+              >
+                Activas
+              </button>
+              <button
+                onClick={() => setBookingFilterStatus("COMPLETED")}
+                aria-pressed={bookingFilterStatus === "COMPLETED"}
+                className={`text-sm font-medium px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${
+                  bookingFilterStatus === "COMPLETED"
+                    ? "bg-blue-600 text-white"
+                    : "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200"
+                }`}
+              >
+                Completada
+              </button>
+              {/* ACTIVE y COMPLETED ya no son opciones: viven en los botones de
+                  arriba. Un <select> cuyo value no existe entre sus <option>
+                  muestra el PRIMERO, así que sin este placeholder el desplegable
+                  diría "Todos los estados" mientras el filtro real es Activas. */}
+              <select
+                value={STATUS_BUTTONS.includes(bookingFilterStatus) ? BUTTON_OWNED : bookingFilterStatus}
+                onChange={(e) => setBookingFilterStatus(e.target.value)}
+                className="text-xs sm:text-sm border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              >
+                <option value={BUTTON_OWNED} disabled>Más estados…</option>
+                <option value="">Todos los estados</option>
+                <option value="PENDING">Pendiente</option>
+                <option value="CONFIRMED">Agendada</option>
+                <option value="NO_SHOW">No asistió</option>
+                <option value="CANCELLED">Cancelada</option>
+              </select>
+            </div>
             {(bookingFilterDate !== getLocalDateString(new Date()) || bookingFilterPatient || bookingFilterStatus !== "ACTIVE") && (
               <button
                 onClick={() => {
