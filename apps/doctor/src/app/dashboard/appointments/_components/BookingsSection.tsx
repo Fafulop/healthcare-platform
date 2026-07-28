@@ -1,5 +1,5 @@
 import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2, X, Pencil, ExternalLink } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import Link from "next/link";
 import { InlinePatientSearch } from "./InlinePatientSearch";
 import { CreatePatientFromBookingModal } from "./CreatePatientFromBookingModal";
@@ -40,6 +40,19 @@ interface Props {
   onSort: (column: SortColumn) => void;
 }
 
+/**
+ * Envuelve los controles que viven en la fila COLAPSADA (precio, expediente) para
+ * que su clic no burbujee al toggle de la fila. Sin esto, editar un precio o buscar
+ * un paciente abriría/cerraría la cita al mismo tiempo.
+ */
+function StopClick({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={className} onClick={(e) => e.stopPropagation()}>
+      {children}
+    </div>
+  );
+}
+
 function SortIcon({ column, sortColumn, sortDirection }: { column: SortColumn; sortColumn: SortColumn; sortDirection: SortDirection }) {
   if (column !== sortColumn) return <ChevronsUpDown className="w-3 h-3 opacity-40" />;
   return sortDirection === "asc"
@@ -75,6 +88,18 @@ export function BookingsSection({
   sortDirection,
   onSort,
 }: Props) {
+  // Filas abiertas. Colapsado por defecto: la fila solo muestra el resumen
+  // (paciente · servicio · fecha/hora · expediente · precio · estado) y los 6
+  // grupos de acciones aparecen al hacer clic. Varias filas pueden estar abiertas.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   return (
     <div className="bg-white rounded-lg shadow p-4 sm:p-6">
       {/* Section header */}
@@ -194,18 +219,33 @@ export function BookingsSection({
                   const colorClass = getStatusColor(booking.status, endTime, bookingDate);
 
                   const startTime = booking.slot?.startTime ?? booking.startTime ?? "";
+                  const isExpanded = expandedIds.has(booking.id);
 
                   return (
-                    <div key={booking.id} className="border border-gray-200 rounded-lg p-3">
+                    <div
+                      key={booking.id}
+                      onClick={() => toggleExpanded(booking.id)}
+                      className={`border border-gray-200 rounded-lg p-3 cursor-pointer ${isExpanded ? "bg-gray-50" : ""}`}
+                    >
                       {/* Row 1: name + status */}
-                      <div className="flex items-start justify-between mb-1.5">
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
                         <p className="font-medium text-gray-900 text-sm">{booking.patientName}</p>
-                        <BookingStatusBadge
-                          status={booking.status}
-                          colorClass={colorClass}
-                          slotEndTime={endTime}
-                          slotDate={bookingDate}
-                        />
+                        <div className="flex items-center gap-1 shrink-0">
+                          <BookingStatusBadge
+                            status={booking.status}
+                            colorClass={colorClass}
+                            slotEndTime={endTime}
+                            slotDate={bookingDate}
+                          />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleExpanded(booking.id); }}
+                            aria-expanded={isExpanded}
+                            aria-label={isExpanded ? `Ocultar acciones de ${booking.patientName}` : `Ver acciones de ${booking.patientName}`}
+                            className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                          >
+                            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Row 2: date + time range */}
@@ -245,29 +285,37 @@ export function BookingsSection({
                         )}
                         {/* div, not span: PriceCell renders a <div> while editing, and a
                             <div> inside a <span> is invalid nesting (validateDOMNesting) */}
-                        <div className="flex items-center gap-1">
+                        <StopClick className="flex items-center gap-1">
                           <DollarSign className="w-3 h-3 shrink-0" />
                           <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
-                        </div>
+                        </StopClick>
                       </div>
 
                       {/* Row 5: expediente */}
-                      <div className="mb-2">
+                      <StopClick className="mb-2">
                         <ExpedienteCell booking={booking} onUpdatePatientLink={onUpdatePatientLink} />
-                      </div>
+                      </StopClick>
 
-                      <StatusActions
-                        booking={booking}
-                        onUpdateStatus={onUpdateStatus}
-                        onUpdateExtendedBlock={onUpdateExtendedBlock}
-                        onDeleteBooking={onDeleteBooking}
-                        onOpenFormLinkModal={onOpenFormLinkModal}
-                        onDeleteFormLink={onDeleteFormLink}
-                        onSendEmail={onSendEmail}
-                        onReschedule={onReschedule}
-                        onCompleteBooking={onCompleteBooking}
-                        onEmitCfdi={onEmitCfdi}
-                      />
+                      {isExpanded && (
+                        /* StopClick obligatorio: la tarjeta entera es el toggle, y
+                           StatusActions rinde el CompleteBookingModal AQUÍ DENTRO. Sin
+                           esto, cualquier clic en el modal burbujea, colapsa la tarjeta
+                           y desmonta el modal a media captura. */
+                        <StopClick className="border-t border-gray-200 pt-2">
+                          <StatusActions
+                            booking={booking}
+                            onUpdateStatus={onUpdateStatus}
+                            onUpdateExtendedBlock={onUpdateExtendedBlock}
+                            onDeleteBooking={onDeleteBooking}
+                            onOpenFormLinkModal={onOpenFormLinkModal}
+                            onDeleteFormLink={onDeleteFormLink}
+                            onSendEmail={onSendEmail}
+                            onReschedule={onReschedule}
+                            onCompleteBooking={onCompleteBooking}
+                            onEmitCfdi={onEmitCfdi}
+                          />
+                        </StopClick>
+                      )}
                     </div>
                   );
                 })}
@@ -304,8 +352,9 @@ export function BookingsSection({
                           ESTADO <SortIcon column="status" sortColumn={sortColumn} sortDirection={sortDirection} />
                         </button>
                       </th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">ACCIONES</th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs">COMUNICACIÓN · COBRO</th>
+                      {/* Las acciones ya no son columnas: viven en la fila que se
+                          despliega al hacer clic. Esta última columna es el chevron. */}
+                      <th className="w-8 py-2 px-3" aria-label="Acciones" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -313,9 +362,14 @@ export function BookingsSection({
                       const bookingDate = booking.slot?.date ?? booking.date ?? "";
                       const endTime = booking.slot?.endTime ?? booking.endTime ?? undefined;
                       const colorClass = getStatusColor(booking.status, endTime, bookingDate);
+                      const isExpanded = expandedIds.has(booking.id);
 
                       return (
-                        <tr key={booking.id} className="hover:bg-gray-50">
+                        <Fragment key={booking.id}>
+                        <tr
+                          onClick={() => toggleExpanded(booking.id)}
+                          className={`cursor-pointer hover:bg-gray-50 ${isExpanded ? "bg-gray-50" : ""}`}
+                        >
                           <td className="py-3 px-3">
                             <p className="font-medium text-gray-900">{booking.patientName}</p>
                             {booking.serviceName && (
@@ -333,7 +387,9 @@ export function BookingsSection({
                             <p className="text-xs">{booking.slot?.startTime ?? booking.startTime ?? ""}</p>
                           </td>
                           <td className="py-3 px-3">
-                            <ExpedienteCell booking={booking} onUpdatePatientLink={onUpdatePatientLink} />
+                            <StopClick>
+                              <ExpedienteCell booking={booking} onUpdatePatientLink={onUpdatePatientLink} />
+                            </StopClick>
                             <p className="flex items-center gap-1 text-xs text-gray-600 mt-1">
                               <Phone className="w-3 h-3" /> {booking.patientPhone}
                             </p>
@@ -351,7 +407,9 @@ export function BookingsSection({
                             )}
                           </td>
                           <td className="py-3 px-3">
-                            <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
+                            <StopClick>
+                              <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
+                            </StopClick>
                           </td>
                           <td className="py-3 px-3">
                             <BookingStatusBadge
@@ -361,20 +419,41 @@ export function BookingsSection({
                               slotDate={bookingDate}
                             />
                           </td>
-                          <StatusActions
-                            booking={booking}
-                            layout="table"
-                            onUpdateStatus={onUpdateStatus}
-                            onUpdateExtendedBlock={onUpdateExtendedBlock}
-                            onDeleteBooking={onDeleteBooking}
-                            onOpenFormLinkModal={onOpenFormLinkModal}
-                            onDeleteFormLink={onDeleteFormLink}
-                            onSendEmail={onSendEmail}
-                            onReschedule={onReschedule}
-                            onCompleteBooking={onCompleteBooking}
-                            onEmitCfdi={onEmitCfdi}
-                          />
+                          <td className="py-3 px-3 align-middle">
+                            {/* Botón real (no solo el clic de la fila) para que el
+                                teclado y los lectores de pantalla puedan abrirla.
+                                stopPropagation: si no, el clic dispara el toggle del
+                                botón Y el de la fila, y se cancelan entre sí. */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleExpanded(booking.id); }}
+                              aria-expanded={isExpanded}
+                              aria-label={isExpanded ? `Ocultar acciones de ${booking.patientName}` : `Ver acciones de ${booking.patientName}`}
+                              className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                            >
+                              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                            </button>
+                          </td>
                         </tr>
+                        {isExpanded && (
+                          <tr className="bg-gray-50">
+                            <td colSpan={6} className="px-3 pb-3 pt-0">
+                              <StatusActions
+                                booking={booking}
+                                layout="expanded"
+                                onUpdateStatus={onUpdateStatus}
+                                onUpdateExtendedBlock={onUpdateExtendedBlock}
+                                onDeleteBooking={onDeleteBooking}
+                                onOpenFormLinkModal={onOpenFormLinkModal}
+                                onDeleteFormLink={onDeleteFormLink}
+                                onSendEmail={onSendEmail}
+                                onReschedule={onReschedule}
+                                onCompleteBooking={onCompleteBooking}
+                                onEmitCfdi={onEmitCfdi}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     })}
                   </tbody>
@@ -646,8 +725,13 @@ function StatusActions({
   layout = "card",
 }: {
   booking: Booking;
-  /** "table" renders TWO <td> cells (gestión · comunicación/cobro); "card" one stacked div */
-  layout?: "card" | "table";
+  /**
+   * "table" renders TWO <td> cells (gestión · comunicación/cobro) — ya no se usa en
+   * la tabla, que ahora despliega las acciones en su propia fila con "expanded";
+   * se conserva porque el contrato de dos <td> sigue siendo válido.
+   * "expanded" = los 6 grupos en rejilla. "card" = apilados (móvil).
+   */
+  layout?: "card" | "table" | "expanded";
   onUpdateStatus: (id: string, status: string) => void;
   onUpdateExtendedBlock: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
   onDeleteBooking: (id: string, patientName: string) => void;
@@ -869,6 +953,28 @@ function StatusActions({
           </button>
         </div>
       );
+
+  // Expanded layout: los 6 grupos en rejilla, dentro de la fila desplegable de la
+  // tabla. Los grupos falsos (su condición no aplica) no rinden celda vacía porque
+  // React ignora `false`.
+  if (layout === "expanded") {
+    return (
+      <>
+        {modal}
+        {/* [&>div]:pt-0 — los grupos traen `pt-2 first:pt-0`, pensado para la pila
+            del móvil. En rejilla eso solo quitaría el padding al PRIMER grupo, así que
+            el 2º y 3º de la fila superior quedarían 8px más abajo. Aquí se normaliza. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 border-t border-gray-200 pt-3 [&>div]:pt-0">
+          {estadoGroup}
+          {comunicacionGroup}
+          {cobroGroup}
+          {documentosGroup}
+          {horarioGroup}
+          {eliminarGroup}
+        </div>
+      </>
+    );
+  }
 
   // Table layout: two cells — gestión (Estado/Documentos/Horario/Eliminar) and
   // contacto-cobro (Comunicación/Cobro) — so the row stays short.
