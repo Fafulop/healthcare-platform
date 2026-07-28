@@ -372,6 +372,19 @@ siguientes, en el orden que el usuario los tiene en mente:
    encadenando el ingreso 1:1 post-emisión (`register-income`). Requiere: decisión de
    tier (borrador = reversible, tier bajo — el precedente F2c aplica), evals nuevos, y
    actualizar la frontera "facturar ingresos manuales" de `02-CAPACIDADES` §3.
+7. **⚠️ Inversión de CIT-6 — emitir CFDI de una cita YA completada (abierto 2026-07-28,
+   bitácora #29 en [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md)):**
+   el agente SÍ puede facturar el ingreso de una cita completada (`get_pendientes_factura`
+   → `propose_create_cfdi`, F2b) pero **la tabla de citas NO** — `onEmitCfdi` está cableado
+   únicamente dentro de `CompleteBookingModal`, o sea que la emisión desde citas solo existe
+   en el INSTANTE de completar. Si el doctor no marca la casilla ahí, esa tabla ya no ofrece
+   camino. Contradice la decisión *"el agente no tiene capacidades que la UI no tiene"*
+   (CIT-6) **y** deja a medias la frase de `AGENDA_CITAS_RULES` (*"se emite desde la tabla de
+   citas"*). El 2026-07-28 se destapó Cobro y Documentos en citas completadas (`d35037db`),
+   que es el paso previo (Datos fiscales) pero **no** la emisión. Cerrarlo pide: `ledgerEntryId`
+   + `hasFactura` en el payload de bookings (hoy el tipo `Booking` no los trae), un flujo de
+   emisión que reuse la forma receptor/items del modal, y el gate `can('facturacion')` que ya
+   aplica `page.tsx:377` — sin él sería hueco de permisos para members y de tier para CORE.
 
 ## Preguntas abiertas
 
