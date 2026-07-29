@@ -323,12 +323,17 @@ export function BookingsSection({
                         </div>
                       </div>
 
-                      {/* Row 2: date + time range */}
+                      {/* Row 2: date + time range (+ el bloqueo, que es del mismo concepto) */}
                       <p className="text-xs text-gray-600 mb-1">
                         {formatLocalDate(bookingDate, { month: "short", day: "numeric", year: "numeric" })}
                         {startTime && ` · ${startTime}`}
                         {endTime && `–${endTime}`}
                       </p>
+                      {isExpanded && booking.status === "CONFIRMED" && (
+                        <StopClick className="mb-2">
+                          <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
+                        </StopClick>
+                      )}
 
                       {/* Row 3: service + badges */}
                       <div className="flex flex-wrap items-center gap-1 mb-2">
@@ -381,7 +386,6 @@ export function BookingsSection({
                           <StatusActions
                             booking={booking}
                             onUpdateStatus={onUpdateStatus}
-                            onUpdateExtendedBlock={onUpdateExtendedBlock}
                             onDeleteBooking={onDeleteBooking}
                             onOpenFormLinkModal={onOpenFormLinkModal}
                             onDeleteFormLink={onDeleteFormLink}
@@ -458,9 +462,18 @@ export function BookingsSection({
                               <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">Recurrente</span>
                             )}
                           </td>
-                          <td className="py-3 px-3 text-gray-600">
+                          <td className="py-3 px-3 text-gray-600 align-top">
                             <p>{formatLocalDate(bookingDate, { month: "short", day: "numeric", year: "numeric" })}</p>
                             <p className="text-xs">{booking.slot?.startTime ?? booking.startTime ?? ""}</p>
+                            {/* El bloqueo es un hecho de TIEMPO: vive bajo la fecha/hora que
+                                modifica, no en un grupo de acciones aparte. Solo al expandir,
+                                para no volver a llenar la fila colapsada. StopClick porque la
+                                fila entera es el toggle. */}
+                            {isExpanded && booking.status === "CONFIRMED" && (
+                              <StopClick className="mt-1.5">
+                                <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
+                              </StopClick>
+                            )}
                           </td>
                           <td className="py-3 px-3">
                             <StopClick>
@@ -520,7 +533,6 @@ export function BookingsSection({
                                 booking={booking}
                                 layout="expanded"
                                 onUpdateStatus={onUpdateStatus}
-                                onUpdateExtendedBlock={onUpdateExtendedBlock}
                                 onDeleteBooking={onDeleteBooking}
                                 onOpenFormLinkModal={onOpenFormLinkModal}
                                 onDeleteFormLink={onDeleteFormLink}
@@ -793,7 +805,6 @@ function ExpedienteCell({
 function StatusActions({
   booking,
   onUpdateStatus,
-  onUpdateExtendedBlock,
   onDeleteBooking,
   onOpenFormLinkModal,
   onDeleteFormLink,
@@ -812,7 +823,6 @@ function StatusActions({
    */
   layout?: "card" | "table" | "expanded";
   onUpdateStatus: (id: string, status: string) => void;
-  onUpdateExtendedBlock: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
   onDeleteFormLink: (bookingId: string) => void;
@@ -855,7 +865,6 @@ function StatusActions({
   const isCompleted = booking.status === "COMPLETED";
   const showStatusGroup = booking.status === "PENDING" || booking.status === "CONFIRMED";
   const showCommsGroup = booking.status === "CONFIRMED";
-  const showScheduleGroup = booking.status === "CONFIRMED";
 
   // El formulario es PREVIO a la consulta: en una cita ya completada "Crear formulario"
   // mandaría un enlace que isFormLinkExpired marca vencido de inmediato (la fecha del slot ya
@@ -1046,13 +1055,6 @@ function StatusActions({
         </div>
       );
 
-  const horarioGroup = showScheduleGroup && (
-        <div className="pt-2 first:pt-0">
-          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Horario</span>
-          <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
-        </div>
-      );
-
   const eliminarGroup = isTerminal && (
         <div className="pt-2 first:pt-0">
           <button
@@ -1079,7 +1081,6 @@ function StatusActions({
           {comunicacionGroup}
           {cobroGroup}
           {documentosGroup}
-          {horarioGroup}
           {eliminarGroup}
         </div>
       </>
@@ -1096,7 +1097,6 @@ function StatusActions({
           <div className="flex flex-col gap-2 divide-y divide-gray-100">
             {estadoGroup}
             {documentosGroup}
-            {horarioGroup}
             {eliminarGroup}
           </div>
         </td>
@@ -1119,7 +1119,6 @@ function StatusActions({
         {comunicacionGroup}
         {cobroGroup}
         {documentosGroup}
-        {horarioGroup}
         {eliminarGroup}
       </div>
     </>
