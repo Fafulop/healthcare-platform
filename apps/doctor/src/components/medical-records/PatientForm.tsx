@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { Save, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
 export interface PatientFormData {
@@ -101,6 +101,40 @@ export function PatientForm({
       });
     }
   }, [initialData]);
+
+  /**
+   * Expedientes ACTIVOS que ya tienen este correo. Es el mismo aviso que da el modal de crear
+   * expediente desde una cita, pero aquí importa más: el alta directa es donde nace el
+   * duplicado, porque el doctor no está viendo ninguna cita que le recuerde que esa persona ya
+   * existe.
+   *
+   * Solo al CREAR (`!isEditing`): este formulario también se usa para editar, y ahí el propio
+   * paciente haría match consigo mismo — el aviso saldría siempre y dejaría de significar algo.
+   *
+   * Falla ABIERTO: si la búsqueda truena no hay aviso. Nunca debe estorbar dar de alta a alguien.
+   */
+  const [duplicados, setDuplicados] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
+
+  useEffect(() => {
+    const correo = formData.email.trim();
+    if (isEditing || !correo || !correo.includes('@')) { setDuplicados([]); return; }
+    let cancelado = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/medical-records/patients?email=${encodeURIComponent(correo)}&status=active`);
+        // Cualquier salida SIN aviso tiene que LIMPIAR, no solo `return`: si el doctor cambia el
+        // correo y esa segunda búsqueda falla, un `return` a secas dejaba el aviso del correo
+        // ANTERIOR en pantalla — señalando pacientes que no tienen nada que ver con lo que el
+        // campo dice ahora.
+        if (!res.ok) { if (!cancelado) setDuplicados([]); return; }
+        const data = await res.json();
+        if (!cancelado) setDuplicados((data.data ?? []).map((p: { id: string; firstName: string; lastName: string }) => ({
+          id: p.id, firstName: p.firstName, lastName: p.lastName,
+        })));
+      } catch { if (!cancelado) setDuplicados([]); /* falla abierto: sin aviso */ }
+    }, 400);
+    return () => { cancelado = true; clearTimeout(t); };
+  }, [formData.email, isEditing]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
@@ -275,6 +309,30 @@ export function PatientForm({
                 onChange={handleChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              {/* Aviso de expediente duplicado — NO bloquea (hay familias y cuidadores que
+                  comparten correo a propósito; en prod hay 4 expedientes con el mismo).
+                  Solo al CREAR: editando, el propio paciente haría match consigo mismo. */}
+              {duplicados.length > 0 && (
+                <div className="mt-2 flex items-start gap-2 px-3 py-2 rounded-md bg-amber-50 border border-amber-200">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-900">
+                    Ese correo ya está en{' '}
+                    {duplicados.length === 1 ? 'el expediente de' : `${duplicados.length} expedientes:`}{' '}
+                    {duplicados.map((d, i) => (
+                      <span key={d.id}>
+                        {i > 0 && ', '}
+                        <Link
+                          href={`/dashboard/medical-records/patients/${d.id}`}
+                          className="font-semibold underline hover:text-amber-950"
+                        >
+                          {d.firstName} {d.lastName}
+                        </Link>
+                      </span>
+                    ))}
+                    . Puedes continuar si de verdad es otra persona.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="md:col-span-2">

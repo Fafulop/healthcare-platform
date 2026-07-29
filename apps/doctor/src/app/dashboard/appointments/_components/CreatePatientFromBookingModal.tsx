@@ -27,24 +27,35 @@ export function CreatePatientFromBookingModal({ booking, onClose, onLinked }: Pr
   const [phone, setPhone]             = useState(booking.patientPhone ?? "");
   const [saving, setSaving]           = useState(false);
   const [error, setError]             = useState("");
-  // Expediente que YA tiene este correo. Aviso, no bloqueo: el doctor puede seguir y crear otro
-  // (dos personas pueden compartir correo — una madre y su hijo, p. ej.).
+  // Expedientes que YA tienen este correo. Aviso, no bloqueo: el doctor puede seguir y crear
+  // otro (dos personas pueden compartir correo — una madre y su hijo, p. ej.).
+  // Se guarda el PRIMERO para el botón de vincular y el TOTAL para no mentir en el texto: en
+  // prod hay un correo con CUATRO expedientes, y decir "el expediente de X" a secas lo oculta.
   const [duplicado, setDuplicado] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
+  const [totalDuplicados, setTotalDuplicados] = useState(0);
 
   // Se consulta al abrir con correo precargado y cada vez que el doctor lo cambia. Falla ABIERTO
   // a propósito: si la búsqueda truena, no hay aviso — nunca debe impedir crear un expediente.
   useEffect(() => {
     const correo = email.trim();
-    if (!correo || !correo.includes("@")) { setDuplicado(null); return; }
+    if (!correo || !correo.includes("@")) { setDuplicado(null); setTotalDuplicados(0); return; }
     let cancelado = false;
     const t = setTimeout(async () => {
+      // Cualquier salida SIN aviso LIMPIA, no solo `return`: si el doctor cambia el correo y esa
+      // segunda búsqueda falla, un `return` a secas dejaba en pantalla el aviso del correo
+      // ANTERIOR, señalando un expediente que ya no tiene que ver con lo que dice el campo.
+      const limpiar = () => { if (!cancelado) { setDuplicado(null); setTotalDuplicados(0); } };
       try {
         const res = await fetch(`/api/medical-records/patients?email=${encodeURIComponent(correo)}&status=active`);
-        if (!res.ok) return;
+        if (!res.ok) { limpiar(); return; }
         const data = await res.json();
-        const hit = (data.data ?? [])[0];
-        if (!cancelado) setDuplicado(hit ? { id: hit.id, firstName: hit.firstName, lastName: hit.lastName } : null);
-      } catch { /* falla abierto: sin aviso */ }
+        const lista = data.data ?? [];
+        const hit = lista[0];
+        if (!cancelado) {
+          setDuplicado(hit ? { id: hit.id, firstName: hit.firstName, lastName: hit.lastName } : null);
+          setTotalDuplicados(lista.length);
+        }
+      } catch { limpiar(); /* falla abierto: sin aviso */ }
     }, 400);
     return () => { cancelado = true; clearTimeout(t); };
   }, [email]);
@@ -133,7 +144,8 @@ export function CreatePatientFromBookingModal({ booking, onClose, onLinked }: Pr
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-900 flex-1">
               Ese correo ya es del expediente de{" "}
-              <span className="font-semibold">{duplicado.firstName} {duplicado.lastName}</span>.{" "}
+              <span className="font-semibold">{duplicado.firstName} {duplicado.lastName}</span>
+              {totalDuplicados > 1 && ` (y ${totalDuplicados - 1} más con ese correo)`}.{" "}
               <button
                 type="button"
                 onClick={() => onLinked(duplicado)}
