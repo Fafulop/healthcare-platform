@@ -42,6 +42,19 @@ interface Props {
   onSort: (column: SortColumn) => void;
 }
 
+/**
+ * Contacto efectivo de una cita: la copia de la CITA primero, el EXPEDIENTE de respaldo.
+ * Mismo orden que resuelven los dos endpoints de envío — la fila no debe mostrar "sin
+ * correo" mientras el botón de Confirmación manda feliz al correo del expediente.
+ * La cita guarda lo que se escribió al agendar y nadie la actualiza después.
+ */
+function resolverContacto(booking: Booking) {
+  return {
+    email: booking.patientEmail?.trim() || booking.patient?.email?.trim() || "",
+    phone: booking.patientPhone?.trim() || booking.patient?.phone?.trim() || "",
+  };
+}
+
 /** Estados con botón propio en la barra de filtros — se excluyen del desplegable. */
 const STATUS_BUTTONS = ["ACTIVE", "COMPLETED"];
 /** Valor centinela del desplegable cuando el estado lo controla un botón. */
@@ -296,6 +309,7 @@ export function BookingsSection({
 
                   const startTime = booking.slot?.startTime ?? booking.startTime ?? "";
                   const isExpanded = expandedIds.has(booking.id);
+                  const contacto = resolverContacto(booking);
 
                   return (
                     <div
@@ -355,14 +369,16 @@ export function BookingsSection({
 
                       {/* Row 4: contact */}
                       <div className="flex flex-col gap-0.5 text-xs text-gray-500 mb-2">
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 shrink-0" />
-                          {booking.patientPhone}
-                        </span>
-                        {booking.patientEmail && (
+                        {contacto.phone && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="w-3 h-3 shrink-0" />
+                            {contacto.phone}
+                          </span>
+                        )}
+                        {contacto.email && (
                           <span className="flex items-center gap-1">
                             <Mail className="w-3 h-3 shrink-0" />
-                            {booking.patientEmail}
+                            {contacto.email}
                           </span>
                         )}
                         {/* div, not span: PriceCell renders a <div> while editing, and a
@@ -444,6 +460,7 @@ export function BookingsSection({
                       const endTime = booking.slot?.endTime ?? booking.endTime ?? undefined;
                       const colorClass = getStatusColor(booking.status, endTime, bookingDate);
                       const isExpanded = expandedIds.has(booking.id);
+                      const contacto = resolverContacto(booking);
 
                       return (
                         <Fragment key={booking.id}>
@@ -480,19 +497,21 @@ export function BookingsSection({
                             <StopClick>
                               <ExpedienteCell booking={booking} onUpdatePatientLink={onUpdatePatientLink} />
                             </StopClick>
-                            <p className="flex items-center gap-1 text-xs text-gray-600 mt-1">
-                              <Phone className="w-3 h-3" /> {booking.patientPhone}
-                            </p>
+                            {contacto.phone && (
+                              <p className="flex items-center gap-1 text-xs text-gray-600 mt-1">
+                                <Phone className="w-3 h-3" /> {contacto.phone}
+                              </p>
+                            )}
                             {/* Guarded like the mobile card: patientEmail is NOT NULL in the
                                 schema but empty when the doctor doesn't require it (see
                                 emailRequired in bookings/instant) — ~40% of rows in prod.
                                 Unguarded, those render a mail icon pointing at nothing.
                                 break-all: a long email is one unbreakable word and would
                                 dictate the merged column's min width otherwise */}
-                            {booking.patientEmail && (
+                            {contacto.email && (
                               <p className="flex items-start gap-1 text-xs text-gray-500 mt-0.5">
                                 <Mail className="w-3 h-3 shrink-0 mt-0.5" />
-                                <span className="break-all">{booking.patientEmail}</span>
+                                <span className="break-all">{contacto.email}</span>
                               </p>
                             )}
                           </td>
@@ -1063,13 +1082,15 @@ function StatusActions({
   const cobroGroup = showCobroGroup && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Cobro</span>
+          {/* Mismo respaldo que el envío y la fila: si el correo/teléfono solo viven en
+              el expediente, el link de pago debe poder pre-llenarlos igual. */}
           <PaymentLinkButton
             bookingId={booking.id}
             patientId={booking.patientId}
             patientName={booking.patientName}
-            patientPhone={booking.patientPhone}
+            patientPhone={resolverContacto(booking).phone || null}
             patientWhatsapp={booking.patientWhatsapp}
-            patientEmail={booking.patientEmail || undefined}
+            patientEmail={resolverContacto(booking).email || undefined}
             defaultAmount={booking.finalPrice}
             defaultDescription={booking.serviceName ? `${booking.serviceName} - ${booking.patientName}` : `Consulta - ${booking.patientName}`}
             stripeLink={booking.paymentLink ? {
