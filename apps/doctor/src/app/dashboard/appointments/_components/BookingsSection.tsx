@@ -9,6 +9,7 @@ import { PaymentLinkButton } from "@/components/payments/PaymentLinkButton";
 import { CompleteBookingModal } from "./CompleteBookingModal";
 import { formatLocalDate, getLocalDateString } from "@/lib/dates";
 import { waNumber } from "@/lib/whatsapp";
+import { resolverContacto, telefonoWhatsApp } from "@/lib/booking-contact";
 import { BookingStatusBadge } from "./BookingStatusBadge";
 import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
 
@@ -40,19 +41,6 @@ interface Props {
   sortColumn: SortColumn;
   sortDirection: SortDirection;
   onSort: (column: SortColumn) => void;
-}
-
-/**
- * Contacto efectivo de una cita: la copia de la CITA primero, el EXPEDIENTE de respaldo.
- * Mismo orden que resuelven los dos endpoints de envío — la fila no debe mostrar "sin
- * correo" mientras el botón de Confirmación manda feliz al correo del expediente.
- * La cita guarda lo que se escribió al agendar y nadie la actualiza después.
- */
-function resolverContacto(booking: Booking) {
-  return {
-    email: booking.patientEmail?.trim() || booking.patient?.email?.trim() || "",
-    phone: booking.patientPhone?.trim() || booking.patient?.phone?.trim() || "",
-  };
 }
 
 /** Estados con botón propio en la barra de filtros — se excluyen del desplegable. */
@@ -1037,7 +1025,7 @@ function StatusActions({
   const emailDestino = contactoCita.email;
   // WhatsApp antepone su propio campo (es el número que el paciente dio PARA WhatsApp) y
   // cae al teléfono resuelto. Patient no tiene columna de WhatsApp.
-  const waDestino = waNumber(booking.patientWhatsapp || contactoCita.phone);
+  const waDestino = waNumber(telefonoWhatsApp(booking));
   const yaEnviado = !!booking.confirmationEmailSentAt;
   const ultimoEnvio = booking.confirmationEmailSentAt
     ? new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })

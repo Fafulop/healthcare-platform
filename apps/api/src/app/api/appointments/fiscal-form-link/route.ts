@@ -22,7 +22,13 @@ export async function POST(request: Request) {
     const doctor = { id: doctorId };
 
     const body = await request.json();
-    const { patientId } = body;
+    // `regenerar` es EXPLÍCITO. Antes no existía y este endpoint rotaba el token en CADA
+    // llamada si ya había un enlace PENDIENTE: el doctor mandaba el enlace por WhatsApp,
+    // volvía a la tabla (o refrescaba, que le borraba el estado en pantalla), hacía clic otra
+    // vez creyendo que empezaba y el enlace que el paciente YA tenía dejaba de servir — sin
+    // aviso de ningún lado. Ahora reclamar el enlace existente es la operación por defecto y
+    // rotar el token solo pasa si alguien lo pide a propósito.
+    const { patientId, regenerar } = body;
 
     if (!patientId) {
       return NextResponse.json(
@@ -74,17 +80,24 @@ export async function POST(request: Request) {
     });
 
     if (existing) {
-      // Regenerate token for existing link
-      const token = randomBytes(20).toString('hex');
-      await prisma.appointmentFormLink.update({
-        where: { id: existing.id },
-        data: { token },
-      });
+      // Por defecto se DEVUELVE el enlace que ya existe — el que el paciente puede tener en la
+      // mano. Solo con `regenerar: true` se rota el token, y eso INVALIDA el anterior: es una
+      // acción que el doctor tiene que pedir sabiendo lo que hace.
+      const token = regenerar === true
+        ? randomBytes(20).toString('hex')
+        : existing.token;
+
+      if (regenerar === true) {
+        await prisma.appointmentFormLink.update({
+          where: { id: existing.id },
+          data: { token },
+        });
+      }
 
       const url = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://tusalud.pro'}/formulario-fiscal/${token}`;
       return NextResponse.json({
         success: true,
-        data: { token, url, regenerated: true },
+        data: { token, url, regenerated: regenerar === true, reutilizado: regenerar !== true },
       });
     }
 

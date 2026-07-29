@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, ClipboardList, Copy, Check, Loader2, ExternalLink } from "lucide-react";
+import { X, ClipboardList, Copy, Check, Loader2, ExternalLink, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import type { Booking } from "../_hooks/useBookings";
+import { waNumber } from "@/lib/whatsapp";
+import { telefonoWhatsApp } from "@/lib/booking-contact";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const PUBLIC_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://tusalud.pro";
@@ -90,12 +92,20 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Destinatario de WhatsApp: el número que el paciente dio PARA WhatsApp y, si no, su
+  // teléfono — el mismo orden que usan la fila y el botón de datos fiscales.
+  // `waNumber` normaliza la lada: en prod hay 46 citas con el teléfono a 10 dígitos, y sin
+  // lada `wa.me` no abre a nadie.
+  const waDestino = booking ? waNumber(telefonoWhatsApp(booking)) : "";
+
   const handleWhatsApp = (url: string) => {
-    if (!booking) return;
+    if (!booking || !waDestino) return;
     const apptDate = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
     const dateLabel = apptDate || "tu próxima cita";
     const msg = `Hola ${booking.patientName}, te comparto el formulario pre-cita para tu cita del ${dateLabel}:\n${url}\nPor favor complétalo antes de tu consulta. ¡Gracias!`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    // ANTES iba `wa.me/?text=…` SIN destinatario: abría WhatsApp con el mensaje listo y sin
+    // nadie a quién mandarlo. El doctor lo daba por enviado y el formulario nunca llegaba.
+    window.open(`https://wa.me/${waDestino}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   const handleClose = () => {
@@ -194,6 +204,17 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
                 {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                 {copied ? "¡Copiado!" : "Copiar"}
               </button>
+              {/* Sin número usable NO hay botón que mandar a ningún lado — se dice, en vez de
+                  abrir WhatsApp en vacío. El enlace sigue disponible con "Copiar". */}
+              {!waDestino ? (
+                <span
+                  className="flex-1 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-500 flex items-center justify-center gap-1.5 text-center px-2"
+                  title="Agrega un WhatsApp o teléfono con lada en el expediente del paciente para poder enviárselo por ahí"
+                >
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  Sin WhatsApp — copia el enlace
+                </span>
+              ) : (
               <button
                 onClick={() => handleWhatsApp(displayUrl)}
                 className="flex-1 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
@@ -203,6 +224,7 @@ export function PreAppointmentFormModal({ booking, isOpen, onClose, onSuccess }:
                 </svg>
                 WhatsApp
               </button>
+              )}
             </div>
           )}
 

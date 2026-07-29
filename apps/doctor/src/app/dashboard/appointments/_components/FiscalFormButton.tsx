@@ -6,8 +6,11 @@ import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
 import type { Booking } from '../_hooks/useBookings';
 import { waNumber } from '@/lib/whatsapp';
+import { telefonoWhatsApp } from '@/lib/booking-contact';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// Mismo origen y mismo fallback que usa PreAppointmentFormModal para armar su enlace.
+const PUBLIC_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://tusalud.pro';
 
 interface Props {
   booking: Booking;
@@ -45,6 +48,16 @@ export function FiscalFormButton({ booking }: Props) {
   const hasFiscalData = !!(
     p?.requiereFactura && p?.rfc && p?.razonSocial && p?.regimenFiscal && p?.usoCfdi && p?.codigoPostalFiscal
   );
+
+  // Enlace PENDIENTE que ya existe según el SERVIDOR. Es lo que hace que el estado sobreviva
+  // al refresh: antes vivía solo en `state`, así que al recargar el botón volvía a decir
+  // "Facturación" como si nunca se hubiera mandado nada.
+  const enlacePendiente = p?.formLinks?.[0] ?? null;
+  const urlPendiente = enlacePendiente ? `${PUBLIC_URL}/formulario-fiscal/${enlacePendiente.token}` : '';
+  // El recién creado gana sobre el del payload solo porque el payload aún no se ha refrescado;
+  // los dos apuntan al MISMO token (el servidor ya no lo rota sin que se lo pidan).
+  const urlEfectiva = formUrl || urlPendiente;
+  const esperandoDatos = state === 'link-ready' || (state === 'idle' && !!enlacePendiente);
   if (hasFiscalData) {
     return (
       <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 flex items-center gap-1">
@@ -60,6 +73,9 @@ export function FiscalFormButton({ booking }: Props) {
     try {
       const res = await authFetch(`${API_URL}/api/appointments/fiscal-form-link`, {
         method: 'POST',
+        // Sin `regenerar`: si ya hay un enlace pendiente el servidor DEVUELVE ese mismo. Pedir
+        // uno nuevo invalidaría el que el paciente ya tenga, y desde aquí no hay forma de
+        // saber si ya se lo mandaron.
         body: JSON.stringify({ patientId: booking.patientId }),
       });
       const json = await res.json();
@@ -67,7 +83,11 @@ export function FiscalFormButton({ booking }: Props) {
       if (json.success) {
         setFormUrl(json.data.url);
         setState('link-ready');
-        toast.success(json.data.regenerated ? 'Enlace regenerado' : 'Enlace de facturación creado');
+        toast.success(
+          json.data.reutilizado
+            ? 'Este paciente ya tenía un enlace pendiente — es el mismo, sigue sirviendo'
+            : 'Enlace de datos fiscales creado'
+        );
       } else {
         if (res.status === 409) {
           // Patient already has fiscal data
@@ -87,18 +107,18 @@ export function FiscalFormButton({ booking }: Props) {
   }
 
   function handleCopy() {
-    navigator.clipboard.writeText(formUrl);
+    navigator.clipboard.writeText(urlEfectiva);
     setCopied(true);
     toast.success('Enlace copiado');
     setTimeout(() => setCopied(false), 2000);
   }
 
   function handleWhatsApp() {
-    const message = `Hola ${booking.patientName}, te envío este enlace para que registres tus datos de facturación: ${formUrl}`;
+    const message = `Hola ${booking.patientName}, te envío este enlace para que registres tus datos de facturación: ${urlEfectiva}`;
     // waNumber en vez de un replace(/\D/g,'') suelto: sin lada de país el enlace wa.me
     // no abre nada, y en prod 46 citas guardan el teléfono a 10 dígitos.
     window.open(
-      `https://wa.me/${waNumber(booking.patientWhatsapp || booking.patientPhone)}?text=${encodeURIComponent(message)}`,
+      `https://wa.me/${waNumber(telefonoWhatsApp(booking))}?text=${encodeURIComponent(message)}`,
       '_blank'
     );
   }
@@ -114,11 +134,11 @@ export function FiscalFormButton({ booking }: Props) {
 
   // Enlace creado — chip de estado + compartir, igual que el link de pago activo. El chip no
   // estaba y se perdía el hilo: quedaban dos botones sueltos sin decir de qué eran.
-  if (state === 'link-ready') {
+  if (esperandoDatos) {
     return (
       <div className="flex items-center gap-1 flex-wrap">
         <span className="text-xs px-2 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1">
-          <FileText className="w-3 h-3" /> Formulario creado
+          <FileText className="w-3 h-3" /> Esperando datos
         </span>
         <button
           onClick={handleCopy}
@@ -130,8 +150,11 @@ export function FiscalFormButton({ booking }: Props) {
         </button>
         {/* El gate usa waNumber, no la verdad cruda del campo: con un número basura
             (hay registros de 5 a 8 dígitos) waNumber devuelve "" y el enlace quedaría
-            como wa.me/ sin destinatario. Sin número usable, sin botón. */}
-        {waNumber(booking.patientWhatsapp || booking.patientPhone) && (
+            como wa.me/ sin destinatario.
+            Sin número NO se esconde el botón en silencio — se DICE qué falta y dónde se
+            arregla, igual que hace el modal del formulario pre-consulta. Esconderlo dejaba al
+            doctor buscando una opción que nunca iba a aparecer. */}
+        {waNumber(telefonoWhatsApp(booking)) ? (
           <button
             onClick={handleWhatsApp}
             className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 flex items-center gap-1"
@@ -139,6 +162,13 @@ export function FiscalFormButton({ booking }: Props) {
           >
             <MessageCircle className="w-3 h-3" /> WhatsApp
           </button>
+        ) : (
+          <span
+            className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200 flex items-center gap-1"
+            title="Agrega un WhatsApp o un teléfono con lada en el expediente del paciente para poder enviárselo por ahí"
+          >
+            <MessageCircle className="w-3 h-3" /> Sin WhatsApp
+          </span>
         )}
       </div>
     );

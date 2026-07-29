@@ -563,6 +563,19 @@ export async function GET(request: Request) {
             regimenFiscal: true,
             usoCfdi: true,
             codigoPostalFiscal: true,
+            // Enlace de DATOS FISCALES pendiente. Vive colgado del PACIENTE, no de la cita
+            // (`bookingId` en NULL), así que no llega por `formLink` —que se resuelve por
+            // bookingId— y la UI no tenía forma de saber que ya se había mandado uno: el
+            // estado vivía en un useState y se perdía al refrescar.
+            // ⚠️ El filtro por `templateId` es OBLIGATORIO: el formulario fiscal comparte tabla
+            // con los formularios CLÍNICOS y se distingue solo por ese centinela. Olvidarlo es
+            // exactamente el bug que hoy infla `formulariosPreConsulta` en el agente.
+            formLinks: {
+              where: { templateId: 'FISCAL', status: 'PENDING' },
+              select: { id: true, token: true, createdAt: true },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
           },
         },
         paymentLink: {

@@ -74,6 +74,11 @@ export interface Booking {
     regimenFiscal?: string | null;
     usoCfdi?: string | null;
     codigoPostalFiscal?: string | null;
+    /** Enlace de DATOS FISCALES pendiente (templateId 'FISCAL'). Cuelga del PACIENTE, no de
+     *  la cita, por eso no viaja en `formLink`. Máximo uno: el servidor manda el más reciente
+     *  con status PENDING. Es lo que permite que el botón siga diciendo "esperando" tras
+     *  refrescar, en vez de olvidarlo y ofrecer crear otro. */
+    formLinks?: { id: string; token: string; createdAt: string }[];
   } | null;
   formLink?: {
     id: string;
