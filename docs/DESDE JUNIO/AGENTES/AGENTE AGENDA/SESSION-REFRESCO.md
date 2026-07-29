@@ -1,5 +1,22 @@
 # 🔄 Refresco de sesión — AGENTE AGENDA — LÉEME PRIMERO
 
+> 🔴 **TRABAJO EN VUELO — 2026-07-29. HAY DOS COMMITS SIN PUSHEAR.**
+> Los cambios de CITAS del 28/29 (seis commits, ver [`../../CITAS/README.md`](../../CITAS/README.md))
+> dejaron al agente desalineado: **antes de esa pasada el agente estaba bien**, la UI se movió y él
+> se quedó. Hay un plan con 6 puntos, **2 hechos y 4 pendientes**:
+> 👉 **[`07-PLAN-realinear-agente-con-citas.md`](07-PLAN-realinear-agente-con-citas.md) §0** —
+> estado, orden y las tres trampas que salieron implementando.
+>
+> Lo mínimo que necesitas saber antes de tocar el agente:
+> - `90490d54` (**B**, contacto por expediente) **se puede pushear solo** — prefijo byte-idéntico,
+>   no exige evals.
+> - `a8c86b84` (**E**, formulario fiscal pendiente) **NO** — movió el prefijo a `d03afced…` y
+>   exige la corrida de **81 casos**. Va junto con F/D + C + A + G para pagar UNA sola corrida.
+> - 🚫 **La bitácora #30 de este doc especifica el orden VIEJO del contacto**
+>   (`patientEmail ?? patient.email`). Está anotada como corregida: el orden bueno es
+>   **`patient.email || patientEmail`** (el expediente manda). Seguirla literal reimplementaría lo
+>   que `1abd06c5` quitó.
+
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
 > Última sesión: **2026-07-29** (bitácora #30 — el agente y la UI ya no coinciden sobre el
