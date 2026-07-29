@@ -162,17 +162,32 @@ export function BookPatientModal({
     setSelectedServiceId(null);
     setIsFirstTime(rescheduleBooking?.isFirstTime ?? true);
     setAppointmentMode((rescheduleBooking?.appointmentMode as "PRESENCIAL" | "TELEMEDICINA" | null) ?? "PRESENCIAL");
+    // REAGENDAR conserva el expediente. Reagendar crea una cita NUEVA y cancela la vieja
+    // (appointments/page.tsx), y aquí se reseteaba selectedPatientId a null ⇒ el submit
+    // mandaba `patientId: undefined` y la cita nueva nacía HUÉRFANA. Medido en prod: 7%
+    // de las reagendadas conservan expediente contra 16% de las normales, aunque TODAS
+    // vienen de una cita que ya existía. Una cita sin expediente no se puede facturar, no
+    // acepta link de pago, su ingreso queda suelto en el ledger y desaparece del historial
+    // del paciente — o sea que reagendar degradaba la cita en silencio.
+    // El AGENTE ya lo hacía bien (proposals.ts: `...(b.patientId ? { patientId } : {})`);
+    // era la UI la que se quedaba atrás.
+    const rp = rescheduleBooking?.patient ?? null;
+    const rpNombre = rp ? `${rp.firstName} ${rp.lastName}`.trim() : "";
     setFormData(rescheduleBooking ? {
-      patientName: rescheduleBooking.patientName,
-      patientEmail: rescheduleBooking.patientEmail,
-      patientPhone: rescheduleBooking.patientPhone,
+      // Con expediente vinculado gana el dato VIVO; la copia de la cita es de cuando se
+      // agendó. Si el expediente no lo trae, se cae a esa copia.
+      patientName: rpNombre || rescheduleBooking.patientName,
+      patientEmail: rp?.email || rescheduleBooking.patientEmail,
+      patientPhone: rp?.phone || rescheduleBooking.patientPhone,
       patientWhatsapp: rescheduleBooking.patientWhatsapp ?? "",
       notes: "",
     } : { patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
     setWasRescheduled(false);
-    setSelectedPatientId(null);
-    setSelectedPatientName("");
-    setPatientContactAlSeleccionar(null);
+    setSelectedPatientId(rescheduleBooking?.patientId ?? null);
+    setSelectedPatientName(rpNombre);
+    setPatientContactAlSeleccionar(
+      rp ? { name: rpNombre, email: rp.email ?? "", phone: rp.phone ?? "" } : null
+    );
     setRangeSelection(null);
     setSlotMode("existing");
     setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, locationId: clinicLocations[0]?.id ?? "" });

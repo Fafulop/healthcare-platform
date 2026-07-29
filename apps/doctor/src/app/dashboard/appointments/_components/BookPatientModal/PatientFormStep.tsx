@@ -197,8 +197,12 @@ export function PatientFormStep({
           serlo, el cambio va en la validación del submit, no solo en la etiqueta.
           El resaltado solo aplica mientras falta elegir: es ahí donde hay que llamar la
           atención. Ya con paciente el recuadro se vuelve neutro para que la tarjeta azul
-          de adentro se lea — azul sobre azul se empastaba. */}
-      {isFirstTime === false && (
+          de adentro se lea — azul sobre azul se empastaba.
+          Se muestra TAMBIÉN con "Primera vez" si ya hay paciente vinculado: en prod hay 36
+          citas marcadas primera-vez CON expediente, y al reagendar una de ésas el candado
+          se activa. Sin este caso el doctor vería nombre y contacto bloqueados y un aviso
+          nombrando a un paciente cuya tarjeta —y cuya ✕— estaban ocultas. */}
+      {(isFirstTime === false || selectedPatientId) && (
         <div
           className={`rounded-lg border-2 p-3 ${
             selectedPatientId ? "border-gray-200 bg-gray-50" : "border-blue-200 bg-blue-50/40"
@@ -208,9 +212,13 @@ export function PatientFormStep({
             <UserSquare2 className="w-4 h-4 text-blue-600" />
             Vincular expediente
           </label>
-          <p className="text-xs text-gray-500 mb-2">
-            Busca al paciente para traer sus datos y ligar la cita a su historial.
-          </p>
+          {/* La pista solo aplica mientras falta buscar: con paciente ya elegido decía
+              "busca al paciente" justo encima de su tarjeta. */}
+          {!selectedPatientId && (
+            <p className="text-xs text-gray-500 mb-2">
+              Busca al paciente para traer sus datos y ligar la cita a su historial.
+            </p>
+          )}
           {selectedPatientId ? (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50">
               <UserSquare2 className="w-4 h-4 text-blue-600 shrink-0" />
