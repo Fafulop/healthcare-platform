@@ -75,12 +75,19 @@ export function PatientFormStep({
   const [contactoDesbloqueado, setContactoDesbloqueado] = useState(false);
   useEffect(() => { setContactoDesbloqueado(false); }, [selectedPatientId]);
 
-  const bloqueado = (valor: string | undefined) =>
+  // "Editar" libera SOLO el contacto, porque solo el contacto se sincroniza de vuelta.
+  const contactoBloqueado = (valor: string | undefined) =>
     !!selectedPatientId && !contactoDesbloqueado && !!valor;
-  const nombreBloqueado = bloqueado(datosDelExpediente?.name);
-  const emailBloqueado = bloqueado(datosDelExpediente?.email);
-  const telBloqueado = bloqueado(datosDelExpediente?.phone);
-  const hayAlgoBloqueado = nombreBloqueado || emailBloqueado || telBloqueado;
+  const emailBloqueado = contactoBloqueado(datosDelExpediente?.email);
+  const telBloqueado = contactoBloqueado(datosDelExpediente?.phone);
+  const hayContactoBloqueado = emailBloqueado || telBloqueado;
+
+  // El NOMBRE no se desbloquea nunca. Patient guarda firstName/lastName por separado y
+  // partir un nombre completo es adivinar, así que no hay write-back posible: editarlo
+  // aquí solo desalinea la cita del expediente. Verificado en vivo — una cita quedó como
+  // "Gerardo Lopezzzz" mientras el expediente seguía en "Gerardo Lopez". Se cambia en el
+  // expediente, que es donde vive.
+  const nombreBloqueado = !!selectedPatientId && !!datosDelExpediente?.name;
   const claseBloqueada = "bg-gray-50 text-gray-600 cursor-not-allowed";
 
   return (
@@ -160,7 +167,15 @@ export function PatientFormStep({
               <button
                 key={label}
                 type="button"
-                onClick={() => setIsFirstTime(val)}
+                // Cambiar a "Primera vez" DESVINCULA. Sin esto el paciente seguía
+                // seleccionado pero su bloque —con la ✕ para soltarlo— desaparecía:
+                // quedaban nombre y contacto bloqueados, el aviso hablando de un paciente,
+                // y ninguna forma de salir salvo volver a Recurrente. Antes era inofensivo
+                // (no había candado); el candado lo volvió una trampa.
+                onClick={() => {
+                  setIsFirstTime(val);
+                  if (val) onSelectPatient(null);
+                }}
                 className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   isFirstTime === val
                     ? "bg-blue-600 text-white shadow-sm"
@@ -174,12 +189,28 @@ export function PatientFormStep({
         </div>
       </div>
 
-      {/* Vincular expediente (only for Recurrente) */}
+      {/* Vincular expediente (solo en Recurrente).
+          Bloque destacado a propósito: para una cita recurrente ESTE es el paso principal
+          —trae los datos del paciente y liga la cita a su historial— y como campo suelto
+          se saltaba. Se quitó el "(opcional)" por lo mismo.
+          ⚠️ Sigue sin ser obligatorio: se puede agendar sin vincular. Si algún día debe
+          serlo, el cambio va en la validación del submit, no solo en la etiqueta.
+          El resaltado solo aplica mientras falta elegir: es ahí donde hay que llamar la
+          atención. Ya con paciente el recuadro se vuelve neutro para que la tarjeta azul
+          de adentro se lea — azul sobre azul se empastaba. */}
       {isFirstTime === false && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Vincular expediente <span className="text-gray-400 font-normal">(opcional)</span>
+        <div
+          className={`rounded-lg border-2 p-3 ${
+            selectedPatientId ? "border-gray-200 bg-gray-50" : "border-blue-200 bg-blue-50/40"
+          }`}
+        >
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 mb-1">
+            <UserSquare2 className="w-4 h-4 text-blue-600" />
+            Vincular expediente
           </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Busca al paciente para traer sus datos y ligar la cita a su historial.
+          </p>
           {selectedPatientId ? (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50">
               <UserSquare2 className="w-4 h-4 text-blue-600 shrink-0" />
@@ -238,7 +269,7 @@ export function PatientFormStep({
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100">
           <Lock className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
           <p className="text-xs text-blue-800 flex-1">
-            {hayAlgoBloqueado ? (
+            {hayContactoBloqueado ? (
               <>
                 Estos datos vienen del expediente de {selectedPatientName}.{" "}
                 <button
@@ -246,13 +277,14 @@ export function PatientFormStep({
                   onClick={() => setContactoDesbloqueado(true)}
                   className="font-semibold underline hover:text-blue-900"
                 >
-                  Editar
+                  Editar contacto
                 </button>{" "}
               </>
             ) : (
               <>Estás agendando para {selectedPatientName}. </>
             )}
-            El correo y el teléfono que captures se guardan también en su expediente.
+            El correo y el teléfono que captures se guardan también en su expediente; el
+            nombre solo se cambia desde ahí.
           </p>
         </div>
       )}

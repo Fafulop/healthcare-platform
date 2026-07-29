@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { X, Loader2, ChevronRight } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
@@ -65,6 +65,8 @@ export function BookPatientModal({
   const initialStep: Step = preSelectedSlot ? "form" : "slot";
 
   const [step, setStep] = useState<Step>(initialStep);
+  const cuerpoRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { cuerpoRef.current?.scrollTo({ top: 0 }); }, [step]);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(preSelectedSlot);
 
   // Calendar state (for existing slot picker)
@@ -486,8 +488,13 @@ export function BookPatientModal({
           </div>
         )}
 
-        {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 p-5">
+        {/* Scrollable content.
+            El scroll se reinicia al cambiar de paso: este contenedor conserva su
+            scrollTop entre pasos, así que si el doctor bajó eligiendo horario, al pasar a
+            los datos del paciente aterrizaba a media forma (sobre "Nombre completo") en vez
+            de arriba, en Servicio / Tipo de visita. Quitar el autoFocus del nombre no
+            bastaba: eran dos causas distintas del mismo síntoma. */}
+        <div ref={cuerpoRef} className="overflow-y-auto flex-1 p-5">
 
           {step === "slot" && rangeMode && (
             doctorSlug ? (
@@ -578,6 +585,22 @@ export function BookPatientModal({
                       patientPhone: phone || f.patientPhone,
                     }));
                   } else {
+                    // Desvincular = "este NO es ese paciente": se borran nombre y contacto.
+                    // Si no, se agendaría con los datos de esa persona pero SIN expediente
+                    // ligado — justo la cita huérfana con datos ajenos que este trabajo
+                    // intenta dejar de crear.
+                    // Borrón parejo a propósito: una versión anterior conservaba lo que el
+                    // doctor hubiera editado, y eso hacía que darle a la ✕ dejara campos
+                    // llenos. La ✕ tiene que significar lo mismo siempre.
+                    // Notas NO se borra: es de la CITA (p. ej. "trae estudios previos"),
+                    // no del paciente, y sobrevive a cambiar de persona.
+                    setFormData((f) => ({
+                      ...f,
+                      patientName: "",
+                      patientEmail: "",
+                      patientPhone: "",
+                      patientWhatsapp: "",
+                    }));
                     setPatientContactAlSeleccionar(null);
                   }
                 }}
