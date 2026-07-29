@@ -77,7 +77,7 @@ const FACTURAS_TOOLS: AnthropicTool[] = [
   {
     name: 'get_patient_profile',
     description:
-      'Perfil de un expediente: datos de contacto y FISCALES (RFC, razón social, régimen, uso CFDI, CP) con "completitudFiscal" resuelta por el servidor (completo/parcial/vacío), si el paciente pidió factura (requiereFactura) y "listoParaFacturar" (ambas cosas — lo que exige el botón de emitir del expediente). NO devuelve contenido clínico (notas/consultas) — eso está fuera de tu alcance. El patientId sale de find_patient de ESTE turno.',
+      'Perfil de un expediente: datos de contacto y FISCALES (RFC, razón social, régimen, uso CFDI, CP) con "completitudFiscal" resuelta por el servidor (completo/parcial/vacío), si el paciente pidió factura (requiereFactura) y "listoParaFacturar" (ambas cosas — lo que exige el botón de emitir del expediente). Trae también "formularioFiscalPendiente": si viene con fecha, YA se le mandó el formulario de datos fiscales y está esperando respuesta — no mandes crear otro. NO devuelve contenido clínico (notas/consultas) — eso está fuera de tu alcance. El patientId sale de find_patient de ESTE turno.',
     input_schema: {
       type: 'object',
       properties: {
@@ -288,6 +288,19 @@ const PATIENT_FISCAL_SELECT = {
   usoCfdi: true,
   codigoPostalFiscal: true,
   constanciaFiscalUrl: true,
+  // ¿Ya se le PIDIÓ al paciente que llene sus datos fiscales y está esperando respuesta?
+  // Antes el agente no tenía forma de saberlo: mandaba a crear un formulario que ya existía y
+  // estaba vivo. La UI sí lo ve desde `eed733c2` (chip "Esperando datos"), así que el agente se
+  // quedó atrás — regresión de alineación, no un fallo del modelo.
+  // ⚠️ El filtro por `templateId` es OBLIGATORIO: el formulario fiscal comparte tabla con los
+  // CLÍNICOS y se distingue solo por ese centinela. Olvidarlo es el bug de
+  // `formulariosPreConsulta` (deuda §8.2) — el mismo, en otro sitio.
+  formLinks: {
+    where: { templateId: 'FISCAL', status: 'PENDING' as const },
+    select: { createdAt: true },
+    orderBy: { createdAt: 'desc' as const },
+    take: 1,
+  },
 } as const;
 
 type PatientFiscal = {
@@ -303,6 +316,7 @@ type PatientFiscal = {
   usoCfdi: string | null;
   codigoPostalFiscal: string | null;
   constanciaFiscalUrl: string | null;
+  formLinks: { createdAt: Date }[];
 };
 
 function mapPatientFiscal(p: PatientFiscal) {
@@ -317,6 +331,11 @@ function mapPatientFiscal(p: PatientFiscal) {
     usoCfdi: p.usoCfdi,
     codigoPostalFiscal: p.codigoPostalFiscal,
     tieneConstancia: !!p.constanciaFiscalUrl,
+    // Hecho, no veredicto: si hay un enlace PENDIENTE, el doctor YA se lo pidió. Sirve para no
+    // mandarlo a crear otro (regenerar el token INVALIDA el que el paciente tenga en la mano).
+    formularioFiscalPendiente: p.formLinks[0]
+      ? { desde: mxDayOf(p.formLinks[0].createdAt) }
+      : null,
   };
 }
 
@@ -1349,7 +1368,7 @@ async function resolveEmisionContext(ctx: ProposalContext, ledgerEntryIdRaw: unk
   const fc = fiscalCompleteness(patient);
   if (!esPublicoGeneral && fc.completitudFiscal !== 'completo') {
     return {
-      error: `Los datos fiscales de ${nombre} están incompletos — faltan: ${fc.camposFaltantes.join(', ')}. Sin receptor completo no se puede timbrar. El camino es el formulario fiscal al paciente (desde la cita, botón Facturación) — NUNCA inventes ni pidas dictar estos datos en el chat.`,
+      error: `Los datos fiscales de ${nombre} están incompletos — faltan: ${fc.camposFaltantes.join(', ')}. Sin receptor completo no se puede timbrar. ${patient.formLinks[0] ? `YA hay un formulario fiscal pendiente enviado el ${mxDayOf(patient.formLinks[0].createdAt)}: díselo al doctor y que espere la respuesta del paciente — NO le pidas crear otro, regenerarlo invalida el enlace que el paciente ya tiene.` : 'El camino es el formulario fiscal al paciente (desde la cita, botón Facturación).'} NUNCA inventes ni pidas dictar estos datos en el chat.`,
       camposFaltantes: fc.camposFaltantes,
     };
   }
@@ -1679,6 +1698,9 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas
   listoParaFacturar de get_patient_profile) — no cuentes campos tú. Facturar exige datos
   completos Y requiereFactura (listoParaFacturar los combina); si faltan, el camino es el
   formulario fiscal (desde la cita, botón Facturación).
+  ⚠️ ANTES de mandar a crearlo, mira **formularioFiscalPendiente**: si trae fecha, el doctor YA
+  se lo pidió y está esperando la respuesta del paciente — DÍSELO y no le pidas crear otro
+  (regenerar el enlace INVALIDA el que el paciente tenga en la mano).
 - Del expediente ves contacto y datos fiscales; el contenido clínico (notas, consultas,
   recetas) NO — dilo honesto.
 - **Claves SAT de los conceptos:** defaults médicos — consulta general 85121502, servicios
