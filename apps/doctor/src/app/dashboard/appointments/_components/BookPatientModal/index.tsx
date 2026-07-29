@@ -354,6 +354,12 @@ export function BookPatientModal({
             isFirstTime,
             appointmentMode: appointmentMode || undefined,
             patientId: selectedPatientId || undefined,
+            // Faltaba SOLO en esta rama (las otras dos sí lo mandaban), y el endpoint
+            // siempre lo aceptó (range-bookings/instant lo lee y lo guarda). Sin él,
+            // reagendar por rangos producía una cita marcada como NUEVA: el correo al
+            // paciente salía como "nueva cita" en vez de "reagendada" (gmail.ts usa este
+            // flag para el asunto y el encabezado) y el dato quedaba mal en la BD.
+            isRescheduled: !!rescheduleBooking,
           }),
         });
         const data = await res.json();
@@ -364,7 +370,9 @@ export function BookPatientModal({
         }
 
         sincronizarContactoConExpediente();
-        setWasRescheduled(false);
+        // Estaba fijo en false: la pantalla de éxito decía "cita creada" aunque el doctor
+        // acabara de reagendar por rangos.
+        setWasRescheduled(!!rescheduleBooking);
         setStep("success");
         onSuccess(data.data.id);
         return;
