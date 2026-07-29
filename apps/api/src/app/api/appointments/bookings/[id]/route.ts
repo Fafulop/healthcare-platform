@@ -386,7 +386,11 @@ export async function PATCH(
     // Get current booking with slot
     const currentBooking = await prisma.booking.findUnique({
       where: { id },
-      include: { slot: true },
+      // `patient.email` porque el EXPEDIENTE manda sobre la copia de la cita para cualquier
+      // envío al paciente (bitácora #30, decisión 2026-07-29) — aquí lo usa el correo de
+      // CANCELACIÓN, que leía `patientEmail` a secas y por eso se saltaba las citas cuyo correo
+      // solo vive en el expediente.
+      include: { slot: true, patient: { select: { email: true } } },
     });
 
     if (!currentBooking) {
@@ -496,7 +500,9 @@ export async function PATCH(
       else if (newStatus === 'NO_SHOW') logBookingNoShow(bookingLogParams);
 
       // Send cancellation email to patient (fire-and-forget)
-      if (newStatus === 'CANCELLED' && currentBooking.patientEmail) {
+      const destinatarioCancelacion =
+        currentBooking.patient?.email?.trim() || currentBooking.patientEmail?.trim() || '';
+      if (newStatus === 'CANCELLED' && destinatarioCancelacion) {
         (async () => {
           try {
             const doctor = await prisma.doctor.findUnique({
@@ -524,7 +530,7 @@ export async function PATCH(
             await sendAppointmentCancellationEmail(
               {
                 patientName: currentBooking.patientName,
-                patientEmail: currentBooking.patientEmail,
+                patientEmail: destinatarioCancelacion,
                 doctorName: doctor.doctorFullName,
                 specialty: doctor.primarySpecialty,
                 date: bookingDateStr,

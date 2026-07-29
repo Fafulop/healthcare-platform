@@ -43,8 +43,9 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
     },
   });
 
-  // Mismo respaldo que la ruta manual: cita primero, expediente si la cita no lo trae.
-  const destinatario = booking?.patientEmail?.trim() || booking?.patient?.email?.trim() || "";
+  // Mismo orden que la ruta manual y que el cliente: **el EXPEDIENTE manda**, y la copia de la
+  // cita es el respaldo cuando el expediente no trae correo (decisión 2026-07-29, bitácora #30).
+  const destinatario = booking?.patient?.email?.trim() || booking?.patientEmail?.trim() || "";
   if (!booking || !destinatario) return;
   if (!booking.doctor.user?.googleAccessToken || !booking.doctor.user?.email) return;
 

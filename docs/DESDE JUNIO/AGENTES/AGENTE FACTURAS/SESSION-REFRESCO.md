@@ -402,9 +402,18 @@ siguientes, en el orden que el usuario los tiene en mente:
       centinela (`patients/[id]/formularios` lo etiqueta "Datos Fiscales").
    3. **`get_booking_detail` devuelve el contacto de la CITA, no el del expediente** — bitácora
       #30 en [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md).
-      Desde `97afcd14` la UI resuelve cita→expediente y el agente no, así que en las 20 citas
+      Desde `97afcd14` la UI resuelve cita→expediente y el agente no, así que en las citas
       cuyo correo vive solo en el expediente el agente dice que no hay correo mientras el botón
       de la UI envía sin problema.
+      ⚠️ **ACTUALIZADO 2026-07-29 — el ORDEN del arreglo cambió.** La decisión de fondo se tomó:
+      **el EXPEDIENTE MANDA y la copia de la cita es el respaldo.** La línea de `mapBooking` va
+      con el orden **`patient.email || b.patientEmail`**, NO con el `patientEmail ?? patient.email`
+      que decía la bitácora original (ése era el orden del servidor de entonces, y era justo el
+      que impedía que el dato vivo corrigiera al viejo). UI y servidor ya están volteados
+      (`lib/booking-contact.ts`, `send-email`, `send-confirmation-email`, `form-link`), así que
+      **mientras esta línea no se pague, el agente contradice a la UI en el sentido contrario al
+      que documentaba #30.** Estado y medición en
+      [`../../CITAS/README.md`](../../CITAS/README.md).
 
 ## Preguntas abiertas
 

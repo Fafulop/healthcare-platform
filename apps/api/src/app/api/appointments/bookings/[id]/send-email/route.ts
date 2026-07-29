@@ -84,16 +84,20 @@ export async function POST(
       );
     }
 
-    // Destinatario: la copia de la CITA primero, y si viene vacía, la del EXPEDIENTE.
-    // La cita guarda lo que se escribió al agendar y NADIE la actualiza después: ninguna
-    // ruta escribe booking.patientEmail fuera de la creación. El expediente sí se edita
-    // (alta del paciente, edición del expediente, alta desde la cita), así que sin este
-    // fallback capturar el correo donde el doctor puede capturarlo no servía de nada —
-    // el botón seguía diciendo "Necesita correo" para siempre.
-    // trim() a los dos lados: el cliente ya lo hacía, y sin él un patientEmail de puros
-    // espacios es "truthy" aquí pero vacío allá — el botón ofrecería el correo del
-    // expediente y el servidor intentaría enviar a " ".
-    const destinatario = booking.patientEmail?.trim() || booking.patient?.email?.trim() || '';
+    // Destinatario: **el EXPEDIENTE manda, la copia de la CITA es el respaldo** (decisión
+    // 2026-07-29, cierra la bitácora #30 — el orden estaba al revés).
+    // La cita guarda lo que se escribió al agendar y NADIE la actualiza después: ninguna ruta
+    // escribe booking.patientEmail fuera de la creación. El expediente sí se edita (alta del
+    // paciente, edición del expediente, alta desde la cita, write-back del modal de agendar),
+    // así que con el orden viejo el dato VIVO no podía corregir al viejo: se editaba el correo
+    // en el expediente y esta ruta seguía enviando al de la cita.
+    // El `||` no es opcional: un expediente sin correo cae a la copia de la cita en vez de
+    // quedarse sin destinatario.
+    // trim() a los dos lados: sin él, un valor de puros espacios es "truthy" y se intentaría
+    // enviar a " ".
+    // ⚠️ MISMO orden que `lib/send-confirmation-email` y que `booking-contact.ts` en el cliente.
+    // Si divergen, el botón promete un envío que esta ruta rechaza — o al revés.
+    const destinatario = booking.patient?.email?.trim() || booking.patientEmail?.trim() || '';
     if (!destinatario) {
       return NextResponse.json(
         { success: false, error: 'El paciente no tiene correo registrado' },

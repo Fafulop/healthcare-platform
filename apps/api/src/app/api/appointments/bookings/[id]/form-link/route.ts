@@ -36,6 +36,8 @@ export async function POST(
         patientName: true,
         patientEmail: true,
         patientId: true,
+        // El correo del expediente: es el que MANDA (bitácora #30, decisión 2026-07-29).
+        patient: { select: { email: true } },
         formLink: {
           select: { id: true, status: true },
         },
@@ -55,6 +57,14 @@ export async function POST(
         { status: 403 }
       );
     }
+
+    // Correo que se guarda en el enlace: **el EXPEDIENTE manda, la cita es el respaldo** — el
+    // mismo orden que el resto de la app (bitácora #30, decisión 2026-07-29).
+    // Antes esto guardaba `booking.patientEmail` A SECAS, sin ningún respaldo: era el único de
+    // los tres flujos de enlace que no lo tenía, así que una cita sin correo creaba un
+    // formulario con destinatario VACÍO aunque el expediente sí lo trajera.
+    const correoDelPaciente =
+      booking.patient?.email?.trim() || booking.patientEmail?.trim() || '';
 
     if (booking.status !== 'CONFIRMED') {
       return NextResponse.json(
@@ -102,7 +112,7 @@ export async function POST(
           token,
           templateId,
           patientName: booking.patientName,
-          patientEmail: booking.patientEmail,
+          patientEmail: correoDelPaciente,
           patientId: booking.patientId ?? null,
         },
       });
@@ -125,7 +135,7 @@ export async function POST(
         bookingId,
         templateId,
         patientName: booking.patientName,
-        patientEmail: booking.patientEmail,
+        patientEmail: correoDelPaciente,
         patientId: booking.patientId ?? null,
       },
     });

@@ -211,6 +211,65 @@ Menores: vincular expediente sigue **sin ser obligatorio** pese a haber quitado 
 reagendar pierde `notes` · `calculateAge` off-by-one en ~7 archivos · `apps/doctor` sin ESLint ·
 `errorMsg` de `FiscalFormButton` se setea en 3 sitios y no se rinde en ninguno.
 
+## ✅ Decisión #30 — quién manda sobre el contacto (2026-07-29)
+
+**El EXPEDIENTE manda; la copia de la cita es el respaldo.** `patient.email || booking.patientEmail`.
+
+El orden estaba al revés, y eso hacía imposible que el dato VIVO corrigiera al viejo: la cita
+guarda lo que se capturó al agendar y **ninguna ruta la actualiza después**, mientras el
+expediente sí se edita. Consecuencia medida: **corregir el correo al crear el expediente desde
+una cita no tenía ningún efecto visible** — la fila seguía mostrando el viejo y el botón de
+confirmación seguía enviando ahí.
+
+Por qué el expediente, en los tres flujos que existen de verdad:
+
+| Flujo | Quién tiene el correo bueno |
+|---|---|
+| Recurrente ligado a un expediente | el del expediente |
+| Paciente nuevo | el expediente NACE con el de la cita ⇒ coinciden, y de ahí se edita en el expediente |
+| Paciente nuevo ligado después a un expediente que ya existía | el del expediente |
+
+**Dos reglas que van con la decisión:**
+- ⚠️ **El `||` no es opcional.** "El expediente manda" significa *cuando tiene valor*. Sin el
+  respaldo, un expediente creado por otro camino y sin correo tiraría a la basura uno utilizable.
+- ⚠️ **WhatsApp NO puede seguir la regla.** `Patient` no tiene columna de WhatsApp: ese número
+  existe solo en la cita. No es inconsistencia que haya que arreglar, es el esquema.
+
+**La copia de la cita queda como registro HISTÓRICO** de lo que se capturó al agendar — ya no se
+lee para enviar. No hay que "mantenerla sincronizada": eso reintroduciría la divergencia.
+
+**Medido antes de tocar nada** (368 citas): 304 sin expediente **no cambian** · 60 resuelven
+**igual** con cualquiera de los dos órdenes · **4 cambian de destinatario** (las cuatro de la
+cuenta de prueba, todas ya enviadas y en estado terminal) · **0 se quedan sin destinatario**.
+
+**Los SEIS sitios que se voltearon** — la lista importa, porque revisando salieron dos envíos al
+paciente que se habían quedado fuera:
+
+| Sitio | Qué resuelve |
+|---|---|
+| `lib/booking-contact.ts` | fila, link de pago, botón fiscal, modal pre-consulta |
+| `bookings/[id]/send-email` | confirmación manual |
+| `lib/send-confirmation-email` | confirmación automática al crear/confirmar |
+| `bookings/[id]/form-link` | el correo que se guarda en el formulario pre-consulta |
+| `cron/appointment-reminders` | **recordatorios** ← se había quedado fuera |
+| `bookings/[id]` (PATCH) | correo de **CANCELACIÓN** ← se había quedado fuera |
+
+Los dos últimos leían `patientEmail` **a secas**, así que **se SALTABAN** por completo a los
+pacientes cuyo correo solo vive en el expediente. Medido en los recordatorios: de 97 citas
+CONFIRMED pendientes de recordatorio, **3 pacientes REALES pasan a recibirlo** (antes, ninguno) y
+1 cambia de destinatario. ⚠️ Eso sí es un cambio hacia afuera sobre gente real —a diferencia de
+los 4 del correo de confirmación, que son de la cuenta de prueba— y es justo lo que el arreglo
+pretende: el doctor tenía los recordatorios prendidos y esos pacientes no los recibían.
+
+`form-link` además era **el único de los tres flujos de enlace sin respaldo**: guardaba
+`booking.patientEmail` a secas, así que una cita sin correo creaba un formulario con destinatario
+vacío aunque el expediente lo tuviera.
+
+🔻 **Falta el AGENTE.** `mapBooking` en `tools.ts` sigue devolviendo `b.patientEmail` a secas, así
+que hasta que se pague la deuda §8 el agente contradice a la UI — ahora **en el sentido
+contrario** al que documentaba #30. La corrección va con el orden NUEVO; las dos bitácoras están
+anotadas para que nadie implemente el viejo.
+
 ## Rarezas que NO son bugs (para no "arreglarlas" dos veces)
 
 - **"Esperando datos" aparece en TODAS las citas de ese paciente.** El enlace fiscal es del

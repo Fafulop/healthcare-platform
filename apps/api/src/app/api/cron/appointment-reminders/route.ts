@@ -46,6 +46,9 @@ export async function POST(request: Request) {
       ],
     },
     include: {
+      // El correo del expediente: es el que MANDA (bitácora #30, decisión 2026-07-29). Sin esto
+      // el recordatorio se SALTABA las citas cuyo correo vive solo en el expediente — 21 en prod.
+      patient: { select: { email: true } },
       slot: {
         select: {
           date: true,
@@ -90,8 +93,12 @@ export async function POST(request: Request) {
         continue;
       }
 
+      // Destinatario: el EXPEDIENTE manda, la copia de la cita es el respaldo — mismo orden que
+      // la confirmación (`send-email`, `send-confirmation-email`). Antes leía `patientEmail` a
+      // secas, así que una cita cuyo correo solo estaba en el expediente NO recibía recordatorio.
+      const destinatario = booking.patient?.email?.trim() || booking.patientEmail?.trim() || '';
       // Skip if no patient email
-      if (!booking.patientEmail) {
+      if (!destinatario) {
         skipped++;
         continue;
       }
@@ -154,7 +161,7 @@ export async function POST(request: Request) {
       await sendAppointmentReminderEmail(
         {
           patientName:      booking.patientName,
-          patientEmail:     booking.patientEmail,
+          patientEmail:     destinatario,
           doctorName:       booking.doctor.doctorFullName,
           specialty:        booking.doctor.primarySpecialty ?? null,
           date:             apptDate,
