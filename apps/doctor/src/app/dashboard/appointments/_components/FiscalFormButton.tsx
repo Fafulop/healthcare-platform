@@ -21,8 +21,20 @@ export function FiscalFormButton({ booking }: Props) {
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Don't show if no patient linked
-  if (!booking.patientId) return null;
+  // Sin expediente NO se puede pedir datos fiscales (el formulario escribe sobre el paciente).
+  // Antes esto devolvía null y el grupo entero desaparecía en silencio: el doctor marcaba
+  // "¿Necesita factura?" y no pasaba NADA visible. Ahora lo dice, igual que hace Cobro con su
+  // propio requisito — misma etiqueta a propósito, es el mismo bloqueo.
+  if (!booking.patientId) {
+    return (
+      <span
+        className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200 flex items-center gap-1"
+        title="Para pedir los datos fiscales, primero crea o vincula el expediente del paciente"
+      >
+        <FileText className="w-3 h-3" /> Requiere expediente
+      </span>
+    );
+  }
 
   // Los datos fiscales se DERIVAN del expediente que ya viaja en el payload — no se
   // recuerdan en estado local. Antes el chip verde solo aparecía tras hacer clic y recibir
@@ -100,14 +112,18 @@ export function FiscalFormButton({ booking }: Props) {
     );
   }
 
-  // Link ready — show copy + WhatsApp
+  // Enlace creado — chip de estado + compartir, igual que el link de pago activo. El chip no
+  // estaba y se perdía el hilo: quedaban dos botones sueltos sin decir de qué eran.
   if (state === 'link-ready') {
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className="text-xs px-2 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1">
+          <FileText className="w-3 h-3" /> Formulario creado
+        </span>
         <button
           onClick={handleCopy}
-          className="text-xs px-2 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 flex items-center gap-1"
-          title="Copiar enlace de facturación"
+          className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1"
+          title="Copiar enlace de datos fiscales"
         >
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           {copied ? 'Copiado' : 'Copiar'}

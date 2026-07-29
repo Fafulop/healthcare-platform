@@ -75,8 +75,8 @@ function StopClick({ children, className }: { children: React.ReactNode; classNa
 
 /**
  * Casilla "¿Necesita factura?" — intención POR CITA (`bookings.factura_solicitada`).
- * Desmarcada (null o false) = todo se comporta como siempre. Marcada = aparece el botón
- * de Facturación en el grupo Documentos para pedirle los datos fiscales al paciente.
+ * Desmarcada (null o false) = todo se comporta como siempre. Marcada = abre el grupo
+ * **Factura** (debajo de Cobro) para pedirle los datos fiscales al paciente.
  * Vive en el RESUMEN (fila colapsada) para poder marcarla sin abrir la cita, así que va
  * envuelta en StopClick: sin eso, marcarla también abriría/cerraría la fila.
  */
@@ -96,7 +96,7 @@ function FacturaCheckbox({
             ? "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100"
             : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
         }`}
-        title="Marca si esta cita necesita factura"
+        title="Al marcarla aparece el grupo Factura para pedirle los datos fiscales al paciente"
       >
         <input
           type="checkbox"
@@ -104,7 +104,7 @@ function FacturaCheckbox({
           onChange={(e) => onChange(booking.id, e.target.checked)}
           className="w-3.5 h-3.5 accent-teal-600 cursor-pointer"
         />
-        Factura
+        ¿Necesita factura?
       </label>
     </StopClick>
   );
@@ -454,7 +454,11 @@ export function BookingsSection({
                       <th className="w-8 py-2 px-3" aria-label="Acciones" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  {/* Sin `divide-y`: ponía la MISMA línea entre dos citas distintas y entre una
+                      cita y su propia fila desplegada, así que una cita abierta se leía como dos.
+                      Ahora el borde lo pone cada cita al final de su bloque (ver más abajo), y es
+                      lo bastante marcado para saber dónde termina una fila y empieza la otra. */}
+                  <tbody>
                     {filteredBookings.map((booking) => {
                       const bookingDate = booking.slot?.date ?? booking.date ?? "";
                       const endTime = booking.slot?.endTime ?? booking.endTime ?? undefined;
@@ -466,7 +470,11 @@ export function BookingsSection({
                         <Fragment key={booking.id}>
                         <tr
                           onClick={() => toggleExpanded(booking.id)}
-                          className={`cursor-pointer hover:bg-gray-50 ${isExpanded ? "bg-gray-50" : ""}`}
+                          /* El borde cierra la CITA, no la fila: abierta, la línea va hasta
+                             después del panel de acciones para que ambas se lean como una sola. */
+                          className={`cursor-pointer hover:bg-gray-50 ${
+                            isExpanded ? "bg-gray-50" : "border-b border-gray-200 last:border-b-0"
+                          }`}
                         >
                           <td className="py-3 px-3">
                             <p className="font-medium text-gray-900">{booking.patientName}</p>
@@ -547,7 +555,7 @@ export function BookingsSection({
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr className="bg-gray-50">
+                          <tr className="bg-gray-50 border-b border-gray-200 last:border-b-0">
                             <td colSpan={6} className="px-3 pb-3 pt-0">
                               <StatusActions
                                 booking={booking}
@@ -892,15 +900,18 @@ function StatusActions({
   // que el paciente ya contestó.
   const showFormularioButton =
     booking.status === "CONFIRMED" || booking.formLink?.status === "SUBMITTED";
-  // El botón de Facturación solo aparece si el doctor marcó la casilla "Factura" de ESTA
-  // cita. Desmarcada = la fila se comporta como siempre, sin nada de facturación.
-  // Además espeja el guard interno de FiscalFormButton (`if (!booking.patientId) return
-  // null`): sin expediente vinculado ese botón no rinde nada y el grupo quedaría como un
-  // encabezado "Documentos" vacío. Si aquel guard cambia, éste tiene que cambiar con él.
-  const showFiscalButton = !!booking.patientId && !!booking.facturaSolicitada;
+  // FACTURA es su propio grupo, justo debajo de Cobro: son los dos pasos de la MISMA cadena
+  // (cobrar la consulta y facturarla), y tenerlo metido en "Documentos" lo mezclaba con el
+  // formulario CLÍNICO pre-consulta, que no tiene nada que ver.
+  // La casilla "¿Necesita factura?" es la única llave: desmarcada, la fila se comporta como
+  // siempre. Ya NO se exige `patientId` aquí — sin expediente el propio botón dice "Requiere
+  // expediente", igual que Cobro, en vez de desaparecer sin explicación.
+  // Vive mientras la cita no sea terminal, y sobrevive a COMPLETADA por lo mismo que Cobro:
+  // completar significa "ya vi al paciente", no "se cerró el papeleo" (bitácora #29).
+  const showFacturaGroup = !!booking.facturaSolicitada && (!isTerminal || isCompleted);
+  // Documentos se queda SOLO con el formulario clínico.
   const showDocsGroup =
-    booking.status === "CONFIRMED" ||
-    (isCompleted && (showFiscalButton || booking.formLink?.status === "SUBMITTED"));
+    showFormularioButton && (booking.status === "CONFIRMED" || isCompleted);
   // Cobro: citas activas y COMPLETADAS siempre; canceladas/no-asistió solo con link PAGADO o
   // ACTIVO (un link viejo desactivado y no pagado NO debe reabrir el botón de crear sobre una
   // cita que nunca ocurrió). Ese guard se conserva tal cual para esos dos estados.
@@ -1025,7 +1036,7 @@ function StatusActions({
 
   const comunicacionGroup = showCommsGroup && (
         <div className="pt-2 first:pt-0">
-          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Confirmación</span>
+          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Confirmación cita</span>
           <div className="flex gap-1 flex-wrap">
             {!emailDestino ? (
               faltaContacto("correo")
@@ -1117,18 +1128,30 @@ function StatusActions({
         </div>
       );
 
+  // FACTURA — mismo patrón de estados que Cobro, un paso después en la misma cadena:
+  //   Cobro:   Requiere expediente · Link de pago · Link enviado + compartir · Pagado
+  //   Factura: Requiere expediente · Facturación  · Formulario creado + compartir · Datos fiscales
+  // El botón sigue llamándose "Facturación" a propósito: el prompt del agente lo nombra así
+  // ("el camino es el formulario fiscal al paciente — desde la cita, botón Facturación",
+  // modules/facturas.ts). Renombrarlo exige editar el prompt ⇒ suite completa de 81 casos.
+  const facturaGroup = showFacturaGroup && (
+        <div className="pt-2 first:pt-0">
+          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Factura</span>
+          <div className="flex gap-1 flex-wrap">
+            <FiscalFormButton booking={booking} />
+          </div>
+        </div>
+      );
+
   const documentosGroup = showDocsGroup && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Documentos</span>
           <div className="flex gap-1 flex-wrap">
-            {showFormularioButton && (
-              <FormularioStatusButton
-                booking={booking}
-                onCreateForm={() => onOpenFormLinkModal(booking)}
-                onDeleteForm={() => onDeleteFormLink(booking.id)}
-              />
-            )}
-            {showFiscalButton && <FiscalFormButton booking={booking} />}
+            <FormularioStatusButton
+              booking={booking}
+              onCreateForm={() => onOpenFormLinkModal(booking)}
+              onDeleteForm={() => onDeleteFormLink(booking.id)}
+            />
           </div>
         </div>
       );
@@ -1158,6 +1181,7 @@ function StatusActions({
           {estadoGroup}
           {comunicacionGroup}
           {cobroGroup}
+          {facturaGroup}
           {documentosGroup}
           {eliminarGroup}
         </div>
@@ -1182,6 +1206,7 @@ function StatusActions({
           <div className="flex flex-col gap-2 divide-y divide-gray-100">
             {comunicacionGroup}
             {cobroGroup}
+            {facturaGroup}
           </div>
         </td>
       </>
@@ -1196,6 +1221,7 @@ function StatusActions({
         {estadoGroup}
         {comunicacionGroup}
         {cobroGroup}
+        {facturaGroup}
         {documentosGroup}
         {eliminarGroup}
       </div>
