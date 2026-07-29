@@ -23,6 +23,23 @@ export function FiscalFormButton({ booking }: Props) {
   // Don't show if no patient linked
   if (!booking.patientId) return null;
 
+  // Los datos fiscales se DERIVAN del expediente que ya viaja en el payload — no se
+  // recuerdan en estado local. Antes el chip verde solo aparecía tras hacer clic y recibir
+  // un 409, así que al refrescar volvía a decir "Facturación" aunque el paciente SÍ tuviera
+  // datos. Misma condición que usa CompleteBookingModal para decidir si puede timbrar, y
+  // que el 409 del servidor (rfc + requiereFactura, fiscal-form-link/route.ts).
+  const p = booking.patient;
+  const hasFiscalData = !!(
+    p?.requiereFactura && p?.rfc && p?.razonSocial && p?.regimenFiscal && p?.usoCfdi && p?.codigoPostalFiscal
+  );
+  if (hasFiscalData) {
+    return (
+      <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 flex items-center gap-1">
+        <Check className="w-3 h-3" /> Datos fiscales
+      </span>
+    );
+  }
+
   async function handleCreateFiscalForm() {
     setState('loading');
     setErrorMsg('');

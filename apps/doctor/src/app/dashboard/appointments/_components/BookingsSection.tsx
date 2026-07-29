@@ -25,6 +25,7 @@ interface Props {
   shiftBookingFilterDate: (days: number) => void;
   onUpdateStatus: (id: string, status: string) => void;
   onUpdateExtendedBlock: (id: string, extendedBlockMinutes: number | null) => Promise<void>;
+  onUpdateFacturaSolicitada: (id: string, facturaSolicitada: boolean) => void;
   onUpdatePatientLink: (bookingId: string, patientId: string | null, patient: { id: string; firstName: string; lastName: string } | null) => void;
   onDeleteBooking: (id: string, patientName: string) => void;
   onOpenFormLinkModal: (booking: Booking) => void;
@@ -58,6 +59,43 @@ function StopClick({ children, className }: { children: React.ReactNode; classNa
   );
 }
 
+/**
+ * Casilla "¿Necesita factura?" — intención POR CITA (`bookings.factura_solicitada`).
+ * Desmarcada (null o false) = todo se comporta como siempre. Marcada = aparece el botón
+ * de Facturación en el grupo Documentos para pedirle los datos fiscales al paciente.
+ * Vive en el RESUMEN (fila colapsada) para poder marcarla sin abrir la cita, así que va
+ * envuelta en StopClick: sin eso, marcarla también abriría/cerraría la fila.
+ */
+function FacturaCheckbox({
+  booking,
+  onChange,
+}: {
+  booking: Booking;
+  onChange: (id: string, value: boolean) => void;
+}) {
+  const checked = !!booking.facturaSolicitada;
+  return (
+    <StopClick className="inline-flex">
+      <label
+        className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded border cursor-pointer transition-colors whitespace-nowrap ${
+          checked
+            ? "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100"
+            : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+        }`}
+        title="Marca si esta cita necesita factura"
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(booking.id, e.target.checked)}
+          className="w-3.5 h-3.5 accent-teal-600 cursor-pointer"
+        />
+        Factura
+      </label>
+    </StopClick>
+  );
+}
+
 function SortIcon({ column, sortColumn, sortDirection }: { column: SortColumn; sortColumn: SortColumn; sortDirection: SortDirection }) {
   if (column !== sortColumn) return <ChevronsUpDown className="w-3 h-3 opacity-40" />;
   return sortDirection === "asc"
@@ -79,6 +117,7 @@ export function BookingsSection({
   shiftBookingFilterDate,
   onUpdateStatus,
   onUpdateExtendedBlock,
+  onUpdateFacturaSolicitada,
   onUpdatePatientLink,
   onDeleteBooking,
   onOpenFormLinkModal,
@@ -305,6 +344,7 @@ export function BookingsSection({
                         {booking.isFirstTime === false && (
                           <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Recurrente</span>
                         )}
+                        <FacturaCheckbox booking={booking} onChange={onUpdateFacturaSolicitada} />
                       </div>
 
                       {/* Row 4: contact */}
@@ -446,6 +486,9 @@ export function BookingsSection({
                             <StopClick>
                               <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
                             </StopClick>
+                            <div className="mt-1.5">
+                              <FacturaCheckbox booking={booking} onChange={onUpdateFacturaSolicitada} />
+                            </div>
                           </td>
                           <td className="py-3 px-3">
                             <BookingStatusBadge
@@ -820,13 +863,15 @@ function StatusActions({
   // que el paciente ya contestó.
   const showFormularioButton =
     booking.status === "CONFIRMED" || booking.formLink?.status === "SUBMITTED";
-  // Espeja el guard interno de FiscalFormButton (`if (!booking.patientId) return null`): sin
-  // expediente vinculado ese botón no rinde nada, y el grupo quedaría como un encabezado
-  // "Documentos" vacío. Si aquel guard cambia, este tiene que cambiar con él.
-  const hasFiscalButton = !!booking.patientId;
+  // El botón de Facturación solo aparece si el doctor marcó la casilla "Factura" de ESTA
+  // cita. Desmarcada = la fila se comporta como siempre, sin nada de facturación.
+  // Además espeja el guard interno de FiscalFormButton (`if (!booking.patientId) return
+  // null`): sin expediente vinculado ese botón no rinde nada y el grupo quedaría como un
+  // encabezado "Documentos" vacío. Si aquel guard cambia, éste tiene que cambiar con él.
+  const showFiscalButton = !!booking.patientId && !!booking.facturaSolicitada;
   const showDocsGroup =
     booking.status === "CONFIRMED" ||
-    (isCompleted && (hasFiscalButton || booking.formLink?.status === "SUBMITTED"));
+    (isCompleted && (showFiscalButton || booking.formLink?.status === "SUBMITTED"));
   // Cobro: citas activas y COMPLETADAS siempre; canceladas/no-asistió solo con link PAGADO o
   // ACTIVO (un link viejo desactivado y no pagado NO debe reabrir el botón de crear sobre una
   // cita que nunca ocurrió). Ese guard se conserva tal cual para esos dos estados.
@@ -996,7 +1041,7 @@ function StatusActions({
                 onDeleteForm={() => onDeleteFormLink(booking.id)}
               />
             )}
-            <FiscalFormButton booking={booking} />
+            {showFiscalButton && <FiscalFormButton booking={booking} />}
           </div>
         </div>
       );

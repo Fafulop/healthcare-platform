@@ -342,6 +342,7 @@ export default function AppointmentsV2RangePage() {
         }}
         onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
+        onUpdateFacturaSolicitada={bookingsHook.updateFacturaSolicitada}
         onUpdatePatientLink={bookingsHook.updatePatientLink}
         onDeleteBooking={async (id, name) => {
           await bookingsHook.deleteBooking(id, name);

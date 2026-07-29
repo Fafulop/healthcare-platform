@@ -683,6 +683,12 @@ model Booking {
   // null = default (block only the slot's own duration). Set by doctor on CONFIRMED bookings.
   extendedBlockMinutes Int?        @map("extended_block_minutes")
 
+  // ¿Esta cita necesita factura? Casilla que el doctor marca por CITA — un mismo paciente
+  // puede necesitarla en unas y en otras no. null/false = no (comportamiento de siempre).
+  // OJO: NO es lo mismo que Patient.requiereFactura, que es del PACIENTE y lo escribe el
+  // formulario fiscal al recibirse ("ya entregó sus datos"). Éste es la intención por cita.
+  facturaSolicitada Boolean?       @map("factura_solicitada")
+
   // Reminder email (sent automatically 2h before appointment)
   reminderEmailSentAt      DateTime? @map("reminder_email_sent_at")
 

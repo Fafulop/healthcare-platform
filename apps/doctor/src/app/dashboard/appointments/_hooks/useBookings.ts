@@ -51,6 +51,9 @@ export interface Booking {
   meetLink?: string | null;
   isRescheduled?: boolean;
   extendedBlockMinutes?: number | null;
+  /** Casilla POR CITA. Distinto de patient.requiereFactura (ése es del PACIENTE y lo
+   *  escribe el formulario fiscal al recibirse). null = nunca se marcó = desmarcada. */
+  facturaSolicitada?: boolean | null;
   patientId?: string | null;
   patient?: {
     id: string;
@@ -168,6 +171,27 @@ export function useBookings(doctorId: string | undefined) {
       }
     } catch {
       toast.error("Error al vincular paciente");
+    }
+  };
+
+  const updateFacturaSolicitada = async (bookingId: string, facturaSolicitada: boolean) => {
+    // Optimista: la casilla debe responder al instante. Si el PATCH falla se revierte,
+    // porque dejarla marcada sin persistir haría creer al doctor que quedó registrado.
+    const prev = bookings.find((b) => b.id === bookingId)?.facturaSolicitada ?? null;
+    setBookings((bs) => bs.map((b) => (b.id === bookingId ? { ...b, facturaSolicitada } : b)));
+    try {
+      const response = await authFetch(
+        `${API_URL}/api/appointments/bookings/${bookingId}`,
+        { method: "PATCH", body: JSON.stringify({ facturaSolicitada }) }
+      );
+      const data = await response.json();
+      if (!data.success) {
+        setBookings((bs) => bs.map((b) => (b.id === bookingId ? { ...b, facturaSolicitada: prev } : b)));
+        toast.error(data.error || "Error al actualizar");
+      }
+    } catch {
+      setBookings((bs) => bs.map((b) => (b.id === bookingId ? { ...b, facturaSolicitada: prev } : b)));
+      toast.error("Error de conexión");
     }
   };
 
@@ -436,6 +460,7 @@ export function useBookings(doctorId: string | undefined) {
     updateBookingStatus,
     updatePatientLink,
     updateExtendedBlock,
+    updateFacturaSolicitada,
     completeBooking,
     emitCfdi,
     updateBookingPrice,

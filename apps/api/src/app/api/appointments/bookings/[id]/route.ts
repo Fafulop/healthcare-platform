@@ -105,7 +105,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status: newStatus, extendedBlockMinutes, patientId, confirmationCode: bodyConfirmationCode, finalPrice, income } = body;
+    const { status: newStatus, extendedBlockMinutes, patientId, confirmationCode: bodyConfirmationCode, finalPrice, income, facturaSolicitada } = body;
 
     // ── Patient link update (no status change, no block change) ───────────────
     if (patientId !== undefined && newStatus === undefined && extendedBlockMinutes === undefined) {
@@ -312,6 +312,45 @@ export async function PATCH(
         where: { id },
         data: { finalPrice: newPrice },
         select: { id: true, finalPrice: true },
+      });
+
+      return NextResponse.json({ success: true, data: updated });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── ¿Necesita factura? (casilla por cita) ─────────────────────────────────
+    // Sin restricción de estado a propósito: una cita puede necesitar factura antes
+    // (el paciente avisa al agendar) o después (lo pide al salir). Solo marca intención;
+    // no toca dinero, ni el expediente, ni emite nada.
+    if (
+      facturaSolicitada !== undefined &&
+      newStatus === undefined &&
+      extendedBlockMinutes === undefined &&
+      patientId === undefined &&
+      finalPrice === undefined
+    ) {
+      const auth = await validateAuthToken(request);
+      const { role: callerRole, doctorId: callerDoctorId } = auth;
+
+      const booking = await prisma.booking.findUnique({ where: { id } });
+      if (!booking) {
+        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+      }
+      if (callerRole === 'DOCTOR' && booking.doctorId !== callerDoctorId) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      }
+
+      if (typeof facturaSolicitada !== 'boolean') {
+        return NextResponse.json(
+          { success: false, error: 'facturaSolicitada debe ser booleano' },
+          { status: 400 }
+        );
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id },
+        data: { facturaSolicitada },
+        select: { id: true, facturaSolicitada: true },
       });
 
       return NextResponse.json({ success: true, data: updated });
