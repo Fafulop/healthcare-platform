@@ -1,6 +1,7 @@
 "use client";
 
-import { User, Mail, Phone, MessageSquare, Stethoscope, UserSquare2, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Mail, Phone, MessageSquare, Stethoscope, UserSquare2, X, Lock } from "lucide-react";
 import { InlinePatientSearch } from "../InlinePatientSearch";
 
 interface DoctorService {
@@ -40,7 +41,15 @@ interface Props {
   fieldSettings?: PatientFieldSettings;
   selectedPatientId: string | null;
   selectedPatientName: string;
-  onSelectPatient: (patient: { id: string; firstName: string; lastName: string } | null) => void;
+  onSelectPatient: (patient: { id: string; firstName: string; lastName: string; email: string | null; phone: string | null } | null) => void;
+  /**
+   * Lo que el EXPEDIENTE traía al seleccionarlo. Se bloquea SOLO lo que tiene valor: si el
+   * expediente no tiene correo no hay nada que proteger y el campo debe seguir escribible
+   * (si no, con `emailRequired` activo el doctor quedaría atrapado sin poder capturarlo).
+   * WhatsApp nunca se bloquea: el modelo Patient NO tiene esa columna, así que la cita es
+   * el único lugar donde ese número existe.
+   */
+  datosDelExpediente: { name: string; email: string; phone: string } | null;
 }
 
 export function PatientFormStep({
@@ -59,7 +68,21 @@ export function PatientFormStep({
   selectedPatientId,
   selectedPatientName,
   onSelectPatient,
+  datosDelExpediente,
 }: Props) {
+  // Escape del candado. Se reinicia al cambiar de paciente para que desbloquear a uno no
+  // deje abierto al siguiente.
+  const [contactoDesbloqueado, setContactoDesbloqueado] = useState(false);
+  useEffect(() => { setContactoDesbloqueado(false); }, [selectedPatientId]);
+
+  const bloqueado = (valor: string | undefined) =>
+    !!selectedPatientId && !contactoDesbloqueado && !!valor;
+  const nombreBloqueado = bloqueado(datosDelExpediente?.name);
+  const emailBloqueado = bloqueado(datosDelExpediente?.email);
+  const telBloqueado = bloqueado(datosDelExpediente?.phone);
+  const hayAlgoBloqueado = nombreBloqueado || emailBloqueado || telBloqueado;
+  const claseBloqueada = "bg-gray-50 text-gray-600 cursor-not-allowed";
+
   return (
     <div className="space-y-4">
       {services.length > 0 && (
@@ -177,7 +200,7 @@ export function PatientFormStep({
         </div>
       )}
 
-      {/* Modalidad */}
+      {/* Modalidad — después de saber QUIÉN es el paciente: servicio → quién → cómo se contacta */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Modalidad *</label>
         <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
@@ -203,17 +226,41 @@ export function PatientFormStep({
         </div>
       </div>
 
+      {/* Aviso del candado — pegado a los campos que describe, no suelto arriba.
+          Habla SOLO de correo y teléfono: el nombre también se bloquea, pero NO se
+          sincroniza de vuelta (Patient guarda firstName/lastName por separado y partir un
+          nombre completo es adivinar). Prometer que "todo" se guarda sería mentira. */}
+      {hayAlgoBloqueado && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100">
+          <Lock className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-blue-800 flex-1">
+            Estos datos vienen del expediente de {selectedPatientName}.{" "}
+            <button
+              type="button"
+              onClick={() => setContactoDesbloqueado(true)}
+              className="font-semibold underline hover:text-blue-900"
+            >
+              Editar
+            </button>{" "}
+            — el correo y el teléfono que cambies se actualizan también en el expediente.
+          </p>
+        </div>
+      )}
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
         <div className="relative">
           <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          {/* Sin autoFocus: el navegador lo desplazaba a la vista al abrir el modal y
+              empujaba Servicio y Tipo de visita arriba del pliegue — de ahí el "hay que
+              hacer scroll para arriba para ver los botones". */}
           <input
             type="text"
             required
-            autoFocus
+            readOnly={nombreBloqueado}
             value={formData.patientName}
             onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-            className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${nombreBloqueado ? claseBloqueada : ""}`}
             placeholder="Juan García"
           />
         </div>
@@ -228,9 +275,10 @@ export function PatientFormStep({
           <input
             type="email"
             required={fieldSettings.emailRequired}
+            readOnly={emailBloqueado}
             value={formData.patientEmail}
             onChange={(e) => setFormData({ ...formData, patientEmail: e.target.value })}
-            className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${emailBloqueado ? claseBloqueada : ""}`}
             placeholder="juan@email.com"
           />
         </div>
@@ -245,9 +293,10 @@ export function PatientFormStep({
           <input
             type="tel"
             required={fieldSettings.phoneRequired}
+            readOnly={telBloqueado}
             value={formData.patientPhone}
             onChange={(e) => setFormData({ ...formData, patientPhone: e.target.value })}
-            className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${telBloqueado ? claseBloqueada : ""}`}
             placeholder="5512345678"
           />
         </div>

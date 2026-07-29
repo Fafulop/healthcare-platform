@@ -181,10 +181,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
-    // Whitelist of fields that can be patched
+    // Whitelist of fields that can be patched.
+    // email/phone: el expediente es la fuente viva del contacto. Cuando el doctor agenda
+    // para un paciente existente, el modal precarga estos datos y si los EDITA se escriben
+    // de vuelta aquí — si no, corregir el correo al agendar dejaría al expediente
+    // desactualizado y volveríamos a tener dos valores para la misma persona.
     const allowed = [
       'requiereFactura', 'rfc', 'razonSocial', 'regimenFiscal',
       'usoCfdi', 'codigoPostalFiscal', 'constanciaFiscalUrl', 'constanciaFiscalName',
+      'email', 'phone',
     ];
     const data: Record<string, unknown> = {};
     for (const key of allowed) {

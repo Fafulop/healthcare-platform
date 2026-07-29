@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { X, Loader2, ChevronRight } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { toast } from "@/lib/practice-toast";
 import { getLocalDateString, formatLocalDate } from "@/lib/dates";
 import type { AppointmentSlot, ClinicLocation } from "../../_hooks/useSlots";
 import type { Booking } from "../../_hooks/useBookings";
@@ -97,6 +98,11 @@ export function BookPatientModal({
   // Patient link (for Recurrente bookings)
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [selectedPatientName, setSelectedPatientName] = useState<string>("");
+  // Contacto tal como estaba en el expediente al seleccionarlo. Sirve para dos cosas:
+  // precargar los campos (antes se quedaban vacíos y el doctor re-tecleaba o no ponía
+  // nada — de ahí salían las citas sin correo de pacientes que SÍ lo tenían) y detectar
+  // si el doctor lo EDITÓ, para escribirlo de vuelta al expediente.
+  const [patientContactAlSeleccionar, setPatientContactAlSeleccionar] = useState<{ name: string; email: string; phone: string } | null>(null);
 
   // Tracks whether this booking was a reschedule (captured at submit, stable for SuccessStep)
   const [wasRescheduled, setWasRescheduled] = useState(false);
@@ -164,6 +170,7 @@ export function BookPatientModal({
     setWasRescheduled(false);
     setSelectedPatientId(null);
     setSelectedPatientName("");
+    setPatientContactAlSeleccionar(null);
     setRangeSelection(null);
     setSlotMode("existing");
     setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, locationId: clinicLocations[0]?.id ?? "" });
@@ -262,6 +269,39 @@ export function BookPatientModal({
     setStep("form");
   };
 
+  /**
+   * Si el doctor EDITÓ el contacto precargado de un paciente existente, el expediente se
+   * actualiza: es la fuente viva del dato. Sin esto, corregir el correo al agendar lo
+   * dejaría solo en la cita —que nadie vuelve a leer— y el expediente seguiría con el
+   * viejo, que es justo cómo se acumulan dos correos para la misma persona.
+   *
+   * Se llama SOLO cuando la cita ya se creó: si se hiciera antes, un conflicto de horario
+   * dejaría el expediente actualizado sin cita. La corrección no se pierde en ese caso —
+   * sigue en el formulario para el reintento.
+   *
+   * No se espera (`await`) a propósito: es secundario y no debe retrasar la pantalla de
+   * éxito. Un fallo avisa, no rompe.
+   */
+  const sincronizarContactoConExpediente = () => {
+    if (!selectedPatientId || !patientContactAlSeleccionar) return;
+    const email = formData.patientEmail.trim();
+    const phone = formData.patientPhone.trim();
+    const cambios: Record<string, string> = {};
+    if (email && email !== patientContactAlSeleccionar.email) cambios.email = email;
+    if (phone && phone !== patientContactAlSeleccionar.phone) cambios.phone = phone;
+    if (Object.keys(cambios).length === 0) return;
+
+    fetch(`/api/medical-records/patients/${selectedPatientId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cambios),
+    })
+      .then((r) => { if (!r.ok) throw new Error("patch falló"); })
+      .catch(() => {
+        toast.error("La cita se agendó, pero no se pudo actualizar el contacto en el expediente");
+      });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -306,6 +346,7 @@ export function BookPatientModal({
           return;
         }
 
+        sincronizarContactoConExpediente();
         setWasRescheduled(false);
         setStep("success");
         onSuccess(data.data.id);
@@ -351,6 +392,7 @@ export function BookPatientModal({
           return;
         }
 
+        sincronizarContactoConExpediente();
         setWasRescheduled(!!rescheduleBooking);
         setStep("success");
         onSuccess(data.data.id);
@@ -518,9 +560,26 @@ export function BookPatientModal({
                 fieldSettings={rangeMode || slotMode === "new" ? instantSettings : horariosSettings}
                 selectedPatientId={selectedPatientId}
                 selectedPatientName={selectedPatientName}
+                datosDelExpediente={patientContactAlSeleccionar}
                 onSelectPatient={(p) => {
                   setSelectedPatientId(p?.id ?? null);
                   setSelectedPatientName(p ? `${p.firstName} ${p.lastName}` : "");
+                  if (p) {
+                    const name = `${p.firstName} ${p.lastName}`.trim();
+                    const email = p.email ?? "";
+                    const phone = p.phone ?? "";
+                    setPatientContactAlSeleccionar({ name, email, phone });
+                    // Solo se precarga lo que el expediente TIENE: si viene vacío no se
+                    // pisa lo que el doctor ya hubiera escrito a mano.
+                    setFormData((f) => ({
+                      ...f,
+                      patientName: name || f.patientName,
+                      patientEmail: email || f.patientEmail,
+                      patientPhone: phone || f.patientPhone,
+                    }));
+                  } else {
+                    setPatientContactAlSeleccionar(null);
+                  }
                 }}
               />
             </form>

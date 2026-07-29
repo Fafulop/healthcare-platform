@@ -13,7 +13,9 @@ interface PatientResult {
 }
 
 interface Props {
-  onSelect: (patient: { id: string; firstName: string; lastName: string }) => void;
+  // email/phone viajan porque la búsqueda YA los trae: quien agenda para un paciente
+  // existente necesita precargar su contacto en vez de re-teclearlo (o dejarlo vacío).
+  onSelect: (patient: { id: string; firstName: string; lastName: string; email: string | null; phone: string | null }) => void;
 }
 
 export function InlinePatientSearch({ onSelect }: Props) {
@@ -62,7 +64,7 @@ export function InlinePatientSearch({ onSelect }: Props) {
   }, []);
 
   const handleSelect = (patient: PatientResult) => {
-    onSelect({ id: patient.id, firstName: patient.firstName, lastName: patient.lastName });
+    onSelect({ id: patient.id, firstName: patient.firstName, lastName: patient.lastName, email: patient.email, phone: patient.phone });
     setQuery("");
     setOpen(false);
     setResults([]);
