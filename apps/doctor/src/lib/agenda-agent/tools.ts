@@ -469,6 +469,9 @@ async function getBookingDetail(ctx: ToolContext, input: { bookingId: string }) 
       patientEmail: true,
       patientPhone: true,
       patientWhatsapp: true,
+      // Contacto VIVO del expediente: es el que MANDA sobre la copia de la cita
+      // (decisión 2026-07-29 — cierra la bitácora #30). Ver el bloque de abajo.
+      patient: { select: { email: true, phone: true } },
       notes: true,
       finalPrice: true,
       confirmationCode: true,
@@ -482,9 +485,31 @@ async function getBookingDetail(ctx: ToolContext, input: { bookingId: string }) 
   if (!b) return { error: 'Cita no encontrada' };
   return {
     ...mapBooking(b),
-    email: b.patientEmail,
-    telefono: b.patientPhone,
-    whatsapp: b.patientWhatsapp ?? null,
+    // CONTACTO: **el EXPEDIENTE manda, la copia de la cita es el respaldo.**
+    //
+    // La cita guarda lo que se capturó al agendar y NINGUNA ruta la actualiza después; el
+    // expediente sí se edita. Antes esto devolvía `b.patientEmail` a secas, así que el agente
+    // reportaba el dato viejo mientras la fila, la confirmación, el link de pago, el
+    // recordatorio y el correo de cancelación ya resolvían por el expediente (`1abd06c5`):
+    // el agente decía "esta cita no tiene correo" y el botón de la UI enviaba sin problema.
+    //
+    // 🚫 NO invertir esto siguiendo la bitácora #30: esa fila especifica
+    // `patientEmail ?? patient.email` — el orden VIEJO, el del servidor de ENTONCES. Está
+    // anotada como corregida. El orden bueno es éste, el mismo de `lib/booking-contact.ts`.
+    //
+    // ⚠️ El `||` no es opcional: "el expediente manda" significa CUANDO TIENE VALOR. Sin el
+    // respaldo, un expediente sin correo haría que el agente reportara "sin correo" en una cita
+    // que sí lo trae.
+    //
+    // ⚠️ WhatsApp NO sigue la regla: `Patient` no tiene esa columna, ese número existe SOLO en
+    // la cita. No es inconsistencia, es el esquema.
+    // Los TRES normalizan "vacío" al MISMO valor (`null`). Antes `email` y `telefono` eran
+    // `string` y devolvían `""` cuando no había dato, mientras `whatsapp` devolvía `""` o `null`
+    // según el caso: tres campos vecinos con dos convenciones para "no hay". `null` en los tres
+    // es una sola señal para el modelo.
+    email: b.patient?.email?.trim() || b.patientEmail?.trim() || null,
+    telefono: b.patient?.phone?.trim() || b.patientPhone?.trim() || null,
+    whatsapp: b.patientWhatsapp?.trim() || null,
     notas: b.notes ?? null,
     precio: Number(b.finalPrice),
     codigoConfirmacion: b.confirmationCode,
