@@ -5,6 +5,7 @@ import { FileText, Loader2, Copy, Check, MessageCircle } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
 import type { Booking } from '../_hooks/useBookings';
+import { waNumber } from '@/lib/whatsapp';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -82,10 +83,10 @@ export function FiscalFormButton({ booking }: Props) {
 
   function handleWhatsApp() {
     const message = `Hola ${booking.patientName}, te envío este enlace para que registres tus datos de facturación: ${formUrl}`;
-    const phone = booking.patientWhatsapp || booking.patientPhone;
-    const cleanPhone = phone?.replace(/\D/g, '') || '';
+    // waNumber en vez de un replace(/\D/g,'') suelto: sin lada de país el enlace wa.me
+    // no abre nada, y en prod 46 citas guardan el teléfono a 10 dígitos.
     window.open(
-      `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`,
+      `https://wa.me/${waNumber(booking.patientWhatsapp || booking.patientPhone)}?text=${encodeURIComponent(message)}`,
       '_blank'
     );
   }
@@ -111,7 +112,10 @@ export function FiscalFormButton({ booking }: Props) {
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           {copied ? 'Copiado' : 'Copiar'}
         </button>
-        {(booking.patientWhatsapp || booking.patientPhone) && (
+        {/* El gate usa waNumber, no la verdad cruda del campo: con un número basura
+            (hay registros de 5 a 8 dígitos) waNumber devuelve "" y el enlace quedaría
+            como wa.me/ sin destinatario. Sin número usable, sin botón. */}
+        {waNumber(booking.patientWhatsapp || booking.patientPhone) && (
           <button
             onClick={handleWhatsApp}
             className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 flex items-center gap-1"
