@@ -30,6 +30,10 @@
 
 ## B. Fila desplegable
 
+- [ ] **B-0.** ⭐ **Separación entre citas** (`6b555447`). Colapsadas, la línea entre una cita y
+      la siguiente se ve. **Abierta**, la cita se lee como UN bloque (fila sombreada + panel de
+      acciones + UNA línea que cierra abajo), no como dos citas. Y la **última** cita de la lista
+      no debe cerrar con una línea suelta.
 - [ ] **B-1.** Clic en la fila abre/cierra; el chevron también, y con **teclado** (Tab + Enter).
 - [ ] **B-2.** Editar precio, vincular expediente o marcar Factura desde la fila colapsada **no**
       la abre/cierra.
@@ -105,14 +109,48 @@ servidor. Si divergen, el botón promete un envío que la API rechaza — o al r
       ledger **conserva la `formaDePago` original**. No tocar.
 - [ ] **F-6.** CANCELLED / NO_SHOW: Cobro **solo** con link PAGADO o ACTIVO. Aparece **Eliminar**.
 
-## G. Casilla Factura
+## G. ¿Necesita factura? y el grupo FACTURA
 
 - [ ] **G-1.** Marcar persiste tras recargar; si el PATCH falla, **revierte**.
-- [ ] **G-2.** Marcada **+ expediente** ⇒ botón de Datos fiscales. **Sin** expediente ⇒ ni botón
-      ni grupo Documentos vacío.
-- [ ] **G-3.** Desmarcada ⇒ la fila se comporta como antes de esta feature.
-- [ ] ⚠️ **G-4.** El agente **ignora** esta casilla (deuda ya anotada, FACTURAS §8.1). Confirmar
+- [ ] **G-2.** Marcada ⇒ aparece el grupo **Factura**, **debajo de Cobro** (ya NO dentro de
+      Documentos). Desmarcada ⇒ la fila se comporta como antes de esta feature.
+- [ ] **G-3.** ⭐ **Marcada SIN expediente** ⇒ dice **"Requiere expediente"** — la misma etiqueta
+      que usa Cobro. Antes no aparecía NADA y el doctor se quedaba sin saber qué faltaba.
+- [ ] **G-4.** Con expediente y sin datos fiscales ⇒ botón **Facturación** → al crearlo, chip
+      **"Esperando datos"** + Copiar + WhatsApp.
+- [ ] **G-5.** ⭐⭐ **La falla silenciosa que se arregló (`eed733c2`) — el caso más importante de
+      esta sección.** Crea el enlace, **copia la URL a un lado**, y **refresca la página**:
+      1. el botón debe seguir diciendo **"Esperando datos"**, NO volver a "Facturación";
+      2. vuelve a hacer clic y **la URL debe ser la MISMA** que guardaste, con un toast que diga
+         que es el mismo enlace y sigue sirviendo.
+      Antes: refrescar borraba el estado y el siguiente clic **invalidaba el enlace que el
+      paciente ya tenía**, sin avisar a nadie.
+- [ ] **G-6.** Cuando el paciente envía sus datos ⇒ el chip pasa a **"Datos fiscales"** verde.
+- [ ] **G-7.** ⚠️ **"Esperando datos" sale en TODAS las citas de ese paciente** — el enlace es
+      del PACIENTE, no de la cita. Es correcto; confirmar, no "arreglar".
+- [ ] **G-8.** **Regenerar** un enlace fiscal **no tiene camino en la UI** todavía (el endpoint
+      lo acepta, ningún botón lo manda). Confirmar que no hace falta para operar.
+- [ ] **G-9.** El grupo **Documentos** queda SOLO con el formulario clínico, y no se rinde vacío.
+- [ ] ⚠️ **G-10.** El agente **ignora** esta casilla (deuda ya anotada, FACTURAS §8.1). Confirmar
       y seguir.
+
+## G2. Compartir enlaces — el destinatario
+
+- [ ] **G2-1.** ⭐ **El formulario pre-consulta ya manda a ALGUIEN** (`eed733c2`). Abrir el modal
+      **Formulario** en una cita con teléfono → WhatsApp abre **con el paciente ya seleccionado**.
+      Antes iba `wa.me/?text=…` sin destinatario: abría WhatsApp vacío y el doctor lo daba por
+      enviado.
+- [ ] **G2-2.** Cita **sin** número usable ⇒ en vez del botón verde dice **"Sin WhatsApp — copia
+      el enlace"**, y el botón **Copiar** sigue ahí. Igual en el botón fiscal: **"Sin WhatsApp"**
+      con su tooltip, en vez de esconderse.
+- [ ] **G2-3.** ⭐ **Teléfono que vive SOLO en el expediente** (no en la cita): la fila lo muestra
+      **y** el botón de WhatsApp funciona. Antes la fila lo mostraba y el botón se escondía
+      diciendo que no había número — se resolvía de dos maneras distintas
+      (`lib/booking-contact.ts` lo unificó).
+- [ ] **G2-4.** El modal pre-consulta avisa *"Ya existe un enlace activo. Generar uno nuevo
+      invalidará el anterior."* antes de regenerar.
+- [ ] **G2-5.** ❌ **Correo: NO existe** en ninguno de los tres enlaces. Confirmar que es así y no
+      buscarlo (pendiente #2 del README, bloqueado por la decisión #30).
 
 ## H. Expediente y bloqueo de horario
 
@@ -120,11 +158,20 @@ servidor. Si divergen, el botón promete un envío que la API rechaza — o al r
 - [ ] **H-2.** Sin expediente se ofrecen **siempre las dos** opciones (buscar y crear), incluidas
       las citas del **agente** (`isFirstTime` null), que antes rendían un "—" muerto.
 - [ ] **H-2b.** **Duplicado por correo.** En **+ Crear expediente**, con un correo que YA es de
-      otro expediente **activo**, sale el aviso ámbar nombrándolo + **"Vincular ese expediente"**.
-      ⚠️ Solo aparece en citas **SIN** expediente (con expediente no hay botón de crear) y el
-      match es **exacto**: un correo con typo no dispara nada. Es **aviso, NO bloqueo** —
-      "Crear y vincular" sigue habilitado (cuatro expedientes comparten un correo en prod a
-      propósito: familias, cuidadores).
+      otro expediente **activo**, sale el aviso ámbar nombrándolo + **"Vincular ese expediente"**
+      y **"(y N más con ese correo)"** si hay varios. ⚠️ Solo aparece en citas **SIN** expediente
+      (con expediente no hay botón de crear) y el match es **exacto**: un correo con typo no
+      dispara nada — ya pasó en la primera prueba en vivo. Es **aviso, NO bloqueo**: "Crear y
+      vincular" sigue habilitado (cuatro expedientes comparten un correo en prod a propósito).
+- [ ] **H-2c.** Mismo aviso en **`Expedientes → nuevo paciente`**: lista TODOS los expedientes
+      con ese correo como links. Y en **Editar** un paciente existente **NO** debe salir (haría
+      match consigo mismo).
+- [ ] **H-2d.** ⭐ **Primera vez NO ofrece buscar expediente** (`4eb117da`). En una cita marcada
+      Primera vez y sin expediente, la fila muestra **solo "+ Crear expediente"** más un enlace
+      gris *"¿Ya tiene expediente?"* que despliega el buscador al hacer clic. En **Recurrente** y
+      en las citas del **agente** (`isFirstTime` null) siguen apareciendo las dos opciones — ese
+      caso null llegó a rendir un "—" muerto, así que vale probarlo.
+- [ ] **H-2e.** El enlace *"¿Ya tiene expediente?"* **no** abre/cierra la fila (va en StopClick).
 - [ ] **H-3.** El bloqueo solo aparece en CONFIRMED y al expandir. Fin ≤ inicio ⇒ **OK
       deshabilitado con tooltip**. **Vaciar** el campo **no** borra el bloqueo guardado.
 - [ ] **H-4.** El bloqueo se refleja en la disponibilidad: ese rango deja de ofrecerse.
