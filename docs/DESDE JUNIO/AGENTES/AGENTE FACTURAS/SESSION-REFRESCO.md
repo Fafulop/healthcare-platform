@@ -387,6 +387,24 @@ siguientes, en el orden que el usuario los tiene en mente:
    descargas. La tabla de citas se queda con **intención** (*¿necesita factura?*, por CITA) y
    **captación de datos fiscales** (por PACIENTE); cuando los datos están listos, enlaza al
    expediente para emitir. Diseño en curso — ver bitácora #29.
+8. **⚠️ Deuda de AGENTE acumulada — tres arreglos chicos que comparten UNA corrida de evals
+   (abierto 2026-07-29):** los tres tocan código del agente, así que cada uno por su cuenta
+   invalidaría el caché del prompt del dueño y exigiría la suite completa de 81 casos. Se
+   agrupan a propósito; hacerlos sueltos es pagar esa corrida tres veces.
+   1. **`get_pendientes_factura` ignora la casilla *Factura* por cita.** La tabla de citas ya
+      guarda la intención por CITA (`bookings.factura_solicitada`, `71e4f390`), pero el barrido
+      sigue reportando como pendiente cualquier ingreso sin factura ⇒ el agente contradice al
+      doctor que marcó explícitamente que esa consulta no lleva factura.
+   2. **`formulariosPreConsulta` cuenta los formularios FISCALES.** `modules/expediente.ts`
+      agrupa `appointmentFormLink` por paciente SIN filtrar `templateId = 'FISCAL'`, y el
+      formulario fiscal vive en esa misma tabla con ese centinela. **9 pacientes** con el conteo
+      inflado en prod. Arreglo: una línea en el `where`. El resto de la app sí distingue el
+      centinela (`patients/[id]/formularios` lo etiqueta "Datos Fiscales").
+   3. **`get_booking_detail` devuelve el contacto de la CITA, no el del expediente** — bitácora
+      #30 en [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md).
+      Desde `97afcd14` la UI resuelve cita→expediente y el agente no, así que en las 20 citas
+      cuyo correo vive solo en el expediente el agente dice que no hay correo mientras el botón
+      de la UI envía sin problema.
 
 ## Preguntas abiertas
 
