@@ -59,6 +59,10 @@ export interface Booking {
     id: string;
     firstName: string;
     lastName: string;
+    /** Contacto VIVO del expediente — respaldo de la copia de la cita, que solo se
+     *  escribe al agendar y nunca se actualiza después. */
+    email?: string | null;
+    phone?: string | null;
     requiereFactura?: boolean;
     rfc?: string | null;
     razonSocial?: string | null;
@@ -163,9 +167,15 @@ export function useBookings(doctorId: string | undefined) {
       );
       const data = await response.json();
       if (data.success) {
+        // Optimista para que la fila responda al instante...
         setBookings((prev) =>
           prev.map((b) => b.id === bookingId ? { ...b, patientId, patient } : b)
         );
+        // ...pero el objeto viene de la BÚSQUEDA de pacientes y solo trae
+        // id/nombre/correo/teléfono: sin los campos fiscales. La UI ahora DERIVA de ellos
+        // ("Datos fiscales" en verde), así que sin este refetch un paciente con datos
+        // fiscales completos se vería como si no los tuviera hasta la siguiente carga.
+        fetchBookings();
       } else {
         toast.error(data.error || "Error al vincular paciente");
       }

@@ -12,6 +12,8 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: {
+      // Respaldo del destinatario: la copia de la cita solo se escribe al agendar.
+      patient: { select: { email: true } },
       slot: {
         select: {
           date: true,
@@ -41,7 +43,9 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
     },
   });
 
-  if (!booking?.patientEmail) return;
+  // Mismo respaldo que la ruta manual: cita primero, expediente si la cita no lo trae.
+  const destinatario = booking?.patientEmail?.trim() || booking?.patient?.email?.trim() || "";
+  if (!booking || !destinatario) return;
   if (!booking.doctor.user?.googleAccessToken || !booking.doctor.user?.email) return;
 
   const { accessToken, refreshToken, updatedToken } = await resolveTokens(booking.doctor.user);
@@ -103,7 +107,7 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
   await sendAppointmentConfirmationEmail(
     {
       patientName: booking.patientName,
-      patientEmail: booking.patientEmail,
+      patientEmail: destinatario,
       doctorName: booking.doctor.doctorFullName,
       specialty: booking.doctor.primarySpecialty ?? null,
       date,

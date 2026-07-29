@@ -30,6 +30,9 @@ export async function POST(
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
+        // El expediente es la fuente viva del contacto; la copia de la cita es de cuando
+        // se agendó y nunca se actualiza. Se usa como respaldo del destinatario.
+        patient: { select: { email: true } },
         slot: {
           select: {
             date: true,
@@ -81,7 +84,17 @@ export async function POST(
       );
     }
 
-    if (!booking.patientEmail) {
+    // Destinatario: la copia de la CITA primero, y si viene vacía, la del EXPEDIENTE.
+    // La cita guarda lo que se escribió al agendar y NADIE la actualiza después: ninguna
+    // ruta escribe booking.patientEmail fuera de la creación. El expediente sí se edita
+    // (alta del paciente, edición del expediente, alta desde la cita), así que sin este
+    // fallback capturar el correo donde el doctor puede capturarlo no servía de nada —
+    // el botón seguía diciendo "Necesita correo" para siempre.
+    // trim() a los dos lados: el cliente ya lo hacía, y sin él un patientEmail de puros
+    // espacios es "truthy" aquí pero vacío allá — el botón ofrecería el correo del
+    // expediente y el servidor intentaría enviar a " ".
+    const destinatario = booking.patientEmail?.trim() || booking.patient?.email?.trim() || '';
+    if (!destinatario) {
       return NextResponse.json(
         { success: false, error: 'El paciente no tiene correo registrado' },
         { status: 400 }
@@ -186,7 +199,7 @@ export async function POST(
       await sendAppointmentConfirmationEmail(
         {
           patientName: booking.patientName,
-          patientEmail: booking.patientEmail,
+          patientEmail: destinatario,
           doctorName: booking.doctor.doctorFullName ?? doctor.doctorFullName,
           specialty: booking.doctor.primarySpecialty ?? null,
           date,
@@ -234,7 +247,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: `Correo de confirmación enviado a ${booking.patientEmail}`,
+      message: `Correo de confirmación enviado a ${destinatario}`,
       sentAt: sentAt.toISOString(),
       meetLink: meetLink ?? undefined,
     });

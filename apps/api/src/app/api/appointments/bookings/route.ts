@@ -550,6 +550,11 @@ export async function GET(request: Request) {
         patient: {
           select: {
             id: true,
+            // Contacto VIVO del expediente. La copia de la cita solo se escribe al
+            // agendar y nadie la actualiza después, así que la UI la usa de respaldo
+            // para decidir si puede mandar la confirmación.
+            email: true,
+            phone: true,
             firstName: true,
             lastName: true,
             requiereFactura: true,

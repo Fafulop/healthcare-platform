@@ -1,4 +1,4 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2, X, Pencil, ExternalLink } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, CheckCircle, Send, Loader2, CalendarClock, Video, Clock, UserSquare2, X, Pencil, ExternalLink, AlertCircle, MessageCircle } from "lucide-react";
 import { useState, useEffect, Fragment } from "react";
 import Link from "next/link";
 import { InlinePatientSearch } from "./InlinePatientSearch";
@@ -8,6 +8,7 @@ import { FiscalFormButton } from "./FiscalFormButton";
 import { PaymentLinkButton } from "@/components/payments/PaymentLinkButton";
 import { CompleteBookingModal } from "./CompleteBookingModal";
 import { formatLocalDate, getLocalDateString } from "@/lib/dates";
+import { waNumber } from "@/lib/whatsapp";
 import { BookingStatusBadge } from "./BookingStatusBadge";
 import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
 
@@ -946,64 +947,114 @@ function StatusActions({
         </div>
       );
 
+  // CONFIRMACIÓN — dos canales para el MISMO mensaje: la confirmación de la cita.
+  //
+  // Correo: el envío es automático al crear/confirmar la cita
+  // (lib/send-confirmation-email, enchufado en las 5 rutas de creación), pero solo ocurre
+  // si hay correo Y el doctor tiene Gmail conectado. Medido en prod sobre las 104 citas
+  // CONFIRMED: 54 con envío, 33 sin correo siquiera, y 17 CON correo y sin envío. Por eso
+  // "Enviar" sigue existiendo — no es una opción de diseño, son 17 citas reales que si no
+  // mostrarían un "Reenviar" que no reenvía nada.
+  //
+  // WhatsApp: NO hay API — es un enlace wa.me que abre el chat con el mensaje listo y el
+  // doctor presiona enviar. Por eso nunca dice "reenviar" ni tiene estado de "ya enviado":
+  // nada de nuestro lado se entera de que se mandó.
+  // Cita primero, expediente de respaldo — MISMO orden que resuelve el servidor
+  // (send-email/route.ts y lib/send-confirmation-email.ts). Si divergen, el botón
+  // prometería un envío que la API rechaza, o al revés.
+  const emailDestino = booking.patientEmail?.trim() || booking.patient?.email?.trim() || "";
+  const waDestino = waNumber(booking.patientWhatsapp || booking.patientPhone || booking.patient?.phone);
+  const yaEnviado = !!booking.confirmationEmailSentAt;
+  const ultimoEnvio = booking.confirmationEmailSentAt
+    ? new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+    : null;
+  const esTelemedicina = booking.appointmentMode === "TELEMEDICINA";
+
+  // El dato de contacto vive en el expediente, así que "Necesita …" lleva ahí. Sin
+  // expediente vinculado no hay a dónde ir: queda informativo y dice qué hacer antes.
+  const faltaContacto = (que: string) =>
+    booking.patientId ? (
+      <Link
+        href={`/dashboard/medical-records/patients/${booking.patientId}`}
+        className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200 hover:text-gray-700 flex items-center gap-1"
+        title={`Agrega ${que} en el expediente del paciente`}
+      >
+        <AlertCircle className="w-3 h-3" /> Necesita {que}
+      </Link>
+    ) : (
+      <span
+        className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-400 border border-gray-200 flex items-center gap-1"
+        title={`Vincula el expediente para poder capturar ${que}`}
+      >
+        <AlertCircle className="w-3 h-3" /> Necesita {que}
+      </span>
+    );
+
+  const mensajeWhatsApp = [
+    `Hola ${booking.patientName}, te confirmamos tu cita`,
+    bookingDate ? ` el ${formatLocalDate(bookingDate, { weekday: "long", day: "numeric", month: "long" })}` : "",
+    booking.slot?.startTime ?? booking.startTime ? ` a las ${booking.slot?.startTime ?? booking.startTime}` : "",
+    ".",
+    booking.meetLink ? ` Enlace de la videoconsulta: ${booking.meetLink}` : "",
+  ].join("");
+
   const comunicacionGroup = showCommsGroup && (
         <div className="pt-2 first:pt-0">
-          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Comunicación</span>
+          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Confirmación</span>
           <div className="flex gap-1 flex-wrap">
-            {booking.appointmentMode === "TELEMEDICINA" ? (
-              <>
-                <button
-                  onClick={handleSendEmail}
-                  disabled={isSendingEmail}
-                  title={
-                    booking.meetLink
-                      ? `Meet creado · ${booking.confirmationEmailSentAt ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Enviar correo con enlace Google Meet al paciente"}`
-                      : "Crear Google Meet y enviar correo al paciente"
-                  }
-                  className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isSendingEmail ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : booking.meetLink ? (
-                    <CheckCircle className="w-3 h-3 text-blue-600" />
-                  ) : (
-                    <Video className="w-3 h-3" />
-                  )}
-                  {isSendingEmail ? "Enviando..." : booking.meetLink ? "Reenviar Meet" : "Enviar Meet"}
-                </button>
-                {booking.meetLink && (
-                  <a
-                    href={booking.meetLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 flex items-center gap-1"
-                    title="Abrir Google Meet"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    Entrar a Meet
-                  </a>
-                )}
-              </>
+            {!emailDestino ? (
+              faltaContacto("correo")
             ) : (
               <button
                 onClick={handleSendEmail}
                 disabled={isSendingEmail}
                 title={
-                  booking.confirmationEmailSentAt
-                    ? `Último envío: ${new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-                    : "Enviar correo de confirmación al paciente"
+                  ultimoEnvio
+                    ? `Último envío: ${ultimoEnvio}${esTelemedicina && booking.meetLink ? " · Meet creado" : ""}`
+                    : esTelemedicina
+                      ? "Crear Google Meet y enviar la confirmación al paciente"
+                      : "Enviar la confirmación de la cita al paciente"
                 }
                 className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSendingEmail ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
-                ) : booking.confirmationEmailSentAt ? (
+                ) : yaEnviado ? (
                   <CheckCircle className="w-3 h-3 text-teal-600" />
+                ) : esTelemedicina ? (
+                  <Video className="w-3 h-3" />
                 ) : (
                   <Send className="w-3 h-3" />
                 )}
-                {isSendingEmail ? "Enviando..." : booking.confirmationEmailSentAt ? "Reenviar" : "Correo"}
+                {isSendingEmail ? "Enviando..." : yaEnviado ? "Reenviar confirmación" : "Enviar confirmación"}
               </button>
+            )}
+
+            {!waDestino ? (
+              faltaContacto("WhatsApp")
+            ) : (
+              <a
+                href={`https://wa.me/${waDestino}?text=${encodeURIComponent(mensajeWhatsApp)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 flex items-center gap-1"
+                title="Abre WhatsApp con la confirmación lista para enviar"
+              >
+                <MessageCircle className="w-3 h-3" /> Confirmación por WhatsApp
+              </a>
+            )}
+
+            {esTelemedicina && booking.meetLink && (
+              <a
+                href={booking.meetLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 flex items-center gap-1"
+                title="Abrir Google Meet"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Entrar a Meet
+              </a>
             )}
           </div>
         </div>
