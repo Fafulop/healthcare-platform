@@ -511,9 +511,15 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                   </div>
                 </div>
 
-                {/* Cobro row: active citas can get a payment link; terminal citas only show
-                    paid/active link status (a stale inactive link must not reopen create) */}
-                {(['PENDING', 'CONFIRMED'].includes(b.status) ||
+                {/* Cobro row: citas activas y COMPLETADAS pueden generar link de pago;
+                    canceladas/no-asistió solo muestran el estatus de un link PAGADO o ACTIVO
+                    (un link viejo desactivado no debe reabrir el crear sobre una cita que
+                    nunca ocurrió).
+                    COMPLETADA entra aquí porque significa "el doctor ya vio al paciente", no
+                    "el asunto se cerró": el cobro sigue abierto. Mismo criterio que la tabla
+                    de citas (`showCobroGroup` en BookingsSection, d35037db) — las dos
+                    superficies pintan la MISMA cita y deben responder igual. */}
+                {(['PENDING', 'CONFIRMED', 'COMPLETED'].includes(b.status) ||
                   b.stripeLink?.status === 'PAID' || b.mpLink?.status === 'PAID' ||
                   b.stripeLink?.isActive || b.mpLink?.isActive) && (
                   <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-2">
