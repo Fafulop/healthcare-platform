@@ -31,6 +31,11 @@ export interface Booking {
   id: string;
   slotId: string | null;
   patientName: string;
+  /** Nombre/apellidos separados tal como los capturó el doctor al agendar. NULL en las citas
+   *  anteriores a 2026-07-29, las del widget público y las del agente — ahí se usa
+   *  `partirNombreDeCita`, que cae al split de `patientName`. */
+  patientFirstName?: string | null;
+  patientLastName?: string | null;
   patientEmail: string;
   patientPhone: string;
   patientWhatsapp: string | null;

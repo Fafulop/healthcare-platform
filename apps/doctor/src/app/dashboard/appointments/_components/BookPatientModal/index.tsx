@@ -12,6 +12,7 @@ import type { NewSlotForm } from "./SlotPickerStep";
 import { RangeTimePickerStep } from "../RangeTimePickerStep";
 import { PatientFormStep } from "./PatientFormStep";
 import type { PatientFormData, PatientFieldSettings } from "./PatientFormStep";
+import { partirNombreDeCita, nombreCompleto } from "@/lib/patient-name";
 import { SuccessStep } from "./SuccessStep";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -90,7 +91,8 @@ export function BookPatientModal({
   const [error, setError] = useState("");
   const [conflictError, setConflictError] = useState<string | null>(null);
   const [formData, setFormData] = useState<PatientFormData>({
-    patientName: "",
+    patientFirstName: "",
+    patientLastName: "",
     patientEmail: "",
     patientPhone: "",
     patientWhatsapp: "",
@@ -104,7 +106,7 @@ export function BookPatientModal({
   // precargar los campos (antes se quedaban vacíos y el doctor re-tecleaba o no ponía
   // nada — de ahí salían las citas sin correo de pacientes que SÍ lo tenían) y detectar
   // si el doctor lo EDITÓ, para escribirlo de vuelta al expediente.
-  const [patientContactAlSeleccionar, setPatientContactAlSeleccionar] = useState<{ name: string; email: string; phone: string } | null>(null);
+  const [patientContactAlSeleccionar, setPatientContactAlSeleccionar] = useState<{ firstName: string; lastName: string; email: string; phone: string } | null>(null);
 
   // Tracks whether this booking was a reschedule (captured at submit, stable for SuccessStep)
   const [wasRescheduled, setWasRescheduled] = useState(false);
@@ -173,20 +175,26 @@ export function BookPatientModal({
     // era la UI la que se quedaba atrás.
     const rp = rescheduleBooking?.patient ?? null;
     const rpNombre = rp ? `${rp.firstName} ${rp.lastName}`.trim() : "";
+    // Sin expediente vinculado, el nombre sale de la CITA: sus campos separados si los tiene, y
+    // si no (cita vieja, del widget o del agente) el split de siempre.
+    const deLaCita = rescheduleBooking
+      ? partirNombreDeCita(rescheduleBooking)
+      : { firstName: "", lastName: "" };
     setFormData(rescheduleBooking ? {
       // Con expediente vinculado gana el dato VIVO; la copia de la cita es de cuando se
       // agendó. Si el expediente no lo trae, se cae a esa copia.
-      patientName: rpNombre || rescheduleBooking.patientName,
+      patientFirstName: rp?.firstName || deLaCita.firstName,
+      patientLastName: rp?.lastName || deLaCita.lastName,
       patientEmail: rp?.email || rescheduleBooking.patientEmail,
       patientPhone: rp?.phone || rescheduleBooking.patientPhone,
       patientWhatsapp: rescheduleBooking.patientWhatsapp ?? "",
       notes: "",
-    } : { patientName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
+    } : { patientFirstName: "", patientLastName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
     setWasRescheduled(false);
     setSelectedPatientId(rescheduleBooking?.patientId ?? null);
     setSelectedPatientName(rpNombre);
     setPatientContactAlSeleccionar(
-      rp ? { name: rpNombre, email: rp.email ?? "", phone: rp.phone ?? "" } : null
+      rp ? { firstName: rp.firstName ?? "", lastName: rp.lastName ?? "", email: rp.email ?? "", phone: rp.phone ?? "" } : null
     );
     setRangeSelection(null);
     setSlotMode("existing");
@@ -346,7 +354,12 @@ export function BookPatientModal({
             date: rangeSelection.date,
             startTime: rangeSelection.startTime,
             serviceId: rangeSelection.serviceId,
-            patientName: formData.patientName,
+            // `patientName` sigue siendo la concatenación — es lo que leen los correos, el
+            // agente, la fila y el link de pago. Los dos campos separados van ADEMÁS, para
+            // poder crear el expediente después sin adivinar dónde parte el nombre.
+            patientName: nombreCompleto(formData),
+            patientFirstName: formData.patientFirstName,
+            patientLastName: formData.patientLastName,
             patientEmail: formData.patientEmail,
             patientPhone: formData.patientPhone,
             patientWhatsapp: formData.patientWhatsapp || undefined,
@@ -387,7 +400,7 @@ export function BookPatientModal({
             startTime: newSlotForm.startTime,
             duration: newSlotForm.duration,
             basePrice: 0,
-            patientName: formData.patientName,
+            patientName: nombreCompleto(formData),
             patientEmail: formData.patientEmail,
             patientPhone: formData.patientPhone,
             patientWhatsapp: formData.patientWhatsapp || undefined,
@@ -430,7 +443,7 @@ export function BookPatientModal({
         method: "POST",
         body: JSON.stringify({
           slotId: selectedSlot.id,
-          patientName: formData.patientName,
+          patientName: nombreCompleto(formData),
           patientEmail: formData.patientEmail,
           patientPhone: formData.patientPhone,
           patientWhatsapp: formData.patientWhatsapp || undefined,
@@ -595,15 +608,17 @@ export function BookPatientModal({
                   setSelectedPatientId(p?.id ?? null);
                   setSelectedPatientName(p ? `${p.firstName} ${p.lastName}` : "");
                   if (p) {
-                    const name = `${p.firstName} ${p.lastName}`.trim();
+                    const firstName = p.firstName ?? "";
+                    const lastName = p.lastName ?? "";
                     const email = p.email ?? "";
                     const phone = p.phone ?? "";
-                    setPatientContactAlSeleccionar({ name, email, phone });
+                    setPatientContactAlSeleccionar({ firstName, lastName, email, phone });
                     // Solo se precarga lo que el expediente TIENE: si viene vacío no se
                     // pisa lo que el doctor ya hubiera escrito a mano.
                     setFormData((f) => ({
                       ...f,
-                      patientName: name || f.patientName,
+                      patientFirstName: firstName || f.patientFirstName,
+                      patientLastName: lastName || f.patientLastName,
                       patientEmail: email || f.patientEmail,
                       patientPhone: phone || f.patientPhone,
                     }));
@@ -619,7 +634,8 @@ export function BookPatientModal({
                     // no del paciente, y sobrevive a cambiar de persona.
                     setFormData((f) => ({
                       ...f,
-                      patientName: "",
+                      patientFirstName: "",
+                      patientLastName: "",
                       patientEmail: "",
                       patientPhone: "",
                       patientWhatsapp: "",
@@ -633,7 +649,7 @@ export function BookPatientModal({
 
           {step === "success" && (
             <SuccessStep
-              patientName={formData.patientName}
+              patientName={nombreCompleto(formData)}
               displaySlot={displaySlot}
               selectedService={selectedService}
               onClose={handleClose}

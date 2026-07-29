@@ -26,6 +26,10 @@ export async function POST(request: Request) {
       startTime,      // "HH:MM"
       serviceId,
       patientName,
+      // Opcionales: el split que el doctor capturó a mano. Solo los manda el modal del doctor;
+      // el widget público y el agente mandan `patientName` a secas y estos quedan en NULL.
+      patientFirstName,
+      patientLastName,
       patientEmail,
       patientPhone,
       patientWhatsapp,
@@ -184,6 +188,11 @@ export async function POST(request: Request) {
             endTime,
             duration: serviceDuration,
             patientName,
+            // Se guardan solo si vienen como texto con contenido: un "" del formulario debe
+            // quedar en NULL, no en cadena vacía — el consumidor usa `?? split(patientName)`
+            // y una cadena vacía pasaría el ?? y dejaría el campo del expediente en blanco.
+            patientFirstName: typeof patientFirstName === 'string' && patientFirstName.trim() ? patientFirstName.trim() : null,
+            patientLastName:  typeof patientLastName  === 'string' && patientLastName.trim()  ? patientLastName.trim()  : null,
             patientEmail,
             patientPhone,
             patientWhatsapp: patientWhatsapp || null,

@@ -12,7 +12,16 @@ interface DoctorService {
 }
 
 export interface PatientFormData {
-  patientName: string;
+  /**
+   * Nombre y apellidos POR SEPARADO. Se capturan en dos campos porque el expediente los guarda
+   * separados: con un solo campo había que adivinar dónde termina uno y empieza el otro al crear
+   * el expediente desde la cita (se partía en el primer espacio ⇒ "Juan Carlos García López"
+   * daba nombre "Juan" y apellidos "Carlos García López").
+   * `patientName` de la CITA se sigue mandando como la concatenación de ambos: es lo que leen los
+   * correos, el agente, el widget público, la fila y el link de pago.
+   */
+  patientFirstName: string;
+  patientLastName: string;
   patientEmail: string;
   patientPhone: string;
   patientWhatsapp: string;
@@ -49,7 +58,7 @@ interface Props {
    * WhatsApp nunca se bloquea: el modelo Patient NO tiene esa columna, así que la cita es
    * el único lugar donde ese número existe.
    */
-  datosDelExpediente: { name: string; email: string; phone: string } | null;
+  datosDelExpediente: { firstName: string; lastName: string; email: string; phone: string } | null;
 }
 
 export function PatientFormStep({
@@ -82,12 +91,15 @@ export function PatientFormStep({
   const telBloqueado = contactoBloqueado(datosDelExpediente?.phone);
   const hayContactoBloqueado = emailBloqueado || telBloqueado;
 
-  // El NOMBRE no se desbloquea nunca. Patient guarda firstName/lastName por separado y
-  // partir un nombre completo es adivinar, así que no hay write-back posible: editarlo
-  // aquí solo desalinea la cita del expediente. Verificado en vivo — una cita quedó como
-  // "Gerardo Lopezzzz" mientras el expediente seguía en "Gerardo Lopez". Se cambia en el
-  // expediente, que es donde vive.
-  const nombreBloqueado = !!selectedPatientId && !!datosDelExpediente?.name;
+  // El NOMBRE no se desbloquea nunca: con paciente vinculado, el expediente es su dueño.
+  // Editarlo aquí solo desalinearía la cita del expediente y no hay write-back (verificado en
+  // vivo — una cita quedó como "Gerardo Lopezzzz" mientras el expediente seguía en "Gerardo
+  // Lopez"). Se cambia en el expediente, que es donde vive.
+  // Ahora son dos campos, y cada uno se bloquea SOLO si el expediente lo trae: un expediente con
+  // apellidos vacíos debe dejar capturarlos aquí en vez de atrapar al doctor con un campo
+  // requerido y de solo lectura.
+  const nombreBloqueado   = !!selectedPatientId && !!datosDelExpediente?.firstName;
+  const apellidoBloqueado = !!selectedPatientId && !!datosDelExpediente?.lastName;
   const claseBloqueada = "bg-gray-50 text-gray-600 cursor-not-allowed";
 
   return (
@@ -297,22 +309,47 @@ export function PatientFormStep({
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
-        <div className="relative">
-          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          {/* Sin autoFocus: el navegador lo desplazaba a la vista al abrir el modal y
-              empujaba Servicio y Tipo de visita arriba del pliegue — de ahí el "hay que
-              hacer scroll para arriba para ver los botones". */}
-          <input
-            type="text"
-            required
-            readOnly={nombreBloqueado}
-            value={formData.patientName}
-            onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-            className={`w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${nombreBloqueado ? claseBloqueada : ""}`}
-            placeholder="Juan García"
-          />
+      {/* Nombre y apellidos SEPARADOS — el expediente los guarda así. Con un solo campo, crear
+          el expediente desde la cita obligaba a adivinar dónde parte el nombre completo.
+          En móvil se apilan (grid-cols-1) porque dos campos de texto en 360px quedan ilegibles. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Nombre(s) *</label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            {/* Sin autoFocus: el navegador lo desplazaba a la vista al abrir el modal y
+                empujaba Servicio y Tipo de visita arriba del pliegue — de ahí el "hay que
+                hacer scroll para arriba para ver los botones". */}
+            <input
+              type="text"
+              required
+              readOnly={nombreBloqueado}
+              value={formData.patientFirstName}
+              onChange={(e) => setFormData({ ...formData, patientFirstName: e.target.value })}
+              className={`w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${nombreBloqueado ? claseBloqueada : ""}`}
+              placeholder="Juan Carlos"
+            />
+          </div>
+        </div>
+        <div>
+          {/* Apellidos NO es obligatorio. Medido en prod: 124 de 366 citas (34%) tienen un
+              patient_name de UNA sola palabra — walk-ins, nombres a medias, lo que el paciente
+              dio por teléfono. Con `required` aquí, un tercio de las citas reales dejaría de
+              poder agendarse. El expediente sí los exige, pero eso se pide al crearlo, no aquí. */}
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Apellidos <span className="text-gray-400 font-normal">(opcional)</span>
+          </label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              readOnly={apellidoBloqueado}
+              value={formData.patientLastName}
+              onChange={(e) => setFormData({ ...formData, patientLastName: e.target.value })}
+              className={`w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${apellidoBloqueado ? claseBloqueada : ""}`}
+              placeholder="García López"
+            />
+          </div>
         </div>
       </div>
 

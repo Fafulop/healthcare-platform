@@ -18,11 +18,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'active';
     const search = searchParams.get('search') || '';
+    // Búsqueda EXACTA por correo — para avisar de un expediente duplicado antes de crear otro
+    // desde una cita. Va aparte de `search` a propósito: `search` alimenta los buscadores por
+    // nombre (InlinePatientSearch, StandaloneFormularioModal) y meterle el correo cambiaría lo
+    // que esos dos ya devuelven hoy.
+    const email = (searchParams.get('email') || '').trim();
 
     const patients = await prisma.patient.findMany({
       where: {
         doctorId,
         status,
+        ...(email ? { email: { equals: email, mode: 'insensitive' as const } } : {}),
         ...(search ? {
           OR: [
             { firstName: { contains: search, mode: 'insensitive' } },

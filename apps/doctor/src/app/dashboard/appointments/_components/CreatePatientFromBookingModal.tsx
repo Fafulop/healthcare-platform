@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { X, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Loader2, Info, AlertTriangle } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { partirNombreDeCita } from "@/lib/patient-name";
 import type { Booking } from "../_hooks/useBookings";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -14,19 +15,39 @@ interface Props {
 }
 
 export function CreatePatientFromBookingModal({ booking, onClose, onLinked }: Props) {
-  // Split patientName on first space for pre-fill
-  const spaceIdx = booking.patientName.indexOf(" ");
-  const defaultFirst = spaceIdx === -1 ? booking.patientName : booking.patientName.slice(0, spaceIdx);
-  const defaultLast  = spaceIdx === -1 ? "" : booking.patientName.slice(spaceIdx + 1);
+  // Nombre y apellidos: los campos separados de la cita si los trae (el doctor los capturó así
+  // al agendar), y si no —cita vieja, del widget público o del agente— el split de siempre.
+  const nombre = partirNombreDeCita(booking);
 
-  const [firstName, setFirstName]     = useState(defaultFirst);
-  const [lastName, setLastName]       = useState(defaultLast);
+  const [firstName, setFirstName]     = useState(nombre.firstName);
+  const [lastName, setLastName]       = useState(nombre.lastName);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [sex, setSex]                 = useState<"male" | "female" | "other" | "">("");
   const [email, setEmail]             = useState(booking.patientEmail ?? "");
   const [phone, setPhone]             = useState(booking.patientPhone ?? "");
   const [saving, setSaving]           = useState(false);
   const [error, setError]             = useState("");
+  // Expediente que YA tiene este correo. Aviso, no bloqueo: el doctor puede seguir y crear otro
+  // (dos personas pueden compartir correo — una madre y su hijo, p. ej.).
+  const [duplicado, setDuplicado] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
+
+  // Se consulta al abrir con correo precargado y cada vez que el doctor lo cambia. Falla ABIERTO
+  // a propósito: si la búsqueda truena, no hay aviso — nunca debe impedir crear un expediente.
+  useEffect(() => {
+    const correo = email.trim();
+    if (!correo || !correo.includes("@")) { setDuplicado(null); return; }
+    let cancelado = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/medical-records/patients?email=${encodeURIComponent(correo)}&status=active`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const hit = (data.data ?? [])[0];
+        if (!cancelado) setDuplicado(hit ? { id: hit.id, firstName: hit.firstName, lastName: hit.lastName } : null);
+      } catch { /* falla abierto: sin aviso */ }
+    }, 400);
+    return () => { cancelado = true; clearTimeout(t); };
+  }, [email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,9 +113,38 @@ export function CreatePatientFromBookingModal({ booking, onClose, onLinked }: Pr
           </button>
         </div>
 
-        <p className="text-xs text-gray-500 mb-4">
-          Cita de <span className="font-medium text-gray-700">{booking.patientName}</span>. Revisa los datos antes de guardar.
-        </p>
+        {/* De dónde salen los datos. Sin esto el doctor no sabe si los tecleó él o los trajo la
+            cita, y vuelve a capturarlos "por si acaso" — que es como se acumulan dos correos
+            para la misma persona. Espeja el aviso azul del modal de agendar. */}
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100 mb-4">
+          <Info className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-blue-800">
+            Datos tomados de la cita de <span className="font-semibold">{booking.patientName}</span>.
+            {nombre.adivinado && lastName
+              ? " Revisa que el nombre y los apellidos hayan quedado bien separados."
+              : " Puedes corregirlos antes de guardar."}
+          </p>
+        </div>
+
+        {/* Duplicado por correo: avisa y ofrece VINCULAR el que ya existe, que casi siempre es lo
+            que el doctor quiere. No bloquea — dos personas pueden compartir un correo. */}
+        {duplicado && (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 mb-4">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-900 flex-1">
+              Ese correo ya es del expediente de{" "}
+              <span className="font-semibold">{duplicado.firstName} {duplicado.lastName}</span>.{" "}
+              <button
+                type="button"
+                onClick={() => onLinked(duplicado)}
+                className="font-semibold underline hover:text-amber-950"
+              >
+                Vincular ese expediente
+              </button>{" "}
+              en vez de crear uno nuevo.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">

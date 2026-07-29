@@ -649,6 +649,12 @@ model Booking {
 
   // Patient Information
   patientName        String        @map("patient_name")
+  // Nombre y apellidos por SEPARADO, tal como los capturó el doctor al agendar. Existen para
+  // crear el expediente desde la cita sin adivinar dónde parte el nombre completo.
+  // NULL en las citas viejas, las del widget público y las del agente — ahí se cae al split de
+  // `patientName`, que sigue siendo la fuente única para mostrar y enviar.
+  patientFirstName   String?       @map("patient_first_name")
+  patientLastName    String?       @map("patient_last_name")
   patientEmail       String        @map("patient_email")
   patientPhone       String        @map("patient_phone")
   patientWhatsapp    String?       @map("patient_whatsapp")
