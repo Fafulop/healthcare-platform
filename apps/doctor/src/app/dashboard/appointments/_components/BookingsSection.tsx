@@ -981,8 +981,14 @@ function StatusActions({
   // Cita primero, expediente de respaldo — MISMO orden que resuelve el servidor
   // (send-email/route.ts y lib/send-confirmation-email.ts). Si divergen, el botón
   // prometería un envío que la API rechaza, o al revés.
-  const emailDestino = booking.patientEmail?.trim() || booking.patient?.email?.trim() || "";
-  const waDestino = waNumber(booking.patientWhatsapp || booking.patientPhone || booking.patient?.phone);
+  // Una sola definición del orden cita→expediente (resolverContacto), la misma que
+  // resuelven los dos endpoints de envío. Estaba duplicada aquí en línea: coincidían hoy
+  // y habrían divergido en cuanto alguien editara una sola.
+  const contactoCita = resolverContacto(booking);
+  const emailDestino = contactoCita.email;
+  // WhatsApp antepone su propio campo (es el número que el paciente dio PARA WhatsApp) y
+  // cae al teléfono resuelto. Patient no tiene columna de WhatsApp.
+  const waDestino = waNumber(booking.patientWhatsapp || contactoCita.phone);
   const yaEnviado = !!booking.confirmationEmailSentAt;
   const ultimoEnvio = booking.confirmationEmailSentAt
     ? new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })

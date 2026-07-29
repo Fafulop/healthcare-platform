@@ -226,23 +226,33 @@ export function PatientFormStep({
         </div>
       </div>
 
-      {/* Aviso del candado — pegado a los campos que describe, no suelto arriba.
+      {/* Aviso — pegado a los campos que describe, no suelto arriba.
+          Se muestra con CUALQUIER paciente seleccionado, no solo cuando hay algo
+          bloqueado: si el expediente venía sin correo el campo queda escribible, y lo que
+          el doctor teclee SÍ se guarda en el expediente. Sin este aviso esa escritura
+          sería silenciosa.
           Habla SOLO de correo y teléfono: el nombre también se bloquea, pero NO se
           sincroniza de vuelta (Patient guarda firstName/lastName por separado y partir un
           nombre completo es adivinar). Prometer que "todo" se guarda sería mentira. */}
-      {hayAlgoBloqueado && (
+      {selectedPatientId && datosDelExpediente && (
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100">
           <Lock className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
           <p className="text-xs text-blue-800 flex-1">
-            Estos datos vienen del expediente de {selectedPatientName}.{" "}
-            <button
-              type="button"
-              onClick={() => setContactoDesbloqueado(true)}
-              className="font-semibold underline hover:text-blue-900"
-            >
-              Editar
-            </button>{" "}
-            — el correo y el teléfono que cambies se actualizan también en el expediente.
+            {hayAlgoBloqueado ? (
+              <>
+                Estos datos vienen del expediente de {selectedPatientName}.{" "}
+                <button
+                  type="button"
+                  onClick={() => setContactoDesbloqueado(true)}
+                  className="font-semibold underline hover:text-blue-900"
+                >
+                  Editar
+                </button>{" "}
+              </>
+            ) : (
+              <>Estás agendando para {selectedPatientName}. </>
+            )}
+            El correo y el teléfono que captures se guardan también en su expediente.
           </p>
         </div>
       )}
