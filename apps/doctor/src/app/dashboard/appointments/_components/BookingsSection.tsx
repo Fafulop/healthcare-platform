@@ -771,6 +771,8 @@ function ExpedienteCell({
   onUpdatePatientLink: (bookingId: string, patientId: string | null, patient: { id: string; firstName: string; lastName: string } | null) => void;
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Escape del caso "Primera vez mal marcada" — ver la nota más abajo.
+  const [buscarAbierto, setBuscarAbierto] = useState(false);
 
   if (booking.patientId && booking.patient) {
     const hasSubmittedForm = booking.formLink?.status === 'SUBMITTED';
@@ -795,10 +797,21 @@ function ExpedienteCell({
     );
   }
 
-  // No expediente linked — ALWAYS offer both search-existing and create-new. isFirstTime is
-  // only a hint for ordering: it used to gate which option appeared, and citas created by the
-  // agent (isFirstTime null) rendered a dead "—" with no way to link or create.
-  const searchFirst = booking.isFirstTime === false;
+  // Sin expediente vinculado.
+  //
+  // PRIMERA VEZ ⇒ solo se ofrece CREAR. Un paciente nuevo debe nacer con su propio expediente:
+  // si se le cuelga uno que ya existía, el correo de la cita y el del expediente pueden diferir
+  // desde el minuto uno, y como la cita gana en todos lados (fila, confirmación, link de pago,
+  // formulario) todo se iría al correo equivocado. Creándolo desde la cita nacen iguales.
+  //
+  // ⚠️ Pero `isFirstTime` NO se puede corregir después (el PATCH de la cita no lo acepta), así
+  // que esconder la búsqueda A SECAS dejaría atrapado al doctor que marcó "Primera vez" a un
+  // paciente que sí tenía expediente: su única salida sería crear un DUPLICADO, justo lo que
+  // esta regla evita. Por eso la búsqueda no desaparece, se repliega detrás de un enlace.
+  //
+  // `isFirstTime === false` (recurrente) y `null` (citas del agente, 22 en prod) conservan las
+  // dos opciones: el null llegó a rendir un "—" muerto sin forma de vincular ni crear.
+  const esPrimeraVez = booking.isFirstTime === true;
   const searchEl = (
     <InlinePatientSearch
       onSelect={(patient) => onUpdatePatientLink(booking.id, patient.id, patient)}
@@ -812,10 +825,35 @@ function ExpedienteCell({
       + Crear expediente
     </button>
   );
+
+  // Un solo return y UNA sola instancia del modal: tenerlo en dos ramas ya empezó a duplicarse
+  // y bastaba con que alguien tocara una para que las dos dejaran de coincidir.
+  const opciones = esPrimeraVez ? (
+    <>
+      {createEl}
+      {buscarAbierto ? (
+        searchEl
+      ) : (
+        <button
+          onClick={() => setBuscarAbierto(true)}
+          className="text-[11px] text-gray-400 hover:text-gray-600 hover:underline whitespace-nowrap"
+          title="Esta cita se marcó como Primera vez. Si el paciente ya tenía expediente, búscalo aquí en vez de crear uno duplicado."
+        >
+          ¿Ya tiene expediente?
+        </button>
+      )}
+    </>
+  ) : (
+    // Recurrente pone la búsqueda primero; el agente (isFirstTime null) conserva las dos.
+    <>
+      {booking.isFirstTime === false ? searchEl : createEl}
+      {booking.isFirstTime === false ? createEl : searchEl}
+    </>
+  );
+
   return (
     <div className="flex flex-col items-start gap-1">
-      {searchFirst ? searchEl : createEl}
-      {searchFirst ? createEl : searchEl}
+      {opciones}
       {showCreateModal && (
         <CreatePatientFromBookingModal
           booking={booking}
