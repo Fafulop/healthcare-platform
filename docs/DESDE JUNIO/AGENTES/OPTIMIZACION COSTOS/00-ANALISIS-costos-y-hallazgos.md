@@ -1,5 +1,14 @@
 # 📊 Análisis de costos del agente — dónde va el dinero (medido)
 
+> 🔒 **Foto del 2026-07-23 — NO es el estado de hoy.** Corría **Sonnet 5**, y sus cifras de cap
+> son las del cap **diario (500k)** — que se movió a **semanal (2M)** ese mismo día, en parte por
+> este análisis (`route.ts`: *"moved from daily 2026-07-23"*), así que el doc retrata el estado
+> PREVIO al cambio que motivó. Desde entonces, además, Haiku 4.5 es el default (`a5d95fad`,
+> 2026-07-24). Las tablas de precio de abajo describen la baseline de ENTONCES: donde dicen
+> *"el que corre"*, hoy corre Haiku. Estado vigente en
+> [`README.md`](README.md) y `../GENERAL AGENTES/02-CAPACIDADES` §4. Se anota en vez de reescribir
+> porque el análisis que justificó el cambio de modelo se lee con estos números.
+>
 > Todas las cifras son **read-only vs prod, 2026-07-23** (A4 + medición de thinking-share),
 > método TOOLING (`../AGENTE AGENDA/TOOLING-acceso-railway-db-agenda.md`). ⚠️ **TODO es dr-prueba**
 > — un doctor de prueba martillado por dev/evals, NO representa a un doctor real. Los números

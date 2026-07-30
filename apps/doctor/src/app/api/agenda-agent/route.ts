@@ -34,9 +34,15 @@ import { mxWeekStartKey } from '@/lib/agenda-agent/dates';
 // The assistant's usage cap is WEEKLY (moved from daily 2026-07-23, cost review
 // in docs/DESDE JUNIO/AGENTES/OPTIMIZACION COSTOS): a real doctor has zero-use
 // days, so a 7-day window averages them out instead of a per-day ceiling that a
-// single busy day blows. 2,000k budget/week ≈ $6/week ≈ $26/mo worst case at
-// $3/M input — a fraction of the $37–50 subscription. Tune via env; the old
-// AGENDA_AGENT_DAILY_TOKEN_CAP is no longer read (a stale value would misapply).
+// single busy day blows. Tune via env; the old AGENDA_AGENT_DAILY_TOKEN_CAP is
+// no longer read (a stale value would misapply).
+//
+// Costo del techo: 2,000k budget/week × el precio de INPUT del modelo que corra.
+// Con Haiku 4.5 ($1/M, default desde `a5d95fad` 2026-07-24) ≈ $2/semana ≈ $8.7/mes;
+// con Sonnet 5 ($3/M) ≈ $6/semana ≈ $26/mes. ⚠️ Este comentario decía SOLO la cifra
+// de Sonnet sin nombrar el modelo, y quedó 3× alta cuando el default cambió — el
+// mismo modo de falla que dejó viejo el prefijo en 02-CAPACIDADES §4. Un precio
+// escrito sin el modelo al lado se pudre solo.
 const WEEKLY_TOKEN_CAP = Number(process.env.AGENDA_AGENT_WEEKLY_TOKEN_CAP || 2_000_000);
 
 async function getTokensUsedThisWeek(doctorId: string): Promise<number> {

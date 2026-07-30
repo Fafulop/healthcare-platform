@@ -23,7 +23,8 @@ Plataforma healthcare (México): monorepo pnpm + Turbo con `apps/doctor`, `apps/
 ## Gates antes de un push que toque el agente o sus docs
 
 ```bash
-pnpm gates        # rutas↔permisos · identidad del prompt · números de los docs vs código
+pnpm gates        # los CINCO: rutas↔permisos · identidad del prompt · números de los docs vs
+                  # código · prosa que no enrute a tools/secciones ausentes · payload público
 pnpm type-check
 ```
 

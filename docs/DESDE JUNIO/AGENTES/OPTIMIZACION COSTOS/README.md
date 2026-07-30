@@ -2,9 +2,20 @@
 
 > **Por qué existe esta carpeta.** El doctor paga **$37–50 USD/mes** por TODA la app. El costo
 > del LLM del asistente es UN renglón dentro de eso (junto a hosting, Stripe, SAT, WhatsApp,
-> soporte, margen). Hoy el cap del agente es **500k budget/día ≈ $1.50/día ≈ $45/mes en el peor
-> caso = la suscripción COMPLETA de un doctor**. Esta carpeta es el análisis + el plan de
-> experimentos para bajar eso a un % cómodo de los $37–50.
+> soporte, margen). Esta carpeta es el análisis + el plan de experimentos para bajar eso a un %
+> cómodo de los $37–50.
+>
+> ✅ **ACTUALIZADO 2026-07-30 — el párrafo de arriba decía "500k budget/día ≈ $1.50/día ≈ $45/mes
+> = la suscripción COMPLETA de un doctor". Las dos mitades quedaron viejas y el problema que
+> describía YA SE RESOLVIÓ:**
+> - **El cap es SEMANAL desde 2026-07-23**: `WEEKLY_TOKEN_CAP = 2_000_000` (verificado en
+>   `api/agenda-agent/route.ts:40`; el env var diario **ya no se lee**).
+> - **Y corre Haiku 4.5 desde 2026-07-24** (`a5d95fad`), no Sonnet 5. El techo al cap ya no es
+>   $45/mes sino **~$8.9/mes** — la cifra que esta misma página ya trae en su tabla de abajo.
+>
+> ⚠️ **Precio y modelo van juntos o no significan nada.** Cualquier `$X` de esta carpeta que no
+> diga con qué modelo se midió está incompleto: el MISMO prefijo cuesta 3× más en Sonnet 5 que en
+> Haiku 4.5. Ver `../GENERAL AGENTES/02-CAPACIDADES` §4.
 >
 > 🔄 **Sesión nueva: lee este README, luego [`00-ANALISIS-costos-y-hallazgos.md`](00-ANALISIS-costos-y-hallazgos.md).**
 > Convenciones de docs: [`../GENERAL AGENTES/08-EMPIEZA-AQUI.md`](../GENERAL%20AGENTES/08-EMPIEZA-AQUI.md).

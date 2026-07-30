@@ -54,7 +54,15 @@ async function main() {
 
   const { STABLE_SYSTEM_PROMPT } = await import('../src/lib/agenda-agent/prompt');
   const { ALL_TOOLS, AGENT_MODULES } = await import('../src/lib/agenda-agent/modules/registry');
-  const model = process.env.AGENDA_AGENT_MODEL || 'claude-sonnet-5';
+  // El modelo sale del MISMO sitio que el runtime (`run-turn.ts`), no de un literal.
+  // Antes había un default propio (`claude-sonnet-5`) que se quedó atrás cuando `a5d95fad`
+  // (2026-07-24) movió el agente a Haiku 4.5: durante días este script midió con un
+  // tokenizador distinto al que corría en prod, y el número quedó en los docs como si fuera
+  // comparable. Son tokenizadores distintos — el MISMO prompt da 28,045 tok en Sonnet 5 y
+  // 22,821 en Haiku 4.5 (ambos medidos con ESTE script, 2026-07-30).
+  // Importando la constante, el drift es imposible por construcción.
+  const { MODEL: RUNTIME_MODEL } = await import('../src/lib/agenda-agent/run-turn');
+  const model = RUNTIME_MODEL;
 
   const stableBlock = [{ type: 'text', text: STABLE_SYSTEM_PROMPT }];
 
@@ -78,9 +86,21 @@ async function main() {
   console.log(`  (system ${(sys / prefix * 100).toFixed(0)}% · tools ${(tools / prefix * 100).toFixed(0)}%)`);
 
   // Costo del prefijo por pregunta FRÍA: se escribe a caché a ×1.25 del precio de input base.
+  // ⚠️ La tarifa se busca POR MODELO. Antes estaban clavados $2/$3 por millón (tarifas Sonnet)
+  // y se imprimían midiera lo que midiera: contra Haiku 4.5 ($1/M) eso sobreestimaba el costo
+  // 2–3×. Un precio impreso junto a un modelo que no le corresponde es peor que no imprimirlo.
+  const INPUT_USD_PER_MTOK: Record<string, number> = {
+    'claude-haiku-4-5': 1,
+    'claude-sonnet-5': 3,
+    'claude-opus-5': 5,
+  };
   const coldWrite = prefix * 1.25;
-  for (const [name, base] of [['intro $2/M', 2], ['estándar $3/M', 3]] as const) {
-    console.log(`  → escribirlo en una pregunta fría cuesta ${Math.round(coldWrite).toLocaleString()} budget ≈ $${(coldWrite * base / 1e6).toFixed(4)} (${name})`);
+  const rate = INPUT_USD_PER_MTOK[model];
+  if (rate === undefined) {
+    console.log(`  → escribirlo en una pregunta fría cuesta ${Math.round(coldWrite).toLocaleString()} budget`);
+    console.log(`    (sin tarifa conocida para "${model}" — agrégala a INPUT_USD_PER_MTOK antes de citar dólares)`);
+  } else {
+    console.log(`  → escribirlo en una pregunta fría cuesta ${Math.round(coldWrite).toLocaleString()} budget ≈ $${(coldWrite * rate / 1e6).toFixed(4)} (input $${rate}/M, ${model})`);
   }
 
   // Peso por TOOL. OJO: contar UNA tool incluye el overhead FIJO del bloque de tools, así que

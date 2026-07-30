@@ -191,27 +191,45 @@ renglón es el que se actualiza. Estado real y plan:
 
 **Prefijo estático: 22,821 tokens — MEDIDO EXACTO con `count_tokens` (2026-07-30, Haiku 4.5).**
 Split: **system 9,600 (42%) · tools 13,220 (58%)** con los 39 tools.
-Reproducible (no toca la BD, no consume generación), **pinneando el modelo**:
-`AGENDA_AGENT_MODEL=claude-haiku-4-5 npx tsx scripts/measure-agent-prefix.ts` desde `apps/doctor`.
+Reproducible (no toca la BD, no consume generación), desde `apps/doctor`:
+`npx tsx scripts/measure-agent-prefix.ts` — **ya no hace falta pinnear el modelo**, el script
+importa `MODEL` de `run-turn.ts`. Para medir otro: `AGENDA_AGENT_MODEL=<id> npx tsx …`.
 
 > ⚠️ **El número que de verdad importa hoy es MENOR: ~11.0k.** Desde `0daeed21` (tool search,
 > 2026-07-24) solo 4 tools "calientes" + el tool de búsqueda entran al contexto; los otros 35
 > viajan en el request pero **no cargan hasta descubrirse**. Medido 2026-07-30: system + 4 hot =
 > **10,957 tok**. Los 22,821 son el techo "si se cargara todo", útil para comparar contra el
 > histórico y para priorizar poda — no lo que se paga en una pregunta fría típica.
+>
+> ⚠️ **Ese ~11.0k es un PISO, no el número exacto**, por dos razones: (1) `count_tokens` **rechaza
+> los server tools** (*"Server tools are not supported in the count_tokens endpoint"*), así que el
+> `tool_search_tool_regex` no está contado — el real es un poco mayor; (2) se midió con fetch
+> directo, sin restar el overhead del envoltorio (~8 tok) que sí resta el script. Para el techo
+> (22,821) y la comparación histórica, usa **siempre** el script — mezclar métodos es justo el
+> error que este bloque documenta.
 
 > ⚠️ **Comparar con el 27,151 de 2026-07-23 SIN corregir el tokenizador da una conclusión falsa.**
 > Ese día el modelo default era `claude-sonnet-5`; desde `a5d95fad` (2026-07-24) es
 > `claude-haiku-4-5`, y **son tokenizadores distintos**. Medido el mismo día contra los dos:
-> `claude-sonnet-5` → **28,052** · `claude-haiku-4-5` → **22,821**. O sea que contra su propio
-> tokenizador el prefijo **CRECIÓ +901 tok** (system 12,126→12,779 · tools 15,025→15,273) por el
+> `claude-sonnet-5` → **28,045** · `claude-haiku-4-5` → **22,821** (ambos con el MISMO script que
+> produjo el 27,151, para que la resta sea legítima). O sea que contra su propio
+> tokenizador el prefijo **CRECIÓ +894 tok** (system 12,126→12,772 · tools 15,025→15,273) por el
 > trabajo de julio; la "bajada" de 4.3k es puro cambio de modelo. **Un número de tokens sin el
 > modelo al lado no es comparable.**
 >
-> 🐛 **Deuda del script** (no corregida, es cambio de código): `measure-agent-prefix.ts:57` sigue
-> defaulteando a `claude-sonnet-5` — desalineado con `run-turn.ts:53` desde 2026-07-24 — y su
-> línea de costo cotiza a $2/$3 por millón (tarifas Sonnet) aunque mida Haiku, que va a $1. Por eso
-> el comando de arriba lleva el modelo pinneado.
+> ✅ **Deuda del script CORREGIDA (2026-07-30).** Tenía su propio default (`claude-sonnet-5`) que
+> se quedó atrás cuando `a5d95fad` movió el agente a Haiku 4.5, y su línea de costo cotizaba
+> $2/$3 por millón (tarifas Sonnet) midiera lo que midiera — contra Haiku ($1/M) sobreestimaba
+> 2–3×. Ahora **importa `MODEL` de `run-turn.ts`** (drift imposible por construcción, §6 de
+> `08-EMPIEZA-AQUI`) y busca la tarifa POR MODELO; si no conoce el modelo, **omite el dólar** en
+> vez de inventarlo. `AGENDA_AGENT_MODEL` sigue funcionando como override (verificado: fuerza la
+> medición a Sonnet 5).
+>
+> 🔑 **Lo que este episodio enseña, y aplica a cualquier número de tokens de estos docs:** el
+> 27,151 **no estaba mal medido** — era correcto el 2026-07-23, cuando script y runtime coincidían
+> en Sonnet 5. Se volvió incomparable **un día después**, sin que nadie tocara nada, porque cambió
+> el modelo. **Un número de tokens es una función del prompt Y del tokenizador**: sin el modelo al
+> lado no es un dato, es una trampa.
 
 > ⚠️ **Corrige la estimación anterior de "~24.7k" (2026-07-23).** Ese número salía del PISO de
 > `prompt_tokens` en `llm_token_usage` y el doc asumía que el real sería *un poco menor*: era
