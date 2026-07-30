@@ -117,8 +117,8 @@ export const TOOL_FEATURE_KEY: Record<string, PermissionKey> = {
  * scopes, which already build their own array.
  *
  * `propose_complete_booking` survives in every tier (agenda), but its text
- * routes the doctor to "la tabla de citas" to emit the CFDI — false on a plan
- * without invoicing. The gate asserts `from` still appears in the real
+ * describes emitting the CFDI at completion — a capability a plan without
+ * invoicing doesn't have. The gate asserts `from` still appears in the real
  * description, so a reword upstream can't silently turn this into a no-op.
  */
 const DESCRIPTION_OVERRIDES: {
@@ -130,7 +130,7 @@ const DESCRIPTION_OVERRIDES: {
   {
     tool: 'propose_complete_booking',
     key: 'facturacion',
-    from: 'La factura (CFDI) NO se emite aquí — se emite desde la tabla de citas.',
+    from: 'La factura (CFDI) NO se emite aquí: al completar la cita el doctor puede emitirla en el mismo paso, pero solo si el paciente ya tiene datos fiscales COMPLETOS.',
     to: 'La factura (CFDI) NO se emite aquí, y en esta cuenta tampoco tienes facturación disponible: no ofrezcas emitirla ni remitas al doctor a otra sección para hacerlo.',
   },
   {

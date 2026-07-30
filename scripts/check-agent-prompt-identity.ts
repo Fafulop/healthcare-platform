@@ -214,13 +214,23 @@ for (const tier of DOCTOR_TIERS) {
   );
 }
 
+// CENTINELA de la frontera de facturación. Era 'se emite desde la tabla de
+// citas', que el punto A del plan 07 corrigió: esa frase solo era cierta al
+// completar una cita cuyo paciente YA tiene datos fiscales. El centinela nuevo es
+// la CONDICIÓN, no un destino — nombrar el expediente acoplaba la prosa de agenda
+// a un permiso que agenda no exige (ver el comentario de AGENDA_CITAS_RULES).
+// Sigue siendo una frase LITERAL a propósito: el `.replace()` de la variante CORE
+// y el `from` del override de descripción son text-matching, y sin una aserción
+// que los ancle un reword los convierte en no-ops mudos (bitácora #26).
+const CONDICION_FACTURACION = 'solo si el paciente ya tiene datos fiscales COMPLETOS';
+
 // The prose check runs on what the scope PROVIDES, so it must fire on the
 // MEMBER axis too — not just the tier (TIERS 01-DISENO §11.5.1).
 const memberCitasOnly = resolveAgentScope({ isOwner: false, permissions: { citas: true } });
 check(
-  'member without invoicing → agenda is partial (no "tabla de citas" CFDI route)',
+  'member without invoicing → agenda is partial (no CFDI-at-completion prose)',
   memberCitasOnly.partialModules.has('agenda') &&
-    !buildSystemPrompt(memberCitasOnly).includes('se emite desde la tabla de citas')
+    !buildSystemPrompt(memberCitasOnly).includes(CONDICION_FACTURACION)
 );
 
 // The real prod member's shape: facturas+fiscal but NO flujo (needs 3 toggles).
@@ -265,8 +275,8 @@ check(
 // doctor to features the plan excludes.
 const corePromptText = buildSystemPrompt(coreOwner);
 check(
-  'CORE prompt does NOT tell the doctor to invoice "desde la tabla de citas"',
-  !corePromptText.includes('se emite desde la tabla de citas')
+  'CORE prompt does NOT describe emitting the CFDI when completing a cita',
+  !corePromptText.includes(CONDICION_FACTURACION)
 );
 // NOTE: this targets the MODULE prose, not the whole prompt. INTRO is shared,
 // byte-frozen for owners, and enumerates every capability by design — a CORE
@@ -283,15 +293,29 @@ check(
   !coreOwner.tools.some((t) => t.description?.includes('dinero = get_billing_status'))
 );
 check(
-  'CORE tool descriptions do NOT route to "la tabla de citas" for invoicing',
-  !coreOwner.tools.some((t) => t.description?.includes('se emite desde la tabla de citas'))
+  'CORE tool descriptions do NOT describe emitting the CFDI at completion',
+  !coreOwner.tools.some((t) => t.description?.includes(CONDICION_FACTURACION))
 );
-// The FULL path keeps the original wording in both places (no collateral edit).
+// The FULL path keeps the route in BOTH places. Que aparezca en los dos es lo que
+// hace que el punto A no se pueda dejar a medias: la prosa y la descripción del
+// tool viajan por caminos distintos y se editan por separado.
 check(
-  'FULL prompt KEEPS the invoicing route (owner text untouched)',
-  STABLE_SYSTEM_PROMPT.includes('se emite desde la tabla de citas') &&
-    ALL_TOOLS.some((t) => t.description?.includes('se emite desde la tabla de citas'))
+  'FULL prompt KEEPS the invoicing route (prose + tool description)',
+  STABLE_SYSTEM_PROMPT.includes(CONDICION_FACTURACION) &&
+    ALL_TOOLS.some((t) => t.description?.includes(CONDICION_FACTURACION))
 );
+// La frase VIEJA no debe sobrevivir en ningún lado: si reaparece es que alguien
+// revirtió media edición de A y el prompt volvió a prometer la ruta incompleta.
+check(
+  'la ruta VIEJA ("tabla de citas") ya no aparece en el prompt ni en las tools',
+  !STABLE_SYSTEM_PROMPT.includes('se emite desde la tabla de citas') &&
+    !ALL_TOOLS.some((t) => t.description?.includes('se emite desde la tabla de citas'))
+);
+// Nota: que la prosa de agenda no ENRUTE al expediente (acoplaría un permiso que
+// agenda no exige — 12 de 66 scopes, plan 07 punto A) lo cubre `gate:prosa`, que
+// distingue MENCIONAR de MANDAR con su ROUTING_CUE. Aquí se intentó un chequeo
+// propio y era un falso positivo: AGENDA_CITAS_RULES dice legítimamente "la cita
+// queda vinculada al expediente", que no manda a nadie a ningún lado.
 
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

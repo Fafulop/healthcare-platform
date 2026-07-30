@@ -31,6 +31,18 @@ const AGENDA_DOMAIN_MODEL = `## Cómo funciona la agenda (invariantes — razona
 - Google Calendar solo sincroniza CITAS (crear/confirmar/cancelar una cita crea/actualiza/borra
   su evento). Los rangos y bloqueos NO se reflejan en Google Calendar.`;
 
+/**
+ * ⚠️ La regla de COMPLETAR describe la frontera de la facturación SIN nombrar el
+ * EXPEDIENTE a propósito (plan 07, punto A). El CFDI también se emite desde ahí,
+ * pero `expediente: ['expedientes']` y `facturas: ['facturacion','sat']` son keys
+ * INDEPENDIENTES: un member puede tener facturación y NO el expediente, y esta
+ * prosa la reciben los dos (agenda solo depende de `facturacion`). Nombrarlo
+ * mandaba a 12 de los 66 scopes alcanzables a una sección que no tienen —
+ * familia de las bitácoras #26/#27. `prosaDependsOn` + una sola variante no puede
+ * expresar las dos condiciones, así que la prosa se queda en la frontera y el
+ * destino no se menciona. `gate:prosa` ya reconoce "expediente" como sección: si
+ * alguien lo vuelve a nombrar aquí, truena en vez de pasar en silencio.
+ */
 const AGENDA_CITAS_RULES = `## Citas — reglas especiales (notifican al paciente)
 - **Solo a petición explícita del doctor EN ESTE hilo.** "Límpiame el martes" o "libera esa hora"
   NO autoriza cancelar citas — clarifica primero qué quiere hacer con cada cita afectada. Una
@@ -59,21 +71,24 @@ const AGENDA_CITAS_RULES = `## Citas — reglas especiales (notifican al pacient
   así que si no sabes la forma de pago llama al tool primero con solo el bookingId y pregunta
   únicamente si el tool te lo pide. El precio default es el de la cita. El ingreso se registra
   en Flujo de Dinero automáticamente (sin duplicarlo si ya existía); la factura (CFDI) NO se
-  emite aquí (se emite desde la tabla de citas — dilo si el doctor la menciona).
+  emite aquí: al completar la cita desde la tabla el doctor puede emitirla en el mismo paso, pero
+  solo si el paciente ya tiene datos fiscales COMPLETOS. Si la cita ya estaba completada, ese paso
+  ya pasó y desde la tabla no se puede. Sin datos fiscales completos no se emite por ningún
+  camino: lo primero es el formulario fiscal. Dilo si el doctor la menciona.
 - **Lotes grandes**: máximo 10 propuestas por turno. Si el trabajo excede el cap, propone las
   primeras 10 y DI explícitamente cuántas quedan para el siguiente turno — nunca omitas en
   silencio.`;
 
 /**
- * TIERS T3 — same rules, minus the CFDI redirect. The full text above tells the
- * model to route the doctor to "la tabla de citas" to invoice AND to volunteer
+ * TIERS T3 — same rules, minus the invoicing boundary. The full text above tells
+ * the model the doctor CAN emit the CFDI when completing a cita AND to volunteer
  * it ("dilo si el doctor la menciona"); on a plan without Facturación that both
  * names a feature the account lacks and directly contradicts the plan-scope note
  * in prompt.ts. No tier trims agenda's TOOLS, so this variant is reachable only
  * through `prosaDependsOn` (types.ts).
  */
 const AGENDA_CITAS_RULES_SIN_FACTURACION = AGENDA_CITAS_RULES.replace(
-  'El ingreso se registra\n  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía); la factura (CFDI) NO se\n  emite aquí (se emite desde la tabla de citas — dilo si el doctor la menciona).',
+  'El ingreso se registra\n  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía); la factura (CFDI) NO se\n  emite aquí: al completar la cita desde la tabla el doctor puede emitirla en el mismo paso, pero\n  solo si el paciente ya tiene datos fiscales COMPLETOS. Si la cita ya estaba completada, ese paso\n  ya pasó y desde la tabla no se puede. Sin datos fiscales completos no se emite por ningún\n  camino: lo primero es el formulario fiscal. Dilo si el doctor la menciona.',
   'El ingreso se registra\n  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía). En esta cuenta NO tienes\n  facturación disponible: no ofrezcas emitir la factura ni mandes al doctor a otra sección a\n  hacerlo; si la menciona, dilo directo.'
 );
 

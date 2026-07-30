@@ -134,7 +134,14 @@ const FEATURE_PHRASES: { key: PermissionKey; label: string; pattern: string }[] 
   { key: 'sat', label: 'Descarga SAT', pattern: String.raw`SAT\s*Descarga|Descarga\s*SAT|Declaraciones|Deducciones` },
   { key: 'conciliacion', label: 'Conciliación Bancaria', pattern: String.raw`Conciliaci[óo]n\s*Bancaria` },
   { key: 'flujo', label: 'Flujo de Dinero', pattern: String.raw`Flujo\s*de\s*Dinero` },
-  { key: 'expedientes', label: 'Expedientes Médicos', pattern: String.raw`Expedientes\s*M[ée]dicos` },
+  // `expediente` a secas cuenta: el nombre de la sección casi nunca se escribe
+  // completo en la prosa ("se emite desde el EXPEDIENTE del paciente"), así que
+  // exigir "Expedientes Médicos" dejaba pasar el redirect real. Con el patrón
+  // viejo, un cross-reference de agenda→expediente en 12 de los 66 scopes pasó
+  // el gate sin ruido (plan 07, punto A). El ROUTING_CUE sigue mandando: nombrar
+  // el expediente sin mandar a nadie ahí ("el receptor sale del expediente") no
+  // dispara.
+  { key: 'expedientes', label: 'Expedientes Médicos', pattern: String.raw`Expedientes\s*M[ée]dicos|expediente` },
   { key: 'pagos', label: 'Pagos', pattern: String.raw`Pagos` },
 ];
 

@@ -65,7 +65,7 @@ const FACTURAS_TOOLS: AnthropicTool[] = [
   {
     name: 'get_billing_status',
     description:
-      'EL diagnóstico completo de cobro/factura de una cita (o de las citas recientes de un paciente): expediente vinculado, datos fiscales del paciente, ingreso en Flujo de Dinero (y cómo nació), estado de pago (incluye links de pago), y si está FACTURADA (señal compuesta que resuelve el servidor — plataforma Y facturas externas del SAT). Úsala para "¿cómo va el cobro de X?", "¿ya se facturó la cita de Y?", "¿qué falta para facturarle?". Pasa bookingId (de get_bookings/get_day_schedule de ESTE turno) O patientId (de find_patient — sus 10 citas más recientes).',
+      'EL diagnóstico completo de cobro/factura de una cita (o de las citas recientes de un paciente): expediente vinculado, datos fiscales del paciente, ingreso en Flujo de Dinero (y cómo nació), estado de pago (incluye links de pago), y si está FACTURADA (señal compuesta que resuelve el servidor — plataforma Y facturas externas del SAT). Si una cita trae necesitaFactura es la casilla «¿Necesita factura?» que marcó el doctor; si NO lo trae, no la usó — nunca lo leas como un «no». Úsala para "¿cómo va el cobro de X?", "¿ya se facturó la cita de Y?", "¿qué falta para facturarle?". Pasa bookingId (de get_bookings/get_day_schedule de ESTE turno) O patientId (de find_patient — sus 10 citas más recientes).',
     input_schema: {
       type: 'object',
       properties: {
@@ -361,6 +361,8 @@ const BILLING_BOOKING_SELECT = {
   startTime: true,
   serviceName: true,
   finalPrice: true,
+  facturaSolicitada: true,
+  isFirstTime: true,
   patientId: true,
   patient: { select: PATIENT_FISCAL_SELECT },
   slot: { select: { date: true, startTime: true } },
@@ -532,10 +534,38 @@ function buildBillingStatus(
       estado: booking.status,
       servicio: booking.serviceName ?? null,
       precio: num(booking.finalPrice),
+      // Intención del doctor POR CITA — la casilla "¿Necesita factura?" de la
+      // tabla de citas (`bookings.factura_solicitada`, `71e4f390`). Es un HECHO,
+      // no un veredicto: no decide si se puede facturar (eso lo dice
+      // listoParaFacturar), dice lo que el doctor pidió.
+      //
+      // ⚠️ Se emite SOLO si el doctor tocó la casilla. `null` (363 de 373 citas en
+      // prod al 2026-07-30) se OMITE en vez de rendirse como "sin marcar": este
+      // objeto se repite hasta PATIENT_CITAS_CAP veces y el resultado del tool se
+      // corta a 8KB (run-turn `MAX_TOOL_RESULT_CHARS`). Rendir el caso vacío
+      // costaba ~450 chars por consulta de paciente, movía el corte hacia atrás y
+      // el modelo terminaba pegando el ledgerEntryId de una cita al importe de
+      // otra — medido: rompía `f2b-emision-camino-feliz` de forma ESTABLE.
+      // Su ausencia significa "el doctor no la usó", nunca "no la quiere".
+      ...(booking.facturaSolicitada === true || booking.facturaSolicitada === false
+        ? { necesitaFactura: booking.facturaSolicitada ? 'sí' : 'no' }
+        : {}),
     },
+    // `4eb117da` replegó la BÚSQUEDA de expediente tras un enlace en las citas de
+    // Primera vez (isFirstTime === true): ahí el camino directo es CREARLO. Las
+    // recurrentes y las de isFirstTime NULL —entre ellas las que crea el propio
+    // agente— conservan las dos opciones. El caso se resuelve AQUÍ y se rinde ya
+    // resuelto: dejar el "si es de Primera vez…" en la prosa obligaría al modelo a
+    // decidir con un campo que este payload no trae (regla 0).
     expediente: booking.patient
       ? { vinculado: true, ...mapPatientFiscal(booking.patient) }
-      : { vinculado: false, nota: 'Walk-in sin expediente — para link de pago o factura nominativa primero hay que crear/vincular el expediente.' },
+      : {
+          vinculado: false,
+          nota:
+            booking.isFirstTime === true
+              ? 'Walk-in sin expediente — para link de pago o factura nominativa primero hay que darle expediente. Esta cita es de Primera vez: el camino directo es CREARLO desde la cita (si el paciente YA tenía expediente, se busca tras el enlace "¿Ya tiene expediente?").'
+              : 'Walk-in sin expediente — para link de pago o factura nominativa primero hay que darle expediente desde la cita: se puede crear uno nuevo o vincular uno existente, las dos opciones están a la vista.',
+        },
     // "Pagada" authority: the LEDGER (estadoPago) is the hub and wins; link
     // states are the evidence trail (a paid link is what CREATED the entry).
     ingreso: entry
@@ -616,6 +646,10 @@ async function getBillingStatus(
       ...(totalCitas > statuses.length
         ? { nota: `Solo las ${statuses.length} citas más recientes de ${totalCitas} — para una cita específica pásame su bookingId.` }
         : {}),
+      // Cómo se LEE necesitaFactura se explica en la descripción del tool (viaja
+      // en el prefijo cacheado, se paga una vez) y NO aquí: este payload compite
+      // con el corte de 8KB de run-turn y una nota por llamada movía el corte
+      // hacia atrás — el modo de falla que rompió `f2b-emision-camino-feliz`.
       citas: statuses,
     };
   }
@@ -1036,7 +1070,15 @@ async function getPendientesFactura(
     ...dateWhere(start ?? undefined, end ?? undefined),
   };
 
-  const [grouped, sinExpediente, draftGroups] = await Promise.all([
+  // F/D (plan 07): la casilla "¿Necesita factura?" por CITA se expone como SEÑAL
+  // por paciente, NO como filtro. Filtrar aquí forkearía la cláusula que la PARITY
+  // RULE de arriba mantiene idéntica al veredicto `ingresosSinFactura` de
+  // get_patient_profile — y medido en prod (2026-07-30) el filtro sería un no-op:
+  // las 57 entradas del barrido tienen la casilla en NULL, 0 pacientes cambiarían.
+  // Quitar filas sin que el doctor lo pida es un veredicto; enseñarle lo que él
+  // marcó es un hecho (regla 0, precedente C4: omitir/relabelar, nunca recalcular).
+  const intentWhere = { ...baseWhere, patientId: { not: null } };
+  const [grouped, sinExpediente, draftGroups, marcadasNo, marcadasSi] = await Promise.all([
     prisma.ledgerEntry.groupBy({
       by: ['patientId'],
       where: { ...baseWhere, patientId: { not: null } },
@@ -1053,7 +1095,22 @@ async function getPendientesFactura(
       where: { doctorId: ctx.doctorId, status: 'draft', patientId: { not: null } },
       _count: { _all: true },
     }),
+    // La intención vive en la CITA, así que se llega por la relación
+    // BookingLedgerEntry (bookingId es @unique y está indexado). Medido en prod:
+    // las 57 entradas del barrido tienen booking_id, ninguna queda huérfana.
+    prisma.ledgerEntry.groupBy({
+      by: ['patientId'],
+      where: { ...intentWhere, booking: { is: { facturaSolicitada: false } } },
+      _count: { _all: true },
+    }),
+    prisma.ledgerEntry.groupBy({
+      by: ['patientId'],
+      where: { ...intentWhere, booking: { is: { facturaSolicitada: true } } },
+      _count: { _all: true },
+    }),
   ]);
+  const noPorPaciente = new Map(marcadasNo.map((g) => [g.patientId as string, g._count._all]));
+  const siPorPaciente = new Map(marcadasSi.map((g) => [g.patientId as string, g._count._all]));
   const draftsByPatient = new Map(draftGroups.map((g) => [g.patientId as string, g._count._all]));
 
   const patientIds = grouped.map((g) => g.patientId).filter((id): id is string => !!id);
@@ -1079,6 +1136,10 @@ async function getPendientesFactura(
       requiereFactura: p.requiereFactura,
       listoParaFacturar: fc.listoParaFacturar,
       ...(fc.camposFaltantes.length ? { camposFaltantes: fc.camposFaltantes } : {}),
+      // Solo se emiten cuando el doctor SÍ usó la casilla: un 0 en cada fila sería
+      // ruido en un barrido que puede traer muchos pacientes.
+      ...(noPorPaciente.has(p.id) ? { citasMarcadasSinFactura: noPorPaciente.get(p.id) } : {}),
+      ...(siPorPaciente.has(p.id) ? { citasMarcadasParaFactura: siPorPaciente.get(p.id) } : {}),
       ...(draftsByPatient.has(p.id)
         ? { borradoresPendientes: draftsByPatient.get(p.id), nota: 'Ya hay borrador(es) de factura preparados — se abren en Facturación o desde el expediente.' }
         : {}),
@@ -1086,6 +1147,10 @@ async function getPendientesFactura(
   });
   if (input.soloListos === true) rows = rows.filter((r) => r.listoParaFacturar);
   rows.sort((a, b) => b.montoTotal - a.montoTotal);
+  // Las filas que de verdad viajan. La nota de la casilla se decide sobre ESTAS,
+  // no sobre `rows`: si el paciente marcado quedó fuera del top, explicar un campo
+  // que no aparece es justo el vocabulario gratis de la bitácora #28.
+  const visibles = rows.slice(0, PENDIENTES_CAP);
 
   return {
     periodo: start || end ? `${start ?? 'inicio'} a ${end ?? 'hoy'}` : 'todo el historial',
@@ -1094,12 +1159,18 @@ async function getPendientesFactura(
     totalIngresosSinFactura: rows.reduce((s, r) => s + r.ingresosSinFactura, 0),
     montoTotalSinFactura: Math.round(rows.reduce((s, r) => s + r.montoTotal, 0) * 100) / 100,
     pacientesQueRequierenFactura: rows.filter((r) => r.requiereFactura).length,
+    // La señal se explica SOLO si aparece — si nadie usó la casilla, esta nota
+    // sería vocabulario gratis en el payload (lección de la bitácora #28: nombrar
+    // algo que no viene invita al modelo a hablar de ello).
+    ...(visibles.some((r) => 'citasMarcadasSinFactura' in r || 'citasMarcadasParaFactura' in r)
+      ? { notaCasillaFactura: 'citasMarcadasSinFactura / citasMarcadasParaFactura = citas donde el doctor usó la casilla "¿Necesita factura?". El barrido NO las filtra: sigue listando todo ingreso sin factura. Si una fila trae citasMarcadasSinFactura, el doctor ya dijo que esas consultas NO llevan factura — dilo en vez de proponérselas. Su ausencia significa "no usó la casilla", nunca "no la quiere".' }
+      : {}),
     ...(rows.length > PENDIENTES_CAP
       ? { nota: `Mostrando top ${PENDIENTES_CAP} por monto de ${rows.length} pacientes.` }
       : {}),
-    pacientes: rows.slice(0, PENDIENTES_CAP),
+    pacientes: visibles,
     ...(sinExpediente > 0
-      ? { ingresosSinExpediente: sinExpediente, notaSinExpediente: 'Ingresos de citas/pagos sin factura Y sin expediente vinculado — no se pueden agrupar por paciente; vincular el expediente desde la cita.' }
+      ? { ingresosSinExpediente: sinExpediente, notaSinExpediente: 'Ingresos de citas/pagos sin factura Y sin expediente vinculado — no se pueden agrupar por paciente; el expediente se le da desde la cita (si es de Primera vez el camino directo es CREARLO; buscar uno existente queda tras el enlace "¿Ya tiene expediente?").' }
       : {}),
     alcance:
       'Solo ingresos nacidos de citas o pagos de cita (origins cita/webhook_pago) sin factura (señal hasFactura del sistema). Ingresos manuales o del SAT no entran. Facturas PPD emitidas sin complemento son OTRA pregunta (get_ppd_cobranza); ingresos sin PAGAR es otra más (get_movimientos POR_COBRAR).',
@@ -1354,7 +1425,7 @@ async function resolveEmisionContext(ctx: ProposalContext, ledgerEntryIdRaw: unk
   }
 
   if (!entry.patientId) {
-    return { error: 'El ingreso no tiene expediente vinculado — sin expediente no hay datos fiscales del receptor. El camino: vincular el expediente desde la cita y reintentar.' };
+    return { error: 'El ingreso no tiene expediente vinculado — sin expediente no hay datos fiscales del receptor. El camino: darle expediente desde la cita (si es de Primera vez el camino directo es CREARLO; buscar uno existente queda tras el enlace "¿Ya tiene expediente?") y reintentar.' };
   }
   const patient = await prisma.patient.findFirst({
     where: { id: entry.patientId, doctorId: ctx.doctorId },

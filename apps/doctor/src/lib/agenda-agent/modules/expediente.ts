@@ -205,9 +205,15 @@ async function getExpedienteResumen(ctx: ToolContext, input: { patientId?: strin
       select: { updatedAt: true },
       orderBy: { updatedAt: 'desc' },
     }),
+    // Solo los formularios CLÍNICOS pre-consulta. El formulario FISCAL vive en
+    // ESTA MISMA tabla y se distingue solo por el centinela `templateId`, así
+    // que sin el filtro se cuela en el conteo (9 pacientes inflados en prod,
+    // medición 2026-07-29). `templateId` es NOT NULL en el esquema ⇒ `not` no
+    // excluye filas silenciosamente. Mismo filtro que `mapPatientFiscal` en
+    // modules/facturas.ts, donde el centinela se usa en el sentido contrario.
     prisma.appointmentFormLink.groupBy({
       by: ['status'],
-      where: { patientId: pid, doctorId },
+      where: { patientId: pid, doctorId, templateId: { not: 'FISCAL' } },
       _count: { id: true },
     }),
   ]);
