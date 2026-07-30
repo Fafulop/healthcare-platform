@@ -124,12 +124,16 @@ se copien hacia adelante a docs que debían quedar quietos:
 ## 5. Qué se verifica solo (no depende de que alguien se acuerde)
 
 ```bash
-pnpm gates          # corre los CUATRO
+pnpm gates          # corre los CINCO
 pnpm gate:docs      # los números de los docs vs el código
 pnpm gate:routes    # cobertura del mapa ruta→permiso
 pnpm gate:prompt    # identidad de bytes del prompt del dueño
-pnpm gate:prosa     # ninguna prosa de módulo enruta a una tool que ese usuario no tiene
+pnpm gate:prosa     # ninguna prosa de módulo enruta a una tool o SECCIÓN que ese usuario no tiene
+pnpm gate:payload   # el GET público de doctores no filtra columnas privadas
 ```
+
+> ⚠️ **Son CINCO desde que se sumó `gate:payload`** (fuga del payload público, 2026-07-26). Varios
+> docs —y el `CLAUDE.md` de la raíz— todavía dicen "los 4"; el comando `pnpm gates` es la fuente.
 
 **`gate:prosa`** (`scripts/check-agent-prose-references.ts`, TIERS T3 2026-07-25) es el más
 reciente y ataca una clase entera de bug: la prosa de un módulo cross-referencia tools de otros
@@ -138,6 +142,17 @@ cuenta— deja fuera ese módulo, **el texto sobrevive y le dice al modelo que l
 donde no puede ir**. El modelo entonces no declina: improvisa con la tool más parecida que sí
 tiene. Pasó de verdad (`../../TIERS/01-DISENO-tecnico.md` §11.5.1). El gate enumera los 66 scopes
 alcanzables, los resuelve con el resolver real y exige que toda tool nombrada exista en ese scope.
+
+> 🔎 **Ampliado 2026-07-30: ahora reconoce "expediente" a secas como SECCIÓN.** Antes solo cazaba
+> el nombre completo *"Expedientes Médicos"*, que **casi nunca se escribe así en la prosa** — así
+> que un redirect real (*"se emite desde el EXPEDIENTE del paciente"*) pasaba el gate en silencio.
+> Con el patrón viejo, un cross-reference `agenda → expediente` que rompía **12 de los 66 scopes**
+> salió limpio; se cazó a mano en review, no por el gate (plan 07 punto A, bitácora #31). El
+> `ROUTING_CUE` sigue mandando: **mencionar** el expediente sin mandar a nadie ahí (*"el receptor
+> sale del expediente"*) NO dispara — solo el redirect.
+>
+> ⚠️ Lección general: **el gate solo ve las secciones que tiene en su lista.** Una sección nueva
+> de producto no está cubierta hasta que alguien la agrega a `FEATURE_PHRASES`.
 
 **`gate:docs`** (`scripts/check-docs-numbers.ts`) compara los marcadores de los docs contra el
 código real y truena si no coinciden. Cubre **las dos carpetas hermanas**:

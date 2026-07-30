@@ -1,7 +1,23 @@
 # 🔧 PLAN — realinear el agente con los cambios de CITAS (2026-07-29)
 
-> **Tipo: PLAN.** Se convierte en **SNAPSHOT** (banner de `07-CONVENCIONES` §3) en cuanto shippee;
-> su estado vivo se muda al `SESSION-REFRESCO` del dominio.
+> 🔒 **SNAPSHOT — 2026-07-30.** Los **6 puntos están implementados y verificados** (5 gates +
+> type-check + DOS corridas de 81 casos con 0 FAIL estables). El estado vivo se mudó a
+> [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md), bitácora **#31**. Este doc se congela: si algo de
+> aquí resultó falso, se **anota**, no se borra.
+>
+> **Lo que el plan NO previó y salió al implementar** (detalle en #31):
+> - El punto **A** tenía **CUATRO** sitios de texto, no tres: se le escapó el `from` de
+>   `DESCRIPTION_OVERRIDES` (`registry.ts`), que debe seguir byte-idéntico a la descripción real.
+> - **A no podía conservar el centinela.** La frase que `gate:prompt` exigía (*"se emite desde la
+>   tabla de citas"*) es justo la que A borra ⇒ hubo que **mudar el centinela** a la CONDICIÓN
+>   (`solo si el paciente ya tiene datos fiscales COMPLETOS`), no a un destino.
+> - **Nombrar el EXPEDIENTE como destino acopla un permiso que `agenda` no exige** — 12 de 66
+>   scopes alcanzables lo habrían recibido sin tener la sección (familia #26/#27). La prosa se
+>   quedó en la frontera, sin destino. `gate:prosa` ahora reconoce "expediente" como sección.
+> - **F/D no se pudo hacer como filtro.** Ver §1 F/D, anotado abajo.
+>
+> **Tipo original: PLAN.** Se convierte en **SNAPSHOT** (banner de `07-CONVENCIONES` §3) en cuanto
+> shippee; su estado vivo se muda al `SESSION-REFRESCO` del dominio.
 >
 > **Por qué existe.** El 2026-07-28/29 se rediseñaron los flujos de `/dashboard/appointments`
 > (seis commits, ver [`../../CITAS/README.md`](../../CITAS/README.md)). **Antes de esa pasada el
@@ -16,16 +32,23 @@
 
 ## 0. ESTADO — dónde quedó la pasada (2026-07-29, fin de sesión)
 
-> 🔴 **HAY DOS COMMITS SIN PUSHEAR.** Lee esto antes de tocar nada.
+> ✅ **ACTUALIZADO 2026-07-30 — los 6 puntos están HECHOS.** Sigue habiendo dos commits sin
+> pushear (`90490d54`, `a8c86b84`) **y**, además, los cambios de hoy sin commitear.
 
 | # | Qué | Estado | Commit |
 |---|---|---|---|
 | **B** | contacto por expediente en `get_booking_detail` | ✅ **HECHO** | `90490d54` — **pusheable SOLO** |
 | **E** | el agente ve el formulario fiscal pendiente | ✅ **HECHO** | `a8c86b84` — ⛔ **NO pushear solo** |
-| **F/D** | `factura_solicitada` invisible (DOS sitios) | ⬜ pendiente | — |
-| **C** | `formulariosPreConsulta` cuenta los FISCALES | ⬜ pendiente | — |
-| **A** | prosa del CFDI incompleta | ⬜ pendiente | ⚠️ ver §2/A, hay TRES sitios + un gate |
-| **G** | prosa "vincular el expediente desde la cita" | ⬜ pendiente | — |
+| **F/D** | `factura_solicitada` invisible (DOS sitios) | ✅ **HECHO** — como **SEÑAL**, no como filtro (§1 F/D) | sin commitear |
+| **C** | `formulariosPreConsulta` cuenta los FISCALES | ✅ **HECHO** | sin commitear |
+| **A** | prosa del CFDI incompleta | ✅ **HECHO** — **CUATRO** sitios + 2 aserciones; centinela mudado | sin commitear |
+| **G** | prosa "vincular el expediente desde la cita" | ✅ **HECHO** — la rama se resuelve server-side | sin commitear |
+
+> **Verificación al cierre:** `pnpm gates` (los **5** — `gate:payload` se sumó desde que se
+> escribió este plan) + `type-check` limpios · **2 corridas completas de 81 casos, 0 FAIL estables,
+> conjuntos estables con intersección VACÍA** (bitácora #31b) · formas de query nuevas
+> smoke-testeadas read-only contra prod. Prefijo `4a66a438…` → `32d19d6d…`, re-medido con
+> `count_tokens`: **22,821 tok** (Haiku 4.5). **Nada commiteado todavía.**
 
 **Por qué B se puede pushear solo y E no.** `gate:prompt` verificó que B deja el prefijo
 **byte-idéntico** (`sha256 4a66a438…`): es cambio de PAYLOAD, no de prompt ⇒ no invalida el caché
@@ -114,6 +137,23 @@ puede leerlo ⇒ contradice una intención explícita.
 1. `get_pendientes_factura`: respetar la casilla (deuda §8.1 de FACTURAS).
 2. `get_billing_status`: exponerla. Es EL tool de *"¿qué falta para facturar esta cita?"*; omitir
    la intención del doctor ahí es el hueco de fondo, no solo el del barrido.
+
+> ⚠️ **ANOTACIÓN 2026-07-30 — "respetar la casilla" NO se implementó como filtro.** Medido
+> read-only contra prod antes de tocar nada: de las **57** entradas del barrido, **las 57 tienen
+> `factura_solicitada` en NULL** (la casilla nació el 07-28; 7 `true` / 3 `false` / 363 NULL en
+> toda la tabla). Filtrar habría sido un **no-op exacto — 0 filas excluidas, 0 pacientes que
+> cambian** — a cambio de forkear la cláusula que la **PARITY RULE** de `facturas.ts` mantiene
+> byte-idéntica al veredicto `ingresosSinFactura` de `get_patient_profile` (el comentario dice
+> *"To harden it, change the source verdict first, never just this sweep"*).
+>
+> Se implementó como **SEÑAL**: `citasMarcadasSinFactura` / `citasMarcadasParaFactura` por paciente,
+> emitidas **solo si el doctor usó la casilla**, y el barrido sigue listando todo. Quitar filas que
+> el doctor no pidió quitar es un **veredicto**; enseñarle lo que él marcó es un **hecho** — regla 0,
+> precedente **C4** (omitir/relabelar, jamás recalcular). La intención por cita se expone además en
+> `get_billing_status` (`necesitaFactura`), que es donde el plan la quería.
+>
+> ⚠️ **Y ahí es donde nació la única regresión de la pasada:** ese campo, rendido en las 10 citas
+> del payload, movió el corte de 8KB. Ver bitácora **#31**.
 
 ### G · Prosa: "vincular el expediente desde la cita" (menor)
 **Dónde:** `facturas.ts` ×3 (`:519`, `:1083`, `:1338`).

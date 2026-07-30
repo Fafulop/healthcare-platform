@@ -199,10 +199,14 @@ archivo a tocar si se decide la bitácora #30.**
    exige editar el prompt ⇒ cambian los bytes del prefijo y hay que correr los 81 casos. Va
    junto con la deuda de agente del punto 6. (`Confirmación` y la casilla NO los nombra:
    verificado antes de cambiarlas.)
-6. **Deuda de AGENTE, agrupada a propósito** — 3 arreglos que comparten UNA corrida de la suite:
-   ver [`../AGENTES/AGENTE FACTURAS/SESSION-REFRESCO.md`](../AGENTES/AGENTE%20FACTURAS/SESSION-REFRESCO.md)
-   próximos pasos §8 y la bitácora **#30** de
+6. ~~**Deuda de AGENTE, agrupada a propósito** — 3 arreglos que comparten UNA corrida de la suite.~~
+   ✅ **CERRADA 2026-07-30** — se pagó en UNA pasada junto con los otros 3 puntos del plan 07
+   (⚠️ **implementada pero sin commitear**). Detalle:
+   [`../AGENTES/AGENTE AGENDA/07-PLAN-realinear-agente-con-citas.md`](../AGENTES/AGENTE%20AGENDA/07-PLAN-realinear-agente-con-citas.md)
+   (SNAPSHOT) y bitácora **#31** de
    [`../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTES/AGENTE%20AGENDA/SESSION-REFRESCO.md).
+   ⚠️ **El punto 5 de arriba (renombrar `Cobro`/`Facturación`) NO se hizo** — seguía dependiendo
+   de esta corrida y ahora vuelve a necesitar una propia.
 7. **Código muerto**: el picker de slots ya no se usa (`SlotPickerStep`, las 2 ramas de submit
    que no son rangos, el árbol `/v1`). ⚠️ NO tocar `POST /api/appointments/bookings` — el
    widget público del sitio agenda por ahí.
@@ -265,10 +269,15 @@ pretende: el doctor tenía los recordatorios prendidos y esos pacientes no los r
 `booking.patientEmail` a secas, así que una cita sin correo creaba un formulario con destinatario
 vacío aunque el expediente lo tuviera.
 
-🔻 **Falta el AGENTE.** `mapBooking` en `tools.ts` sigue devolviendo `b.patientEmail` a secas, así
+✅ **El AGENTE ya está alineado (2026-07-30).** `get_booking_detail` resuelve
+`patient.email || patientEmail` — el mismo orden que `lib/booking-contact.ts` — así que agente y UI
+vuelven a coincidir. Medido antes de tocar: de 368 citas la respuesta del agente cambia en **25**
+(21 donde decía "sin correo" y la UI sí tenía · 4 con un correo distinto al que la UI usa).
+⚠️ **Implementado y verificado, pero sin commitear al 2026-07-30.** Bitácora **#31**.
+
+~~🔻 **Falta el AGENTE.** `mapBooking` en `tools.ts` sigue devolviendo `b.patientEmail` a secas, así
 que hasta que se pague la deuda §8 el agente contradice a la UI — ahora **en el sentido
-contrario** al que documentaba #30. La corrección va con el orden NUEVO; las dos bitácoras están
-anotadas para que nadie implemente el viejo.
+contrario** al que documentaba #30.~~
 
 ## Rarezas que NO son bugs (para no "arreglarlas" dos veces)
 

@@ -2,7 +2,9 @@
 
 > Snapshot del estado del **módulo expediente** del asistente. Para una sesión/LLM en frío:
 > lee este archivo, luego [`00-DISENO-F1-metadatos.md`](00-DISENO-F1-metadatos.md).
-> Última actualización: **2026-07-12**.
+> Última actualización: **2026-07-30** — un arreglo de UNA línea en `modules/expediente.ts`
+> (`formulariosPreConsulta` contaba los formularios FISCALES). Ver §"Corrección 2026-07-30".
+> Antes: **2026-07-12**.
 > El mapa de todos los agentes: [`../GENERAL AGENTES/00-BLUEPRINT-asistente-modular.md`](../GENERAL%20AGENTES/00-BLUEPRINT-asistente-modular.md).
 
 ---
@@ -45,6 +47,36 @@ mismo día):
   `firstVisitDate`/"nunca ha venido" habrían mentido (la estampa crear el expediente/el
   encounter, no las citas).
 - Evals: suite 43 = **41 PASS + 2 WARN soft + 0 FAIL**; los 4 casos nuevos PASS.
+
+## Corrección 2026-07-30 — `formulariosPreConsulta` contaba los FISCALES
+
+**El bug:** el `groupBy` de `appointmentFormLink` en `modules/expediente.ts` agrupaba por
+`status` **sin filtrar `templateId`**, y el **formulario fiscal vive en esa MISMA tabla**,
+distinguido solo por el centinela `templateId = 'FISCAL'`. Resultado: `get_expediente_resumen`
+inflaba el conteo de formularios *pre-consulta* con los fiscales. **Medido en prod: 9 pacientes
+con el conteo inflado** (4 FISCAL/PENDING + 5 FISCAL/SUBMITTED conviviendo con los clínicos).
+
+**El arreglo:** una línea — `templateId: { not: 'FISCAL' }` en el `where`. Verificado en el
+esquema que `templateId` es **NOT NULL**, así que `not` no descarta filas en silencio (con una
+columna nullable, `NOT (col = 'FISCAL')` habría excluido también los NULL).
+
+**Por qué importa más allá del conteo:** es la **misma clase de bug en dos sitios**. El punto E
+del mismo plan añadió `formularioFiscalPendiente` en `modules/facturas.ts` usando el centinela en
+el sentido CONTRARIO (`templateId: 'FISCAL'`); olvidarlo allá habría producido este bug otra vez.
+El resto de la app ya distinguía el centinela (`patients/[id]/formularios` lo etiqueta "Datos
+Fiscales") — el agente era el único que no.
+
+**Contexto:** salió del punto **C** del plan
+[`../AGENTE AGENDA/07-PLAN-realinear-agente-con-citas.md`](../AGENTE%20AGENDA/07-PLAN-realinear-agente-con-citas.md)
+(SNAPSHOT); la bitácora del fallo vive, como manda la convención, en
+[`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md) **#31**.
+Verificado con 5 gates + type-check + **2 corridas de 81 casos, 0 FAIL estables**
+(`exped-resumen-metadatos` y `xdom-expediente-cobro` pasan en ambas).
+⚠️ **Sin commitear al 2026-07-30.**
+
+> 🔻 **Deuda que este arreglo deja a la vista:** ningún eval cubre el conteo de
+> `formulariosPreConsulta`. Pasó de estar mal a estar bien **sin que la suite lo notara** — los
+> 2 casos de expediente verifican otras cosas. Si el centinela vuelve a cambiar, nada avisa.
 
 ## Decisiones (no re-litigar sin motivo)
 

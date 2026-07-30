@@ -7,7 +7,12 @@
 > entregas* — qué se shippeó, cuándo y con qué commit · (3) *PRÓXIMOS PASOS* — lo único que
 > queda abierto. Para profundidad, el *Mapa de documentos* dice a cuál de los 10 docs ir.
 >
-> **Estado de ESTADO: 2026-07-19** (último trabajo de dominio: money-model #5, folio 10).
+> **Estado de ESTADO: 2026-07-30** — el módulo cambió en la pasada del plan 07 (ver
+> **"Cambios de dominio 2026-07-30"** más abajo, justo antes de PRÓXIMOS PASOS): la intención
+> por cita (`necesitaFactura` / `citasMarcadasSinFactura`), la prosa de walk-in resuelta
+> server-side, y la descripción de `get_billing_status`. ⚠️ **Implementado y verificado, SIN
+> COMMITEAR.** La deuda §8 queda **cerrada**.
+> *Antes — 2026-07-19* (último trabajo de dominio: money-model #5, folio 10).
 > *Última edición 2026-07-23: pasada de alineación de docs — se reescribió "En una frase",
 > se reestructuró esta cabecera en el "Historial de entregas" de abajo (sin perder ningún
 > dato) y se agregó el `README.md` de la carpeta. Ningún hecho de estado cambió.*
@@ -326,6 +331,32 @@ money model.
    Post-review (`d93a3fc3`): el empty state de Declaraciones ya no menciona el tipo
    "Completa" (control eliminado) — apunta al botón real "Iniciar descarga".
 
+## 🔧 Cambios de dominio 2026-07-30 (plan 07 — SIN COMMITEAR)
+
+Cuatro cambios en `modules/facturas.ts`, todos de **payload/prosa**; ninguno toca la lógica de
+emisión. Contexto y bitácora: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md) **#31**.
+
+1. **La intención por CITA ya es visible** (casilla *"¿Necesita factura?"*, `71e4f390`).
+   `get_billing_status` → `necesitaFactura`; `get_pendientes_factura` → `citasMarcadasSinFactura`
+   / `citasMarcadasParaFactura` por paciente. **Es SEÑAL, no filtro:** el barrido sigue listando
+   todo ingreso sin factura. Filtrar habría forkeado la **PARITY RULE** (la cláusula que este
+   barrido mantiene byte-idéntica al veredicto `ingresosSinFactura` de `get_patient_profile`) a
+   cambio de **nada**: medido en prod, las 57 entradas del barrido tienen la casilla en NULL.
+2. ⚠️ **Regla de payload que salió cara y aplica a TODO este módulo:** rendir el campo en las 10
+   citas de `get_billing_status(patientId)` movió el corte de 8KB de `run-turn` y el modelo empezó
+   a coser el `ledgerEntryId` de una cita con el importe de otra (`f2b-emision-camino-feliz`,
+   estable). **El payload de este tool ya se pasaba del cap antes** — el `PATIENT_CITAS_CAP = 10`
+   promete lo contrario en su comentario y es falso. Ahora `necesitaFactura` **se omite** cuando
+   el doctor no tocó la casilla, y el "ausencia ≠ no" se explica **una vez en la descripción del
+   tool** (prefijo cacheado) en vez de en cada respuesta.
+3. **Prosa de walk-in resuelta server-side.** Las notas de "vincular el expediente desde la cita"
+   ahora distinguen Primera vez (donde la búsqueda se replegó tras un enlace, `4eb117da`) del
+   resto — con `isFirstTime` en el select, **no** pidiéndole al modelo que decida con un campo que
+   el payload no traía (regla 0). En prod: 308 walk-ins sin expediente, 224 de Primera vez.
+4. **`formularioFiscalPendiente`** (punto E, `a8c86b84`) viaja por `mapPatientFiscal` ⇒ aparece en
+   los cuatro consumidores fiscales. ⚠️ El filtro `templateId: 'FISCAL'` es **obligatorio**;
+   olvidarlo es el bug gemelo que se arregló el mismo día en `expediente` (ver su REFRESCO).
+
 ## ➡️ PRÓXIMOS PASOS (handoff 2026-07-17 — leer esto primero)
 
 Todo lo del día está SHIPPED y desplegado (último commit `29ac72d7`). Los candidatos
@@ -387,10 +418,19 @@ siguientes, en el orden que el usuario los tiene en mente:
    descargas. La tabla de citas se queda con **intención** (*¿necesita factura?*, por CITA) y
    **captación de datos fiscales** (por PACIENTE); cuando los datos están listos, enlaza al
    expediente para emitir. Diseño en curso — ver bitácora #29.
-8. **⚠️ Deuda de AGENTE acumulada — tres arreglos chicos que comparten UNA corrida de evals
-   (abierto 2026-07-29):** los tres tocan código del agente, así que cada uno por su cuenta
+8. ~~**⚠️ Deuda de AGENTE acumulada — tres arreglos chicos que comparten UNA corrida de evals**~~
+   ✅ **CERRADA 2026-07-30 — los tres se pagaron en UNA sola pasada**, como estaba planeado
+   ([`../AGENTE AGENDA/07-PLAN-realinear-agente-con-citas.md`](../AGENTE%20AGENDA/07-PLAN-realinear-agente-con-citas.md),
+   ahora SNAPSHOT; bitácora **#31** en `../AGENTE AGENDA/SESSION-REFRESCO.md`):
+   **8.1** se resolvió como **SEÑAL, no como filtro** — medido en prod, filtrar era un no-op
+   (57/57 entradas con la casilla en NULL) y habría forkeado la PARITY RULE del barrido ·
+   **8.2** una línea (`templateId: { not: 'FISCAL' }`) · **8.3** `patient.email || patientEmail`.
+   Verificado con 5 gates + type-check + **dos corridas de 81 casos con 0 FAIL estables**.
+   ⚠️ **Sin commitear al 2026-07-30.** Texto original abajo, sin borrar.
+
+   ~~Los tres tocan código del agente, así que cada uno por su cuenta
    invalidaría el caché del prompt del dueño y exigiría la suite completa de 81 casos. Se
-   agrupan a propósito; hacerlos sueltos es pagar esa corrida tres veces.
+   agrupan a propósito; hacerlos sueltos es pagar esa corrida tres veces.~~
    1. **`get_pendientes_factura` ignora la casilla *Factura* por cita.** La tabla de citas ya
       guarda la intención por CITA (`bookings.factura_solicitada`, `71e4f390`), pero el barrido
       sigue reportando como pendiente cualquier ingreso sin factura ⇒ el agente contradice al

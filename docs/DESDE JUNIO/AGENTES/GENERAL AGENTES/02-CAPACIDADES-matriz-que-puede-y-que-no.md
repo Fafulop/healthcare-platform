@@ -189,30 +189,55 @@ establecida. Vive en la rama `agent/haiku-viability`, sin desplegar. Cuando (y s
 renglón es el que se actualiza. Estado real y plan:
 [`OPTIMIZACION COSTOS`](../OPTIMIZACION%20COSTOS/README.md) (caja 🛑).
 
-**Prefijo estático: 27,151 tokens — MEDIDO EXACTO con `count_tokens` (2026-07-23).**
-Reproducible: `npx tsx scripts/measure-agent-prefix.ts` (no toca la BD, no consume generación).
-Split: **system 12,126 (45%) · tools 15,025 (55%)** con los 39 tools.
+**Prefijo estático: 22,821 tokens — MEDIDO EXACTO con `count_tokens` (2026-07-30, Haiku 4.5).**
+Split: **system 9,600 (42%) · tools 13,220 (58%)** con los 39 tools.
+Reproducible (no toca la BD, no consume generación), **pinneando el modelo**:
+`AGENDA_AGENT_MODEL=claude-haiku-4-5 npx tsx scripts/measure-agent-prefix.ts` desde `apps/doctor`.
 
-> ⚠️ **Corrige la estimación anterior de "~24.7k".** Ese número salía del PISO de `prompt_tokens`
-> en `llm_token_usage` y el doc asumía que el real sería *un poco menor*: es **+10% MAYOR** y en
-> la dirección contraria. Lección: el prefijo gobierna ~82% del costo de cada pregunta fría, así
-> que se mide, no se infiere.
+> ⚠️ **El número que de verdad importa hoy es MENOR: ~11.0k.** Desde `0daeed21` (tool search,
+> 2026-07-24) solo 4 tools "calientes" + el tool de búsqueda entran al contexto; los otros 35
+> viajan en el request pero **no cargan hasta descubrirse**. Medido 2026-07-30: system + 4 hot =
+> **10,957 tok**. Los 22,821 son el techo "si se cargara todo", útil para comparar contra el
+> histórico y para priorizar poda — no lo que se paga en una pregunta fría típica.
 
-**Presupuesto por módulo (~2-3k) — 3 de 5 lo exceden** (medido 2026-07-23; señal de nivel 1 de
-`00-BLUEPRINT` §5.3, "si un módulo pide más, sus veredictos no están suficientemente server-side"):
+> ⚠️ **Comparar con el 27,151 de 2026-07-23 SIN corregir el tokenizador da una conclusión falsa.**
+> Ese día el modelo default era `claude-sonnet-5`; desde `a5d95fad` (2026-07-24) es
+> `claude-haiku-4-5`, y **son tokenizadores distintos**. Medido el mismo día contra los dos:
+> `claude-sonnet-5` → **28,052** · `claude-haiku-4-5` → **22,821**. O sea que contra su propio
+> tokenizador el prefijo **CRECIÓ +901 tok** (system 12,126→12,779 · tools 15,025→15,273) por el
+> trabajo de julio; la "bajada" de 4.3k es puro cambio de modelo. **Un número de tokens sin el
+> modelo al lado no es comparable.**
+>
+> 🐛 **Deuda del script** (no corregida, es cambio de código): `measure-agent-prefix.ts:57` sigue
+> defaulteando a `claude-sonnet-5` — desalineado con `run-turn.ts:53` desde 2026-07-24 — y su
+> línea de costo cotiza a $2/$3 por millón (tarifas Sonnet) aunque mida Haiku, que va a $1. Por eso
+> el comando de arriba lleva el modelo pinneado.
+
+> ⚠️ **Corrige la estimación anterior de "~24.7k" (2026-07-23).** Ese número salía del PISO de
+> `prompt_tokens` en `llm_token_usage` y el doc asumía que el real sería *un poco menor*: era
+> **+10% MAYOR**. Lección que sigue vigente: el prefijo gobierna ~82% del costo de una pregunta
+> fría, así que se mide, no se infiere.
+
+**Presupuesto por módulo (~2-3k) — 2 de 5 lo exceden** (medido 2026-07-30 con `claude-haiku-4-5`;
+señal de nivel 1 de `00-BLUEPRINT` §5.3, "si un módulo pide más, sus veredictos no están
+suficientemente server-side"):
 
 | Módulo | Total | tools | prompt | vs presupuesto |
 |---|---|---|---|---|
-| facturas | 8,706 | 5,796 (12) | 2,910 | ⚠️ ~3× |
-| agenda | 7,255 | 5,531 (18) | 1,724 | ⚠️ ~2.4× |
-| flujo | 3,032 | 1,889 (5) | 1,143 | ⚠️ apenas |
-| expediente | 1,598 | 792 (2) | 806 | ✅ |
-| fiscal | 1,590 | 663 (2) | 927 | ✅ |
+| facturas | 7,399 | 5,237 (12) | 2,162 | ⚠️ ~2.5× |
+| agenda | 5,950 | 4,547 (18) | 1,403 | ⚠️ ~2× |
+| flujo | 2,480 | 1,621 (5) | 859 | ✅ (antes ⚠️) |
+| fiscal | 1,364 | 660 (2) | 704 | ✅ |
+| expediente | 1,261 | 659 (2) | 602 | ✅ |
 
-Suma de módulos 22,181; el resto (4,970) es prompt COMPARTIDO (intro/resilience/reglas globales)
-+ overhead del bloque de tools (354). Tool más pesada: `propose_create_cfdi` (1,276); el top-10
-concentra el 46% de los tokens de tools. Detalle y consecuencias de costo:
-[`../OPTIMIZACION COSTOS/02-BITACORA`](../OPTIMIZACION%20COSTOS/02-BITACORA-experimentos.md).
+Suma de módulos 18,454; el resto (4,367) es prompt COMPARTIDO (intro/resilience/reglas globales)
++ overhead del bloque de tools (496). Tool más pesada: `propose_create_cfdi` (1,116), seguida de
+`propose_prepare_factura_borrador` (796) y `get_movimientos` (618). Detalle y consecuencias de
+costo: [`../OPTIMIZACION COSTOS/02-BITACORA`](../OPTIMIZACION%20COSTOS/02-BITACORA-experimentos.md).
+
+> ⚠️ **La tabla bajó de 3 módulos sobre presupuesto a 2, pero NO por una poda:** la medición
+> anterior era con el tokenizador de Sonnet 5. `flujo` cruzó el umbral por cambio de modelo, no
+> porque encogiera. Comparar filas de 2026-07-23 con éstas es el mismo error que arriba.
 
 **Ninguna señal de escalamiento §5.3 disparada — nivel 0 se mantiene** (medición 2026-07-23,
 read-only vs prod, n=80 turnos con budget, TODOS dr-prueba — sin señal de doctores reales aún):
