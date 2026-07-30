@@ -10,8 +10,8 @@
 > **Estado de ESTADO: 2026-07-30** — el módulo cambió en la pasada del plan 07 (ver
 > **"Cambios de dominio 2026-07-30"** más abajo, justo antes de PRÓXIMOS PASOS): la intención
 > por cita (`necesitaFactura` / `citasMarcadasSinFactura`), la prosa de walk-in resuelta
-> server-side, y la descripción de `get_billing_status`. ⚠️ **Implementado y verificado, SIN
-> COMMITEAR.** La deuda §8 queda **cerrada**.
+> server-side, y la descripción de `get_billing_status`. ✅ **En prod** (`d1f9a4d3`, deploy
+> SUCCESS en `ab6c21b5`). La deuda §8 queda **cerrada**.
 > *Antes — 2026-07-19* (último trabajo de dominio: money-model #5, folio 10).
 > *Última edición 2026-07-23: pasada de alineación de docs — se reescribió "En una frase",
 > se reestructuró esta cabecera en el "Historial de entregas" de abajo (sin perder ningún
@@ -331,7 +331,7 @@ money model.
    Post-review (`d93a3fc3`): el empty state de Declaraciones ya no menciona el tipo
    "Completa" (control eliminado) — apunta al botón real "Iniciar descarga".
 
-## 🔧 Cambios de dominio 2026-07-30 (plan 07 — SIN COMMITEAR)
+## 🔧 Cambios de dominio 2026-07-30 (plan 07 — EN PROD, `d1f9a4d3`)
 
 Cuatro cambios en `modules/facturas.ts`, todos de **payload/prosa**; ninguno toca la lógica de
 emisión. Contexto y bitácora: [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md) **#31**.
@@ -426,7 +426,7 @@ siguientes, en el orden que el usuario los tiene en mente:
    (57/57 entradas con la casilla en NULL) y habría forkeado la PARITY RULE del barrido ·
    **8.2** una línea (`templateId: { not: 'FISCAL' }`) · **8.3** `patient.email || patientEmail`.
    Verificado con 5 gates + type-check + **dos corridas de 81 casos con 0 FAIL estables**.
-   ⚠️ **Sin commitear al 2026-07-30.** Texto original abajo, sin borrar.
+   ✅ **En prod** (`d1f9a4d3`). Texto original abajo, sin borrar.
 
    ~~Los tres tocan código del agente, así que cada uno por su cuenta
    invalidaría el caché del prompt del dueño y exigiría la suite completa de 81 casos. Se

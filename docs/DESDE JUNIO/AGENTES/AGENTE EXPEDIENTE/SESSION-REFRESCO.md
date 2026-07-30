@@ -72,7 +72,7 @@ Fiscales") — el agente era el único que no.
 [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md) **#31**.
 Verificado con 5 gates + type-check + **2 corridas de 81 casos, 0 FAIL estables**
 (`exped-resumen-metadatos` y `xdom-expediente-cobro` pasan en ambas).
-⚠️ **Sin commitear al 2026-07-30.**
+✅ **En prod** (`d1f9a4d3`; deploy SUCCESS en `ab6c21b5`).
 
 > 🔻 **Deuda que este arreglo deja a la vista:** ningún eval cubre el conteo de
 > `formulariosPreConsulta`. Pasó de estar mal a estar bien **sin que la suite lo notara** — los

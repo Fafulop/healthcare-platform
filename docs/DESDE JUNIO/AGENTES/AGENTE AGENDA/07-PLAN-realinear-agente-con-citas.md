@@ -32,23 +32,24 @@
 
 ## 0. ESTADO — dónde quedó la pasada (2026-07-29, fin de sesión)
 
-> ✅ **ACTUALIZADO 2026-07-30 — los 6 puntos están HECHOS.** Sigue habiendo dos commits sin
-> pushear (`90490d54`, `a8c86b84`) **y**, además, los cambios de hoy sin commitear.
+> ✅ **CERRADO 2026-07-30 — los 6 puntos HECHOS, EN PROD.** `90490d54` (B) · `a8c86b84` (E) ·
+> **`d1f9a4d3`** (F/D + C + A + G) · `61040679` (docs) · `ab6c21b5` (tooling).
+> Deploy verificado: `@healthcare/doctor` SUCCESS en `ab6c21b5`.
 
 | # | Qué | Estado | Commit |
 |---|---|---|---|
 | **B** | contacto por expediente en `get_booking_detail` | ✅ **HECHO** | `90490d54` — **pusheable SOLO** |
 | **E** | el agente ve el formulario fiscal pendiente | ✅ **HECHO** | `a8c86b84` — ⛔ **NO pushear solo** |
-| **F/D** | `factura_solicitada` invisible (DOS sitios) | ✅ **HECHO** — como **SEÑAL**, no como filtro (§1 F/D) | sin commitear |
-| **C** | `formulariosPreConsulta` cuenta los FISCALES | ✅ **HECHO** | sin commitear |
-| **A** | prosa del CFDI incompleta | ✅ **HECHO** — **CUATRO** sitios + 2 aserciones; centinela mudado | sin commitear |
-| **G** | prosa "vincular el expediente desde la cita" | ✅ **HECHO** — la rama se resuelve server-side | sin commitear |
+| **F/D** | `factura_solicitada` invisible (DOS sitios) | ✅ **HECHO** — como **SEÑAL**, no como filtro (§1 F/D) | `d1f9a4d3` |
+| **C** | `formulariosPreConsulta` cuenta los FISCALES | ✅ **HECHO** | `d1f9a4d3` |
+| **A** | prosa del CFDI incompleta | ✅ **HECHO** — **CUATRO** sitios + 2 aserciones; centinela mudado | `d1f9a4d3` |
+| **G** | prosa "vincular el expediente desde la cita" | ✅ **HECHO** — la rama se resuelve server-side | `d1f9a4d3` |
 
 > **Verificación al cierre:** `pnpm gates` (los **5** — `gate:payload` se sumó desde que se
 > escribió este plan) + `type-check` limpios · **2 corridas completas de 81 casos, 0 FAIL estables,
 > conjuntos estables con intersección VACÍA** (bitácora #31b) · formas de query nuevas
 > smoke-testeadas read-only contra prod. Prefijo `4a66a438…` → `32d19d6d…`, re-medido con
-> `count_tokens`: **22,821 tok** (Haiku 4.5). **Nada commiteado todavía.**
+> `count_tokens`: **22,821 tok** (Haiku 4.5). **Todo en prod.**
 
 **Por qué B se puede pushear solo y E no.** `gate:prompt` verificó que B deja el prefijo
 **byte-idéntico** (`sha256 4a66a438…`): es cambio de PAYLOAD, no de prompt ⇒ no invalida el caché
