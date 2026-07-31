@@ -6,7 +6,8 @@
 > [`07-CONVENCIONES-docs.md`](07-CONVENCIONES-docs.md) §2. La VERDAD es el código
 > (`apps/doctor/src/lib/agenda-agent/modules/` + `prompt.ts`); este doc es el mapa.
 >
-> **Verificado contra el código 2026-07-25: 39 tools / 5 módulos · suite de evals 81 casos.**
+> **Verificado contra el código 2026-07-25 (evals re-contados 2026-07-31): 39 tools / 5 módulos ·
+> suite de evals 84 casos.**
 > ⚠️ **Checklist del playbook: todo módulo o tool nuevo actualiza esta matriz**
 > (checklist completo en `07-CONVENCIONES` §5).
 
@@ -154,7 +155,7 @@ bitácora #24 y `00-BLUEPRINT` §5.2 punto 6.
      Actualiza el número Y el texto de esta sección juntos. -->
 <!-- gate:tools=39 -->
 <!-- gate:modules=5 -->
-<!-- gate:evals=81 -->
+<!-- gate:evals=84 -->
 <!-- gate:module-list=agenda,facturas,fiscal,flujo,expediente -->
 
 **39 tools / 5 módulos** — desglose real (conteo de `input_schema` por archivo): agenda 8 de
@@ -162,11 +163,11 @@ lectura (`tools.ts`) + 10 de propuesta (`proposals.ts`) · facturas 12 (10 lectu
 propuestas) · fiscal 2 · flujo 5 · expediente 2. El conteo válido es `ALL_TOOLS.length` del
 registry — nunca sumar a mano.
 
-**Suite de evals: 81 casos** (contados en `scripts/agenda-agent-evals.ts`). Por familia:
+**Suite de evals: 84 casos** (contados en `scripts/agenda-agent-evals.ts`). Por familia:
 6 `f2a-*` · 6 `f2b-*` · 2 `f2c-*` · 5 `flujo-*` · 5 `xdom-*` cross-dominio · 3 `exped-*` ·
 3 `kl-*` de capa de conocimiento · 3 `inj-*` sondas de inyección (fixtures permanentes
 `A6INJ*`) · 6 `member-*` del path de usuario secundario (3 de un módulo + 2 con la forma REAL de 4 módulos del member en prod + 1 del caso espejo flujo-sin-fiscal) · **13 `tier-core-*` del techo de plan
-CORE (TIERS T3, 2026-07-25; +1 de la bitácora #28, 2026-07-27)** · 4 `f1-*` · 6 `f15-*` · el resto, casos core de agenda.
+CORE (TIERS T3, 2026-07-25; +1 de la bitácora #28, 2026-07-27)** · 4 `f1-*` · 6 `f15-*` · **3 `disponibilidad-*` de los tres sabores de "este día no sirve" (bitácora #32, 2026-07-31: día bloqueado entero / rango exactamente lleno / día sin rango)** · el resto, casos core de agenda.
 **Baseline 0 WARN** (un WARN se investiga, ya no es "normal"; los soft son guardas
 data-dependent justificadas).
 

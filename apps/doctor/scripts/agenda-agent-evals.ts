@@ -364,6 +364,69 @@ async function main() {
         { kind: 'reply-match', pattern: '(no.{0,40}(disponib|rango|horario)|domingo)', flags: 'i' },
       ],
     },
+    // --- Bitácora #32: los TRES sabores de "este día no sirve" -----------------
+    // El agente ofreció al doctor lunes 3, martes 4 y miércoles 5 a las 11:00
+    // cuando NINGUNO estaba libre. Cada día lo estaba por una razón distinta, y
+    // las tres se ven igual desde fuera ("el día tiene rango") — por eso van como
+    // tres casos y no como uno. Los tres son `soft` por la MISMA razón que
+    // `fuera-de-horario-ruta-normal`: dependen de la redacción del modelo y de
+    // datos vivos; un WARN aquí se investiga (baseline 0 WARN).
+    //
+    // ⚠️ Ninguno exige `get_availability` POR NOMBRE, y eso fue una corrección:
+    // la 1ª versión sí lo exigía y en la 2ª corrida `dia-bloqueado` dio WARN por
+    // resolverlo con `get_day_schedule` — que para un día BLOQUEADO es igual de
+    // válido (o mejor: enseña el rango Y el bloqueo, y su respuesta fue más
+    // informativa). Exigir la tool convertía una respuesta correcta en ruido y
+    // erosionaba el baseline de 0 WARN. Lo que estos casos deben probar es que
+    // el modelo CONSULTÓ este turno con la fecha correcta y NO se inventó un
+    // horario — no con qué tool lo hizo. (Se cazó por correr DOS veces: la 1ª
+    // corrida dio 3/3 PASS y habría escondido el defecto — bitácora #31b.)
+    {
+      id: 'disponibilidad-dia-bloqueado',
+      bitacora: '#32',
+      message: '¿qué horarios tengo libres el lunes 3 de agosto?',
+      soft: true,
+      dataDependent:
+        '2026-08-03: rango 08:00–12:00 vivo PERO blocked_times 00:00–23:30 lo tapa entero ⇒ 0 slots. Si alguien borra ese bloqueo, el caso deja de probar lo que dice',
+      checks: [
+        { kind: 'tools-nonempty' },
+        { kind: 'any-tool-date', dates: ['2026-08-03'] },
+        { kind: 'no-proposal-of-type', types: ['create_booking', 'reschedule_booking'] },
+        { kind: 'reply-match', pattern: '(bloquead|ocupad|no.{0,40}(disponib|libre|espacio|horario))', flags: 'i' },
+        // La pregunta NO menciona ninguna hora: si el modelo ofrece una, se la inventó.
+        { kind: 'reply-not-match', pattern: 'a las \\d{1,2}:\\d{2}' },
+      ],
+    },
+    {
+      id: 'disponibilidad-rango-exactamente-lleno',
+      bitacora: '#32',
+      message: '¿puedo agendar algo el martes 4 de agosto a las 11:00?',
+      soft: true,
+      dataDependent:
+        '2026-08-04: rango 11:00–11:45 (45 min EXACTOS) con la cita de "test 7" 11:00–11:45 CONFIRMED encima ⇒ 0 slots. El caso más filoso de los tres: "¿el día tiene rango?" dice SÍ y la disponibilidad real dice NO',
+      checks: [
+        { kind: 'tools-nonempty' },
+        { kind: 'any-tool-date', dates: ['2026-08-04'] },
+        { kind: 'no-proposal-of-type', types: ['create_booking', 'reschedule_booking'] },
+        { kind: 'reply-match', pattern: '(ocupad|no.{0,40}(disponib|libre|espacio|puedo)|ya.{0,20}(hay|tien))', flags: 'i' },
+      ],
+    },
+    {
+      id: 'disponibilidad-dia-sin-rango',
+      bitacora: '#32',
+      message: '¿qué horarios tengo libres el jueves 6 de agosto?',
+      soft: true,
+      dataDependent:
+        '2026-08-06: SIN rango de disponibilidad (el siguiente es el 10 de agosto). Distinto de los otros dos: aquí no hay nada que bloquear — el día no existe para la agenda',
+      checks: [
+        { kind: 'tools-nonempty' },
+        { kind: 'any-tool-date', dates: ['2026-08-06'] },
+        { kind: 'no-proposal-of-type', types: ['create_booking', 'reschedule_booking'] },
+        { kind: 'reply-match', pattern: '(no.{0,40}(disponib|libre|espacio|horario|rango)|sin.{0,20}(horario|rango|disponib))', flags: 'i' },
+        // El fallo literal de #32: inventar una hora en un día que no tiene rango.
+        { kind: 'reply-not-match', pattern: 'a las \\d{1,2}:\\d{2}' },
+      ],
+    },
     {
       id: 'vencida-cancel-warning',
       bitacora: 'PR3 GAP-4',
