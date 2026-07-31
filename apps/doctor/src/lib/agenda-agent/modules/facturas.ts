@@ -51,7 +51,13 @@ import {
 import { SAT_FORMA_PAGO_LABELS } from '@/app/dashboard/practice/flujo-de-dinero/_components/ledger-types';
 
 const LIST_CAP = 50;
-const PATIENT_CITAS_CAP = 10; // billing status per patient — nested payloads must fit the 8KB tool-result cap
+// Citas por paciente en get_billing_status. ⚠️ El comentario anterior decía que
+// este tope hace que el payload "quepa en el cap de 8KB de run-turn": es FALSO y
+// lo demostró la bitácora #31 — con 10 citas el payload medía 8,512 B en HEAD, ya
+// por encima del cap, y el corte a media fila fue lo que hizo que el modelo cosiera
+// el ledgerEntryId de un ingreso con el importe de otro. El tope acota la lista; no
+// garantiza nada sobre el tamaño final.
+const PATIENT_CITAS_CAP = 10;
 const PENDIENTES_CAP = 10; // sweep rows shown (totals stay real)
 const CATALOGO_CAP = 10; // catalog matches shown per search
 const MX_TZ = 'America/Mexico_City';

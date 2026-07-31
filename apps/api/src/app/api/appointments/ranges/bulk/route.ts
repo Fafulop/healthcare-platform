@@ -62,6 +62,12 @@ export async function DELETE(request: Request) {
 
     // For each range, check for active bookings overlapping it
     const deletable: typeof ranges = [];
+    // ⚠️ NOMBRE HISTÓRICO, NO DESCRIPTIVO: estos rangos NO quedan protegidos —
+    // se eliminan igual (ver el `deletable.push` incondicional más abajo). La
+    // lista existe para ADVERTIR al doctor qué citas se quedan sin su rango.
+    // El nombre se conserva porque `protected`/`protectedRanges` son campos de
+    // la RESPUESTA que ya consume DeleteRangesModal; renombrarlos sería un
+    // cambio de API + UI, no una corrección de este archivo.
     const protectedRanges: Array<{
       id: string;
       date: string;
@@ -152,7 +158,10 @@ export async function DELETE(request: Request) {
       actionType: 'RANGES_BULK_DELETED',
       entityType: 'APPOINTMENT',
       entityId: doctorId,
-      displayMessage: `Eliminados ${deletable.length} rango(s) de disponibilidad (${startDate} a ${endDate})${protectedRanges.length > 0 ? `. ${protectedRanges.length} protegido(s) por citas activas.` : ''}`,
+      // El texto decía "N protegido(s) por citas activas" para rangos que SÍ se
+      // eliminaron: un registro de auditoría falso. El borrado con citas vivas
+      // es intencional (el modal lo advierte); lo que estaba mal era el acta.
+      displayMessage: `Eliminados ${deletable.length} rango(s) de disponibilidad (${startDate} a ${endDate})${protectedRanges.length > 0 ? `. ${protectedRanges.length} tenía(n) citas activas: el rango se eliminó igual y las citas NO se tocaron.` : ''}`,
       icon: 'Trash2',
       color: 'red',
       metadata: {
@@ -160,7 +169,9 @@ export async function DELETE(request: Request) {
         startDate,
         endDate,
         deleted: deletable.length,
-        protected: protectedRanges.length,
+        // Renombrada desde `protected` (sin consumidores: nada lee la metadata
+        // de este actionType) — contaba rangos borrados, no protegidos.
+        withActiveBookings: protectedRanges.length,
       },
     }).catch((err) => console.error('Activity log failed:', err));
 
