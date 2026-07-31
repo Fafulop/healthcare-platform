@@ -1,5 +1,23 @@
 # 🔄 Refresco de sesión — AGENTE AGENDA — LÉEME PRIMERO
 
+> ✅ **TRAZA DE TOOLS EN PROD — 2026-07-31 (`agent_tool_calls`, bitácora #32).** El agente
+> ofreció al doctor tres horarios que **no existían**, y el diagnóstico chocó con que *no se
+> guarda qué devuelven las tools*: `run-turn` ya calculaba `toolCalls` y la ruta lo tiraba; A2
+> solo persiste las que TRUENAN, y esta respondió bien. Verificado: `pnpm gates` los CINCO +
+> `type-check` + `scripts/tool-digest-check.ts` (casos puros **y** tripwire contra prod).
+> **Migración aplicada a prod** (`create-agent-tool-calls.sql`, idempotente) y smoke-testeada
+> read-only: 12 columnas + 3 índices, y `agentToolCall.findMany/groupBy` resuelven contra la
+> tabla real.
+>
+> - **Ni un dato de paciente en la tabla**: `tool-digest.ts`, allowlist por llave (default-deny).
+>   Extiende el *"SIN payload de datos"* de A2, no lo rompe.
+> - ⚠️ **Método, caro (léelo antes de diagnosticar otro fallo en vivo):** reconstruir el turno con
+>   el estado ACTUAL de prod dio **dos conclusiones equivocadas seguidas** — la conversación había
+>   MUTADO ese estado (el rango que "faltaba" lo creó el doctor 6 minutos DESPUÉS del turno).
+>   Primero `created_at` + `activity_logs`, después cualquier query de estado.
+> - **Pendiente:** casos de eval para los 3 días falsos (bloqueado / rango exactamente lleno / sin
+>   rango) — el fallo aún no está cubierto por la suite.
+
 > ✅ **PLAN 07 COMPLETO, EN PROD — 2026-07-30.** Los seis puntos (B · E · F/D · C · A · G)
 > shippeados y desplegados: `90490d54` (B) · `a8c86b84` (E) · **`d1f9a4d3`** (F/D + C + A + G +
 > los dos gates) · `61040679` (docs) · `ab6c21b5` (tooling del medidor de prefijo).
@@ -22,7 +40,10 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última sesión: **2026-07-30** (bitácora #31 — el plan 07 completo: 4 puntos implementados, UNA
+> Última sesión: **2026-07-31** (bitácora #32 — el agente ofreció 3 horarios inexistentes; se
+> construyó la traza de tools `agent_tool_calls` para que un fallo así se pueda replayar.
+> Migración aplicada + desplegado; **pendiente: los casos de eval** de los 3 días falsos).
+> Antes: **2026-07-30** (bitácora #31 — el plan 07 completo: 4 puntos implementados, UNA
 > regresión mía encontrada y arreglada en review, y la lección de método sobre "estable" vs "flaky").
 > Antes: **2026-07-29** (bitácora #30 — el agente y la UI no coincidían sobre el CONTACTO de un
 > paciente; **CERRADA** el 2026-07-30 con el punto B del plan 07).
@@ -251,6 +272,8 @@ distinto). Ver bitácora **#31**. Texto original abajo, sin borrar.
 | 31 | **Plan 07 completo — y la regresión la metí YO en el arreglo** (2026-07-30, cierre de los 6 puntos: B · E · F/D · C · A · G) | La corrida completa dio **2 WARN estables**, uno de ellos `f2b-emision-camino-feliz`, que llevaba corridas pasando. El modelo llamó `propose_create_cfdi` con **`ledgerEntryId: 1570`** (el ingreso de $900 que YA tiene folio 8) pero **`unitPrice: 777`** (el importe de la entrada 1621, otra cita). Su propia respuesta lo delató: *"El resultado fue **truncado**…"* | **Mi cambio, no drift de datos.** `get_billing_status(patientId)` devuelve hasta `PATIENT_CITAS_CAP` (10) citas y `run-turn` corta el resultado a `MAX_TOOL_RESULT_CHARS` (8,000). Medido para ese paciente: HEAD **8,512** → con lo mío **9,215**. ⚠️ **El payload YA se pasaba del cap antes de mí** — el corte caía en un lugar inofensivo; mis +703 chars lo movieron hacia atrás, justo a media cita, y el modelo cosió el `ledgerEntryId` de una con el importe de otra. El `PATIENT_CITAS_CAP = 10` lleva el comentario *"nested payloads must fit the 8KB tool-result cap"*: **esa afirmación era falsa y nadie lo había notado** | `necesitaFactura` se emite **solo si el doctor tocó la casilla** (`null` = 363 de 373 citas en prod ⇒ se OMITE) y el "ausencia ≠ no" se explica **una vez en la descripción del tool** (prefijo cacheado) en vez de en cada payload. Delta vs HEAD: **+703 → +69 chars**. Verificado con A/B contra el árbol en `git stash`: los 2 casos pasan en HEAD y fallan con mis cambios ⇒ era mío; tras el fix pasa en las DOS corridas completas. **Otros 3 defectos míos cazados en el mismo review:** (a) la prosa de **A** afirmaba que sin datos fiscales *"se emite desde el EXPEDIENTE"* — **falso**, ahí sale la etiqueta muerta `Sin datos fiscales` (`page.tsx:598`); (b) la nota de walk-in obligaba al modelo a decidir "si es de Primera vez" con un campo que el payload **no traía** (regla 0) ⇒ se resuelve server-side con `isFirstTime`; (c) `notaCasillaFactura` se calculaba sobre `rows` y no sobre las filas visibles ⇒ podía explicar campos truncados (la lección de #28, en mi propio código) | `d1f9a4d3` |
 | 31b | **"Estable" es una etiqueta POR CORRIDA — no basta para gritar regresión** (2026-07-30, método) | La corrida **A** cerró con 1 WARN estable; la **B**, con el **MISMO código**, con 3 — y dos de ellos (`f1-billing-status-un-golpe`, `f2c-enruta-compuesta`) habían pasado en A. Leído de corrida en corrida parecía que "empeoraba a cada intento" | El runner marca un caso **estable** tras 3 intentos fallidos **dentro de una corrida**. Eso separa ruido de señal *dentro* de la pasada, pero **no** entre pasadas: 3 muestras consecutivas no alcanzan para declarar estabilidad. La prueba barata es **intersecar los conjuntos estables de dos corridas** | **A ∩ B = ∅** — ni un solo caso falló estable en ambas ⇒ ruido, no regresión. (De paso descarta la hipótesis de que editar la descripción de `get_billing_status` hubiera roto la selección de tools: un cambio de prefijo rompería el caso SIEMPRE, no la mitad de las veces.) Corolario para la próxima: **una corrida no distingue regresión de ruido, y el sello estable/flaky tampoco — se intersecan dos corridas** | *(solo docs)* |
 
+| 32 | **El agente ofreció tres horarios que no existían — y no hubo forma de saber qué vio** (2026-07-31, fallo en vivo reportado por el doctor) | Pidió mover una cita al día siguiente (sábado, sin rangos). El agente contestó bien que no había, y ofreció *"las opciones disponibles más cercanas"*: **lunes 3, martes 4 y miércoles 5 a las 11:00**. Al aceptar el martes, el turno siguiente se contradijo: *"los próximos días (lunes 3 al viernes 7) no muestran disponibilidad"*. Reconstruido contra la BD: el 3 estaba **bloqueado el día entero** (`blocked_times` 00:00–23:30), el 4 tenía un rango de **exactamente 45 min (11:00–11:45) ya ocupado** por otra cita creada dos días antes, y el 5 **no tenía rango ninguno**. Los tres eran falsos; el turno que se contradijo era el CORRECTO | **Alucinación de disponibilidad**, no un bug de tools: el 5 no tenía rango, así que no pudo salir de `get_availability` en NINGÚN modo. Pero **la causa raíz operativa es que no se puede saber**: `run-turn` ya calculaba `toolCalls` (nombre + input) y la ruta lo **tiraba**; el RESULTADO no se guardaba en ningún lado. A2 solo persiste las tools que TRUENAN, y esta respondió bien. ⚠️ **Trampa de método, cara:** diagnosticarlo con el estado ACTUAL de prod dio dos conclusiones equivocadas seguidas — la conversación **mutó** el estado que se usaba para juzgarla (el doctor creó el rango del 5 a las **15:51:50**, *después* del turno). Solo `created_at` + `activity_logs` lo aclararon. Las reglas 1 y 2 del prompt ya prohíben inventar horarios: **una tercera repetición no era el fix** | **Traza de tools** (`agent_tool_calls`): una fila por llamada con `turn_id`, `seq`/`iteration`, `duration_ms`, input **redactado** y `digest` del resultado. Extiende el *"SIN payload de datos"* de A2 sin romperlo: `tool-digest.ts` aplica allowlist por llave (default-deny) y del resultado guarda solo llaves, conteos y fechas — con eso, `fechasDisponibles: []` vs `[…]` se distingue de un vistazo. **Dos defectos propios cazados en el review del parche:** (a) `error` estaba en la lista de textos a conservar y **`modules/facturas.ts:1442` interpola el NOMBRE del paciente ahí** (carácter ~22) ⇒ fuga real, quitado; (b) `motivo_bloqueo` era una llave **inventada** que no existe en el código — en una allowlist de privacidad eso es peor que inútil, porque aparenta haber salido del código. Verificación: `scripts/tool-digest-check.ts` (casos puros **+ tripwire contra prod** que corre tools reales y exige que no sobreviva ninguno de los nombres/correos/teléfonos que están de verdad en la BD — el tripwire de `expediente-smoke.ts` generalizado a datos reales, porque una lista de campos imaginada es justo lo que dejó pasar (a)). **Pendiente:** casos de eval para los 3 días falsos (día bloqueado / rango exactamente lleno / día sin rango) | *(pendiente de push)* |
+
 **✅ Validación en vivo post-deploy `bc7e2610` (2026-07-04):** las 3 preguntas del plan de
 lectura pasaron: (1) *vencidas* = **16 exactas**, verificadas 1:1 contra la BD — de paso se
 detectó que la query #3 del TOOLING contaba 6 porque ignoraba las citas legacy por slot (fecha en
@@ -262,6 +285,16 @@ martes 7 de julio correcto (E6), y los 9 weekdays de la lista de vencidas salier
 > (*vencida*, *disponible*, *completo*) debe ser un **parámetro del tool que el servidor resuelve**,
 > nunca algo que el modelo infiera de una descripción. Cada fallo de esta bitácora se convierte en
 > un caso del set de evals (gap G11) antes de dar capacidades de escritura.
+
+## Drift encontrado docs↔código
+
+Patrón de [`../GENERAL AGENTES/07-CONVENCIONES-docs.md`](../GENERAL%20AGENTES/07-CONVENCIONES-docs.md) §4:
+al encontrar que un doc contradice al código se hacen **las dos cosas** — anotar la corrección ⚠️
+en el lugar exacto del claim (sin borrarlo) **y** registrarla aquí.
+
+| Fecha | Doc y claim | Qué es verdad | Cómo se descubrió |
+|---|---|---|---|
+| 2026-07-31 | [`05-REFERENCIA-TECNICA`](05-REFERENCIA-TECNICA-AGENTE.md) §8: *"**Modelo**: `AGENDA_AGENT_MODEL` (default `claude-sonnet-5`)"* | `run-turn.ts:53` → `process.env.AGENDA_AGENT_MODEL \|\| 'claude-haiku-4-5'`, default desde el **2026-07-23** | Leyendo §8 para documentar `agent_tool_calls` (bitácora #32). Archivo que se le escapó a la pasada de `ab6c21b5` (2026-07-30), que corrigió el MISMO claim en otros docs. **`gate:docs` no lo caza**: compara conteos (tools/módulos/evals/toggles), no prosa — el mismo hueco que motivó `gate:prosa`, pero para afirmaciones de configuración |
 
 ## ✅ Campaña de validación de permutaciones (2026-07-04) — RESUMEN
 

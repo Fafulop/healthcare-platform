@@ -41,6 +41,7 @@ import {
 } from './modules/registry';
 import { STABLE_SYSTEM_PROMPT, buildSystemPrompt } from './prompt';
 import { mxNowString, mxTodayKey, mxUpcomingDays } from './dates';
+import { redactInput, digestResult } from './tool-digest';
 
 /** Default model. Haiku 4.5 since 2026-07-23: measured BETTER than Sonnet 5 on the
  * 65-eval suite (band 63–64/65, 0 hard FAIL) at ~half the cost — see
@@ -208,11 +209,34 @@ export interface ToolErrorRecord {
   message: string | null;
 }
 
+/** One tool invocation, REDACTED for persistence (bitácora 2026-07-31: el agente
+ * ofreció horarios inexistentes y no hubo forma de saber qué le devolvieron las
+ * tools — `toolCalls` existía pero la ruta lo tiraba, y el RESULTADO no se
+ * capturaba en ningún lado).
+ *
+ * `input` pasó por `redactInput` y `digest` por `digestResult`: ningún dato de
+ * paciente sobrevive a esa capa (ver tool-digest.ts). Es el ÚNICO campo que la
+ * ruta persiste — `toolCalls` (crudo) se queda en memoria para los evals.
+ * run-turn sigue sin escribir a la BD: aquí solo se calcula. */
+export interface ToolTraceRecord {
+  tool: string;
+  /** Orden de llamada dentro del turno (1-based) e iteración del loop. */
+  seq: number;
+  iteration: number;
+  input: Record<string, unknown>;
+  digest: Record<string, unknown>;
+  ok: boolean;
+  durationMs: number;
+}
+
 export interface AgendaTurnResult {
   reply: string;
   toolsUsed: string[];
-  /** Every tool invocation with its input, in call order (eval assertions). */
+  /** Every tool invocation with its input, in call order (eval assertions).
+   * RAW — never persist this; persist `toolTrace` instead. */
   toolCalls: { name: string; input: Record<string, unknown> }[];
+  /** Redacted trace (input + result digest) — what the route persists. */
+  toolTrace: ToolTraceRecord[];
   toolErrors: ToolErrorRecord[];
   proposals: AgendaProposal[];
   /** inputTokens = FULL context volume (uncached + cache writes + cache reads);
@@ -276,6 +300,7 @@ export async function runAgendaAgentTurn({
     : withDeferredLoading(baseTools);
   const toolsUsed: string[] = [];
   const toolCalls: { name: string; input: Record<string, unknown> }[] = [];
+  const toolTrace: ToolTraceRecord[] = [];
   const toolErrors: ToolErrorRecord[] = [];
   let totalInput = 0;
   let totalOutput = 0;
@@ -354,7 +379,16 @@ export async function runAgendaAgentTurn({
     const results = [];
     for (const tu of toolUses) {
       toolsUsed.push(tu.name);
-      toolCalls.push({ name: tu.name, input: (tu.input ?? {}) as Record<string, unknown> });
+      const rawInput = (tu.input ?? {}) as Record<string, unknown>;
+      toolCalls.push({ name: tu.name, input: rawInput });
+      const startedAt = Date.now();
+      // Redactado ANTES del try: si la tool truena, la traza igual se emite.
+      const traceBase = {
+        tool: tu.name,
+        seq: toolTrace.length + 1,
+        iteration: i,
+        input: redactInput(rawInput),
+      };
       try {
         // allowedToolNames is null for the full/owner set (no check needed —
         // ALL_TOOLS already covers every tool). For a filtered set, the model
@@ -367,6 +401,12 @@ export async function runAgendaAgentTurn({
             : isProposalToolName(tu.name)
               ? await dispatchProposalTool(proposalCtx, tu.name, tu.input)
               : await dispatchReadTool(ctx, tu.name, tu.input);
+        toolTrace.push({
+          ...traceBase,
+          digest: digestResult(result),
+          ok: true,
+          durationMs: Date.now() - startedAt,
+        });
         results.push({ type: 'tool_result' as const, tool_use_id: tu.id, content: serializeToolResult(result) });
       } catch (err: any) {
         console.error(`[agenda-agent] tool ${tu.name} failed:`, err);
@@ -384,6 +424,15 @@ export async function runAgendaAgentTurn({
               : (prismaCode ?? driverCode)
             )?.slice(0, 40) ?? null,
           message: typeof err?.message === 'string' ? err.message.slice(0, 500) : null,
+        });
+        // La traza NO duplica el mensaje de error (eso vive en agent_tool_errors,
+        // con su propio contrato de truncado): aquí solo queda que esta llamada
+        // falló, para que la secuencia del turno no tenga huecos.
+        toolTrace.push({
+          ...traceBase,
+          digest: { throw: true, errorName: typeof err?.name === 'string' ? err.name.slice(0, 100) : null },
+          ok: false,
+          durationMs: Date.now() - startedAt,
         });
         results.push({
           type: 'tool_result' as const,
@@ -422,6 +471,7 @@ export async function runAgendaAgentTurn({
     reply: reply || 'Sin respuesta',
     toolsUsed,
     toolCalls,
+    toolTrace,
     toolErrors,
     proposals: collector.proposals,
     usage: {

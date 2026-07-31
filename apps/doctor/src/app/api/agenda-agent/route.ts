@@ -24,6 +24,7 @@ import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
 import { logToolErrors } from '@/lib/ai/log-tool-errors';
+import { logToolCalls } from '@/lib/ai/log-tool-calls';
 import { prisma } from '@healthcare/database';
 import { isAnthropicConfigured } from '@/lib/agenda-agent/anthropic';
 import { runAgendaAgentTurn, MODEL } from '@/lib/agenda-agent/run-turn';
@@ -194,8 +195,16 @@ export async function POST(request: NextRequest) {
     // fails the reply. Error identity only, no data payloads.
     logToolErrors({ doctorId, endpoint: 'agenda-agent', errors: turn.toolErrors });
 
+    // Traza de tools (bitácora 2026-07-31): qué se llamó, con qué forma de input
+    // y qué FORMA tuvo el resultado — lo único que permite saber después si el
+    // modelo respondió algo que sus tools nunca le devolvieron. Redactada en
+    // run-turn; se persiste `toolTrace`, NUNCA `toolCalls` (crudo). El turnId
+    // agrupa la secuencia. Fire-and-forget, igual que las dos de arriba.
+    const turnId = crypto.randomUUID();
+    logToolCalls({ doctorId, endpoint: 'agenda-agent', turnId, trace: turn.toolTrace });
+
     console.log(
-      `[agenda-agent] doctor=${doctorId} tools=[${turn.toolsUsed.join(',')}] tokens=${turn.usage.inputTokens + turn.usage.outputTokens} budget=${turn.usage.budgetTokens} cacheRead=${turn.usage.cacheReadTokens} cacheWrite=${turn.usage.cacheWriteTokens}`
+      `[agenda-agent] doctor=${doctorId} turn=${turnId} tools=[${turn.toolsUsed.join(',')}] tokens=${turn.usage.inputTokens + turn.usage.outputTokens} budget=${turn.usage.budgetTokens} cacheRead=${turn.usage.cacheReadTokens} cacheWrite=${turn.usage.cacheWriteTokens}`
     );
 
     return NextResponse.json({

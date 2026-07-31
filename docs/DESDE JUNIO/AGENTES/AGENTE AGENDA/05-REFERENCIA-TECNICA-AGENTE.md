@@ -129,7 +129,7 @@ Doctor escribe → POST /api/agenda-agent { message, conversationHistory (≤12 
        (pre-checks PLAN-AWARE: create_range excluye del overlap los rangos que un paso anterior
         del MISMO plan elimina → el patrón reemplazo eliminar→crear cabe en un solo plan)
        … hasta respuesta de texto (o síntesis forzada con tool_choice:none si se agota)
-  4. logTokenUsage → respuesta { reply, toolsUsed, proposals[] }
+  4. logTokenUsage + logToolCalls (traza redactada) → respuesta { reply, toolsUsed, proposals[] }
 
 UI: reply + cards ordenadas (#1, #2…) con detalle y advertencias
   → doctor rechaza cards individuales y/o pulsa "Ejecutar plan"
@@ -290,7 +290,16 @@ lo re-valida contra el token de todas formas).
 - **Historial**: client-side por sesión, últimos 12 turnos (G10 — sin persistencia aún).
 - **Modelo**: `AGENDA_AGENT_MODEL` (default `claude-sonnet-5`), key `ANTHROPIC_API_KEY` en el
   servicio `@healthcare/doctor` de Railway; sin key → 503 amable.
-- Todo turno se registra con `logTokenUsage` (doctor, endpoint, tokens).
+
+  > ⚠️ **CORREGIDO 2026-07-31:** el default `claude-sonnet-5` es FALSO desde el 2026-07-23. El
+  > código manda: `run-turn.ts:53` → `process.env.AGENDA_AGENT_MODEL || 'claude-haiku-4-5'`.
+  > Haiku 4.5 se midió MEJOR que Sonnet 5 en la suite a ~mitad de costo — ver
+  > [`../OPTIMIZACION COSTOS/`](../OPTIMIZACION%20COSTOS/README.md). Este archivo se le escapó a
+  > la pasada de corrección de `ab6c21b5` (2026-07-30), que arregló el mismo claim en otros docs.
+  > `gate:docs` NO lo caza: compara conteos (tools/módulos/evals/toggles), no prosa.
+
+- Todo turno se registra con `logTokenUsage` (doctor, endpoint, tokens) **y con `logToolCalls`
+  (traza redactada de cada tool: nombre, forma del input, resumen del resultado)** — ver §10.
 
 ## 9. System prompt (estructura)
 
@@ -337,6 +346,25 @@ lo re-valida contra el token de todas formas).
   output por nombres de campos clínicos y truena si aparece uno) y `flujo-smoke.ts`.
 - **Observabilidad**: los errores de tools se persisten en `agent_tool_errors` (auditoría A2) —
   antes un tool roto podía vivir semanas invisible porque el modelo se recuperaba con gracia.
+- **Traza de tools** (`agent_tool_calls`, 2026-07-31): A2 cubría solo las tools que TRUENAN. Este
+  registro cubre **todas**, y añade lo que faltaba para el otro modo de fallo — cuando la tool
+  responde bien y el modelo dice otra cosa. Una fila por llamada: `turn_id` (agrupa el turno),
+  `seq`/`iteration`, `duration_ms`, `input` **redactado** y `digest` (resumen del resultado).
+  Nace de la bitácora **#32**: el agente ofreció 3 horarios inexistentes y no hubo forma de saber
+  qué le habían devuelto sus tools — `toolCalls` ya se calculaba en `run-turn` y la ruta lo
+  tiraba; el RESULTADO no se guardaba en ningún lado. Diagnosticarlo costó una sesión entera y
+  aun así dio dos conclusiones equivocadas.
+  - **Ni un dato de paciente**: `agenda-agent/tool-digest.ts` aplica allowlist por llave al input
+    (default-deny) y guarda del resultado solo llaves, conteos y fechas. Extiende el "SIN payload
+    de datos" que ya había decidido A2, sin romperlo. El texto de `error` **no** se guarda: la
+    revisión encontró que `modules/facturas.ts:1442` interpola el NOMBRE del paciente ahí.
+  - **Verificación**: `scripts/tool-digest-check.ts` — casos puros + un **tripwire contra prod**
+    (`railway run --service pgvector`) que corre tools reales, las pasa por el digest y exige que
+    no aparezca ninguno de los nombres/correos/teléfonos que de verdad están en la BD. Mismo
+    espíritu que el tripwire de `expediente-smoke.ts`, pero contra datos reales en vez de una
+    lista de campos imaginada.
+  - **Retención**: sin job, igual que `agent_tool_errors` y `llm_token_usage` (deuda aceptada en
+    A2 — ahora la comparten TRES tablas, y esta escribe una fila por llamada, no por turno).
 
 ## 11. Límites conocidos (el agente los admite, no los esquiva)
 

@@ -337,6 +337,7 @@ model Doctor {
   // LLM Usage Tracking
   llmTokenUsages     LlmTokenUsage[]
   agentToolErrors    AgentToolError[]
+  agentToolCalls     AgentToolCall[]
 
   // Facturacion (CFDI)
   fiscalProfile      DoctorFiscalProfile?
@@ -2597,6 +2598,46 @@ model AgentToolError {
   @@index([createdAt])
   @@index([doctorId])
   @@map("agent_tool_errors")
+  @@schema("public")
+}
+
+// AgentToolCall — traza de CADA llamada a tool del asistente (no solo las que
+// truenan, que son las de AgentToolError).
+//
+// Por qué existe: el 2026-07-31 el agente ofreció al doctor tres horarios que no
+// existían, y no hubo manera de saber qué le habían devuelto sus tools. El
+// input ya se calculaba en run-turn y la ruta lo tiraba; el RESULTADO no se
+// capturaba en ningún lado. Reconstruirlo desde la BD costó una sesión y aun
+// así dio conclusiones equivocadas: la conversación había MUTADO el estado que
+// se estaba usando para juzgarla.
+//
+// ⚠️ Ninguna columna guarda datos de paciente. `input` va redactado por llave
+// (allowlist en agenda-agent/tool-digest.ts) y `digest` es un RESUMEN del
+// resultado —llaves, conteos, fechas—, jamás el payload. Misma invariante que
+// declara AgentToolError.message. Al agregar una llave a esas allowlists hay
+// que poder afirmar que su valor no identifica a un paciente.
+model AgentToolCall {
+  id         String   @id @default(cuid())
+  doctorId   String   @map("doctor_id")
+  endpoint   String   @db.VarChar(100) // "agenda-agent" hoy; otras superficies comparten la tabla
+  // Agrupa las llamadas de UN turno: sin esto, dos turnos concurrentes del
+  // mismo doctor se entremezclan y la secuencia deja de ser reconstruible.
+  turnId     String   @map("turn_id")
+  tool       String   @db.VarChar(100)
+  seq        Int // orden de llamada dentro del turno (1-based)
+  iteration  Int // iteración del loop de tools (0-based)
+  ok         Boolean  @default(true)
+  durationMs Int      @map("duration_ms")
+  input      Json // REDACTADO — ver tool-digest.redactInput
+  digest     Json // RESUMEN del resultado — ver tool-digest.digestResult
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([doctorId, createdAt])
+  @@index([turnId])
+  @@map("agent_tool_calls")
   @@schema("public")
 }
 
