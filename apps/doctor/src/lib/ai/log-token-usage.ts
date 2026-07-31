@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@healthcare/database';
+import { fireAndForget } from './fire-and-forget';
 import type { TokenUsage } from './types';
 
 interface LogTokenUsageParams {
@@ -18,8 +19,10 @@ interface LogTokenUsageParams {
 }
 
 export function logTokenUsage(params: LogTokenUsageParams): void {
-  prisma.llmTokenUsage
-    .create({
+  // fireAndForget, no `.create().catch()`: un `prisma.llmTokenUsage` undefined
+  // tronaría SÍNCRONO y el .catch no lo vería — ver fire-and-forget.ts.
+  fireAndForget('logTokenUsage', () =>
+    prisma.llmTokenUsage.create({
       data: {
         doctorId: params.doctorId,
         endpoint: params.endpoint,
@@ -32,7 +35,5 @@ export function logTokenUsage(params: LogTokenUsageParams): void {
         durationSeconds: params.durationSeconds ?? null,
       },
     })
-    .catch((err) => {
-      console.error('[logTokenUsage] Failed to log token usage:', err);
-    });
+  );
 }

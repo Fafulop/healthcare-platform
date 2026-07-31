@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '@healthcare/database';
+import { fireAndForget } from './fire-and-forget';
 import type { ToolErrorRecord } from '@/lib/agenda-agent/run-turn';
 
 interface LogToolErrorsParams {
@@ -15,8 +16,9 @@ interface LogToolErrorsParams {
 
 export function logToolErrors(params: LogToolErrorsParams): void {
   if (params.errors.length === 0) return;
-  prisma.agentToolError
-    .createMany({
+  // fireAndForget, no `.createMany().catch()` — ver fire-and-forget.ts.
+  fireAndForget('logToolErrors', () =>
+    prisma.agentToolError.createMany({
       data: params.errors.map((e) => ({
         doctorId: params.doctorId,
         endpoint: params.endpoint,
@@ -26,7 +28,5 @@ export function logToolErrors(params: LogToolErrorsParams): void {
         message: e.message,
       })),
     })
-    .catch((err) => {
-      console.error('[logToolErrors] Failed to log tool errors:', err);
-    });
+  );
 }

@@ -17,6 +17,7 @@
  */
 
 import { prisma } from '@healthcare/database';
+import { fireAndForget } from './fire-and-forget';
 import type { ToolTraceRecord } from '@/lib/agenda-agent/run-turn';
 
 interface LogToolCallsParams {
@@ -30,8 +31,13 @@ interface LogToolCallsParams {
 
 export function logToolCalls(params: LogToolCallsParams): void {
   if (params.trace.length === 0) return;
-  prisma.agentToolCall
-    .createMany({
+  // fireAndForget, no `.createMany().catch()`. Esta tabla es NUEVA (2026-07-31),
+  // que es exactamente el caso donde el agujero muerde: si el build hubiera
+  // reusado un cliente Prisma sin `agentToolCall`, el `.createMany` habría
+  // tronado síncrono y la ruta habría devuelto 500 en CADA turno del agente.
+  // No pasó, pero solo se supo mandando un mensaje real — ver fire-and-forget.ts.
+  fireAndForget('logToolCalls', () =>
+    prisma.agentToolCall.createMany({
       data: params.trace.map((t) => ({
         doctorId: params.doctorId,
         endpoint: params.endpoint,
@@ -45,7 +51,5 @@ export function logToolCalls(params: LogToolCallsParams): void {
         digest: t.digest as object,
       })),
     })
-    .catch((err) => {
-      console.error('[logToolCalls] Failed to log tool calls:', err);
-    });
+  );
 }
