@@ -288,6 +288,19 @@ contrario** al que documentaba #30.~~
   Lo peligroso es lo otro: un servicio que SÍ cambió y no tiene registro para ese commit.
 - **Apellidos es opcional en la cita pero obligatorio en el expediente.** Deliberado: 34% de las
   citas traen un nombre de una sola palabra.
+- **Borrar rangos EN LOTE sí elimina los que tienen citas activas.** No es un bug y no hay que
+  "arreglarlo": el borrado individual (`ranges/[id]`) SÍ se niega con 409 *"cancela las citas
+  primero"*, pero el lote (`ranges/bulk`) los borra igual — las citas son filas independientes,
+  el motor de disponibilidad las sigue usando como ventana ocupada, y el modal se lo advierte al
+  doctor con nombre y hora de cada paciente afectado (*"se eliminarán, citas no se afectan"*).
+  Las dos rutas contestan distinto **a propósito**; lo que sí estaba mal era el ACTA:
+  ⚠️ **corregido 2026-07-31 (`21c2dd30`)** — el log de actividad decía *"N protegido(s) por citas
+  activas"* de rangos que acababa de borrar, y guardaba ese conteo bajo la llave `protected`.
+  Quien leyera el feed semanas después concluía que esos rangos habían sobrevivido. El texto y la
+  llave (`withActiveBookings`) ya dicen la verdad. **Los campos `protected`/`protectedRanges` de la
+  RESPUESTA se conservan con ese nombre**: `DeleteRangesModal` los consume en 3 lugares y
+  renombrarlos es un cambio de API + UI, no una corrección — hay un comentario en el endpoint
+  avisando que el nombre es histórico.
 
 ## Cómo se trabaja aquí
 

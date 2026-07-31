@@ -344,6 +344,18 @@ lo re-valida contra el token de todas formas).
   la suite: [`../GENERAL AGENTES/02-CAPACIDADES`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
 - **Smokes por módulo**: `expediente-smoke.ts` (incluye el **tripwire de privacidad**: escanea el
   output por nombres de campos clínicos y truena si aparece uno) y `flujo-smoke.ts`.
+- 🕳️ **Punto ciego ESTRUCTURAL de los evals: NO pasan por la ruta.** El runner importa
+  `runAgendaAgentTurn` directo (a propósito: así prueba el árbol de trabajo ANTES del deploy, no el
+  endpoint ya desplegado). La consecuencia es que **nada de `app/api/agenda-agent/route.ts` está
+  cubierto por ninguna corrida** — ni auth, ni presupuesto, ni `logTokenUsage`/`logToolErrors`/
+  `logToolCalls`. Un bug ahí puede tumbar TODOS los turnos con la suite en verde. Se descubrió el
+  2026-07-31 al no poder verificar `agent_tool_calls` con evals: la única prueba posible fue
+  mandarle un mensaje real al agente. **Regla práctica:** todo cambio en `route.ts` se valida con
+  un turno de verdad post-deploy, no con la suite.
+- **Secreto de los evals: en Railway se llama `NEXTAUTH_SECRET`, NO `AUTH_SECRET`.** El runner
+  espera `AUTH_SECRET` para mintear el token que necesita `search_catalogo_sat`; leerlo con el
+  nombre equivocado degrada la corrida en silencio (pasó el 2026-07-23, y otra vez el 2026-07-31
+  en dos corridas parciales que no incluían casos `f2a-*`, así que no se notó).
 - **Observabilidad**: los errores de tools se persisten en `agent_tool_errors` (auditoría A2) —
   antes un tool roto podía vivir semanas invisible porque el modelo se recuperaba con gracia.
 - **Traza de tools** (`agent_tool_calls`, 2026-07-31): A2 cubría solo las tools que TRUENAN. Este
@@ -365,6 +377,16 @@ lo re-valida contra el token de todas formas).
     lista de campos imaginada.
   - **Retención**: sin job, igual que `agent_tool_errors` y `llm_token_usage` (deuda aceptada en
     A2 — ahora la comparten TRES tablas, y esta escribe una fila por llamada, no por turno).
+  - **Probada en vivo 2026-07-31 20:16 UTC**: primera fila real —
+    `get_day_schedule | ok | 9ms | input {"date":"2026-08-01"} | digest {citas_n:0, bloqueos_n:0,
+    rangosDisponibilidad_n:0}`— y el digest cuadra con lo que el agente le contestó al doctor.
+  - ⚠️ **Las tres escrituras de telemetría van por `lib/ai/fire-and-forget.ts` (`5eaa849e`), NO por
+    `prisma.<modelo>.create(...).catch(...)`.** El `.catch()` solo atrapa una promesa RECHAZADA: si
+    `prisma.<modelo>` fuera `undefined` —cliente generado contra un schema viejo, el caso de un
+    modelo NUEVO cuyo build reusó `node_modules` en caché— el `.create` truena SÍNCRONO, el
+    `.catch` nunca se engancha y el throw sube al try/catch de la ruta ⇒ **500 en CADA turno**. Una
+    línea de telemetría pensada para ser inofensiva se vuelve fatal. Mismo molde que el `$queryRaw`
+    sobre función `void` del `CLAUDE.md`.
 
 ## 11. Límites conocidos (el agente los admite, no los esquiva)
 
