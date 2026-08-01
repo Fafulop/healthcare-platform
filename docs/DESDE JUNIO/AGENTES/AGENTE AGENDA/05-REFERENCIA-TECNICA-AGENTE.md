@@ -358,6 +358,34 @@ lo re-valida contra el token de todas formas).
   en dos corridas parciales que no incluían casos `f2a-*`, así que no se notó).
 - **Observabilidad**: los errores de tools se persisten en `agent_tool_errors` (auditoría A2) —
   antes un tool roto podía vivir semanas invisible porque el modelo se recuperaba con gracia.
+- **Recorte de payloads: por FILAS, no por caracteres** (`serializeToolResult`, `run-turn.ts`,
+  `0d105fd2` 2026-07-31 — EN PROD). Todo resultado de tool se cap­ea a
+  `MAX_TOOL_RESULT_CHARS = 8,000` porque se re-manda como input en CADA iteración del loop.
+  Hasta este commit el cap cortaba el JSON **a media fila** (`json.slice(0, CAP)`) y lo metía
+  como string en `parcial`. Dos cosas medidas contra prod:
+  - **el cap NO capaba**: al re-serializar, cada `"` se escapa a `\"`, así que `get_bookings`
+    emitía **9,367 B** y `get_billing_status` **9,129 B** — por ENCIMA de los 8,000 que promete;
+  - **el modelo recibía una fila partida** ⇒ mecanismo exacto del incidente **#31** (cosió el
+    `ledgerEntryId` de un ingreso con el importe de otro y propuso timbrar un CFDI equivocado).
+
+  Ahora se quitan **elementos completos** del arreglo de primer nivel más pesado hasta que quepa,
+  reponiendo filas de a una si la estimación se pasó. Medido: `get_bookings` 12,194 B → 7,786 B
+  (31 filas de 50); `get_billing_status` 8,581 B → 7,891 B (9 de 10). El modelo siempre recibe
+  **JSON válido con filas íntegras**, y el conteo real viaja en `recorte.deUnTotalDe`.
+  - ⚠️ **`fechasDisponibles` y `horarios` NUNCA se recortan** (lista DENY explícita). La
+    distinción es entre perder DETALLE y perder OPCIONES: quitarle filas a una lista de citas
+    pierde detalle —el modelo sigue sabiendo cuántas hay—, pero quitarle fechas a la
+    disponibilidad le quita opciones que el doctor SÍ tiene, y el agente ofrece de menos: el
+    fallo de la bitácora **#32**.
+  - **No se exige un `total*` en el payload.** Ese era el guard original y dejaba fuera a
+    `get_day_schedule` y `find_patient` —dos tools CALIENTES sin total— que seguían cayendo al
+    corte por caracteres. Lo cazó el code review; `recorte.deUnTotalDe` lo sustituye.
+  - **Contadores hermanos** (`mostradas`) bajan con las filas — si no, el payload se contradice.
+    Lista explícita: una heurística por valor reescribiría un `limit: 50` que devolvió 50 filas.
+    Las notas en PROSA que citan el conteo viejo se eliminan al recortar ese campo.
+  - **Verificación**: `scripts/tool-result-cap-check.ts` — 33 asserts, casos puros **+ payloads
+    REALES de prod**, uno por cada hallazgo del review. ⚠️ **Todavía NO está en `pnpm gates`**:
+    hay que correrlo a mano al tocar `serializeToolResult`.
 - **Traza de tools** (`agent_tool_calls`, 2026-07-31): A2 cubría solo las tools que TRUENAN. Este
   registro cubre **todas**, y añade lo que faltaba para el otro modo de fallo — cuando la tool
   responde bien y el modelo dice otra cosa. Una fila por llamada: `turn_id` (agrupa el turno),
