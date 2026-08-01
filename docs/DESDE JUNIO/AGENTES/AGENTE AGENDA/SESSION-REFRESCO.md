@@ -1,5 +1,60 @@
 # 🔄 Refresco de sesión — AGENTE AGENDA — LÉEME PRIMERO
 
+> # 🤝 HANDOFF 2026-07-31 (fin de sesión) — EMPIEZA POR AQUÍ
+>
+> ## ✅ Lo que se desplegó HOY (todo verificado en prod)
+> | commit | qué |
+> |---|---|
+> | `143f5cc3` | **traza de tools** (`agent_tool_calls`): una fila por llamada, input redactado + digest del resultado. Probada en vivo (fila real 20:16 UTC) |
+> | `21c2dd30` | el log de actividad decía *"N protegido(s)"* de rangos de disponibilidad que SÍ se borraron |
+> | `5eaa849e` | `lib/ai/fire-and-forget.ts` — el `.catch()` de la telemetría no atrapaba un throw SÍNCRONO ⇒ podía devolver 500 en CADA turno |
+> | `0d105fd2` | **recorte de payloads por FILAS** (bitácora #34) — pasó code review, 33 asserts y 84 evals con 0 FAIL estables |
+> | `9f2d8361` · `4a6313fc` · `ba9f6de1` | evals de disponibilidad + docs |
+>
+> ## 🧪 LO PRIMERO: verificar el recorte en prod (nadie lo ha visto correr en vivo)
+> El fix está desplegado pero **aún no se ha observado dispararse con un doctor real**. La traza
+> ya lo registra, así que la comprobación es directa:
+> 1. En el chat del agente pide algo ancho, p. ej. **"¿qué citas tengo este mes?"** (`get_bookings`
+>    sin filtro pesa ~12,700 B > cap de 8,000).
+> 2. Luego, read-only contra prod (método en `TOOLING-acceso-railway-db-agenda.md`):
+>    ```sql
+>    SELECT tool, digest->'_recorte' AS recorte, created_at
+>      FROM public.agent_tool_calls
+>     WHERE digest ? '_recorte' ORDER BY created_at DESC LIMIT 5;
+>    ```
+> 3. **Esperado:** `{"campo":"citas","quitadas":N,"mostradas":M,"deUnTotalDe":50}` y que la
+>    respuesta del agente **cuente con `totalEncontradas`, no con las filas visibles**.
+>    Si el agente dice "tienes M citas" cuando el total es mayor ⇒ regresión, avísalo.
+>
+> ## 🟡 LOCAL, SIN PUSHEAR (a propósito)
+> - **`a15b2e23` día de la semana — PARCIAL.** Real pero incompleto: **47/50** etiquetas correctas
+>   con tool parcheada, **4/11** sin ella; 7 de 10 errores salen de `get_payment_links` (FACTURAS,
+>   sin tocar). **Bloqueado:** el mapa cuesta ~197 B y `get_billing_status` ya pesa 8,581 B con
+>   filas de **~842 B**. Decide: (a) adelgazar esas filas y completar, (b) shippear parcial y
+>   documentarlo, (c) descartar. La bitácora **#33** ya está en origin con el hallazgo.
+> - **`01fae577` .gitignore** de `agenda-evals-*.json` (45 archivos, 1.9 MB). Seguro de pushear
+>   cuando quieras — sin código.
+>
+> ## ⏭️ Qué sigue, en orden
+> 1. La verificación de arriba.
+> 2. **Meter `scripts/tool-result-cap-check.ts` en `pnpm gates`** — hoy hay que acordarse de
+>    correrlo a mano, y es el tripwire del recorte.
+> 3. **Adelgazar las filas de `get_billing_status`** (~842 B c/u). Es la raíz: obliga a recortar y
+>    bloquea el fix del día de la semana.
+> 4. Decidir qué pasa con el weekday.
+>
+> ## ⚠️ Trampas que cuestan tiempo si no las sabes
+> - **`git stash list` tiene trabajo del doctor sin terminar** (`stash@{0}`: consolidación SAT +
+>   LOANS + settings). 🔴 **Antes de commitear ese borrado**: `docs/SAT-DESCARGA/` elimina **7
+>   archivos trackeados (~2,220 líneas, incluidos los SOAP templates)** y sus copias en
+>   `docs/TODO FACTURAS/SAT-DESCARGA/` **NO están trackeadas** — hay que `git add`-earlas en el
+>   MISMO commit o desaparecen del repo. (Ya están staged en el stash.)
+> - **Los evals NO pasan por `route.ts`** — auth, presupuesto y los tres loggers están fuera de
+>   cobertura para siempre. Todo cambio ahí se valida con un turno REAL post-deploy.
+> - **El secreto de los evals en Railway se llama `NEXTAUTH_SECRET`, no `AUTH_SECRET`.**
+> - **Nunca diagnostiques un chat pasado con el estado ACTUAL de prod** — la conversación lo mutó.
+>   Primero `created_at` + `activity_logs` (su columna es `timestamp`).
+
 > ✅ **EN PROD 2026-07-31 (`0d105fd2`) — el recorte de payloads ya no parte las filas (bitácora #34).**
 > El cap de 8,000 chars cortaba el JSON a media fila y encima **emitía 9,367 B** (re-serializar
 > escapa cada `"`): el mecanismo exacto del incidente #31. Ahora se quitan filas COMPLETAS.
