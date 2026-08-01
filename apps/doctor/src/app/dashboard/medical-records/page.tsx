@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Users, Loader2, FileText, List, LayoutGrid } from 'lucide-react';
+import { Plus, Users, Loader2, FileText, List, LayoutGrid, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { PatientCard, type Patient } from '@/components/medical-records/PatientCard';
 import { PatientRow, PatientRowHeader } from '@/components/medical-records/PatientRow';
 import { PatientSearchBar } from '@/components/medical-records/PatientSearchBar';
+import { usePermissions } from '@/lib/permissions-client';
 
 const VIEW_STORAGE_KEY = 'medicalRecordsViewMode';
 
@@ -18,6 +19,8 @@ export default function PatientsPage() {
       redirect("/login");
     },
   });
+
+  const { isOwner } = usePermissions();
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState('');
@@ -95,6 +98,18 @@ export default function PatientsPage() {
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Plantillas</span>
             </Link>
+            {/* Importar es del TITULAR: carga la base entera de pacientes de
+                golpe. La API lo rechaza igual (OWNER_ONLY), esto evita enseñar
+                un botón que terminaría en 403. */}
+            {isOwner && (
+              <Link
+                href="/dashboard/medical-records/importar"
+                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                <span className="hidden sm:inline">Importar</span>
+              </Link>
+            )}
             <Link
               href="/dashboard/medical-records/patients/new"
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold flex items-center gap-2 transition-colors text-sm"

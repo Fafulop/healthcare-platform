@@ -14,7 +14,7 @@
 | **F1** | Plantilla `.xlsx` + contrato de columnas | ✅ Construida (`66485db8`) |
 | **F2** | Validador puro | ✅ Construido (`4ae71b91`) |
 | **F3** | Commit transaccional · auditoría · rutas · UI de admin | ✅ Construida y **probada contra prod** |
-| **F4** | La misma UI en el app del doctor | ⬜ Pendiente |
+| **F4** | La misma UI en el app del doctor | ✅ Construida |
 
 ### ✅ Smoke test contra prod (2026-08-01, `dr-prueba`)
 
@@ -54,7 +54,23 @@ LIMPIO: 0 renglones SMOKE- persistidos.
 | `GET /api/patient-import/template` | descarga la plantilla |
 | `POST /api/patient-import/validate` | vista previa, **no escribe nada** |
 | `POST /api/patient-import/commit` | escribe, en transacción |
-| UI de migración asistida | `apps/admin/src/app/patient-import/page.tsx` |
+| UI de migración asistida (admin) | `apps/admin/src/app/patient-import/page.tsx` |
+| UI de autoservicio (doctor) | `apps/doctor/src/app/dashboard/medical-records/importar/page.tsx` |
+
+### Las dos UI son la misma máquina
+
+Pegan a las MISMAS rutas de `apps/api`. Cambian dos cosas y solo dos:
+
+1. **En el app del doctor no se elige doctor** — el servidor lo saca de la sesión. Mandar un
+   `doctorId` ajeno corta con 403 en `resolveTargetDoctorId`, que es el único lugar donde se
+   decide a quién se le escribe.
+2. **En admin sí hay selector**, y por eso la vista previa enseña el **nombre** del doctor
+   destino en grande: importarle a quien no era es una fuga de datos entre doctores.
+
+**Tres capas para dejar fuera a la cuenta de apoyo**, y son tres a propósito: el prefijo
+`patient-import` mapeado `OWNER_ONLY`, la comprobación explícita en la ruta, y el botón
+escondido en la UI. Es escritura masiva sobre expedientes: no debe depender de que UNA capa
+siga bien configurada.
 
 ## Por qué importa
 
