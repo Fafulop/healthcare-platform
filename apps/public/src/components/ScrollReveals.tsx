@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Reveals al hacer scroll (GSAP + ScrollTrigger) para la página /producto.
+ * Reveals al hacer scroll (GSAP + ScrollTrigger) para la home.
  *
  * CÓMO SE USA: no envuelve nada. Se monta UNA vez en la página y lee atributos
  * del markup ya renderizado en el servidor:

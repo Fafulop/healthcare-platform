@@ -87,7 +87,7 @@ Así **las páginas siguen siendo Server Components** y su HTML sale completo pa
 
 ## 7. Las tres redes de seguridad (y por qué existen)
 
-`/producto` y `/` son páginas de SEO. **No pueden depender de JS para mostrar texto.**
+`/` es LA página de SEO del producto. **No puede depender de JS para mostrar texto.**
 
 1. **Sin JS** → la clase `.reveal-ready` nunca se agrega → todo visible. El estado inicial
    `opacity: 0` cuelga de esa clase, no del elemento.
@@ -114,12 +114,15 @@ Así **las páginas siguen siendo Server Components** y su HTML sale completo pa
 
 ```bash
 # El CSS de producción trae las reglas velvet
-css=$(curl -s https://tusalud.pro/producto | grep -oE "/_next/static/chunks/[a-f0-9]+\.css" | head -1)
+css=$(curl -s https://tusalud.pro/ | grep -oE "/_next/static/chunks/[a-f0-9]+\.css" | head -1)
 curl -s "https://tusalud.pro$css" | grep -o "feTurbulence\|velvet-title\|velvet-wash-dual"
 
 # El HTML trae los targets de animación Y el texto (lo segundo es lo que importa para SEO)
-curl -s https://tusalud.pro/producto | grep -o "data-reveal" | wc -l          # ~116
-curl -s https://tusalud.pro/producto | grep -o "Conciliación Bancaria" | wc -l # > 0
+curl -s https://tusalud.pro/ | grep -o "data-reveal" | wc -l           # ~140
+curl -s https://tusalud.pro/ | grep -o "Conciliación Bancaria" | wc -l  # > 0
+
+# La URL vieja redirige, no 404ea
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://tusalud.pro/producto  # 308 …/
 ```
 
 La segunda comprobación es la importante: **si el texto está en el HTML, ninguna animación

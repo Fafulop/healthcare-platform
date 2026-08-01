@@ -18,6 +18,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  /**
+   * `/producto` se fusionó dentro de `/` (una sola página de producto en vez de
+   * resumen + detalle, que competían por la misma búsqueda). La URL vieja está
+   * indexada y enlazada desde fuera, así que se queda como 308 permanente para
+   * heredar su autoridad en vez de servir un 404.
+   */
+  async redirects() {
+    return [{ source: "/producto", destination: "/", permanent: true }];
+  },
   async headers() {
     return [
       {
