@@ -421,7 +421,13 @@ export function validateImport(
         rowFailed = true;
         continue;
       }
-      if (value !== null) data[col.field] = value;
+      // Las columnas con `field` que empieza en `__` NO son campos de Prisma:
+      // son referencias internas (`__patientRef` une la consulta con su
+      // paciente) y viajan aparte, en `patientRef`. Si se colaran en `data`,
+      // el commit las mandaría dentro del `createMany` y Prisma tumbaría la
+      // transacción entera con «Unknown argument». Lo encontró el smoke test
+      // contra prod; un mock lo aceptaba sin chistar.
+      if (value !== null && !col.field.startsWith('__')) data[col.field] = value;
     }
 
     const patientRef = norm(raw['id_paciente']);

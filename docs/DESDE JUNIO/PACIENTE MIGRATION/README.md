@@ -13,14 +13,35 @@
 |---|---|---|
 | **F1** | Plantilla `.xlsx` + contrato de columnas | ✅ Construida (`66485db8`) |
 | **F2** | Validador puro | ✅ Construido (`4ae71b91`) |
-| **F3** | Commit transaccional · auditoría · rutas · UI de admin | ✅ Construida — **sin probar contra la BD** |
+| **F3** | Commit transaccional · auditoría · rutas · UI de admin | ✅ Construida y **probada contra prod** |
 | **F4** | La misma UI en el app del doctor | ⬜ Pendiente |
 
-> 🔴 **F3 NO se ha corrido nunca contra una base de datos.** El commit se ejerció con un
-> cliente de transacción simulado: se comprobó la FORMA de la escritura (3 operaciones
-> masivas, 5 renglones de auditoría, `userRole: admin`, folios sin colisión), no que Prisma
-> la acepte. **Antes de que un doctor real la use hay que correrla contra un doctor de
-> prueba** — el método está en `TOOLING-acceso-railway-db.md`.
+### ✅ Smoke test contra prod (2026-08-01, `dr-prueba`)
+
+Se corrió el commit **de verdad** —Prisma real, tablas reales— dentro de una transacción que
+se **revierte a propósito**. Así se comprueba que Prisma acepta la forma de la escritura sin
+dejar un solo renglón. Método: `../flujo de dinero permutaciones/TOOLING-acceso-railway-db.md`
+(`railway run --service pgvector`, que es quien trae `DATABASE_PUBLIC_URL`).
+
+```
+validacion: {"patientsOk":2,"encountersOk":1,"errors":0,"warnings":2}
+ESCRITURA OK (dentro de la tx): {"patientsCreated":2,"encountersCreated":1,"auditRowsWritten":3}
+ROLLBACK ejecutado como se esperaba.
+ANTES   pacientes: 21 | consultas: 23 | audit: 526
+DESPUES pacientes: 21 | consultas: 23 | audit: 526
+LIMPIO: 0 renglones SMOKE- persistidos.
+```
+
+> 🐛 **El smoke test encontró un bug que el mock no podía encontrar.** `id_paciente` de la hoja
+> CONSULTAS apunta al campo centinela `__patientRef`, que caía en `data` y se iba tal cual
+> dentro del `createMany`. Prisma lo rechazó con **`Unknown argument '__patientRef'`** y tumbó
+> la transacción entera. El mock lo aceptaba sin chistar.
+>
+> **La lección, que es la de siempre en este repo:** un mock comprueba la FORMA de la
+> escritura, no que el motor la acepte. Toda forma nueva de query se prueba contra prod antes
+> de que la use alguien real.
+>
+> Arreglado en el validador: los `field` que empiezan en `__` **nunca** entran a `data`.
 
 ### Lo que quedó construido
 
