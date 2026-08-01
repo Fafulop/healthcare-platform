@@ -13,7 +13,7 @@
 
 | | Ruta | Commit | Estado |
 |---|---|---|---|
-| **Consolidación en una página + copy del usuario** | `/` | *este commit* | 🟡 En prod, **sin verificar en vivo** |
+| **Consolidación en una página + copy del usuario** | `/` | `8ed5f6cf` | 🟢 En prod, verificada en vivo |
 | **Home nueva (doctores)** | `/` | `e0019335` | 🟢 En prod, verificada en vivo |
 | **Reveals al scroll** | ex-`/producto` | `a29cfe1e` | 🟢 En prod, verificada en vivo |
 | **Textura velvet** | ex-`/producto` | `e906a16a` | 🟢 En prod, verificada en vivo |
@@ -135,9 +135,22 @@ Tres frases de la página dejaron de describir software y pasaron a comprometer 
 | # | Qué | Consecuencia si no se hace |
 |---|---|---|
 | 1 | **`NEXT_PUBLIC_SALES_EMAIL` en el servicio `@healthcare/public`** + redeploy (es `NEXT_PUBLIC_*` ⇒ build-time). Ojo: es OTRA variable que la pendiente del doctor-app desde TIERS T4 | Todos los CTA mandan al fallback `hola@tusalud.pro` |
-| 2 | **Verificar `/` en vivo** tras el deploy: que el 308 de `/producto` responda y que el HTML traiga el texto (§9 de la doc técnica) | Es la primera vez que la home lleva TODO el peso |
+| 2 | ~~Verificar `/` en vivo tras el deploy~~ **HECHO 2026-08-01** (ver abajo) | — |
 | 3 | **Falta el FAQ de migración** — *"¿puedo traer mis pacientes de otro sistema?"* es la pregunta más común de quien cambia de software. **No se escribió a propósito: nadie confirmó si existe importación.** Inventar la respuesta cuesta la venta después | Queda sin contestar la objeción más cara |
 | 4 | El commit `255a6d14` tiene una `@` de más en el asunto y otra al final del cuerpo | Cosmético; arreglarlo pide force-push a `main` |
+
+### Comprobado en vivo el 2026-08-01 (`8ed5f6cf`)
+
+`/` responde 200 con el H1 nuevo y **sin** `<meta name="robots">`. `/producto` responde
+**308 → `https://tusalud.pro/`**. Las 7 bandas están en el HTML servido, y con ellas el texto
+que importa para SEO: NOM-004, «nunca pasa por nosotros», «30 facturas al mes», Estado de
+resultados, «Muy pronto». 192 `data-reveal`. El `sitemap.xml` lista la home y **ya no** lista
+`/producto`.
+
+⏱️ **El deploy tardó ~140 s en aparecer.** El primer `curl` justo después del push todavía
+servía la página vieja — eso es normal, no es el bug de Railway de
+[`reference_railway_deploy_lag`]. Si a los ~8 min sigue igual, ahí sí toca revisar el
+`commitHash` del servicio, no la lógica.
 
 > **Sobre el `noindex`:** mientras el copy fue borrador, `/` llevó `robots: noindex, follow` y
 > salió del sitemap — **las dos cosas juntas**, porque un `Disallow` en `robots.txt` habría
