@@ -115,6 +115,13 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   { prefix: 'admin', key: 'OWNER_ONLY' },
   { prefix: 'uploadthing', key: 'NEUTRAL' },
 
+  // Migración de pacientes. OWNER_ONLY y no `expedientes` a propósito: una
+  // cuenta de apoyo puede tener el expediente abierto y aun así no debe poder
+  // cargar de golpe la base entera de pacientes. Se mapea el PREFIJO para que
+  // las rutas de validar y confirmar que vienen después lo hereden solas.
+  // Diseño: docs/DESDE JUNIO/PACIENTE MIGRATION/
+  { prefix: 'patient-import', key: 'OWNER_ONLY' },
+
   // ── apps/doctor internal ────────────────────────────────────────────────
   { prefix: 'medical-records/tasks', key: 'tareas' }, // specific beats expedientes
   { prefix: 'medical-records', key: 'expedientes' },
