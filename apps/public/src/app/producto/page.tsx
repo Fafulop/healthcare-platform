@@ -11,6 +11,7 @@ import {
   Lock,
   ArrowRight,
 } from 'lucide-react';
+import ScrollReveals from '@/components/ScrollReveals';
 import {
   CAPABILITY_GROUPS,
   CORE_FEATURES,
@@ -45,9 +46,19 @@ const GROUP_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
 
 const mailto = `mailto:${SALES_EMAIL}?subject=${encodeURIComponent('Quiero conocer TuSalud.pro')}`;
 
+/**
+ * Marca <html> como "listo para animar" ANTES de que pinte el contenido, para
+ * que los reveals no parpadeen. Se salta si el usuario pidió "reduce motion", y
+ * se auto-borra a los 2.5 s: si el bundle de GSAP no cargara, la página se ve
+ * completa igual en vez de quedarse en blanco.
+ */
+const REVEAL_BOOTSTRAP = `(function(){try{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var r=document.documentElement;r.classList.add('reveal-ready');setTimeout(function(){r.classList.remove('reveal-ready');},2500);}catch(e){}})();`;
+
 export default function ProductoPage() {
   return (
     <div className="bg-white text-[var(--color-neutral-dark)]">
+      <script dangerouslySetInnerHTML={{ __html: REVEAL_BOOTSTRAP }} />
+      <ScrollReveals />
       {/* ───────────────────────── Hero ───────────────────────── */}
       <section className="relative overflow-hidden border-b border-gray-100 bg-[var(--color-bg-yellow-light)]">
         <div
@@ -59,13 +70,20 @@ export default function ProductoPage() {
           className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-[var(--color-accent)] opacity-10 blur-3xl"
         />
 
-        <div className="relative mx-auto max-w-5xl px-6 py-20 text-center sm:py-28">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-primary)]/25 bg-white px-4 py-1.5 text-sm font-medium text-[var(--color-secondary)]">
+        <div
+          data-reveal-stagger
+          className="relative mx-auto max-w-5xl px-6 py-20 text-center sm:py-28"
+        >
+          <span
+            data-reveal="up"
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-primary)]/25 bg-white px-4 py-1.5 text-sm font-medium text-[var(--color-secondary)]"
+          >
             <Sparkles className="h-4 w-4" />
             Para consultorios en México
           </span>
 
           <h1
+            data-reveal="up"
             className="mt-6 text-4xl leading-tight font-bold tracking-tight sm:text-6xl"
             style={{ fontFamily: 'var(--font-heading)' }}
           >
@@ -73,12 +91,18 @@ export default function ProductoPage() {
             <br className="hidden sm:block" /> necesita, en un solo lugar
           </h1>
 
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-[var(--color-neutral-medium)] sm:text-xl">
+          <p
+            data-reveal="up"
+            className="mx-auto mt-6 max-w-2xl text-lg text-[var(--color-neutral-medium)] sm:text-xl"
+          >
             Tu agenda, tu expediente, tus cobros y tu administración fiscal — conectados
             entre sí y con un asistente de IA que ya sabe de qué le hablas.
           </p>
 
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div
+            data-reveal="up"
+            className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row"
+          >
             <a
               href={mailto}
               className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--color-secondary)] px-8 py-4 text-lg font-semibold text-white shadow-[var(--shadow-light)] transition-colors hover:bg-[var(--color-secondary-hover)]"
@@ -94,7 +118,7 @@ export default function ProductoPage() {
             </a>
           </div>
 
-          <p className="mt-6 text-sm text-[var(--color-neutral-medium)]">
+          <p data-reveal="up" className="mt-6 text-sm text-[var(--color-neutral-medium)]">
             {CORE_FEATURES.length} funciones en el plan {PLAN_NAMES.CORE} ·{' '}
             {FULL_ONLY_FEATURES.length} más en el plan {PLAN_NAMES.FULL}
           </p>
@@ -114,8 +138,8 @@ export default function ProductoPage() {
                 id={group.id}
                 className="grid scroll-mt-16 items-center gap-10 lg:grid-cols-2 lg:gap-16"
               >
-                {/* Texto */}
-                <div className={flip ? 'lg:order-2' : undefined}>
+                {/* Texto — entra desde el lado opuesto al panel */}
+                <div data-reveal={flip ? 'right' : 'left'} className={flip ? 'lg:order-2' : undefined}>
                   <div className="flex items-center gap-3">
                     <span className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[var(--color-secondary)]">
                       <Icon className="h-5 w-5 text-white" />
@@ -140,9 +164,9 @@ export default function ProductoPage() {
 
                   <p className="mt-4 text-lg text-[var(--color-neutral-medium)]">{group.lead}</p>
 
-                  <ul className="mt-6 space-y-3">
+                  <ul data-reveal-stagger className="mt-6 space-y-3">
                     {group.bullets.map((b) => (
-                      <li key={b} className="flex gap-3">
+                      <li key={b} data-reveal="up" className="flex gap-3">
                         <Check className="mt-1 h-5 w-5 shrink-0 text-[var(--color-success)]" />
                         <span className="text-[15px] leading-relaxed">{b}</span>
                       </li>
@@ -151,7 +175,7 @@ export default function ProductoPage() {
                 </div>
 
                 {/* Panel: las secciones REALES del panel del doctor */}
-                <div className={flip ? 'lg:order-1' : undefined}>
+                <div data-reveal={flip ? 'left' : 'right'} className={flip ? 'lg:order-1' : undefined}>
                   <div className="rounded-[var(--radius-medium)] border border-gray-200 bg-[var(--color-neutral-light)] p-2 shadow-[var(--shadow-medium)]">
                     <div className="flex items-center gap-1.5 px-3 py-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
@@ -196,7 +220,7 @@ export default function ProductoPage() {
       {/* ───────────────────────── Planes ───────────────────────── */}
       <section id="planes" className="scroll-mt-8 border-t border-gray-100 bg-[var(--color-bg-green-light)]">
         <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-          <div className="mx-auto max-w-2xl text-center">
+          <div data-reveal="up" className="mx-auto max-w-2xl text-center">
             <h2
               className="text-3xl font-bold sm:text-4xl"
               style={{ fontFamily: 'var(--font-heading)' }}
@@ -209,9 +233,12 @@ export default function ProductoPage() {
             </p>
           </div>
 
-          <div className="mt-14 grid items-start gap-6 lg:grid-cols-2">
+          <div data-reveal-stagger className="mt-14 grid items-start gap-6 lg:grid-cols-2">
             {/* Esencial (CORE) */}
-            <div className="rounded-[var(--radius-medium)] border border-gray-200 bg-white p-8 shadow-[var(--shadow-light)]">
+            <div
+              data-reveal="up"
+              className="rounded-[var(--radius-medium)] border border-gray-200 bg-white p-8 shadow-[var(--shadow-light)]"
+            >
               <h3 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
                 {PLAN_NAMES.CORE}
               </h3>
@@ -243,7 +270,10 @@ export default function ProductoPage() {
             </div>
 
             {/* Completo (FULL) */}
-            <div className="relative rounded-[var(--radius-medium)] border-2 border-[var(--color-secondary)] bg-white p-8 shadow-[var(--shadow-medium)]">
+            <div
+              data-reveal="up"
+              className="relative rounded-[var(--radius-medium)] border-2 border-[var(--color-secondary)] bg-white p-8 shadow-[var(--shadow-medium)]"
+            >
               <span className="absolute -top-3 left-8 rounded-full bg-[var(--color-secondary)] px-4 py-1 text-xs font-semibold tracking-wide text-white uppercase">
                 Más completo
               </span>
@@ -309,9 +339,9 @@ export default function ProductoPage() {
           Preguntas frecuentes
         </h2>
 
-        <dl className="mt-12 divide-y divide-gray-200">
+        <dl data-reveal-stagger className="mt-12 divide-y divide-gray-200">
           {FAQ.map((item) => (
-            <div key={item.q} className="py-6">
+            <div key={item.q} data-reveal="up" className="py-6">
               <dt className="text-lg font-semibold">{item.q}</dt>
               <dd className="mt-2 text-[var(--color-neutral-medium)]">{item.a}</dd>
             </div>
@@ -321,7 +351,7 @@ export default function ProductoPage() {
 
       {/* ───────────────────────── CTA final ───────────────────────── */}
       <section className="bg-[var(--color-secondary)]">
-        <div className="mx-auto max-w-4xl px-6 py-20 text-center">
+        <div data-reveal="up" className="mx-auto max-w-4xl px-6 py-20 text-center">
           <h2
             className="text-3xl font-bold text-white sm:text-4xl"
             style={{ fontFamily: 'var(--font-heading)' }}

@@ -186,3 +186,11 @@ html {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Estado inicial de los reveals de /producto (ver components/ScrollReveals.tsx).
+   La clase `.reveal-ready` la agrega un script inline SOLO si hay JS y el
+   usuario no pidió "reduce motion" — sin ella el contenido se ve normal, que es
+   lo que debe pasar para Googlebot y para quien navegue sin JS. */
+html.reveal-ready [data-reveal] {
+  opacity: 0;
+}
